@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 import sys
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+_direct_run_root: tempfile.TemporaryDirectory[str] | None = None
+if __name__ == "__main__":
+    from core.runtime.paths import set_bootstrap_roots
+
+    _direct_run_root = tempfile.TemporaryDirectory(
+        prefix="assistantmd-vault-activity-migration-"
+    )
+    direct_root = Path(_direct_run_root.name)
+    data_root = direct_root / "data"
+    bootstrap_system_root = direct_root / "system"
+    data_root.mkdir()
+    bootstrap_system_root.mkdir()
+    set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
+
+from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
+from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class VaultActivityMigrationScenario(BaseScenario):
@@ -38,7 +55,13 @@ class VaultActivityMigrationScenario(BaseScenario):
         await self.start_system()
 
         self.soft_assert_equal(
-            len(list(system_root.glob("vault_state.db.backup-*"))),
+            len(
+                list(
+                    (system_root / MIGRATION_BACKUP_DIRECTORY).glob(
+                        "vault_state.db.backup-*"
+                    )
+                )
+            ),
             1,
             "Startup should back up the existing vault-state database before migration",
         )
@@ -363,3 +386,7 @@ class VaultActivityMigrationScenario(BaseScenario):
                 "UPDATE task_file_mutations SET expires_at = ?",
                 (expires_at.isoformat(),),
             )
+
+
+if __name__ == "__main__":
+    asyncio.run(VaultActivityMigrationScenario().test_scenario())

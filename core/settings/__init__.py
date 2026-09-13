@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from core.llm.openai_auth import (
@@ -98,6 +98,28 @@ class AppSettings(BaseSettings):
     )
 
     vaults_root_path: Path | None = Field(default=None, alias="VAULTS_ROOT_PATH")
+    public_url: str | None = Field(default=None, alias="ASSISTANTMD_PUBLIC_URL")
+    auth_mode: str | None = Field(default=None, alias="ASSISTANTMD_AUTH_MODE")
+    auth_secret_file: Path | None = Field(
+        default=None, alias="ASSISTANTMD_AUTH_SECRET_FILE"
+    )
+    auth_secret: SecretStr | None = Field(default=None, alias="ASSISTANTMD_AUTH_SECRET")
+    auth_proxy_assertion_header: str = Field(
+        default="X-AssistantMD-Proxy-Assertion",
+        alias="ASSISTANTMD_AUTH_PROXY_ASSERTION_HEADER",
+    )
+    auth_trusted_proxy_networks: str | None = Field(
+        default=None,
+        alias="ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS",
+    )
+    execution_mode: str | None = Field(default=None, alias="ASSISTANTMD_EXECUTION_MODE")
+    compose_profiles: str = Field(default="", alias="COMPOSE_PROFILES")
+    shell_host: str = Field(default="advanced-shell", alias="ASSISTANTMD_SHELL_HOST")
+    shell_port: int = Field(default=2222, alias="ASSISTANTMD_SHELL_PORT")
+    shell_user: str = Field(default="advanced-shell", alias="ASSISTANTMD_SHELL_USER")
+    shell_host_key_alias: str | None = Field(
+        default=None, alias="ASSISTANTMD_SHELL_HOST_KEY_ALIAS"
+    )
 
     _LLM_SECRET_KEYS = [
         "OPENAI_API_KEY",
@@ -117,6 +139,24 @@ class AppSettings(BaseSettings):
         if isinstance(value, Path):
             return value.expanduser()
         return Path(value).expanduser()
+
+    @field_validator("auth_secret_file", mode="before")
+    @classmethod
+    def _expand_auth_secret_file(cls, value: Any) -> Path | None:
+        """Expand the optional deployment-owned authentication secret path."""
+        if value in (None, ""):
+            return None
+        if isinstance(value, Path):
+            return value.expanduser()
+        return Path(value).expanduser()
+
+    @field_validator("public_url", mode="before")
+    @classmethod
+    def _strip_public_url(cls, value: Any) -> str | None:
+        """Strip optional deployment input before sanitized runtime validation."""
+        if value in (None, ""):
+            return None
+        return str(value).strip() or None
 
     def available_llm_keys(self) -> dict[str, str]:
         """
@@ -176,6 +216,31 @@ def validate_settings(
         ConfigurationStatus describing any issues discovered.
     """
     status = ConfigurationStatus()
+    app_settings = settings or get_app_settings()
+    from core.secrets import get_secrets_bootstrap_status
+
+    secrets_status = get_secrets_bootstrap_status()
+    secrets_locked = secrets_status is not None and not secrets_status.ready
+    if secrets_locked:
+        status.add_issue(
+            name="SECRETS_ENCRYPTION_LOCKED",
+            message=(
+                "Encrypted secrets are locked. Restore or configure the installation "
+                "key in .env, then restart Assistant.md. Providers and models are "
+                "unavailable; existing secret state has not been changed."
+            ),
+            severity="warning",
+        )
+    if app_settings.public_url is None:
+        status.add_issue(
+            name="PUBLIC_URL_UNSET",
+            message=(
+                "Canonical public URL is not configured. Local use remains "
+                "available, but reverse-proxy deployments should set "
+                "ASSISTANTMD_PUBLIC_URL in .env and restart Assistant.md."
+            ),
+            severity="warning",
+        )
     template_sections = _load_template_sections()
 
     tools = tools_config or get_tools_config()
@@ -201,7 +266,11 @@ def validate_settings(
                 severity="warning",
             )
             continue
-        missing_secrets = [key for key in required_secrets if not secret_has_value(key)]
+        missing_secrets = (
+            list(required_secrets)
+            if secrets_locked
+            else [key for key in required_secrets if not secret_has_value(key)]
+        )
         status.tool_availability[tool_name] = not missing_secrets
         if missing_secrets:
             strategy_context = (
@@ -244,6 +313,9 @@ def validate_settings(
             model_config.get("provider") if isinstance(model_config, dict) else None
         )
         status.model_availability[model_name] = True
+        if secrets_locked:
+            status.model_availability[model_name] = False
+            continue
         if not provider_name:
             continue
 
@@ -555,6 +627,19 @@ def get_max_concurrent_workflows() -> int:
     except (TypeError, ValueError):
         return 0
     return limit if limit > 0 else 0
+
+
+def get_mcp_max_concurrent_advanced_shell_stdio_launches() -> int:
+    """Return the restart-bound managed stdio launch concurrency limit."""
+    entry = get_general_settings().get(
+        "mcp_max_concurrent_advanced_shell_stdio_launches"
+    )
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        limit = _setting_int(value)
+    except (TypeError, ValueError):
+        return 4
+    return max(1, min(limit, 32))
 
 
 def get_browser_navigation_timeout_seconds() -> float:

@@ -7,7 +7,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
+
+from core.advanced_shell import ExecutionMode
+from core.advanced_shell.preflight import AdvancedShellReadiness
+from core.authentication import AuthenticationMode
 
 #######################################################################
 ## Request Models
@@ -444,6 +448,11 @@ class SystemInfo(BaseModel):
         None, description="Last time configuration was reloaded"
     )
     data_root: str = Field(..., description="Root directory for vault data")
+    public_url: str | None = Field(
+        None, description="Canonical externally reachable Assistant.md origin"
+    )
+    public_url_source: Literal["configured", "unconfigured"] = "unconfigured"
+    public_url_recommended: bool = True
 
 
 class ConfigurationIssueInfo(BaseModel):
@@ -471,6 +480,23 @@ class ConfigurationStatusInfo(BaseModel):
     )
     default_model: str | None = Field(
         None, description="Default model alias from settings"
+    )
+
+
+class AdvancedShellStatusInfo(BaseModel):
+    """Sanitized restart-bound advanced-shell deployment configuration."""
+
+    execution_mode: ExecutionMode = Field(
+        ..., description="Effective product execution mode"
+    )
+    host: str = Field(..., description="Configured advanced-shell hostname")
+    port: int = Field(..., description="Configured advanced-shell SSH port")
+    user: str = Field(..., description="Configured advanced-shell SSH user")
+    readiness_state: AdvancedShellReadiness = Field(
+        ..., description="Sanitized authenticated advanced-shell readiness state"
+    )
+    readiness_message: str = Field(
+        ..., description="Sanitized operator-facing readiness explanation"
     )
 
 
@@ -507,6 +533,16 @@ class StatusResponse(BaseModel):
     configuration_status: ConfigurationStatusInfo = Field(
         default_factory=lambda: ConfigurationStatusInfo(default_model=None),
         description="Aggregated configuration health information",
+    )
+    authentication_mode: AuthenticationMode = Field(
+        ..., description="Effective deployment ingress authentication mode"
+    )
+    authentication_warning: str | None = Field(
+        None,
+        description="Sanitized operator warning for the effective authentication mode",
+    )
+    advanced_shell: AdvancedShellStatusInfo = Field(
+        ..., description="Sanitized advanced-shell infrastructure status"
     )
 
 
@@ -1156,7 +1192,7 @@ class ChatSessionMessageInfo(BaseModel):
 
 
 class ChatSessionToolEventInfo(BaseModel):
-    """Persisted structured tool event for UI rehydration."""
+    """Persisted structured tool event for explicit detail inspection."""
 
     tool_call_id: str = Field(..., description="Tool call identifier")
     tool_name: str = Field(..., description="Tool name")
@@ -1173,6 +1209,19 @@ class ChatSessionToolEventInfo(BaseModel):
     )
     artifact_ref: str | None = Field(
         None, description="Cache/artifact reference when present"
+    )
+
+
+class ChatSessionToolCallInfo(BaseModel):
+    """Non-confidential tool-call metadata for session rehydration."""
+
+    tool_call_id: str = Field(..., description="Tool call identifier")
+    tool_name: str = Field(..., description="Tool name")
+    status: Literal["running", "completed", "failed", "interrupted"] = Field(
+        ..., description="Tool call lifecycle state"
+    )
+    token_count: int | None = Field(
+        None, description="Estimated token count for the tool result"
     )
 
 
@@ -1258,8 +1307,9 @@ class ChatSessionDetailResponse(BaseModel):
     messages: list[ChatSessionMessageInfo] = Field(
         default_factory=list, description="Persisted messages"
     )
-    tool_events: list[ChatSessionToolEventInfo] = Field(
-        default_factory=list, description="Persisted tool events"
+    tool_calls: list[ChatSessionToolCallInfo] = Field(
+        default_factory=list,
+        description="Effective tool calls with non-confidential lifecycle metadata",
     )
 
 
@@ -1533,6 +1583,9 @@ class SystemMigrationTargetInfo(BaseModel):
     backup_path: str | None = Field(
         None, description="Backup created during the latest migration run"
     )
+    inspection_error: str | None = Field(
+        None, description="Why migration versions could not be inspected"
+    )
 
 
 class SystemMigrationStatusResponse(BaseModel):
@@ -1583,6 +1636,249 @@ class SecretUpdateRequest(BaseModel):
     value: str | None = Field(
         None, description="New value for the secret (empty to clear)"
     )
+
+
+class MCPStdioConfigInfo(BaseModel):
+    """Structured launch definition in the advanced shell."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    executable: str = Field(..., min_length=1, max_length=2048)
+    arguments: list[str] = Field(default_factory=list, max_length=64)
+    working_directory: str = Field(..., min_length=1, max_length=2048)
+    environment: dict[str, str] = Field(default_factory=dict)
+    roots: list[str] = Field(default_factory=list, max_length=16)
+
+
+class MCPConnectionImportRequest(BaseModel):
+    """Strict YAML or JSON advanced-shell stdio configuration supplied by a user."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    configuration: str = Field(..., min_length=1, max_length=65536)
+
+
+class MCPConnectionCreateRequest(BaseModel):
+    """Create one current-principal MCP connection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str = Field(..., min_length=1, max_length=120)
+    url: str | None = Field(None, min_length=1, max_length=2048)
+    transport: Literal["streamable_http", "sse", "advanced_shell_stdio"] = (
+        "streamable_http"
+    )
+    auth_mode: Literal["none", "bearer", "header", "oauth"] = "none"
+    header_name: str | None = Field(None, max_length=128)
+    enabled: bool = True
+    allow_private_http: bool = False
+    allowed_tools: list[str] | None = None
+    credential: SecretStr | None = Field(None, max_length=16384)
+    oauth_client_id: str | None = Field(None, max_length=2048)
+    oauth_client_secret: SecretStr | None = Field(None, max_length=16384)
+    oauth_scopes: list[str] | None = None
+    stdio: MCPStdioConfigInfo | None = None
+
+
+class MCPConnectionUpdateRequest(BaseModel):
+    """Replace mutable current-principal MCP connection settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str = Field(..., min_length=1, max_length=120)
+    url: str | None = Field(None, min_length=1, max_length=2048)
+    transport: Literal["streamable_http", "sse", "advanced_shell_stdio"]
+    auth_mode: Literal["none", "bearer", "header", "oauth"]
+    header_name: str | None = Field(None, max_length=128)
+    enabled: bool
+    allow_private_http: bool = False
+    allowed_tools: list[str] | None = None
+    oauth_client_id: str | None = Field(None, max_length=2048)
+    oauth_scopes: list[str] | None = None
+    stdio: MCPStdioConfigInfo | None = None
+
+
+class MCPCredentialUpdateRequest(BaseModel):
+    """Write-only static credential update."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    credential: SecretStr = Field(..., min_length=1, max_length=16384)
+
+
+class MCPOAuthClientSecretUpdateRequest(BaseModel):
+    """Write-only pre-registered OAuth client secret update."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_secret: SecretStr = Field(..., min_length=1, max_length=16384)
+
+
+class MCPConnectionInfo(BaseModel):
+    """Sanitized MCP connection metadata returned to the current user."""
+
+    connection_id: str
+    slug: str
+    display_name: str
+    url: str | None
+    transport: Literal["streamable_http", "sse", "advanced_shell_stdio"]
+    auth_mode: Literal["none", "bearer", "header", "oauth"]
+    header_name: str | None
+    enabled: bool
+    allow_private_http: bool
+    allowed_tools: list[str] | None
+    credential_present: bool
+    oauth_client_id: str | None
+    oauth_client_secret_present: bool
+    oauth_scopes: list[str] | None
+    oauth_redirect_uri: str | None
+    oauth_redirect_source: Literal["configured", "browser_fallback"]
+    config_version: int
+    created_at: str
+    updated_at: str
+    stdio: MCPStdioConfigInfo | None = None
+
+
+class MCPConnectionTestResponse(BaseModel):
+    """Sanitized MCP connection readiness result."""
+
+    status: str
+    ready: bool
+    tool_count: int | None
+    tool_names: list[str] = Field(default_factory=list)
+    message: str
+
+
+class MCPOAuthStartRequest(BaseModel):
+    """Start a headless-safe MCP OAuth connection attempt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    redirect_uri: str | None = Field(None, max_length=2048)
+
+
+class MCPOAuthStartResponse(BaseModel):
+    """Authorization URL and expiry for an MCP OAuth attempt."""
+
+    auth_url: str
+    state: str
+    redirect_uri: str
+    expires_at: str
+    redirect_source: Literal["configured", "browser_fallback"]
+
+
+class MCPOAuthCompleteRequest(BaseModel):
+    """Complete MCP OAuth from a pasted redirect or explicit values."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    redirect_url: str | None = Field(None, max_length=4096)
+    code: str | None = Field(None, max_length=4096)
+    state: str | None = Field(None, max_length=4096)
+
+
+class MCPOAuthStatusResponse(BaseModel):
+    """Sanitized current OAuth state for one MCP connection."""
+
+    status: str
+    connected: bool
+    pending_expires_at: str | None = None
+
+
+class GmailConnectionPreferencesRequest(BaseModel):
+    """Principal-owned Gmail result and content limits."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    search_default_results: int = Field(20, ge=1, le=500)
+    search_max_results: int = Field(100, ge=1, le=500)
+    message_max_characters: int = Field(50_000, ge=1, le=250_000)
+    thread_max_messages: int = Field(25, ge=1, le=100)
+    attachment_download_enabled: bool = False
+    attachment_max_mb: int = Field(25, ge=1, le=100)
+    draft_creation_enabled: bool = False
+    draft_max_characters: int = Field(50_000, ge=1, le=250_000)
+
+
+class GoogleConnectionUpdateRequest(BaseModel):
+    """Replace current-principal Google connection metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(None, min_length=1, max_length=120)
+    client_id: str = Field(..., min_length=1, max_length=2048)
+    is_default: bool | None = None
+    gmail: GmailConnectionPreferencesRequest = Field(
+        default_factory=lambda: GmailConnectionPreferencesRequest(
+            search_default_results=20,
+            search_max_results=100,
+            message_max_characters=50_000,
+            thread_max_messages=25,
+            attachment_download_enabled=False,
+            attachment_max_mb=25,
+            draft_creation_enabled=False,
+            draft_max_characters=50_000,
+        )
+    )
+
+
+class GoogleClientSecretUpdateRequest(BaseModel):
+    """Write-only Google OAuth client secret update."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    client_secret: SecretStr = Field(..., min_length=1, max_length=16384)
+
+
+class GoogleConnectionResponse(BaseModel):
+    """Sanitized Google connection configuration and authorization state."""
+
+    connection_id: str | None
+    slug: str | None
+    display_name: str | None
+    is_default: bool
+    state: Literal[
+        "not_configured", "authorization_required", "ready", "reconnect_required"
+    ]
+    configured: bool
+    connected: bool
+    client_id: str | None
+    client_secret_present: bool
+    account_email: str | None
+    granted_scopes: list[str] = Field(default_factory=list)
+    config_version: int | None
+    gmail: GmailConnectionPreferencesRequest
+    gmail_available: bool
+    gmail_missing_scopes: list[str] = Field(default_factory=list)
+    gmail_draft_available: bool
+    gmail_draft_missing_scopes: list[str] = Field(default_factory=list)
+    oauth_redirect_uri: str | None
+
+
+class GoogleConnectionCreateRequest(GoogleConnectionUpdateRequest):
+    """Create a named principal-owned Google connection."""
+
+    display_name: str = Field(..., min_length=1, max_length=120)
+    is_default: bool = False
+
+
+class GoogleOAuthStartResponse(BaseModel):
+    """Google authorization URL and pending request details."""
+
+    authorization_url: str
+    redirect_uri: str
+    expires_at: str
+    requested_scopes: list[str]
+
+
+class GoogleOAuthCompleteRequest(BaseModel):
+    """Complete Google OAuth from a callback or pasted redirect URL."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    redirect_url: str | None = Field(None, max_length=4096)
+    code: str | None = Field(None, max_length=4096)
+    state: str | None = Field(None, max_length=4096)
 
 
 class SystemActivityEntryInfo(BaseModel):
@@ -1743,3 +2039,7 @@ class ConfigurationError(BaseModel):
     error_message: str
     error_type: str
     timestamp: datetime
+    connection_id: str | None = None
+    slug: str | None = None
+    display_name: str | None = None
+    is_default: bool = False

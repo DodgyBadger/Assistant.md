@@ -791,6 +791,32 @@ class ChatStore:
 
         return [_stored_tool_event_from_row(row) for row in rows]
 
+    def get_tool_call_declaration_counts(
+        self,
+        session_id: str,
+        vault_name: str,
+    ) -> dict[str, int]:
+        """Count raw tool-call declarations without hydrating message history."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT json_extract(part.value, '$.tool_call_id') AS tool_call_id,
+                       COUNT(*) AS declaration_count
+                FROM chat_messages AS message,
+                     json_each(message.message_json, '$.parts') AS part
+                WHERE message.session_id = ?
+                  AND message.vault_name = ?
+                  AND json_extract(part.value, '$.part_kind') = 'tool-call'
+                  AND json_extract(part.value, '$.tool_call_id') IS NOT NULL
+                GROUP BY tool_call_id
+                """,
+                (session_id, vault_name),
+            ).fetchall()
+        finally:
+            conn.close()
+        return {str(tool_call_id): int(count) for tool_call_id, count in rows}
+
     def _committed_tool_call_ids(
         self,
         conn: Any,

@@ -343,11 +343,14 @@ def _build_cached_tool_overflow_notice(
     token_limit: int,
     preview: str,
 ) -> str:
-    read_snippet = f"artifact = await read_cache(ref={cache_ref!r})"
+    read_snippet = (
+        f"artifact = await read_cache(ref={cache_ref!r}); "
+        "text = artifact.content if artifact.exists else ''"
+    )
     return (
         f"Tool '{tool_name}' produced a large result ({token_count} estimated tokens > {token_limit}) "
         f"and it was stored in cache ref '{cache_ref}'. Preview:\n\n{preview}\n\n"
         "Do not request the full content inline or re-run the originating tool. "
         "Call `code_execution` with a script that reads the artifact in the current chat session, "
-        f"for example `{read_snippet}`."
+        f"for example `{read_snippet}`. `read_cache` returns a RetrievedItem, not a string."
     )

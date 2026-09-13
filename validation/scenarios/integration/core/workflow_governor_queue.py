@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import core.runtime.workflow_governor as governor_module
 from core.authoring.workflow_execution import WorkflowExecutionResult
+from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime.background import RuntimeBackgroundSpawner
 from core.runtime.execution_tasks import ExecutionTaskSource, TaskCoordinator
 from core.runtime.task_runner import ExecutionTaskRunner
@@ -137,6 +138,7 @@ async def _run_probe(
             governor.execute_workflow(
                 global_id=global_id,
                 source=ExecutionTaskSource.SCHEDULER,
+                authority=LOCAL_USER_AUTHORITY,
             )
             for global_id in global_ids
         )

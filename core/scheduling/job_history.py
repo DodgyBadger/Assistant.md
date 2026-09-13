@@ -8,6 +8,7 @@ from typing import Any
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 
+from core.identity import LOCAL_USER_PRINCIPAL_ID
 from core.logger import UnifiedLogger
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.workflow_runs import WorkflowRunStore
@@ -141,6 +142,7 @@ def _record_durable_scheduler_outcome(
         f"{job_id}:{'missed' if missed else 'error'}:{scheduled_run_time or 'unknown'}"
     )
     store = _get_workflow_run_store()
+    owner_principal_id = _get_job_owner_principal_id(scheduler, job_id)
     if not missed:
         exception = getattr(event, "exception", None)
         if exception is None:
@@ -153,6 +155,7 @@ def _record_durable_scheduler_outcome(
             workflow_name=_workflow_name(workflow_id) or workflow_id,
             vault_name=_workflow_vault(workflow_id),
             source="scheduler",
+            owner_principal_id=owner_principal_id,
             status="failed",
             reason=reason,
             message=str(exception),
@@ -167,6 +170,7 @@ def _record_durable_scheduler_outcome(
         workflow_name=_workflow_name(workflow_id) or workflow_id,
         vault_name=_workflow_vault(workflow_id),
         source="scheduler",
+        owner_principal_id=owner_principal_id,
         status="missed",
         reason="scheduler_job_missed",
         message=f"Scheduled workflow '{workflow_id}' did not run",
@@ -182,6 +186,19 @@ def _get_workflow_run_store() -> WorkflowRunStore:
         return get_runtime_context().workflow_run_store
     except RuntimeStateError:
         return WorkflowRunStore()
+
+
+def _get_job_owner_principal_id(scheduler: Any | None, job_id: str) -> str:
+    """Read durable workflow ownership from serialized scheduler arguments."""
+    job = scheduler.get_job(job_id) if scheduler is not None else None
+    args = getattr(job, "args", ()) if job is not None else ()
+    if args and isinstance(args[0], dict):
+        owner = str(args[0].get("owner_principal_id") or "").strip()
+        if owner:
+            return owner
+    # Existing persisted jobs predate the ownership field and all belong to the
+    # installation's only interactive principal.
+    return LOCAL_USER_PRINCIPAL_ID
 
 
 def _scheduled_run_time(event: Any) -> str | None:

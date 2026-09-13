@@ -187,10 +187,6 @@ description: Propagate one mandatory session summarization failure
 ---
 
 ```python
-await session_ops(
-    operation="summarize_session",
-    session_id="validation-session",
-    summarization_model="unavailable-model",
-)
+await session_ops(operation="summarize_session", session_id="validation-session", summarization_model="unavailable-model")
 ```
 """

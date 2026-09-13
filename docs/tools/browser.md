@@ -66,10 +66,6 @@ Returns compact markdown text wrapped in `[BEGIN UNTRUSTED WEB DATA]` / `[END UN
 - avoid repeated selector guesses
 - downloads, local targets, and non-read HTTP methods are blocked
 - browser state is isolated per call
-- browser sessions are serialized by default and require configured cgroup
-  memory headroom before Chromium launches
-- a browser-specific per-turn call limit prevents repeated Chromium launches
-  from exhausting constrained installations
-- the standard browser-capable deployment profile requires at least 2 GB;
-  add `browser` to `disabled_tools` on the approximately 1 GB lightweight
-  profile
+- browser sessions are serialized by default and require configured cgroup memory headroom before Chromium launches
+- a browser-specific per-turn call limit prevents repeated Chromium launches from exhausting constrained installations
+- the standard browser-capable deployment profile requires at least 2 GB; add `browser` to `disabled_tools` on the approximately 1 GB lightweight profile

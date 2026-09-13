@@ -33,7 +33,7 @@ Before editing files, state the recommended approach and why it fits. Do not sta
 
 Before changing authoring files, read the current contract docs:
 
-- `__virtual_docs__/use/build-guide.md` for skill behavior and the built-in skill discovery script.
+- `__virtual_docs__/use/getting-the-most.md` for capability selection, skill placement, and built-in discovery behavior.
 - `__virtual_docs__/use/authoring.md` for workflow and context script structure.
 - `__virtual_docs__/tools/code_execution.md` for Monty runtime features, helper signatures, direct tool calls, and return shapes.
 

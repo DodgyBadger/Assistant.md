@@ -6,7 +6,12 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from pydantic_ai import BinaryContent
 from starlette.datastructures import FormData, UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -21,6 +26,9 @@ from api.import_models import (
     ImportUrlRequest,
     ImportUrlResponse,
 )
+from core.advanced_shell import AdvancedShellConfig
+from core.advanced_shell.preflight import AdvancedShellPreflightService
+from core.authentication import AuthenticationPolicy
 from core.chat.executor import UploadedImageAttachment
 from core.chat.task_events import ChatTaskEventCursorExpired
 from core.chat.task_execution import (
@@ -33,6 +41,7 @@ from core.ingestion.models import JobStatus
 from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
 from core.logger import UnifiedLogger
+from core.mcp.oauth import resolve_mcp_oauth_redirect
 from core.runtime.execution_tasks import TERMINAL_STATUS_VALUES
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.settings import (
@@ -84,6 +93,23 @@ from .models import (
     ExecutionTaskListResponse,
     GoalCleanupRequest,
     GoalCleanupResponse,
+    GoogleClientSecretUpdateRequest,
+    GoogleConnectionCreateRequest,
+    GoogleConnectionResponse,
+    GoogleConnectionUpdateRequest,
+    GoogleOAuthCompleteRequest,
+    GoogleOAuthStartResponse,
+    MCPConnectionCreateRequest,
+    MCPConnectionImportRequest,
+    MCPConnectionInfo,
+    MCPConnectionTestResponse,
+    MCPConnectionUpdateRequest,
+    MCPCredentialUpdateRequest,
+    MCPOAuthClientSecretUpdateRequest,
+    MCPOAuthCompleteRequest,
+    MCPOAuthStartRequest,
+    MCPOAuthStartResponse,
+    MCPOAuthStatusResponse,
     MetadataResponse,
     ModelConfigRequest,
     ModelInfo,
@@ -221,18 +247,77 @@ from .services import (
     upsert_configurable_model,
     upsert_configurable_provider,
 )
+from .services.google_connections import (
+    complete_google_oauth,
+    create_google_connection,
+    delete_google_connection,
+    disconnect_google_oauth,
+    get_google_connection,
+    get_google_connection_by_id,
+    list_google_connections,
+    set_google_client_secret,
+    start_google_oauth,
+    update_google_connection,
+    update_google_connection_by_id,
+)
+from .services.mcp import (
+    clear_mcp_credential,
+    complete_mcp_oauth,
+    create_mcp_connection,
+    delete_mcp_connection,
+    disconnect_mcp_oauth,
+    get_mcp_oauth_status,
+    list_mcp_connections,
+    parse_mcp_connection_import,
+    set_mcp_credential,
+    set_mcp_oauth_client_secret,
+    start_mcp_oauth,
+    test_mcp_connection,
+    update_mcp_connection,
+)
 from .utils import create_error_response, serialize_exception
 
 # Create API router
+public_router = APIRouter(prefix="/api", tags=["Assistant.md public API"])
 router = APIRouter(
     prefix="/api",
-    tags=["AssistantMD API"],
+    tags=["Assistant.md API"],
     dependencies=[Depends(use_request_authority)],
 )
 logger = UnifiedLogger(tag="api-endpoints")
 _CHAT_TASK_EVENT_KEEPALIVE_SECONDS = 15.0
 _CHAT_UPLOAD_READ_CHUNK_SIZE = 1024 * 1024
 _VAULT_UPLOAD_MULTIPART_OVERHEAD_BYTES = 64 * 1024
+
+
+def _mcp_oauth_callback_page(*, success: bool) -> str:
+    title = "MCP OAuth connected" if success else "MCP OAuth failed"
+    message = (
+        "Authorization completed. You can close this tab and return to Assistant.md."
+        if success
+        else "Authorization could not be completed. Close this tab and retry from Assistant.md."
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{title}</title></head><body>"
+        f"<main><h1>{title}</h1><p>{message}</p></main>"
+        "</body></html>"
+    )
+
+
+def _google_oauth_callback_page(*, success: bool) -> str:
+    title = "Google account connected" if success else "Google OAuth failed"
+    message = (
+        "Authorization completed. You can close this tab and return to Assistant.md."
+        if success
+        else "Authorization could not be completed. Close this tab and retry from Assistant.md."
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        f"<title>{title}</title></head><body>"
+        f"<main><h1>{title}</h1><p>{message}</p></main>"
+        "</body></html>"
+    )
 
 
 def _looks_like_workflow_path(value: str) -> bool:
@@ -541,7 +626,7 @@ async def _start_chat_task_request(
 #######################################################################
 
 
-@router.get("/health")
+@public_router.get("/health")
 async def health_check() -> JSONResponse:
     """
     Lightweight health check endpoint for Docker healthcheck and monitoring.
@@ -571,7 +656,7 @@ async def health_check() -> JSONResponse:
 
 
 @router.get("/status", response_model=StatusResponse)
-async def get_status() -> StatusResponse | JSONResponse:
+async def get_status(request: Request) -> StatusResponse | JSONResponse:
     """
     Get current system status including vault discovery, scheduler status, and system health.
 
@@ -590,7 +675,21 @@ async def get_status() -> StatusResponse | JSONResponse:
             pass  # Runtime context not available - status will show scheduler as stopped
 
         # Get comprehensive system status
-        status = await get_system_status(scheduler)
+        authentication_policy = request.app.state.authentication_policy
+        if not isinstance(authentication_policy, AuthenticationPolicy):
+            raise RuntimeError("Authentication policy is unavailable.")
+        advanced_shell_config = request.app.state.advanced_shell_config
+        if not isinstance(advanced_shell_config, AdvancedShellConfig):
+            raise RuntimeError("Advanced-shell configuration is unavailable.")
+        advanced_shell_preflight = request.app.state.advanced_shell_preflight
+        if not isinstance(advanced_shell_preflight, AdvancedShellPreflightService):
+            raise RuntimeError("Advanced-shell preflight is unavailable.")
+        status = await get_system_status(
+            scheduler,
+            authentication_mode=authentication_policy.mode,
+            advanced_shell_config=advanced_shell_config,
+            advanced_shell_preflight=await advanced_shell_preflight.status(),
+        )
         return status
 
     except Exception as e:
@@ -1165,6 +1264,449 @@ async def delete_secret_endpoint(secret_name: str) -> OperationResult | JSONResp
     """Delete a stored secret entry entirely."""
     try:
         return delete_secret_entry(secret_name)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/system/connections/google",
+    response_model=GoogleConnectionResponse,
+)
+async def get_google_connection_endpoint() -> GoogleConnectionResponse | JSONResponse:
+    """Return the current principal's sanitized Google connection."""
+    try:
+        return get_google_connection()
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.put(
+    "/system/connections/google",
+    response_model=GoogleConnectionResponse,
+)
+async def update_google_connection_endpoint(
+    payload: GoogleConnectionUpdateRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Create or update Google OAuth client metadata and Gmail preferences."""
+    try:
+        return update_google_connection(payload)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.put(
+    "/system/connections/google/client-secret",
+    response_model=GoogleConnectionResponse,
+)
+async def set_google_client_secret_endpoint(
+    payload: GoogleClientSecretUpdateRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Set the write-only Google OAuth client secret."""
+    try:
+        return set_google_client_secret(payload)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.post(
+    "/system/connections/google/oauth/start",
+    response_model=GoogleOAuthStartResponse,
+)
+async def start_google_oauth_endpoint() -> GoogleOAuthStartResponse | JSONResponse:
+    """Start Google OAuth for the Gmail read capability."""
+    try:
+        return start_google_oauth()
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.get("/system/connections/google/oauth/callback")
+async def complete_google_oauth_callback_endpoint(
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+) -> HTMLResponse:
+    """Complete Google OAuth from its registered browser callback."""
+    try:
+        await complete_google_oauth(
+            GoogleOAuthCompleteRequest(redirect_url=None, code=code, state=state)
+        )
+        return HTMLResponse(_google_oauth_callback_page(success=True))
+    except Exception as exc:
+        logger.warning(
+            "Google OAuth browser callback failed",
+            data={
+                "event": "google_oauth_callback_failed",
+                "error_type": type(exc).__name__,
+            },
+        )
+        return HTMLResponse(_google_oauth_callback_page(success=False), status_code=400)
+
+
+@router.post(
+    "/system/connections/google/oauth/complete",
+    response_model=GoogleConnectionResponse,
+)
+async def complete_google_oauth_manual_endpoint(
+    payload: GoogleOAuthCompleteRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Complete Google OAuth using a pasted callback URL."""
+    try:
+        return await complete_google_oauth(payload)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.delete(
+    "/system/connections/google/oauth",
+    response_model=OperationResult,
+)
+async def disconnect_google_oauth_endpoint() -> OperationResult | JSONResponse:
+    """Disconnect the Google account while preserving client configuration."""
+    try:
+        return disconnect_google_oauth()
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.get(
+    "/system/connections/google/connections",
+    response_model=list[GoogleConnectionResponse],
+)
+async def list_google_connections_endpoint() -> (
+    list[GoogleConnectionResponse] | JSONResponse
+):
+    """List the current principal's Google connections."""
+    try:
+        return list_google_connections()
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.post(
+    "/system/connections/google/connections",
+    response_model=GoogleConnectionResponse,
+)
+async def create_google_connection_endpoint(
+    payload: GoogleConnectionCreateRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Create a named Google connection for the current principal."""
+    try:
+        return create_google_connection(payload)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.get(
+    "/system/connections/google/connections/{connection_id}",
+    response_model=GoogleConnectionResponse,
+)
+async def get_google_connection_by_id_endpoint(
+    connection_id: str,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Return one current-principal Google connection."""
+    try:
+        return get_google_connection_by_id(connection_id)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.put(
+    "/system/connections/google/connections/{connection_id}",
+    response_model=GoogleConnectionResponse,
+)
+async def update_google_connection_by_id_endpoint(
+    connection_id: str,
+    payload: GoogleConnectionUpdateRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Update one named Google connection."""
+    try:
+        return update_google_connection_by_id(connection_id, payload)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.put(
+    "/system/connections/google/connections/{connection_id}/client-secret",
+    response_model=GoogleConnectionResponse,
+)
+async def set_google_client_secret_by_id_endpoint(
+    connection_id: str,
+    payload: GoogleClientSecretUpdateRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Set the write-only client secret for one Google connection."""
+    try:
+        return set_google_client_secret(payload, connection_id)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.post(
+    "/system/connections/google/connections/{connection_id}/oauth/start",
+    response_model=GoogleOAuthStartResponse,
+)
+async def start_google_oauth_by_id_endpoint(
+    connection_id: str,
+) -> GoogleOAuthStartResponse | JSONResponse:
+    """Start OAuth for one Google connection."""
+    try:
+        return start_google_oauth(connection_id)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.post(
+    "/system/connections/google/connections/{connection_id}/oauth/complete",
+    response_model=GoogleConnectionResponse,
+)
+async def complete_google_oauth_manual_by_id_endpoint(
+    connection_id: str,
+    payload: GoogleOAuthCompleteRequest,
+) -> GoogleConnectionResponse | JSONResponse:
+    """Complete OAuth for one connection using a pasted callback URL."""
+    try:
+        return await complete_google_oauth(payload, connection_id)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.delete(
+    "/system/connections/google/connections/{connection_id}/oauth",
+    response_model=OperationResult,
+)
+async def disconnect_google_oauth_by_id_endpoint(
+    connection_id: str,
+) -> OperationResult | JSONResponse:
+    """Disconnect one Google grant while preserving its client configuration."""
+    try:
+        return disconnect_google_oauth(connection_id)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.delete(
+    "/system/connections/google/connections/{connection_id}",
+    response_model=OperationResult,
+)
+async def delete_google_connection_by_id_endpoint(
+    connection_id: str,
+    replacement_default_id: str | None = Query(None),
+) -> OperationResult | JSONResponse:
+    """Delete one Google connection and its encrypted credentials."""
+    try:
+        return delete_google_connection(
+            connection_id, replacement_default_id=replacement_default_id
+        )
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.get("/system/mcp/connections", response_model=list[MCPConnectionInfo])
+async def list_mcp_connections_endpoint() -> list[MCPConnectionInfo] | JSONResponse:
+    """List current-user MCP connections without credential values."""
+    try:
+        return list_mcp_connections()
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post("/system/mcp/connections", response_model=MCPConnectionInfo)
+async def create_mcp_connection_endpoint(
+    request: MCPConnectionCreateRequest,
+) -> MCPConnectionInfo | JSONResponse:
+    """Create a current-user MCP connection."""
+    try:
+        return create_mcp_connection(request)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/system/mcp/connections/import/parse",
+    response_model=MCPConnectionCreateRequest,
+)
+async def parse_mcp_connection_import_endpoint(
+    request: MCPConnectionImportRequest,
+) -> MCPConnectionCreateRequest | JSONResponse:
+    """Parse strict YAML/JSON into the normal connection create contract."""
+    try:
+        return parse_mcp_connection_import(request)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.put("/system/mcp/connections/{connection_id}", response_model=MCPConnectionInfo)
+async def update_mcp_connection_endpoint(
+    connection_id: str, request: MCPConnectionUpdateRequest
+) -> MCPConnectionInfo | JSONResponse:
+    """Update mutable current-user MCP connection settings."""
+    try:
+        return update_mcp_connection(connection_id, request)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.put(
+    "/system/mcp/connections/{connection_id}/credential",
+    response_model=MCPConnectionInfo,
+)
+async def set_mcp_credential_endpoint(
+    connection_id: str, request: MCPCredentialUpdateRequest
+) -> MCPConnectionInfo | JSONResponse:
+    """Set a write-only static credential for a current-user connection."""
+    try:
+        return set_mcp_credential(connection_id, request)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.delete(
+    "/system/mcp/connections/{connection_id}/credential",
+    response_model=MCPConnectionInfo,
+)
+async def clear_mcp_credential_endpoint(
+    connection_id: str,
+) -> MCPConnectionInfo | JSONResponse:
+    """Clear a static credential for a current-user connection."""
+    try:
+        return clear_mcp_credential(connection_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.put(
+    "/system/mcp/connections/{connection_id}/oauth/client-secret",
+    response_model=MCPConnectionInfo,
+)
+async def set_mcp_oauth_client_secret_endpoint(
+    connection_id: str, request: MCPOAuthClientSecretUpdateRequest
+) -> MCPConnectionInfo | JSONResponse:
+    """Set a write-only OAuth client secret for a current-user connection."""
+    try:
+        return set_mcp_oauth_client_secret(connection_id, request)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/system/mcp/connections/{connection_id}/test",
+    response_model=MCPConnectionTestResponse,
+)
+async def test_mcp_connection_endpoint(
+    connection_id: str,
+) -> MCPConnectionTestResponse | JSONResponse:
+    """Return sanitized connection readiness; transport arrives in slice 7."""
+    try:
+        return await test_mcp_connection(connection_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/system/mcp/connections/{connection_id}/oauth/start",
+    response_model=MCPOAuthStartResponse,
+)
+async def start_mcp_oauth_endpoint(
+    connection_id: str,
+    payload: MCPOAuthStartRequest,
+    request: Request,
+) -> MCPOAuthStartResponse | JSONResponse:
+    """Start a headless-safe OAuth attempt for one MCP connection."""
+    try:
+        request_fallback = payload.redirect_uri or str(
+            request.url_for(
+                "complete_mcp_oauth_callback_endpoint",
+                connection_id=connection_id,
+            )
+        )
+        resolved = resolve_mcp_oauth_redirect(
+            connection_id=connection_id,
+            public_origin=get_runtime_context().config.public_origin,
+            fallback_uri=request_fallback,
+        )
+        return await start_mcp_oauth(
+            connection_id,
+            redirect_uri=resolved.redirect_uri,
+            redirect_source=resolved.source,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/system/mcp/connections/{connection_id}/oauth/callback",
+)
+async def complete_mcp_oauth_callback_endpoint(
+    connection_id: str,
+    code: str,
+    state: str,
+) -> HTMLResponse:
+    """Complete MCP OAuth from a browser callback."""
+    try:
+        await complete_mcp_oauth(
+            connection_id,
+            MCPOAuthCompleteRequest(redirect_url=None, code=code, state=state),
+        )
+        return HTMLResponse(_mcp_oauth_callback_page(success=True))
+    except Exception as e:
+        error_response = create_error_response(e)
+        return HTMLResponse(
+            _mcp_oauth_callback_page(success=False),
+            status_code=error_response.status_code,
+        )
+
+
+@router.post(
+    "/system/mcp/connections/{connection_id}/oauth/complete",
+    response_model=MCPOAuthStatusResponse,
+)
+async def complete_mcp_oauth_manual_endpoint(
+    connection_id: str,
+    payload: MCPOAuthCompleteRequest,
+) -> MCPOAuthStatusResponse | JSONResponse:
+    """Complete MCP OAuth from a pasted redirect URL."""
+    try:
+        return await complete_mcp_oauth(connection_id, payload)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/system/mcp/connections/{connection_id}/oauth/status",
+    response_model=MCPOAuthStatusResponse,
+)
+async def get_mcp_oauth_status_endpoint(
+    connection_id: str,
+) -> MCPOAuthStatusResponse | JSONResponse:
+    """Return sanitized OAuth status for one MCP connection."""
+    try:
+        return await get_mcp_oauth_status(connection_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.delete(
+    "/system/mcp/connections/{connection_id}/oauth",
+    response_model=OperationResult,
+)
+async def disconnect_mcp_oauth_endpoint(
+    connection_id: str,
+) -> OperationResult | JSONResponse:
+    """Disconnect OAuth for one MCP connection."""
+    try:
+        return await disconnect_mcp_oauth(connection_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.delete(
+    "/system/mcp/connections/{connection_id}", response_model=OperationResult
+)
+async def delete_mcp_connection_endpoint(
+    connection_id: str,
+) -> OperationResult | JSONResponse:
+    """Delete a current-user MCP connection and static credential."""
+    try:
+        return delete_mcp_connection(connection_id)
     except Exception as e:
         return create_error_response(e)
 

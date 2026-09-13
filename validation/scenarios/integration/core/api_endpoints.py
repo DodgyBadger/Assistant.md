@@ -3,21 +3,35 @@ Integration scenario that exercises every documented API endpoint using the
 validation harness' shared FastAPI TestClient.
 """
 
+import asyncio
 import base64
 import json
-import os
 import re
 import sys
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.identity import LOCAL_USER_AUTHORITY
-from core.llm.openai_oauth import (
+_direct_run_root: tempfile.TemporaryDirectory[str] | None = None
+if __name__ == "__main__":
+    from core.runtime.paths import set_bootstrap_roots
+
+    _direct_run_root = tempfile.TemporaryDirectory(prefix="assistantmd-api-endpoints-")
+    direct_root = Path(_direct_run_root.name)
+    data_root = direct_root / "data"
+    bootstrap_system_root = direct_root / "system"
+    data_root.mkdir()
+    bootstrap_system_root.mkdir()
+    set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
+
+from core.identity import LOCAL_USER_AUTHORITY  # noqa: E402
+from core.llm.openai_oauth import (  # noqa: E402
     OPENAI_OAUTH_CLIENT_ID,
     OPENAI_OAUTH_LOOPBACK_REDIRECT_URI,
     OPENAI_OAUTH_ORIGINATOR,
@@ -28,27 +42,22 @@ from core.llm.openai_oauth import (
     StaticOpenAIOAuthTokenAdapter,
     set_openai_oauth_token_adapter,
 )
-from core.runtime.execution_tasks import ExecutionTaskSource
-from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
+from core.mcp import MCPConnectionTestResult  # noqa: E402
+from core.runtime.execution_tasks import ExecutionTaskSource  # noqa: E402
+from core.runtime.state import get_runtime_context  # noqa: E402
+from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class ApiEndpointsScenario(BaseScenario):
     """Validate core REST endpoints end-to-end using real runtime context."""
 
     async def test_scenario(self):
-        original_secrets_path = os.environ.get("SECRETS_PATH")
-        os.environ["SECRETS_PATH"] = str(self.run_path / "system" / "secrets.yaml")
         try:
             await self._run_api_endpoint_checks()
         finally:
             set_openai_oauth_token_adapter(None)
             if self._system_controller and self._system_controller.is_running:
                 await self.stop_system()
-            if original_secrets_path is None:
-                os.environ.pop("SECRETS_PATH", None)
-            else:
-                os.environ["SECRETS_PATH"] = original_secrets_path
 
     async def _run_api_endpoint_checks(self):
         vault = self.create_vault("IntegrationApiVault")
@@ -514,6 +523,109 @@ class ApiEndpointsScenario(BaseScenario):
             entry["name"] == "VALIDATION_TEMP_SECRET" and entry["has_value"]
             for entry in cleared_secrets.json()
         ), "Secret list no longer reports a stored value"
+
+        # MCP connection management exposes metadata and credential presence only.
+        rejected_owner = self.call_api(
+            "/api/system/mcp/connections",
+            method="POST",
+            data={
+                "display_name": "Injected owner",
+                "url": "https://example.com/mcp",
+                "owner_principal_id": "foreign-user",
+            },
+        )
+        assert rejected_owner.status_code == 422, "MCP owner injection is rejected"
+
+        mcp_create = await self.call_api_async(
+            "/api/system/mcp/connections",
+            method="POST",
+            data={
+                "display_name": "Validation MCP",
+                "url": "https://example.com/mcp",
+                "transport": "streamable_http",
+                "auth_mode": "bearer",
+                "enabled": True,
+                "allow_private_http": True,
+                "allowed_tools": ["search"],
+                "credential": "validation-mcp-token",
+            },
+        )
+        assert mcp_create.status_code == 200, "MCP connection creation succeeds"
+        mcp_payload = mcp_create.json()
+        mcp_id = mcp_payload["connection_id"]
+        assert mcp_payload["slug"] == "validation-mcp", "MCP slug is deterministic"
+        assert (
+            mcp_payload["credential_present"] is True
+        ), "Credential presence is reported"
+        assert "credential" not in mcp_payload, "Credential value is write-only"
+        assert (
+            mcp_payload["allow_private_http"] is True
+        ), "Private HTTP acknowledgement is returned without weakening other connections"
+
+        mcp_list = self.call_api("/api/system/mcp/connections")
+        assert mcp_list.status_code == 200, "MCP connection listing succeeds"
+        assert [entry["connection_id"] for entry in mcp_list.json()] == [
+            mcp_id
+        ], "MCP list contains only the created current-user connection"
+
+        with patch(
+            "core.mcp.manager.MCPConnectionManager.test_connection",
+            new=AsyncMock(
+                return_value=MCPConnectionTestResult(
+                    status="ready",
+                    ready=True,
+                    tool_count=2,
+                    tool_names=("search", "read"),
+                    message="Connected successfully and discovered 2 available MCP tool(s).",
+                )
+            ),
+        ):
+            mcp_test = self.call_api(
+                f"/api/system/mcp/connections/{mcp_id}/test",
+                method="POST",
+            )
+        assert mcp_test.status_code == 200, "MCP test contract is available"
+        assert (
+            mcp_test.json()["status"] == "ready"
+            and mcp_test.json()["ready"] is True
+            and mcp_test.json()["tool_names"] == ["search", "read"]
+        ), "MCP test reports sanitized readiness and discovered tool names"
+
+        mcp_update = await self.call_api_async(
+            f"/api/system/mcp/connections/{mcp_id}",
+            method="PUT",
+            data={
+                "display_name": "Renamed Validation MCP",
+                "url": "https://example.com/mcp",
+                "transport": "sse",
+                "auth_mode": "bearer",
+                "header_name": None,
+                "enabled": False,
+                "allow_private_http": False,
+                "allowed_tools": None,
+            },
+        )
+        assert mcp_update.status_code == 200, "MCP connection update succeeds"
+        assert mcp_update.json()["slug"] == "validation-mcp", "MCP slug stays immutable"
+        assert mcp_update.json()["allow_private_http"] is False
+
+        mcp_clear = await self.call_api_async(
+            f"/api/system/mcp/connections/{mcp_id}/credential",
+            method="DELETE",
+        )
+        assert mcp_clear.status_code == 200, "MCP credential clear succeeds"
+        assert mcp_clear.json()["credential_present"] is False
+
+        mcp_delete = await self.call_api_async(
+            f"/api/system/mcp/connections/{mcp_id}",
+            method="DELETE",
+        )
+        assert mcp_delete.status_code == 200, "MCP connection deletion succeeds"
+        mcp_missing = self.call_api(
+            f"/api/system/mcp/connections/{mcp_id}/test",
+            method="POST",
+        )
+        assert mcp_missing.status_code == 404, "Deleted MCP connections look absent"
 
         # Vault rescan should keep workflow counts stable
         rescan_response = self.call_api("/api/vaults/rescan", method="POST")
@@ -1009,3 +1121,7 @@ description: API system workflow routing probe
 await finish(status="completed", reason="api-system-probe")
 ```
 """
+
+
+if __name__ == "__main__":
+    asyncio.run(ApiEndpointsScenario().test_scenario())

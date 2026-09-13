@@ -31,10 +31,13 @@ def classify_tool_result_state(
         .strip()
         .lower()
     )
+    if status in {"cancelled", "interrupted"}:
+        return "interrupted"
     if normalized_outcome in {"failed", "denied"} or status in {
         "error",
         "failed",
         "failure",
+        "denied",
     }:
         return "failed"
     return "completed"
@@ -382,6 +385,7 @@ def tool_failure_return(
     message: str,
     classification: FailureClassification,
     metadata: dict[str, Any] | None = None,
+    include_suggested_action: bool = False,
 ) -> ToolReturn:
     """Build a ToolReturn with stable structured failure metadata."""
     payload = classification.to_metadata()
@@ -390,4 +394,6 @@ def tool_failure_return(
         payload.update(metadata)
     detail = classification.message.strip()
     return_value = message if not detail else f"{message}: {detail}"
+    if include_suggested_action and classification.suggested_action.strip():
+        return_value = f"{return_value} {classification.suggested_action.strip()}"
     return ToolReturn(return_value=return_value, content=None, metadata=payload)

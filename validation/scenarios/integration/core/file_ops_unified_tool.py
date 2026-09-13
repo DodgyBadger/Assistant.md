@@ -12,12 +12,13 @@ from core.authoring.helpers.runtime_common import (
     normalize_tool_result,
 )
 from core.authoring.shared.tool_binding import resolve_tool_binding
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class FileOpsUnifiedToolScenario(BaseScenario):
     """Validate file_read/file_write expose the v0.7.0 command-style contract."""
 
+    @with_local_user_authority
     async def test_scenario(self) -> None:
         vault = self.create_vault("FileOpsUnifiedToolVault")
         self.create_file(vault, "notes/source.md", "one\ntwo\nthree\nfour\n")

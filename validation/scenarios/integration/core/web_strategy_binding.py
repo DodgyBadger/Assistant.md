@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.authoring.shared.tool_binding import resolve_tool_binding
+from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.settings import validate_settings
 from core.web.config import get_web_tool_strategy_requirements
 from validation.core.base_scenario import BaseScenario
@@ -21,21 +21,19 @@ class WebStrategyBindingScenario(BaseScenario):
     async def test_scenario(self) -> None:
         vault = self.create_vault("WebStrategyBindingVault")
         await self.start_system()
-        original_secrets_path = os.environ.get("SECRETS_PATH")
-        isolated_secrets = self.run_path / "isolated-secrets.yaml"
-        isolated_secrets.write_text("", encoding="utf-8")
-        os.environ["SECRETS_PATH"] = str(isolated_secrets)
         try:
-            baseline = resolve_tool_binding(
-                ["web_search", "web_extract"], vault_path=str(vault)
-            )
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                baseline = resolve_tool_binding(
+                    ["web_search", "web_extract"], vault_path=str(vault)
+                )
             self.soft_assert_equal(
                 baseline.tool_names(),
                 ["web_search", "web_extract"],
                 "Secret-free default web strategies should bind",
             )
 
-            crawl = resolve_tool_binding(["web_crawl"], vault_path=str(vault))
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                crawl = resolve_tool_binding(["web_crawl"], vault_path=str(vault))
             self.soft_assert_equal(
                 crawl.tool_names(),
                 [],
@@ -56,9 +54,10 @@ class WebStrategyBindingScenario(BaseScenario):
                 200,
                 "Web extraction strategy should be user configurable",
             )
-            tavily_extract = resolve_tool_binding(
-                ["web_extract"], vault_path=str(vault)
-            )
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                tavily_extract = resolve_tool_binding(
+                    ["web_extract"], vault_path=str(vault)
+                )
             self.soft_assert_equal(
                 tavily_extract.tool_names(),
                 [],
@@ -69,7 +68,8 @@ class WebStrategyBindingScenario(BaseScenario):
                 "Tavily extraction unavailability should explain the missing secret",
             )
 
-            status = validate_settings()
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                status = validate_settings()
             self.soft_assert_equal(
                 status.tool_availability.get("web_extract"),
                 False,
@@ -94,7 +94,8 @@ class WebStrategyBindingScenario(BaseScenario):
                 "core.authoring.shared.tool_binding.get_web_tool_strategy_requirements",
                 side_effect=invalid_search_strategy,
             ):
-                invalid = resolve_tool_binding("all", vault_path=str(vault))
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    invalid = resolve_tool_binding("all", vault_path=str(vault))
             self.soft_assert(
                 "web_search" not in invalid.tool_names()
                 and "file_read" in invalid.tool_names(),
@@ -105,10 +106,6 @@ class WebStrategyBindingScenario(BaseScenario):
                 "Skipped invalid strategies should remain visible in binding instructions",
             )
         finally:
-            if original_secrets_path is None:
-                os.environ.pop("SECRETS_PATH", None)
-            else:
-                os.environ["SECRETS_PATH"] = original_secrets_path
             await self.stop_system()
             self.teardown_scenario()
         self.assert_no_failures()

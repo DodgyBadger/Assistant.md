@@ -9,8 +9,12 @@ docker/
 !docker/requirements.txt
 !docker/pyproject.toml
 !docker/uv.lock
+!docker/bootstrap-advanced-shell-client.sh
+!docker/advanced-shell/
+!docker/advanced-shell/**
 Dockerfile
 docker-compose.yml
+secrets/
 
 # Runtime data and generated artifacts
 data/
@@ -18,6 +22,14 @@ system/
 validation/runs/
 node_modules/
 static/output.css
+
+# Local development environments and tool state
+.venv/
+.runtime/
+.advanced-shell/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Python cache
 __pycache__/

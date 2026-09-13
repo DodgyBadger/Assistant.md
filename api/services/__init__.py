@@ -167,6 +167,7 @@ from ..models import (
     ChatSessionInfo,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
+    ChatSessionToolCallInfo,
     ChatSessionToolEventInfo,
     ChatWorkspaceInfo,
     ConfigurationIssueInfo,

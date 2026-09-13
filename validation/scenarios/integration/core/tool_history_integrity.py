@@ -15,12 +15,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class ToolHistoryIntegrityScenario(BaseScenario):
     """Validate batch-safe tool history retrieval and integrity diagnostics."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("ToolHistoryIntegrityVault")
 

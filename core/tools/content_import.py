@@ -8,8 +8,13 @@ from typing import Any
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
+from core.identity import require_current_execution_authority
 from core.ingestion.import_service import ContentImportResult, ContentImportService
+from core.ingestion.models import JobStatus
+from core.ingestion.task_execution import process_ingestion_job_now
 from core.logger import UnifiedLogger
+from core.runtime.execution_tasks import ExecutionTaskSource
+from core.runtime.state import get_runtime_context
 from core.tools.base import BaseTool, ToolRecoveryPolicy
 from core.tools.failures import FailureClassification, tool_failure_return
 
@@ -31,6 +36,7 @@ class ContentImport(BaseTool):
             sources: str | list[str] | None = None,
             job_ids: int | list[int] | None = None,
             options: dict[str, Any] | None = None,
+            queue_only: bool = False,
         ) -> ToolReturn:
             """Import URLs or vault files to Markdown, or inspect import jobs.
 
@@ -38,6 +44,7 @@ class ContentImport(BaseTool):
             :param sources: One source or a list of sources for submit.
             :param job_ids: One job id or a list of job ids for status.
             :param options: Optional destination and validated extraction options for submit.
+            :param queue_only: Queue without waiting; use only for large multi-file submissions.
             """
             op = (operation or "").strip().lower()
             try:
@@ -49,7 +56,25 @@ class ContentImport(BaseTool):
                         raise ValueError(
                             "submit requires sources and does not accept job_ids"
                         )
+                    runtime = get_runtime_context() if not queue_only else None
+                    authority = (
+                        require_current_execution_authority()
+                        if not queue_only
+                        else None
+                    )
                     results = service.submit(sources=sources, options=options)
+                    if runtime is not None and authority is not None:
+                        for result in results:
+                            await process_ingestion_job_now(
+                                ingestion=runtime.ingestion,
+                                task_coordinator=runtime.task_coordinator,
+                                job_id=result.job_id,
+                                source=ExecutionTaskSource.TOOL,
+                                authority=authority,
+                            )
+                        results = service.status(
+                            job_ids=[result.job_id for result in results]
+                        )
                     logger.set_sinks(["validation"]).info(
                         "content_import_submitted",
                         data={
@@ -63,13 +88,33 @@ class ContentImport(BaseTool):
                                 item.source_kind == "vault_file" for item in results
                             ),
                             "job_ids": [item.job_id for item in results],
+                            "queue_only": queue_only,
+                            "terminal_count": sum(
+                                item.status
+                                in {
+                                    JobStatus.COMPLETED.value,
+                                    JobStatus.FAILED.value,
+                                    JobStatus.CANCELLED.value,
+                                }
+                                for item in results
+                            ),
+                            "failed_count": sum(
+                                item.status == JobStatus.FAILED.value
+                                for item in results
+                            ),
                         },
                     )
                     return _success_result(op, results)
                 if op == "status":
-                    if job_ids is None or sources is not None or options is not None:
+                    if (
+                        job_ids is None
+                        or sources is not None
+                        or options is not None
+                        or queue_only
+                    ):
                         raise ValueError(
-                            "status requires job_ids and does not accept sources or options"
+                            "status requires job_ids and does not accept sources, "
+                            "options, or queue_only=true"
                         )
                     results = service.status(job_ids=job_ids)
                     logger.set_sinks(["validation"]).info(
@@ -102,8 +147,9 @@ class ContentImport(BaseTool):
             content_import,
             name="content_import",
             description=(
-                "Submit one or more URLs or vault files for durable import to Markdown, "
-                "and inspect the resulting ingestion jobs."
+                "Import URLs or vault files to durable Markdown and wait for results "
+                "by default. Use queue_only=true for large multi-file submissions, "
+                "then inspect those jobs with status."
             ),
         )
 

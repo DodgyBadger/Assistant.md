@@ -91,17 +91,16 @@ class OpenAIOAuthCodexLiveStressProbeScenario(BaseScenario):
                 detail_response.status_code == 200
             ), "Session detail should load after stress turns"
             detail = detail_response.json()
-            tool_events = detail.get("tool_events", [])
-            tool_call_events = [
-                event
-                for event in tool_events
-                if event.get("event_type") == "call"
-                and event.get("tool_name") == "file_read"
+            tool_calls = detail.get("tool_calls", [])
+            file_read_calls = [
+                tool_call
+                for tool_call in tool_calls
+                if tool_call.get("tool_name") == "file_read"
             ]
 
             result_file = vault / "notes" / "oauth_stress_result.md"
             self.soft_assert(
-                len(tool_call_events) >= 20,
+                len(file_read_calls) >= 20,
                 "Live stress probe should produce at least 20 file_read calls",
             )
             self.soft_assert(
@@ -117,8 +116,8 @@ class OpenAIOAuthCodexLiveStressProbeScenario(BaseScenario):
                 "second_task_id": second["task_id"],
                 "first_event_count": len(first["events"]),
                 "second_event_count": len(second["events"]),
-                "tool_event_count": len(tool_events),
-                "file_read_call_count": len(tool_call_events),
+                "tool_call_count": len(tool_calls),
+                "file_read_call_count": len(file_read_calls),
                 "result_file_exists": result_file.exists(),
                 "result_file_preview": (
                     result_file.read_text(encoding="utf-8")[:2000]

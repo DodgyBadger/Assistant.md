@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Run constrained local Python in AssistantMD's Monty runtime.
+Run constrained local Python in Assistant.md's Monty runtime.
 
 This document serves two purposes:
 
@@ -21,32 +21,32 @@ Returns the script's final expression, explicit `finish(...)` result, printed ou
 
 This tool does not run CPython. It runs **Monty** — a Python interpreter written in Rust with its own bytecode VM.
 
-Monty is actively developed upstream, so AssistantMD documents the subset it intentionally supports for authoring rather than every Monty VM feature. Treat the type checker and compile step as the source of truth for the exact runtime available in the current installation.
+Monty is actively developed upstream, so Assistant.md documents the subset it intentionally supports for authoring rather than every Monty VM feature. Treat the type checker and compile step as the source of truth for the exact runtime available in the current installation.
 
-Monty runs each AssistantMD script as a fresh script execution. Your final line should be an explicit expression that evaluates to the value you want to return. Do not rely on implicit printing.
+Monty runs each Assistant.md script as a fresh script execution. Your final line should be an explicit expression that evaluates to the value you want to return. Do not rely on implicit printing.
 
 ### Supported Authoring Pattern
 
-AssistantMD examples and validation scenarios stay within this subset:
+Assistant.md examples and validation scenarios stay within this subset:
 
 - ordinary expressions, assignments, loops, conditionals, comprehensions, and helper function definitions
 - async helper calls using `await`
 - f-strings and type hints where they help readability
-- common imports used by AssistantMD examples, including `json`, `sys`, `typing`, `asyncio`, and `pathlib`
+- common imports used by Assistant.md examples, including `json`, `sys`, `typing`, `asyncio`, and `pathlib`
 - host-provided dataclasses and helper result objects, such as `RetrievedHistoryResult`, `HistoryMessage`, `ToolExchange`, and `LatestMessage`
-- external function calls through AssistantMD helpers and direct tools, such as `file_read(...)`, `file_write(...)`, `delegate(...)`, and `assemble_context(...)`
+- external function calls through Assistant.md helpers and direct tools, such as `file_read(...)`, `file_write(...)`, `delegate(...)`, and `assemble_context(...)`
 - pre-execution type checking with Monty's bundled `ty` integration
 
 ### Authoring Guardrails
 
 - Do not define custom classes in authored scripts; use dictionaries, lists, helper result objects, and small functions.
-- Do not depend on arbitrary standard-library modules; stick to modules used in AssistantMD examples unless you have compiled the script successfully in this environment.
-- Do not import third-party packages; use AssistantMD helpers for file access, model calls, history, and tool calls.
+- Do not depend on arbitrary standard-library modules; stick to modules used in Assistant.md examples unless you have compiled the script successfully in this environment.
+- Do not import third-party packages; use Assistant.md helpers for file access, model calls, history, and tool calls.
 - Do not depend on state from previous script executions; pass state through files, caches, or explicit helper results.
 - Do not assume every CPython builtin exists. Prefer known helper result attributes directly, such as `result.return_value`, `result.metadata`, and `result.items`. Current Monty supports `getattr(...)` and `hasattr(...)` for helper result objects when dynamic checks are useful.
 - For bulk or long-running work, split discovery from mutation. Use one script to gather explicit candidates with read-only operations, then a separate script to mutate a bounded list of exact targets. Do not combine recursive discovery and mutation in one script.
 - For bulk vault reorganizations, prefer staged migration. Build or populate the new structure first, then produce a cleanup report for old source paths. Do not delete old source trees after a copy-style reorganization unless the user explicitly asks for destructive cleanup.
-- If a Python construct matters to your script and is not shown in AssistantMD examples, compile the script before relying on it.
+- If a Python construct matters to your script and is not shown in Assistant.md examples, compile the script before relying on it.
 
 When you find yourself reaching for something outside this list, simplify the approach rather than adding imports or boilerplate.
 
@@ -138,7 +138,7 @@ Use ordinary Python for filtering, sorting, selection, and control flow around t
 
 ### `date`
 
-- resolves the same shared date tokens used elsewhere in AssistantMD
+- resolves the same shared date tokens used elsewhere in Assistant.md
 - pass `fmt` to control formatting using strftime — e.g. `date.today("%Y-%m-%d")`
 - week-based values honour the current workflow or runtime `week_start_day`
 
@@ -193,8 +193,7 @@ await assemble_context(
 
 ### Explore a large web extraction
 
-Extracts a page, parses the structure, pulls a target section, and returns a compact summary.
-Uses `read_cache` first so re-running the script does not repeat the extraction call.
+Extracts a page, parses the structure, pulls a target section, and returns a compact summary. Uses `read_cache` first so re-running the script does not repeat the extraction call.
 
 ```python
 code_execution(
@@ -227,14 +226,9 @@ target = next(
 
 ### Split Discovery From Mutation
 
-For broad vault changes, use `code_execution` as small deterministic batches. First discover
-candidates with read-only calls and return an explicit list. Then run a separate mutating
-script over that exact list. This makes the work reviewable, resumable, and less likely to
-turn into an unbounded crawler.
+For broad vault changes, use `code_execution` as small deterministic batches. First discover candidates with read-only calls and return an explicit list. Then run a separate mutating script over that exact list. This makes the work reviewable, resumable, and less likely to turn into an unbounded crawler.
 
-For reorganizations, treat cleanup of old source trees as a separate destructive step.
-After a copy-style migration, report old source folders, file counts, and likely duplicates;
-do not delete those source trees unless the user explicitly asks for destructive cleanup.
+For reorganizations, treat cleanup of old source trees as a separate destructive step. After a copy-style migration, report old source folders, file counts, and likely duplicates; do not delete those source trees unless the user explicitly asks for destructive cleanup.
 
 Discovery example:
 
@@ -282,14 +276,11 @@ results
 )
 ```
 
-The mutating script should not rediscover targets recursively. If the candidate list is too
-large, process a small slice, checkpoint progress, then run another bounded batch.
+The mutating script should not rediscover targets recursively. If the candidate list is too large, process a small slice, checkpoint progress, then run another bounded batch.
 
 ### Process a batch of pending vault files
 
-Lists a directory, filters to the pending subset, uses built-in pending diff metadata when
-available, then marks the processed items complete. Batches to a small slice to stay within a
-single execution.
+Lists a directory, filters to the pending subset, uses built-in pending diff metadata when available, then marks the processed items complete. Batches to a small slice to stay within a single execution.
 
 ```python
 code_execution(

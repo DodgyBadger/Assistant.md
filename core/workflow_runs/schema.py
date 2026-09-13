@@ -21,6 +21,11 @@ WORKFLOW_RUN_MIGRATIONS = (
         name="index_cross_vault_workflow_history",
         apply=lambda conn: _create_workflow_name_index(conn),
     ),
+    SQLiteMigration(
+        version=3,
+        name="add_workflow_run_owner_principal",
+        apply=lambda conn: _migrate_workflow_run_owners(conn),
+    ),
 )
 
 
@@ -56,6 +61,7 @@ def _create_workflow_run_schema(conn: sqlite3.Connection) -> None:
             workflow_name TEXT NOT NULL,
             vault_name TEXT NOT NULL,
             source TEXT NOT NULL,
+            owner_principal_id TEXT NOT NULL,
             task_id TEXT,
             step_name TEXT,
             scheduler_job_id TEXT,
@@ -100,6 +106,32 @@ def _create_workflow_run_schema(conn: sqlite3.Connection) -> None:
         """
     )
     _create_latest_runs_view(conn)
+
+
+def _migrate_workflow_run_owners(conn: sqlite3.Connection) -> None:
+    columns = {
+        str(row[1])
+        for row in conn.execute("PRAGMA table_info(workflow_runs)").fetchall()
+    }
+    if "owner_principal_id" not in columns:
+        conn.execute(
+            """
+            ALTER TABLE workflow_runs
+            ADD COLUMN owner_principal_id TEXT NOT NULL DEFAULT 'local-user'
+            """
+        )
+    conn.execute(
+        """
+        UPDATE workflow_runs SET owner_principal_id = 'local-user'
+        WHERE owner_principal_id IS NULL OR TRIM(owner_principal_id) = ''
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_workflow_runs_owner_terminal
+        ON workflow_runs(owner_principal_id, completed_at DESC)
+        """
+    )
 
 
 def _create_workflow_name_index(conn: sqlite3.Connection) -> None:

@@ -26,7 +26,7 @@ from core.constants import (
     CHAT_HISTORY_COMPACTION_INSTRUCTION,
     CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
 )
-from core.identity import SYSTEM_AUTHORITY
+from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
@@ -360,6 +360,9 @@ async def maybe_auto_compact_after_turn(
             vault_path=vault_path,
             source=ExecutionTaskSource.SYSTEM,
         )
+    session = runtime.chat_store.get_session_by_id(session_id)
+    if session is None or session.vault_name != vault_name:
+        raise LookupError(f"Chat session not found: {session_id}")
     return cast(
         ChatHistoryCompactionResult,
         await runtime.task_runner.run_inline(
@@ -368,7 +371,7 @@ async def maybe_auto_compact_after_turn(
                 scope=chat_session_scope(session_id),
                 source=ExecutionTaskSource.SYSTEM,
                 label=compaction_task_label(session_id),
-                authority=SYSTEM_AUTHORITY,
+                authority=ExecutionAuthority(session.owner_principal_id),
                 metadata={
                     "vault": vault_name,
                     "session_id": session_id,

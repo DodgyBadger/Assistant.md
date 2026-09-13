@@ -13,7 +13,6 @@ from core.authoring.workflow_execution import (
     execute_workflow_target,
 )
 from core.identity import (
-    SYSTEM_AUTHORITY,
     ExecutionAuthority,
     get_current_execution_authority,
 )
@@ -55,8 +54,6 @@ def _authority_for_workflow_source(
     current = get_current_execution_authority()
     if current is not None:
         return current
-    if source in {ExecutionTaskSource.SCHEDULER, ExecutionTaskSource.SYSTEM}:
-        return SYSTEM_AUTHORITY
     raise RuntimeError(
         f"Workflow source '{source}' requires an active execution authority."
     )
@@ -130,6 +127,7 @@ class WorkflowGovernor:
                 workflow_name=workflow_name,
                 vault_name=vault_name,
                 source=source_value,
+                owner_principal_id=authority.principal_id,
                 task_id=active_task_id,
                 step_name=step_name,
             )

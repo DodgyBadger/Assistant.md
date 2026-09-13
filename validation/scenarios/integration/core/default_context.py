@@ -1,9 +1,9 @@
 """
 Integration scenario for packaged default context loading behavior.
 
-Validates that the default context template loads vault-level instructions,
-workspace-local orientation files, and bounded user notes without depending on
-the internal structure of those markdown files.
+Validates that the default context template loads only explicit vault-level
+instructions and bounds user-controlled context sources without depending on
+their internal Markdown structure.
 """
 
 import json
@@ -15,12 +15,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class DefaultContextScenario(BaseScenario):
     """Ensure default.md composes vault, workspace, and user context."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("DefaultContextVault")
         self.create_file(
@@ -29,7 +30,8 @@ class DefaultContextScenario(BaseScenario):
             """# Soul
 
 Use the validation soul instruction.
-""",
+"""
+            + ("Soul filler that should eventually be truncated.\n" * 200),
         )
         self.create_file(
             vault,
@@ -37,7 +39,8 @@ Use the validation soul instruction.
             """# Vault Playbook
 
 Use the validation vault playbook.
-""",
+"""
+            + ("Vault playbook filler that should eventually be truncated.\n" * 200),
         )
         self.create_file(
             vault,
@@ -64,8 +67,9 @@ Use the validation vault playbook.
                 * 500
             )
             + """
-""",
+            """,
         )
+        vault_without_instructions = self.create_vault("DefaultContextEmptyVault")
         self.create_file(
             vault,
             "Projects/WorkspaceA/readme.md",
@@ -133,6 +137,14 @@ This workspace intentionally has no README.
             "Expected default context to load AssistantMD/playbook.md",
         )
         self.soft_assert(
+            "[Soul truncated by default context script.]" in system_text,
+            "Expected explicit soul instructions to be bounded",
+        )
+        self.soft_assert(
+            "[Vault playbook truncated by default context script.]" in system_text,
+            "Expected explicit vault playbook instructions to be bounded",
+        )
+        self.soft_assert(
             "This workspace is for validating workspace README loading." in system_text,
             "Expected default context to load workspace README.md",
         )
@@ -163,6 +175,35 @@ This workspace intentionally has no README.
         self.soft_assert(
             system_text.count("Filler context note line") < 500,
             "Expected default context to truncate oversized user notes content",
+        )
+
+        no_defaults_processor = build_context_manager_history_processor(
+            session_id="default_context_no_defaults_session",
+            vault_name=vault_without_instructions.name,
+            vault_path=str(vault_without_instructions),
+            model_alias="gpt",
+            template_name="default.md",
+        )
+        no_defaults_processed = await no_defaults_processor(
+            SimpleNamespace(prompt="Use defaults.", deps=SimpleNamespace()),
+            [
+                ModelRequest(
+                    parts=[UserPromptPart(content="Use defaults.")],
+                    run_id="run-no-defaults",
+                )
+            ],
+        )
+        no_defaults_system_text = "\n\n".join(
+            getattr(part, "content", "")
+            for message in no_defaults_processed
+            for part in getattr(message, "parts", ())
+            if getattr(part, "part_kind", None) == "system-prompt"
+        )
+        self.soft_assert(
+            "Default stance: concise and curious." not in no_defaults_system_text
+            and "## Vault Work Policy" not in no_defaults_system_text
+            and "## Goal Tracking" not in no_defaults_system_text,
+            "Expected missing soul and playbook files to inject no hidden defaults",
         )
 
         missing_readme_processor = build_context_manager_history_processor(

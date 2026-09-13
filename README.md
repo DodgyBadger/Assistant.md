@@ -1,81 +1,60 @@
-# AssistantMD
+# Assistant.md
 
-**AssistantMD aims to be the most productive AI harness for knowledge work.**
+**A self-hosted, Markdown-first agent workspace for knowledge work.**
 
-It brings AI chat, your Markdown knowledge base, and safe automation into one
-self-hosted environment. Instead of copying results between chat, notes,
-research tools, and scripts, you can let an agent work directly with the
-material you care about and turn useful work into durable, inspectable
-knowledge and repeatable processes.
+> [!IMPORTANT]
+>
+> **v0.8.0 is a major agentic upgrade.** Assistant.md can now connect to remote MCP services, run local MCP providers and commands in an optional advanced environment, work with Gmail, and securely manage the credentials those capabilities require. Chat is now the control surface for a substantially more capable agent system.
 
-When you begin a chat session, you can select any folder in your vault as its
-workspace. The assistant uses that folder as the default project context, while
-retaining access to the rest of the vault. Simple conventions such as
-`README.md` and `playbook.md` help it quickly understand the project and follow
-project-specific guidance.
+Assistant.md gives AI agents a place to do sustained work with your notes, research, tools, and repeatable processes—not merely answer questions in chat. Choose any folder in your vault as a project workspace; the agent can follow local `README.md` and `playbook.md` guidance, work across the vault when needed, and leave useful results behind as durable Markdown.
 
-Your Markdown files remain the durable source of truth: readable, portable, and
-useful with or without AssistantMD. AssistantMD is the environment around them:
-available wherever you host it, adaptable to the way you work, and designed to
-give agents useful capabilities without handing them control of the host.
-
-AssistantMD is shaped through daily use on real knowledge-work projects. Its
-features grow from friction encountered there: copying useful material between
-chat and notes, manually importing dozens of research sources, switching
-applications just to make a small edit, or needing automation without giving an
-agent unrestricted access to the host. Its development is guided by a simple
-aim: keep removing the obstacles that interrupt productive work.
+Your files remain readable, portable, and useful without Assistant.md. The system around them provides project context, connected tools, automation, and reviewable execution while keeping agent capabilities explicit and bounded.
 
 ## Features
 
-- Vaults are isolated from each other.
-- Supports many API model providers as well as experimental OpenAI OAuth (ChatGPT / Codex subscription).
-- Tuned for long-running tasks, tool-heavy agents, and deep work sessions.
-- Browse, preview, edit, upload, move, and organize files in the Vault Explorer.
-- Review and adjust agent file changes before approving them with Inline edit mode.
-- Restore file revisions or roll back file changes from a completed activity.
-- Attach images when using a multimodal chat model.
-- Clean, minimal UI with focus and dark modes.
-- Context overflow protection for large tool results.
-- Nightly chat history summarization and indexing.
-- Export chat sessions to markdown.
-- Batch-import public URLs and vault PDFs to markdown in chat and workflows.
-- Search, extract, and crawl web content with configurable retrieval strategies.
-- Durable workflow history and searchable System Activity for operational visibility.
-- Extensive settings for customizing runtime behavior.
+- **Agentic work sessions:** Run long-lived, tool-heavy work with reconnectable execution, context overflow protection, bounded delegation, goals, and durable session history.
+- **Project-aware workspaces:** Scope a chat to any vault folder and provide project-specific guidance through familiar Markdown files such as `README.md` and `playbook.md`.
+- **Connected MCP tools:** Add remote Streamable HTTP or SSE servers with per-connection authentication, testing, tool allowlists, and on-demand tool discovery.
+- **Advanced execution:** Optionally give primary chat a persistent Linux workspace for CLIs, runtimes, bounded commands, and local stdio MCP providers without exposing the application host directly.
+- **Gmail connections:** Search and read mail, inspect threads, save bounded PDF attachments, and create unsent drafts across one or more explicitly connected accounts.
+- **Markdown knowledge base:** Browse, preview, edit, upload, move, organize, and search portable files in isolated vaults.
+- **Research and ingestion:** Search, extract, and crawl web content, then turn public pages and vault PDFs into durable Markdown.
+- **Composable automation:** Build sandboxed Python workflows and context assembly scripts, keep project workflows beside their content, and schedule reusable workflows.
+- **Reviewable and recoverable changes:** Inspect proposed file edits before applying them, restore revisions, or roll back changes from completed activity.
+- **Operational visibility:** Review workflow history, running work, tool details, and searchable System Activity.
+- **Flexible model support:** Use supported cloud or local models, including multimodal models and experimental OpenAI OAuth.
+- **Explicit security controls:** Store credentials encrypted, authorize connections independently, configure ingress authentication, and keep restricted execution as the default.
+- **Focused interface:** Work in a clean, minimal UI with focus and dark modes.
 
-And last but not least, **composability**. AssistantMD gives you a set of building blocks to shape
-agent behavior as much as you want. The default composition will get you pretty far
-by editing only markdown files. If that doesn't provide enough flexibility, you can create
-your own Python workflow and context assembly scripts. Reusable and scheduled workflows live
-in `AssistantMD/Authoring`, while project-specific workflows can live beside the content they
-process and be run explicitly by the chat agent. See the [Build Guide](docs/use/build-guide.md)
-for full details. Once AssistantMD is running, the chat agent can help you adapt the setup.
+Assistant.md is useful with its default setup, but its behavior is deliberately composable. Edit Markdown guidance for simple customization, or use sandboxed Python when you need custom context assembly and repeatable workflows. See [Getting the Most from Assistant.md](docs/use/getting-the-most.md) to get started.
 
 ## Documentation
 
+### Using Assistant.md
+
 - **[Installation Guide](docs/setup/installation.md)**
-- **[Development Setup](docs/setup/development.md)**
-- **[Build Guide](docs/use/build-guide.md)** — start here for the composable building blocks and default setup
+- **[Connections](docs/use/connections.md)** — connect Google accounts and remote or local MCP servers
+- **[Getting the Most from Assistant.md](docs/use/getting-the-most.md)** — start with the defaults and add capability as your needs grow
 - **[Authoring Reference](docs/use/authoring.md)** — workflow scripts and context assembly scripts
 - **[Importing Content](docs/use/importing-content.md)** — import monitoring, queue controls, and timing configuration
 - **[Security Considerations](docs/setup/security.md)**
 - **[Upgrading](docs/setup/upgrading.md)**
 - **[Release Notes](RELEASE_NOTES.md)**
 
+### Contributing
+
+- **[Architecture Overview](docs/development/architecture.md)**
+- **[Development Setup](docs/development/dev-setup.md)**
+
 ## Requirements
 
 - Docker Engine or Docker Desktop
-- At least one LLM API key or OpenAI subscription
+- Access to a supported cloud or local model
 - Comfort with the terminal
 
 ## Roadmap
 
-Likely future work includes UI element enhancement, improved provider caching, and carefully scoped
-household/team deployment options that preserve AssistantMD's single-user vault model.
-
-Exploratory areas include richer chat-session retrieval, prompt/eval tools, provider batch processing
-for cheaper long-running workflows, and broader multimodal support.
+Future work is focused on UI enhancements, stronger research and retrieval, richer session memory and interactive chat, broader file and multimodal support, more efficient automation, and carefully scoped household or team use.
 
 ## License
 

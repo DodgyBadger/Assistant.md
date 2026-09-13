@@ -10,12 +10,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class UserNotesCompactionWorkflowScenario(BaseScenario):
     """Ensure user notes compaction reads skill settings and skips small files."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("UserNotesCompactionWorkflowVault")
         self.create_file(

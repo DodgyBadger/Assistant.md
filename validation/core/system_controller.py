@@ -5,6 +5,7 @@ Manages AssistantMD system startup, shutdown, and configuration.
 """
 
 import asyncio
+import base64
 import datetime as dt_module
 import os
 import subprocess
@@ -18,17 +19,18 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import core.authoring.runtime.host as authoring_host_module
-from api.endpoints import register_exception_handlers
-from api.endpoints import router as api_router
+from api.application import create_application
+from core.authentication import load_authentication_policy
 from core.authoring.template_discovery import discover_vaults
 from core.logger import UnifiedLogger
 from core.runtime.bootstrap import bootstrap_runtime
 from core.runtime.config import RuntimeConfig
 from core.runtime.paths import set_bootstrap_roots
 from core.runtime.state import clear_runtime_context
+from core.secrets import reset_secrets_bootstrap_status
+from core.secrets.crypto import SECRET_KEY_ENV
+from core.settings import AppSettings
 from core.settings.store import SETTINGS_TEMPLATE, refresh_settings_cache
-
-from .paths import resolve_validation_system_root
 
 
 class SchedulerJobInfo:
@@ -64,19 +66,11 @@ class SystemController:
         set_bootstrap_roots(Path(self.test_data_root), self._system_root)
         self._seed_validation_settings()
 
-        # Use the real secrets file by default; allow override via env.
-        target_secrets = (
-            Path(os.environ["SECRETS_PATH"])
-            if os.environ.get("SECRETS_PATH")
-            else resolve_validation_system_root() / "secrets.yaml"
+        self._original_secret_key = os.environ.get(SECRET_KEY_ENV)
+        self._validation_secret_key = (
+            base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
         )
-        target_secrets.parent.mkdir(parents=True, exist_ok=True)
-        if not target_secrets.exists():
-            target_secrets.touch(exist_ok=True)
-        self._secrets_file = target_secrets
-
-        self._original_secrets_path: str | None = os.environ.get("SECRETS_PATH")
-        os.environ["SECRETS_PATH"] = str(self._secrets_file)
+        os.environ[SECRET_KEY_ENV] = self._validation_secret_key
 
         # Store current date for restoration
         self._current_test_date = None
@@ -128,9 +122,13 @@ class SystemController:
 
     def _create_api_app(self) -> FastAPI:
         """Construct FastAPI app matching production router for validation."""
-        app = FastAPI()
-        app.include_router(api_router)
-        register_exception_handlers(app)
+        policy = load_authentication_policy(
+            AppSettings(ASSISTANTMD_AUTH_MODE="disabled")
+        )
+        app = create_application(
+            authentication_policy=policy,
+            include_ui=True,
+        )
         app.state.runtime = None
         return app
 
@@ -139,11 +137,10 @@ class SystemController:
         if self.is_running:
             return
 
-        # Ensure secrets path points to the configured base for every start.
-        os.environ["SECRETS_PATH"] = str(self._secrets_file)
-
+        os.environ[SECRET_KEY_ENV] = self._validation_secret_key
         # Clear any existing runtime context for test isolation
         clear_runtime_context()
+        reset_secrets_bootstrap_status()
 
         try:
             # Create runtime configuration for validation
@@ -208,6 +205,7 @@ class SystemController:
 
         # Clear runtime context for test isolation
         clear_runtime_context()
+        reset_secrets_bootstrap_status()
         self._api_app.state.runtime = None
 
         if self._process:
@@ -217,11 +215,10 @@ class SystemController:
 
         self.is_running = False
 
-        if self._original_secrets_path is None:
-            os.environ.pop("SECRETS_PATH", None)
+        if self._original_secret_key is None:
+            os.environ.pop(SECRET_KEY_ENV, None)
         else:
-            os.environ["SECRETS_PATH"] = self._original_secrets_path
-        self._original_secrets_path = None
+            os.environ[SECRET_KEY_ENV] = self._original_secret_key
 
     def set_context_manager_now(self, value: datetime | None) -> None:
         """Override cache clock used by context manager in validation runs."""

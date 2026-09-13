@@ -5,39 +5,9 @@ description: Default template for regular chat. Passes full history. Loads soul.
 ```python
 """Default chat context: pass history, inject soul.md, playbooks, user context, and skills catalog if present."""
 
-# Fallback instructions used when `AssistantMD/playbook.md` does not exist.
-# Customize `AssistantMD/playbook.md` in the vault when you want durable
-# vault-wide guidance without editing this context script.
-DEFAULT_PLAYBOOK = (
-    "## Vault Work Policy\n"
-    "Treat the active vault as the user's source of truth for their files, "
-    "notes, drafts, and project context.\n\n"
-    "When a workspace playbook is loaded, merge it with this vault-level "
-    "guidance. Treat workspace guidance as more specific when the two directly "
-    "conflict.\n\n"
-    "## Goal Tracking\n"
-    "Use `goal_ops` only when the user is asking for work that is too large, "
-    "durable, or interruptible to track reliably in the current chat alone, "
-    "such as multi-step research, report drafting, project/client work, "
-    "vault maintenance, or work that may continue through workflows or future "
-    "sessions.\n\n"
-    "Do not create a goal for ordinary questions, quick edits, simple file "
-    "lookups, single-turn answers, or tasks whose next step is obvious and "
-    "can be completed immediately. When a durable goal already exists, prefer "
-    "looking it up or updating it over creating a duplicate."
-)
-
-DEFAULT_SOUL_INSTRUCTIONS = (
-    "Default stance: concise and curious. Act as a guide, not a sage.\n"
-    "- Start with the minimum useful answer.\n"
-    "- Ask brief clarifying questions when intent, scope, or constraints are unclear.\n"
-    "- Avoid long explanations until the user asks for depth.\n"
-    "- Prefer next-step guidance over broad monologues.\n"
-    "- Use active voice. Avoid contrast / framing-by-negation. \n"
-    "- Prefer tool-grounded answers when current facts or user files matter."
-)
-
-TRUNCATION_NOTICE = "[User notes truncated by default context script.]"
+SOUL_CHAR_LIMIT = 6000
+PLAYBOOK_CHAR_LIMIT = 6000
+WORKSPACE_CONTEXT_CHAR_LIMIT = 6000
 
 USER_NOTES_PREAMBLE_START = (
     "## User Notes\n"
@@ -87,6 +57,16 @@ SKILLS_PREAMBLE = (
 DEFAULT_USER_NOTES_FILE = "AssistantMD/user.md"
 DEFAULT_USER_NOTES_CHAR_LIMIT = 6000
 
+
+def bounded_text(value, max_chars, source):
+    # Keep optional files from overwhelming the chat context.
+    text = value.strip()
+    if len(text) <= max_chars:
+        return text
+    notice = f"[{source} truncated by default context script.]"
+    return text[:max_chars].rstrip() + f"\n\n{notice}"
+
+
 # Keep the normal chat transcript in context. The context script adds
 # instructions and reference material, but does not replace session history.
 history_result = await retrieve_history(scope="session", limit="all")
@@ -95,9 +75,9 @@ history = list(history_result.items)
 # `soul.md` is optional. It is a good place for broad assistant tone and stance.
 soul_result = await file_read(operation="read", path="AssistantMD/soul.md")
 soul_instructions = (
-    soul_result.return_value.strip()
+    bounded_text(soul_result.return_value, SOUL_CHAR_LIMIT, "Soul")
     if soul_result.metadata.get("status") == "completed"
-    else DEFAULT_SOUL_INSTRUCTIONS
+    else ""
 )
 
 
@@ -139,14 +119,6 @@ async def read_convention_file(path):
     return path, exact_result
 
 
-def bounded_text(value, max_chars):
-    # Keep optional files from overwhelming the chat context.
-    text = value.strip()
-    if len(text) <= max_chars:
-        return text
-    return text[:max_chars].rstrip() + f"\n\n{TRUNCATION_NOTICE}"
-
-
 def user_notes_preamble(path):
     return f"{USER_NOTES_PREAMBLE_START}{path}{USER_NOTES_PREAMBLE_END}"
 
@@ -186,9 +158,9 @@ def parse_positive_int(value, default_value):
 
 playbook_path, playbook_result = await read_convention_file("AssistantMD/playbook.md")
 playbook_instructions = (
-    playbook_result.return_value.strip()
+    bounded_text(playbook_result.return_value, PLAYBOOK_CHAR_LIMIT, "Vault playbook")
     if playbook_result.metadata.get("status") == "completed"
-    else DEFAULT_PLAYBOOK
+    else ""
 )
 
 workspace_playbook_instructions = ""
@@ -202,7 +174,11 @@ if workspace.exists:
         if workspace_playbook_text.strip():
             workspace_playbook_instructions = (
                 workspace_playbook_preamble(workspace_playbook_path)
-                + bounded_text(workspace_playbook_text, 6000)
+                + bounded_text(
+                    workspace_playbook_text,
+                    WORKSPACE_CONTEXT_CHAR_LIMIT,
+                    "Workspace playbook",
+                )
             )
 
 
@@ -226,7 +202,7 @@ if USER_NOTES_result.metadata.get("status") == "completed":
     if USER_NOTES_text.strip():
         USER_NOTES_instructions = (
             user_notes_preamble(USER_NOTES_file)
-            + bounded_text(USER_NOTES_text, USER_NOTES_char_limit)
+            + bounded_text(USER_NOTES_text, USER_NOTES_char_limit, "User notes")
         )
 
 workspace_instructions = ""
@@ -243,7 +219,11 @@ if workspace.exists:
         if workspace_overview_text.strip():
             workspace_instructions += (
                 workspace_readme_preamble(workspace_overview_path)
-                + bounded_text(workspace_overview_text, 6000)
+                + bounded_text(
+                    workspace_overview_text,
+                    WORKSPACE_CONTEXT_CHAR_LIMIT,
+                    "Workspace README",
+                )
             )
             workspace_readme_loaded = True
     if not workspace_readme_loaded:

@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import core.runtime.workflow_governor as governor_module
 from core.authoring.workflow_execution import WorkflowExecutionResult
+from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime.background import RuntimeBackgroundSpawner
 from core.runtime.execution_tasks import ExecutionTaskSource, TaskCoordinator
 from core.runtime.task_runner import ExecutionTaskRunner
@@ -67,6 +68,7 @@ class WorkflowGovernorTimeoutScenario(BaseScenario):
             result = await governor.execute_workflow(
                 global_id="TimeoutVault/slow_probe",
                 source=ExecutionTaskSource.SCHEDULER,
+                authority=LOCAL_USER_AUTHORITY,
             )
             tasks = await coordinator.list_tasks(kind="workflow")
             durable_run = run_store.get_latest_run("TimeoutVault/slow_probe")

@@ -11,6 +11,33 @@
   those narrower changes unless they protect an important cross-subsystem
   contract.
 
+### Scenario taxonomy and pre-merge profile
+
+Organize scenarios by what they exercise, not merely because they guard against
+a regression:
+
+- `integration/core`: deterministic integration, persistence, authorization,
+  isolation, encryption, and network-boundary contracts that run without
+  external services; this is the automatic CI and merge-gate profile;
+- `experiments`: live-model, external-service, stress, and diagnostic probes
+  that are not merge gates.
+
+`regression` and `security` are not scenario categories. Every deterministic
+contract required to protect a merge belongs in `integration/core`. Security
+probes that depend on live models, external content, or diagnostic judgment
+belong in `experiments` unless they can be made deterministic.
+
+The regular pre-merge validation profile is `integration/core`. Maintainers and
+CI run it with:
+
+```bash
+python validation/run_validation.py run integration/core
+```
+
+Experimental scenarios are opt-in and are not part of that profile.
+This profile does not change validation ownership: agents run relevant
+individual scenarios directly and request the maintainer-owned pre-merge result.
+
 ## Integration Scenario Assertions
 - Never assert on non-deterministic LLM prose in integration scenarios.
 - Prefer deterministic artifacts: API responses, file contents, persisted state, validation events, tool calls, exact helper outputs, or stable contract fragments from static templates.

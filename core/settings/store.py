@@ -16,6 +16,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from core.connections import ConnectionRequirement
 from core.runtime.paths import get_system_root
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
@@ -51,6 +52,7 @@ class ToolConfig(BaseModel):
     requires_secrets: list[str] = Field(default_factory=list)
     user_editable: bool = False
     chat_visible: bool = True
+    requires_connection: ConnectionRequirement | None = None
 
     def required_secret_keys(self) -> list[str]:
         return list(self.requires_secrets)
@@ -170,12 +172,16 @@ def load_settings() -> SettingsFile:
 def refresh_settings_cache() -> None:
     """Clear the settings cache so future calls reload from disk."""
     load_settings.cache_clear()  # type: ignore[attr-defined]
+    _get_template_tools_config.cache_clear()
 
 
 def save_settings(settings: SettingsFile) -> None:
     """Persist settings configuration to disk using atomic write."""
     path = get_active_settings_path()
-    data = settings.model_dump(mode="python")
+    # Settings may contain string-backed enums used by runtime-only availability
+    # checks. Dump through Pydantic's JSON mode so the persisted YAML contains
+    # their stable string values rather than Python enum objects.
+    data = settings.model_dump(mode="json")
 
     tmp_path = path.with_suffix(".tmp")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -200,13 +206,27 @@ def get_general_settings() -> dict[str, SettingsEntry]:
 
 def get_tools_config() -> dict[str, ToolConfig]:
     """Get tools configuration section from settings."""
-    return load_settings().tools
+    configured = load_settings().tools
+    return {**_get_template_tools_config(), **configured}
+
+
+@lru_cache(maxsize=1)
+def _get_template_tools_config() -> dict[str, ToolConfig]:
+    """Load packaged built-in tools so additions work before settings repair."""
+    try:
+        template_raw = (
+            yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+        )
+        return SettingsFile.model_validate(
+            {"tools": template_raw.get("tools", {})}
+        ).tools
+    except (FileNotFoundError, ValidationError, yaml.YAMLError):
+        return {}
 
 
 def get_enabled_tool_names() -> list[str]:
     """Return registered tool names not disabled by app-wide policy."""
-    settings = load_settings()
-    tools = settings.tools
+    tools = get_tools_config()
     disabled = set(get_disabled_tool_names())
     return [
         name
@@ -218,7 +238,7 @@ def get_enabled_tool_names() -> list[str]:
 def get_disabled_tool_names() -> list[str]:
     """Return configured disabled tool names that still exist in the registry."""
     settings = load_settings()
-    tools = settings.tools
+    tools = get_tools_config()
     entry = settings.settings.get("disabled_tools")
     raw_disabled = getattr(entry, "value", None)
     if entry is None:
@@ -258,8 +278,21 @@ def get_disabled_tool_names() -> list[str]:
 
 def get_enabled_tools_config() -> dict[str, ToolConfig]:
     """Return configured tools filtered by the app-wide enabled tool list."""
+    from core.connections import connection_requirement_available
+
     tools = get_tools_config()
-    return {name: tools[name] for name in get_enabled_tool_names() if name in tools}
+    enabled: dict[str, ToolConfig] = {}
+    for name in get_enabled_tool_names():
+        config = tools.get(name)
+        if config is None:
+            continue
+        requirement = config.requires_connection
+        if requirement is not None and not connection_requirement_available(
+            requirement
+        ):
+            continue
+        enabled[name] = config
+    return enabled
 
 
 def get_models_config() -> dict[str, ModelConfig]:

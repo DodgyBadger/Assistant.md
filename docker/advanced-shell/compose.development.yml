@@ -1,0 +1,60 @@
+name: assistantmd-advanced-shell-dev
+
+services:
+  advanced-shell:
+    build:
+      context: ../..
+      dockerfile: docker/advanced-shell/Dockerfile
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${ADVANCED_SHELL_BIND_ADDRESS:-127.0.0.1}:${ADVANCED_SHELL_HOST_PORT:-22222}:2222"
+    networks:
+      default:
+        aliases:
+          - advanced-shell
+    volumes:
+      - host_identity:/run/advanced-shell/host-identity
+      - host_public:/run/advanced-shell/host-public
+      - type: bind
+        source: ${ADVANCED_SHELL_CLIENT_PUBLIC_ROOT:?set ADVANCED_SHELL_CLIENT_PUBLIC_ROOT}/client_identity.pub
+        target: /run/advanced-shell/client-public/client_identity.pub
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: volume
+        source: workspace
+        target: /workspace
+      - type: volume
+        source: home
+        target: /home/advanced-shell
+    read_only: true
+    tmpfs:
+      - /run/sshd:size=1m,mode=0755
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - SYS_CHROOT
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222;
+          IFS= read -r banner <&3; [[ $$banner == SSH-* ]]'
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  host_identity:
+  host_public:
+  workspace:
+  home:

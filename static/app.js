@@ -102,6 +102,14 @@ const dashElements = {
 const configElements = {
     statusBanner: document.getElementById('config-status-banner'),
     statusMessages: document.getElementById('config-status-messages'),
+    publicUrl: document.getElementById('configured-public-url'),
+    advancedShellExecutionMode: document.getElementById('advanced-shell-execution-mode'),
+    advancedShellHost: document.getElementById('advanced-shell-host'),
+    advancedShellPort: document.getElementById('advanced-shell-port'),
+    advancedShellUser: document.getElementById('advanced-shell-user'),
+    advancedShellCoordinates: document.querySelectorAll('[data-advanced-shell-coordinate]'),
+    advancedShellRestrictedNote: document.getElementById('advanced-shell-restricted-note'),
+    advancedShellReadiness: document.getElementById('advanced-shell-readiness'),
     configTab: document.getElementById('configuration-tab')
 };
 
@@ -217,7 +225,7 @@ const chatRendering = window.ChatRendering.create({
         openChatSettings: () => sessionControls.openSessionBrowserModal(),
         retryLatestFailure,
         enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
-        renderEditProposalArtifact: (container, artifactRef) => editProposals.renderArtifact(container, artifactRef),
+        renderEditProposalArtifact: (container, artifactRef, options) => editProposals.renderArtifact(container, artifactRef, options),
     },
 });
 
@@ -1044,11 +1052,12 @@ async function fetchSessions(vault, preferredSessionId = '') {
     }
 }
 
-async function loadSession(sessionId) {
+async function loadSession(sessionId, options = {}) {
     const vault = chatElements.vaultSelector?.value || '';
     if (!vault || !sessionId) {
         return;
     }
+    chatRendering.closeToolCallDetails();
     let loadedSessionId = '';
     try {
         state.pendingDeferredReview = null;
@@ -1078,7 +1087,7 @@ async function loadSession(sessionId) {
         if (chatElements.workspacePathInput) {
             chatElements.workspacePathInput.value = payload.workspace?.path || '';
         }
-        renderPersistedSession(payload);
+        renderPersistedSession(payload, options);
         if (state.pendingDeferredReview) {
             const reviewMessage = createAssistantStreamingMessage();
             handleDeferredReviewEvent(reviewMessage, state.pendingDeferredReview);
@@ -1097,6 +1106,28 @@ async function loadSession(sessionId) {
     }
     if (loadedSessionId && !state.activeChatTaskId && state.sessionId === loadedSessionId) {
         await reattachActiveChatTask(loadedSessionId, vault);
+    }
+}
+
+async function reconcileCommittedToolCalls(context, vault, sessionId) {
+    try {
+        const response = await fetch(
+            `api/chat/sessions/${encodeURIComponent(sessionId)}?vault_name=${encodeURIComponent(vault)}`,
+            { cache: 'no-store' }
+        );
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        if (state.sessionId !== sessionId || chatElements.vaultSelector?.value !== vault) {
+            return;
+        }
+        chatRendering.reconcileToolCallPersistence(context, payload.tool_calls);
+    } catch (error) {
+        console.warn('Unable to reconcile committed tool details:', error);
+        if (state.sessionId === sessionId && chatElements.vaultSelector?.value === vault) {
+            chatRendering.reconcileToolCallPersistence(context, []);
+        }
     }
 }
 
@@ -1146,8 +1177,8 @@ async function reattachActiveChatTask(sessionId, vault) {
     }
 }
 
-function renderPersistedSession(payload) {
-    chatRendering.renderPersistedSession(payload);
+function renderPersistedSession(payload, options = {}) {
+    chatRendering.renderPersistedSession(payload, options);
 }
 
 
@@ -1265,6 +1296,9 @@ function setupTabs() {
 }
 
 function switchTab(tabName) {
+    if (tabName !== 'configuration') {
+        window.ConfigurationPanel?.onTabDeactivated?.();
+    }
     Object.entries(tabs).forEach(([name, tabControls]) => {
         if (!tabControls.button || !tabControls.content) return;
 
@@ -1296,7 +1330,7 @@ function getConfigurationWarnings() {
     const status = state.systemStatus;
     if (!status || !status.configuration_status) return [];
     const issues = status.configuration_status.issues || [];
-    return issues.filter((issue) => {
+    const warnings = issues.filter((issue) => {
         const severity = (issue.severity || '').toLowerCase();
         if (severity !== 'warning' && severity !== 'error') {
             return false;
@@ -1307,6 +1341,14 @@ function getConfigurationWarnings() {
         }
         return true;
     });
+    if (status.authentication_warning) {
+        warnings.unshift({
+            name: 'authentication:disabled',
+            severity: 'warning',
+            message: status.authentication_warning
+        });
+    }
+    return warnings;
 }
 
 // Fetch metadata from API
@@ -1424,6 +1466,32 @@ async function fetchSystemStatus() {
         if (!response.ok) throw new Error('Failed to fetch status');
 
         state.systemStatus = await response.json();
+        const publicUrl = state.systemStatus?.system?.public_url || '';
+        if (configElements.publicUrl) {
+            configElements.publicUrl.textContent = publicUrl || 'Not configured';
+        }
+        const advancedShell = state.systemStatus?.advanced_shell;
+        const advancedMode = advancedShell?.execution_mode === 'advanced';
+        if (configElements.advancedShellExecutionMode) {
+            configElements.advancedShellExecutionMode.textContent = advancedShell?.execution_mode || 'Unavailable';
+        }
+        if (configElements.advancedShellHost) {
+            configElements.advancedShellHost.textContent = advancedShell?.host || 'Unavailable';
+        }
+        if (configElements.advancedShellPort) {
+            configElements.advancedShellPort.textContent = advancedShell?.port ?? 'Unavailable';
+        }
+        if (configElements.advancedShellUser) {
+            configElements.advancedShellUser.textContent = advancedShell?.user || 'Unavailable';
+        }
+        configElements.advancedShellCoordinates.forEach((element) => {
+            element.classList.toggle('opacity-50', !advancedMode);
+            element.setAttribute('aria-disabled', advancedMode ? 'false' : 'true');
+        });
+        configElements.advancedShellRestrictedNote?.classList.toggle('hidden', advancedMode);
+        if (configElements.advancedShellReadiness) {
+            configElements.advancedShellReadiness.textContent = advancedShell?.readiness_message || 'Unavailable';
+        }
         const envDefaultModel = state.systemStatus && state.systemStatus.configuration_status
             ? state.systemStatus.configuration_status.default_model
             : null;
@@ -1450,7 +1518,7 @@ async function fetchSystemStatus() {
             dashElements.workflowsStatus.innerHTML = '<p class="state-error text-sm">Failed to fetch workflow status</p>';
         }
         if (dashElements.vaultActivityStatus) {
-            dashElements.vaultActivityStatus.innerHTML = '<p class="state-error text-sm">Failed to fetch AssistantMD activity</p>';
+        dashElements.vaultActivityStatus.innerHTML = '<p class="state-error text-sm">Failed to fetch Assistant.md activity</p>';
         }
     }
 }
@@ -1782,10 +1850,18 @@ async function streamStartedChatTask(started, vault, abortController) {
         toolCount: assistantMessage.toolStatusMap.size,
         status: streamResult.finished ? 'done' : 'incomplete'
     });
+    if (streamResult.finishReason === 'tool_review_required') {
+        await reconcileCommittedToolCalls(
+            assistantMessage,
+            vault,
+            state.sessionId || ''
+        );
+    }
     if (vault && streamResult.finishReason !== 'tool_review_required') {
         await fetchSessions(vault, state.sessionId || '');
         if (state.sessionId) {
-            await loadSession(state.sessionId);
+            const reopenToolCallId = chatRendering.getActiveToolDetailId();
+            await loadSession(state.sessionId, { reopenToolCallId });
         }
     }
 }
@@ -2150,7 +2226,7 @@ function updateStatus(message) {
     } else {
         // Show warnings in banner and highlight tab with background
         configElements.statusBanner.classList.remove('hidden');
-        const noticeHtml = noticeLines.map(line => `<div>• ${line}</div>`).join('');
+        const noticeHtml = noticeLines.map(line => `<div>• ${escapeHtml(line)}</div>`).join('');
         let messageHtml = noticeHtml;
         if (repairNeeded) {
             messageHtml = `

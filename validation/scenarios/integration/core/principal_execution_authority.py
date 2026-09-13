@@ -5,12 +5,29 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import sys
+import tempfile
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.chat.chat_store import ChatStore
-from core.identity import (
+_direct_run_root: tempfile.TemporaryDirectory[str] | None = None
+if __name__ == "__main__":
+    from core.runtime.paths import set_bootstrap_roots
+
+    _direct_run_root = tempfile.TemporaryDirectory(
+        prefix="assistantmd-principal-authority-"
+    )
+    direct_root = Path(_direct_run_root.name)
+    direct_data_root = direct_root / "data"
+    direct_system_root = direct_root / "system"
+    direct_data_root.mkdir()
+    direct_system_root.mkdir()
+    set_bootstrap_roots(direct_data_root, direct_system_root)
+
+from core.chat.chat_store import ChatStore  # noqa: E402
+from core.connections import GoogleConnectionCreate  # noqa: E402
+from core.identity import (  # noqa: E402
     LOCAL_USER_AUTHORITY,
     LOCAL_USER_PRINCIPAL_ID,
     SYSTEM_AUTHORITY,
@@ -19,12 +36,22 @@ from core.identity import (
     require_current_execution_authority,
     use_execution_authority,
 )
-from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
-from core.runtime.state import get_runtime_context
-from core.runtime.task_runner import ExecutionTaskSpec
-from core.runtime.workflow_governor import _authority_for_workflow_source
-from core.system_migrations import run_system_migrations
-from validation.core.base_scenario import BaseScenario
+from core.integrations.google import (  # noqa: E402
+    GMAIL_READONLY_SCOPE,
+    GOOGLE_IDENTITY_SCOPES,
+    GoogleOAuthTokenState,
+)
+from core.runtime.execution_tasks import (  # noqa: E402
+    ExecutionTaskKind,
+    ExecutionTaskSource,
+)
+from core.runtime.state import get_runtime_context  # noqa: E402
+from core.runtime.task_runner import ExecutionTaskSpec  # noqa: E402
+from core.runtime.workflow_governor import (  # noqa: E402
+    _authority_for_workflow_source,
+)
+from core.system_migrations import run_system_migrations  # noqa: E402
+from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class PrincipalExecutionAuthorityScenario(BaseScenario):
@@ -247,6 +274,52 @@ class PrincipalExecutionAuthorityScenario(BaseScenario):
             "Nested work should inherit the active authority explicitly",
         )
 
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            runtime.built_in_connections.create_google_connection(
+                GoogleConnectionCreate(
+                    display_name="Google",
+                    client_id="workflow.apps.googleusercontent.com",
+                )
+            )
+            assert runtime.google_connection is not None
+            runtime.google_connection.set_client_secret(
+                LOCAL_USER_AUTHORITY, "workflow-client-secret"
+            )
+            runtime.google_connection.save_token_state(
+                LOCAL_USER_AUTHORITY,
+                GoogleOAuthTokenState(
+                    access_token="workflow-access-token",
+                    refresh_token="workflow-refresh-token",
+                    expires_at=(datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                    scopes=(*GOOGLE_IDENTITY_SCOPES, GMAIL_READONLY_SCOPE),
+                    account_id="workflow-account",
+                    account_email="workflow@example.com",
+                ),
+            )
+
+        async def _gmail_workflow_status(_task) -> dict[str, object]:
+            assert runtime.gmail is not None
+            return runtime.gmail.status(require_current_execution_authority())
+
+        gmail_workflow_status = await runtime.task_runner.run_inline(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.WORKFLOW,
+                scope="principal:gmail-workflow",
+                source=ExecutionTaskSource.SCHEDULER,
+                label="principal-gmail-workflow",
+                authority=LOCAL_USER_AUTHORITY,
+            ),
+            _gmail_workflow_status,
+        )
+        self.soft_assert_equal(
+            (
+                gmail_workflow_status.get("available"),
+                gmail_workflow_status.get("account_email"),
+            ),
+            (True, "workflow@example.com"),
+            "A scheduled workflow should resolve its local-user Gmail connection",
+        )
+
         thread_observed = await runtime.task_runner.run_inline(
             ExecutionTaskSpec(
                 kind=ExecutionTaskKind.INGESTION,
@@ -276,10 +349,14 @@ class PrincipalExecutionAuthorityScenario(BaseScenario):
             missing_workflow_authority_rejected,
             "API workflows should fail without request or task authority",
         )
-        self.soft_assert_equal(
-            _authority_for_workflow_source(ExecutionTaskSource.SCHEDULER).principal_id,
-            SYSTEM_AUTHORITY.principal_id,
-            "Scheduled workflows should default to system authority",
+        missing_scheduler_authority_rejected = False
+        try:
+            _authority_for_workflow_source(ExecutionTaskSource.SCHEDULER)
+        except RuntimeError:
+            missing_scheduler_authority_rejected = True
+        self.soft_assert(
+            missing_scheduler_authority_rejected,
+            "Scheduled workflows should require their captured owner authority",
         )
         with use_execution_authority(LOCAL_USER_AUTHORITY):
             inherited_workflow = _authority_for_workflow_source(

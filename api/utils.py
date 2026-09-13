@@ -196,13 +196,24 @@ def _classify_api_exception(
     base_details: dict[str, Any],
 ) -> FailureClassification:
     phase = str(base_details.get("phase") or "api_request")
-    retryable = _api_status_retryable(exception.status_code)
+    retryable = (
+        _api_status_retryable(exception.status_code)
+        and base_details.get("retry_safe") is not False
+    )
     failure_kind = _api_failure_kind(exception.status_code, exception.error_type)
     suggested_action = _api_suggested_action(
         status_code=exception.status_code,
         retryable=retryable,
         error_type=exception.error_type,
     )
+    if (
+        base_details.get("committed") is True
+        and base_details.get("retry_safe") is False
+    ):
+        suggested_action = (
+            "The requested change committed. Refresh current state and resolve "
+            "the reported runtime failure before taking further action."
+        )
     return FailureClassification(
         error_type=exception.error_type,
         failure_kind=failure_kind,

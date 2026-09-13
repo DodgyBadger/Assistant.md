@@ -110,6 +110,7 @@ class WorkflowExecutionService:
                 # Create job arguments with test data root for clean dependency injection
                 job_args = create_job_args(
                     global_id,
+                    workflow_def.owner_principal_id,
                     data_root=str(self.test_vaults_path),
                     file_path=workflow_def.file_path,
                 )

@@ -132,7 +132,8 @@ are ordered by severity; summaries and cleanup suggestions come afterward.
 - Verify logging coverage for changed paths:
   start, decision, success, and failure milestones with structured context.
 - Confirm docs and validation still describe the post-refactor behavior.
-  This includes `docs/architecture/` when subsystem boundaries, responsibilities, or execution flow changed.
+  This includes `docs/development/architecture.md` when subsystem ownership,
+  trust boundaries, or major execution flows change.
 - If the refactor reveals a bug, fix it explicitly and keep the scope clear.
 - Ask before building compatibility shims or adapters.
 - When a dev branch is approaching finalization, consider dependency freshness as part of the hardening pass:

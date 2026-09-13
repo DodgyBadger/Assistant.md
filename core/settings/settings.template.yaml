@@ -1,4 +1,4 @@
-# AssistantMD Settings Template
+# Assistant.md Settings Template
 #
 # This template seeds `system/settings.yaml` when no user configuration
 # exists. Edit a copy under `system/settings.yaml` rather than this file.
@@ -125,6 +125,11 @@ settings:
     description: "Maximum number of workflows allowed to run at the same time across all vaults. 0 disables the global workflow concurrency limit."
     category: "Workflows"
     restart_required: false
+  mcp_max_concurrent_advanced_shell_stdio_launches:
+    value: 4
+    description: "Maximum advanced-shell stdio providers Assistant.md may initialize concurrently. This bounds managed MCP launch fan-out, not commands started directly through the shell tool."
+    category: "Advanced"
+    restart_required: true
   browser_navigation_timeout_seconds:
     value: 20
     description: "Navigation timeout in seconds for the browser extraction tool."
@@ -331,31 +336,31 @@ settings:
 models:
   gemini:
     provider: google
-    model_string: gemini-2.5-pro
+    model_string: gemini-3.1-pro-preview
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   gemini-flash:
     provider: google
-    model_string: gemini-2.5-flash
+    model_string: gemini-flash-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   gemini-flash-lite:
     provider: google
-    model_string: gemini-2.5-flash-lite
+    model_string: gemini-flash-lite-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   sonnet:
     provider: anthropic
-    model_string: claude-sonnet-4-5
+    model_string: claude-sonnet-5
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   opus:
     provider: anthropic
-    model_string: claude-opus-4-1
+    model_string: claude-opus-5
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
@@ -365,33 +370,39 @@ models:
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
+  astra:
+    provider: openai
+    model_string: gpt-6-astra
+    capabilities: ["text", "vision"]
+    description: null
+    user_editable: true
   gpt:
     provider: openai
-    model_string: gpt-5
+    model_string: gpt-5.6-sol
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   gpt-mini:
     provider: openai
-    model_string: gpt-5-mini
+    model_string: gpt-5.6-terra
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   gpt-nano:
     provider: openai
-    model_string: gpt-5-nano
+    model_string: gpt-5.6-luna
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
   grok:
     provider: grok
-    model_string: grok-4
+    model_string: grok-4.6-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
-  grok-mini:
+  grok-fast:
     provider: grok
-    model_string: grok-3-mini
+    model_string: grok-4.3-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
@@ -411,18 +422,6 @@ models:
     provider: mistral
     model_string: mistral-medium-latest
     capabilities: ["text", "vision"]
-    description: null
-    user_editable: true
-  magistral-medium:
-    provider: mistral
-    model_string: magistral-medium-latest
-    capabilities: ["text"]
-    description: null
-    user_editable: true
-  magistral-small:
-    provider: mistral
-    model_string: magistral-small-latest
-    capabilities: ["text"]
     description: null
     user_editable: true
   embeddings:
@@ -472,9 +471,16 @@ providers:
     user_editable: true
 
 tools:
+  gmail:
+    module: core.tools.gmail
+    description: "Read connected Gmail accounts, save bounded PDF attachments, and create unsent drafts when enabled"
+    requires_secrets: []
+    requires_connection: google.gmail.read
+    user_editable: false
+    chat_visible: true
   content_import:
     module: core.tools.content_import
-    description: "Submit URLs or vault files for durable import to Markdown and inspect import jobs"
+    description: "Import URLs or vault files to durable Markdown immediately by default, or queue and inspect background jobs"
     requires_secrets: []
     user_editable: false
   web_search:

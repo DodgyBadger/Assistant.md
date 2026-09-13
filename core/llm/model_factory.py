@@ -34,6 +34,7 @@ from core.llm.openai_auth import OPENAI_AUTH_MODE_OAUTH
 from core.llm.openai_runtime import build_openai_provider_with_resolution
 from core.llm.thinking import ThinkingValue
 from core.logger import UnifiedLogger
+from core.secrets import require_secrets_ready
 from core.settings import (
     get_default_api_timeout,
     get_default_max_output_tokens,
@@ -200,6 +201,8 @@ def build_model_instance(
     execution = resolve_model_execution_spec(value)
     if execution.mode == "skip":
         return execution
+
+    require_secrets_ready()
 
     if normalized_model == "test":
         return TestModel()

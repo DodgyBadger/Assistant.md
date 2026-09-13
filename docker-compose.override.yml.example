@@ -1,17 +1,82 @@
-# Optional docker-compose override for custom builds
-# Copy to docker-compose.override.yml and adjust as needed
+# Optional structural customizations for the tracked docker-compose.yml.
+#
+# Copy this file to docker-compose.override.yml only when you need a custom
+# build, non-default runtime UID/GID, extra Docker network, or extra bind mount.
+# Delete sections you do not use. Keep ordinary values such as host paths,
+# port bindings, image tags, authentication, and execution mode in .env.
 
 services:
   assistant:
+    # Build AssistantMD from this checkout instead of only pulling the image.
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        USER_ID: 1000   # Edit to desired UID (e.g., 0 for root)
-        GROUP_ID: 1000  # Edit to desired GID
-    # Run the container as your chosen user to align file ownership.
-    user: "1000:1000"   # Keep in sync with USER_ID/GROUP_ID above
-    
-    # Optional development-only bind mounts (not for regular use)
+        USER_ID: 1000
+        GROUP_ID: 1000
+
+    # IDs must be non-root decimal integers. Keep this in sync with
+    # USER_ID/GROUP_ID when host ownership requires a runtime user other than
+    # the published image's UID/GID 1000. Changing IDs does not repair ownership
+    # of existing persistent files or volumes.
+    user: "1000:1000"
+
+    # A reverse proxy in another Compose project needs a shared external
+    # network. Uncomment this complete block and the matching top-level network
+    # declaration below. Preserve assistantmd_advanced_shell.
+    # networks:
+    #   - assistantmd_advanced_shell
+    #   - caddy_default
+
+    # When a reverse proxy runs in a container on the shared network above,
+    # uncomment this line to remove the base file's host-published port. The
+    # proxy can reach AssistantMD directly at assistant:8000. Keep the default
+    # loopback port when the proxy runs on the host instead.
+    # ports: !reset []
+
+    # Development-only source mount. Regular deployments should build the image.
     # volumes:
-    #  - .:/app
+    #   - type: bind
+    #     source: .
+    #     target: /app
+
+  advanced-shell:
+    # Build the matching advanced-shell image from the same checkout. This
+    # service is still started only when COMPOSE_PROFILES includes `advanced`.
+    build:
+      context: .
+      dockerfile: docker/advanced-shell/Dockerfile
+      args:
+        # IDs must be non-root decimal integers. Changing them does not repair
+        # ownership of existing advanced-shell home or workspace volumes.
+        SHELL_USER_ID: 1000
+        SHELL_GROUP_ID: 1000
+
+    # The advanced shell defaults to isolated named volumes. For direct file
+    # exchange, first create AssistantMD/shell-exchange (or choose another
+    # existing folder) inside one vault, then mount only that exact folder at
+    # /exchange. create_host_path stays false so Docker cannot silently create a
+    # root-owned, unwritable source directory. Prefer read-only mounts for any
+    # additional vault content.
+    # volumes:
+    #   - type: bind
+    #     source: /absolute/path/to/exchange
+    #     target: /exchange
+    #     bind:
+    #       create_host_path: false
+    #   - type: bind
+    #     source: /absolute/path/to/one/vault
+    #     target: /vaults/example
+    #     read_only: true
+    #     bind:
+    #       create_host_path: false
+
+    # Optional resource-limit overrides.
+    # mem_limit: 1g
+    # cpus: 2.0
+
+# Uncomment with the assistant.networks block when joining an existing proxy
+# network. Change both occurrences of caddy_default when yours has another name.
+# networks:
+#   caddy_default:
+#     external: true

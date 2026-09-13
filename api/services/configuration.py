@@ -28,6 +28,7 @@ from core.llm.openai_oauth import (
 from core.llm.openai_oauth import (
     start_openai_oauth as start_openai_oauth_attempt,
 )
+from core.migration_backups import prepare_migration_backup_path
 from core.runtime.paths import (
     resolve_bootstrap_data_root,
     resolve_bootstrap_system_root,
@@ -152,7 +153,6 @@ def repair_settings_from_template() -> SystemSettingsResponse:
     # Ensure bootstrap roots exist for path resolution
     set_bootstrap_roots(resolve_bootstrap_data_root(), resolve_bootstrap_system_root())
     active_path = get_active_settings_path()
-    backup_path = active_path.with_suffix(".bak")
 
     try:
         template_raw = (
@@ -267,6 +267,9 @@ def repair_settings_from_template() -> SystemSettingsResponse:
     _prune_section("providers", default_user_editable=False)
 
     try:
+        backup_path = prepare_migration_backup_path(
+            active_path.parent, "settings.yaml.bak"
+        )
         shutil.copyfile(active_path, backup_path)
     except Exception as exc:
         raise SystemConfigurationError(

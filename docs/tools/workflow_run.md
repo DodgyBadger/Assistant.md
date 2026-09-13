@@ -2,9 +2,7 @@
 
 ## Purpose
 
-List managed automations in the current vault and run, start, inspect, cancel,
-enable, or disable them. `run` and `start` can also execute an explicit
-vault-relative workflow file stored with a project.
+List managed automations in the current vault and run, start, inspect, cancel, enable, or disable them. `run` and `start` can also execute an explicit vault-relative workflow file stored with a project.
 
 ## When To Use
 
@@ -27,8 +25,7 @@ After `start`, use `status` with the returned `task_id` before reporting complet
 
 - `operation`: one of `list`, `run`, `start`, `status`, `cancel`, `enable_workflow`, `disable_workflow`
 - `workflow_name`: workflow name relative to `AssistantMD/Authoring`
-- `workflow_path`: explicit vault-relative `.md` workflow path for `run` or
-  `start`; mutually exclusive with `workflow_name`
+- `workflow_path`: explicit vault-relative `.md` workflow path for `run` or `start`; mutually exclusive with `workflow_name`
 - `step_name`: optional step for `run` or `start`
 - `task_id`: execution task id returned by `start`, required for `status` and `cancel`
 
@@ -63,21 +60,15 @@ workflow_run(operation="cancel", task_id="task-id-from-start")
 
 ## Output Shape
 
-Returns plain text results for discovery, execution, or lifecycle operations.
-Invalid requests and execution failures use a structured failed tool envelope.
-When called directly from Monty, that envelope raises `RuntimeError`; successful
-operations and non-error lifecycle outcomes remain ordinary tool results.
+Returns plain text results for discovery, execution, or lifecycle operations. Invalid requests and execution failures use a structured failed tool envelope. When called directly from Monty, that envelope raises `RuntimeError`; successful operations and non-error lifecycle outcomes remain ordinary tool results.
 
 ## Notes
 
 - the current vault is inferred from chat or workflow context
 - use names relative to `AssistantMD/Authoring`
-- use `workflow_path` when the workflow belongs with a project rather than the
-  managed Authoring catalog
-- a path-based workflow must remain inside the current vault, use a `.md`
-  extension, declare `run_type: workflow`, and contain exactly one Python block
-- path-based workflows are explicit runs: they are not listed, scheduled,
-  enabled, disabled, or used as context templates
+- use `workflow_path` when the workflow belongs with a project rather than the managed Authoring catalog
+- a path-based workflow must remain inside the current vault, use a `.md` extension, declare `run_type: workflow`, and contain exactly one Python block
+- path-based workflows are explicit runs: they are not listed, scheduled, enabled, disabled, or used as context templates
 - `run` dispatches by `run_type`
 - `run_type: workflow` executes the workflow path
 - `run_type: context` performs a dry-run execution and reports assembled-context details

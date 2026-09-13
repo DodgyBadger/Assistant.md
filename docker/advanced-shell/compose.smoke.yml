@@ -1,0 +1,76 @@
+name: assistantmd-advanced-shell-smoke
+
+services:
+  advanced-shell:
+    build:
+      context: ../..
+      dockerfile: docker/advanced-shell/Dockerfile
+    init: true
+    restart: "no"
+    networks:
+      - private
+    volumes:
+      - host_identity:/run/advanced-shell/host-identity
+      - host_public:/run/advanced-shell/host-public
+      - client_public:/run/advanced-shell/client-public:ro
+      - type: volume
+        source: workspace
+        target: /workspace
+    read_only: true
+    tmpfs:
+      - /run/sshd:size=1m,mode=0755
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - SYS_CHROOT
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222;
+          IFS= read -r banner <&3; [[ $$banner == SSH-* ]]'
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  client:
+    build:
+      context: ../..
+      dockerfile: docker/advanced-shell/smoke-client.Dockerfile
+    init: true
+    restart: "no"
+    networks:
+      - private
+    environment:
+      ASSISTANTMD_EXECUTION_MODE: advanced
+      ASSISTANTMD_SHELL_HOST: advanced-shell
+      ASSISTANTMD_SHELL_PORT: 2222
+    volumes:
+      - client_identity:/run/advanced-shell/client-identity
+      - client_public:/run/advanced-shell/client-public
+      - host_public:/run/advanced-shell/host-public:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+networks:
+  private:
+    internal: true
+
+volumes:
+  client_identity:
+  client_public:
+  host_identity:
+  host_public:
+  workspace:

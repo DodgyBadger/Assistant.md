@@ -21,12 +21,13 @@ from pydantic_ai.messages import (
     ToolReturnPart,
 )
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class DelegateToolScenario(BaseScenario):
     """Validate delegate tool behavior via stable validation events and output artifacts."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("DelegateToolVault")
         self.create_file(vault, "notes/content.md", "DELEGATE_CONTENT")
@@ -648,10 +649,11 @@ class DelegateToolScenario(BaseScenario):
                 "failed",
                 "Delegate failure result should expose a failed terminal state",
             )
-            self.soft_assert_equal(
-                limit_result_event.get("result_metadata", {}).get("failure_kind"),
-                "execution_limit",
-                "Delegate failure result should preserve its structured failure kind",
+            self.soft_assert(
+                "result" not in limit_result_event
+                and "result_metadata" not in limit_result_event
+                and "artifact_ref" not in limit_result_event,
+                "Delegate stream events should omit result details",
             )
             self.soft_assert(
                 "tool-call limit" in limit_failure["text"],

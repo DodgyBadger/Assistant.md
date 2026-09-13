@@ -12,21 +12,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from pydantic_ai.messages import ToolReturn
 
 from core.authoring.shared.tool_binding import resolve_tool_binding
-from core.ingestion.jobs import claim_queued_job, fail_processing_jobs
+from core.identity import LOCAL_USER_PRINCIPAL_ID
+from core.ingestion.jobs import claim_queued_job, count_jobs, fail_processing_jobs
 from core.runtime.state import get_runtime_context
 from core.tools.content_import import ContentImport
 from core.web.models import WebFetchResult
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class ContentImportToolScenario(BaseScenario):
     """Prove singular/batch submission, status, preservation, and URL PDF routing."""
 
+    @with_local_user_authority
     async def test_scenario(self) -> None:
         vault = self.create_vault("ContentImportToolVault")
         local_pdf = vault / "Research" / "local.pdf"
         local_pdf.parent.mkdir(parents=True, exist_ok=True)
         local_pdf.write_bytes(self.make_pdf("Local content import validation"))
+        second_pdf = vault / "Research" / "second.pdf"
+        second_pdf.write_bytes(self.make_pdf("Second content import validation"))
 
         await self.start_system()
         ocr_unavailable = patch(
@@ -63,11 +67,10 @@ class ContentImportToolScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 submit_items[0].get("status") if submit_items else None,
-                "queued",
-                "submit should return queued state",
+                "completed",
+                "submit should process immediately by default",
             )
 
-            await get_runtime_context().ingestion_worker.run_once()
             status = await tool.function(operation="status", job_ids=local_job_id)
             status_items = (status.metadata or {}).get("items") or []
             status_payload = json.loads(str(status.return_value))
@@ -113,14 +116,42 @@ class ContentImportToolScenario(BaseScenario):
                 "content_import must preserve a vault-relative source",
             )
 
+            ingestion_tasks = await get_runtime_context().task_coordinator.list_tasks(
+                kind="ingestion"
+            )
+            local_task = next(
+                (
+                    task
+                    for task in ingestion_tasks
+                    if task.metadata.get("job_id") == local_job_id
+                ),
+                None,
+            )
+            self.soft_assert_equal(
+                local_task.source if local_task else None,
+                "tool",
+                "Immediate content import should be attributed to the tool",
+            )
+            self.soft_assert_equal(
+                local_task.principal_id if local_task else None,
+                LOCAL_USER_PRINCIPAL_ID,
+                "Immediate content import should retain the current principal",
+            )
+
+            batch_submit = await tool.function(
+                operation="submit",
+                sources=["Research/local.pdf", "Research/second.pdf"],
+                options={"destination": "Research/Batch"},
+            )
+            batch_items = (batch_submit.metadata or {}).get("items") or []
+            self.soft_assert_equal(
+                [item.get("status") for item in batch_items],
+                ["completed", "completed"],
+                "Immediate batch submission should return terminal results",
+            )
+
             remote_url = "https://example.org/reports/remote.pdf"
             remote_pdf = self.make_pdf("Remote PDF content import validation")
-            remote_submit = await tool.function(
-                operation="submit",
-                sources=[remote_url],
-            )
-            remote_items = (remote_submit.metadata or {}).get("items") or []
-            remote_job_id = remote_items[0].get("job_id") if remote_items else None
             fetch_result = WebFetchResult(
                 source_url=remote_url,
                 effective_url=remote_url,
@@ -133,7 +164,12 @@ class ContentImportToolScenario(BaseScenario):
                 "core.ingestion.sources.web.fetch_url_with_curl",
                 return_value=fetch_result,
             ):
-                await get_runtime_context().ingestion_worker.run_once()
+                remote_submit = await tool.function(
+                    operation="submit",
+                    sources=[remote_url],
+                )
+            remote_items = (remote_submit.metadata or {}).get("items") or []
+            remote_job_id = remote_items[0].get("job_id") if remote_items else None
 
             remote_status = await tool.function(
                 operation="status",
@@ -203,9 +239,15 @@ class ContentImportToolScenario(BaseScenario):
             cancel_submit = await tool.function(
                 operation="submit",
                 sources="Research/local.pdf",
+                queue_only=True,
             )
             cancel_items = (cancel_submit.metadata or {}).get("items") or []
             cancel_job_id = cancel_items[0].get("job_id") if cancel_items else None
+            self.soft_assert_equal(
+                cancel_items[0].get("status") if cancel_items else None,
+                "queued",
+                "queue_only submission should return queued state",
+            )
             cancel_response = self.call_api(
                 f"/api/import/jobs/{cancel_job_id}/cancel",
                 method="POST",
@@ -328,6 +370,7 @@ class ContentImportToolScenario(BaseScenario):
             interrupted_submit = await tool.function(
                 operation="submit",
                 sources="Research/local.pdf",
+                queue_only=True,
             )
             interrupted_items = (interrupted_submit.metadata or {}).get("items") or []
             interrupted_job_id = (
@@ -393,6 +436,68 @@ class ContentImportToolScenario(BaseScenario):
                 events,
                 name="ingestion_worker_triggered",
                 expected={"source": "api"},
+            )
+            self.soft_assert_event_contains(
+                events,
+                name="content_import_submitted",
+                expected={"queue_only": False, "terminal_count": 1},
+            )
+
+            failed_url = "https://example.org/reports/failure.pdf"
+            with patch(
+                "core.ingestion.sources.web.fetch_url_with_curl",
+                side_effect=RuntimeError("validation fetch failure"),
+            ):
+                failed_submit = await tool.function(
+                    operation="submit",
+                    sources=failed_url,
+                )
+            failed_items = (failed_submit.metadata or {}).get("items") or []
+            self.soft_assert_equal(
+                (failed_submit.metadata or {}).get("status"),
+                "success",
+                "A valid submission should retain its successful tool envelope",
+            )
+            self.soft_assert_equal(
+                failed_items[0].get("status") if failed_items else None,
+                "failed",
+                "Immediate processing failures should return durable failed jobs",
+            )
+            self.soft_assert(
+                "validation fetch failure"
+                in str(failed_items[0].get("error") if failed_items else ""),
+                "Immediate failed jobs should expose their durable error",
+            )
+            failed_job_id = failed_items[0].get("job_id") if failed_items else None
+            self.soft_assert_event_contains(
+                self.validation_events(),
+                name="content_import_submitted",
+                expected={
+                    "job_ids": [failed_job_id],
+                    "queue_only": False,
+                    "terminal_count": 1,
+                    "failed_count": 1,
+                },
+            )
+
+            jobs_before_missing_authority = count_jobs()
+            with patch(
+                "core.tools.content_import.require_current_execution_authority",
+                side_effect=RuntimeError("validation authority missing"),
+            ):
+                missing_authority = await tool.function(
+                    operation="submit",
+                    sources="Research/local.pdf",
+                )
+            self.soft_assert_equal(
+                (missing_authority.metadata or {}).get("status"),
+                "failed",
+                "Immediate import should reject an unowned execution boundary",
+            )
+            self.soft_assert_equal(
+                count_jobs(),
+                jobs_before_missing_authority,
+                "Authority failure must not leave an accepted job queued",
             )
 
             invalid = await tool.function(

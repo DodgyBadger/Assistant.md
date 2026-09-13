@@ -19,7 +19,6 @@ from core.settings.store import (
     get_enabled_tools_config,
 )
 from core.tools.base import BaseTool, ToolRecoveryPolicy, tool_recovery_metadata
-from core.tools.utils import get_tool_instructions
 from core.tools.web_security import wrap_web_tool_result
 from core.utils.value_parser import DirectiveValueParser
 from core.web.config import get_web_tool_strategy_requirements
@@ -84,8 +83,12 @@ def resolve_tool_binding(
         )
 
     normalized = DirectiveValueParser.normalize_string(normalized_value, to_lower=True)
+    configs = get_enabled_tools_config()
     if normalized in ["true", "yes", "1", "on", "all"]:
-        tool_names = list(get_enabled_tool_names())
+        # Connection-gated tools are intentionally absent until configured.
+        # An "all" declaration means every currently available tool, not every
+        # globally enabled tool that could become available later.
+        tool_names = list(configs)
     elif normalized in ["false", "no", "0", "off", "none"]:
         return ToolBindingResult(tool_functions=[], tool_instructions="", tool_specs=[])
     else:
@@ -95,7 +98,6 @@ def resolve_tool_binding(
             if name not in tool_names:
                 tool_names.append(name)
 
-    configs = get_enabled_tools_config()
     disabled_or_unknown = [
         tool_name for tool_name in tool_names if tool_name not in configs
     ]
@@ -170,7 +172,7 @@ def resolve_tool_binding(
         except Exception as exc:
             raise ValueError(f"Failed to load tool '{tool_name}': {exc}") from exc
 
-    tool_instructions = get_tool_instructions(tool_functions) if tool_functions else ""
+    tool_instructions = ""
     if skipped_tools:
         skipped_messages = [
             f"{name} (missing {', '.join(missing)})" for name, missing in skipped_tools
@@ -223,7 +225,7 @@ def merge_tool_bindings(results: list[Any]) -> ToolBindingResult:
         if tool_specs
         else fallback_functions
     )
-    tool_instructions = get_tool_instructions(tool_functions) if tool_functions else ""
+    tool_instructions = ""
 
     if notes:
         unique_notes: list[str] = []

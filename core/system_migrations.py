@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
-import shutil
 import sqlite3
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from core.access_store import (
+    ACCESS_MIGRATIONS,
+    ensure_access_schema,
+)
+from core.access_store import (
+    DB_NAME as ACCESS_DB_NAME,
+)
+from core.access_store import (
+    MIGRATION_NAMESPACE as ACCESS_MIGRATION_NAMESPACE,
+)
 from core.chat.schema import (
     CHAT_SESSION_MIGRATIONS,
     ensure_chat_sessions_schema,
@@ -52,7 +61,12 @@ from core.memory.schema import (
     SESSION_SUMMARY_MIGRATIONS,
     ensure_session_summary_schema,
 )
+from core.migration_backups import (
+    organize_legacy_migration_backups,
+    prepare_migration_backup_path,
+)
 from core.runtime.paths import get_system_root
+from core.secrets.bootstrap import get_secrets_bootstrap_status
 from core.vault_state.schema import (
     DB_NAME as VAULT_STATE_DB_NAME,
 )
@@ -98,6 +112,7 @@ class SystemMigrationTargetStatus:
     applied_versions: tuple[int, ...]
     pending_versions: tuple[int, ...]
     backup_path: str | None = None
+    inspection_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +128,14 @@ class SystemMigrationStatus:
 
 
 MIGRATION_TARGETS: tuple[SystemMigrationTarget, ...] = (
+    SystemMigrationTarget(
+        db_name=ACCESS_DB_NAME,
+        namespace=ACCESS_MIGRATION_NAMESPACE,
+        migrations=ACCESS_MIGRATIONS,
+        ensure_schema=lambda system_root: ensure_access_schema(
+            system_root, apply_migrations=True
+        ),
+    ),
     SystemMigrationTarget(
         db_name=CHAT_SESSIONS_DB_NAME,
         namespace=CHAT_SESSIONS_MIGRATION_NAMESPACE,
@@ -186,10 +209,23 @@ def run_system_migrations(
 ) -> SystemMigrationStatus:
     """Apply all registered system database migrations and return final status."""
     root = _resolve_system_root(system_root)
+    organized_backup_count = organize_legacy_migration_backups(root)
     before = get_system_migration_status(root)
-    backup_paths = _backup_pending_databases(before) if backup else {}
+    secrets_status = get_secrets_bootstrap_status()
+    excluded_db_names = (
+        frozenset({ACCESS_DB_NAME})
+        if secrets_status is not None and not secrets_status.ready
+        else frozenset()
+    )
+    backup_paths = (
+        _backup_pending_databases(before, excluded_db_names=excluded_db_names)
+        if backup
+        else {}
+    )
 
     for target in MIGRATION_TARGETS:
+        if target.db_name in excluded_db_names:
+            continue
         target.ensure_schema(str(root))
 
     after = get_system_migration_status(root)
@@ -202,6 +238,7 @@ def run_system_migrations(
             applied_versions=target_status.applied_versions,
             pending_versions=target_status.pending_versions,
             backup_path=backup_paths.get(target_status.db_name),
+            inspection_error=target_status.inspection_error,
         )
         for target_status in after.targets
     )
@@ -214,6 +251,8 @@ def run_system_migrations(
             "pending_before": before.pending_count,
             "pending_after": result.pending_count,
             "backups_created": len(backup_paths),
+            "legacy_backups_organized": organized_backup_count,
+            "excluded_locked_databases": sorted(excluded_db_names),
         },
     )
     return result
@@ -229,6 +268,23 @@ def _target_status(
     target: SystemMigrationTarget, system_root: Path
 ) -> SystemMigrationTargetStatus:
     db_path = Path(get_system_database_path(target.db_name, str(system_root)))
+    secrets_status = get_secrets_bootstrap_status()
+    if (
+        target.db_name == ACCESS_DB_NAME
+        and secrets_status is not None
+        and not secrets_status.ready
+    ):
+        # Version information is unknown while locked. Even reading SQLite here
+        # can trigger recovery or fail on the very corruption being diagnosed.
+        return SystemMigrationTargetStatus(
+            db_name=target.db_name,
+            namespace=target.namespace,
+            db_path=str(db_path),
+            exists=db_path.exists(),
+            applied_versions=(),
+            pending_versions=(),
+            inspection_error=secrets_status.reason or "Encrypted secrets are locked.",
+        )
     applied_versions = (
         _applied_versions(db_path, namespace=target.namespace)
         if db_path.exists()
@@ -253,7 +309,7 @@ def _target_status(
 
 
 def _applied_versions(db_path: Path, *, namespace: str) -> tuple[int, ...]:
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
     try:
         if not _table_exists(conn, "schema_migrations"):
             return ()
@@ -285,14 +341,38 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     return row is not None
 
 
-def _backup_pending_databases(status: SystemMigrationStatus) -> dict[str, str]:
+def _backup_pending_databases(
+    status: SystemMigrationStatus, *, excluded_db_names: frozenset[str]
+) -> dict[str, str]:
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     backups: dict[str, str] = {}
     for target in status.targets:
-        if not target.exists or not target.pending_versions:
+        if (
+            target.db_name in excluded_db_names
+            or not target.exists
+            or not target.pending_versions
+        ):
             continue
         source = Path(target.db_path)
-        backup_path = source.with_name(f"{source.name}.backup-{timestamp}")
-        shutil.copy2(source, backup_path)
+        backup_path = prepare_migration_backup_path(
+            status.system_root, f"{source.name}.backup-{timestamp}"
+        )
+        source_conn = sqlite3.connect(source)
+        backup_conn = sqlite3.connect(backup_path)
+        try:
+            source_conn.backup(backup_conn)
+            integrity = backup_conn.execute("PRAGMA integrity_check").fetchone()
+            if integrity is None or str(integrity[0]).lower() != "ok":
+                raise RuntimeError(
+                    f"Migration backup integrity check failed: {backup_path}"
+                )
+        except BaseException:
+            backup_conn.close()
+            source_conn.close()
+            backup_path.unlink(missing_ok=True)
+            raise
+        else:
+            backup_conn.close()
+            source_conn.close()
         backups[target.db_name] = str(backup_path)
     return backups

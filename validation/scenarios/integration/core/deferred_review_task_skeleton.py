@@ -262,6 +262,9 @@ class DeferredReviewTaskSkeletonScenario(BaseScenario):
             assert (
                 review_event["review_count"] == 2
             ), "Independent write calls should share one review artifact"
+            assert review_event["approvals"][0]["args"]["path"] == (
+                "Draft.md"
+            ), "Review events should include proposed arguments for informed approval"
             assert (
                 events[-1].data["choices"][0]["finish_reason"] == "tool_review_required"
             ), "Done event should identify review-required finish reason"
@@ -294,6 +297,10 @@ class DeferredReviewTaskSkeletonScenario(BaseScenario):
             assert session_payload.get("pending_review", {}).get("artifact_ref") == (
                 review_event["artifact_ref"]
             ), "Session reload should expose the active pending review"
+            assert (
+                session_payload["pending_review"]["approvals"][0]["args"]["path"]
+                == "Draft.md"
+            ), "Reloaded review cards should retain proposed arguments"
 
             api_response = self.call_api(
                 f"/api/vaults/{vault.name}/chat/deferred-review-session/"

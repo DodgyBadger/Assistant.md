@@ -114,6 +114,10 @@ class ChatToolOverflowCacheScenario(BaseScenario):
                 "Preview:" in response_text, "Response should include a compact preview"
             )
             self.soft_assert(
+                "artifact.content" in response_text,
+                "Response should show how to access cached RetrievedItem content",
+            )
+            self.soft_assert(
                 "buffer" not in response_text.lower(),
                 "Response should not refer to buffer routing",
             )
@@ -184,6 +188,10 @@ class ChatToolOverflowCacheScenario(BaseScenario):
             self.soft_assert(
                 "code_execution" in (overflow_event.result_text or ""),
                 "Persisted overflow event should include the cache read instruction",
+            )
+            self.soft_assert(
+                "artifact.content" in (overflow_event.result_text or ""),
+                "Persisted overflow event should preserve cached content guidance",
             )
 
             followup = await self.run_chat_task(

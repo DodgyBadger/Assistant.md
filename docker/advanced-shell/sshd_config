@@ -1,0 +1,38 @@
+Port 2222
+ListenAddress 0.0.0.0
+Protocol 2
+
+HostKey /run/sshd/ssh_host_ed25519_key
+PidFile /run/sshd/sshd.pid
+
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PermitEmptyPasswords no
+UsePAM no
+
+AllowUsers advanced-shell
+AuthorizedKeysFile /run/sshd/authorized_keys
+StrictModes yes
+
+AllowAgentForwarding no
+AllowTcpForwarding no
+GatewayPorts no
+PermitTunnel no
+X11Forwarding no
+PermitUserEnvironment no
+PermitUserRC no
+PermitTTY no
+
+MaxAuthTries 3
+MaxSessions 8
+LoginGraceTime 20
+ClientAliveInterval 30
+ClientAliveCountMax 2
+PrintLastLog no
+UseDNS no
+
+Subsystem sftp internal-sftp
+LogLevel VERBOSE

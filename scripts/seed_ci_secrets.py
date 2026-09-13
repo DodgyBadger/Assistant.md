@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""
-Utility script that writes system/secrets.yaml from environment variables.
-
-Used in CI to bridge GitHub repository secrets into the custom secrets store
-expected by the runtime and validation framework.
-"""
+"""Seed the encrypted secrets database from CI environment variables."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import os
+import sys
 from pathlib import Path
 
-DEFAULT_OUTPUT = "system/secrets.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+DEFAULT_SYSTEM_ROOT = "system"
+DEFAULT_NAMESPACE = "configuration"
 CI_SECRET_KEYS = [
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
@@ -36,22 +36,37 @@ def collect_secrets(keys: list[str]) -> dict[str, str]:
     return secrets
 
 
-def write_yaml(path: Path, data: dict[str, str]) -> None:
-    """Write a shallow YAML mapping using only standard library facilities."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for key, value in data.items():
-            handle.write(f"{key}: {json.dumps(value)}\n")
+def write_encrypted(system_root: str, data: dict[str, str]) -> int:
+    """Write principal-owned encrypted values using the installation keyring."""
+    from core.identity import LOCAL_USER_AUTHORITY, SYSTEM_AUTHORITY
+    from core.secrets import EncryptedSecretsService, SecretKeyring, SecretWrite
+
+    service = EncryptedSecretsService(
+        system_root=system_root,
+        keyring=SecretKeyring.from_environment(),
+    )
+    writes = [
+        SecretWrite(
+            authority=(
+                SYSTEM_AUTHORITY if name == "LOGFIRE_TOKEN" else LOCAL_USER_AUTHORITY
+            ),
+            namespace=DEFAULT_NAMESPACE,
+            name=name,
+            value=value,
+        )
+        for name, value in data.items()
+    ]
+    return service.set_many_for_authorities(writes)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Seed secrets.yaml from environment variables."
+        description="Seed the encrypted secrets database from environment variables."
     )
     parser.add_argument(
-        "--output",
-        default=DEFAULT_OUTPUT,
-        help=f"Output path for the generated secrets file (default: {DEFAULT_OUTPUT}).",
+        "--system-root",
+        default=DEFAULT_SYSTEM_ROOT,
+        help=f"System root containing access.db (default: {DEFAULT_SYSTEM_ROOT}).",
     )
     parser.add_argument(
         "--keys",
@@ -63,13 +78,12 @@ def main() -> None:
 
     secrets = collect_secrets(args.keys)
     if not secrets:
-        print("No CI secrets provided; skipping secrets.yaml generation.")
+        print("No CI secrets provided; skipping encrypted secret seeding.")
         return
 
-    output_path = Path(args.output)
-    write_yaml(output_path, secrets)
+    seeded_count = write_encrypted(args.system_root, secrets)
     keys = ", ".join(sorted(secrets.keys()))
-    print(f"Seeded {len(secrets)} secrets to {output_path} ({keys})")
+    print(f"Seeded {seeded_count} encrypted secrets ({keys})")
 
 
 if __name__ == "__main__":

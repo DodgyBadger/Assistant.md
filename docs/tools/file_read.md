@@ -40,10 +40,7 @@ file_read(operation="frontmatter", path="projects", keys="title,status")
 ## Notes
 
 - Paths are vault-relative.
-- Use `read` with `start_line` and `line_count` instead of a separate `head`
-  operation.
-- Direct image reads and markdown files containing local images return multimodal
-  payloads when image policy permits. Ranged reads return text only.
-- `frontmatter` accepts a markdown path, directory, or glob and returns structured
-  `items` metadata. Use `keys` to select a comma-separated subset.
+- Use `read` with `start_line` and `line_count` instead of a separate `head` operation.
+- Direct image reads and markdown files containing local images return multimodal payloads when image policy permits. Ranged reads return text only.
+- `frontmatter` accepts a markdown path, directory, or glob and returns structured `items` metadata. Use `keys` to select a comma-separated subset.
 - Use `file_write` for create, edit, move, delete, and mkdir operations.

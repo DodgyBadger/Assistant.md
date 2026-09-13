@@ -1,11 +1,12 @@
 import json
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterable, AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
 
 from pydantic_ai.agent import Agent
-from pydantic_ai.messages import ModelMessage, UserContent
+from pydantic_ai.messages import AgentStreamEvent, ModelMessage, UserContent
+from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from core.constants import DEFAULT_TOOL_RETRIES
@@ -144,17 +145,30 @@ async def generate_response(
     message_history: Sequence[ModelMessage] | None = None,
     deps: Any = None,
 ) -> Any:
+    """Return a final response using streamed requests and the full retry graph."""
+
     try:
-        result = await collect_response(
-            agent,
-            prompt,
-            message_history=message_history,
-            deps=deps,
-        )
+        kwargs: dict[str, Any] = {
+            "deps": deps,
+            "event_stream_handler": _consume_agent_events,
+        }
+        if message_history:
+            kwargs["message_history"] = message_history
+        result = await agent.run(prompt, **kwargs)
         return result.output
 
     except Exception:
         raise
+
+
+async def _consume_agent_events(
+    _run_context: RunContext[Any],
+    events: AsyncIterable[AgentStreamEvent],
+) -> None:
+    """Drain model events so ``Agent.run`` uses streaming transport."""
+
+    async for _ in events:
+        pass
 
 
 async def collect_response(

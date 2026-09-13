@@ -7,21 +7,38 @@ with proper configuration, error handling, and lifecycle management.
 
 import asyncio
 from datetime import UTC, datetime
-from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from core.advanced_shell.capability import AdvancedShellCapabilityService
 from core.authoring.template_discovery import WorkflowLoader, seed_system_templates
 from core.chat.chat_store import ChatStore
 from core.chat.session_access import ChatSessionAccessService
-from core.identity import AuthorizationService
+from core.connections import BuiltInConnectionService
+from core.identity import (
+    LOCAL_USER_AUTHORITY,
+    AuthorizationService,
+    use_execution_authority,
+)
 from core.ingestion.jobs import fail_processing_jobs
 from core.ingestion.service import IngestionService
 from core.ingestion.worker import IngestionWorker
+from core.integrations.google import (
+    GmailResourceService,
+    GoogleConnectionService,
+    GoogleOAuthCoordinator,
+)
 from core.logger import UnifiedLogger
+from core.mcp import MCPConnectionManager, MCPConnectionService
+from core.mcp.oauth import MCPOAuthCoordinator
 from core.scheduling.database import create_job_store
 from core.scheduling.job_history import attach_scheduler_history_listener
-from core.settings import validate_settings
+from core.secrets import get_encrypted_secrets_service, initialize_secrets_bootstrap
+from core.secrets.legacy_migration import migrate_legacy_secrets_yaml
+from core.settings import (
+    get_mcp_max_concurrent_advanced_shell_stdio_launches,
+    validate_settings,
+)
 from core.settings.store import get_general_settings, refresh_settings_cache
 from core.system_migrations import run_system_migrations
 from core.vault_state.activity import handle_task_terminal_for_activity
@@ -42,7 +59,11 @@ from .task_runner import ExecutionTaskRunner
 from .workflow_governor import WorkflowGovernor
 
 
-async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
+async def bootstrap_runtime(
+    config: RuntimeConfig,
+    *,
+    advanced_shell: AdvancedShellCapabilityService | None = None,
+) -> RuntimeContext:
     """
     Bootstrap AssistantMD runtime with centralized service initialization.
 
@@ -71,12 +92,91 @@ async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
         # Make bootstrap roots available for helpers that run before context is set
         set_bootstrap_roots(config.data_root, config.system_root)
         refresh_settings_cache()
+        secrets_status = initialize_secrets_bootstrap(config.system_root)
+        migration_status = run_system_migrations(config.system_root, backup=True)
+        logger.info(
+            "Startup system database migration check completed",
+            data={
+                "pending_after": migration_status.pending_count,
+                "backups_created": sum(
+                    1 for target in migration_status.targets if target.backup_path
+                ),
+            },
+        )
+        mcp_connections: MCPConnectionService | None = None
+        mcp_manager: MCPConnectionManager | None = None
+        mcp_oauth: MCPOAuthCoordinator | None = None
+        if not secrets_status.ready:
+            logger.warning(
+                "Encrypted secrets are locked",
+                data={
+                    "event": "secrets_locked",
+                    "reason": secrets_status.reason,
+                },
+            )
+        else:
+            secrets_service = get_encrypted_secrets_service()
+            migration_result = migrate_legacy_secrets_yaml(
+                system_root=config.system_root,
+                service=secrets_service,
+            )
+            logger.info(
+                "Legacy secrets migration checked",
+                data={
+                    "event": "legacy_secrets_migration_checked",
+                    "phase": migration_result.phase,
+                    "imported_count": migration_result.imported_count,
+                    "skipped_oauth_count": migration_result.skipped_oauth_count,
+                    "source_retired": migration_result.source_retired,
+                },
+            )
+            manager_holder: list[MCPConnectionManager] = []
+
+            def invalidate_mcp_connection(
+                principal_id: str, connection_id: str
+            ) -> None:
+                if manager_holder:
+                    manager_holder[0].invalidate(principal_id, connection_id)
+
+            mcp_connections = MCPConnectionService(
+                system_root=str(config.system_root),
+                secrets=secrets_service,
+                on_change=invalidate_mcp_connection,
+                advanced_shell_stdio_enabled=bool(
+                    advanced_shell is not None and advanced_shell.enabled
+                ),
+            )
+            mcp_manager = MCPConnectionManager(
+                connections=mcp_connections,
+                advanced_shell_stdio=(
+                    advanced_shell.transport_config
+                    if advanced_shell is not None and advanced_shell.enabled
+                    else None
+                ),
+                advanced_shell_readiness=(
+                    advanced_shell.readiness
+                    if advanced_shell is not None and advanced_shell.enabled
+                    else None
+                ),
+                max_concurrent_stdio_launches=(
+                    get_mcp_max_concurrent_advanced_shell_stdio_launches()
+                ),
+            )
+            manager_holder.append(mcp_manager)
+            mcp_manager.start()
+            mcp_oauth = MCPOAuthCoordinator(
+                connections=mcp_connections,
+                manager=mcp_manager,
+            )
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            refresh_settings_cache()
 
         # Ensure packaged system templates exist without overwriting runtime edits.
         seed_system_templates(config.system_root)
 
         # Validate configuration before continuing bootstrap
-        config_status = validate_settings()
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            config_status = validate_settings()
         if not config_status.is_healthy:
             error_messages = [
                 f"{issue.name}: {issue.message}" for issue in config_status.errors
@@ -92,19 +192,35 @@ async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
 
         os.environ["CONTAINER_DATA_ROOT"] = str(config.data_root)
         os.environ["CONTAINER_SYSTEM_ROOT"] = str(config.system_root)
-        os.environ.setdefault(
-            "SECRETS_PATH", str(Path(config.system_root) / "secrets.yaml")
+        built_in_connections = BuiltInConnectionService(
+            system_root=str(config.system_root),
+            available=secrets_status.ready,
         )
-
-        migration_status = run_system_migrations(config.system_root, backup=True)
-        logger.info(
-            "Startup system database migration check completed",
-            data={
-                "pending_after": migration_status.pending_count,
-                "backups_created": sum(
-                    1 for target in migration_status.targets if target.backup_path
-                ),
-            },
+        google_connection = (
+            GoogleConnectionService(
+                connections=built_in_connections,
+                secrets=get_encrypted_secrets_service(),
+            )
+            if secrets_status.ready
+            else None
+        )
+        google_oauth = (
+            GoogleOAuthCoordinator(
+                connections=built_in_connections,
+                google=google_connection,
+                secrets=get_encrypted_secrets_service(),
+            )
+            if google_connection is not None
+            else None
+        )
+        gmail = (
+            GmailResourceService(
+                connections=built_in_connections,
+                google=google_connection,
+                oauth=google_oauth,
+            )
+            if google_connection is not None and google_oauth is not None
+            else None
         )
 
         # Initialize workflow loader with configured data root
@@ -234,7 +350,15 @@ async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
             task_runner=task_runner,
             workflow_governor=workflow_governor,
             workflow_run_store=workflow_run_store,
+            built_in_connections=built_in_connections,
+            google_connection=google_connection,
+            google_oauth=google_oauth,
+            gmail=gmail,
+            mcp_connections=mcp_connections,
+            mcp_manager=mcp_manager,
+            mcp_oauth=mcp_oauth,
             background_spawner=background_spawner,
+            advanced_shell=advanced_shell,
             boot_id=boot_id,
             started_at=started_at,
             background_tasks=background_tasks,
@@ -272,13 +396,9 @@ async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
 
         return runtime_context
 
-    except RuntimeConfigError:
-        # Re-raise configuration errors without wrapping
-        raise
-
     except Exception as e:
-        # Wrap any other errors in startup error for clear error handling
-        logger.error(f"Runtime bootstrap failed: {e}")
+        if not isinstance(e, RuntimeConfigError):
+            logger.error(f"Runtime bootstrap failed: {e}")
 
         # Attempt cleanup of any partially initialized services
         try:
@@ -286,6 +406,15 @@ async def bootstrap_runtime(config: RuntimeConfig) -> RuntimeContext:
                 scheduler.shutdown(wait=False)
         except Exception as cleanup_error:
             logger.error(f"Error during bootstrap cleanup: {cleanup_error}")
+        try:
+            if "mcp_manager" in locals() and mcp_manager is not None:
+                await mcp_manager.shutdown()
+        except Exception as cleanup_error:
+            logger.error(f"Error during MCP manager cleanup: {cleanup_error}")
+
+        if isinstance(e, RuntimeConfigError):
+            # Configuration errors retain their public type after partial-start cleanup.
+            raise
 
         raise RuntimeStartupError(f"Failed to bootstrap runtime: {e}") from e
 

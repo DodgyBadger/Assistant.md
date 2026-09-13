@@ -9,8 +9,9 @@
 - Remove temporary debug code, comments, probes, and dead helpers.
 - Confirm no secrets or runtime-state artifacts are being committed:
   never commit real API keys, populated `system/secrets.yaml`, or unintended changes under persistent runtime state.
-- Make sure docs match the final behavior:
-  update user-facing docs, examples, and `docs/architecture/` when feature behavior, subsystem responsibilities, or execution flow changed.
+- Make sure docs match the final behavior: update user-facing docs and examples;
+  update `docs/development/architecture.md` only when subsystem ownership,
+  trust boundaries, or major execution flows change.
 - Recommend a new ADR when the final implementation establishes or changes a
   durable architecture decision:
   cross-subsystem boundaries, persistence ownership, user-data ownership,

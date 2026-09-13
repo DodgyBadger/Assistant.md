@@ -317,12 +317,16 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert (
             "AssistantMD compacted chat history" in detail_messages[0]["content"]
         ), "Summary marker is exposed through effective replay"
-        assert detail_messages[1]["content"].startswith(
-            "[probe] (tool call)"
-        ), "Tool call remains in recent history"
         assert (
-            "probe result" in detail_messages[2]["content"]
-        ), "Tool result remains paired with the call"
+            detail_messages[1]["is_tool_message"] is True
+            and detail_messages[1]["tool_call_ids"] == ["probe-1"]
+            and detail_messages[1]["content"] == ""
+        ), "Tool call remains in recent history without exposing its content"
+        assert (
+            detail_messages[2]["is_tool_message"] is True
+            and detail_messages[2]["tool_return_ids"] == ["probe-1"]
+            and detail_messages[2]["content"] == ""
+        ), "Tool result remains paired with the call without exposing its content"
         assert [message["fork_sequence_index"] for message in detail_messages] == [
             0,
             1,

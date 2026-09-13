@@ -16,6 +16,7 @@ import core.runtime.workflow_governor as governor_module
 import core.scheduling.job_history as job_history_module
 from api.services import _project_latest_workflow_runs, collect_scheduler_status
 from core.authoring.workflow_execution import WorkflowExecutionResult
+from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime import state as runtime_state
 from core.runtime.background import RuntimeBackgroundSpawner
 from core.runtime.execution_tasks import ExecutionTaskSource, TaskCoordinator
@@ -73,9 +74,18 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 task_runner=task_runner,
                 workflow_run_store=store,
             )
+            missing_owner_failed = False
+            try:
+                await governor.execute_workflow(
+                    global_id="HistoryVault/missing_owner",
+                    source=ExecutionTaskSource.SCHEDULER,
+                )
+            except RuntimeError:
+                missing_owner_failed = True
             result = await governor.execute_workflow(
                 global_id="HistoryVault/nightly_cleanup",
                 source=ExecutionTaskSource.SCHEDULER,
+                authority=LOCAL_USER_AUTHORITY,
             )
             tasks = await coordinator.list_tasks(kind="workflow")
 
@@ -93,6 +103,7 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 await governor.execute_workflow(
                     global_id="HistoryVault/raised_failure",
                     source=ExecutionTaskSource.SCHEDULER,
+                    authority=LOCAL_USER_AUTHORITY,
                 )
             except RuntimeError as exc:
                 raised_exception = exc
@@ -143,6 +154,7 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 workflow_name="quiet_workflow",
                 vault_name="RetentionVault",
                 source="scheduler",
+                owner_principal_id="local-user",
                 status="completed",
                 completed_at=old_time,
             )
@@ -152,6 +164,7 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 workflow_name="quiet_workflow",
                 vault_name="RetentionVault",
                 source="scheduler",
+                owner_principal_id="local-user",
                 status="completed",
             )
             pruned_old_run = reloaded_store.get_run(old_run.run_id)
@@ -162,6 +175,7 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 workflow_name="system/nightly-session-summarization",
                 vault_name="FirstVault",
                 source="api",
+                owner_principal_id="local-user",
                 status="completed",
                 completed_at=template_old_time,
             )
@@ -170,6 +184,7 @@ class WorkflowRunHistoryScenario(BaseScenario):
                 workflow_name="system/nightly-session-summarization",
                 vault_name="SecondVault",
                 source="api",
+                owner_principal_id="local-user",
                 status="skipped",
                 reason="no sessions pending",
             )
@@ -194,6 +209,15 @@ class WorkflowRunHistoryScenario(BaseScenario):
 
         self.soft_assert_equal(
             result.status, "failed", "Probe should return a domain failure"
+        )
+        self.soft_assert(
+            missing_owner_failed,
+            "Scheduled workflow execution must fail closed without durable ownership",
+        )
+        self.soft_assert_equal(
+            latest.owner_principal_id if latest else None,
+            "local-user",
+            "Durable workflow runs should retain their execution owner",
         )
         self.soft_assert_equal(
             latest.status if latest else None,
@@ -232,6 +256,11 @@ class WorkflowRunHistoryScenario(BaseScenario):
             [run.status for run in after_miss],
             ["missed", "failed"],
             "Repeated scheduler miss events should persist exactly once",
+        )
+        self.soft_assert_equal(
+            {run.owner_principal_id for run in after_miss},
+            {"local-user"},
+            "Scheduler event outcomes should retain serialized workflow ownership",
         )
         job_details = scheduler_status.job_details
         self.soft_assert_equal(
@@ -298,4 +327,5 @@ class _FakeScheduler:
             trigger=SimpleNamespace(),
             max_instances=1,
             misfire_grace_time=60,
+            args=({"owner_principal_id": "local-user"},),
         )

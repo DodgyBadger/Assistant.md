@@ -37,6 +37,7 @@ class WorkflowRunRecord:
     workflow_name: str
     vault_name: str
     source: str
+    owner_principal_id: str
     status: str
     queued_at: str
     task_id: str | None = None
@@ -73,6 +74,7 @@ class WorkflowRunStore:
         workflow_name: str,
         vault_name: str,
         source: str,
+        owner_principal_id: str,
         task_id: str | None = None,
         step_name: str | None = None,
         scheduler_job_id: str | None = None,
@@ -87,10 +89,11 @@ class WorkflowRunStore:
                 """
                 INSERT INTO workflow_runs (
                     run_id, workflow_id, workflow_name, vault_name, source,
+                    owner_principal_id,
                     task_id, step_name, scheduler_job_id, scheduled_run_time,
                     status, queued_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)
                 """,
                 (
                     run_id,
@@ -98,6 +101,7 @@ class WorkflowRunStore:
                     _required_text(workflow_name, "workflow_name"),
                     _required_text(vault_name, "vault_name"),
                     _required_text(source, "source"),
+                    _required_text(owner_principal_id, "owner_principal_id"),
                     _optional_text(task_id),
                     _optional_text(step_name),
                     _optional_text(scheduler_job_id),
@@ -183,6 +187,7 @@ class WorkflowRunStore:
         workflow_name: str,
         vault_name: str,
         source: str,
+        owner_principal_id: str,
         status: str,
         reason: str | None = None,
         message: str | None = None,
@@ -201,10 +206,11 @@ class WorkflowRunStore:
                     """
                     INSERT INTO workflow_runs (
                         run_id, workflow_id, workflow_name, vault_name, source,
+                        owner_principal_id,
                         scheduler_job_id, scheduler_event_key, scheduled_run_time,
                         status, reason, message, queued_at, completed_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         run_id,
@@ -212,6 +218,7 @@ class WorkflowRunStore:
                         _required_text(workflow_name, "workflow_name"),
                         _required_text(vault_name, "vault_name"),
                         _required_text(source, "source"),
+                        _required_text(owner_principal_id, "owner_principal_id"),
                         _optional_text(scheduler_job_id),
                         clean_event_key,
                         _optional_text(scheduled_run_time),
@@ -368,6 +375,7 @@ def _record_from_row(row: sqlite3.Row) -> WorkflowRunRecord:
         workflow_name=str(row["workflow_name"]),
         vault_name=str(row["vault_name"]),
         source=str(row["source"]),
+        owner_principal_id=str(row["owner_principal_id"]),
         status=str(row["status"]),
         queued_at=str(row["queued_at"]),
         task_id=row["task_id"],

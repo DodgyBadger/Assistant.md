@@ -46,8 +46,8 @@ async def _prepare_assistantmd_tool_definitions(
         metadata.setdefault("assistantmd", {})
         if isinstance(metadata["assistantmd"], dict):
             metadata["assistantmd"] = {
-                **metadata["assistantmd"],
                 "source": "settings",
+                **metadata["assistantmd"],
             }
         prepared.append(replace(tool_def, metadata=metadata))
     return prepared

@@ -291,7 +291,7 @@
                         </div>
                     </div>
                     <div class="session-browser-body flex-1">
-                        <details class="chat-settings-options" open>
+                        <details class="chat-settings-options">
                             <summary class="chat-settings-options-summary">
                                 <span>Options</span>
                                 <svg class="chat-settings-options-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">

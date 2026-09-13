@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AssistantMD</title>
+    <title>Assistant.md</title>
     <base href="./">
     <link rel="stylesheet" href="static/output.css">
     <script src="static/vendor/marked.min.js"></script>
@@ -405,7 +405,7 @@
             <details id="dashboard-vault-activity-section" class="bg-app-card border border-border-primary rounded-lg shadow-sm">
                 <summary class="collapsible-summary">
                     <div class="summary-text">
-                        <span class="summary-title">AssistantMD Activity</span>
+                        <span class="summary-title">Assistant.md Activity</span>
                     </div>
                     <svg class="chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                         <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -541,6 +541,170 @@
                     </div>
                 </details>
 
+                <details id="config-connections-section" class="bg-app-card border border-border-primary rounded-lg shadow-sm">
+                    <summary class="collapsible-summary">
+                        <div class="summary-text">
+                            <span class="summary-title">Connections</span>
+                        </div>
+                        <svg class="chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </summary>
+                    <div class="p-4 pt-0 space-y-4">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button id="connection-add-google" type="button" class="px-3 py-2 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent-hover">Add Google</button>
+                            <button id="connection-add-mcp" type="button" class="px-3 py-2 rounded-md border border-border-secondary bg-app-card text-xs font-medium text-txt-primary hover:border-accent">Add MCP</button>
+                        </div>
+                        <div id="connections-feedback" class="text-sm text-txt-secondary"></div>
+                        <div id="google-connections-list" class="flex flex-col gap-3"></div>
+                        <form id="google-connection-form" class="hidden rounded-lg border border-border-primary bg-app-card p-4 space-y-4">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h3 class="font-medium text-txt-primary">Google</h3>
+                                    <div id="google-connection-status" class="mt-1 text-sm text-txt-secondary">Loading Google connection…</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" data-google-action="disconnect" class="ui-icon-button is-danger" data-icon="link" data-icon-label="Disconnect Google account"></button>
+                                    <button type="button" data-google-action="delete" class="ui-icon-button is-danger" data-icon="trash" data-icon-label="Remove Google connection"></button>
+                                    <button type="submit" class="ui-icon-button is-primary" data-icon="save" data-icon-label="Save Google settings"></button>
+                                </div>
+                            </div>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <label class="text-xs text-txt-secondary">Connection name
+                                    <input name="display_name" required maxlength="120" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Personal Google" />
+                                </label>
+                                <label class="flex items-center self-end pb-2 text-sm text-txt-primary"><input name="is_default" type="checkbox" class="mr-2" />Use as default Google connection</label>
+                                <label class="text-xs text-txt-secondary">OAuth client ID
+                                    <input name="client_id" required maxlength="2048" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" autocomplete="off" />
+                                </label>
+                                <label class="text-xs text-txt-secondary">OAuth client secret (write-only)
+                                    <input name="client_secret" type="password" maxlength="16384" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" autocomplete="new-password" placeholder="Leave blank to preserve stored secret" />
+                                </label>
+                                <label class="text-xs text-txt-secondary md:col-span-2">Authorized redirect URI
+                                    <span class="mt-1 flex items-start gap-2"><input name="redirect_uri" readonly class="min-w-0 flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" placeholder="Set ASSISTANTMD_PUBLIC_URL to generate the callback URI" /><button type="button" data-google-copy="redirect_uri" class="ui-icon-button is-compact" data-icon="copy" data-icon-label="Copy authorized redirect URI"></button></span>
+                                </label>
+                            </div>
+                            <fieldset class="rounded-md border border-border-primary p-3 space-y-3">
+                                <legend class="px-1 text-sm font-medium text-txt-primary">Gmail capabilities and limits</legend>
+                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <label class="text-xs text-txt-secondary">Default search results<input name="search_default_results" type="number" min="1" max="500" value="20" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                    <label class="text-xs text-txt-secondary">Maximum search results<input name="search_max_results" type="number" min="1" max="500" value="100" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                    <label class="text-xs text-txt-secondary">Message characters<input name="message_max_characters" type="number" min="1" max="250000" value="50000" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                    <label class="text-xs text-txt-secondary">Thread messages<input name="thread_max_messages" type="number" min="1" max="100" value="25" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                    <label class="flex items-center text-sm text-txt-primary"><input name="attachment_download_enabled" type="checkbox" class="mr-2" />Allow attachment downloads</label>
+                                    <label class="text-xs text-txt-secondary">Maximum attachment MB<input name="attachment_max_mb" type="number" min="1" max="100" value="25" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                    <label class="flex items-center text-sm text-txt-primary"><input name="draft_creation_enabled" type="checkbox" class="mr-2" />Allow draft creation</label>
+                                    <label class="text-xs text-txt-secondary">Maximum draft characters<input name="draft_max_characters" type="number" min="1" max="250000" value="50000" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                                </div>
+                            </fieldset>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" data-google-action="authorize" class="px-3 py-2 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent-hover">Authorize Google</button>
+                                <span class="text-xs text-txt-secondary">Save the client settings first, then authorize Gmail read access.</span>
+                            </div>
+                            <label class="text-xs text-txt-secondary">Authorization URL
+                                <span class="mt-1 flex items-start gap-2"><textarea name="authorization_url" readonly rows="3" class="min-w-0 flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary resize-y" placeholder="Choose Authorize Google to generate a URL you can copy into another browser."></textarea><button type="button" data-google-copy="authorization_url" class="ui-icon-button is-compact" data-icon="copy" data-icon-label="Copy authorization URL"></button></span>
+                            </label>
+                            <div class="space-y-2">
+                                <p class="text-xs text-txt-secondary">If the browser cannot reach Assistant.md's callback, paste the full redirected URL here.</p>
+                                <div class="flex flex-col gap-2 sm:flex-row"><input name="oauth_redirect" class="flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Paste the full redirected URL" /><button type="button" data-google-action="complete" class="shrink-0 px-3 py-2 rounded-md border border-border-secondary bg-app-card text-xs font-medium text-txt-primary hover:border-accent">Finish authorization</button></div>
+                            </div>
+                            <div id="google-connection-feedback" class="text-sm text-txt-secondary"></div>
+                        </form>
+                <details id="config-mcp-section" class="contents" open>
+                    <summary class="hidden">
+                        <div class="summary-text">
+                            <span class="summary-title">MCP Connections</span>
+                        </div>
+                        <svg class="chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </summary>
+                    <div class="contents">
+                        <form id="mcp-create-form" class="hidden rounded-lg border border-border-primary bg-app-card p-4 space-y-3">
+                            <div class="rounded-md border border-border-secondary p-3 space-y-2">
+                                <label class="text-xs text-txt-secondary">Import Advanced-shell stdio YAML or JSON
+                                    <textarea name="import_configuration" rows="8" maxlength="65536" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" placeholder="Paste configuration generated by Advanced Shell MCP Setup"></textarea>
+                                </label>
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-xs text-txt-secondary">Import fills the expert fields below for review. It does not install or register anything by itself.</p>
+                                    <button type="button" data-mcp-create-action="parse-import" class="px-3 py-2 rounded-md border border-border-secondary bg-app-card text-xs font-medium text-txt-primary hover:border-accent">Import</button>
+                                </div>
+                            </div>
+                            <div class="grid gap-3 md:grid-cols-2">
+                                <label class="text-xs text-txt-secondary">Display name
+                                    <input name="display_name" required maxlength="120" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Gmail" />
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">Server URL
+                                    <input name="url" required maxlength="2048" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="https://example.com/mcp" />
+                                </label>
+                                <label class="text-xs text-txt-secondary">Transport
+                                    <select name="transport" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary">
+                                        <option value="streamable_http">Streamable HTTP</option>
+                                        <option value="sse">SSE</option>
+                                        <option value="advanced_shell_stdio">Advanced-shell stdio</option>
+                                    </select>
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">Authentication
+                                    <select name="auth_mode" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary">
+                                        <option value="none">None</option>
+                                        <option value="bearer">Bearer token</option>
+                                        <option value="header">Custom header</option>
+                                        <option value="oauth">OAuth</option>
+                                    </select>
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">Header name (custom header only)
+                                    <input name="header_name" maxlength="128" disabled class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="X-API-Key" />
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">Credential (write-only)
+                                    <input name="credential" type="password" maxlength="16384" disabled class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" autocomplete="new-password" />
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">OAuth client ID (pre-registered clients)
+                                    <input name="oauth_client_id" maxlength="2048" disabled class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" />
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary">OAuth client secret (write-only)
+                                    <input name="oauth_client_secret" type="password" maxlength="16384" disabled class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" autocomplete="new-password" />
+                                </label>
+                                <label data-mcp-create-http class="text-xs text-txt-secondary md:col-span-2">OAuth scopes (comma-separated; optional)
+                                    <input name="oauth_scopes" disabled class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="https://example.com/scope.read" />
+                                </label>
+                                <label data-mcp-create-stdio class="hidden text-xs text-txt-secondary">Advanced-shell executable
+                                    <input name="stdio_executable" maxlength="2048" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" placeholder="/home/advanced-shell/.local/bin/example-mcp" />
+                                </label>
+                                <label data-mcp-create-stdio class="hidden text-xs text-txt-secondary">Working directory
+                                    <input name="stdio_working_directory" maxlength="2048" value="/workspace" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" />
+                                </label>
+                                <label data-mcp-create-stdio class="hidden text-xs text-txt-secondary">Arguments (one per line)
+                                    <textarea name="stdio_arguments" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary"></textarea>
+                                </label>
+                                <label data-mcp-create-stdio class="hidden text-xs text-txt-secondary">MCP Roots (one advanced-shell path per line)
+                                    <textarea name="stdio_roots" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary"></textarea>
+                                </label>
+                                <label data-mcp-create-stdio class="hidden text-xs text-txt-secondary md:col-span-2">Non-secret environment (NAME=value, one per line)
+                                    <textarea name="stdio_environment" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary"></textarea>
+                                </label>
+                                <label class="text-xs text-txt-secondary md:col-span-2">Allowed tools (comma-separated; blank trusts all server tools)
+                                    <input name="allowed_tools" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="search_messages, read_message" />
+                                </label>
+                            </div>
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="space-y-2">
+                                    <label class="block text-sm text-txt-primary"><input name="enabled" type="checkbox" checked class="mr-2" />Enabled</label>
+                                    <label data-mcp-create-http class="block text-sm text-txt-primary"><input name="allow_private_http" type="checkbox" class="mr-2" />Allow HTTP on a private network</label>
+                                    <p data-mcp-create-http class="text-xs text-txt-secondary">HTTP traffic, including credentials, is not encrypted. Public HTTP addresses are always blocked.</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" data-mcp-create-action="cancel" class="ui-icon-button is-danger" data-icon="trash" data-icon-label="Cancel new MCP connection"></button>
+                                    <button type="submit" class="ui-icon-button is-primary" data-icon="plus" data-icon-label="Add Connection"></button>
+                                </div>
+                            </div>
+                        </form>
+                        <div id="mcp-feedback" class="text-sm text-txt-secondary"></div>
+                        <div id="mcp-connections-list" class="flex flex-col gap-3"></div>
+                    </div>
+                </details>
+                    </div>
+                </details>
+
                 <details id="config-activity-section" class="bg-app-card border border-border-primary rounded-lg shadow-sm">
                     <summary class="collapsible-summary">
                         <div class="summary-text">
@@ -620,15 +784,50 @@
                         </svg>
                     </summary>
                     <div class="p-4 pt-0 space-y-4">
-                        <p class="text-sm text-txt-secondary">
-                            Manual maintenance actions that do not fit elsewhere.
-                        </p>
+                        <div class="bg-app-elevated border border-border-primary rounded-md p-4 space-y-3">
+                            <div>
+                                <div class="text-sm font-medium text-txt-primary">Infrastructure</div>
+                                <div class="text-xs text-txt-secondary">
+                                    Infrastructure settings are configured in <code>.env</code> and require an Assistant.md restart. See the
+                                    <a href="https://github.com/DodgyBadger/Assistant.md/blob/main/docs/setup/installation.md#enable-advanced-mode" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">repository setup instructions</a>.
+                                </div>
+                            </div>
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <dt class="text-xs text-txt-secondary"><code>ASSISTANTMD_PUBLIC_URL</code></dt>
+                                    <dd id="configured-public-url" class="font-mono text-txt-primary break-all">Loading…</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs text-txt-secondary">Execution mode</dt>
+                                    <dd id="advanced-shell-execution-mode" class="font-mono text-txt-primary">Loading…</dd>
+                                </div>
+                                <div data-advanced-shell-coordinate>
+                                    <dt class="text-xs text-txt-secondary"><code>ASSISTANTMD_SHELL_HOST</code></dt>
+                                    <dd id="advanced-shell-host" class="font-mono text-txt-primary break-all">Loading…</dd>
+                                </div>
+                                <div data-advanced-shell-coordinate>
+                                    <dt class="text-xs text-txt-secondary"><code>ASSISTANTMD_SHELL_PORT</code></dt>
+                                    <dd id="advanced-shell-port" class="font-mono text-txt-primary">Loading…</dd>
+                                </div>
+                                <div data-advanced-shell-coordinate>
+                                    <dt class="text-xs text-txt-secondary"><code>ASSISTANTMD_SHELL_USER</code></dt>
+                                    <dd id="advanced-shell-user" class="font-mono text-txt-primary break-all">Loading…</dd>
+                                </div>
+                            </dl>
+                            <p id="advanced-shell-restricted-note" class="text-xs text-txt-secondary">
+                                Advanced-shell settings are inactive while execution mode is restricted.
+                            </p>
+                            <div class="border-t border-border-primary pt-3 text-xs">
+                                <span class="text-txt-secondary">Advanced-shell readiness:</span>
+                                <span id="advanced-shell-readiness" class="text-txt-primary">Loading…</span>
+                            </div>
+                        </div>
                         <div class="bg-app-elevated border border-border-primary rounded-md p-4 space-y-3">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div>
                                     <div class="text-sm font-medium text-txt-primary">System Jobs</div>
                                     <div class="text-xs text-txt-secondary">
-                                        Built-in scheduler jobs managed by AssistantMD.
+                                        Built-in scheduler jobs managed by Assistant.md.
                                     </div>
                                 </div>
                                 <button id="refresh-system-jobs" type="button" class="ui-icon-button" data-icon="refresh" data-icon-label="Refresh System Jobs"></button>
@@ -748,6 +947,7 @@
         </div>
     </div>
 
+    <script src="static/js/authentication.js"></script>
     <script src="static/js/browser-storage.js"></script>
     <script src="static/js/configuration.js"></script>
     <script src="static/js/icons.js"></script>

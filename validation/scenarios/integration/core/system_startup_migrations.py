@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.system_migrations import get_system_migration_status
-from validation.core.base_scenario import BaseScenario
+_direct_run_root: tempfile.TemporaryDirectory[str] | None = None
+if __name__ == "__main__":
+    from core.runtime.paths import set_bootstrap_roots
+
+    _direct_run_root = tempfile.TemporaryDirectory(
+        prefix="assistantmd-system-startup-migrations-"
+    )
+    direct_root = Path(_direct_run_root.name)
+    data_root = direct_root / "data"
+    bootstrap_system_root = direct_root / "system"
+    data_root.mkdir()
+    bootstrap_system_root.mkdir()
+    set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
+
+from core.system_migrations import get_system_migration_status  # noqa: E402
+from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class SystemStartupMigrationsScenario(BaseScenario):
@@ -109,7 +125,7 @@ class SystemStartupMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "workflow_runs"),
-                [1, 2],
+                [1, 2, 3],
                 "Startup should record the workflow-run migration versions",
             )
 
@@ -228,3 +244,7 @@ class SystemStartupMigrationsScenario(BaseScenario):
             str(row[1])
             for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
         }
+
+
+if __name__ == "__main__":
+    asyncio.run(SystemStartupMigrationsScenario().test_scenario())

@@ -34,6 +34,8 @@ from core.settings.store import (
     get_enabled_tool_names,
     get_enabled_tools_config,
 )
+from core.tools.failures import classify_tool_result_state
+from core.tools.utils import estimate_token_count
 from core.vault_state.pathing import (
     resolve_configured_vault_root,
     resolve_vault_relative_path,
@@ -51,6 +53,7 @@ from ..models import (
     ChatSessionInfo,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
+    ChatSessionToolCallInfo,
     ChatSessionToolEventInfo,
     ChatToolCallDetailResponse,
     ChatWorkspaceInfo,
@@ -604,6 +607,9 @@ def get_chat_session_detail(
     """Return persisted chat messages for one session."""
     _require_chat_session_access(vault_name, session_id)
     messages = _chat_store.get_stored_messages(session_id, vault_name)
+    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+        session_id, vault_name
+    )
     tool_events = _chat_store.get_tool_events(
         session_id, vault_name, committed_only=True
     )
@@ -625,26 +631,8 @@ def get_chat_session_detail(
             else None
         ),
         latest_failure=latest_failure,
-        messages=[
-            ChatSessionMessageInfo(
-                sequence_index=message.sequence_index,
-                fork_sequence_index=message.fork_sequence_index,
-                role=message.role,
-                content=_chat_message_display_content(message),
-                thinking_content=_chat_message_thinking_content(message),
-                message_type=message.message_type,
-                direction=message.direction,
-                is_tool_message=(
-                    _is_tool_message_text(message.content_text)
-                    or bool(message.tool_call_ids)
-                    or bool(message.tool_return_ids)
-                ),
-                tool_call_ids=list(message.tool_call_ids),
-                tool_return_ids=list(message.tool_return_ids),
-            )
-            for message in messages
-        ],
-        tool_events=[_tool_event_info(event) for event in tool_events],
+        messages=[_chat_session_message_info(message) for message in messages],
+        tool_calls=_effective_tool_call_info(messages, declaration_counts, tool_events),
     )
 
 
@@ -655,22 +643,33 @@ def get_chat_tool_call_detail(
 ) -> ChatToolCallDetailResponse:
     """Return complete persisted detail for one session-owned tool call."""
     _require_chat_session_access(vault_name, session_id)
+    messages = _chat_store.get_stored_messages(session_id, vault_name)
+    effective_tool_call_ids = _effective_tool_call_ids(messages)
+    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+        session_id, vault_name
+    )
+    if (
+        tool_call_id not in effective_tool_call_ids
+        or declaration_counts.get(tool_call_id) != 1
+    ):
+        _raise_chat_tool_call_not_found(session_id, tool_call_id)
     events = _chat_store.get_tool_events_for_call(
         session_id,
         vault_name,
         tool_call_id,
     )
     if not events:
-        logger.debug(
-            "Chat tool detail not found",
-            data={"session_id": session_id, "tool_call_id": tool_call_id},
+        _raise_chat_tool_call_not_found(session_id, tool_call_id)
+    if not _tool_call_events_are_unambiguous(events):
+        logger.warning(
+            "Ambiguous chat tool detail withheld",
+            data={
+                "session_id": session_id,
+                "tool_call_id": tool_call_id,
+                "call_event_count": sum(event.event_type == "call" for event in events),
+            },
         )
-        raise APIException(
-            status_code=404,
-            error_type="ChatToolCallNotFound",
-            message=f"Tool call not found: {tool_call_id}",
-            details={"session_id": session_id, "tool_call_id": tool_call_id},
-        )
+        _raise_chat_tool_call_not_found(session_id, tool_call_id)
 
     args = next(
         (_load_json_object(event.args_json) for event in events if event.args_json),
@@ -706,6 +705,20 @@ def get_chat_tool_call_detail(
     )
 
 
+def _raise_chat_tool_call_not_found(session_id: str, tool_call_id: str) -> None:
+    """Hide tool details that are absent from the effective chat history."""
+    logger.debug(
+        "Chat tool detail not found",
+        data={"session_id": session_id, "tool_call_id": tool_call_id},
+    )
+    raise APIException(
+        status_code=404,
+        error_type="ChatToolCallNotFound",
+        message=f"Tool call not found: {tool_call_id}",
+        details={"session_id": session_id, "tool_call_id": tool_call_id},
+    )
+
+
 def _tool_event_info(event: StoredChatToolEvent) -> ChatSessionToolEventInfo:
     """Convert one stored tool event into the shared API representation."""
     return ChatSessionToolEventInfo(
@@ -717,6 +730,119 @@ def _tool_event_info(event: StoredChatToolEvent) -> ChatSessionToolEventInfo:
         result_text=event.result_text,
         result_metadata=_load_json_object(event.result_metadata_json) or {},
         artifact_ref=event.artifact_ref,
+    )
+
+
+def _tool_call_events_are_unambiguous(events: list[StoredChatToolEvent]) -> bool:
+    """Return whether stored rows describe exactly one tool invocation."""
+    return sum(event.event_type == "call" for event in events) == 1
+
+
+def _effective_tool_call_info(
+    messages: list[StoredChatMessage],
+    declaration_counts: dict[str, int],
+    events: list[StoredChatToolEvent],
+) -> list[ChatSessionToolCallInfo]:
+    """Return safe summaries for tool calls retained in effective history."""
+    events_by_id: dict[str, list[StoredChatToolEvent]] = {}
+    for event in events:
+        events_by_id.setdefault(event.tool_call_id, []).append(event)
+
+    summaries: list[ChatSessionToolCallInfo] = []
+    for tool_call_id in _effective_tool_call_ids(messages):
+        if declaration_counts.get(tool_call_id) != 1:
+            continue
+        call_events = events_by_id.get(tool_call_id)
+        if not call_events or not _tool_call_events_are_unambiguous(call_events):
+            continue
+        summaries.append(
+            ChatSessionToolCallInfo(
+                tool_call_id=tool_call_id,
+                tool_name=call_events[0].tool_name,
+                status=_stored_tool_call_status(call_events),
+                token_count=_stored_tool_call_token_count(call_events),
+            )
+        )
+    return summaries
+
+
+def _effective_tool_call_ids(messages: list[StoredChatMessage]) -> list[str]:
+    """Return effective IDs that have both a call and its tool return."""
+    ordered_ids: list[str] = []
+    seen_ids: set[str] = set()
+    returned_ids: set[str] = set()
+    for message in messages:
+        returned_ids.update(
+            tool_call_id for tool_call_id in message.tool_return_ids if tool_call_id
+        )
+        for tool_call_id in message.tool_call_ids:
+            if tool_call_id and tool_call_id not in seen_ids:
+                seen_ids.add(tool_call_id)
+                ordered_ids.append(tool_call_id)
+    return [
+        tool_call_id for tool_call_id in ordered_ids if tool_call_id in returned_ids
+    ]
+
+
+def _stored_tool_call_status(
+    events: list[StoredChatToolEvent],
+) -> Literal["completed", "failed", "interrupted"]:
+    """Derive a settled UI state without exposing stored tool contents."""
+    result_event = next(
+        (event for event in reversed(events) if event.event_type != "call"),
+        None,
+    )
+    if result_event is None:
+        return "interrupted"
+    return classify_tool_result_state(
+        metadata=_load_json_object(result_event.result_metadata_json) or {}
+    )
+
+
+def _stored_tool_call_token_count(
+    events: list[StoredChatToolEvent],
+) -> int | None:
+    """Return the stored estimated result size for a completed tool call."""
+    result_event = next(
+        (event for event in reversed(events) if event.event_type != "call"),
+        None,
+    )
+    if result_event is None:
+        return None
+    metadata = _load_json_object(result_event.result_metadata_json) or {}
+    value = metadata.get("token_count")
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    if result_event.result_text is None:
+        return 0
+    return estimate_token_count(result_event.result_text)
+
+
+def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessageInfo:
+    """Return browser-safe display data while withholding tool message contents."""
+    is_tool_message = (
+        _is_tool_message_text(message.content_text)
+        or bool(message.tool_call_ids)
+        or bool(message.tool_return_ids)
+    )
+    is_model_response = isinstance(message.message, ModelResponse)
+    return ChatSessionMessageInfo(
+        sequence_index=message.sequence_index,
+        fork_sequence_index=message.fork_sequence_index,
+        role=message.role,
+        content=(
+            _chat_message_display_content(message)
+            if is_model_response or not is_tool_message
+            else ""
+        ),
+        thinking_content=(
+            _chat_message_thinking_content(message) if is_model_response else ""
+        ),
+        message_type=message.message_type,
+        direction=message.direction,
+        is_tool_message=is_tool_message,
+        tool_call_ids=list(message.tool_call_ids),
+        tool_return_ids=list(message.tool_return_ids),
     )
 
 
@@ -732,6 +858,8 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
             if content:
                 text_parts.append(content)
 
+    if not text_parts and message.tool_call_ids:
+        return ""
     if not text_parts:
         return str(message.content_text)
 

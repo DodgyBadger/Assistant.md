@@ -22,6 +22,11 @@
         isSavingProvider: false,
         isLoadingSecrets: false,
         isSavingSecret: false,
+        isLoadingGoogle: false,
+        isSavingGoogle: false,
+        isLoadingMcp: false,
+        isSavingMcp: false,
+        isTestingMcp: false,
         isPurgingCache: false,
         isCleaningGoals: false,
         isCleaningVaultState: false,
@@ -40,6 +45,12 @@
         models: [],
         providers: [],
         secrets: [],
+        googleConnections: [],
+        googleDraft: false,
+        mcpConnections: [],
+        mcpAdvancedMode: false,
+        mcpAdvancedShellReady: false,
+        mcpOAuthStatuses: {},
         importVaults: [],
         importResults: null,
         importUrlResult: null,
@@ -105,6 +116,9 @@
     };
     let activityLogSearchTimer = null;
     let importJobPollTimer = null;
+    const googleOAuthPolls = new Map();
+    const mcpOAuthPolls = new Map();
+    let mcpOAuthStatusRequest = null;
 
     const elements = {
         activityLogViewer: null,
@@ -139,6 +153,18 @@
         secretsList: null,
         secretFeedback: null,
         secretAddBtn: null,
+
+        googleConnectionForm: null,
+        googleConnectionStatus: null,
+        googleConnectionFeedback: null,
+        googleConnectionsList: null,
+        connectionAddGoogle: null,
+        connectionAddMcp: null,
+        connectionsFeedback: null,
+
+        mcpCreateForm: null,
+        mcpConnectionsList: null,
+        mcpFeedback: null,
 
         miscFeedback: null,
         refreshSystemAuthoringBtn: null,
@@ -214,8 +240,12 @@
             refresh: icon.REFRESH_ICON_SVG,
             save: icon.SAVE_ICON_SVG,
             trash: icon.TRASH_ICON_SVG,
+            alert: icon.ALERT_ICON_SVG,
             x: icon.X_ICON_SVG,
             circleX: icon.CIRCLE_X_ICON_SVG,
+            check: icon.CHECK_ICON_SVG,
+            copy: icon.COPY_ICON_SVG,
+            link: icon.LINK_ICON_SVG,
         };
         return svgByName[iconName] || icon.SETTINGS_ICON_SVG;
     }
@@ -257,6 +287,18 @@
         elements.secretsList = document.getElementById('secrets-list');
         elements.secretFeedback = document.getElementById('secret-feedback');
         elements.secretAddBtn = document.getElementById('secret-add-row');
+
+        elements.googleConnectionForm = document.getElementById('google-connection-form');
+        elements.googleConnectionStatus = document.getElementById('google-connection-status');
+        elements.googleConnectionFeedback = document.getElementById('google-connection-feedback');
+        elements.googleConnectionsList = document.getElementById('google-connections-list');
+        elements.connectionAddGoogle = document.getElementById('connection-add-google');
+        elements.connectionAddMcp = document.getElementById('connection-add-mcp');
+        elements.connectionsFeedback = document.getElementById('connections-feedback');
+
+        elements.mcpCreateForm = document.getElementById('mcp-create-form');
+        elements.mcpConnectionsList = document.getElementById('mcp-connections-list');
+        elements.mcpFeedback = document.getElementById('mcp-feedback');
 
         elements.miscFeedback = document.getElementById('misc-feedback');
         elements.refreshSystemAuthoringBtn = document.getElementById('refresh-system-authoring');
@@ -339,6 +381,28 @@
         elements.secretAddBtn?.addEventListener('click', startNewSecret);
         elements.secretsList?.addEventListener('click', handleSecretsTableClick);
         elements.secretsList?.addEventListener('input', handleSecretInputChange);
+        elements.connectionAddGoogle?.addEventListener('click', startGoogleConnectionDraft);
+        elements.connectionAddMcp?.addEventListener('click', () => {
+            elements.mcpCreateForm?.classList.remove('hidden');
+            elements.mcpCreateForm?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+        elements.googleConnectionsList?.addEventListener('submit', saveGoogleConnection);
+        elements.googleConnectionsList?.addEventListener('click', handleGoogleConnectionAction);
+        elements.mcpCreateForm?.addEventListener('submit', handleMcpCreate);
+        elements.mcpCreateForm?.addEventListener('click', (event) => {
+            const parseImport = event.target instanceof Element ? event.target.closest('[data-mcp-create-action="parse-import"]') : null;
+            if (parseImport) {
+                void parseMcpImport();
+                return;
+            }
+            const cancel = event.target instanceof Element ? event.target.closest('[data-mcp-create-action="cancel"]') : null;
+            if (!cancel) return;
+            elements.mcpCreateForm.reset();
+            elements.mcpCreateForm.classList.add('hidden');
+            updateMcpCreateAuthFields();
+        });
+        elements.mcpConnectionsList?.addEventListener('click', handleMcpConnectionAction);
+        elements.mcpCreateForm?.addEventListener('change', updateMcpCreateAuthFields);
         elements.refreshSystemAuthoringBtn?.addEventListener('click', handleRefreshSystemAuthoring);
         elements.purgeExpiredCacheBtn?.addEventListener('click', handlePurgeExpiredCache);
         elements.cleanupVaultStateBtn?.addEventListener('click', handleCleanupVaultState);
@@ -855,7 +919,7 @@
         const classSuffix = extraClass ? ` ${extraClass}` : '';
         return `
             <div class="rounded-md border border-border-secondary bg-app-card px-3 py-2 text-xs state-warning${classSuffix}">
-                OpenAI OAuth is experimental and is not officially supported by OpenAI for AssistantMD. Use it at your own risk: it could break if OpenAI changes the flow, and your account could be disabled if OpenAI decides to restrict this access.
+                OpenAI OAuth is experimental and is not officially supported by OpenAI for Assistant.md. Use it at your own risk: it could break if OpenAI changes the flow, and your account could be disabled if OpenAI decides to restrict this access.
             </div>
         `;
     }
@@ -2186,6 +2250,846 @@ async function saveModelRow(rowKey) {
         }
     }
 
+    async function loadGoogleConnection() {
+        if (!elements.googleConnectionsList || state.isLoadingGoogle) return;
+        state.isLoadingGoogle = true;
+        try {
+            const response = await fetch('api/system/connections/google/connections', { cache: 'no-store' });
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            state.googleConnections = Array.isArray(payload) ? payload : [];
+            renderGoogleConnection();
+        } catch (error) {
+            setStatus(elements.connectionsFeedback, `Google connections unavailable: ${error.message}`, 'error');
+        } finally {
+            state.isLoadingGoogle = false;
+        }
+    }
+
+    function renderGoogleConnection() {
+        const list = elements.googleConnectionsList;
+        const template = elements.googleConnectionForm;
+        if (!(list instanceof HTMLElement) || !(template instanceof HTMLFormElement)) return;
+        list.replaceChildren();
+        state.googleConnections.forEach((connection) => appendGoogleConnectionCard(connection));
+        if (state.googleDraft) appendGoogleConnectionCard(null);
+    }
+
+    function appendGoogleConnectionCard(connection) {
+        const list = elements.googleConnectionsList;
+        const template = elements.googleConnectionForm;
+        if (!(list instanceof HTMLElement) || !(template instanceof HTMLFormElement)) return;
+        const details = document.createElement('details');
+        details.className = 'rounded-lg border border-border-primary bg-app-card shadow-sm';
+        details.open = !connection;
+        details.dataset.googleId = connection?.connection_id || 'draft';
+        const draftAuthorizationRequired = Boolean(connection?.gmail_available && connection?.gmail?.draft_creation_enabled && !connection?.gmail_draft_available);
+        const gmailReady = Boolean(connection?.gmail_available && (!connection?.gmail?.draft_creation_enabled || connection?.gmail_draft_available));
+        const summary = document.createElement('summary');
+        summary.className = 'collapsible-summary connection-card-summary';
+        const statusIconTone = gmailReady ? 'state-success' : (draftAuthorizationRequired ? 'state-warning' : 'text-txt-secondary');
+        const statusIconTitle = gmailReady ? 'Connected' : (draftAuthorizationRequired ? 'Reauthorization required for Gmail drafts' : 'Setup required');
+        const statusIconName = gmailReady ? 'check' : (draftAuthorizationRequired ? 'alert' : 'x');
+        const statusIcon = connection ? `<span class="connection-card-status-icon ${statusIconTone}" title="${statusIconTitle}">${iconSvg(statusIconName)}</span>` : '';
+        summary.innerHTML = `<div class="summary-text"><span class="summary-title">${escapeHtml(connection?.display_name || 'New Google connection')}</span>${statusIcon}</div><svg class="chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>`;
+        const form = template.cloneNode(true);
+        form.removeAttribute('id');
+        form.classList.remove('hidden');
+        form.classList.remove('rounded-lg', 'border', 'border-border-primary', 'shadow-sm');
+        form.dataset.googleId = connection?.connection_id || 'draft';
+        details.append(summary, form);
+        list.append(details);
+        const setValue = (name, value) => {
+            const input = form.elements.namedItem(name);
+            if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) input.value = value ?? '';
+        };
+        setValue('display_name', connection?.display_name || '');
+        setValue('client_id', connection?.client_id || '');
+        setValue('client_secret', '');
+        setValue('redirect_uri', connection?.oauth_redirect_uri || googleDraftRedirectUri());
+        setValue('search_default_results', connection?.gmail?.search_default_results ?? 20);
+        setValue('search_max_results', connection?.gmail?.search_max_results ?? 100);
+        setValue('message_max_characters', connection?.gmail?.message_max_characters ?? 50000);
+        setValue('thread_max_messages', connection?.gmail?.thread_max_messages ?? 25);
+        setValue('attachment_max_mb', connection?.gmail?.attachment_max_mb ?? 25);
+        setValue('draft_max_characters', connection?.gmail?.draft_max_characters ?? 50000);
+        const attachmentDownloadInput = form.elements.namedItem('attachment_download_enabled');
+        if (attachmentDownloadInput instanceof HTMLInputElement) attachmentDownloadInput.checked = connection?.gmail?.attachment_download_enabled ?? false;
+        const draftCreationInput = form.elements.namedItem('draft_creation_enabled');
+        if (draftCreationInput instanceof HTMLInputElement) draftCreationInput.checked = connection?.gmail?.draft_creation_enabled ?? false;
+        const defaultInput = form.elements.namedItem('is_default');
+        if (defaultInput instanceof HTMLInputElement) {
+            defaultInput.checked = connection?.is_default || (!connection && state.googleConnections.length === 0);
+        }
+        const labels = {
+            not_configured: connection?.client_id ? 'Client secret required' : 'Not configured',
+            authorization_required: 'Ready to authorize',
+            ready: connection?.gmail_available
+                ? (connection?.gmail?.draft_creation_enabled && !connection?.gmail_draft_available
+                    ? 'Connected; reauthorize to enable Gmail drafts'
+                    : 'Connected; Gmail tools available')
+                : 'Connected; Gmail scope required',
+            reconnect_required: 'Reconnect required',
+        };
+        const account = connection?.account_email ? ` as ${connection.account_email}` : '';
+        const status = form.querySelector('#google-connection-status');
+        if (status) status.removeAttribute('id');
+        const statusTone = gmailReady ? 'success' : (draftAuthorizationRequired ? 'warning' : 'info');
+        setStatus(status, connection ? `${labels[connection.state] || connection.state}${account}.` : 'Enter Google OAuth client settings.', statusTone);
+        const feedback = form.querySelector('#google-connection-feedback');
+        if (feedback) feedback.removeAttribute('id');
+        const authorize = form.querySelector('[data-google-action="authorize"]');
+        const disconnect = form.querySelector('[data-google-action="disconnect"]');
+        const remove = form.querySelector('[data-google-action="delete"]');
+        if (authorize instanceof HTMLButtonElement) {
+            authorize.textContent = connection?.connected ? 'Reauthorize Google' : 'Authorize Google';
+            authorize.disabled = !connection;
+        }
+        if (disconnect instanceof HTMLButtonElement) disconnect.disabled = !connection?.connected;
+        if (remove instanceof HTMLButtonElement) remove.dataset.googleAction = connection ? 'delete' : 'cancel';
+    }
+
+    function startGoogleConnectionDraft() {
+        if (state.googleDraft) {
+            elements.googleConnectionsList?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+        state.googleDraft = true;
+        renderGoogleConnection();
+        elements.googleConnectionsList?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function googleDraftRedirectUri() {
+        const publicUrl = document.getElementById('configured-public-url')?.textContent?.trim();
+        if (!publicUrl || publicUrl === 'Loading…' || publicUrl === 'Not configured') return '';
+        try {
+            return new URL('/api/system/connections/google/oauth/callback', publicUrl).href;
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    async function saveGoogleConnection(event) {
+        event.preventDefault();
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || state.isSavingGoogle) return;
+        const values = new FormData(form);
+        const id = form.dataset.googleId;
+        if (id && id !== 'draft') cancelGoogleOAuthPoll(id);
+        const creating = id === 'draft';
+        const payload = {
+            display_name: String(values.get('display_name') || '').trim(),
+            client_id: String(values.get('client_id') || '').trim(),
+            is_default: values.get('is_default') === 'on',
+            gmail: {
+                search_default_results: Number(values.get('search_default_results')),
+                search_max_results: Number(values.get('search_max_results')),
+                message_max_characters: Number(values.get('message_max_characters')),
+                thread_max_messages: Number(values.get('thread_max_messages')),
+                attachment_download_enabled: values.get('attachment_download_enabled') === 'on',
+                attachment_max_mb: Number(values.get('attachment_max_mb')),
+                draft_creation_enabled: values.get('draft_creation_enabled') === 'on',
+                draft_max_characters: Number(values.get('draft_max_characters')),
+            },
+        };
+        const endpoint = creating ? 'api/system/connections/google/connections' : `api/system/connections/google/connections/${encodeURIComponent(id)}`;
+        const saved = await mutateGoogle(endpoint, { method: creating ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'Google settings saved.', false);
+        const clientSecret = String(values.get('client_secret') || '').trim();
+        if (saved && clientSecret) {
+            const savedId = creating ? saved.connection_id : id;
+            state.googleDraft = false;
+            await mutateGoogle(`api/system/connections/google/connections/${encodeURIComponent(savedId)}/client-secret`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_secret: clientSecret }) }, 'Google settings and client secret saved.');
+        } else if (saved) {
+            state.googleDraft = false;
+            await loadGoogleConnection();
+            await notifyConfigChanged();
+        }
+    }
+
+    async function handleGoogleConnectionAction(event) {
+        const copyButton = event.target instanceof Element ? event.target.closest('[data-google-copy]') : null;
+        if (copyButton instanceof HTMLButtonElement) {
+            const form = copyButton.closest('form[data-google-id]');
+            const field = form?.elements.namedItem(copyButton.dataset.googleCopy || '');
+            await copyConnectionField(copyButton, field);
+            return;
+        }
+        const button = event.target instanceof Element ? event.target.closest('[data-google-action]') : null;
+        const form = button?.closest('form[data-google-id]');
+        if (!(button instanceof HTMLButtonElement) || !(form instanceof HTMLFormElement) || state.isSavingGoogle) return;
+        const id = form.dataset.googleId;
+        const action = button.dataset.googleAction;
+        if (action === 'authorize') {
+            const savedConnection = state.googleConnections.find((item) => item.connection_id === id);
+            const draftEnabled = form.elements.namedItem('draft_creation_enabled')?.checked ?? false;
+            if (draftEnabled !== (savedConnection?.gmail?.draft_creation_enabled ?? false)) {
+                setStatus(elements.connectionsFeedback, 'Save the Gmail capability changes before authorizing Google.', 'warning');
+                return;
+            }
+            await startGoogleOAuth(form, id);
+        } else if (action === 'complete') {
+            const redirect = form.elements.namedItem('oauth_redirect')?.value || '';
+            if (!redirect.trim()) {
+                setStatus(form.querySelector('[id="google-connection-feedback"]') || elements.connectionsFeedback, 'Paste the full redirected URL first.', 'error');
+                return;
+            }
+            cancelGoogleOAuthPoll(id);
+            await mutateGoogle(`api/system/connections/google/connections/${encodeURIComponent(id)}/oauth/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redirect_url: redirect, code: null, state: null }) }, 'Google account connected.');
+        } else if (action === 'disconnect') {
+            if (window.confirm('Disconnect the authorized Google account? Client settings will be preserved.')) {
+                cancelGoogleOAuthPoll(id);
+                await mutateGoogle(`api/system/connections/google/connections/${encodeURIComponent(id)}/oauth`, { method: 'DELETE' }, 'Google account disconnected.');
+            }
+        } else if (action === 'delete') {
+            if (window.confirm('Remove the Google connection, client secret, and authorized account?')) {
+                cancelGoogleOAuthPoll(id);
+                const replacement = state.googleConnections.find((item) => item.connection_id !== id)?.connection_id;
+                const query = replacement ? `?replacement_default_id=${encodeURIComponent(replacement)}` : '';
+                await mutateGoogle(`api/system/connections/google/connections/${encodeURIComponent(id)}${query}`, { method: 'DELETE' }, 'Google connection removed.');
+            }
+        } else if (action === 'cancel') {
+            state.googleDraft = false;
+            renderGoogleConnection();
+        }
+    }
+
+    async function startGoogleOAuth(form, id) {
+        cancelGoogleOAuthPoll(id);
+        state.isSavingGoogle = true;
+        setStatus(elements.connectionsFeedback, 'Starting Google authorization…');
+        try {
+            const response = await fetch(`api/system/connections/google/connections/${encodeURIComponent(id)}/oauth/start`, { method: 'POST' });
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            const field = form.elements.namedItem('authorization_url');
+            if (field instanceof HTMLTextAreaElement) field.value = payload.authorization_url;
+            const popup = window.open(payload.authorization_url, '_blank', 'noopener,noreferrer');
+            setStatus(elements.connectionsFeedback, popup ? 'Finish authorization in the new tab. The URL is also available below.' : 'The browser blocked the new tab. Copy the authorization URL below.', popup ? 'success' : 'warning');
+            startGoogleOAuthPoll(id);
+        } catch (error) {
+            setStatus(elements.connectionsFeedback, error.message, 'error');
+        } finally {
+            state.isSavingGoogle = false;
+        }
+    }
+
+    function createOAuthPoll(owners, id, durationMs) {
+        const owner = {
+            controller: new AbortController(),
+            timerId: null,
+            deadline: Date.now() + durationMs,
+            generation: Symbol(id),
+            timerResolve: null,
+        };
+        owners.set(id, owner);
+        return owner;
+    }
+
+    function ownsOAuthPoll(owners, id, owner) {
+        const current = owners.get(id);
+        return current?.generation === owner.generation && !owner.controller.signal.aborted;
+    }
+
+    function cancelOAuthPoll(owners, id) {
+        const owner = owners.get(id);
+        if (!owner) return;
+        owners.delete(id);
+        owner.controller.abort();
+        if (owner.timerId !== null) window.clearTimeout(owner.timerId);
+        owner.timerResolve?.(false);
+        owner.timerResolve = null;
+    }
+
+    function finishOAuthPoll(owners, id, owner) {
+        if (!ownsOAuthPoll(owners, id, owner)) return false;
+        owners.delete(id);
+        if (owner.timerId !== null) window.clearTimeout(owner.timerId);
+        owner.timerResolve?.(false);
+        owner.timerResolve = null;
+        return true;
+    }
+
+    function waitForOAuthPoll(owners, id, owner, delayMs) {
+        return new Promise((resolve) => {
+            if (!ownsOAuthPoll(owners, id, owner)) {
+                resolve(false);
+                return;
+            }
+            owner.timerId = window.setTimeout(() => {
+                owner.timerId = null;
+                owner.timerResolve = null;
+                resolve(ownsOAuthPoll(owners, id, owner));
+            }, delayMs);
+            owner.timerResolve = resolve;
+        });
+    }
+
+    function cancelGoogleOAuthPoll(id) {
+        cancelOAuthPoll(googleOAuthPolls, id);
+    }
+
+    function cancelMcpOAuthPoll(id) {
+        cancelOAuthPoll(mcpOAuthPolls, id);
+    }
+
+    function cancelAllOAuthPolls() {
+        [...googleOAuthPolls.keys()].forEach(cancelGoogleOAuthPoll);
+        [...mcpOAuthPolls.keys()].forEach(cancelMcpOAuthPoll);
+        if (mcpOAuthStatusRequest) {
+            mcpOAuthStatusRequest.controller.abort();
+            mcpOAuthStatusRequest = null;
+        }
+    }
+
+    function startGoogleOAuthPoll(id) {
+        cancelGoogleOAuthPoll(id);
+        const owner = createOAuthPoll(googleOAuthPolls, id, 10 * 60 * 1000);
+        void pollGoogleConnection(id, owner);
+    }
+
+    async function pollGoogleConnection(id, owner) {
+        try {
+            while (ownsOAuthPoll(googleOAuthPolls, id, owner)) {
+                if (Date.now() >= owner.deadline) {
+                    if (finishOAuthPoll(googleOAuthPolls, id, owner)) {
+                        setStatus(elements.connectionsFeedback, 'Google authorization expired. Start a new attempt.', 'warning');
+                    }
+                    return;
+                }
+                if (!await waitForOAuthPoll(googleOAuthPolls, id, owner, 1500)) return;
+                const response = await fetch('api/system/connections/google/connections', {
+                    cache: 'no-store',
+                    signal: owner.controller.signal,
+                });
+                const payload = await safeJson(response);
+                if (!ownsOAuthPoll(googleOAuthPolls, id, owner)) return;
+                if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+                state.googleConnections = Array.isArray(payload) ? payload : [];
+                renderGoogleConnection();
+                if (state.googleConnections.find((connection) => connection.connection_id === id)?.connected) {
+                    if (!finishOAuthPoll(googleOAuthPolls, id, owner)) return;
+                    setStatus(elements.connectionsFeedback, 'Google account connected.', 'success');
+                    await notifyConfigChanged();
+                    return;
+                }
+            }
+        } catch (error) {
+            if (error.name === 'AbortError' || !ownsOAuthPoll(googleOAuthPolls, id, owner)) return;
+            if (await waitForOAuthPoll(googleOAuthPolls, id, owner, 1500)) void pollGoogleConnection(id, owner);
+        }
+    }
+
+    async function mutateGoogle(url, options, successMessage, reload = true) {
+        state.isSavingGoogle = true;
+        setStatus(elements.connectionsFeedback, 'Saving…');
+        try {
+            const response = await fetch(url, options);
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            setStatus(elements.connectionsFeedback, successMessage, 'success');
+            if (reload) await loadGoogleConnection();
+            await notifyConfigChanged();
+            return payload;
+        } catch (error) {
+            setStatus(elements.connectionsFeedback, error.message, 'error');
+            return false;
+        } finally {
+            state.isSavingGoogle = false;
+        }
+    }
+
+    async function loadMcpConnections() {
+        if (!elements.mcpConnectionsList || state.isLoadingMcp) return;
+        state.isLoadingMcp = true;
+        try {
+            const [response, statusResponse] = await Promise.all([
+                fetch('api/system/mcp/connections', { cache: 'no-store' }),
+                fetch('api/status', { cache: 'no-store' }),
+            ]);
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            const statusPayload = await safeJson(statusResponse);
+            state.mcpAdvancedMode = statusResponse.ok && statusPayload?.advanced_shell?.execution_mode === 'advanced';
+            state.mcpAdvancedShellReady = state.mcpAdvancedMode && statusPayload?.advanced_shell?.readiness_state === 'ready';
+            const stdioOption = elements.mcpCreateForm?.querySelector('option[value="advanced_shell_stdio"]');
+            if (stdioOption instanceof HTMLOptionElement) {
+                stdioOption.disabled = !state.mcpAdvancedMode;
+                stdioOption.textContent = !state.mcpAdvancedMode
+                    ? 'Advanced-shell stdio (requires advanced mode)'
+                    : state.mcpAdvancedShellReady
+                        ? 'Advanced-shell stdio'
+                        : 'Advanced-shell stdio (shell currently unavailable)';
+            }
+            state.mcpConnections = Array.isArray(payload) ? payload : [];
+            renderMcpConnections();
+            void loadMcpOAuthStatuses();
+        } catch (error) {
+            elements.mcpConnectionsList.innerHTML = `<div class="rounded-lg border state-surface-error px-4 py-3 text-sm text-center shadow-sm">Failed to load MCP connections: ${escapeHtml(error.message)}</div>`;
+        } finally {
+            state.isLoadingMcp = false;
+        }
+    }
+
+    function renderMcpConnections() {
+        if (!elements.mcpConnectionsList) return;
+        if (!state.mcpConnections.length) {
+            elements.mcpConnectionsList.innerHTML = '';
+            return;
+        }
+        elements.mcpConnectionsList.innerHTML = state.mcpConnections.map((connection) => {
+            const allowedTools = Array.isArray(connection.allowed_tools) ? connection.allowed_tools.join(', ') : '';
+            const isStdio = connection.transport === 'advanced_shell_stdio';
+            const staticAuth = connection.auth_mode === 'bearer' || connection.auth_mode === 'header';
+            const oauthAuth = connection.auth_mode === 'oauth';
+            const browserCallbackUrl = new URL(`api/system/mcp/connections/${encodeURIComponent(connection.connection_id)}/oauth/callback`, window.location.href).href;
+            const oauthCallbackUrl = connection.oauth_redirect_uri || browserCallbackUrl;
+            const oauthOriginMismatch = connection.oauth_redirect_source === 'configured' && new URL(oauthCallbackUrl).origin !== window.location.origin;
+            return `
+                <details class="rounded-lg border border-border-primary bg-app-card shadow-sm" data-mcp-id="${escapeHtml(connection.connection_id)}">
+                    <summary class="collapsible-summary connection-card-summary"><div class="summary-text"><span class="summary-title">${escapeHtml(connection.display_name)}</span><span class="connection-card-status-icon ${connection.enabled ? 'state-success' : 'text-txt-secondary'}" title="${connection.enabled ? 'Enabled' : 'Disabled'}">${iconSvg(connection.enabled ? 'check' : 'x')}</span></div><svg class="chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
+                    <div class="p-4 pt-0 space-y-3">
+                    <div class="text-xs font-medium text-txt-secondary">MCP connection</div>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <label class="text-xs text-txt-secondary">Display name<input data-mcp-field="display_name" value="${escapeHtml(connection.display_name)}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                        ${isStdio ? `
+                        <label class="text-xs text-txt-secondary">Advanced-shell executable<input data-mcp-field="stdio_executable" value="${escapeHtml(connection.stdio?.executable || '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" /></label>
+                        <label class="text-xs text-txt-secondary">Working directory<input data-mcp-field="stdio_working_directory" value="${escapeHtml(connection.stdio?.working_directory || '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" /></label>
+                        <label class="text-xs text-txt-secondary">Arguments (one per line)<textarea data-mcp-field="stdio_arguments" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary">${escapeHtml(Array.isArray(connection.stdio?.arguments) ? connection.stdio.arguments.join('\n') : '')}</textarea></label>
+                        <label class="text-xs text-txt-secondary">MCP Roots (one per line)<textarea data-mcp-field="stdio_roots" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary">${escapeHtml(Array.isArray(connection.stdio?.roots) ? connection.stdio.roots.join('\n') : '')}</textarea></label>
+                        <label class="text-xs text-txt-secondary md:col-span-2">Non-secret environment<textarea data-mcp-field="stdio_environment" rows="4" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary">${escapeHtml(Object.entries(connection.stdio?.environment || {}).map(([name, value]) => `${name}=${value}`).join('\n'))}</textarea></label>
+                        ` : `
+                        <label class="text-xs text-txt-secondary">Server URL<input data-mcp-field="url" value="${escapeHtml(connection.url || '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" /></label>
+                        <label class="text-xs text-txt-secondary">Authentication<select data-mcp-field="auth_mode" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary"><option value="none" ${connection.auth_mode === 'none' ? 'selected' : ''}>None</option><option value="bearer" ${connection.auth_mode === 'bearer' ? 'selected' : ''}>Bearer token</option><option value="header" ${connection.auth_mode === 'header' ? 'selected' : ''}>Custom header</option><option value="oauth" ${connection.auth_mode === 'oauth' ? 'selected' : ''}>OAuth</option></select></label>
+                        <label class="text-xs text-txt-secondary">Header name<input data-mcp-field="header_name" value="${escapeHtml(connection.header_name || '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="X-API-Key" /></label>`}
+                        <input data-mcp-field="transport" type="hidden" value="${escapeHtml(connection.transport)}" />
+                        <label class="text-xs text-txt-secondary">Allowed tools<input data-mcp-field="allowed_tools" value="${escapeHtml(allowedTools)}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Blank trusts all tools" /></label>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm text-txt-primary"><input data-mcp-field="enabled" type="checkbox" ${connection.enabled ? 'checked' : ''} class="mr-2" />Enabled</label>
+                        ${isStdio ? '<p class="text-xs text-txt-secondary">Runs through the deployment\'s fixed advanced shell.</p>' : `<label class="block text-sm text-txt-primary"><input data-mcp-field="allow_private_http" type="checkbox" ${connection.allow_private_http ? 'checked' : ''} class="mr-2" />Allow HTTP on a private network</label><p class="text-xs text-txt-secondary">HTTP traffic, including credentials, is not encrypted. Public HTTP addresses are always blocked.</p>`}
+                    </div>
+                    ${staticAuth ? `<div class="rounded-md border border-border-primary p-3 space-y-2">
+                        <div class="text-xs text-txt-secondary">Credential: ${connection.credential_present ? 'stored' : 'not set'}</div>
+                        <div class="flex items-center gap-2"><input data-mcp-field="credential" type="password" ${staticAuth ? '' : 'disabled'} class="flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="New credential" autocomplete="new-password" /><button type="button" data-mcp-action="credential" ${iconButton('save', 'Save MCP credential', 'is-primary', staticAuth ? '' : 'disabled')}>${iconSvg('save')}</button><button type="button" data-mcp-action="clear-credential" ${iconButton('x', 'Clear MCP credential', 'is-danger', connection.credential_present ? '' : 'disabled')}>${iconSvg('x')}</button></div>
+                    </div>` : ''}
+                    ${oauthAuth ? `<div class="rounded-md border border-border-primary p-3 space-y-3">
+                        <div class="grid gap-3 md:grid-cols-2">
+                            <label class="text-xs text-txt-secondary">OAuth client ID<input data-mcp-field="oauth_client_id" value="${escapeHtml(connection.oauth_client_id || '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Blank uses dynamic registration" /></label>
+                            <label class="text-xs text-txt-secondary">OAuth client secret (${connection.oauth_client_secret_present ? 'stored' : 'not set'})<input data-mcp-field="oauth_client_secret" type="password" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Leave blank to preserve" autocomplete="new-password" /></label>
+                            <label class="text-xs text-txt-secondary md:col-span-2">OAuth scopes<input data-mcp-field="oauth_scopes" value="${escapeHtml(Array.isArray(connection.oauth_scopes) ? connection.oauth_scopes.join(', ') : '')}" class="mt-1 w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Blank uses server metadata" /></label>
+                            <label class="text-xs text-txt-secondary md:col-span-2">Authorized redirect URI (${connection.oauth_redirect_source === 'configured' ? 'configured' : 'browser fallback'})<span class="mt-1 flex items-start gap-2"><input data-mcp-field="oauth_callback_uri" readonly value="${escapeHtml(oauthCallbackUrl)}" class="min-w-0 flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary" /><button type="button" data-mcp-copy="oauth_callback_uri" ${iconButton('copy', 'Copy authorized redirect URI')}>${iconSvg('copy')}</button></span></label>
+                            ${oauthOriginMismatch ? `<div class="md:col-span-2 text-xs state-warning">This browser is using ${escapeHtml(window.location.origin)}, but OAuth callbacks use the configured origin ${escapeHtml(new URL(oauthCallbackUrl).origin)}.</div>` : ''}
+                        </div>
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div data-mcp-oauth-status class="text-sm text-txt-secondary">OAuth status: loading…</div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" data-mcp-action="oauth-connect" class="px-3 py-2 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent-hover">Authorize</button>
+                                <button type="button" data-mcp-action="oauth-disconnect" disabled class="px-3 py-2 rounded-md border border-border-secondary bg-app-card text-xs font-medium state-error hover:border-border-secondary disabled:opacity-50 disabled:cursor-not-allowed">Disconnect</button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-txt-secondary">Save any client ID, client secret, or scope changes before choosing Authorize. Servers that support dynamic registration can leave these fields blank.</p>
+                        <p class="text-xs text-txt-secondary">Authorize opens the server's sign-in page. Assistant.md detects the callback automatically when this address is reachable from your browser.</p>
+                        <label class="text-xs text-txt-secondary">Authorization URL<span class="mt-1 flex items-start gap-2"><textarea data-mcp-field="oauth_authorization_url" readonly rows="3" class="min-w-0 flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card font-mono text-xs text-txt-primary resize-y" placeholder="Choose Authorize to generate a URL you can copy into another browser."></textarea><button type="button" data-mcp-copy="oauth_authorization_url" ${iconButton('copy', 'Copy authorization URL')}>${iconSvg('copy')}</button></span></label>
+                        <div class="space-y-2">
+                            <p class="text-xs text-txt-secondary">Only use this if the browser cannot reach Assistant.md's callback. Copy the full redirected URL from the browser address bar.</p>
+                            <div class="flex flex-col gap-2 sm:flex-row"><input data-mcp-field="oauth_redirect" class="flex-1 px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary" placeholder="Paste the full redirected URL" /><button type="button" data-mcp-action="oauth-complete" class="shrink-0 px-3 py-2 rounded-md border border-border-secondary bg-app-card text-xs font-medium text-txt-primary hover:border-accent">Finish from redirected URL</button></div>
+                        </div>
+                    </div>` : ''}
+                    <div data-mcp-test-result class="text-sm text-txt-secondary"></div>
+                    <div class="flex justify-end gap-2"><button type="button" data-mcp-action="test" ${iconButton('play', 'Test MCP connection')}>${iconSvg('play')}</button><button type="button" data-mcp-action="delete" ${iconButton('trash', 'Delete MCP connection', 'is-danger')}>${iconSvg('trash')}</button><button type="button" data-mcp-action="save" ${iconButton('save', 'Save MCP connection', 'is-primary')}>${iconSvg('save')}</button></div>
+                    </div>
+                </details>`;
+        }).join('');
+    }
+
+    function parseMcpAllowedTools(value) {
+        const tools = String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+        return tools.length ? [...new Set(tools)] : null;
+    }
+
+    async function copyConnectionField(button, field) {
+        const value = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement
+            ? field.value.trim()
+            : '';
+        const copied = value ? await window.AssistantMDUtils.handleCopy(value) : false;
+        window.AssistantMDUtils.flashCopyFeedback(button, copied);
+    }
+
+    function updateMcpCreateAuthFields() {
+        if (!(elements.mcpCreateForm instanceof HTMLFormElement)) return;
+        const transport = elements.mcpCreateForm.elements.namedItem('transport')?.value || 'streamable_http';
+        const isStdio = transport === 'advanced_shell_stdio';
+        const submitButton = elements.mcpCreateForm.querySelector('button[type="submit"]');
+        if (submitButton instanceof HTMLButtonElement) {
+            setIconButtonLabel(submitButton, isStdio ? 'Test and add advanced-shell stdio connection' : 'Add MCP connection');
+        }
+        elements.mcpCreateForm.querySelectorAll('[data-mcp-create-http]').forEach((element) => element.classList.toggle('hidden', isStdio));
+        elements.mcpCreateForm.querySelectorAll('[data-mcp-create-stdio]').forEach((element) => element.classList.toggle('hidden', !isStdio));
+        const urlInput = elements.mcpCreateForm.elements.namedItem('url');
+        if (urlInput instanceof HTMLInputElement) {
+            urlInput.required = !isStdio;
+            urlInput.disabled = isStdio;
+        }
+        const authMode = elements.mcpCreateForm.elements.namedItem('auth_mode')?.value || 'none';
+        const headerInput = elements.mcpCreateForm.elements.namedItem('header_name');
+        const credentialInput = elements.mcpCreateForm.elements.namedItem('credential');
+        const oauthInputs = ['oauth_client_id', 'oauth_client_secret', 'oauth_scopes'].map((name) => elements.mcpCreateForm.elements.namedItem(name));
+        if (headerInput instanceof HTMLInputElement) {
+            headerInput.disabled = isStdio || authMode !== 'header';
+            if (headerInput.disabled) headerInput.value = '';
+        }
+        if (credentialInput instanceof HTMLInputElement) {
+            credentialInput.disabled = isStdio || (authMode !== 'bearer' && authMode !== 'header');
+            if (credentialInput.disabled) credentialInput.value = '';
+        }
+        oauthInputs.forEach((input) => {
+            if (input instanceof HTMLInputElement) {
+                input.disabled = isStdio || authMode !== 'oauth';
+                if (input.disabled) input.value = '';
+            }
+        });
+    }
+
+    function parseMcpLines(value) {
+        return String(value || '').split('\n').map((item) => item.trim()).filter(Boolean);
+    }
+
+    function parseMcpEnvironment(value) {
+        const environment = {};
+        for (const line of parseMcpLines(value)) {
+            const separator = line.indexOf('=');
+            if (separator < 1) throw new Error(`Invalid environment entry: ${line}`);
+            environment[line.slice(0, separator).trim()] = line.slice(separator + 1);
+        }
+        return environment;
+    }
+
+    async function parseMcpImport() {
+        if (!(elements.mcpCreateForm instanceof HTMLFormElement)) return;
+        const configuration = elements.mcpCreateForm.elements.namedItem('import_configuration')?.value || '';
+        if (!configuration.trim()) {
+            setStatus(elements.mcpFeedback, 'Paste advanced-shell stdio YAML or JSON first.', 'error');
+            return;
+        }
+        try {
+            const response = await fetch('api/system/mcp/connections/import/parse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configuration }),
+            });
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            const setValue = (name, value) => {
+                const field = elements.mcpCreateForm.elements.namedItem(name);
+                if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) field.value = value;
+            };
+            setValue('display_name', payload.display_name || '');
+            setValue('transport', payload.transport || 'advanced_shell_stdio');
+            setValue('allowed_tools', Array.isArray(payload.allowed_tools) ? payload.allowed_tools.join(', ') : '');
+            setValue('stdio_executable', payload.stdio?.executable || '');
+            setValue('stdio_working_directory', payload.stdio?.working_directory || '/workspace');
+            setValue('stdio_arguments', Array.isArray(payload.stdio?.arguments) ? payload.stdio.arguments.join('\n') : '');
+            setValue('stdio_roots', Array.isArray(payload.stdio?.roots) ? payload.stdio.roots.join('\n') : '');
+            setValue('stdio_environment', Object.entries(payload.stdio?.environment || {}).map(([name, value]) => `${name}=${value}`).join('\n'));
+            const enabled = elements.mcpCreateForm.elements.namedItem('enabled');
+            if (enabled instanceof HTMLInputElement) enabled.checked = payload.enabled !== false;
+            updateMcpCreateAuthFields();
+            setStatus(elements.mcpFeedback, 'Configuration imported. Review the fields, then add the connection.', 'success');
+        } catch (error) {
+            setStatus(elements.mcpFeedback, error.message, 'error');
+        }
+    }
+
+    async function loadMcpOAuthStatuses() {
+        if (mcpOAuthStatusRequest) mcpOAuthStatusRequest.controller.abort();
+        const request = { controller: new AbortController(), generation: Symbol('mcp-status') };
+        mcpOAuthStatusRequest = request;
+        const oauthConnections = state.mcpConnections.filter((connection) => connection.auth_mode === 'oauth');
+        await Promise.all(oauthConnections.map(async (connection) => {
+            try {
+                const response = await fetch(`api/system/mcp/connections/${encodeURIComponent(connection.connection_id)}/oauth/status`, { cache: 'no-store', signal: request.controller.signal });
+                const payload = await safeJson(response);
+                if (mcpOAuthStatusRequest !== request || request.controller.signal.aborted) return;
+                if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+                state.mcpOAuthStatuses[connection.connection_id] = payload;
+                const card = elements.mcpConnectionsList?.querySelector(`[data-mcp-id="${CSS.escape(connection.connection_id)}"]`);
+                const statusElement = card?.querySelector('[data-mcp-oauth-status]');
+                if (statusElement) statusElement.textContent = `OAuth status: ${payload.status}`;
+                const authorizeButton = card?.querySelector('[data-mcp-action="oauth-connect"]');
+                const disconnectButton = card?.querySelector('[data-mcp-action="oauth-disconnect"]');
+                if (authorizeButton instanceof HTMLButtonElement) authorizeButton.textContent = payload.connected ? 'Reauthorize' : (payload.status === 'pending' ? 'Restart authorization' : 'Authorize');
+                if (disconnectButton instanceof HTMLButtonElement) disconnectButton.disabled = !payload.connected && payload.status !== 'pending';
+            } catch (error) {
+                if (error.name === 'AbortError' || mcpOAuthStatusRequest !== request) return;
+                const card = elements.mcpConnectionsList?.querySelector(`[data-mcp-id="${CSS.escape(connection.connection_id)}"]`);
+                const statusElement = card?.querySelector('[data-mcp-oauth-status]');
+                if (statusElement) statusElement.textContent = `OAuth status unavailable: ${error.message}`;
+            }
+        }));
+        if (mcpOAuthStatusRequest === request) mcpOAuthStatusRequest = null;
+    }
+
+    async function handleMcpCreate(event) {
+        event.preventDefault();
+        if (state.isSavingMcp || !(elements.mcpCreateForm instanceof HTMLFormElement)) return;
+        const form = new FormData(elements.mcpCreateForm);
+        const transport = String(form.get('transport') || 'streamable_http');
+        const isStdio = transport === 'advanced_shell_stdio';
+        let stdio = null;
+        try {
+            if (isStdio) {
+                stdio = {
+                    executable: String(form.get('stdio_executable') || ''),
+                    working_directory: String(form.get('stdio_working_directory') || ''),
+                    arguments: parseMcpLines(form.get('stdio_arguments')),
+                    environment: parseMcpEnvironment(form.get('stdio_environment')),
+                    roots: parseMcpLines(form.get('stdio_roots')),
+                };
+            }
+        } catch (error) {
+            setStatus(elements.mcpFeedback, error.message, 'error');
+            return;
+        }
+        const payload = {
+            display_name: String(form.get('display_name') || ''),
+            url: isStdio ? null : String(form.get('url') || ''),
+            transport,
+            auth_mode: isStdio ? 'none' : String(form.get('auth_mode') || 'none'),
+            header_name: String(form.get('auth_mode') || 'none') === 'header' ? (String(form.get('header_name') || '').trim() || null) : null,
+            enabled: form.get('enabled') === 'on',
+            allow_private_http: !isStdio && form.get('allow_private_http') === 'on',
+            allowed_tools: parseMcpAllowedTools(form.get('allowed_tools')),
+            credential: ['bearer', 'header'].includes(String(form.get('auth_mode') || 'none')) ? (String(form.get('credential') || '').trim() || null) : null,
+            oauth_client_id: String(form.get('auth_mode') || 'none') === 'oauth' ? (String(form.get('oauth_client_id') || '').trim() || null) : null,
+            oauth_client_secret: String(form.get('auth_mode') || 'none') === 'oauth' ? (String(form.get('oauth_client_secret') || '').trim() || null) : null,
+            oauth_scopes: String(form.get('auth_mode') || 'none') === 'oauth' ? parseMcpAllowedTools(form.get('oauth_scopes')) : null,
+            stdio,
+        };
+        const enableAfterTest = isStdio && payload.enabled;
+        if (isStdio) payload.enabled = false;
+        const saved = await mutateMcp('api/system/mcp/connections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'MCP connection added.');
+        if (saved && isStdio && saved.connection_id) {
+            try {
+                setStatus(elements.mcpFeedback, 'Testing advanced-shell stdio connection…');
+                const testResponse = await fetch(`api/system/mcp/connections/${encodeURIComponent(saved.connection_id)}/test`, { method: 'POST' });
+                const testResult = await safeJson(testResponse);
+                if (!testResponse.ok || !testResult?.ready) throw new Error(testResult?.message || `HTTP ${testResponse.status}`);
+                if (enableAfterTest) {
+                    const { credential: _credential, oauth_client_secret: _oauthClientSecret, ...updatePayload } = payload;
+                    await mutateMcp(`api/system/mcp/connections/${encodeURIComponent(saved.connection_id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updatePayload, enabled: true }) }, `Advanced-shell stdio connection tested and enabled with ${testResult.tool_count} tool(s).`);
+                } else {
+                    setStatus(elements.mcpFeedback, `Advanced-shell stdio connection tested successfully with ${testResult.tool_count} tool(s) and remains disabled.`, 'success');
+                }
+            } catch (error) {
+                setStatus(elements.mcpFeedback, `Connection was saved disabled because its test failed: ${error.message}`, 'error');
+            }
+        }
+        if (saved) {
+            elements.mcpCreateForm.reset();
+            elements.mcpCreateForm.classList.add('hidden');
+            updateMcpCreateAuthFields();
+        }
+    }
+
+    async function handleMcpConnectionAction(event) {
+        const copyButton = event.target instanceof Element ? event.target.closest('[data-mcp-copy]') : null;
+        if (copyButton instanceof HTMLButtonElement) {
+            const card = copyButton.closest('[data-mcp-id]');
+            const field = card?.querySelector(`[data-mcp-field="${CSS.escape(copyButton.dataset.mcpCopy || '')}"]`);
+            await copyConnectionField(copyButton, field);
+            return;
+        }
+        const button = event.target instanceof Element ? event.target.closest('[data-mcp-action]') : null;
+        const card = button?.closest('[data-mcp-id]');
+        if (!(button instanceof HTMLButtonElement) || !(card instanceof HTMLElement) || state.isSavingMcp) return;
+        const id = card.dataset.mcpId;
+        if (!id) return;
+        const action = button.dataset.mcpAction;
+        const endpoint = `api/system/mcp/connections/${encodeURIComponent(id)}`;
+        if (action === 'oauth-connect') {
+            await startMcpOAuth(card, endpoint);
+            return;
+        }
+        if (action === 'oauth-complete') {
+            const redirectUrl = card.querySelector('[data-mcp-field="oauth_redirect"]')?.value || '';
+            if (!redirectUrl.trim()) {
+                setStatus(elements.mcpFeedback, 'Paste the full redirected URL before using the headless fallback.', 'error');
+                return;
+            }
+            cancelMcpOAuthPoll(id);
+            await mutateMcp(`${endpoint}/oauth/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ redirect_url: redirectUrl, code: null, state: null }) }, 'MCP OAuth connected.');
+            return;
+        }
+        if (action === 'oauth-disconnect') {
+            cancelMcpOAuthPoll(id);
+            await mutateMcp(`${endpoint}/oauth`, { method: 'DELETE' }, 'MCP OAuth disconnected.');
+            return;
+        }
+        if (action === 'test') {
+            await testMcpConnection(card, endpoint, button);
+            return;
+        }
+        if (action === 'delete') {
+            if (!window.confirm('Delete this MCP connection and its stored credential?')) return;
+            cancelMcpOAuthPoll(id);
+            await mutateMcp(endpoint, { method: 'DELETE' }, 'MCP connection deleted.');
+            return;
+        }
+        if (action === 'clear-credential') {
+            cancelMcpOAuthPoll(id);
+            await mutateMcp(`${endpoint}/credential`, { method: 'DELETE' }, 'MCP credential cleared.');
+            return;
+        }
+        if (action === 'credential') {
+            cancelMcpOAuthPoll(id);
+            const credential = card.querySelector('[data-mcp-field="credential"]')?.value || '';
+            await mutateMcp(`${endpoint}/credential`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) }, 'MCP credential saved.');
+            return;
+        }
+        if (action === 'save') {
+            cancelMcpOAuthPoll(id);
+            const value = (name) => card.querySelector(`[data-mcp-field="${name}"]`)?.value || '';
+            const enabled = card.querySelector('[data-mcp-field="enabled"]')?.checked === true;
+            const allowPrivateHttp = card.querySelector('[data-mcp-field="allow_private_http"]')?.checked === true;
+            const authMode = value('auth_mode');
+            const transport = value('transport');
+            const isStdio = transport === 'advanced_shell_stdio';
+            let stdio = null;
+            try {
+                if (isStdio) {
+                    stdio = {
+                        executable: value('stdio_executable'),
+                        working_directory: value('stdio_working_directory'),
+                        arguments: parseMcpLines(value('stdio_arguments')),
+                        environment: parseMcpEnvironment(value('stdio_environment')),
+                        roots: parseMcpLines(value('stdio_roots')),
+                    };
+                }
+            } catch (error) {
+                setStatus(elements.mcpFeedback, error.message, 'error');
+                return;
+            }
+            const payload = { display_name: value('display_name'), url: isStdio ? null : value('url'), transport, auth_mode: isStdio ? 'none' : authMode, header_name: !isStdio && authMode === 'header' ? (value('header_name').trim() || null) : null, enabled, allow_private_http: !isStdio && allowPrivateHttp, allowed_tools: parseMcpAllowedTools(value('allowed_tools')), oauth_client_id: !isStdio && authMode === 'oauth' ? (value('oauth_client_id').trim() || null) : null, oauth_scopes: !isStdio && authMode === 'oauth' ? parseMcpAllowedTools(value('oauth_scopes')) : null, stdio };
+            const saved = await mutateMcp(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, 'MCP connection saved.');
+            const clientSecret = value('oauth_client_secret').trim();
+            if (saved && authMode === 'oauth' && clientSecret) {
+                await mutateMcp(`${endpoint}/oauth/client-secret`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_secret: clientSecret }) }, 'MCP OAuth client settings saved.');
+            }
+        }
+    }
+
+    async function mutateMcp(url, options, successMessage) {
+        state.isSavingMcp = true;
+        setStatus(elements.mcpFeedback, 'Saving…');
+        try {
+            const response = await fetch(url, options);
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            setStatus(elements.mcpFeedback, successMessage, 'success');
+            await loadMcpConnections();
+            await notifyConfigChanged();
+            return payload;
+        } catch (error) {
+            setStatus(elements.mcpFeedback, error.message, 'error');
+            return false;
+        } finally {
+            state.isSavingMcp = false;
+        }
+    }
+
+    async function startMcpOAuth(card, endpoint) {
+        const id = card.dataset.mcpId;
+        if (!id) return;
+        cancelMcpOAuthPoll(id);
+        state.isSavingMcp = true;
+        setStatus(elements.mcpFeedback, 'Starting OAuth…');
+        try {
+            const callbackField = card.querySelector('[data-mcp-field="oauth_callback_uri"]');
+            const redirectUri = callbackField instanceof HTMLInputElement
+                ? callbackField.value
+                : new URL(`${endpoint}/oauth/callback`, window.location.href).href;
+            const response = await fetch(`${endpoint}/oauth/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ redirect_uri: redirectUri }),
+            });
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            if (callbackField instanceof HTMLInputElement) callbackField.value = payload.redirect_uri;
+            const authorizationUrl = card.querySelector('[data-mcp-field="oauth_authorization_url"]');
+            if (authorizationUrl instanceof HTMLTextAreaElement) authorizationUrl.value = payload.auth_url;
+            const popup = window.open(payload.auth_url, '_blank', 'noopener,noreferrer');
+            const statusElement = card.querySelector('[data-mcp-oauth-status]');
+            if (statusElement) statusElement.textContent = 'OAuth status: pending';
+            setStatus(elements.mcpFeedback, popup ? 'Finish authorization in the new tab, or copy the authorization URL into an external browser.' : 'The browser blocked the authorization tab. Copy the authorization URL into an external browser.', popup ? 'success' : 'error');
+            const owner = createOAuthPoll(mcpOAuthPolls, id, 10 * 60 * 1000);
+            void pollMcpOAuthStatus(id, endpoint, owner);
+        } catch (error) {
+            setStatus(elements.mcpFeedback, error.message, 'error');
+        } finally {
+            state.isSavingMcp = false;
+        }
+    }
+
+    async function pollMcpOAuthStatus(id, endpoint, owner) {
+        while (ownsOAuthPoll(mcpOAuthPolls, id, owner)) {
+            if (Date.now() >= owner.deadline) {
+                if (finishOAuthPoll(mcpOAuthPolls, id, owner)) {
+                    setStatus(elements.mcpFeedback, 'MCP OAuth authorization expired. Start a new attempt.', 'warning');
+                }
+                return;
+            }
+            try {
+                const response = await fetch(`${endpoint}/oauth/status`, { cache: 'no-store', signal: owner.controller.signal });
+                const payload = await safeJson(response);
+                if (!ownsOAuthPoll(mcpOAuthPolls, id, owner)) return;
+                if (response.ok && (payload?.connected || payload?.status === 'failed' || payload?.status === 'expired')) {
+                    if (!finishOAuthPoll(mcpOAuthPolls, id, owner)) return;
+                    const connected = payload.connected === true;
+                    setStatus(elements.mcpFeedback, connected ? 'MCP OAuth connected.' : `MCP OAuth authorization ${payload.status}. Start a new attempt.`, connected ? 'success' : 'error');
+                    await loadMcpConnections();
+                    return;
+                }
+            } catch (error) {
+                if (error.name === 'AbortError' || !ownsOAuthPoll(mcpOAuthPolls, id, owner)) return;
+                // A transient status failure should not cancel the browser flow.
+            }
+            if (!await waitForOAuthPoll(mcpOAuthPolls, id, owner, 2000)) return;
+        }
+    }
+
+    async function testMcpConnection(card, endpoint, button) {
+        if (state.isTestingMcp) return;
+        const resultElement = card.querySelector('[data-mcp-test-result]');
+        state.isTestingMcp = true;
+        button.disabled = true;
+        if (resultElement) {
+            resultElement.className = 'text-sm text-txt-secondary';
+            resultElement.textContent = 'Testing connection and discovering tools…';
+        }
+        try {
+            const response = await fetch(`${endpoint}/test`, { method: 'POST' });
+            const payload = await safeJson(response);
+            if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
+            const names = Array.isArray(payload?.tool_names) ? payload.tool_names : [];
+            const namesMarkup = names.length
+                ? `<div class="mt-1 font-mono text-xs break-words">${names.map((name) => escapeHtml(name)).join(', ')}</div>`
+                : '';
+            if (resultElement) {
+                resultElement.className = `text-sm ${payload.ready ? 'state-success' : 'state-warning'}`;
+                resultElement.innerHTML = `${escapeHtml(payload.message || 'Connection test finished.')}${namesMarkup}`;
+            }
+        } catch (error) {
+            if (resultElement) {
+                resultElement.className = 'text-sm state-error';
+                resultElement.textContent = error.message;
+            }
+        } finally {
+            state.isTestingMcp = false;
+            button.disabled = false;
+        }
+    }
+
     function renderSecretsTable() {
         if (!elements.secretsList) return;
 
@@ -2275,7 +3179,7 @@ async function saveModelRow(rowKey) {
                         <div>
                             <label class="block text-xs font-medium text-txt-primary mb-1.5">Secret Value</label>
                             <input data-secret-field="value" type="password" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="Enter the credential" value="${escapeHtml(draft.value || '')}" />
-                            <p class="text-xs text-txt-secondary mt-1">Values are stored as plain text inside <code>system/secrets.yaml</code>.</p>
+                            <p class="text-xs text-txt-secondary mt-1">Values are encrypted at rest and owned by the current principal.</p>
                         </div>
                     </div>
                     <div class="flex justify-end gap-2">
@@ -2534,6 +3438,8 @@ async function saveModelRow(rowKey) {
 
         const result = await response.json();
         await loadSecrets();
+        await loadGoogleConnection();
+        await loadMcpConnections();
         await loadProviders();
         await notifyConfigChanged();
         return result;
@@ -2551,6 +3457,7 @@ async function saveModelRow(rowKey) {
 
         const result = await response.json();
         await loadSecrets();
+        await loadMcpConnections();
         await loadProviders();
         await notifyConfigChanged();
         return result;
@@ -3086,6 +3993,8 @@ async function saveModelRow(rowKey) {
         await loadGeneralSettings();
         await loadModels();
         await loadSecrets();
+        await loadGoogleConnection();
+        await loadMcpConnections();
         await loadSystemJobs();
         await loadSystemMigrations();
         await loadImportVaults();
@@ -3107,6 +4016,7 @@ async function saveModelRow(rowKey) {
 
         cacheElements();
         bindEvents();
+        window.addEventListener('pagehide', cancelAllOAuthPolls);
 
         state.initialized = true;
     }
@@ -3114,6 +4024,10 @@ async function saveModelRow(rowKey) {
     function onTabActivated() {
         if (!state.initialized) return;
         refreshAll();
+    }
+
+    function onTabDeactivated() {
+        cancelAllOAuthPolls();
     }
 
     async function onDashboardActivated() {
@@ -3810,6 +4724,7 @@ async function saveModelRow(rowKey) {
     window.ConfigurationPanel = {
         init,
         onTabActivated,
+        onTabDeactivated,
         onDashboardActivated,
         refreshActivityLog,
         onMetadataUpdated: updateImportOcrAvailability,

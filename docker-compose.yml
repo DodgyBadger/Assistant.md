@@ -1,0 +1,112 @@
+# Supported Docker Compose deployment. Keep this file unmodified so repository
+# updates can safely deliver service, network, and volume changes. Put ordinary
+# deployment values in .env and structural customizations in
+# docker-compose.override.yml.
+
+services:
+  assistant:
+    image: ghcr.io/dodgybadger/assistantmd:${ASSISTANTMD_IMAGE_TAG:-latest}
+    container_name: assistantMD
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${ASSISTANTMD_BIND_ADDRESS:-127.0.0.1}:${ASSISTANTMD_PORT:-8000}:8000"
+    volumes:
+      - ${ASSISTANTMD_DATA_PATH:-./data}:/app/data
+      - ${ASSISTANTMD_SYSTEM_PATH:-./system}:/app/system
+      - advanced_shell_client_identity:/run/advanced-shell/client-identity
+      - advanced_shell_client_public:/run/advanced-shell/client-public
+      - advanced_shell_host_public:/run/advanced-shell/host-public:ro
+    env_file:
+      - .env
+    environment:
+      # Fixed container-internal path shared by bootstrap and runtime checks.
+      ASSISTANTMD_SHELL_KEY_ROOT: /run/advanced-shell/client-identity
+    networks:
+      - assistantmd_advanced_shell
+    shm_size: "1gb"
+
+    # Standard browser-capable profile: at least 2G available to AssistantMD.
+    # For an approximately 1G lightweight deployment, add `browser` to
+    # `disabled_tools` rather than lowering this limit and relying on Chromium.
+    # shm_size is a separate shared-memory ceiling, not a memory reservation.
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # Health check
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+    #   interval: 120s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+  advanced-shell:
+    profiles: ["advanced"]
+    image: ghcr.io/dodgybadger/assistantmd-advanced-shell:${ASSISTANTMD_IMAGE_TAG:-latest}
+    init: true
+    restart: unless-stopped
+    networks:
+      - assistantmd_advanced_shell
+    volumes:
+      - type: volume
+        source: advanced_shell_host_identity
+        target: /run/advanced-shell/host-identity
+      - type: volume
+        source: advanced_shell_host_public
+        target: /run/advanced-shell/host-public
+      - type: volume
+        source: advanced_shell_client_public
+        target: /run/advanced-shell/client-public
+        read_only: true
+      - type: volume
+        source: advanced_shell_workspace
+        target: /workspace
+      - type: volume
+        source: advanced_shell_home
+        target: /home/advanced-shell
+    read_only: true
+    tmpfs:
+      - /run/sshd:size=1m,mode=0755
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - SYS_CHROOT
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/2222;
+          IFS= read -r banner <&3; [[ $$banner == SSH-* ]]'
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+volumes:
+  advanced_shell_client_identity:
+  advanced_shell_client_public:
+  advanced_shell_home:
+  advanced_shell_host_identity:
+  advanced_shell_host_public:
+  advanced_shell_workspace:
+
+networks:
+  assistantmd_advanced_shell:

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from core.constants import ASSISTANTMD_ROOT_DIR, IMPORT_DIR
-from core.identity import ExecutionAuthority, require_current_execution_authority
+from core.identity import require_current_execution_authority
 from core.ingestion.import_service import ContentImportService, translate_ocr_options
 from core.ingestion.jobs import (
     IngestionJob,
@@ -19,7 +19,7 @@ from core.ingestion.jobs import (
 from core.ingestion.models import JobStatus, SourceKind
 from core.ingestion.registry import importer_registry
 from core.ingestion.service import IngestionService
-from core.ingestion.task_execution import process_ingestion_job_in_task
+from core.ingestion.task_execution import process_ingestion_job_now
 from core.runtime.context import RuntimeContext
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
@@ -117,11 +117,11 @@ async def scan_import_folder(
     if not queue_only and jobs_created:
         refreshed_jobs: list[IngestionJob] = []
         for job in jobs_created:
-            await _process_ingestion_job_for_api(
-                runtime,
-                ingest_service,
-                job.id,
-                job.vault or vault,
+            await process_ingestion_job_now(
+                ingestion=ingest_service,
+                task_coordinator=runtime.task_coordinator,
+                job_id=job.id,
+                source=ExecutionTaskSource.API,
                 authority=require_current_execution_authority(),
             )
             refreshed_jobs.append(ingest_service.get_job(job.id) or job)
@@ -248,11 +248,11 @@ async def import_url_direct(
     job = ingest_service.get_job(submitted[0].job_id)
     if job is None:
         raise RuntimeError("URL import job was not created")
-    await _process_ingestion_job_for_api(
-        runtime,
-        ingest_service,
-        job.id,
-        vault,
+    await process_ingestion_job_now(
+        ingestion=ingest_service,
+        task_coordinator=runtime.task_coordinator,
+        job_id=job.id,
+        source=ExecutionTaskSource.API,
         authority=require_current_execution_authority(),
     )
     refreshed_job = ingest_service.get_job(job.id) or job
@@ -271,47 +271,3 @@ async def import_url_direct(
         },
     )
     return refreshed_job
-
-
-async def _process_ingestion_job_for_api(
-    runtime: RuntimeContext,
-    ingest_service: IngestionService,
-    job_id: int,
-    vault: str,
-    *,
-    authority: ExecutionAuthority,
-) -> None:
-    """Process one API-triggered ingestion job under execution task context."""
-    if not ingest_service.claim_job(job_id):
-        logger.info(
-            "Ingestion job was not available for immediate processing",
-            data={"job_id": job_id, "vault": vault, "source": "api"},
-        )
-        return
-    try:
-        await process_ingestion_job_in_task(
-            task_coordinator=runtime.task_coordinator,
-            process_job_fn=ingest_service.process_job,
-            job_id=job_id,
-            vault=vault,
-            source=ExecutionTaskSource.API,
-            authority=authority,
-        )
-    except Exception as exc:
-        # process_job persists its own failures. If task setup failed before the
-        # processor ran, close the claimed state here instead of stranding it.
-        current = ingest_service.get_job(job_id)
-        if current is not None and current.status == JobStatus.PROCESSING.value:
-            ingest_service.mark_failed(
-                job_id, f"Failed to start immediate ingestion task: {exc}"
-            )
-        logger.error(
-            "Immediate ingestion task failed",
-            data={
-                "job_id": job_id,
-                "vault": vault,
-                "source": "api",
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            },
-        )

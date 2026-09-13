@@ -137,6 +137,11 @@ def _build_system_migration_status_response(
         if pending_count == 0
         else f"{pending_count} system database migration(s) pending."
     )
+    if any(target.inspection_error for target in status.targets):
+        summary = (
+            "Access-state migration status is unavailable while secrets are locked. "
+            f"{pending_count} migration(s) pending in inspected databases."
+        )
     return SystemMigrationStatusResponse(
         success=True,
         message=summary,
@@ -151,6 +156,7 @@ def _build_system_migration_status_response(
                 applied_versions=list(target.applied_versions),
                 pending_versions=list(target.pending_versions),
                 backup_path=target.backup_path,
+                inspection_error=target.inspection_error,
             )
             for target in status.targets
         ],

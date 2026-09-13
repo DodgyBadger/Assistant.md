@@ -25,6 +25,7 @@ from core.constants import (
     VALID_WEEK_DAYS,
     VAULT_IGNORE_FILE,
 )
+from core.identity import LOCAL_USER_PRINCIPAL_ID
 from core.logger import UnifiedLogger
 from core.runtime.paths import get_data_root, get_system_root
 from core.scheduling.parser import ScheduleParsingError, parse_schedule_syntax
@@ -56,6 +57,7 @@ class WorkflowDefinition:
     run_type: str
     week_start_day: str
     description: str
+    owner_principal_id: str = LOCAL_USER_PRINCIPAL_ID
     enabled: bool = False
 
     @property

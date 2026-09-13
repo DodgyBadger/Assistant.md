@@ -11,12 +11,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class ChatSessionPersistenceContractScenario(BaseScenario):
     """Validate persisted chat messages and tool events across restart."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("ChatSessionPersistenceContractVault")
         other_vault = self.create_vault("ChatSessionPersistenceOtherVault")
@@ -509,17 +510,17 @@ class ChatSessionPersistenceContractScenario(BaseScenario):
             assert (
                 detail_after_orphan.status_code == 200
             ), "Session detail should load persisted chat state"
-            detail_tool_event_ids = {
-                event["tool_call_id"]
-                for event in detail_after_orphan.json().get("tool_events", [])
+            detail_tool_call_ids = {
+                tool_call["tool_call_id"]
+                for tool_call in detail_after_orphan.json().get("tool_calls", [])
             }
             self.soft_assert(
-                "cancelled-turn-call" not in detail_tool_event_ids,
-                "Session detail should not expose tool events from uncommitted turns",
+                "cancelled-turn-call" not in detail_tool_call_ids,
+                "Session detail should not expose tool calls from uncommitted turns",
             )
             self.soft_assert(
-                detail_tool_event_ids,
-                "Session detail should still expose committed tool events",
+                detail_tool_call_ids,
+                "Session detail should still expose committed tool calls",
             )
 
             await self.restart_system()

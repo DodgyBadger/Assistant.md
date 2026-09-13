@@ -6,6 +6,9 @@ from typing import Any
 
 from sqlalchemy import func, select
 
+from core.advanced_shell import AdvancedShellConfig
+from core.advanced_shell.preflight import AdvancedShellPreflightSnapshot
+from core.authentication import AuthenticationMode
 from core.authoring.template_discovery import (
     list_templates,
 )
@@ -23,9 +26,7 @@ from core.vault_state.service import VaultStateService
 
 from ..exceptions import SystemConfigurationError
 from ..models import (
-    ConfigurationError as APIConfigurationError,
-)
-from ..models import (
+    AdvancedShellStatusInfo,
     ConfigurationIssueInfo,
     ConfigurationStatusInfo,
     SchedulerInfo,
@@ -34,6 +35,9 @@ from ..models import (
     TemplateInfo,
     VaultInfo,
     WorkflowRunInfo,
+)
+from ..models import (
+    ConfigurationError as APIConfigurationError,
 )
 from .shared import (
     get_vault_path as _get_vault_path,
@@ -71,6 +75,21 @@ def set_system_startup_time(startup_time: datetime) -> None:
     """Set the system startup time for status reporting."""
     global _system_startup_time
     _system_startup_time = startup_time
+
+
+def project_advanced_shell_status(
+    config: AdvancedShellConfig,
+    preflight: AdvancedShellPreflightSnapshot,
+) -> AdvancedShellStatusInfo:
+    """Project deployment configuration without identity or trust paths."""
+    return AdvancedShellStatusInfo(
+        execution_mode=config.execution_mode,
+        host=config.host,
+        port=config.port,
+        user=config.user,
+        readiness_state=preflight.state,
+        readiness_message=preflight.message,
+    )
 
 
 def list_context_templates(vault_name: str) -> list[TemplateInfo]:
@@ -315,6 +334,17 @@ def collect_system_health() -> SystemInfo:
             startup_time=startup_time,
             last_config_reload=last_reload,
             data_root=data_root,
+            public_url=(
+                runtime.config.public_origin.value
+                if runtime.config.public_origin is not None
+                else None
+            ),
+            public_url_source=(
+                "configured"
+                if runtime.config.public_origin is not None
+                else "unconfigured"
+            ),
+            public_url_recommended=runtime.config.public_origin is None,
         )
 
         return system_info
@@ -325,10 +355,19 @@ def collect_system_health() -> SystemInfo:
             startup_time=datetime.now(),
             last_config_reload=None,
             data_root="/app/data",
+            public_url=None,
+            public_url_source="unconfigured",
+            public_url_recommended=True,
         )
 
 
-async def get_system_status(scheduler: Any | None = None) -> StatusResponse:
+async def get_system_status(
+    scheduler: Any | None = None,
+    *,
+    authentication_mode: AuthenticationMode = AuthenticationMode.DISABLED,
+    advanced_shell_config: AdvancedShellConfig | None = None,
+    advanced_shell_preflight: AdvancedShellPreflightSnapshot,
+) -> StatusResponse:
     """
     Collect comprehensive system status information from cached data.
 
@@ -398,6 +437,7 @@ async def get_system_status(scheduler: Any | None = None) -> StatusResponse:
             default_model=default_model_value,
         )
 
+        shell_config = advanced_shell_config or AdvancedShellConfig.restricted_default()
         status_response = StatusResponse(
             vaults=vaults,
             scheduler=scheduler_info,
@@ -413,6 +453,22 @@ async def get_system_status(scheduler: Any | None = None) -> StatusResponse:
             },
             configuration_errors=configuration_errors,
             configuration_status=configuration_status,
+            authentication_mode=authentication_mode,
+            authentication_warning=(
+                (
+                    "Authentication is disabled. Every network peer that can reach "
+                    "Assistant.md has full UI and API access, including the advanced "
+                    "shell."
+                    if shell_config.enabled
+                    else "Authentication is disabled. Every network peer that can "
+                    "reach Assistant.md has full UI and API access."
+                )
+                if authentication_mode is AuthenticationMode.DISABLED
+                else None
+            ),
+            advanced_shell=project_advanced_shell_status(
+                shell_config, advanced_shell_preflight
+            ),
         )
 
         return status_response

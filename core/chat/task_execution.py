@@ -108,44 +108,48 @@ async def start_prepared_chat_stream_task(
     """Start a prepared streaming chat run in a background execution task."""
     runtime = get_runtime_context()
     buffer = event_buffer or CHAT_TASK_EVENT_BUFFER
-    task = await runtime.task_runner.start_background(
-        ExecutionTaskSpec(
-            kind=ExecutionTaskKind.CHAT,
-            scope=chat_session_scope(session_id),
-            source=ExecutionTaskSource.API,
-            label=chat_task_label(session_id),
-            authority=_session_authority(session_id, vault_name),
-            metadata={
-                "vault": vault_name,
-                "session_id": session_id,
-                "streaming": True,
-                "model": prepared.model,
-                "tools": list(prepared.tools),
-                "retry": not persist_user_request,
-            },
-        ),
-        lambda task: _run_prepared_chat_stream_task(
-            task=task,
-            prepared=prepared,
-            vault_name=vault_name,
-            vault_path=vault_path,
-            session_id=session_id,
-            event_buffer=buffer,
-            persist_user_request=persist_user_request,
-        ),
-        hooks=ExecutionTaskHooks(
-            on_cancelled=lambda task_id: _append_cancelled_if_open(buffer, task_id),
-            on_failed=lambda task_id, exc: _handle_failed_chat_task(
-                task_id=task_id,
-                exc=exc,
+    try:
+        task = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope=chat_session_scope(session_id),
+                source=ExecutionTaskSource.API,
+                label=chat_task_label(session_id),
+                authority=_session_authority(session_id, vault_name),
+                metadata={
+                    "vault": vault_name,
+                    "session_id": session_id,
+                    "streaming": True,
+                    "model": prepared.model,
+                    "tools": list(prepared.tools),
+                    "retry": not persist_user_request,
+                },
+            ),
+            lambda task: _run_prepared_chat_stream_task(
+                task=task,
                 prepared=prepared,
                 vault_name=vault_name,
                 vault_path=vault_path,
                 session_id=session_id,
                 event_buffer=buffer,
+                persist_user_request=persist_user_request,
             ),
-        ),
-    )
+            hooks=ExecutionTaskHooks(
+                on_cancelled=lambda task_id: _append_cancelled_if_open(buffer, task_id),
+                on_failed=lambda task_id, exc: _handle_failed_chat_task(
+                    task_id=task_id,
+                    exc=exc,
+                    prepared=prepared,
+                    vault_name=vault_name,
+                    vault_path=vault_path,
+                    session_id=session_id,
+                    event_buffer=buffer,
+                ),
+            ),
+        )
+    except BaseException:
+        await prepared.close()
+        raise
     return ChatStreamTaskStart(task=task, session_id=session_id)
 
 
@@ -807,6 +811,33 @@ async def _run_prepared_chat_stream_task(
     event_buffer: ChatTaskEventBuffer,
     persist_user_request: bool = True,
 ) -> None:
+    """Run one prepared chat and always release its external tool leases."""
+    try:
+        await _run_prepared_chat_stream_task_inner(
+            task_id=task_id,
+            task=task,
+            prepared=prepared,
+            vault_name=vault_name,
+            vault_path=vault_path,
+            session_id=session_id,
+            event_buffer=event_buffer,
+            persist_user_request=persist_user_request,
+        )
+    finally:
+        await prepared.close()
+
+
+async def _run_prepared_chat_stream_task_inner(
+    *,
+    task_id: str | None = None,
+    task: ExecutionTaskSnapshot | None = None,
+    prepared: chat_executor.PreparedChatExecution,
+    vault_name: str,
+    vault_path: str,
+    session_id: str,
+    event_buffer: ChatTaskEventBuffer,
+    persist_user_request: bool = True,
+) -> None:
     """Run a prepared streaming chat task and publish buffered task events."""
     runtime = get_runtime_context()
     if task is None and task_id is None:
@@ -836,6 +867,18 @@ async def _run_prepared_chat_stream_task(
         )
         if should_mark_started:
             await runtime.task_coordinator.mark_started(task.task_id)
+        for unavailable in prepared.mcp_unavailable:
+            await event_buffer.append(
+                task.task_id,
+                "mcp_connection_unavailable",
+                {
+                    "event": "mcp_connection_unavailable",
+                    "task_id": task.task_id,
+                    "connection_name": unavailable.display_name,
+                    "status": unavailable.status,
+                    "message": unavailable.message,
+                },
+            )
         if persist_user_request:
             async with chat_session_history_lock(
                 session_id=session_id, vault_name=vault_name
@@ -939,7 +982,7 @@ async def _run_prepared_chat_stream_task(
                     can_retry = (
                         classification.retryable
                         and retry_policy.can_retry_after(attempt)
-                        and (not prepared.tools or recovery_supported)
+                        and (not prepared.has_effective_tools or recovery_supported)
                     )
                     if not can_retry:
                         if prepared.tools and recovery_decision is not None:
@@ -1593,10 +1636,7 @@ async def _publish_tool_call_started(
         "event": "tool_call_started",
         "tool_call_id": tool_id,
         "tool_name": tool_name,
-        "arguments": chat_executor._normalize_tool_args(tool_args),
     }
-    if tool_name == "code_execution":
-        payload["arguments_detail"] = chat_executor._normalize_tool_detail(tool_args)
     chat_executor.logger.set_sinks(["validation"]).info(
         "Streaming tool call started",
         data={
@@ -1642,26 +1682,28 @@ async def _publish_tool_call_finished(
         outcome=outcome,
         metadata=result_metadata,
     )
+    result_text = tool_result_as_text(result_content)
+    metadata_token_count = result_metadata.get("token_count")
+    token_count = (
+        metadata_token_count
+        if isinstance(metadata_token_count, int)
+        and not isinstance(metadata_token_count, bool)
+        and metadata_token_count >= 0
+        else estimate_token_count(result_text)
+    )
     tool_activity[tool_id] = {
         "tool_name": tool_name,
         "status": terminal_state,
+        "token_count": token_count,
     }
     payload = {
         "event": "tool_call_finished",
         "tool_call_id": tool_id,
         "tool_name": tool_name,
-        "result": chat_executor._normalize_tool_result(result_content),
         "outcome": outcome,
         "terminal_state": terminal_state,
+        "token_count": token_count,
     }
-    if result_metadata:
-        payload["result_metadata"] = result_metadata
-    artifact_ref = _artifact_ref_from_tool_result(result_content)
-    if artifact_ref:
-        payload["artifact_ref"] = artifact_ref
-    if tool_name == "code_execution":
-        payload["result_detail"] = chat_executor._normalize_tool_detail(result_content)
-    result_text = tool_result_as_text(result_content)
     chat_executor.logger.set_sinks(["validation"]).info(
         "Streaming tool call finished",
         data={
@@ -1683,6 +1725,7 @@ async def _publish_tool_call_finished(
 
 
 _TOOL_RESULT_EVENT_METADATA_KEYS = (
+    "token_count",
     "status",
     "state",
     "error_type",
@@ -1708,19 +1751,3 @@ def _tool_result_event_metadata(result_part: Any) -> dict[str, Any]:
         for key in _TOOL_RESULT_EVENT_METADATA_KEYS
         if key in metadata
     }
-
-
-def _artifact_ref_from_tool_result(result_content: Any) -> str | None:
-    if not isinstance(result_content, str):
-        return None
-    try:
-        payload = json.loads(result_content)
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-    artifact_ref = payload.get("artifact_ref")
-    if artifact_ref is None:
-        return None
-    value = str(artifact_ref).strip()
-    return value or None

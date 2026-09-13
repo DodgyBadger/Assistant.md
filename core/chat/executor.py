@@ -31,11 +31,17 @@ from core.chat.chat_store import ChatStore
 from core.chat.compaction import (
     maybe_auto_compact_after_turn,
 )
+from core.chat.instructions import constant_instruction, primary_chat_instruction_layers
 from core.chat.run_recovery import ChatRunRecoveryCoordinator
 from core.constants import REGULAR_CHAT_INSTRUCTIONS
-from core.identity import ExecutionAuthority
+from core.identity import ExecutionAuthority, require_current_execution_authority
 from core.llm.agents import create_agent
 from core.llm.capabilities.factory import build_chat_capabilities
+from core.llm.capabilities.mcp_tools import (
+    MCPChatCapabilities,
+    acquire_mcp_chat_capabilities,
+    mcp_unavailable_instruction,
+)
 from core.llm.model_factory import build_model_instance
 from core.llm.model_selection import ModelExecutionSpec, resolve_model_execution_spec
 from core.llm.model_utils import (
@@ -45,6 +51,7 @@ from core.llm.model_utils import (
 )
 from core.llm.thinking import ThinkingValue, thinking_value_to_label
 from core.logger import UnifiedLogger
+from core.mcp import MCPReadinessSnapshot, MCPUnavailableConnection
 from core.runtime.buffers import BufferStore
 from core.runtime.state import get_runtime_context, has_runtime_context
 from core.settings import (
@@ -139,6 +146,23 @@ class PreparedChatExecution:
     deferred_tool_results: DeferredToolResults | None = None
     recovery: ChatRunRecoveryCoordinator | None = None
     automatic_restart_count: int = 0
+    mcp_snapshot: MCPReadinessSnapshot | None = None
+    mcp_unavailable: tuple[MCPUnavailableConnection, ...] = ()
+    has_mcp_tools: bool = False
+    has_advanced_shell: bool = False
+
+    @property
+    def has_effective_tools(self) -> bool:
+        """Return whether this run exposes built-in or MCP tools."""
+        return bool(self.tools) or self.has_mcp_tools or self.has_advanced_shell
+
+    async def close(self) -> None:
+        """Release execution-scoped MCP catalog leases."""
+        if self.mcp_snapshot is None:
+            return
+        snapshot = self.mcp_snapshot
+        self.mcp_snapshot = None
+        await snapshot.close()
 
     def resume_config(self) -> dict[str, Any]:
         """Return JSON-safe config needed to resume a deferred review."""
@@ -663,34 +687,6 @@ def _get_process_rss_bytes() -> int | None:
     return None
 
 
-def _truncate_preview(value: str | None, limit: int = 200) -> str | None:
-    """
-    Safely truncate long strings for streaming metadata.
-
-    Returns the original value if within limit, otherwise appends ellipsis.
-    """
-    if not value:
-        return value
-    if len(value) <= limit:
-        return value
-    return value[: limit - 1] + "…"
-
-
-def _normalize_tool_args(args: Any) -> str | None:
-    """
-    Convert tool call arguments to a compact JSON/string representation.
-    """
-    if args is None:
-        return None
-    if isinstance(args, str):
-        return _truncate_preview(args.strip())
-    try:
-        serialized = json.dumps(args, ensure_ascii=False)
-        return _truncate_preview(serialized)
-    except (TypeError, ValueError):
-        return _truncate_preview(str(args))
-
-
 def _normalize_tool_detail(value: Any) -> Any:
     """
     Convert streamed tool details into JSON-safe data without preview truncation.
@@ -709,21 +705,6 @@ def _normalize_tool_detail(value: Any) -> Any:
         return json.loads(json.dumps(value, ensure_ascii=False))
     except (TypeError, ValueError):
         return str(value)
-
-
-def _normalize_tool_result(result: Any) -> str | None:
-    """
-    Convert tool results into a readable preview string.
-    """
-    if result is None:
-        return None
-    if isinstance(result, str):
-        return _truncate_preview(result.strip(), limit=240)
-    try:
-        serialized = json.dumps(result, ensure_ascii=False)
-        return _truncate_preview(serialized, limit=240)
-    except (TypeError, ValueError):
-        return _truncate_preview(str(result), limit=240)
 
 
 def _build_model_capability_details(
@@ -953,41 +934,6 @@ async def _prepare_chat_execution(
         )
     )
 
-    capabilities = build_chat_capabilities(
-        vault_name=vault_name,
-        vault_path=vault_path,
-        session_id=session_id,
-        model_alias=model,
-        context_template=context_template,
-        now=_resolve_context_manager_now(),
-        workspace_path=workspace_path,
-        event_sink=_CHAT_STORE,
-        tools=tool_functions,
-        tool_instructions="",
-        history_processor_factory=build_context_manager_history_processor,
-    )
-    recovery = ChatRunRecoveryCoordinator.from_tools(tool_functions)
-    capabilities.append(recovery.capability(session_id=session_id))
-
-    agent = await create_agent(
-        model=model_instance,
-        output_type=[str, DeferredToolRequests],
-        capabilities=capabilities,
-    )
-    for inst in [base_instructions, tool_instructions]:
-        if inst:
-            agent.instructions(inst)
-
-    base_message_history = (
-        message_history_override
-        if message_history_override is not None
-        else _CHAT_STORE.get_history(session_id, vault_name)
-    )
-    message_history = _with_failure_recovery_context(
-        base_message_history,
-        session_id=session_id,
-        vault_name=vault_name,
-    )
     user_prompt, prompt_for_history, attached_image_count = _resolve_image_prompt(
         prompt_text=prompt,
         history_prompt_text=display_prompt,
@@ -995,20 +941,76 @@ async def _prepare_chat_execution(
         image_uploads=image_uploads,
         vault_path=vault_path,
     )
-    return PreparedChatExecution(
-        agent=agent,
-        message_history=message_history,
-        prompt_for_history=prompt_for_history,
-        user_prompt=user_prompt,
-        attached_image_count=attached_image_count,
-        model=model,
-        tools=list(tools),
-        thinking=thinking,
-        context_template=context_template,
-        workspace_path=workspace_path,
-        chat_mode=normalize_chat_mode(chat_mode),
-        recovery=recovery,
-    )
+    mcp_chat = await _acquire_chat_mcp_capabilities()
+    try:
+        advanced_shell_tool = await _acquire_primary_chat_advanced_shell_tool()
+        if advanced_shell_tool is not None:
+            tool_functions.append(advanced_shell_tool)
+        capabilities = build_chat_capabilities(
+            vault_name=vault_name,
+            vault_path=vault_path,
+            session_id=session_id,
+            model_alias=model,
+            context_template=context_template,
+            now=_resolve_context_manager_now(),
+            workspace_path=workspace_path,
+            event_sink=_CHAT_STORE,
+            tools=tool_functions,
+            tool_instructions="",
+            history_processor_factory=build_context_manager_history_processor,
+        )
+        if mcp_chat is not None:
+            capabilities.extend(mcp_chat.capabilities)
+        recovery = ChatRunRecoveryCoordinator.from_tools(tool_functions)
+        capabilities.append(recovery.capability(session_id=session_id))
+        agent = await create_agent(
+            model=model_instance,
+            output_type=[str, DeferredToolRequests],
+            capabilities=capabilities,
+        )
+        for instruction in primary_chat_instruction_layers(
+            base_instructions=base_instructions,
+            tool_instructions=tool_instructions,
+            has_advanced_shell=advanced_shell_tool is not None,
+        ):
+            agent.instructions(constant_instruction(instruction))
+        if mcp_chat is not None and (
+            unavailable_note := mcp_unavailable_instruction(mcp_chat.unavailable)
+        ):
+            agent.instructions(lambda: unavailable_note)
+
+        base_message_history = (
+            message_history_override
+            if message_history_override is not None
+            else _CHAT_STORE.get_history(session_id, vault_name)
+        )
+        message_history = _with_failure_recovery_context(
+            base_message_history,
+            session_id=session_id,
+            vault_name=vault_name,
+        )
+        return PreparedChatExecution(
+            agent=agent,
+            message_history=message_history,
+            prompt_for_history=prompt_for_history,
+            user_prompt=user_prompt,
+            attached_image_count=attached_image_count,
+            model=model,
+            tools=list(tools),
+            thinking=thinking,
+            context_template=context_template,
+            workspace_path=workspace_path,
+            chat_mode=normalize_chat_mode(chat_mode),
+            recovery=recovery,
+            mcp_snapshot=mcp_chat.snapshot if mcp_chat is not None else None,
+            mcp_unavailable=mcp_chat.unavailable if mcp_chat is not None else (),
+            has_mcp_tools=mcp_chat.has_tools if mcp_chat is not None else False,
+            has_advanced_shell=advanced_shell_tool is not None,
+        )
+    except BaseException:
+        if mcp_chat is not None:
+            await mcp_chat.snapshot.close()
+        raise
 
 
 async def _prepare_deferred_review_resume_execution(
@@ -1037,46 +1039,90 @@ async def _prepare_deferred_review_resume_execution(
         )
     )
 
-    capabilities = build_chat_capabilities(
-        vault_name=vault_name,
-        vault_path=vault_path,
-        session_id=session_id,
-        model_alias=model,
-        context_template=context_template,
-        now=_resolve_context_manager_now(),
-        workspace_path=workspace_path,
-        event_sink=_CHAT_STORE,
-        tools=tool_functions,
-        tool_instructions="",
-        history_processor_factory=build_context_manager_history_processor,
-    )
-    recovery = ChatRunRecoveryCoordinator.from_tools(tool_functions)
-    capabilities.append(recovery.capability(session_id=session_id))
+    mcp_chat = await _acquire_chat_mcp_capabilities()
+    try:
+        advanced_shell_tool = await _acquire_primary_chat_advanced_shell_tool()
+        if advanced_shell_tool is not None:
+            tool_functions.append(advanced_shell_tool)
+        capabilities = build_chat_capabilities(
+            vault_name=vault_name,
+            vault_path=vault_path,
+            session_id=session_id,
+            model_alias=model,
+            context_template=context_template,
+            now=_resolve_context_manager_now(),
+            workspace_path=workspace_path,
+            event_sink=_CHAT_STORE,
+            tools=tool_functions,
+            tool_instructions="",
+            history_processor_factory=build_context_manager_history_processor,
+        )
+        if mcp_chat is not None:
+            capabilities.extend(mcp_chat.capabilities)
+        recovery = ChatRunRecoveryCoordinator.from_tools(tool_functions)
+        capabilities.append(recovery.capability(session_id=session_id))
+        agent = await create_agent(
+            model=model_instance,
+            output_type=[str, DeferredToolRequests],
+            capabilities=capabilities,
+        )
+        for instruction in primary_chat_instruction_layers(
+            base_instructions=base_instructions,
+            tool_instructions=tool_instructions,
+            has_advanced_shell=advanced_shell_tool is not None,
+        ):
+            agent.instructions(constant_instruction(instruction))
+        if mcp_chat is not None and (
+            unavailable_note := mcp_unavailable_instruction(mcp_chat.unavailable)
+        ):
+            agent.instructions(lambda: unavailable_note)
 
-    agent = await create_agent(
-        model=model_instance,
-        output_type=[str, DeferredToolRequests],
-        capabilities=capabilities,
-    )
-    for inst in [base_instructions, tool_instructions]:
-        if inst:
-            agent.instructions(inst)
+        return PreparedChatExecution(
+            agent=agent,
+            message_history=list(message_history),
+            prompt_for_history="",
+            user_prompt=None,
+            attached_image_count=0,
+            model=model,
+            tools=list(tools),
+            thinking=thinking,
+            context_template=context_template,
+            workspace_path=workspace_path,
+            chat_mode=normalize_chat_mode(chat_mode),
+            deferred_tool_results=deferred_tool_results,
+            recovery=recovery,
+            mcp_snapshot=mcp_chat.snapshot if mcp_chat is not None else None,
+            mcp_unavailable=mcp_chat.unavailable if mcp_chat is not None else (),
+            has_mcp_tools=mcp_chat.has_tools if mcp_chat is not None else False,
+            has_advanced_shell=advanced_shell_tool is not None,
+        )
+    except BaseException:
+        if mcp_chat is not None:
+            await mcp_chat.snapshot.close()
+        raise
 
-    return PreparedChatExecution(
-        agent=agent,
-        message_history=list(message_history),
-        prompt_for_history="",
-        user_prompt=None,
-        attached_image_count=0,
-        model=model,
-        tools=list(tools),
-        thinking=thinking,
-        context_template=context_template,
-        workspace_path=workspace_path,
-        chat_mode=normalize_chat_mode(chat_mode),
-        deferred_tool_results=deferred_tool_results,
-        recovery=recovery,
+
+async def _acquire_chat_mcp_capabilities() -> MCPChatCapabilities | None:
+    """Acquire current-principal MCP capabilities only for primary chat."""
+    if not has_runtime_context():
+        return None
+    manager = get_runtime_context().mcp_manager
+    if manager is None:
+        return None
+    return await acquire_mcp_chat_capabilities(
+        manager=manager,
+        authority=require_current_execution_authority(),
     )
+
+
+async def _acquire_primary_chat_advanced_shell_tool() -> Any | None:
+    """Resolve the deployment shell only within an owned primary chat run."""
+    if not has_runtime_context():
+        return None
+    service = get_runtime_context().advanced_shell
+    if service is None:
+        return None
+    return await service.resolve_for_primary_chat(require_current_execution_authority())
 
 
 def _prepare_agent_config(

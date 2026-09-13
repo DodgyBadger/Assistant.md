@@ -2,8 +2,7 @@
 
 ## Purpose
 
-Explore related pages across a website using the crawl strategy selected in
-System settings.
+Explore related pages across a website using the crawl strategy selected in System settings.
 
 ## Arguments
 
@@ -24,6 +23,4 @@ web_crawl(
 )
 ```
 
-Start with a small page limit. Content is wrapped as untrusted web data. The
-configured strategy is authoritative and provider failures do not invoke a
-different crawler automatically.
+Start with a small page limit. Content is wrapped as untrusted web data. The configured strategy is authoritative and provider failures do not invoke a different crawler automatically.

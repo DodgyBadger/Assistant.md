@@ -24,7 +24,7 @@
             }
             const sortedGroups = sortVaultActivityGroups(groups);
             return `
-                <div class="dashboard-table-wrap" role="region" aria-label="AssistantMD activity" tabindex="0">
+                <div class="dashboard-table-wrap" role="region" aria-label="Assistant.md activity" tabindex="0">
                     <table class="dashboard-table">
                         <thead>
                             <tr>
@@ -242,7 +242,7 @@
                         <div class="text-sm text-txt-secondary mb-3">
                             Last run ${formatShortDate(group.last_mutation_at)} · ${group.operation_count || 0} operation${group.operation_count === 1 ? '' : 's'} · ${escapeHtml(renderActivityStatus(group))}
                         </div>
-                        <div class="dashboard-table-wrap" role="region" aria-label="AssistantMD activity files" tabindex="0">
+                        <div class="dashboard-table-wrap" role="region" aria-label="Assistant.md activity files" tabindex="0">
                             <table class="dashboard-table">
                                 <thead>
                                     <tr>
@@ -498,7 +498,7 @@
                 state.vaultActivity[vaultName] = { groups: data.groups || [] };
             } catch (error) {
                 console.error('Error loading AssistantMD activity:', error);
-                state.vaultActivity[vaultName] = { error: `Failed to load AssistantMD activity: ${error.message}` };
+                state.vaultActivity[vaultName] = { error: `Failed to load Assistant.md activity: ${error.message}` };
             }
             updateVaultActivityContainer(vaultName);
         }

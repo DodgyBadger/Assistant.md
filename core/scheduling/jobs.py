@@ -92,6 +92,7 @@ def _log_scheduler_change(message: str, record: dict[str, Any]) -> None:
 
 def create_job_args(
     global_id: str,
+    owner_principal_id: str,
     data_root: str | None = None,
     file_path: str | None = None,
 ) -> dict[str, Any]:
@@ -103,6 +104,7 @@ def create_job_args(
 
     Args:
         global_id: Workflow identifier (vault/name)
+        owner_principal_id: Principal that owns scheduled workflow execution
         data_root: Data root override (defaults to current runtime context data root)
         file_path: Absolute path to the workflow file (avoids reconstruction at runtime)
     """
@@ -112,6 +114,7 @@ def create_job_args(
 
     return {
         "global_id": global_id,
+        "owner_principal_id": owner_principal_id,
         "file_path": file_path,
         "config": {
             "data_root": str(data_root),
@@ -194,7 +197,9 @@ async def setup_scheduler_jobs(
                     scheduler.remove_job(existing_job.id)
 
                     job_args = create_job_args(
-                        workflow.global_id, file_path=workflow.file_path
+                        workflow.global_id,
+                        workflow.owner_principal_id,
+                        file_path=workflow.file_path,
                     )
                     job_name = f"Workflow: {workflow.global_id}"
 
@@ -219,7 +224,9 @@ async def setup_scheduler_jobs(
                     )
                 else:
                     job_args = create_job_args(
-                        workflow.global_id, file_path=workflow.file_path
+                        workflow.global_id,
+                        workflow.owner_principal_id,
+                        file_path=workflow.file_path,
                     )
                     job_name = f"Workflow: {workflow.global_id}"
 
@@ -238,7 +245,9 @@ async def setup_scheduler_jobs(
                 scheduler_jobs_synced += 1
             else:
                 job_args = create_job_args(
-                    workflow.global_id, file_path=workflow.file_path
+                    workflow.global_id,
+                    workflow.owner_principal_id,
+                    file_path=workflow.file_path,
                 )
                 job_name = f"Workflow: {workflow.global_id}"
 

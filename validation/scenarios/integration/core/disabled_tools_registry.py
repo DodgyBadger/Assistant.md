@@ -8,12 +8,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class DisabledToolsRegistryScenario(BaseScenario):
     """Validate disabled_tools filters model and direct tool binding surfaces."""
 
+    @with_local_user_authority
     async def test_scenario(self) -> None:
         vault = self.create_vault("DisabledToolsRegistryVault")
         await self.start_system()

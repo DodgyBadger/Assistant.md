@@ -3,30 +3,36 @@
         const { escapeHtml } = utils;
         const renderedRefs = new WeakMap();
 
-        function renderArtifact(container, artifactRef) {
+        function renderArtifact(container, artifactRef, options = {}) {
             if (!(container instanceof HTMLElement) || !artifactRef) return;
             if (renderedRefs.get(container) === artifactRef) return;
             renderedRefs.set(container, artifactRef);
             container.innerHTML = '<div class="edit-proposal-card edit-proposal-loading">Loading edit proposal...</div>';
-            fetchProposal(artifactRef)
+            fetchProposal(artifactRef, options)
                 .then((proposal) => {
+                    if (options.signal?.aborted) return;
                     container.innerHTML = renderProposalCard(proposal);
                     bindProposalCard(container, proposal);
                     autosizeReplacementTextareas(container);
                 })
                 .catch((error) => {
+                    if (error?.name === 'AbortError') {
+                        container.replaceChildren();
+                        return;
+                    }
                     container.innerHTML = `<div class="edit-proposal-card state-error">Unable to load edit proposal: ${escapeHtml(error.message)}</div>`;
                 });
         }
 
-        async function fetchProposal(artifactRef) {
-            const vault = selectedVault();
-            const sessionId = state.sessionId || '';
+        async function fetchProposal(artifactRef, options = {}) {
+            const vault = options.vaultName || selectedVault();
+            const sessionId = options.sessionId || state.sessionId || '';
             if (!vault || !sessionId) {
                 throw new Error('Missing active vault or chat session.');
             }
             const response = await fetch(
-                `api/vaults/${encodeURIComponent(vault)}/chat/${encodeURIComponent(sessionId)}/edit-proposals/${encodePathArtifactRef(artifactRef)}`
+                `api/vaults/${encodeURIComponent(vault)}/chat/${encodeURIComponent(sessionId)}/edit-proposals/${encodePathArtifactRef(artifactRef)}`,
+                { cache: 'no-store', signal: options.signal }
             );
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));

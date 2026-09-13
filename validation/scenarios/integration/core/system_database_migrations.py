@@ -2,17 +2,37 @@
 
 from __future__ import annotations
 
+import asyncio
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.chat import ChatStore
-from core.ingestion.service import IngestionService
-from core.runtime.paths import set_bootstrap_roots
-from core.system_migrations import get_system_migration_status, run_system_migrations
-from validation.core.base_scenario import BaseScenario
+_direct_run_root: tempfile.TemporaryDirectory[str] | None = None
+if __name__ == "__main__":
+    from core.runtime.paths import set_bootstrap_roots
+
+    _direct_run_root = tempfile.TemporaryDirectory(
+        prefix="assistantmd-system-migrations-"
+    )
+    direct_root = Path(_direct_run_root.name)
+    data_root = direct_root / "data"
+    bootstrap_system_root = direct_root / "system"
+    data_root.mkdir()
+    bootstrap_system_root.mkdir()
+    set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
+
+from core.chat import ChatStore  # noqa: E402
+from core.ingestion.service import IngestionService  # noqa: E402
+from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
+from core.runtime.paths import set_bootstrap_roots  # noqa: E402
+from core.system_migrations import (  # noqa: E402
+    get_system_migration_status,
+    run_system_migrations,
+)
+from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class SystemDatabaseMigrationsScenario(BaseScenario):
@@ -25,7 +45,16 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         self._create_legacy_chat_sessions_db(chat_db)
         ingestion_db = system_root / "ingestion_jobs.db"
         self._create_legacy_ingestion_jobs_db(ingestion_db)
+        legacy_backup = system_root / "vault_state.db.backup-legacy"
+        legacy_backup.write_bytes(b"legacy migration backup")
+        backup_directory = system_root / MIGRATION_BACKUP_DIRECTORY
+        backup_directory.mkdir()
+        existing_legacy_backup = backup_directory / legacy_backup.name
+        existing_legacy_backup.write_bytes(b"existing migration backup")
+        second_existing_legacy_backup = backup_directory / f"{legacy_backup.name} (2)"
+        second_existing_legacy_backup.write_bytes(b"second existing migration backup")
 
+        pending_before_store_initialization = get_system_migration_status(system_root)
         ChatStore(str(system_root))
         set_bootstrap_roots(self.artifacts_dir / "data", system_root)
         IngestionService()
@@ -40,13 +69,32 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         before = get_system_migration_status(system_root)
         self.soft_assert_equal(
             before.pending_count,
-            12,
+            pending_before_store_initialization.pending_count,
             "Store initialization should not apply registered release migrations",
         )
 
         after = run_system_migrations(system_root, backup=True)
         self.soft_assert_equal(
             after.pending_count, 0, "Registered migrations should be applied"
+        )
+        self.soft_assert(
+            not legacy_backup.exists(),
+            "A migration run should remove managed legacy backups from the system root",
+        )
+        self.soft_assert_equal(
+            existing_legacy_backup.read_bytes(),
+            b"existing migration backup",
+            "A migration run should not overwrite an existing organized backup",
+        )
+        self.soft_assert_equal(
+            second_existing_legacy_backup.read_bytes(),
+            b"second existing migration backup",
+            "A migration run should preserve every existing numbered backup",
+        )
+        self.soft_assert_equal(
+            (backup_directory / f"{legacy_backup.name} (3)").read_bytes(),
+            b"legacy migration backup",
+            "A migration run should choose the next free backup version",
         )
 
         target_by_db = {target.db_name: target for target in after.targets}
@@ -82,6 +130,11 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         if chat_target.backup_path:
             self.soft_assert(
                 Path(chat_target.backup_path).exists(), "Chat DB backup should exist"
+            )
+            self.soft_assert_equal(
+                Path(chat_target.backup_path).parent,
+                backup_directory,
+                "New database backups should be isolated from live system databases",
             )
 
         with sqlite3.connect(chat_db) as conn:
@@ -135,7 +188,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "workflow_runs"),
-                [1, 2],
+                [1, 2, 3],
                 "Workflow run migration versions should be recorded",
             )
 
@@ -168,6 +221,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             "Second run should not create backups when no migrations are pending",
         )
         self.teardown_scenario()
+        self.assert_no_failures()
 
     @staticmethod
     def _create_legacy_chat_sessions_db(db_path: Path) -> None:
@@ -241,3 +295,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             (table_name,),
         ).fetchone()
         return row is not None
+
+
+if __name__ == "__main__":
+    asyncio.run(SystemDatabaseMigrationsScenario().test_scenario())

@@ -5,9 +5,7 @@ Provides security validation and path resolution for all file operations.
 """
 
 import os
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import tiktoken
 
@@ -132,19 +130,3 @@ def estimate_token_count(text: str, encoding_name: str = "cl100k_base") -> int:
     """
     encoding = tiktoken.get_encoding(encoding_name)
     return len(encoding.encode(text))
-
-
-def get_tool_instructions(tools: Sequence[Any]) -> str:
-    """Compose a concise capability summary for enabled tools."""
-    if not tools:
-        return ""
-
-    instructions = ["You have access to the following capabilities:"]
-    for tool in tools:
-        tool_name = getattr(tool, "name", None) or getattr(tool, "__name__", "tool")
-        description = (getattr(tool, "description", None) or "").strip()
-        if description:
-            instructions.append(f"- `{tool_name}`: {description}")
-        else:
-            instructions.append(f"- `{tool_name}`")
-    return "\n\n".join(instructions)

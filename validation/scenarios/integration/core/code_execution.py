@@ -309,20 +309,26 @@ class CodeExecutionScenario(BaseScenario):
             self.soft_assert(
                 any(
                     event.get("event") == "tool_call_started"
-                    and "arguments_detail" in event
-                    and ("a" * 260) in str(event.get("arguments_detail"))
+                    and event.get("tool_name") == "code_execution"
+                    and "arguments" not in event
+                    and "arguments_detail" not in event
                     for event in streaming_events
                 ),
-                "Streaming code_execution events should include untruncated argument detail",
+                "Streaming tool start events should omit arguments",
             )
             self.soft_assert(
                 any(
                     event.get("event") == "tool_call_finished"
-                    and "result_detail" in event
-                    and ("b" * 300) in str(event.get("result_detail"))
+                    and event.get("tool_name") == "code_execution"
+                    and isinstance(event.get("token_count"), int)
+                    and event["token_count"] >= 0
+                    and "result" not in event
+                    and "result_detail" not in event
+                    and "result_metadata" not in event
+                    and "artifact_ref" not in event
                     for event in streaming_events
                 ),
-                "Streaming code_execution events should include untruncated result detail",
+                "Streaming tool finish events should expose only safe result metadata",
             )
 
             current_case["name"] = "allow_write"

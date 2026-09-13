@@ -7,6 +7,7 @@ VENV_PYTHON="${REPO_ROOT}/.venv/bin/python"
 RUNTIME_ROOT="${ASSISTANTMD_DEV_RUNTIME_ROOT:-${REPO_ROOT}}"
 DATA_ROOT="${CONTAINER_DATA_ROOT:-${RUNTIME_ROOT}/data}"
 SYSTEM_ROOT="${CONTAINER_SYSTEM_ROOT:-${RUNTIME_ROOT}/system}"
+DEV_AUTH_SECRET="assistantmd-development-auth-secret-not-for-production"
 
 usage() {
   cat <<'EOF'
@@ -22,8 +23,8 @@ Commands:
 
 Run options:
   -p, --port <port>       Listen on this port (default: 8000)
-  -a, --address <address> Listen on this address (default: 127.0.0.1)
-      --public            Listen on 0.0.0.0; shorthand for --address 0.0.0.0
+  -a, --address <address> Override the authentication mode's listen address
+      --auth-mode <mode>  Authentication: loopback, disabled, owner_token, or trusted_proxy
   -h, --help              Show run-specific help
   --                       Pass remaining arguments to Uvicorn
 
@@ -31,8 +32,9 @@ Environment:
   ASSISTANTMD_DEV_RUNTIME_ROOT  Use an alternate parent for data/ and system/
   CONTAINER_DATA_ROOT          Override the development vault root
   CONTAINER_SYSTEM_ROOT        Override the development system-state root
-  ASSISTANTMD_DEV_HOST         Development server host (default: 127.0.0.1)
+  ASSISTANTMD_DEV_HOST         Override the authentication mode's listen address
   ASSISTANTMD_DEV_PORT         Development server port (default: 8000)
+  ASSISTANTMD_AUTH_MODE        Default mode when --auth-mode is omitted
 EOF
 }
 
@@ -62,6 +64,82 @@ validate_port() {
 
 ensure_runtime_roots() {
   mkdir -p "${DATA_ROOT}" "${SYSTEM_ROOT}"
+}
+
+has_configured_secrets_key() {
+  [ -x "${VENV_PYTHON}" ] || return 1
+  REPO_ROOT="${REPO_ROOT}" "${VENV_PYTHON}" - <<'PY' >/dev/null 2>&1
+import os
+from pathlib import Path
+
+from dotenv import dotenv_values
+
+from core.secrets.crypto import SecretKeyring
+
+env_path = Path(os.environ["REPO_ROOT"]) / ".env"
+if env_path.exists():
+    for name, value in dotenv_values(env_path).items():
+        if value is not None:
+            os.environ.setdefault(name, value)
+
+try:
+    SecretKeyring.from_environment()
+except (RuntimeError, ValueError):
+    raise SystemExit(1)
+PY
+}
+
+public_url_status() {
+  REPO_ROOT="${REPO_ROOT}" "${VENV_PYTHON}" - <<'PY'
+import os
+from pathlib import Path
+
+from dotenv import dotenv_values
+
+from core.runtime.public_url import PublicOrigin, PublicUrlError
+
+env_path = Path(os.environ["REPO_ROOT"]) / ".env"
+if env_path.exists():
+    for name, value in dotenv_values(env_path).items():
+        if value is not None:
+            os.environ.setdefault(name, value)
+
+raw = os.environ.get("ASSISTANTMD_PUBLIC_URL", "").strip()
+if not raw:
+    print("UNCONFIGURED")
+else:
+    try:
+        print(f"CONFIGURED:{PublicOrigin.parse(raw).value}")
+    except PublicUrlError:
+        print("INVALID")
+PY
+}
+
+print_secrets_key_guidance() {
+  if has_configured_secrets_key; then
+    echo "OK: encrypted secrets key configuration found."
+    echo "Existing system/secrets.yaml values, if any, will migrate on the next application startup."
+    return
+  fi
+
+  cat <<'EOF'
+
+ACTION REQUIRED: configure the encrypted secrets key before starting AssistantMD.
+Without it, the UI remains available for diagnostics, but providers, models,
+MCP configuration, and secret mutation stay locked.
+
+Generate a key with:
+
+  openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
+
+Copy the generated value into .env as:
+
+  ASSISTANTMD_SECRETS_KEY=PASTE_GENERATED_KEY_HERE
+
+Back up .env separately if you need to retain access to encrypted credentials.
+Existing system/secrets.yaml values migrate on application startup after a
+valid key is available.
+EOF
 }
 
 require_environment() {
@@ -121,13 +199,16 @@ setup_environment() {
   echo "Python: $("${VENV_PYTHON}" -V 2>&1)"
   echo "Runtime data: ${DATA_ROOT}"
   echo "Runtime system: ${SYSTEM_ROOT}"
+  print_secrets_key_guidance
   echo "Start AssistantMD with: scripts/dev run"
 }
 
 run_server() {
-  local address="${ASSISTANTMD_DEV_HOST:-127.0.0.1}"
+  local address="${ASSISTANTMD_DEV_HOST:-}"
   local address_option_set=false
   local port="${ASSISTANTMD_DEV_PORT:-8000}"
+  local auth_mode="${ASSISTANTMD_AUTH_MODE:-}"
+  local auth_mode_option_set=false
   local -a uvicorn_args=()
 
   while [ "$#" -gt 0 ]; do
@@ -139,17 +220,18 @@ run_server() {
         ;;
       -a|--address)
         [ "$#" -ge 2 ] || die "$1 requires an address."
-        [ "${address_option_set}" = false ] || die "Specify only one of --address or --public."
+        [ "${address_option_set}" = false ] || die "Specify --address only once."
         [ -n "$2" ] || die "$1 requires a non-empty address."
         address="$2"
         address_option_set=true
         shift 2
         ;;
-      --public)
-        [ "${address_option_set}" = false ] || die "Specify only one of --address or --public."
-        address="0.0.0.0"
-        address_option_set=true
-        shift
+      --auth-mode)
+        [ "$#" -ge 2 ] || die "$1 requires an authentication mode."
+        [ "${auth_mode_option_set}" = false ] || die "Specify --auth-mode only once."
+        auth_mode="$2"
+        auth_mode_option_set=true
+        shift 2
         ;;
       -h|--help)
         usage
@@ -173,10 +255,72 @@ run_server() {
   cd "${REPO_ROOT}"
   export CONTAINER_DATA_ROOT="${DATA_ROOT}"
   export CONTAINER_SYSTEM_ROOT="${SYSTEM_ROOT}"
+  if [ -z "${auth_mode}" ]; then
+    address="${address:-127.0.0.1}"
+    case "${address}" in
+      127.0.0.1|::1|localhost)
+        auth_mode="loopback"
+        ;;
+      *)
+        die "Use --auth-mode when development is not bound to loopback."
+        ;;
+    esac
+  elif [ -z "${address}" ]; then
+    case "${auth_mode}" in
+      loopback)
+        address="127.0.0.1"
+        ;;
+      disabled|owner_token|trusted_proxy)
+        address="0.0.0.0"
+        ;;
+    esac
+  fi
+  case "${auth_mode}" in
+    disabled|loopback)
+      if [ "${auth_mode_option_set}" = true ]; then
+        unset ASSISTANTMD_AUTH_SECRET ASSISTANTMD_AUTH_SECRET_FILE
+        unset ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS
+      fi
+      ;;
+    owner_token)
+      case "${address}" in
+        127.0.0.1|::1|localhost) ;;
+        *)
+          echo "WARNING: The fixed development owner token is publicly known and does not protect a reachable server." >&2
+          ;;
+      esac
+      export ASSISTANTMD_AUTH_SECRET="${DEV_AUTH_SECRET}"
+      unset ASSISTANTMD_AUTH_SECRET_FILE ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS
+      ;;
+    trusted_proxy)
+      if [ "${auth_mode_option_set}" = true ]; then
+        export ASSISTANTMD_AUTH_SECRET="${DEV_AUTH_SECRET}"
+        unset ASSISTANTMD_AUTH_SECRET_FILE ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS
+      else
+        [ -n "${ASSISTANTMD_AUTH_SECRET:-}" ] || [ -n "${ASSISTANTMD_AUTH_SECRET_FILE:-}" ] || \
+          die "trusted_proxy mode requires ASSISTANTMD_AUTH_SECRET or ASSISTANTMD_AUTH_SECRET_FILE."
+      fi
+      ;;
+    *)
+      die "Unsupported authentication mode '${auth_mode}'."
+      ;;
+  esac
+  export ASSISTANTMD_AUTH_MODE="${auth_mode}"
+  echo "Authentication mode: ${auth_mode}"
+  if [ "${auth_mode}" = "owner_token" ]; then
+    echo "Development owner token: ${DEV_AUTH_SECRET}"
+  elif [ "${auth_mode}" = "trusted_proxy" ] && [ "${auth_mode_option_set}" = true ]; then
+    echo "Development proxy assertion: ${DEV_AUTH_SECRET}"
+  fi
+  local -a env_file_args=()
+  if [ -f "${REPO_ROOT}/.env" ]; then
+    env_file_args=(--env-file "${REPO_ROOT}/.env")
+  fi
   exec uv run uvicorn main:app \
     --host "${address}" \
     --port "${port}" \
     --reload \
+    "${env_file_args[@]}" \
     "${uvicorn_args[@]}"
 }
 
@@ -199,6 +343,7 @@ run_scenarios() {
 
 doctor() {
   local browser_path
+  local public_url_result
   local failures=0
   cd "${REPO_ROOT}"
   echo "Repository: ${REPO_ROOT}"
@@ -262,8 +407,30 @@ PY
   echo "Runtime data: ${DATA_ROOT}"
   echo "Runtime system: ${SYSTEM_ROOT}"
 
+  if has_configured_secrets_key; then
+    echo "OK: encrypted secrets key configuration found"
+  else
+    echo "MISSING: encrypted secrets key configuration; providers, models, MCP configuration, and secret mutation will be locked"
+    failures=$((failures + 1))
+    print_secrets_key_guidance
+  fi
+
+  public_url_result="$(public_url_status)"
+  case "${public_url_result}" in
+    CONFIGURED:*)
+      echo "OK: canonical public URL -> ${public_url_result#CONFIGURED:}"
+      ;;
+    UNCONFIGURED)
+      echo "OPTIONAL: ASSISTANTMD_PUBLIC_URL is not configured; browser callback origins will be inferred"
+      ;;
+    *)
+      echo "BROKEN: ASSISTANTMD_PUBLIC_URL is invalid"
+      failures=$((failures + 1))
+      ;;
+  esac
+
   if [ "${failures}" -ne 0 ]; then
-    echo "Doctor found ${failures} blocking issue(s). Run scripts/dev setup after installing missing host tools." >&2
+    echo "Doctor found ${failures} blocking issue(s). Resolve the missing items reported above; scripts/dev setup repairs the development environment but does not generate encryption keys." >&2
     return 1
   fi
   echo "Development environment checks passed."

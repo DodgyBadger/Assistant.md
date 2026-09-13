@@ -12,13 +12,22 @@ from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from core.advanced_shell.capability import AdvancedShellCapabilityService
 from core.authoring.template_discovery import WorkflowLoader
 from core.chat.chat_store import ChatStore
 from core.chat.session_access import ChatSessionAccessService
+from core.connections import BuiltInConnectionService
 from core.identity import AuthorizationService
 from core.ingestion.service import IngestionService
 from core.ingestion.worker import IngestionWorker
+from core.integrations.google import (
+    GmailResourceService,
+    GoogleConnectionService,
+    GoogleOAuthCoordinator,
+)
 from core.logger import UnifiedLogger
+from core.mcp import MCPConnectionManager, MCPConnectionService
+from core.mcp.oauth import MCPOAuthCoordinator
 from core.runtime.background import RuntimeBackgroundSpawner
 from core.runtime.buffers import BufferStore
 from core.runtime.execution_tasks import TaskCoordinator
@@ -73,7 +82,15 @@ class RuntimeContext:
     task_runner: ExecutionTaskRunner
     workflow_governor: WorkflowGovernor
     workflow_run_store: WorkflowRunStore
+    built_in_connections: BuiltInConnectionService
+    google_connection: GoogleConnectionService | None
+    google_oauth: GoogleOAuthCoordinator | None
+    gmail: GmailResourceService | None
+    mcp_connections: MCPConnectionService | None
+    mcp_manager: MCPConnectionManager | None
+    mcp_oauth: MCPOAuthCoordinator | None
     background_spawner: RuntimeBackgroundSpawner
+    advanced_shell: AdvancedShellCapabilityService | None
     boot_id: int
     started_at: datetime
     last_config_reload: datetime | None = None
@@ -94,6 +111,12 @@ class RuntimeContext:
         self.logger.info("Shutting down runtime context")
 
         await self.task_coordinator.shutdown(reason="runtime_shutdown")
+
+        if self.mcp_oauth is not None:
+            await self.mcp_oauth.shutdown()
+
+        if self.mcp_manager is not None:
+            await self.mcp_manager.shutdown()
 
         if self.background_tasks:
             for task in list(self.background_tasks):

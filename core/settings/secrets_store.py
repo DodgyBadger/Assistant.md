@@ -1,40 +1,25 @@
-"""
-Secrets store utilities.
-
-Provides a hot-reloadable YAML-backed storage layer for API keys and other
-confidential values. Replaces the legacy .env handling so secrets can be
-managed independently from infrastructure configuration.
-"""
+"""Narrow synchronous compatibility API for encrypted principal-owned secrets."""
 
 from __future__ import annotations
 
-import os
-import shutil
-from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, overload
 
-import yaml
-
+from core.identity import (
+    SYSTEM_AUTHORITY,
+    ExecutionAuthority,
+    get_current_execution_authority,
+)
 from core.runtime.paths import get_system_root
+from core.secrets import get_encrypted_secrets_service
+from core.secrets.legacy_migration import DEFAULT_NAMESPACE
 
-SECRETS_PATH_ENV = "SECRETS_PATH"
-SECRETS_TEMPLATE = Path(__file__).parent / "secrets.template.yaml"
-
-
-class _SecretsDumper(yaml.SafeDumper):
-    """Custom YAML dumper that renders None values as empty strings."""
-
-
-def _represent_none(
-    dumper: yaml.SafeDumper,
-    _: None,
-) -> yaml.ScalarNode:
-    return dumper.represent_scalar("tag:yaml.org,2002:null", "")
-
-
-_SecretsDumper.add_representer(type(None), _represent_none)
+_OPENAI_OAUTH_NAMESPACE = "oauth.openai"
+_OPENAI_OAUTH_NAMES = frozenset(
+    {"OPENAI_OAUTH_PENDING_STATE", "OPENAI_OAUTH_TOKEN_STATE"}
+)
+_SYSTEM_SECRET_NAMES = frozenset({"LOGFIRE_TOKEN"})
 
 
 @dataclass(frozen=True)
@@ -46,75 +31,6 @@ class SecretEntry:
     is_overlay: bool = False
 
 
-def _resolve_secrets_path() -> Path:
-    """
-    Determine the active secrets file path.
-
-    Rules:
-    - Explicit SECRETS_PATH env is authoritative.
-    - Otherwise, use runtime/system root (requires bootstrap or runtime context).
-    """
-    override = os.environ.get(SECRETS_PATH_ENV)
-    if override:
-        return Path(override)
-    return get_system_root() / "secrets.yaml"
-
-
-def _ensure_file(path: Path) -> None:
-    """Ensure the secrets file exists."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        if SECRETS_TEMPLATE.exists():
-            shutil.copyfile(SECRETS_TEMPLATE, path)
-        else:
-            path.write_text("", encoding="utf-8")
-
-
-def _read_raw(path: Path, include_empty: bool = False) -> OrderedDict[str, str | None]:
-    """Read raw secrets mapping from disk."""
-    _ensure_file(path)
-    raw_text = path.read_text(encoding="utf-8")
-    if not raw_text.strip():
-        return OrderedDict()
-
-    data = yaml.safe_load(raw_text) or {}
-    if not isinstance(data, dict):
-        raise ValueError("Secrets file must contain a mapping of key/value pairs.")
-
-    normalized: OrderedDict[str, str | None] = OrderedDict()
-    for key, value in data.items():
-        if not isinstance(key, str):
-            raise ValueError("Secret names must be strings.")
-        if value is None or (isinstance(value, str) and not value.strip()):
-            if include_empty:
-                normalized[key] = None
-            continue
-        if not isinstance(value, str):
-            raise ValueError(f"Secret '{key}' must be stored as a string.")
-        normalized[key] = value
-    return normalized
-
-
-def _write_raw(path: Path, data: dict[str, str | None]) -> None:
-    """Persist secrets mapping to disk using an atomic write."""
-    _ensure_file(path)
-    tmp_path = path.with_suffix(".tmp")
-    with open(tmp_path, "w", encoding="utf-8") as handle:
-        if data:
-            serializable = dict(data)
-            yaml.dump(
-                serializable,
-                handle,
-                sort_keys=False,
-                default_flow_style=False,
-                allow_unicode=False,
-                Dumper=_SecretsDumper,
-            )
-        else:
-            handle.write("")
-    os.replace(tmp_path, path)
-
-
 @overload
 def load_secrets(*, include_empty: Literal[True]) -> dict[str, str | None]: ...
 
@@ -124,95 +40,97 @@ def load_secrets(*, include_empty: Literal[False] = False) -> dict[str, str]: ..
 
 
 def load_secrets(
-    *,
-    include_empty: bool = False,
+    *, include_empty: bool = False
 ) -> dict[str, str] | dict[str, str | None]:
-    """
-    Load all secrets from disk.
-
-    Args:
-        include_empty: When True, include keys that exist with empty values.
-
-    Returns:
-        Dictionary mapping secret names to values.
-    """
-    path = _resolve_secrets_path()
-    data = _read_raw(path, include_empty=include_empty)
+    """Load current-principal generic configuration secrets."""
+    authority = _authority_for_name(None)
+    service = get_encrypted_secrets_service()
+    values = {
+        item.name: service.get_for_authority(authority, DEFAULT_NAMESPACE, item.name)
+        for item in service.list_metadata_for_authority(authority, DEFAULT_NAMESPACE)
+    }
     if include_empty:
-        return dict(data)
-    return {name: value for name, value in data.items() if value}
+        return values
+    return {name: value for name, value in values.items() if value is not None}
 
 
 def list_secret_entries() -> list[SecretEntry]:
-    """Return metadata for all stored secrets."""
-    path = _resolve_secrets_path()
-    data = _read_raw(path, include_empty=True)
-    entries: list[SecretEntry] = []
-    for name, value in data.items():
-        entries.append(SecretEntry(name=name, has_value=bool(value), is_overlay=True))
-    return entries
+    """Return current-principal generic secret metadata."""
+    authority = _authority_for_name(None)
+    service = get_encrypted_secrets_service()
+    return [
+        SecretEntry(name=item.name, has_value=True, is_overlay=True)
+        for item in service.list_metadata_for_authority(authority, DEFAULT_NAMESPACE)
+    ]
 
 
 def get_secret_value(name: str) -> str | None:
-    """Return the stored value for a secret, if set."""
+    """Return a secret for its explicit system or current-principal owner."""
     if not name:
         return None
-
-    path = _resolve_secrets_path()
-    data = _read_raw(path)
-    value = data.get(name)
-    if value is None:
-        return None
-    stripped = value.strip()
-    return stripped or None
+    authority = _authority_for_name(name)
+    return get_encrypted_secrets_service().get_for_authority(
+        authority, _namespace_for_name(name), name
+    )
 
 
 def set_secret_value(name: str, value: str | None) -> None:
-    """Create or update a secret value."""
-    if not name:
+    """Create, replace, or clear an encrypted secret."""
+    clean_name = str(name or "").strip()
+    if not clean_name:
         raise ValueError("Secret name cannot be empty.")
-
-    path = _resolve_secrets_path()
-    secrets = _read_raw(path, include_empty=True)
-
+    authority = _authority_for_name(clean_name)
+    service = get_encrypted_secrets_service()
     normalized = (value or "").strip()
     if not normalized:
-        secrets[name] = None
-    else:
-        secrets[name] = normalized
-
-    _write_raw(path, secrets)
+        service.delete_for_authority(
+            authority, _namespace_for_name(clean_name), clean_name
+        )
+        return
+    service.set_for_authority(
+        authority,
+        _namespace_for_name(clean_name),
+        clean_name,
+        normalized,
+    )
 
 
 def remove_secret(name: str) -> None:
-    """Remove a secret from the store."""
-    if not name:
-        return
-    path = _resolve_secrets_path()
-    secrets = _read_raw(path, include_empty=True)
-    if name in secrets:
-        secrets[name] = None
-        _write_raw(path, secrets)
+    """Clear a secret value by deleting its encrypted record."""
+    delete_secret(name)
 
 
 def delete_secret(name: str) -> None:
-    """Delete a secret entry entirely from the store."""
-    if not name:
+    """Delete a secret entry entirely from encrypted storage."""
+    clean_name = str(name or "").strip()
+    if not clean_name:
         return
-    path = _resolve_secrets_path()
-    secrets = _read_raw(path, include_empty=True)
-    if name in secrets:
-        del secrets[name]
-        _write_raw(path, secrets)
+    get_encrypted_secrets_service().delete_for_authority(
+        _authority_for_name(clean_name),
+        _namespace_for_name(clean_name),
+        clean_name,
+    )
 
 
 def secret_has_value(name: str) -> bool:
-    """Return True when the secret exists and has non-empty value."""
+    """Return True when an encrypted secret exists and is non-empty."""
     return bool(get_secret_value(name))
 
 
 def ensure_secrets_file() -> Path:
-    """Create the secrets file if needed and return its path."""
-    path = _resolve_secrets_path()
-    _ensure_file(path)
-    return path
+    """Ensure encrypted storage is ready and return its managed database path."""
+    get_encrypted_secrets_service()
+    return get_system_root() / "access.db"
+
+
+def _namespace_for_name(name: str) -> str:
+    return _OPENAI_OAUTH_NAMESPACE if name in _OPENAI_OAUTH_NAMES else DEFAULT_NAMESPACE
+
+
+def _authority_for_name(name: str | None) -> ExecutionAuthority:
+    if name in _SYSTEM_SECRET_NAMES:
+        return SYSTEM_AUTHORITY
+    authority = get_current_execution_authority()
+    if authority is None:
+        raise RuntimeError("Execution authority is required for secret access.")
+    return authority

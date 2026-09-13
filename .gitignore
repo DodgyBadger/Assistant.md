@@ -98,6 +98,7 @@ celerybeat.pid
 
 # Environments
 .env
+docker-compose.override.yml
 system/secrets.yaml
 .venv
 .runtime/
@@ -164,3 +165,12 @@ CLAUDE.md
 .claude/
 .codex
 .ruff_cache/
+
+# Local advanced-shell smoke output
+scripts/advanced_shell_smoke.latest.log
+scripts/advanced_shell_tool_probe.latest.log
+scripts/advanced_shell_development.latest.log
+.advanced-shell/
+
+# Deployment-owned authentication secret files
+/secrets/

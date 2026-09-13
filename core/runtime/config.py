@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from core.constants import DEFAULT_MAX_SCHEDULER_WORKERS
+from core.runtime.public_url import PublicOrigin
 
 
 @dataclass
@@ -34,6 +35,7 @@ class RuntimeConfig:
     max_scheduler_workers: int = DEFAULT_MAX_SCHEDULER_WORKERS
     enable_api: bool = True
     log_level: str = "INFO"
+    public_origin: PublicOrigin | None = None
     features: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -63,7 +65,12 @@ class RuntimeConfig:
             )
 
     @classmethod
-    def for_production(cls, data_root: str, system_root: str) -> "RuntimeConfig":
+    def for_production(
+        cls,
+        data_root: str | Path,
+        system_root: str | Path,
+        public_url: str | None = None,
+    ) -> "RuntimeConfig":
         """Create production configuration with standard settings."""
         return cls(
             data_root=Path(data_root),
@@ -71,6 +78,7 @@ class RuntimeConfig:
             max_scheduler_workers=DEFAULT_MAX_SCHEDULER_WORKERS,
             enable_api=True,
             log_level="INFO",
+            public_origin=(PublicOrigin.parse(public_url) if public_url else None),
         )
 
     @classmethod

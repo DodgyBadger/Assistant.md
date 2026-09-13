@@ -69,6 +69,12 @@ def _validate_general_setting_value(
     """Validate safety-sensitive general settings before persistence."""
     if name == "model_stream_retries" and not 0 <= value <= 5:
         raise SettingsError("Model stream retries must be between 0 and 5.")
+    if name == "mcp_max_concurrent_advanced_shell_stdio_launches" and not (
+        isinstance(value, int) and 1 <= value <= 32
+    ):
+        raise SettingsError(
+            "Managed advanced-shell stdio launch concurrency must be between 1 and 32."
+        )
 
     delay_names = {
         "model_stream_retry_base_delay_seconds",

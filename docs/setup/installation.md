@@ -1,138 +1,222 @@
-## Prerequisites
-*   [Docker Engine](https://docs.docker.com/engine/install/) (Linux) or [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows, Mac)
-*   An LLM endpoint (cloud API key or local model server)
+# Installation
 
-⚠️  AssistantMD has **no built-in auth or TLS**. Run it on a trusted network and/or add your own security layers. See [security.md](docs/setup/security.md).
+The recommended installation uses Docker Compose and keeps deployment settings in one `.env` file.
 
-⚠️ It is strongly recommended that you back up your vaults before deploying for the first time, or create a test vault and then migrate the mount path when you have verified that everything works as expected.
+Assistant.md is the product and repository name. Some identifiers retain the former styling `AssistantMD`, including the vault system folder, environment variables, image names, and container names. Commands and paths in this guide should be used exactly as written.
 
-⚠️ These instructions are optimized for installing on Linux. See the end of this document for notes for Windows and Mac. I have only tested installation on Linux and Windows.
+## 1. Install the prerequisites
 
-### Create a folder for your deployment, structured as follows:
+You need:
+
+- [Docker Engine](https://docs.docker.com/engine/install/) on Linux or [Docker Desktop](https://www.docker.com/products/docker-desktop/) on Windows or macOS; and
+- access to a cloud or local language model.
+
+Back up an existing vault before mounting it, or begin with a test vault.
+
+## 2. Create the deployment folder
+
+Clone Assistant.md and create the two persistent folders:
+
+```bash
+git clone https://github.com/DodgyBadger/Assistant.md.git
+cd Assistant.md
+mkdir -p data system
+cp .env.example .env
 ```
-AssistantMD
+
+This creates the normal deployment layout:
+
+```text
+Assistant.md/
+├── data/
 ├── system/
+├── .env
 └── docker-compose.yml
 ```
-_Pre-creating the `system` folder is important to avoid a "permission denied" error. See the section below on file permission and customizing the runtime user._
 
-Copy the contents of
-`docker-compose.yml.example` into `docker-compose.yml`.
+Note: `data/` provides the default local vault location and is useful for testing. It can remain empty when `ASSISTANTMD_DATA_PATH` points to a vault folder elsewhere.
 
-```bash
-mkdir AssistantMD
-cd AssistantMD
-mkdir system
-nano docker-compose.yml
-```
-_Or alternate text editor if you don't have nano._
+`docker-compose.yml` is maintained by the repository. Do not edit it; future `git pull` operations can then deliver required service, network, and volume updates. Put ordinary deployment choices in `.env`. Use optional `docker-compose.override.yml` for structural customizations described later in this guide.
 
-### Open `docker-compose.yml` and update the following:
+## 3. Configure `.env`
 
-- Replace `/absolute/path/to/your/vaults` with the directory that holds your
-  vault folders. The app will look for subfolders inside `/absolute/path/to/your/vaults` and treat them as vaults. See examples below.
-- If you have directories in that path that should not be treated as vaults, create a `.vaultignore` file in the directory and it will be ignored.
-- **Do not** change the right hand side: `/app/data` or the `./system:/app/system` mount.
-- Set `TZ` to your local [timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) so that scheduled workflows run when you expect them to.
-
-**Optional**
-- Change the host side (the left side) of `127.0.0.1:8000:8000` if you want to expose the UI on a different IP/port (e.g. `192.168.0.1:1234:8000`).
-- Change the `latest` tag in `image: ghcr.io/dodgybadger/assistantmd:latest` to lock a specific release. See the [repository](https://github.com/DodgyBadger/AssistantMD/tags) for all tags.
-
-
-### Start the System
-`docker compose up -d`
-
-**Verify Installation**
-`docker ps` should show assistantMD running. If you see "restarting", something is wrong. Run `docker logs assistantMD` to check for startup errors.
-
-Access the web interface at `http://localhost:8000/` (or whichever host IP/port
-you configured in the compose file). Open the **System** tab and configure at
-least one model provider. Changes apply immediately—no container restart
-required.
-
-For OpenAI chat models, the stable setup is still to add `OPENAI_API_KEY` under
-**Secrets**. AssistantMD also includes an experimental OpenAI OAuth option for
-the built-in OpenAI provider. To use it, enable OpenAI OAuth in **System →
-Application Settings**, allow editing for the built-in `openai` provider if
-needed, then use the provider panel to connect with OAuth. Device-code login is
-available for remote/server installs where the browser is not running on the
-same machine as the container. API-key auth remains supported and is the
-recommended fallback if OAuth is unavailable.
-
-If you plan to enable the built-in nightly session summarization workflow,
-configure `OPENAI_API_KEY` for the default `embeddings` model alias. OAuth is
-for OpenAI chat model auth and does not replace the API key used by the current
-embeddings setup.
-
-When you run AssistantMD, it adds an `AssistantMD/` folder to each mounted vault:
-
-- `AssistantMD/Skills/` — reusable procedures the agent can follow
-- `AssistantMD/Authoring/` — workflow and context assembly scripts
-- `AssistantMD/Chat_Sessions/` — exported chat transcripts
-- `AssistantMD/Import/` — drop PDFs and images here to import to markdown
-
-The default setup also looks for optional files such as `AssistantMD/soul.md`, `AssistantMD/playbook.md`, and `AssistantMD/user.md`.
-
-See [How to Build with AssistantMD](../use/build-guide.md) for details on how
-these files, skills, workflows, context assembly, and session summaries fit
-together.
-
-## Optional Setup
-
-## Integrations
-
-**Web search**: The default web search tool uses the free duckduckgo library. This is enabled by default. To enable more advanced searches, web extraction and web crawling, you can add a [Tavily API key](https://www.tavily.com). The free tier will be sufficient for many users and is worth grabbing.
-
-**Browser tool**: The built-in browser tool requires the Playwright Chromium runtime in addition to the Python package. The published container image includes this. If you build your own image from source, rebuild after pulling the latest Dockerfile changes so the image runs `python -m playwright install --no-shell chromium` during the build.
-
-The standard browser-capable profile requires at least 2 GB of memory available
-to AssistantMD and defaults to one active Chromium session. On an approximately
-1 GB host or container, use the lightweight profile by adding `browser` to
-`disabled_tools`; `web_extract` remains available for ordinary static pages.
-Docker's memory limit, memory reservation, and `shm_size` are separate controls,
-and a 2 GB container limit cannot provide memory that the host does not have.
-
-If the container exits during browser-heavy work without an AssistantMD or
-Logfire terminal event, inspect `docker inspect` for `OOMKilled` and the restart
-count. A kernel OOM kill can terminate the process before in-process logs flush.
-
-**Logfire**: AssistantMD uses the logfire library for rich console logging (what you see if you run `docker logs assistantmd`). You can add a [Logfire API key](https://pydantic.dev) to get even more data including full details of every LLM call. The free tier will be sufficient for many users and is worth grabbing. Be sure to also set logfire=true in the System tab of the web interface.
-
-
-### File permission and customizing the runtime user
-
-**Linux:** The default docker image runs as UID 1000 inside the container. This is the most common non-root user ID on Linux systems. It ensures that markdown files edited or written by the app remain accessible to you on the host. If it ran as root inside the container, you would lose access to any markdown files it touched. This works in reverse also. If the volumes being mounted into the container (`/absolute/path/to/your/vaults` and `./system`) are created by root on the host (i.e. you let docker create them or use `sudo`), then UID 1000 inside the container will not have access.
-
-If you see "permission denied" in the docker logs when loading the app, first make sure that your user on the host is UID 1000 by running `id` in the terminal. Then make sure that the two mounted folders are not owned by root. 
-
-If your UID is not 1000, then you need to build a custom image. There are also scenarios where you might want to run as root inside the container, such as hosting AssistantMD and syncing your markdown files to a remote server.
-
-Clone the repo:
-`git clone https://github.com/DodgyBadger/AssistantMD.git`
-
-Rename both docker compose files
+Generate the required encryption key:
 
 ```bash
-cd AssistantMD
-cp docker-compose.yml.example docker-compose.yml
-cp docker-compose.override.yml.example docker-compose.override.yml
+openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 ```
 
-Edit docker-compose.yml as above.
-In docker-compose.override.yml, edit `build.args` and `user` as needed. E.g.
+Open `.env`, put the generated key in `ASSISTANTMD_SECRETS_KEY`, and review these initial settings:
 
+```dotenv
+ASSISTANTMD_SECRETS_KEY=PASTE_GENERATED_KEY_HERE
+ASSISTANTMD_DATA_PATH=./data
+ASSISTANTMD_SYSTEM_PATH=./system
+TZ=UTC
+ASSISTANTMD_AUTH_MODE=disabled
 ```
-    args:
-      USER_ID: 1001
-      GROUP_ID: 1001
-  user: "1001:1001"
+
+Leave `ASSISTANTMD_DATA_PATH=./data` unchanged to start with the empty local vault location created during setup. To use existing vaults, replace `./data` with their absolute parent folder, such as `/absolute/path/to/your/vaults`. Each direct subfolder becomes an Assistant.md vault. The examples later in this guide show single-vault and multi-vault layouts.
+
+The supplied Compose file publishes Assistant.md only on the host's loopback address. This is the simplest setup when you will open Assistant.md on the same computer. `disabled` means there is no application login, so do not expose that port to a network.
+
+If you will access Assistant.md through a TLS reverse proxy, choose `trusted_proxy` or `owner_token` instead. Follow [Access from another device](#access-from-another-device) before starting it.
+
+Keep `.env` safe and back it up separately from `system/`. You need both the encryption key and `system/access.db` to restore stored credentials and connections. On Linux, restrict it with `chmod 600 .env`.
+
+## 4. Start Assistant.md
+
+```bash
+docker compose up -d
 ```
 
-Build and run the image: `docker compose up -d --build`
+## 5. Open Assistant.md
 
-**Windows & Mac:** On Windows and Mac, you will most likely be using Docker Desktop and file permissions should not be an issue. Docker Desktop runs Docker inside a Linux VM and then maps file permissions between the VM and the host. I have tested this on Windows but not on Mac. If you get permission errors on a Mac, then try following the instructions above to build with a different UID (often 501). Run `id` in a terminal to verify.
+Open <http://127.0.0.1:8000/>. If it does not load, inspect the container log:
 
+```bash
+docker logs assistantMD
+```
+
+## 6. Configure a model provider
+
+Open **System → Model Providers** and configure at least one provider.
+
+For OpenAI, either setup path is valid:
+
+- **API key:** add `OPENAI_API_KEY` under **System → Secrets**. The built-in OpenAI provider uses that secret by default.
+- **OAuth:** enable `openai_oauth_enabled` under **System → Application Settings**. Return to **Model Providers**, edit OpenAI, select **OAuth**, save, and choose **Connect** or **Device Code** in its OAuth panel.
+
+OpenAI OAuth remains labeled experimental because OpenAI does not officially support this Assistant.md integration and may change or restrict the flow. It is nevertheless a complete and valid way to enable the OpenAI provider during first setup. API-key authentication remains available if OAuth is unsuitable.
+
+For another provider, add its requested secret or endpoint from the same System page. Once one provider is ready, Assistant.md is ready to use.
+
+Assistant.md adds an `AssistantMD/` folder to each mounted vault for skills, workflows, imported documents, and exported chats. See [Getting the Most from Assistant.md](../use/getting-the-most.md) when you are ready to customize how it works.
+
+## Optional setup
+
+### Access from another device
+
+Assistant.md does not provide TLS. Remote access should use HTTPS and one of these authentication options:
+
+- `trusted_proxy` when an existing reverse proxy already authenticates users;
+- `owner_token` when the reverse proxy provides TLS but not authentication.
+
+Generate a second secret for authentication. Do not reuse `ASSISTANTMD_SECRETS_KEY`:
+
+```bash
+openssl rand -hex 32
+```
+
+#### Built-in owner login
+
+Add the following to `.env`:
+
+```dotenv
+ASSISTANTMD_AUTH_MODE=owner_token
+ASSISTANTMD_AUTH_SECRET=PASTE_A_DIFFERENT_RANDOM_SECRET_HERE
+ASSISTANTMD_PUBLIC_URL=https://assistant.example.com
+```
+
+Configure your TLS reverse proxy to forward requests to Assistant.md, then run `docker compose up -d`. The first browser visit shows Assistant.md's owner login; enter `ASSISTANTMD_AUTH_SECRET` there.
+
+For example, a Caddy process running on the Docker host needs only:
+
+```caddyfile
+assistant.example.com {
+    reverse_proxy 127.0.0.1:8000
+}
+```
+
+#### Existing authenticating proxy
+
+Add the following to `.env`:
+
+```dotenv
+ASSISTANTMD_AUTH_MODE=trusted_proxy
+ASSISTANTMD_AUTH_SECRET=PASTE_A_DIFFERENT_RANDOM_SECRET_HERE
+ASSISTANTMD_PUBLIC_URL=https://assistant.example.com
+```
+
+Give the proxy process the same `ASSISTANTMD_AUTH_SECRET` through its own secure environment configuration. Do not give the proxy Assistant.md's complete `.env`. After the proxy's authentication handler, replace the assertion header before forwarding the request. For Caddy:
+
+```caddyfile
+reverse_proxy assistant:8000 {
+    header_up X-AssistantMD-Proxy-Assertion {$ASSISTANTMD_AUTH_SECRET}
+}
+```
+
+This upstream assumes Caddy shares a Docker network with Assistant.md. Use `127.0.0.1:8000` instead when Caddy runs directly on the Docker host.
+
+Run `docker compose up -d`. Assistant.md now accepts requests carrying the proxy-only assertion and does not show a second login.
+
+#### Proxy in another Compose project
+
+For either authentication mode, a containerized proxy must share a network with Assistant.md. Create `docker-compose.override.yml` with the following structure, changing `caddy_default` to the proxy network's name. Preserve the advanced-shell network:
+
+```yaml
+services:
+  assistant:
+    networks:
+      - assistantmd_advanced_shell
+      - caddy_default
+
+networks:
+  assistantmd_advanced_shell:
+  caddy_default:
+    external: true
+```
+
+Run `docker compose config` after changing the override and verify that the rendered `assistant` service retains `assistantmd_advanced_shell`, joins the proxy network, and has the intended published-port configuration. Then run `docker compose up -d`. Use `assistant:8000` as the proxy upstream.
+
+For either option, use the exact HTTPS origin shown in the browser for `ASSISTANTMD_PUBLIC_URL`. See [Security Considerations](security.md#application-exposure) for the mode risks, proxy hardening, and deliberately unprotected `disabled` mode.
+
+The `loopback` authentication mode is for direct development runs such as `scripts/dev run`, where Assistant.md is a host process rather than a Docker Compose service. It is not applicable to the standard Docker installation.
+
+### Enable advanced mode
+
+Advanced mode gives Assistant.md access to a Bash command line in a separate, non-root Linux container, greatly expanding what it can do. Files under `/home/advanced-shell` and `/workspace` survive ordinary container restarts and upgrades. Processes and `/tmp` do not, and the container does not provide systemd or a supported cron/service supervisor.
+
+The advanced shell cannot see your vaults unless you explicitly mount vault content into its container. For security, mount one narrow read-write exchange folder rather than an entire writable vault. You can precreate `AssistantMD/shell-exchange` inside a vault, or select another existing folder in that vault, then bind only that exact host path to `/exchange` through `docker-compose.override.yml`. Assistant.md sees the same files through its normal vault mount, so neither side needs a separate copy or Docker-managed exchange volume.
+
+Docker creates a missing bind-mount source as `root`, which can make it unusable by both application users. Create the exchange folder before starting the advanced profile and retain `bind.create_host_path: false` from the override example. On a first installation, the vault's `AssistantMD/` folder does not yet exist. Either select an existing vault folder for the initial exchange, or start once in restricted mode, let Assistant.md create its vault folders, create `AssistantMD/shell-exchange`, and then enable advanced mode.
+
+Examples are available in `docker-compose.override.yml.example`. Prefer read-only mounts for any additional vault content. Never mount Assistant.md's `system/` folder, the Docker socket, a host home folder, or the host root. See [Security Considerations](security.md#advanced-shell) before adding access or credentials.
+
+After preparing any exchange mount, add both settings to `.env`:
+
+```dotenv
+COMPOSE_PROFILES=advanced
+ASSISTANTMD_EXECUTION_MODE=advanced
+```
+
+The first starts the optional container; the second explicitly authorizes Assistant.md to expose the capability. Before starting, run `docker compose config` and inspect the rendered `advanced-shell` volumes and networks. Confirm that every bind-mount source expanded to the intended absolute host path and every target is unique. Then run `docker compose up -d` and confirm **System → Infrastructure** reports the advanced shell as `ready`.
+
+Stdio MCP servers installed there are launched when Assistant.md needs them. Ask chat to follow the bundled **Advanced Shell MCP Setup** skill, then review and paste its generated YAML or JSON into **System → Connections**.
+
+Contributor setup for running Assistant.md and its advanced shell from a checkout belongs in the [Development Guide](../development/dev-setup.md).
+
+### Configure connections
+
+Open **System → Connections** to add Gmail accounts and MCP servers. Follow the [Connections guide](../use/connections.md) for the Google Cloud setup, OAuth callbacks, MCP authentication, connection testing, and capability choices. For stdio MCP providers, complete [advanced-mode setup](#enable-advanced-mode) first. Review [Security Considerations](security.md) before providing credentials to a server or granting tool access.
+
+### Enable optional integrations
+
+- Web search works without another key. Add a Tavily key under **Secrets** for Tavily-backed search, extraction, and crawling.
+- The published image includes the browser runtime. Hosts should make at least 2 GB available to Assistant.md when the browser tool is enabled.
+- Logfire is optional. Add its key under **Secrets** and enable Logfire in **Application Settings** if you want remote diagnostics.
+
+## File permissions on Linux
+
+The published image runs as UID 1000. The host vault and `system/` folders must be writable by that user. If logs report `permission denied`, check the folder ownership first.
+
+If your host user has another UID, clone the repository, copy `docker-compose.override.yml.example` to `docker-compose.override.yml`, set its `USER_ID`, `GROUP_ID`, and `user` values, then run. IDs must be non-root decimal integers. Changing runtime IDs does not repair ownership of existing bind-mounted files or named-volume content; repair ownership deliberately before restarting with the new identity.
+
+```bash
+docker compose up -d --build
+```
+
+Docker Desktop normally handles this mapping automatically on Windows and macOS.
 
 ## Vault Path Examples
 
@@ -140,8 +224,8 @@ Build and run the image: `docker compose up -d --build`
 /home/user/MyVaults/
 ├── Personal/
 ```
-Docker compose volume mount reads: `/home/user/MyVaults:/app/data`.  
-AssistantMD will see one vault called `Personal`.
+
+`.env` reads: `ASSISTANTMD_DATA_PATH=/home/user/MyVaults`. Assistant.md will see one vault called `Personal`.
 
 ```
 /home/user/MyVaults/
@@ -150,20 +234,11 @@ AssistantMD will see one vault called `Personal`.
 └── Family/
 
 ```
-Docker compose volume mount reads: `/home/user/MyVaults:/app/data`.  
-AssistantMD will see three vaults called `Personal`, `Work` and `Family`
 
-## Additional Notes
+`.env` reads: `ASSISTANTMD_DATA_PATH=/home/user/MyVaults`. Assistant.md will see three vaults called `Personal`, `Work` and `Family`
 
-**Windows:** Recommended to set up the compose file in WSL and use a Linux path to your vaults on the Windows host (look in `/mnt`).
+## Platform notes
 
-**Mac:** Should work the same as Linux, but I have not tested.
-
-**All:** If your vault path has spaces or other special characteres, wrap the whole line in double quotes.
-```
-    volumes:
-      - "/absolute/path/to/your/vaults:/app/data"
-      - ./system:/app/system              
-```
-
-**Local LLMs (general guidance)**: If running your local LM server on bare metal (for example LM Studio), change the settings to serve on local network so you get a host IP and not `127.0.0.1`. Localhost will not be reachable from inside the AssistantMD container without additional Docker networking customization. The `base_url` should look like `http://<host-lan-ip>:1234/v1` (for example `http://192.168.1.42:1234/v1`). If running your local LM server inside a Docker container, make sure AssistantMD and the LM server are on the same Docker network and use the Docker service name as the `base_url`, for example `http://lmstudio:1234/v1`.
+- On Windows, WSL paths under `/mnt` are usually the simplest vault mounts.
+- Quote a volume entry when its host path contains spaces.
+- A local model server must listen on an address reachable from the Assistant.md container. Use its LAN address when it runs on the host, or its service name when both applications share a Docker network.

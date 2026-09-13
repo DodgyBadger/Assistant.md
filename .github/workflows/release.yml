@@ -50,19 +50,51 @@ jobs:
             echo "publish_latest=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and push image
+      - name: Build and push immutable AssistantMD image
         env:
           IMAGE_NAME: ${{ steps.image.outputs.name }}
           IMAGE_TAG: ${{ github.ref_name }}
         run: |
-          TAG_ARGS=(-t "${IMAGE_NAME}:${IMAGE_TAG}")
-          if [[ "${{ steps.tag_kind.outputs.publish_latest }}" == "true" ]]; then
-            TAG_ARGS+=(-t "${IMAGE_NAME}:latest")
-          fi
-
           docker buildx build \
             --push \
             --platform linux/amd64,linux/arm64 \
+            --sbom=true \
+            --provenance=mode=max \
             -f docker/Dockerfile \
-            "${TAG_ARGS[@]}" \
+            -t "${IMAGE_NAME}:${IMAGE_TAG}" \
             .
+
+      - name: Build and push immutable advanced shell image
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}-advanced-shell
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          docker buildx build \
+            --push \
+            --platform linux/amd64,linux/arm64 \
+            --sbom=true \
+            --provenance=mode=max \
+            -f docker/advanced-shell/Dockerfile \
+            -t "${IMAGE_NAME}:${IMAGE_TAG}" \
+            .
+
+      - name: Verify coupled immutable images
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}"
+          docker buildx imagetools inspect "${IMAGE_NAME}-advanced-shell:${IMAGE_TAG}"
+
+      - name: Promote coupled images to latest
+        if: steps.tag_kind.outputs.publish_latest == 'true'
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${IMAGE_NAME}:latest" \
+            "${IMAGE_NAME}:${IMAGE_TAG}"
+          docker buildx imagetools create \
+            --tag "${IMAGE_NAME}-advanced-shell:latest" \
+            "${IMAGE_NAME}-advanced-shell:${IMAGE_TAG}"

@@ -75,9 +75,14 @@
             if (elements.workflowSchedulerBadge) {
                 elements.workflowSchedulerBadge.innerHTML = schedulerBadge;
             }
+            const workflowLoadErrors = renderWorkflowLoadErrors(
+                status,
+                combinedWorkflows
+            );
             if (combinedWorkflows.length === 0) {
                 elements.workflowsStatus.innerHTML = `
                     ${renderDashboardBadgeStyles()}
+                    ${workflowLoadErrors}
                     <p class="text-sm text-txt-secondary">No workflows loaded.</p>
                 `;
                 return;
@@ -87,10 +92,9 @@
                 jobByWorkflowId,
                 runByWorkflowId
             );
-
             elements.workflowsStatus.innerHTML = `
                 ${renderDashboardBadgeStyles()}
-                ${renderWorkflowAttention(status, combinedWorkflows, runByWorkflowId)}
+                ${workflowLoadErrors}
                 <div class="dashboard-table-wrap" role="region" aria-label="Workflows" tabindex="0">
                     <table class="dashboard-table">
                         <thead>
@@ -229,26 +233,20 @@
             `;
         }
 
-        function renderWorkflowAttention(status, workflows, runByWorkflowId) {
+        function renderWorkflowLoadErrors(status, workflows) {
             const loadedIds = new Set(workflows.map(workflow => workflow.global_id));
-            const unhealthy = workflows
-                .map(workflow => ({ workflow, run: runByWorkflowId.get(workflow.global_id) }))
-                .filter(item => ['failed', 'timed_out', 'missed'].includes(item.run?.status));
             const loadErrors = (status.configuration_errors || []).filter(error => {
                 const path = String(error.file_path || '');
                 return path.includes('/AssistantMD/Workflows/') || (
                     error.workflow_name && !loadedIds.has(`${error.vault}/${error.workflow_name}`)
                 );
             });
-            if (!unhealthy.length && !loadErrors.length) return '';
+            if (!loadErrors.length) return '';
 
-            const items = [
-                ...unhealthy.map(item => `${item.workflow.global_id}: ${item.run.status}${item.run.reason ? ` — ${item.run.reason}` : ''}`),
-                ...loadErrors.map(error => `${error.workflow_name || error.file_path || 'Workflow'}: ${error.error_message || 'Failed to load'}`)
-            ];
+            const items = loadErrors.map(error => `${error.workflow_name || error.file_path || 'Workflow'}: ${error.error_message || 'Failed to load'}`);
             return `
                 <div class="state-surface-error border p-3 mb-3 text-sm">
-                    <p class="font-semibold text-txt-primary">Workflow attention required</p>
+                    <p class="font-semibold text-txt-primary">Workflows failed to load</p>
                     <ul class="mt-1 space-y-1 text-txt-secondary">
                         ${items.slice(0, 5).map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                     </ul>

@@ -13,13 +13,13 @@
 - Name the validation target early:
   scenario to extend, artifact to assert, or smoke test to run.
 - When the planned work touches an existing subsystem, check
-  `docs/adr/` with `ls` or `rg` for relevant architecture decisions that
+  `docs/development/adr/` with `ls` or `rg` for relevant architecture decisions that
   explain why the current shape exists.
 - Note any contract-sensitive areas:
   directives, API payloads, validation events, routing, settings, persistence.
 - Pull in references only as needed:
   [Project Structure](project-structure.md),
-  architecture docs under `docs/architecture/`.
+  the current system map in `docs/development/architecture.md`.
 - If the plan touches settings, secrets, or persisted runtime data, call that out explicitly in the plan.
 
 ## Common Mistakes
