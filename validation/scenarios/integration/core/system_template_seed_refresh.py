@@ -82,12 +82,20 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             200,
             "Settings update should allow existing OpenRouter provider without routing block",
         )
-        from core.settings import get_max_concurrent_delegates
+        from core.settings import (
+            get_max_concurrent_delegates,
+            get_model_stream_idle_timeout_seconds,
+        )
 
         self.soft_assert_equal(
             get_max_concurrent_delegates(),
             3,
             "Upgraded settings should use the delegate concurrency template fallback before repair",
+        )
+        self.soft_assert_equal(
+            get_model_stream_idle_timeout_seconds(),
+            120.0,
+            "Upgraded settings should use the semantic model-stream timeout default",
         )
         status_response = self.call_api("/api/status")
         self.soft_assert_equal(
@@ -143,6 +151,11 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             3,
             "Settings repair should add the delegate concurrency control",
         )
+        self.soft_assert_equal(
+            repaired_settings["settings"]["model_stream_idle_timeout_seconds"]["value"],
+            120.0,
+            "Settings repair should add the semantic model-stream idle timeout",
+        )
         for invalid_persisted_value in (-1, 33, "invalid"):
             persisted = yaml.safe_load(
                 self.call_api("/api/system/settings").json()["content"]
@@ -195,6 +208,31 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             invalid_concurrency.status_code,
             400,
             "Delegate concurrency should reject negative values",
+        )
+        disabled_idle_timeout = self.call_api(
+            "/api/system/settings/general/model_stream_idle_timeout_seconds",
+            method="PUT",
+            data={"value": "0"},
+        )
+        self.soft_assert_equal(
+            disabled_idle_timeout.status_code,
+            200,
+            "Model-stream idle timeout should accept zero as disabled",
+        )
+        self.soft_assert_equal(
+            get_model_stream_idle_timeout_seconds(),
+            0.0,
+            "Model-stream idle timeout getter should preserve disabled mode",
+        )
+        invalid_idle_timeout = self.call_api(
+            "/api/system/settings/general/model_stream_idle_timeout_seconds",
+            method="PUT",
+            data={"value": "3601"},
+        )
+        self.soft_assert_equal(
+            invalid_idle_timeout.status_code,
+            400,
+            "Model-stream idle timeout should reject values above one hour",
         )
 
         self.soft_assert_equal(

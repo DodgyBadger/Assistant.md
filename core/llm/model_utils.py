@@ -16,6 +16,10 @@ from core.llm.openai_auth import (
     resolve_openai_auth,
 )
 from core.llm.openai_oauth import get_openai_oauth_status
+from core.llm.provider_policy import (
+    custom_provider_base_url_available,
+    provider_requires_custom_base_url,
+)
 from core.logger import UnifiedLogger
 from core.settings.secrets_store import get_secret_value, load_secrets, secret_has_value
 from core.settings.store import (
@@ -207,6 +211,18 @@ def validate_api_keys(model_name: str) -> None:
         raise ValueError(
             resolution.message
             or f"Model '{model_name}' requires usable OpenAI auth configuration."
+        )
+
+    if provider_requires_custom_base_url(provider) and not (
+        custom_provider_base_url_available(
+            provider_config,
+            get_secret_value=get_secret_value,
+        )
+    ):
+        raise ValueError(
+            f"Model '{model_name}' requires providers.{provider}.base_url to resolve "
+            "to a complete HTTP(S) URL. Populate its referenced secret or configure "
+            "a literal URL before retrying."
         )
 
     required_key = provider_config.get("api_key")

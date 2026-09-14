@@ -94,6 +94,11 @@ settings:
     description: "Maximum delay in seconds between model-stream retry attempts."
     category: "Resilience"
     restart_required: false
+  model_stream_idle_timeout_seconds:
+    value: 120.0
+    description: "Maximum seconds to wait between usable model-stream events while no tool is running. 0 disables the idle timeout."
+    category: "Resilience"
+    restart_required: false
   default_api_timeout:
     value: 120
     description: "Default timeout in seconds for external API calls."

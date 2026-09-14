@@ -31,6 +31,7 @@ from tenacity import RetryCallState, retry_if_exception, stop_after_attempt
 from core.llm.model_selection import ModelExecutionSpec, resolve_model_execution_spec
 from core.llm.model_utils import get_provider_config, resolve_model, validate_api_keys
 from core.llm.openai_auth import OPENAI_AUTH_MODE_OAUTH
+from core.llm.openai_client import build_openai_sdk_client
 from core.llm.openai_runtime import build_openai_provider_with_resolution
 from core.llm.thinking import ThinkingValue
 from core.logger import UnifiedLogger
@@ -46,6 +47,7 @@ from core.utils.value_parser import DirectiveValueParser
 logger = UnifiedLogger(tag="model-factory")
 _MODEL_HTTP_RETRY_ATTEMPTS = 3
 _MODEL_HTTP_RETRY_MAX_WAIT_SECONDS = 30.0
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def _resolve_config_value(raw_value: str | None) -> str | None:
@@ -56,6 +58,21 @@ def _resolve_config_value(raw_value: str | None) -> str | None:
     if not value or value.lower() == "null":
         return None
     return get_secret_value(value) or value
+
+
+def _resolve_required_base_url(provider: str, raw_value: str) -> str:
+    """Resolve a custom-provider URL without treating a missing secret as a URL."""
+    value = raw_value.strip()
+    secret_value = get_secret_value(value)
+    resolved = (secret_value or value).strip()
+    if not resolved.lower().startswith(("http://", "https://")):
+        source = f"secret '{value}'" if secret_value else f"value '{value}'"
+        raise ValueError(
+            f"Provider '{provider}' base_url {source} does not resolve to a complete "
+            "http:// or https:// URL. Populate the referenced secret or configure "
+            f"providers.{provider}.base_url as a literal URL."
+        )
+    return resolved
 
 
 def _base_settings_kwargs(thinking: ThinkingValue) -> dict[str, object]:
@@ -107,6 +124,8 @@ def _apply_openai_oauth_responses_settings(settings_kwargs: dict[str, object]) -
 
 def _is_retryable_model_http_exception(exc: BaseException) -> bool:
     """Return whether Pydantic AI model HTTP transport should retry the exception."""
+    if isinstance(exc, httpx.UnsupportedProtocol | httpx.InvalidURL):
+        return False
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = int(exc.response.status_code)
         return status_code == 429 or 500 <= status_code <= 599
@@ -290,10 +309,15 @@ def build_model_instance(
         api_key = _resolve_config_value(provider_config.get("api_key"))
         _apply_openrouter_settings(settings_kwargs, provider_config)
         http_client = _build_retrying_model_http_client()
+        openai_client = build_openai_sdk_client(
+            api_key=api_key,
+            base_url=_OPENROUTER_BASE_URL,
+            http_client=http_client,
+        )
         return OpenRouterModel(
             model_string,
             provider=_mark_provider_owns_http_client(
-                OpenRouterProvider(api_key=api_key, http_client=http_client),
+                OpenRouterProvider(openai_client=openai_client),
                 http_client,
             ),
             settings=cast(OpenRouterModelSettings, settings_kwargs),
@@ -312,17 +336,20 @@ def build_model_instance(
                 f"URL or the name of a stored secret."
             )
 
-        base_url = _resolve_config_value(base_url_config)
+        base_url = _resolve_required_base_url(provider, base_url_config)
         settings_kwargs = _base_settings_kwargs(thinking)
 
         api_key = _resolve_config_value(provider_config.get("api_key"))
         http_client = _build_retrying_model_http_client()
+        openai_client = build_openai_sdk_client(
+            api_key=api_key or "api-key-not-set",
+            base_url=base_url,
+            http_client=http_client,
+        )
         return OpenAIChatModel(
             model_string,
             provider=_mark_provider_owns_http_client(
-                OpenAIProvider(
-                    api_key=api_key, base_url=base_url, http_client=http_client
-                ),
+                OpenAIProvider(openai_client=openai_client),
                 http_client,
             ),
             settings=cast(OpenAIChatModelSettings, settings_kwargs),

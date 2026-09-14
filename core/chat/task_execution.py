@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from time import monotonic
 from typing import Any
 
 from pydantic_ai import (
@@ -45,7 +46,11 @@ from core.chat.task_events import ChatTaskEventBuffer, ChatTaskEventCursorExpire
 from core.identity import ExecutionAuthority
 from core.llm.capabilities.chat_context import build_context_template_error_details
 from core.llm.capabilities.chat_tool_output_cache import tool_result_as_text
-from core.llm.stream_retry import ModelStreamRetryPolicy
+from core.llm.stream_retry import (
+    ModelStreamIdleTimeout,
+    ModelStreamRetryPolicy,
+    next_model_stream_event,
+)
 from core.runtime.buffers import get_session_buffer_store
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
@@ -931,6 +936,7 @@ async def _run_prepared_chat_stream_task_inner(
                         tool_activity=tool_activity,
                         vault_name=vault_name,
                         session_id=session_id,
+                        attempt=attempt,
                     )
                     if (
                         attempt_history is not None
@@ -1435,10 +1441,24 @@ async def _collect_chat_stream_attempt(
     tool_activity: dict[str, dict[str, Any]],
     vault_name: str,
     session_id: str,
+    attempt: int,
 ) -> tuple[Any, str]:
     """Collect one Pydantic chat stream attempt and publish provisional events."""
+    _mark_running_tools_interrupted(tool_activity)
     final_result = None
     full_response = ""
+    event_count = 0
+    last_progress_publish = 0.0
+    runtime = get_runtime_context()
+    await runtime.task_coordinator.publish_progress(
+        task_id,
+        metadata={
+            "model_stream_state": "waiting_for_model",
+            "model_stream_attempt": attempt,
+            "model_stream_event_count": 0,
+            "active_tools": [],
+        },
+    )
     async with prepared.agent.run_stream_events(
         user_prompt,
         message_history=message_history,
@@ -1448,7 +1468,32 @@ async def _collect_chat_stream_attempt(
         usage=usage,
         conversation_id=session_id,
     ) as stream_events:
-        async for event in stream_events:
+        iterator = stream_events.__aiter__()
+        while True:
+            active_tools = _running_tool_names(tool_activity)
+            try:
+                event = await next_model_stream_event(
+                    iterator,
+                    timeout_seconds=0.0 if active_tools else None,
+                )
+            except StopAsyncIteration:
+                break
+            except ModelStreamIdleTimeout as exc:
+                chat_executor.logger.add_sink("validation").warning(
+                    "model_stream_idle_timed_out",
+                    data={
+                        "event": "model_stream_idle_timed_out",
+                        "task_id": task_id,
+                        "vault_name": vault_name,
+                        "session_id": session_id,
+                        "model": prepared.model,
+                        "attempt": attempt,
+                        "timeout_seconds": exc.timeout_seconds,
+                        "active_tool_count": len(active_tools),
+                    },
+                )
+                raise
+            event_count += 1
             if isinstance(event, PartStartEvent):
                 if isinstance(event.part, TextPart) and event.part.content:
                     delta_text = event.part.content
@@ -1497,7 +1542,46 @@ async def _collect_chat_stream_attempt(
                 )
             elif isinstance(event, AgentRunResultEvent):
                 final_result = event.result
+            now = monotonic()
+            force_progress = isinstance(
+                event,
+                FunctionToolCallEvent | FunctionToolResultEvent | AgentRunResultEvent,
+            )
+            if force_progress or now - last_progress_publish >= 1.0:
+                active_tools = _running_tool_names(tool_activity)
+                await runtime.task_coordinator.publish_progress(
+                    task_id,
+                    metadata={
+                        "model_stream_state": (
+                            "tool_running" if active_tools else "receiving_model"
+                        ),
+                        "model_stream_attempt": attempt,
+                        "model_stream_event_count": event_count,
+                        "active_tools": active_tools,
+                    },
+                )
+                last_progress_publish = now
     return final_result, full_response
+
+
+def _running_tool_names(tool_activity: dict[str, dict[str, Any]]) -> list[str]:
+    """Return stable names for tool calls that have started but not finished."""
+    return sorted(
+        {
+            str(item.get("tool_name") or "tool")
+            for item in tool_activity.values()
+            if item.get("status") == "running"
+        }
+    )
+
+
+def _mark_running_tools_interrupted(
+    tool_activity: dict[str, dict[str, Any]],
+) -> None:
+    """Prevent a failed attempt's unfinished tools from disabling the next deadline."""
+    for item in tool_activity.values():
+        if item.get("status") == "running":
+            item["status"] = "interrupted"
 
 
 async def stream_chat_task_sse(

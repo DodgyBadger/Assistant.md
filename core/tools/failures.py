@@ -15,6 +15,8 @@ from pydantic_ai.exceptions import (
 )
 from pydantic_ai.messages import ToolReturn
 
+from core.llm.stream_retry import ModelStreamIdleTimeout
+
 ToolTerminalState = Literal["completed", "failed", "interrupted"]
 
 
@@ -80,6 +82,19 @@ def classify_exception(
     exc: Exception, *, phase: str = "tool_execution"
 ) -> FailureClassification:
     """Classify common network/API/tool exceptions into a stable failure envelope."""
+    if isinstance(exc, ModelStreamIdleTimeout):
+        return FailureClassification(
+            error_type=type(exc).__name__,
+            failure_kind="model_stream_idle_timeout",
+            retryable=True,
+            phase=phase,
+            message=str(exc),
+            suggested_action=(
+                "Retry the request or switch models/providers if the stream repeatedly "
+                "stops producing usable events."
+            ),
+            metadata={"idle_timeout_seconds": exc.timeout_seconds},
+        )
     if isinstance(exc, UsageLimitExceeded):
         return FailureClassification(
             error_type=type(exc).__name__,
@@ -216,6 +231,22 @@ def classify_exception(
             metadata={"model_name": exc.model_name},
         )
     if isinstance(exc, ModelAPIError):
+        if _exception_chain_contains(
+            exc,
+            (httpx.UnsupportedProtocol, httpx.InvalidURL),
+        ):
+            return FailureClassification(
+                error_type=type(exc).__name__,
+                failure_kind="configuration",
+                retryable=False,
+                phase=phase,
+                message=str(exc),
+                suggested_action=(
+                    "Configure the provider base URL as a complete http:// or "
+                    "https:// URL before retrying."
+                ),
+                metadata={"model_name": exc.model_name},
+            )
         lowered = str(exc).lower()
         if any(
             token in lowered
@@ -377,6 +408,21 @@ def classify_exception(
         message=str(exc),
         suggested_action="Inspect the error details and adjust the request or configuration before retrying.",
     )
+
+
+def _exception_chain_contains(
+    exc: BaseException,
+    expected: tuple[type[BaseException], ...],
+) -> bool:
+    """Return whether an exception or one of its explicit causes has a type."""
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        if isinstance(current, expected):
+            return True
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def tool_failure_return(

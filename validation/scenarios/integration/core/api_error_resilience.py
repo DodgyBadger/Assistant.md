@@ -28,6 +28,9 @@ class ApiErrorResilienceScenario(BaseScenario):
             _is_retryable_model_http_exception,
             _mark_provider_owns_http_client,
         )
+        from core.llm.openai_client import build_openai_sdk_client
+        from core.llm.provider_policy import custom_provider_base_url_available
+        from core.llm.stream_retry import ModelStreamIdleTimeout
         from core.tools.failures import classify_exception
 
         self.create_vault("ApiErrorVault")
@@ -134,6 +137,35 @@ class ApiErrorResilienceScenario(BaseScenario):
             "Streamed provider overload errors should support manual retry",
         )
 
+        idle_timeout = classify_exception(
+            ModelStreamIdleTimeout(12.5),
+            phase="agent_stream",
+        )
+        self.soft_assert_equal(
+            idle_timeout.failure_kind,
+            "model_stream_idle_timeout",
+            "Semantic stream stalls should have a distinct failure classification",
+        )
+        self.soft_assert(
+            idle_timeout.retryable,
+            "A semantic stream stall should support policy-controlled replay",
+        )
+
+        self.soft_assert(
+            not custom_provider_base_url_available(
+                {"base_url": "MISSING_BASE_URL"},
+                get_secret_value=lambda _name: None,
+            ),
+            "An unresolved base URL secret pointer must not be treated as a URL",
+        )
+        self.soft_assert(
+            custom_provider_base_url_available(
+                {"base_url": "CUSTOM_BASE_URL"},
+                get_secret_value=lambda _name: "https://provider.example/v1",
+            ),
+            "A populated base URL secret should make a custom provider available",
+        )
+
         self.soft_assert(
             callable(wait_retry_after),
             "Pydantic AI wait_retry_after should be available for retry timing",
@@ -151,6 +183,23 @@ class ApiErrorResilienceScenario(BaseScenario):
             )
         finally:
             await retrying_client.aclose()
+
+        sdk_http_client = httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
+        )
+        sdk_client = build_openai_sdk_client(
+            api_key="validation-key",
+            base_url="https://provider.example/v1",
+            http_client=sdk_http_client,
+        )
+        try:
+            self.soft_assert_equal(
+                sdk_client.max_retries,
+                0,
+                "AssistantMD retry clients should disable nested OpenAI SDK retries",
+            )
+        finally:
+            await sdk_client.close()
 
         owned_client = _build_retrying_model_http_client()
         owned_provider = _mark_provider_owns_http_client(
@@ -185,6 +234,14 @@ class ApiErrorResilienceScenario(BaseScenario):
         self.soft_assert(
             not _is_retryable_model_http_exception(_http_status_error(400)),
             "Model retry predicate should not retry permanent bad requests",
+        )
+        self.soft_assert(
+            not _is_retryable_model_http_exception(
+                httpx.UnsupportedProtocol(
+                    "Request URL is missing an 'http://' or 'https://' protocol."
+                )
+            ),
+            "Model retry predicate should not retry invalid provider URLs",
         )
 
         self.teardown_scenario()

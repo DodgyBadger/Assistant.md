@@ -21,6 +21,10 @@ from core.llm.openai_auth import (
     openai_provider_base_url_available,
     resolve_openai_auth,
 )
+from core.llm.provider_policy import (
+    custom_provider_base_url_available,
+    provider_requires_custom_base_url,
+)
 from core.llm.thinking import ThinkingValue, normalize_thinking_value
 from core.settings.secrets_store import get_secret_value, load_secrets, secret_has_value
 from core.settings.store import (
@@ -354,6 +358,23 @@ def validate_settings(
                     message=resolution.message or "Configure OpenAI auth.",
                     severity="warning",
                 )
+            continue
+
+        if provider_requires_custom_base_url(provider_name) and not (
+            custom_provider_base_url_available(
+                provider_config,
+                get_secret_value=get_secret_value,
+            )
+        ):
+            status.model_availability[model_name] = False
+            status.add_issue(
+                name=f"model:{model_name}",
+                message=(
+                    f"Configure providers.{provider_name}.base_url as a complete "
+                    "HTTP(S) URL or populate its referenced secret."
+                ),
+                severity="warning",
+            )
             continue
 
         api_key_name = getattr(provider_config, "api_key", None)
@@ -857,6 +878,17 @@ def get_model_stream_retry_max_delay_seconds() -> float:
     except (TypeError, ValueError):
         return 10.0
     return max(0.0, min(parsed, 300.0))
+
+
+def get_model_stream_idle_timeout_seconds() -> float:
+    """Return the semantic model-stream idle timeout; 0 disables it."""
+    entry = get_general_settings().get("model_stream_idle_timeout_seconds")
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_float(value)
+    except (TypeError, ValueError):
+        return 120.0
+    return max(0.0, min(parsed, 3_600.0))
 
 
 def get_compaction_type() -> str:

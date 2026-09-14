@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -131,6 +132,105 @@ class ChatStreamAutoRetryScenario(BaseScenario):
         original_prepare = chat_executor._prepare_chat_execution
         chat_executor._prepare_chat_execution = _prepared_failure
         try:
+            stalled_agent, stalled_attempts = _stalled_stream_agent()
+
+            async def _prepared_stall(*args, **kwargs):
+                del args, kwargs
+                return PreparedChatExecution(
+                    agent=stalled_agent,
+                    message_history=None,
+                    prompt_for_history="stall primary stream",
+                    user_prompt="stall primary stream",
+                    attached_image_count=0,
+                    model="test",
+                    tools=[],
+                )
+
+            idle_update = self.call_api(
+                "/api/system/settings/general/model_stream_idle_timeout_seconds",
+                method="PUT",
+                data={"value": "0.05"},
+            )
+            assert idle_update.status_code == 200
+            retry_disable = self.call_api(
+                "/api/system/settings/general/model_stream_retries",
+                method="PUT",
+                data={"value": "0"},
+            )
+            assert retry_disable.status_code == 200
+            checkpoint = self.event_checkpoint()
+            chat_executor._prepare_chat_execution = _prepared_stall
+            stalled = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "stall primary stream",
+                    "session_id": "primary_idle_timeout",
+                    "tools": [],
+                    "model": "test",
+                }
+            )
+            assert stalled["terminal_event"].get("event") == "error"
+            assert (
+                stalled["terminal_event"].get("details", {}).get("failure_kind")
+                == "model_stream_idle_timeout"
+            )
+            assert len(stalled_attempts) == 1
+            stalled_task = self.call_api(f"/api/tasks/{stalled['task_ids'][-1]}").json()
+            assert (
+                stalled_task.get("metadata", {}).get("model_stream_state")
+                == "waiting_for_model"
+            )
+            self.assert_event_contains(
+                self.events_since(checkpoint),
+                name="model_stream_idle_timed_out",
+                expected={
+                    "session_id": "primary_idle_timeout",
+                    "model": "test",
+                    "attempt": 1,
+                    "active_tool_count": 0,
+                },
+            )
+
+            slow_tool_agent = _slow_tool_agent()
+
+            async def _prepared_slow_tool(*args, **kwargs):
+                del args, kwargs
+                return PreparedChatExecution(
+                    agent=slow_tool_agent,
+                    message_history=None,
+                    prompt_for_history="run slow visible tool",
+                    user_prompt="run slow visible tool",
+                    attached_image_count=0,
+                    model="test",
+                    tools=["slow_probe"],
+                )
+
+            chat_executor._prepare_chat_execution = _prepared_slow_tool
+            slow_tool = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "run slow visible tool",
+                    "session_id": "primary_slow_tool",
+                    "tools": ["slow_probe"],
+                    "model": "test",
+                }
+            )
+            assert slow_tool["terminal_event"].get("event") == "done"
+            assert slow_tool["text"] == "slow tool completed"
+            idle_restore = self.call_api(
+                "/api/system/settings/general/model_stream_idle_timeout_seconds",
+                method="PUT",
+                data={"value": "120"},
+            )
+            assert idle_restore.status_code == 200
+            retry_restore = self.call_api(
+                "/api/system/settings/general/model_stream_retries",
+                method="PUT",
+                data={"value": "1"},
+            )
+            assert retry_restore.status_code == 200
+            chat_executor._prepare_chat_execution = _prepared_failure
+
             delay_update = self.call_api(
                 "/api/system/settings/general/model_stream_retry_base_delay_seconds",
                 method="PUT",
@@ -402,6 +502,52 @@ def _checkpoint_recovery_agent(
         return "read complete"
 
     return (agent, recovery), tool_effects
+
+
+def _slow_tool_agent() -> Agent[Any, str]:
+    """Build an agent whose visible tool legitimately exceeds the model idle limit."""
+
+    async def stream(
+        messages: list[Any], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        has_result = any(
+            isinstance(part, ToolReturnPart)
+            for message in messages
+            for part in message.parts
+        )
+        if not has_result:
+            yield {
+                0: DeltaToolCall(
+                    name="slow_probe",
+                    json_args="{}",
+                    tool_call_id="slow-probe-1",
+                )
+            }
+            return
+        yield "slow tool completed"
+
+    agent = Agent(FunctionModel(stream_function=stream))
+
+    @agent.tool_plain
+    async def slow_probe() -> str:
+        await asyncio.sleep(0.1)
+        return "complete"
+
+    return agent
+
+
+def _stalled_stream_agent() -> tuple[Agent[Any, str], list[bool]]:
+    """Build a Pydantic agent whose model stream never emits an event."""
+    attempts: list[bool] = []
+
+    async def stream(
+        _messages: list[Any], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        attempts.append(True)
+        await asyncio.Event().wait()
+        yield "unreachable"  # pragma: no cover - unreachable
+
+    return Agent(FunctionModel(stream_function=stream)), attempts
 
 
 async def _seed_unresolved_vault_effect(
