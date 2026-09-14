@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, cast
 
 import httpx
@@ -33,6 +34,7 @@ from core.llm.model_utils import get_provider_config, resolve_model, validate_ap
 from core.llm.openai_auth import OPENAI_AUTH_MODE_OAUTH
 from core.llm.openai_client import build_openai_sdk_client
 from core.llm.openai_runtime import build_openai_provider_with_resolution
+from core.llm.provider_policy import require_provider_base_url
 from core.llm.thinking import ThinkingValue
 from core.logger import UnifiedLogger
 from core.secrets import require_secrets_ready
@@ -58,21 +60,6 @@ def _resolve_config_value(raw_value: str | None) -> str | None:
     if not value or value.lower() == "null":
         return None
     return get_secret_value(value) or value
-
-
-def _resolve_required_base_url(provider: str, raw_value: str) -> str:
-    """Resolve a custom-provider URL without treating a missing secret as a URL."""
-    value = raw_value.strip()
-    secret_value = get_secret_value(value)
-    resolved = (secret_value or value).strip()
-    if not resolved.lower().startswith(("http://", "https://")):
-        source = f"secret '{value}'" if secret_value else f"value '{value}'"
-        raise ValueError(
-            f"Provider '{provider}' base_url {source} does not resolve to a complete "
-            "http:// or https:// URL. Populate the referenced secret or configure "
-            f"providers.{provider}.base_url as a literal URL."
-        )
-    return resolved
 
 
 def _base_settings_kwargs(thinking: ThinkingValue) -> dict[str, object]:
@@ -120,6 +107,16 @@ def _apply_openai_oauth_responses_settings(settings_kwargs: dict[str, object]) -
     """Apply Codex/ChatGPT Responses constraints for OAuth-backed OpenAI."""
     settings_kwargs["openai_store"] = False
     settings_kwargs["openai_send_reasoning_ids"] = False
+
+
+def _openrouter_attribution_headers() -> dict[str, str] | None:
+    """Preserve OpenRouter's environment-configured application attribution."""
+    headers = {}
+    if app_url := os.getenv("OPENROUTER_APP_URL"):
+        headers["HTTP-Referer"] = app_url
+    if app_title := os.getenv("OPENROUTER_APP_TITLE"):
+        headers["X-Title"] = app_title
+    return headers or None
 
 
 def _is_retryable_model_http_exception(exc: BaseException) -> bool:
@@ -313,6 +310,7 @@ def build_model_instance(
             api_key=api_key,
             base_url=_OPENROUTER_BASE_URL,
             http_client=http_client,
+            default_headers=_openrouter_attribution_headers(),
         )
         return OpenRouterModel(
             model_string,
@@ -336,7 +334,11 @@ def build_model_instance(
                 f"URL or the name of a stored secret."
             )
 
-        base_url = _resolve_required_base_url(provider, base_url_config)
+        base_url = require_provider_base_url(
+            provider,
+            provider_config,
+            get_secret_value=get_secret_value,
+        )
         settings_kwargs = _base_settings_kwargs(thinking)
 
         api_key = _resolve_config_value(provider_config.get("api_key"))

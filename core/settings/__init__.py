@@ -15,6 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from core.llm.openai_auth import (
     OPENAI_OAUTH_TOKEN_SECRET,
+    openai_api_key_base_url_invalid,
     openai_oauth_enabled_from_settings,
     openai_oauth_token_connected,
     openai_provider_api_key_available,
@@ -352,6 +353,21 @@ def validate_settings(
                 emit_log=False,
             )
             status.model_availability[model_name] = resolution.available
+            if openai_api_key_base_url_invalid(
+                provider_config,
+                effective_auth_mode=resolution.effective_auth_mode,
+                base_url_available=resolution.base_url_available,
+            ):
+                status.model_availability[model_name] = False
+                status.add_issue(
+                    name=f"model:{model_name}",
+                    message=(
+                        "Configure providers.openai.base_url as a complete HTTP(S) "
+                        "URL with a host or populate its referenced secret."
+                    ),
+                    severity="warning",
+                )
+                continue
             if not resolution.available:
                 status.add_issue(
                     name=f"model:{model_name}",

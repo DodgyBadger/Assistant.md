@@ -1682,6 +1682,11 @@ def _stream_failure_display_message(failure_kind: str) -> str:
             "\n\nThe model service is temporarily rate-limited. "
             "You can retry this interrupted turn shortly."
         )
+    if failure_kind == "model_stream_idle_timeout":
+        return (
+            "\n\nThe model stopped responding before completing this turn. "
+            "You can retry or switch models or providers if this keeps happening."
+        )
     if failure_kind in {"transient_network", "transient_provider"}:
         return (
             "\n\nThe connection to the model service was interrupted. "

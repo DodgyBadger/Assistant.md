@@ -311,6 +311,12 @@
                     detail: 'Wait briefly, then retry the interrupted turn.'
                 };
             }
+            if (latestFailure.failure_kind === 'model_stream_idle_timeout') {
+                return {
+                    title: 'The model stopped responding before completing this turn.',
+                    detail: 'You can retry or switch models or providers if this keeps happening.'
+                };
+            }
             if (['transient_network', 'transient_provider'].includes(latestFailure.failure_kind)) {
                 return {
                     title: 'The connection to the model service was interrupted.',

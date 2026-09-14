@@ -22,4 +22,4 @@ Prevent a provider stream that remains connected without producing usable model 
 - Long chats are not capped by total elapsed time while model events or tool transitions continue.
 - A running tool is observable and is not mistaken for a silent model stream.
 - Automatic replay remains subject to existing side-effect recovery policy.
-- No retry layer can silently multiply AssistantMD's configured HTTP retry budget.
+- OpenAI SDK retries cannot silently multiply AssistantMD's configured HTTP retry budget for OpenAI-compatible providers.

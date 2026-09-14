@@ -36,8 +36,12 @@ class _CompletingStreamAgent:
 
 
 class _HangingStreamAgent:
+    def __init__(self) -> None:
+        self.stream_entered = asyncio.Event()
+
     @stream_events_context
     async def run_stream_events(self, *args, **kwargs):
+        self.stream_entered.set()
         await asyncio.Event().wait()
         if False:
             yield TextPartDelta("unreachable")
@@ -114,9 +118,10 @@ class ChatStreamBackgroundTaskScenario(BaseScenario):
             "Persisted assistant message should come from final run result",
         )
 
+        hanging_agent = _HangingStreamAgent()
         cancel_start = await start_prepared_chat_stream_task(
             prepared=PreparedChatExecution(
-                agent=_HangingStreamAgent(),
+                agent=hanging_agent,
                 message_history=None,
                 prompt_for_history="Cancel background stream.",
                 user_prompt="Cancel background stream.",
@@ -135,6 +140,7 @@ class ChatStreamBackgroundTaskScenario(BaseScenario):
             "running",
             "Background streaming chat task should enter running state",
         )
+        await asyncio.wait_for(hanging_agent.stream_entered.wait(), timeout=2.0)
         cancellation = await runtime.task_coordinator.cancel_task(
             cancel_start.task.task_id
         )

@@ -8,6 +8,11 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from core.llm.provider_policy import (
+    provider_has_configured_base_url,
+    resolve_provider_base_url,
+)
+
 OPENAI_AUTH_MODE_API_KEY = "api_key"
 OPENAI_AUTH_MODE_OAUTH = "oauth"
 OPENAI_OAUTH_TOKEN_SECRET = "OPENAI_OAUTH_TOKEN_STATE"
@@ -195,14 +200,28 @@ def openai_provider_base_url_available(
     *,
     get_secret_value: Callable[[str], str | None],
 ) -> bool:
-    """Return True when base_url resolves as a secret value or literal URL."""
+    """Return True when base_url resolves to a complete HTTP(S) URL."""
+    return (
+        resolve_provider_base_url(
+            provider_config,
+            get_secret_value=get_secret_value,
+        )
+        is not None
+    )
 
-    raw_base_url = _provider_optional_string(provider_config, "base_url")
-    if raw_base_url is None:
-        return False
-    if get_secret_value(raw_base_url):
-        return True
-    return "://" in raw_base_url
+
+def openai_api_key_base_url_invalid(
+    provider_config: Any,
+    *,
+    effective_auth_mode: str,
+    base_url_available: bool,
+) -> bool:
+    """Return whether API-key mode has an explicit but unusable endpoint."""
+    return (
+        effective_auth_mode == OPENAI_AUTH_MODE_API_KEY
+        and provider_has_configured_base_url(provider_config)
+        and not base_url_available
+    )
 
 
 def openai_oauth_token_connected(raw_state: str | None) -> bool:

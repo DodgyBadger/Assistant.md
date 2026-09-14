@@ -10,6 +10,7 @@ from typing import Any
 
 from core.llm.model_selection import resolve_model_execution_spec
 from core.llm.openai_auth import (
+    openai_api_key_base_url_invalid,
     openai_oauth_enabled_from_settings,
     openai_provider_api_key_available,
     openai_provider_base_url_available,
@@ -206,8 +207,19 @@ def validate_api_keys(model_name: str) -> None:
                 get_secret_value=get_secret_value,
             ),
         )
-        if resolution.available:
+        invalid_api_key_base_url = openai_api_key_base_url_invalid(
+            provider_config,
+            effective_auth_mode=resolution.effective_auth_mode,
+            base_url_available=resolution.base_url_available,
+        )
+        if resolution.available and not invalid_api_key_base_url:
             return
+        if invalid_api_key_base_url:
+            raise ValueError(
+                "The OpenAI provider base_url must resolve to a complete HTTP(S) "
+                "URL with a host. Populate its referenced secret or configure a "
+                "literal URL before retrying."
+            )
         raise ValueError(
             resolution.message
             or f"Model '{model_name}' requires usable OpenAI auth configuration."

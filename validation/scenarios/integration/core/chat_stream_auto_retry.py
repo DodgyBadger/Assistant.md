@@ -174,6 +174,7 @@ class ChatStreamAutoRetryScenario(BaseScenario):
                 stalled["terminal_event"].get("details", {}).get("failure_kind")
                 == "model_stream_idle_timeout"
             )
+            assert "model stopped responding" in stalled["text"].lower()
             assert len(stalled_attempts) == 1
             stalled_task = self.call_api(f"/api/tasks/{stalled['task_ids'][-1]}").json()
             assert (
@@ -191,7 +192,12 @@ class ChatStreamAutoRetryScenario(BaseScenario):
                 },
             )
 
-            slow_tool_agent = _slow_tool_agent()
+            slow_tool_started = asyncio.Event()
+            release_slow_tool = asyncio.Event()
+            slow_tool_agent = _slow_tool_agent(
+                started=slow_tool_started,
+                release=release_slow_tool,
+            )
 
             async def _prepared_slow_tool(*args, **kwargs):
                 del args, kwargs
@@ -206,17 +212,44 @@ class ChatStreamAutoRetryScenario(BaseScenario):
                 )
 
             chat_executor._prepare_chat_execution = _prepared_slow_tool
-            slow_tool = await self.run_chat_task(
-                {
-                    "vault_name": vault.name,
-                    "prompt": "run slow visible tool",
-                    "session_id": "primary_slow_tool",
-                    "tools": ["slow_probe"],
-                    "model": "test",
-                }
+            slow_tool_run = asyncio.create_task(
+                self.run_chat_task(
+                    {
+                        "vault_name": vault.name,
+                        "prompt": "run slow visible tool",
+                        "session_id": "primary_slow_tool",
+                        "tools": ["slow_probe"],
+                        "model": "test",
+                    }
+                )
             )
+            await asyncio.wait_for(slow_tool_started.wait(), timeout=2.0)
+            running_tool_task = self.call_api(
+                "/api/chat/sessions/primary_slow_tool/active-task"
+            ).json()
+            release_slow_tool.set()
+            slow_tool = await asyncio.wait_for(slow_tool_run, timeout=2.0)
+            assert running_tool_task.get("metadata", {}).get("model_stream_state") == (
+                "tool_running"
+            )
+            assert running_tool_task.get("metadata", {}).get("active_tools") == [
+                "slow_probe"
+            ]
             assert slow_tool["terminal_event"].get("event") == "done"
             assert slow_tool["text"] == "slow tool completed"
+            completed_tool_task = self.call_api(
+                f"/api/tasks/{slow_tool['task_ids'][-1]}"
+            ).json()
+            assert (
+                completed_tool_task.get("metadata", {}).get("model_stream_state")
+                == "receiving_model"
+            )
+            assert (
+                completed_tool_task.get("metadata", {}).get(
+                    "model_stream_event_count", 0
+                )
+                > 1
+            )
             idle_restore = self.call_api(
                 "/api/system/settings/general/model_stream_idle_timeout_seconds",
                 method="PUT",
@@ -504,7 +537,11 @@ def _checkpoint_recovery_agent(
     return (agent, recovery), tool_effects
 
 
-def _slow_tool_agent() -> Agent[Any, str]:
+def _slow_tool_agent(
+    *,
+    started: asyncio.Event | None = None,
+    release: asyncio.Event | None = None,
+) -> Agent[Any, str]:
     """Build an agent whose visible tool legitimately exceeds the model idle limit."""
 
     async def stream(
@@ -530,7 +567,12 @@ def _slow_tool_agent() -> Agent[Any, str]:
 
     @agent.tool_plain
     async def slow_probe() -> str:
-        await asyncio.sleep(0.1)
+        if started is not None:
+            started.set()
+        if release is not None:
+            await release.wait()
+        else:
+            await asyncio.sleep(0.1)
         return "complete"
 
     return agent
