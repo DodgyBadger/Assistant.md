@@ -768,23 +768,6 @@ def get_persist_model_reasoning_parts() -> bool:
     return False
 
 
-def get_delegate_tool_calls_limit() -> int:
-    """Return the max tool calls per delegate child run; 0 disables the limit."""
-    entry = get_general_settings().get("delegate_tool_calls_limit")
-    value = getattr(entry, "value", None) if entry is not None else None
-    if value is None:
-        from core.constants import DELEGATE_DEFAULT_MAX_TOOL_CALLS
-
-        return DELEGATE_DEFAULT_MAX_TOOL_CALLS
-    try:
-        parsed = _setting_int(value)
-    except (TypeError, ValueError):
-        from core.constants import DELEGATE_DEFAULT_MAX_TOOL_CALLS
-
-        return DELEGATE_DEFAULT_MAX_TOOL_CALLS
-    return parsed if parsed > 0 else 0
-
-
 def get_delegate_model_requests_limit() -> int:
     """Return the max model requests per delegate child run; 0 disables the limit."""
     entry = get_general_settings().get("delegate_model_requests_limit")

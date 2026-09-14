@@ -59,14 +59,9 @@ settings:
     description: "Persist provider reasoning/thinking parts in durable chat history. Disabled by default to keep history portable across providers and avoid replaying extra reasoning tokens. Enabling this can increase token usage and make old turns less portable when switching models."
     category: "Chat"
     restart_required: false
-  delegate_tool_calls_limit:
-    value: 32
-    description: "Maximum tool calls allowed inside one delegate child-agent run. 0 disables the limit. Increase for broad delegated searches, or lower it to force tighter scoped delegation."
-    category: "Delegation"
-    restart_required: false
   delegate_model_requests_limit:
     value: 75
-    description: "Maximum model requests allowed inside one delegate child-agent run. 0 disables the limit. Keep at least one of the model-request, tool-call, or timeout delegate limits enabled to retain runaway protection."
+    description: "Maximum model requests allowed inside one delegate child-agent run. 0 disables the limit. This remains independent from delegate concurrency and timeout controls."
     category: "Delegation"
     restart_required: false
   delegate_repeated_failure_limit:

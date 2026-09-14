@@ -67,7 +67,6 @@ from core.settings import (
     get_delegate_model_requests_limit,
     get_delegate_repeated_failure_limit,
     get_delegate_timeout_seconds,
-    get_delegate_tool_calls_limit,
 )
 from core.tools.base import BaseTool
 from core.tools.failures import (
@@ -101,7 +100,6 @@ class DelegateLaunchSpec:
     session_id: str
     authority: ExecutionAuthority
     parent_task_id: str | None
-    max_tool_calls: int
     repeated_failure_limit: int
     timeout_seconds: float
     mode: Literal["blocking", "managed"]
@@ -257,7 +255,6 @@ class DelegateTool(BaseTool):
             stripped = spec.stripped_tools
             resolved_thinking = spec.resolved_thinking
             thinking_source = spec.thinking_source
-            max_tool_calls = spec.max_tool_calls
             repeated_failure_limit = spec.repeated_failure_limit
             timeout_seconds = spec.timeout_seconds
 
@@ -273,7 +270,6 @@ class DelegateTool(BaseTool):
                     "stripped_tools": list(stripped),
                     "resolved_thinking": thinking_value_to_label(resolved_thinking),
                     "thinking_source": thinking_source,
-                    "max_tool_calls": max_tool_calls,
                     "repeated_failure_limit": repeated_failure_limit,
                     "timeout_seconds": timeout_seconds,
                 },
@@ -329,11 +325,10 @@ class DelegateTool(BaseTool):
                 )
                 _apply_delegate_instruction_layers(
                     agent,
-                    max_tool_calls=max_tool_calls,
                     caller_instructions=spec.instructions,
                 )
 
-                usage_limits = _delegate_usage_limits(max_tool_calls)
+                usage_limits = _delegate_usage_limits()
                 result = await asyncio.wait_for(
                     _collect_delegate_response(
                         agent=agent,
@@ -367,16 +362,13 @@ class DelegateTool(BaseTool):
                     session_id=session_id,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
-                    max_tool_calls=max_tool_calls,
                     repeated_failure_limit=repeated_failure_limit,
                     timeout_seconds=timeout_seconds,
                     progress=progress,
                 )
                 raise
             except UsageLimitExceeded as exc:
-                limit_context = _delegate_usage_limit_context(
-                    exc, max_tool_calls=max_tool_calls
-                )
+                limit_context = _delegate_usage_limit_context(exc)
                 classification = classify_exception(exc, phase="delegate_child_run")
                 classification = FailureClassification(
                     error_type=classification.error_type,
@@ -400,7 +392,6 @@ class DelegateTool(BaseTool):
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -425,7 +416,6 @@ class DelegateTool(BaseTool):
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -457,7 +447,6 @@ class DelegateTool(BaseTool):
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -474,7 +463,6 @@ class DelegateTool(BaseTool):
                 "tool_names": list(safe_tool_names),
                 "thinking": thinking_value_to_label(resolved_thinking),
                 "output_chars": len(text),
-                "max_tool_calls": max_tool_calls,
                 "repeated_failure_limit": repeated_failure_limit,
                 "timeout_seconds": timeout_seconds,
                 "audit": audit,
@@ -495,7 +483,6 @@ class DelegateTool(BaseTool):
                     "output_chars": len(text),
                     "child_tool_call_count": audit["tool_call_count"],
                     "child_tool_error_count": audit["tool_error_count"],
-                    "max_tool_calls": max_tool_calls,
                     "timeout_seconds": timeout_seconds,
                     **_delegate_usage_metadata(progress.usage),
                 },
@@ -536,9 +523,7 @@ class DelegateTool(BaseTool):
                 name for name in requested_tools if name not in _FORBIDDEN_CHILD_TOOLS
             )
             stripped_tools = tuple(sorted(set(requested_tools) - set(safe_tool_names)))
-            requested_thinking, max_tool_calls, timeout_seconds = _parse_options(
-                options or {}
-            )
+            requested_thinking, timeout_seconds = _parse_options(options or {})
             resolved_thinking, thinking_source = resolve_effective_thinking(
                 requested_thinking=requested_thinking,
                 default_thinking=get_default_model_thinking(),
@@ -562,7 +547,6 @@ class DelegateTool(BaseTool):
                 session_id=str(getattr(ctx.deps, "session_id", None) or "delegate"),
                 authority=authority,
                 parent_task_id=parent_task.task_id if parent_task else None,
-                max_tool_calls=max_tool_calls,
                 repeated_failure_limit=get_delegate_repeated_failure_limit(),
                 timeout_seconds=timeout_seconds,
                 mode=mode,
@@ -775,7 +759,6 @@ def _failed_delegate_return(
     tool_names: tuple[str, ...],
     stripped_tools: tuple[str, ...],
     thinking: str,
-    max_tool_calls: int,
     timeout_seconds: float,
     repeated_failure_limit: int,
     progress: AgentRunProgress,
@@ -797,7 +780,6 @@ def _failed_delegate_return(
         "tool_names": list(tool_names),
         "thinking": thinking,
         "output_chars": len(handoff_message),
-        "max_tool_calls": max_tool_calls,
         "repeated_failure_limit": repeated_failure_limit,
         "timeout_seconds": timeout_seconds,
         "audit": audit,
@@ -817,7 +799,6 @@ def _failed_delegate_return(
         "failure_kind": classification.failure_kind,
         "retryable": classification.retryable,
         "error_message": message,
-        "max_tool_calls": max_tool_calls,
         "repeated_failure_limit": repeated_failure_limit,
         "timeout_seconds": timeout_seconds,
         "suggested_action": classification.suggested_action,
@@ -844,7 +825,6 @@ def _log_delegate_cancelled(
     session_id: str,
     model: str,
     tool_names: tuple[str, ...],
-    max_tool_calls: int,
     repeated_failure_limit: int,
     timeout_seconds: float,
     progress: AgentRunProgress,
@@ -857,7 +837,6 @@ def _log_delegate_cancelled(
             "workflow_id": session_id,
             "model": model,
             "tool_names": list(tool_names),
-            "max_tool_calls": max_tool_calls,
             "repeated_failure_limit": repeated_failure_limit,
             "timeout_seconds": timeout_seconds,
             "partial_message_count": audit["message_count"],
@@ -869,47 +848,25 @@ def _log_delegate_cancelled(
     )
 
 
-def _delegate_usage_limit_context(
-    exc: UsageLimitExceeded, *, max_tool_calls: int
-) -> dict[str, Any]:
+def _delegate_usage_limit_context(exc: UsageLimitExceeded) -> dict[str, Any]:
     """Return model-visible details for a delegate child usage-limit failure."""
-    error_text = str(exc)
-    if "request_limit" in error_text:
-        limit = get_delegate_model_requests_limit()
-        limit_label = f" of {limit}" if limit > 0 else ""
-        return {
-            "limit_kind": "model_requests",
-            "limit_setting": "delegate_model_requests_limit",
-            "limit": limit,
-            "suggested_action": (
-                "Do not retry the same broad delegation. Split the work into smaller child runs, "
-                "ask each child to return a compact summary or saved artifact path, and checkpoint "
-                "progress with goal_ops before continuing."
-            ),
-            "message": (
-                f"Delegate stopped because the child agent reached its model-request limit{limit_label}. "
-                "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls "
-                "scoped by path, query, source group, or hypothesis; have each child return a compact summary "
-                "or saved artifact path; and checkpoint progress with goal_ops before continuing."
-            ),
-        }
-
-    limit = max_tool_calls
+    del exc
+    limit = get_delegate_model_requests_limit()
     limit_label = f" of {limit}" if limit > 0 else ""
     return {
-        "limit_kind": "tool_calls",
-        "limit_setting": "delegate_tool_calls_limit",
+        "limit_kind": "model_requests",
+        "limit_setting": "delegate_model_requests_limit",
         "limit": limit,
         "suggested_action": (
-            "Do not retry the same broad delegation. Split the work into smaller child runs, use direct "
-            "deterministic tools for simple retrieval, and checkpoint progress with goal_ops before continuing."
+            "Do not retry the same broad delegation. Split the work into smaller child runs, "
+            "ask each child to return a compact summary or saved artifact path, and checkpoint "
+            "progress with goal_ops before continuing."
         ),
         "message": (
-            f"Delegate stopped because the child agent exceeded its tool-call limit{limit_label}. "
-            "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls scoped "
-            "by path, query, source group, or hypothesis; use direct deterministic tools for simple retrieval; "
-            "have each child return a compact summary or saved artifact path; and checkpoint progress with "
-            "goal_ops before continuing."
+            f"Delegate stopped because the child agent reached its model-request limit{limit_label}. "
+            "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls "
+            "scoped by path, query, source group, or hypothesis; have each child return a compact summary "
+            "or saved artifact path; and checkpoint progress with goal_ops before continuing."
         ),
     }
 
@@ -1142,7 +1099,7 @@ def _parse_tool_names(tools: Any) -> tuple[str, ...]:
     raise ValueError("delegate tools must be a list or tuple of strings when provided")
 
 
-def _parse_options(options: dict[str, Any]) -> tuple[object, int, float]:
+def _parse_options(options: dict[str, Any]) -> tuple[object, float]:
     unknown = sorted(set(options) - _SUPPORTED_OPTION_KEYS)
     if unknown:
         raise ValueError(f"Unsupported delegate options: {', '.join(unknown)}")
@@ -1154,43 +1111,24 @@ def _parse_options(options: dict[str, Any]) -> tuple[object, int, float]:
             options["thinking"], source_name="delegate option 'thinking'"
         )
 
-    return (
-        requested_thinking,
-        get_delegate_tool_calls_limit(),
-        get_delegate_timeout_seconds(),
-    )
+    return requested_thinking, get_delegate_timeout_seconds()
 
 
-def _delegate_usage_limits(max_tool_calls: int) -> UsageLimits | None:
+def _delegate_usage_limits() -> UsageLimits:
     model_requests_limit = get_delegate_model_requests_limit()
     return UsageLimits(
         request_limit=model_requests_limit if model_requests_limit > 0 else None,
-        tool_calls_limit=max_tool_calls if max_tool_calls > 0 else None,
+        tool_calls_limit=None,
     )
-
-
-def _delegate_flight_card(max_tool_calls: int) -> str:
-    if max_tool_calls > 0:
-        budget_instruction = (
-            f"This run has a maximum of {max_tool_calls} total tool calls. "
-            "Finish tool use early enough to synthesize the compact handoff."
-        )
-    else:
-        budget_instruction = (
-            "The configured tool-call limit is disabled for this run. "
-            "Keep tool use bounded to the smallest set needed for the deliverable."
-        )
-    return f"{DELEGATE_FLIGHT_CARD.strip()}\n- {budget_instruction}"
 
 
 def _apply_delegate_instruction_layers(
     agent: Any,
     *,
-    max_tool_calls: int,
     caller_instructions: str | None,
 ) -> None:
     """Register delegate layers in the same base-before-specific order as chat."""
-    agent.instructions(_delegate_flight_card(max_tool_calls))
+    agent.instructions(DELEGATE_FLIGHT_CARD.strip())
     if caller_instructions:
         agent.instructions(caller_instructions)
 

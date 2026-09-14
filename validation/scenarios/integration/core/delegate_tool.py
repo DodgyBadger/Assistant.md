@@ -40,20 +40,11 @@ class DelegateToolScenario(BaseScenario):
 
         await self.start_system()
 
-        configured_delegate_limit = 12
         configured_repeated_failure_limit = 2
         configured_delegate_timeout = 90
         configured_stream_retries = 1
         configured_retry_base_delay = 0.0
         configured_retry_max_delay = 10.0
-        delegate_limit_update = self.call_api(
-            "/api/system/settings/general/delegate_tool_calls_limit",
-            method="PUT",
-            data={"value": str(configured_delegate_limit)},
-        )
-        assert (
-            delegate_limit_update.status_code == 200
-        ), "Delegate tool-call limit setting updates"
         repeated_failure_limit_update = self.call_api(
             "/api/system/settings/general/delegate_repeated_failure_limit",
             method="PUT",
@@ -63,7 +54,8 @@ class DelegateToolScenario(BaseScenario):
             repeated_failure_limit_update.status_code == 200
         ), "Delegate repeated-failure limit setting updates"
         await _assert_repeated_failure_guard()
-        _assert_delegate_flight_card(configured_delegate_limit)
+        _assert_delegate_flight_card()
+        _assert_delegate_usage_limits()
         _assert_shared_tool_result_classification()
         delegate_timeout_update = self.call_api(
             "/api/system/settings/general/delegate_timeout_seconds",
@@ -128,8 +120,6 @@ class DelegateToolScenario(BaseScenario):
                         "model": "test",
                         "tools": ["file_read"],
                     }
-                if case == "limit_failure":
-                    return {"prompt": "Exceed child usage limits.", "model": "test"}
                 if case == "model_request_limit_failure":
                     return {
                         "prompt": "Exceed child model request usage limits.",
@@ -209,55 +199,6 @@ class DelegateToolScenario(BaseScenario):
             def run_stream(self, *_args, **_kwargs):
                 return _StreamingChildRun()
 
-        partial_messages = [
-            ModelResponse(
-                parts=[
-                    ToolCallPart(
-                        tool_name="file_read",
-                        args={"path": "notes/content.md"},
-                        tool_call_id="partial-call",
-                    )
-                ]
-            ),
-            ModelRequest(
-                parts=[
-                    ToolReturnPart(
-                        tool_name="file_read",
-                        content={"artifact_ref": "artifact://delegate/settled"},
-                        tool_call_id="partial-call",
-                        metadata={
-                            "status": "completed",
-                            "artifact_ref": "artifact://delegate/settled",
-                        },
-                    )
-                ]
-            ),
-        ]
-
-        class _PartialFailingChildRun:
-            def __init__(self, error: Exception):
-                self.error = error
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
-
-            async def stream_output(self, *, debounce_by=None):
-                yield "SETTLED_PARTIAL_OUTPUT"
-                raise self.error
-
-            async def get_output(self):
-                raise AssertionError("failed partial stream has no final output")
-
-            def all_messages(self):
-                return partial_messages
-
-        class _PartialFailingChildAgent(_FailingChildAgent):
-            def run_stream(self, *_args, **_kwargs):
-                return _PartialFailingChildRun(self.error)
-
         async def _streaming_create_agent(*_args, **_kwargs):
             return _StreamingChildAgent()
 
@@ -294,6 +235,100 @@ class DelegateToolScenario(BaseScenario):
             )
 
         await _assert_delegate_uses_streaming()
+
+        async def _assert_more_than_32_child_tool_calls() -> None:
+            from core.authoring.helpers.runtime_common import (
+                invoke_bound_tool,
+                normalize_tool_result,
+            )
+            from core.authoring.shared.tool_binding import resolve_tool_binding
+
+            messages = []
+            for index in range(40):
+                call_id = f"many-call-{index}"
+                messages.extend(
+                    [
+                        ModelResponse(
+                            parts=[
+                                ToolCallPart(
+                                    tool_name="file_read",
+                                    args={"path": f"notes/{index}.md"},
+                                    tool_call_id=call_id,
+                                )
+                            ]
+                        ),
+                        ModelRequest(
+                            parts=[
+                                ToolReturnPart(
+                                    tool_name="file_read",
+                                    content="ok",
+                                    tool_call_id=call_id,
+                                    metadata={"status": "completed"},
+                                )
+                            ]
+                        ),
+                    ]
+                )
+            observed_limits = []
+
+            class _ManyToolRun(_StreamingChildRun):
+                async def stream_output(self, *, debounce_by=None):
+                    yield "FORTY_TOOL_CALLS_COMPLETE"
+
+                async def get_output(self):
+                    return "FORTY_TOOL_CALLS_COMPLETE"
+
+                def all_messages(self):
+                    return messages
+
+            class _ManyToolAgent(_StreamingChildAgent):
+                def run_stream(self, *_args, **kwargs):
+                    observed_limits.append(kwargs.get("usage_limits"))
+                    return _ManyToolRun()
+
+            async def _many_tool_create_agent(*_args, **_kwargs):
+                return _ManyToolAgent()
+
+            binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
+            delegate_module.create_agent = _many_tool_create_agent
+            try:
+                raw_result = await invoke_bound_tool(
+                    binding.tool_functions[0],
+                    tool_name="delegate",
+                    arguments={
+                        "prompt": "Complete more than 32 useful child tool calls.",
+                        "model": "test",
+                        "tools": ["file_read"],
+                    },
+                    run_buffers={},
+                    session_buffers={},
+                    session_id="delegate_many_tool_calls",
+                    vault_name=vault.name,
+                )
+            finally:
+                delegate_module.create_agent = original_create_agent
+            result = normalize_tool_result(
+                "delegate",
+                raw_result,
+                vault_path=str(vault),
+            )
+            self.soft_assert_equal(
+                result.return_value,
+                "FORTY_TOOL_CALLS_COMPLETE",
+                "Delegate should complete after more than 32 child tool calls",
+            )
+            self.soft_assert_equal(
+                observed_limits[0].tool_calls_limit if observed_limits else "missing",
+                None,
+                "Delegate Pydantic usage limits should not impose a tool-call ceiling",
+            )
+            self.soft_assert_equal(
+                result.metadata.get("audit", {}).get("tool_call_count"),
+                40,
+                "Delegate audit should continue counting calls without enforcing them",
+            )
+
+        await _assert_more_than_32_child_tool_calls()
 
         async def _assert_managed_delegate_job() -> None:
             from core.authoring.helpers.runtime_common import invoke_bound_tool
@@ -559,12 +594,6 @@ class DelegateToolScenario(BaseScenario):
         await _assert_parent_cancellation_is_logged()
 
         async def _patched_create_agent(*args, **kwargs):
-            if current_case["name"] == "limit_failure":
-                return _PartialFailingChildAgent(
-                    UsageLimitExceeded(
-                        "The next tool call(s) would exceed the tool_calls_limit"
-                    )
-                )
             if current_case["name"] == "model_request_limit_failure":
                 return _FailingChildAgent(
                     UsageLimitExceeded(
@@ -600,7 +629,6 @@ class DelegateToolScenario(BaseScenario):
                 expected={
                     "workflow_id": "delegate_basic",
                     "model": "test",
-                    "max_tool_calls": configured_delegate_limit,
                     "timeout_seconds": configured_delegate_timeout,
                 },
             )
@@ -610,7 +638,6 @@ class DelegateToolScenario(BaseScenario):
                 expected={
                     "workflow_id": "delegate_basic",
                     "model": "test",
-                    "max_tool_calls": configured_delegate_limit,
                     "timeout_seconds": configured_delegate_timeout,
                 },
             )
@@ -718,75 +745,6 @@ class DelegateToolScenario(BaseScenario):
                 "Delegate jobs should expose settled child tool-call counts",
             )
 
-            # --- Bounded child failures return tool output instead of aborting parent chat ---
-            current_case["name"] = "limit_failure"
-            checkpoint = self.event_checkpoint()
-            limit_failure = await self.run_chat_task(
-                {
-                    "vault_name": vault.name,
-                    "prompt": "Test delegate tool-call limit handling.",
-                    "session_id": "delegate_limit_failure",
-                    "tools": ["delegate"],
-                    "model": "test",
-                },
-            )
-            assert (
-                limit_failure["start_response"].status_code == 200
-            ), "Delegate limit failure chat task should start"
-            assert (
-                limit_failure["terminal_event"].get("event") == "done"
-            ), "Delegate limit failure should not abort chat"
-            limit_events = self.events_since(checkpoint)
-            self.assert_event_contains(
-                limit_events,
-                name="delegate_failed",
-                expected={
-                    "workflow_id": "delegate_limit_failure",
-                    "error_type": "UsageLimitExceeded",
-                    "failure_kind": "execution_limit",
-                    "retryable": False,
-                    "limit_kind": "tool_calls",
-                    "limit_setting": "delegate_tool_calls_limit",
-                    "partial_tool_call_count": 1,
-                    "handoff_reference_count": 1,
-                },
-            )
-            limit_result_event = next(
-                (
-                    event
-                    for event in limit_failure["events"]
-                    if event.get("event") == "tool_call_finished"
-                    and event.get("tool_name") == "delegate"
-                ),
-                None,
-            )
-            assert (
-                limit_result_event is not None
-            ), "Delegate failure should finish its tool lifecycle"
-            self.soft_assert_equal(
-                limit_result_event.get("terminal_state"),
-                "failed",
-                "Delegate failure result should expose a failed terminal state",
-            )
-            self.soft_assert(
-                "result" not in limit_result_event
-                and "result_metadata" not in limit_result_event
-                and "artifact_ref" not in limit_result_event,
-                "Delegate stream events should omit result details",
-            )
-            self.soft_assert(
-                "tool-call limit" in limit_failure["text"],
-                "Delegate limit failure should return actionable text to the parent agent",
-            )
-            self.soft_assert(
-                "goal_ops" in limit_failure["text"],
-                "Delegate limit failure should instruct parent to checkpoint before continuing",
-            )
-            self.soft_assert(
-                "SETTLED_PARTIAL_OUTPUT" in limit_failure["text"],
-                "Delegate limit failure should return its latest settled partial output",
-            )
-
             current_case["name"] = "model_request_limit_failure"
             model_request_limit_failure = await self.run_chat_task(
                 {
@@ -806,8 +764,7 @@ class DelegateToolScenario(BaseScenario):
             request_limit_context = delegate_module._delegate_usage_limit_context(
                 UsageLimitExceeded(
                     "The next request would exceed the request_limit of 75"
-                ),
-                max_tool_calls=configured_delegate_limit,
+                )
             )
             self.soft_assert_equal(
                 request_limit_context["limit_kind"],
@@ -1205,23 +1162,8 @@ async def _assert_repeated_failure_guard() -> None:
     assert parallel_started == 2, "The guard must not serialize admitted parallel calls"
 
 
-def _assert_delegate_flight_card(tool_call_limit: int) -> None:
-    from core.tools.delegate import (
-        _apply_delegate_instruction_layers,
-        _delegate_flight_card,
-    )
-
-    bounded = _delegate_flight_card(tool_call_limit)
-    assert "FLIGHT CARD" in bounded
-    assert str(tool_call_limit) in bounded
-    assert "model-request" not in bounded
-    assert "timeout" not in bounded
-    assert "compact handoff" in bounded
-
-    disabled = _delegate_flight_card(0)
-    assert "disabled" in disabled
-    assert "model-request" not in disabled
-    assert "timeout" not in disabled
+def _assert_delegate_flight_card() -> None:
+    from core.tools.delegate import _apply_delegate_instruction_layers
 
     class _InstructionRecorder:
         def __init__(self):
@@ -1234,12 +1176,19 @@ def _assert_delegate_flight_card(tool_call_limit: int) -> None:
     task_instructions = "TASK-SPECIFIC-DELEGATE-INSTRUCTIONS"
     _apply_delegate_instruction_layers(
         recorder,
-        max_tool_calls=tool_call_limit,
         caller_instructions=task_instructions,
     )
     assert len(recorder.layers) == 2
     assert "DELEGATE FLIGHT CARD" in recorder.layers[0]
     assert recorder.layers[1] == task_instructions
+
+
+def _assert_delegate_usage_limits() -> None:
+    from core.tools.delegate import _delegate_usage_limits
+
+    limits = _delegate_usage_limits()
+    assert limits.tool_calls_limit is None
+    assert limits.request_limit is None or limits.request_limit > 0
 
 
 def _assert_shared_tool_result_classification() -> None:

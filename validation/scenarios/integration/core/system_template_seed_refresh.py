@@ -65,6 +65,12 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         settings_raw["settings"].pop("openrouter_ignored_providers", None)
         settings_raw["settings"]["default_model"].pop("category", None)
         settings_raw["settings"]["default_model"]["value"] = "haiku"
+        settings_raw["settings"]["delegate_tool_calls_limit"] = {
+            "value": 32,
+            "description": "stale removed setting",
+            "category": "Delegation",
+            "restart_required": False,
+        }
         update_settings_response = self.call_api(
             "/api/system/settings",
             method="PUT",
@@ -118,6 +124,11 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             repaired_settings["settings"]["default_model"].get("value"),
             "haiku",
             "Settings repair should preserve existing setting values while restoring metadata",
+        )
+        self.soft_assert_equal(
+            "delegate_tool_calls_limit" in repaired_settings["settings"],
+            False,
+            "Settings repair should prune the removed delegate tool-call ceiling",
         )
 
         self.soft_assert_equal(
