@@ -866,6 +866,7 @@ async def _run_prepared_chat_stream_task_inner(
             buffer_store_registry={"session": session_buffer_store},
             session_id=session_id,
             vault_name=vault_name,
+            model_alias=prepared.model,
             message_history=list(prepared.message_history or []),
             tools=list(prepared.tools or []),
             authority=ExecutionAuthority(principal_id=task.principal_id),

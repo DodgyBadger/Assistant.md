@@ -128,6 +128,7 @@ class DelegateLaunchSpec:
     prompt: str
     instructions: str | None
     model: str | None
+    model_source: Literal["explicit", "parent", "runtime_default"]
     tool_names: tuple[str, ...]
     stripped_tools: tuple[str, ...]
     resolved_thinking: ThinkingValue
@@ -327,6 +328,7 @@ class DelegateTool(BaseTool):
                     "parent_task_id": task.parent_task_id,
                     "mode": spec.mode,
                     "model": model_value or "default",
+                    "model_source": spec.model_source,
                     "tool_names": list(safe_tool_names),
                     "stripped_tools": list(stripped),
                     "resolved_thinking": thinking_value_to_label(resolved_thinking),
@@ -514,6 +516,7 @@ class DelegateTool(BaseTool):
             metadata: dict[str, Any] = {
                 "status": "completed",
                 "model": model_value or "default",
+                "model_source": spec.model_source,
                 "tool_names": list(safe_tool_names),
                 "thinking": thinking_value_to_label(resolved_thinking),
                 "output_chars": len(text),
@@ -560,7 +563,7 @@ class DelegateTool(BaseTool):
 
             :param prompt: Primary prompt for the child agent.
             :param instructions: Optional system-style instructions for the child agent.
-            :param model: Optional model alias.
+            :param model: Optional model alias. Omit to inherit a calling chat's model or use the runtime default when no parent model is available.
             :param tools: Optional list of tool names available to the child agent.
             :param options: Optional controls: thinking.
             :param mode: blocking or managed.
@@ -571,7 +574,7 @@ class DelegateTool(BaseTool):
             if mode not in {"blocking", "managed"}:
                 raise ValueError("delegate mode must be 'blocking' or 'managed'")
 
-            model_value = str(model).strip() if model else None
+            model_value, model_source = _resolve_delegate_model_value(model, ctx.deps)
             requested_tools = tuple(name.lower() for name in _parse_tool_names(tools))
             safe_tool_names = tuple(
                 name for name in requested_tools if name not in _FORBIDDEN_CHILD_TOOLS
@@ -592,6 +595,7 @@ class DelegateTool(BaseTool):
                 prompt=normalized_prompt,
                 instructions=instructions,
                 model=model_value,
+                model_source=model_source,
                 tool_names=safe_tool_names,
                 stripped_tools=stripped_tools,
                 resolved_thinking=resolved_thinking,
@@ -706,6 +710,7 @@ class DelegateTool(BaseTool):
                     metadata={
                         "session_id": spec.session_id,
                         "model": spec.model or "default",
+                        "model_source": spec.model_source,
                         "mode": spec.mode,
                         "tool_names": list(spec.tool_names),
                     },
@@ -1294,6 +1299,20 @@ def _looks_like_tool_error(text: str) -> bool:
             "timeout",
         )
     )
+
+
+def _resolve_delegate_model_value(
+    requested_model: str | None,
+    deps: Any,
+) -> tuple[str | None, Literal["explicit", "parent", "runtime_default"]]:
+    """Resolve an explicit child model, then a parent chat model, then runtime default."""
+    explicit_model = str(requested_model or "").strip()
+    if explicit_model:
+        return explicit_model, "explicit"
+    parent_model = str(getattr(deps, "model_alias", None) or "").strip()
+    if parent_model:
+        return parent_model, "parent"
+    return None, "runtime_default"
 
 
 def _parse_tool_names(tools: Any) -> tuple[str, ...]:

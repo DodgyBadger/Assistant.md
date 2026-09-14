@@ -757,6 +757,7 @@ class ChatRunDeps:
     buffer_store_registry: dict[str, BufferStore] = field(default_factory=dict)
     session_id: str = ""
     vault_name: str = ""
+    model_alias: str | None = None
     message_history: list[ModelMessage] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
 

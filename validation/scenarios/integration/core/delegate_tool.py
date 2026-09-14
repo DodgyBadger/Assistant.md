@@ -9,6 +9,7 @@ events at decision boundaries and on final output artifacts.
 import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -109,6 +110,8 @@ class DelegateToolScenario(BaseScenario):
                 case = current_case["name"]
                 if case == "basic":
                     return {"prompt": "Reply with DELEGATE_OK.", "model": "test"}
+                if case == "inherit_parent":
+                    return {"prompt": "Inherit the parent model."}
                 if case == "forbidden_stripping":
                     return {
                         "prompt": "Use your tools.",
@@ -145,6 +148,23 @@ class DelegateToolScenario(BaseScenario):
         original_prepare = chat_executor._prepare_agent_config
         chat_executor._prepare_agent_config = _patched_prepare_agent_config
         import core.tools.delegate as delegate_module
+
+        self.soft_assert_equal(
+            delegate_module._resolve_delegate_model_value(
+                "explicit-model",
+                SimpleNamespace(model_alias="parent-model"),
+            ),
+            ("explicit-model", "explicit"),
+            "An explicit delegate model should override its parent model",
+        )
+        self.soft_assert_equal(
+            delegate_module._resolve_delegate_model_value(
+                None,
+                SimpleNamespace(model_alias=None),
+            ),
+            (None, "runtime_default"),
+            "Non-chat delegates should retain the runtime-default fallback",
+        )
 
         original_create_agent = delegate_module.create_agent
 
@@ -819,6 +839,7 @@ class DelegateToolScenario(BaseScenario):
                 expected={
                     "workflow_id": "delegate_basic",
                     "model": "test",
+                    "model_source": "explicit",
                     "timeout_seconds": configured_delegate_timeout,
                 },
             )
@@ -834,6 +855,28 @@ class DelegateToolScenario(BaseScenario):
             self.soft_assert(
                 "failed:" not in basic["text"].lower(),
                 "Basic delegate call should not produce a Monty failure response",
+            )
+
+            current_case["name"] = "inherit_parent"
+            checkpoint = self.event_checkpoint()
+            inherited = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "Test delegate model inheritance.",
+                    "session_id": "delegate_inherit_parent_model",
+                    "tools": ["delegate"],
+                    "model": "test",
+                },
+            )
+            assert inherited["terminal_event"].get("event") == "done"
+            self.assert_event_contains(
+                self.events_since(checkpoint),
+                name="delegate_started",
+                expected={
+                    "workflow_id": "delegate_inherit_parent_model",
+                    "model": "test",
+                    "model_source": "parent",
+                },
             )
 
             # --- Forbidden tool stripping is case-insensitive ---

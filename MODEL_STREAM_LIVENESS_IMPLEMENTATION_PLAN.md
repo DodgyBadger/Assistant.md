@@ -11,6 +11,7 @@ Prevent a provider stream that remains connected without producing usable model 
 3. Make unresolved custom-provider base-URL secret pointers fail during configuration/model construction rather than reaching HTTPX as a malformed literal URL.
 4. Disable the OpenAI SDK's internal retries wherever AssistantMD supplies its own bounded retry transport, preventing multiplicative retry attempts for OpenAI, OAuth, and OpenAI-compatible providers.
 5. Update current-contract documentation and release notes, run the affected integration scenarios directly, then run Ruff, Black, and MyPy. The maintainer retains ownership of the full validation profile and live-provider comparison.
+6. Make chat-launched delegates inherit the selected parent model when `model` is omitted, retain explicit child overrides, and preserve the runtime-default fallback for callers without a parent model.
 
 ## Event contracts
 

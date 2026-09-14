@@ -19,7 +19,7 @@ Blocking mode is the default and preserves the direct call contract. Managed mod
 
 - `prompt`: required primary prompt passed to the child agent; include relevant file paths
 - `instructions`: optional system-style instructions layered onto the child agent
-- `model`: optional model alias; the runtime default is used when omitted
+- `model`: optional model alias; when omitted, a chat-launched child inherits the parent chat model, while callers without a parent model use the runtime default
 - `tools`: optional list of tools available to the child; `delegate`, `code_execution`, and `job` are always excluded
 - `options`: optional dictionary with `thinking`, accepting `true`, `false`, `minimal`, `low`, `medium`, `high`, or `xhigh`
 - `mode`: `blocking` by default or `managed` for a process-local asynchronous job
