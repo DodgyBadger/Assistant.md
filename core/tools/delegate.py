@@ -351,6 +351,18 @@ class DelegateTool(BaseTool):
                 text = coerce_output_data(output)
                 audit = _build_child_run_audit(result.messages)
             except asyncio.CancelledError:
+                await get_runtime_context().task_coordinator.record_result(
+                    task.task_id,
+                    _cancelled_delegate_result(
+                        model=model_value or "default",
+                        tool_names=safe_tool_names,
+                        stripped_tools=stripped,
+                        thinking=thinking_value_to_label(resolved_thinking),
+                        repeated_failure_limit=repeated_failure_limit,
+                        timeout_seconds=timeout_seconds,
+                        progress=progress,
+                    ),
+                )
                 _log_delegate_cancelled(
                     session_id=session_id,
                     model=model_value or "default",
@@ -668,6 +680,40 @@ def _delegate_result_to_tool_return(result: dict[str, Any]) -> ToolReturn:
         content=result.get("content"),
         metadata=result.get("metadata"),
     )
+
+
+def _cancelled_delegate_result(
+    *,
+    model: str,
+    tool_names: tuple[str, ...],
+    stripped_tools: tuple[str, ...],
+    thinking: str,
+    repeated_failure_limit: int,
+    timeout_seconds: float,
+    progress: AgentRunProgress,
+) -> dict[str, Any]:
+    audit = _build_child_run_audit(progress.messages)
+    references = _child_run_references(progress.messages)
+    metadata: dict[str, Any] = {
+        "status": "cancelled",
+        "model": model,
+        "tool_names": list(tool_names),
+        "thinking": thinking,
+        "repeated_failure_limit": repeated_failure_limit,
+        "timeout_seconds": timeout_seconds,
+        "audit": audit,
+        "usage": _delegate_usage_metadata(progress.usage),
+        "partial_output": _partial_delegate_output(progress.output),
+        "handoff_references": references,
+    }
+    if stripped_tools:
+        metadata["stripped_tools"] = list(stripped_tools)
+    return {
+        "return_value": "Delegate cancelled.",
+        "content": None,
+        "metadata": metadata,
+        "artifact_references": references,
+    }
 
 
 async def _collect_delegate_response(

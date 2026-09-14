@@ -324,6 +324,12 @@ class DelegateToolScenario(BaseScenario):
                     session_id="delegate_managed_job",
                     vault_name=vault.name,
                 )
+                metadata = result.metadata if isinstance(result.metadata, dict) else {}
+                await runtime.task_coordinator.wait_for_tasks(
+                    [str(metadata.get("job_id") or "")],
+                    timeout_seconds=2.0,
+                    terminal_or_attention_only=True,
+                )
                 return parent_task.task_id, result
 
             parent_task_id, result = await runtime.task_runner.run_inline(

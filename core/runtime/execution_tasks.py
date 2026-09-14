@@ -599,6 +599,7 @@ class TaskCoordinator:
 
     async def mark_completed(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task completed."""
+        await self._cancel_active_children(task_id, reason="parent_completed")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.COMPLETED,
@@ -612,6 +613,7 @@ class TaskCoordinator:
 
     async def mark_failed(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task failed."""
+        await self._cancel_active_children(task_id, reason="parent_failed")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.FAILED,
@@ -621,6 +623,7 @@ class TaskCoordinator:
 
     async def mark_cancelled(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task cancelled."""
+        await self._cancel_active_children(task_id, reason="parent_cancelled")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.CANCELLED,
@@ -630,6 +633,7 @@ class TaskCoordinator:
 
     async def mark_timed_out(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task timed out."""
+        await self._cancel_active_children(task_id, reason="parent_timed_out")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.TIMED_OUT,
@@ -639,6 +643,7 @@ class TaskCoordinator:
 
     async def mark_skipped(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task skipped."""
+        await self._cancel_active_children(task_id, reason="parent_skipped")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.SKIPPED,
@@ -659,6 +664,27 @@ class TaskCoordinator:
         active_tasks = await self.list_tasks(include_terminal=False)
         for task in active_tasks:
             await self.mark_cancelled(task.task_id, reason=reason)
+
+    async def list_child_tasks(
+        self,
+        parent_task_id: str,
+        *,
+        include_terminal: bool = True,
+    ) -> list[ExecutionTaskSnapshot]:
+        """Return execution tasks directly owned by one parent task."""
+        async with self._lock:
+            snapshots = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.parent_task_id == parent_task_id
+                and (include_terminal or record.status not in TERMINAL_STATUSES)
+            ]
+        return sorted(snapshots, key=lambda item: item.created_at)
+
+    async def _cancel_active_children(self, task_id: str, *, reason: str) -> None:
+        children = await self.list_child_tasks(task_id, include_terminal=False)
+        for child in children:
+            await self.cancel_task(child.task_id, reason=reason)
 
     async def _create_record(
         self,

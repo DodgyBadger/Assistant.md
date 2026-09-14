@@ -179,6 +179,55 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Result truncation should preserve artifact references",
         )
 
+        parent = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:parent",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-parent",
+            authority=SYSTEM_AUTHORITY,
+        )
+        first_child = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:child",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-first-child",
+            authority=SYSTEM_AUTHORITY,
+            parent_task_id=parent.task_id,
+        )
+        second_child = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:child",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-second-child",
+            authority=SYSTEM_AUTHORITY,
+            parent_task_id=parent.task_id,
+        )
+        await runtime.task_coordinator.cancel_task(
+            first_child.task_id,
+            reason="validation_direct_child_cancel",
+        )
+        unaffected_parent = await runtime.task_coordinator.get_task(parent.task_id)
+        unaffected_sibling = await runtime.task_coordinator.get_task(
+            second_child.task_id
+        )
+        self.soft_assert_equal(
+            unaffected_parent.status if unaffected_parent else None,
+            "queued",
+            "Direct child cancellation should not cancel its parent",
+        )
+        self.soft_assert_equal(
+            unaffected_sibling.status if unaffected_sibling else None,
+            "queued",
+            "Direct child cancellation should not cancel siblings",
+        )
+        await runtime.task_coordinator.mark_completed(parent.task_id)
+        cascaded_child = await runtime.task_coordinator.get_task(second_child.task_id)
+        self.soft_assert_equal(
+            cascaded_child.status if cascaded_child else None,
+            "cancelled",
+            "A terminal parent should cancel active child tasks",
+        )
+
         cancel_hook_task_ids: list[str] = []
         cancel_started = asyncio.Event()
         cancelled_task = await runtime.task_runner.start_background(
