@@ -2,13 +2,16 @@
 
 import asyncio
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from time import monotonic
 from typing import Any, Literal
 
-from pydantic_ai import RunContext
+from pydantic_ai import FunctionToolCallEvent, FunctionToolResultEvent, RunContext
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
+    AgentStreamEvent,
     ModelMessage,
     ModelRequest,
     ModelResponse,
@@ -104,6 +107,138 @@ class DelegateLaunchSpec:
     mode: Literal["blocking", "managed"]
 
 
+@dataclass
+class _ActiveDelegateToolCall:
+    tool: str
+    call_id: str
+    arguments: str
+    started_at: str
+    started_monotonic: float
+
+
+class _DelegateProgressObserver:
+    """Project bounded Pydantic stream activity into execution-task state."""
+
+    def __init__(self, task: ExecutionTaskSnapshot) -> None:
+        self._task = task
+        self._active: dict[str, _ActiveDelegateToolCall] = {}
+        self._recent: list[dict[str, Any]] = []
+        self._counts = {
+            "started": 0,
+            "completed": 0,
+            "failed": 0,
+            "invalid": 0,
+            "unsettled": 0,
+        }
+        self._model_event_count = 0
+        self._attention_published = False
+        self._attention_logged = False
+        self._lock = asyncio.Lock()
+
+    async def handle_events(
+        self,
+        _ctx: RunContext[Any],
+        events: AsyncIterable[AgentStreamEvent],
+    ) -> None:
+        async for event in events:
+            async with self._lock:
+                self._model_event_count += 1
+                if isinstance(event, FunctionToolCallEvent):
+                    self._record_started(event)
+                elif isinstance(event, FunctionToolResultEvent):
+                    self._record_finished(event)
+                await self._publish()
+
+    def _record_started(self, event: FunctionToolCallEvent) -> None:
+        part = event.part
+        try:
+            arguments = part.args_as_json_str()
+        except Exception:  # noqa: BLE001 - defensive upstream event compatibility
+            arguments = _compact_value(
+                getattr(part, "args", ""),
+                max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
+            )
+        call = _ActiveDelegateToolCall(
+            tool=str(getattr(part, "tool_name", "tool")),
+            call_id=event.tool_call_id,
+            arguments=_compact_value(
+                arguments,
+                max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
+            ),
+            started_at=datetime.now(UTC).isoformat(),
+            started_monotonic=monotonic(),
+        )
+        self._active[event.tool_call_id] = call
+        self._counts["started"] += 1
+        self._counts["unsettled"] = len(self._active)
+
+    def _record_finished(self, event: FunctionToolResultEvent) -> None:
+        part = event.part
+        call = self._active.pop(event.tool_call_id, None)
+        outcome = str(getattr(part, "outcome", "success") or "success")
+        metadata = getattr(part, "metadata", None)
+        metadata_dict = metadata if isinstance(metadata, dict) else {}
+        terminal_state = classify_tool_result_state(
+            outcome=outcome,
+            metadata=metadata_dict,
+        )
+        if terminal_state == "failed":
+            self._counts["failed"] += 1
+        else:
+            self._counts["completed"] += 1
+        if outcome == "invalid":
+            self._counts["invalid"] += 1
+        now = monotonic()
+        self._recent.append(
+            {
+                "tool": (
+                    call.tool
+                    if call is not None
+                    else str(getattr(part, "tool_name", "tool"))
+                ),
+                "call_id": event.tool_call_id,
+                "arguments": call.arguments if call is not None else "",
+                "started_at": call.started_at if call is not None else None,
+                "finished_at": datetime.now(UTC).isoformat(),
+                "duration_seconds": (
+                    max(0.0, now - call.started_monotonic) if call is not None else None
+                ),
+                "outcome": outcome,
+                "terminal_state": terminal_state,
+            }
+        )
+        self._recent = self._recent[-20:]
+        self._counts["unsettled"] = len(self._active)
+        if metadata_dict.get("failure_kind") == "repeated_tool_failure":
+            self._attention_published = True
+
+    async def _publish(self) -> None:
+        health_status = "attention_required" if self._attention_published else "healthy"
+        await get_runtime_context().task_coordinator.publish_progress(
+            self._task.task_id,
+            metadata={
+                "active_tools": [call.tool for call in self._active.values()],
+                "recent_activity": list(self._recent),
+                "tool_call_counts": dict(self._counts),
+                "model_event_count": self._model_event_count,
+            },
+            health_status=health_status,
+        )
+        if self._attention_published and not self._attention_logged:
+            self._attention_logged = True
+            logger.add_sink("validation").warning(
+                "delegate_attention_required",
+                data={
+                    "event": "delegate_attention_required",
+                    "task_id": self._task.task_id,
+                    "parent_task_id": self._task.parent_task_id,
+                    "reason": "repeated_tool_failure",
+                    "active_tool_names": [call.tool for call in self._active.values()],
+                    "tool_call_counts": dict(self._counts),
+                },
+            )
+
+
 class DelegateTool(BaseTool):
     """Run a bounded child agent over a prompt with optional tools."""
 
@@ -145,6 +280,7 @@ class DelegateTool(BaseTool):
             )
 
             progress = AgentRunProgress()
+            progress_observer = _DelegateProgressObserver(task)
 
             try:
                 resolved_model = None
@@ -207,6 +343,7 @@ class DelegateTool(BaseTool):
                         session_id=session_id,
                         model=model_value or "default",
                         progress=progress,
+                        event_stream_handler=progress_observer.handle_events,
                     ),
                     timeout=_delegate_wait_timeout(timeout_seconds),
                 )
@@ -542,6 +679,7 @@ async def _collect_delegate_response(
     session_id: str,
     model: str,
     progress: AgentRunProgress,
+    event_stream_handler: Any | None = None,
 ) -> Any:
     """Collect a child run, retrying only when replay cannot duplicate tools."""
     retry_policy = ModelStreamRetryPolicy.from_settings()
@@ -553,6 +691,7 @@ async def _collect_delegate_response(
                 usage_limits=usage_limits,
                 usage=progress.usage,
                 progress=progress,
+                event_stream_handler=event_stream_handler,
             )
         except Exception as exc:
             classification = classify_exception(exc, phase="delegate_child_run")

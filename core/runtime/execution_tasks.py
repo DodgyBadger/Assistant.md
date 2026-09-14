@@ -550,6 +550,25 @@ class TaskCoordinator:
 
         self._log_event("execution_task_heartbeat", snapshot)
 
+    async def publish_progress(
+        self,
+        task_id: str,
+        *,
+        metadata: dict[str, Any],
+        health_status: str = "healthy",
+    ) -> None:
+        """Publish bounded live progress without emitting per-event log noise."""
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None or record.status in TERMINAL_STATUSES:
+                return
+            now = self._now()
+            record.last_progress_at = now
+            record.health_status = health_status
+            record.metadata.update(metadata)
+            record.latest_event = "progress"
+            self._touch(record)
+
     async def record_result(self, task_id: str, result: dict[str, Any]) -> None:
         """Record one bounded, JSON-safe result before terminal publication."""
         snapshot = None

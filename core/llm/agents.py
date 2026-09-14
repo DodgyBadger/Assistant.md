@@ -1,5 +1,5 @@
 import json
-from collections.abc import AsyncIterable, AsyncIterator, Sequence
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
@@ -179,6 +179,10 @@ async def collect_response(
     usage_limits: UsageLimits | None = None,
     usage: RunUsage | None = None,
     progress: AgentRunProgress | None = None,
+    event_stream_handler: (
+        Callable[[RunContext[Any], AsyncIterable[AgentStreamEvent]], Awaitable[None]]
+        | None
+    ) = None,
 ) -> CollectedAgentRun:
     """Run an agent through the streaming transport and return one final result.
 
@@ -200,6 +204,8 @@ async def collect_response(
             progress.usage = effective_usage
     if effective_usage is not None:
         kwargs["usage"] = effective_usage
+    if event_stream_handler is not None:
+        kwargs["event_stream_handler"] = event_stream_handler
 
     async with agent.run_stream(prompt, **kwargs) as result:
         try:

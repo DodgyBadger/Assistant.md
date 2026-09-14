@@ -681,6 +681,36 @@ class DelegateToolScenario(BaseScenario):
                 name="delegate_completed",
                 expected={"workflow_id": "delegate_child_tools"},
             )
+            from core.runtime.state import get_runtime_context
+
+            runtime = get_runtime_context()
+            delegate_tasks = await runtime.task_coordinator.list_tasks(kind="delegate")
+            child_job = next(
+                (
+                    task
+                    for task in reversed(delegate_tasks)
+                    if task.metadata.get("session_id") == "delegate_child_tools"
+                ),
+                None,
+            )
+            recent_activity = (
+                child_job.metadata.get("recent_activity", []) if child_job else []
+            )
+            self.soft_assert_equal(
+                [item.get("tool") for item in recent_activity],
+                ["file_read"],
+                "Delegate jobs should retain bounded Pydantic tool activity",
+            )
+            self.soft_assert_equal(
+                (
+                    child_job.metadata.get("tool_call_counts", {}).get("completed", 0)
+                    + child_job.metadata.get("tool_call_counts", {}).get("failed", 0)
+                    if child_job
+                    else None
+                ),
+                1,
+                "Delegate jobs should expose settled child tool-call counts",
+            )
 
             # --- Bounded child failures return tool output instead of aborting parent chat ---
             current_case["name"] = "limit_failure"
