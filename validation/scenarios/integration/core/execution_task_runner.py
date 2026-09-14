@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.identity import SYSTEM_AUTHORITY
 from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
 from core.runtime.task_runner import (
+    ExecutionConcurrencyPolicy,
     ExecutionGatePolicy,
     ExecutionTaskHooks,
     ExecutionTaskSpec,
@@ -422,6 +423,72 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Runner gate should serialize same-key tasks",
         )
 
+        concurrency_entered = asyncio.Event()
+        concurrency_release = asyncio.Event()
+        concurrency_state = {"active": 0, "maximum": 0, "entered": 0}
+        concurrency_policy = ExecutionConcurrencyPolicy(
+            key="runner:concurrency",
+            limit=2,
+            queued_status="queued_for_capacity",
+            queued_metadata={"queue_reason": "validation_capacity"},
+            clear_metadata={"queue_reason": None, "queue_position": None},
+        )
+        concurrency_tasks = [
+            await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:concurrency",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label=f"runner-concurrency-{index}",
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                lambda task: runtime.task_runner.run_with_concurrency(
+                    task,
+                    concurrency_policy,
+                    lambda: _hold_concurrency_slot(
+                        concurrency_state,
+                        concurrency_entered,
+                        concurrency_release,
+                    ),
+                ),
+                start_immediately=False,
+            )
+            for index in range(3)
+        ]
+        await asyncio.wait_for(concurrency_entered.wait(), timeout=2.0)
+        queued_concurrency = await self._wait_for_task_metadata(
+            concurrency_tasks[2].task_id,
+            "queue_reason",
+            "validation_capacity",
+        )
+        self.soft_assert_equal(
+            queued_concurrency.status if queued_concurrency else None,
+            "queued",
+            "Capacity-delayed tasks should remain queued until admitted",
+        )
+        self.soft_assert_equal(
+            (
+                queued_concurrency.metadata.get("queue_position")
+                if queued_concurrency
+                else None
+            ),
+            1,
+            "Capacity-delayed tasks should expose their queue position",
+        )
+        concurrency_release.set()
+        for task in concurrency_tasks:
+            await self._wait_for_task_terminal(task.task_id)
+        self.soft_assert_equal(
+            concurrency_state["maximum"],
+            2,
+            "Runner concurrency lanes should enforce the configured limit",
+        )
+        self.soft_assert_equal(
+            concurrency_state["entered"],
+            3,
+            "Queued capacity work should run after a slot is released",
+        )
+
         observer_states: list[bool] = []
         cleanup_started = asyncio.Event()
         cleanup_released = asyncio.Event()
@@ -583,3 +650,19 @@ async def _hold_gate(
 
 async def _record_gate_entry(label: str, gate_order: list[str]) -> None:
     gate_order.append(label)
+
+
+async def _hold_concurrency_slot(
+    state: dict[str, int],
+    entered: asyncio.Event,
+    release: asyncio.Event,
+) -> None:
+    state["active"] += 1
+    state["entered"] += 1
+    state["maximum"] = max(state["maximum"], state["active"])
+    if state["active"] == 2:
+        entered.set()
+    try:
+        await release.wait()
+    finally:
+        state["active"] -= 1

@@ -781,6 +781,19 @@ def get_delegate_model_requests_limit() -> int:
     return parsed if parsed > 0 else 0
 
 
+def get_max_concurrent_delegates() -> int:
+    """Return the process-wide delegate concurrency limit; 0 is unlimited."""
+    entry = get_general_settings().get("max_concurrent_delegates")
+    value = getattr(entry, "value", None) if entry is not None else None
+    if value is None:
+        return _get_template_setting_positive_int("max_concurrent_delegates", 3)
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return _get_template_setting_positive_int("max_concurrent_delegates", 3)
+    return max(0, parsed)
+
+
 def get_delegate_repeated_failure_limit() -> int:
     """Return allowed identical structured failures before delegate calls are blocked."""
     entry = get_general_settings().get("delegate_repeated_failure_limit")

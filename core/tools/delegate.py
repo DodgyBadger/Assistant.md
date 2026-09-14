@@ -61,12 +61,18 @@ from core.runtime.execution_tasks import (
     get_current_execution_task,
 )
 from core.runtime.state import get_runtime_context
-from core.runtime.task_runner import ExecutionTaskRunOutcome, ExecutionTaskSpec
+from core.runtime.task_runner import (
+    ExecutionConcurrencyPolicy,
+    ExecutionConcurrencyWait,
+    ExecutionTaskRunOutcome,
+    ExecutionTaskSpec,
+)
 from core.settings import (
     get_default_model_thinking,
     get_delegate_model_requests_limit,
     get_delegate_repeated_failure_limit,
     get_delegate_timeout_seconds,
+    get_max_concurrent_delegates,
 )
 from core.tools.base import BaseTool
 from core.tools.failures import (
@@ -553,11 +559,48 @@ class DelegateTool(BaseTool):
             )
             runtime = get_runtime_context()
             completed_result: dict[str, ToolReturn] = {}
+            concurrency_limit = get_max_concurrent_delegates()
+
+            async def _on_queued(
+                task: ExecutionTaskSnapshot,
+                wait: ExecutionConcurrencyWait,
+            ) -> None:
+                logger.add_sink("validation").info(
+                    "delegate_concurrency_queued",
+                    data={
+                        "event": "delegate_concurrency_queued",
+                        "task_id": task.task_id,
+                        "parent_task_id": task.parent_task_id,
+                        "queue_position": wait.queue_position,
+                        "limit": concurrency_limit,
+                    },
+                )
 
             async def _run(task: ExecutionTaskSnapshot) -> ExecutionTaskRunOutcome:
-                result = await _execute_delegate(spec, task)
-                completed_result["value"] = result
-                return _delegate_execution_outcome(result)
+                async def _execute() -> ExecutionTaskRunOutcome:
+                    result = await _execute_delegate(spec, task)
+                    completed_result["value"] = result
+                    return _delegate_execution_outcome(result)
+
+                outcome = await runtime.task_runner.run_with_concurrency(
+                    task,
+                    ExecutionConcurrencyPolicy(
+                        key="delegate",
+                        limit=concurrency_limit,
+                        queued_status="queued_for_delegate_slot",
+                        queued_metadata={"queue_reason": "delegate_concurrency_limit"},
+                        clear_metadata={
+                            "queue_reason": None,
+                            "queue_position": None,
+                            "active_task_ids": None,
+                        },
+                        on_queued=_on_queued,
+                    ),
+                    _execute,
+                )
+                if not isinstance(outcome, ExecutionTaskRunOutcome):
+                    raise RuntimeError("Delegate concurrency lane lost its run outcome")
+                return outcome
 
             child_task = await runtime.task_runner.start_background(
                 ExecutionTaskSpec(
@@ -575,6 +618,7 @@ class DelegateTool(BaseTool):
                     parent_task_id=spec.parent_task_id,
                 ),
                 _run,
+                start_immediately=False,
             )
             handle = {
                 "job_id": child_task.task_id,

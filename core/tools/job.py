@@ -202,6 +202,8 @@ def _project_job(
         "revision": snapshot.revision,
         "last_progress_at": _format_datetime(snapshot.last_progress_at),
         "health_status": snapshot.health_status,
+        "queue_reason": metadata.get("queue_reason"),
+        "queue_position": metadata.get("queue_position"),
         "active_tools": _bounded_list(metadata.get("active_tools"), limit=20),
         "recent_activity": _bounded_list(metadata.get("recent_activity"), limit=20),
         "tool_call_counts": _bounded_mapping(metadata.get("tool_call_counts")),

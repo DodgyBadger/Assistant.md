@@ -63,6 +63,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         settings_raw = yaml.safe_load(settings_response.json()["content"])
         settings_raw["providers"]["openrouter"].pop("provider", None)
         settings_raw["settings"].pop("openrouter_ignored_providers", None)
+        settings_raw["settings"].pop("max_concurrent_delegates", None)
         settings_raw["settings"]["default_model"].pop("category", None)
         settings_raw["settings"]["default_model"]["value"] = "haiku"
         settings_raw["settings"]["delegate_tool_calls_limit"] = {
@@ -80,6 +81,13 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             update_settings_response.status_code,
             200,
             "Settings update should allow existing OpenRouter provider without routing block",
+        )
+        from core.settings import get_max_concurrent_delegates
+
+        self.soft_assert_equal(
+            get_max_concurrent_delegates(),
+            3,
+            "Upgraded settings should use the delegate concurrency template fallback before repair",
         )
         status_response = self.call_api("/api/status")
         self.soft_assert_equal(
@@ -129,6 +137,36 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "delegate_tool_calls_limit" in repaired_settings["settings"],
             False,
             "Settings repair should prune the removed delegate tool-call ceiling",
+        )
+        self.soft_assert_equal(
+            repaired_settings["settings"]["max_concurrent_delegates"]["value"],
+            3,
+            "Settings repair should add the delegate concurrency control",
+        )
+        unlimited_update = self.call_api(
+            "/api/system/settings/general/max_concurrent_delegates",
+            method="PUT",
+            data={"value": "0"},
+        )
+        self.soft_assert_equal(
+            unlimited_update.status_code,
+            200,
+            "Delegate concurrency should accept zero as unlimited",
+        )
+        self.soft_assert_equal(
+            get_max_concurrent_delegates(),
+            0,
+            "Delegate concurrency getter should preserve unlimited mode",
+        )
+        invalid_concurrency = self.call_api(
+            "/api/system/settings/general/max_concurrent_delegates",
+            method="PUT",
+            data={"value": "-1"},
+        )
+        self.soft_assert_equal(
+            invalid_concurrency.status_code,
+            400,
+            "Delegate concurrency should reject negative values",
         )
 
         self.soft_assert_equal(

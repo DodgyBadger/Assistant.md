@@ -64,6 +64,11 @@ settings:
     description: "Maximum model requests allowed inside one delegate child-agent run. 0 disables the limit. This remains independent from delegate concurrency and timeout controls."
     category: "Delegation"
     restart_required: false
+  max_concurrent_delegates:
+    value: 3
+    description: "Maximum delegate child runs active at once. Additional delegates remain queued. 0 disables the concurrency limit."
+    category: "Delegation"
+    restart_required: false
   delegate_repeated_failure_limit:
     value: 2
     description: "Maximum consecutive executions of one delegate child tool with identical arguments that may return structured failures before later unchanged attempts are blocked. 0 disables this guard."

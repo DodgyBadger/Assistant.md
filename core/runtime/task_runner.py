@@ -73,6 +73,37 @@ class ExecutionGatePolicy:
     ) = None
 
 
+@dataclass(frozen=True)
+class ExecutionConcurrencyWait:
+    """Observable position for work waiting on bounded concurrency."""
+
+    key: str
+    queue_position: int
+    active_task_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ExecutionConcurrencyPolicy:
+    """Policy for one shared bounded-concurrency execution lane."""
+
+    key: str
+    limit: int
+    queued_status: str
+    queued_metadata: dict[str, Any] = field(default_factory=dict)
+    clear_metadata: dict[str, Any] = field(default_factory=dict)
+    on_queued: (
+        Callable[[ExecutionTaskSnapshot, ExecutionConcurrencyWait], Awaitable[None]]
+        | None
+    ) = None
+
+
+@dataclass
+class _ExecutionConcurrencyLane:
+    limit: int
+    holders: set[str] = field(default_factory=set)
+    waiters: list[tuple[str, asyncio.Future[None]]] = field(default_factory=list)
+
+
 class ExecutionTaskRunner:
     """Create, attach, and run background execution tasks."""
 
@@ -88,6 +119,7 @@ class ExecutionTaskRunner:
         self._gate_locks: dict[str, asyncio.Lock] = {}
         self._gate_holders: dict[str, str] = {}
         self._gate_waiters: dict[str, list[str]] = {}
+        self._concurrency_lanes: dict[tuple[str, int], _ExecutionConcurrencyLane] = {}
 
     async def start_background(
         self,
@@ -245,6 +277,57 @@ class ExecutionTaskRunner:
             if acquired:
                 await self._release_gate(task.task_id, policy.key, lock)
 
+    async def run_with_concurrency(
+        self,
+        task: ExecutionTaskSnapshot,
+        policy: ExecutionConcurrencyPolicy,
+        run: Callable[[], Awaitable[Any]],
+    ) -> Any:
+        """Run work in one deterministic bounded-concurrency lane."""
+        if policy.limit <= 0:
+            await self._task_coordinator.mark_started(task.task_id)
+            return await run()
+
+        wait, waiter = await self._reserve_concurrency_slot(
+            task.task_id,
+            policy.key,
+            policy.limit,
+        )
+        if wait is not None:
+            await self._task_coordinator.heartbeat(
+                task.task_id,
+                status=policy.queued_status,
+                metadata={
+                    **policy.queued_metadata,
+                    "queue_position": wait.queue_position,
+                    "active_task_ids": list(wait.active_task_ids),
+                },
+            )
+            if policy.on_queued is not None:
+                await policy.on_queued(task, wait)
+
+        try:
+            if waiter is not None:
+                await waiter
+            await self._task_coordinator.mark_started(task.task_id)
+            if policy.clear_metadata:
+                await self._task_coordinator.update_metadata(
+                    task.task_id,
+                    policy.clear_metadata,
+                )
+            return await run()
+        finally:
+            await self._remove_concurrency_waiter(
+                task.task_id,
+                policy.key,
+                policy.limit,
+            )
+            await self._release_concurrency_slot(
+                task.task_id,
+                policy.key,
+                policy.limit,
+            )
+
     async def _task_has_cancelled(self, task_id: str) -> bool:
         snapshot = await self._task_coordinator.get_task(task_id)
         if snapshot is None:
@@ -258,6 +341,68 @@ class ExecutionTaskRunner:
                 lock = asyncio.Lock()
                 self._gate_locks[key] = lock
             return lock
+
+    async def _reserve_concurrency_slot(
+        self,
+        task_id: str,
+        key: str,
+        limit: int,
+    ) -> tuple[ExecutionConcurrencyWait | None, asyncio.Future[None] | None]:
+        async with self._gate_guard:
+            lane_key = (key, limit)
+            lane = self._concurrency_lanes.get(lane_key)
+            if lane is None:
+                lane = _ExecutionConcurrencyLane(limit=limit)
+                self._concurrency_lanes[lane_key] = lane
+            if len(lane.holders) < lane.limit and not lane.waiters:
+                lane.holders.add(task_id)
+                return None, None
+            waiter = asyncio.get_running_loop().create_future()
+            lane.waiters.append((task_id, waiter))
+            return (
+                ExecutionConcurrencyWait(
+                    key=key,
+                    queue_position=len(lane.waiters),
+                    active_task_ids=tuple(sorted(lane.holders)),
+                ),
+                waiter,
+            )
+
+    async def _release_concurrency_slot(
+        self,
+        task_id: str,
+        key: str,
+        limit: int,
+    ) -> None:
+        async with self._gate_guard:
+            lane_key = (key, limit)
+            lane = self._concurrency_lanes.get(lane_key)
+            if lane is None:
+                return
+            lane.holders.discard(task_id)
+            while lane.waiters and len(lane.holders) < lane.limit:
+                next_task_id, waiter = lane.waiters.pop(0)
+                if waiter.cancelled():
+                    continue
+                lane.holders.add(next_task_id)
+                waiter.set_result(None)
+            if not lane.holders and not lane.waiters:
+                self._concurrency_lanes.pop(lane_key, None)
+
+    async def _remove_concurrency_waiter(
+        self,
+        task_id: str,
+        key: str,
+        limit: int,
+    ) -> None:
+        async with self._gate_guard:
+            lane_key = (key, limit)
+            lane = self._concurrency_lanes.get(lane_key)
+            if lane is None:
+                return
+            lane.waiters = [item for item in lane.waiters if item[0] != task_id]
+            if not lane.holders and not lane.waiters:
+                self._concurrency_lanes.pop(lane_key, None)
 
     async def _register_gate_waiter(
         self,
