@@ -56,7 +56,7 @@ from core.tools.failures import (
 
 logger = UnifiedLogger(tag="delegate-tool")
 
-_FORBIDDEN_CHILD_TOOLS = frozenset({"delegate", "code_execution"})
+_FORBIDDEN_CHILD_TOOLS = frozenset({"delegate", "code_execution", "job"})
 _SUPPORTED_OPTION_KEYS = frozenset({"thinking"})
 _DELEGATE_PARTIAL_OUTPUT_MAX_CHARS = 4_000
 _DELEGATE_MAX_HANDOFF_REFERENCES = 20

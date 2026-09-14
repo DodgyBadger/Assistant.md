@@ -530,6 +530,12 @@ tools:
     requires_secrets: []
     user_editable: false
     chat_visible: true
+  job:
+    module: core.tools.job
+    description: "List, inspect, wait for, and cancel process-local asynchronous jobs"
+    requires_secrets: []
+    user_editable: false
+    chat_visible: true
   chat_history_compact:
     module: core.tools.chat_history_compact
     description: "Check or compact the current chat session history"
