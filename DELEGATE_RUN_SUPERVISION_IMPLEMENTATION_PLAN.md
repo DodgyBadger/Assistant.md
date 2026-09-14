@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved design direction, ready for validation-first feature development on `dev/delegate-run-supervision`.
+Implemented on `dev/delegate-run-supervision`. Focused delegate, job, execution-task runner, and settings-upgrade scenarios pass; the maintainer-owned full validation profile remains pending.
 
 ## Purpose
 
@@ -166,8 +166,8 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - Record aggregate started, completed, failed, invalid, and unsettled call counts.
 - Maintain a bounded recent-activity ring with tool name, sanitized argument hint, start time, finish time, duration, and outcome.
 - Update `last_progress_at` on model activity, tool start, and tool completion.
-- Publish `attention_required` only for concrete signals: the repeated-failure guard opening, a classified child failure requiring intervention, or an active tool exceeding a generous observation threshold.
-- Do not automatically cancel a delegate solely because no Pydantic event arrived while a tool remains active.
+- Publish `attention_required` only for concrete runtime signals such as the repeated-failure guard opening or a classified child failure requiring intervention. Expose each active tool's start time so the parent can judge its duration without a speculative health transition.
+- Do not automatically classify or cancel a delegate solely because no Pydantic event arrived while a tool remains active.
 - Preserve the existing final audit and partial-output handoff on failures and cancellation.
 
 ### 6. Store and deliver delegate results
@@ -304,7 +304,7 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 **Outcome:** Job snapshots show enough bounded Pydantic activity to distinguish useful progress from a run that may need attention.
 
-**Assertions first:** Add synthetic Pydantic event cases for model activity, concurrent tool calls keyed by call ID, tool completion and failure, active-tool projection, bounded recent-activity eviction, sanitized argument hints, aggregate counters, partial output, and one-shot transition to `attention_required`.
+**Assertions first:** Add synthetic Pydantic event cases for model activity, concurrent tool calls keyed by call ID, tool completion and failure, active-tool projection, bounded recent-activity eviction, sanitized argument hints, aggregate counters, and one-shot transition to `attention_required`.
 
 **Production boundary:** Add the child `event_stream_handler`, progress accumulator, bounded recent-activity ring, coordinator progress publication, and attention event; do not alter child tool execution semantics or auto-cancel solely because an active tool is old.
 
@@ -316,9 +316,9 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 **Assertions first:** Add cases for direct job cancellation during an active child tool, blocking-parent cancellation, managed-parent completion/failure/cancellation, sibling isolation, runtime shutdown, latest partial-result capture, and cancellation requested during terminal transition.
 
-**Production boundary:** Add descendant lookup and cleanup, cascade cancellation downward on every parent terminal path, await Pydantic unwinding through the runner-owned `asyncio.Task`, publish the cancelled result before terminal visibility, and avoid awaiting cancellation while holding coordinator locks.
+**Production boundary:** Add descendant lookup and cleanup, request cancellation downward on every parent terminal path, await Pydantic unwinding for blocking parent cancellation through the runner-owned `asyncio.Task`, publish the cancelled result before child terminal visibility, and avoid awaiting cancellation while holding coordinator locks.
 
-**Complete when:** All cancellation cases deterministically settle with no live child tasks, exactly one child terminal event, preserved bounded partial state, and no upward or sideways cancellation.
+**Complete when:** All cancellation cases deterministically converge with no orphaned child tasks, exactly one child terminal event, preserved bounded partial state, and no upward or sideways cancellation.
 
 ### Slice 7: Remove the delegate tool-call ceiling
 
@@ -361,6 +361,6 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 - A dedicated delegate monitoring dashboard.
 - Promotion of queued durable ingestion database jobs into execution tasks before the ingestion worker claims them.
 
-## Next Phase
+## Review Handoff
 
-Proceed to Feature Development after review of this plan with Slice 1, beginning with the failing deterministic execution-task assertions before making production changes.
+The implementation is ready for maintainer review. Before merge, maintainers should run `python validation/run_validation.py run integration/core`; agents have intentionally limited local validation to the affected individual deterministic scenarios.

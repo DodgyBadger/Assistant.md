@@ -32,13 +32,24 @@ class JobToolScenario(BaseScenario):
         job_tool = Job.get_tool()
         invoke = cast(Any, job_tool.function)
 
+        parent = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="job-tool:parent",
+            source=ExecutionTaskSource.SYSTEM,
+            label="parent-job",
+            authority=LOCAL_USER_AUTHORITY,
+        )
         owned = await runtime.task_coordinator.create_queued_task(
             kind=ExecutionTaskKind.CHAT,
             scope="job-tool:owned",
             source=ExecutionTaskSource.SYSTEM,
             label="owned-job",
             authority=LOCAL_USER_AUTHORITY,
-            metadata={"active_tools": ["file_read"]},
+            parent_task_id=parent.task_id,
+            metadata={
+                "active_tools": ["file_read"],
+                "usage": {"request_count": 2, "tool_call_count": 3},
+            },
         )
         inaccessible = await runtime.task_coordinator.create_queued_task(
             kind=ExecutionTaskKind.CHAT,
@@ -86,6 +97,38 @@ class JobToolScenario(BaseScenario):
             ["file_read"],
             "Job status should project bounded live activity",
         )
+        self.soft_assert_equal(
+            status["jobs"][0]["usage"],
+            {"request_count": 2, "tool_call_count": 3},
+            "Job status should project bounded aggregate usage",
+        )
+        api_snapshot_response = self.call_api(f"/api/tasks/{owned.task_id}")
+        self.soft_assert_equal(
+            api_snapshot_response.status_code,
+            200,
+            "Execution task API should expose an accessible delegate-style child",
+        )
+        api_snapshot = api_snapshot_response.json()
+        self.soft_assert_equal(
+            api_snapshot.get("parent_task_id"),
+            parent.task_id,
+            "Execution task API should project parent task identity",
+        )
+        self.soft_assert_equal(
+            isinstance(api_snapshot.get("revision"), int),
+            True,
+            "Execution task API should project revision state",
+        )
+        self.soft_assert_equal(
+            api_snapshot.get("heartbeat_status"),
+            "queued",
+            "Execution task API should project heartbeat state",
+        )
+        self.soft_assert_equal(
+            "result" in api_snapshot,
+            False,
+            "Execution task API snapshots should omit process-local result bodies",
+        )
 
         async def _complete_owned() -> None:
             await asyncio.sleep(0.02)
@@ -114,6 +157,12 @@ class JobToolScenario(BaseScenario):
             waited["jobs"][0]["result"]["text"],
             "job complete",
             "Job wait should include the bounded terminal result",
+        )
+        terminal_api_snapshot = self.call_api(f"/api/tasks/{owned.task_id}").json()
+        self.soft_assert_equal(
+            "result" in terminal_api_snapshot,
+            False,
+            "Execution task API should omit terminal result bodies",
         )
 
         import core.tools.job as job_module

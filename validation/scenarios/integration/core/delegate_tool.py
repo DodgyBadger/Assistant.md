@@ -462,6 +462,7 @@ class DelegateToolScenario(BaseScenario):
                 expected={
                     "workflow_id": "delegate_init_failure",
                     "failure_kind": "delegate_internal",
+                    "mode": "blocking",
                 },
             )
 
@@ -588,7 +589,10 @@ class DelegateToolScenario(BaseScenario):
             self.assert_event_contains(
                 self.events_since(checkpoint),
                 name="delegate_cancelled",
-                expected={"workflow_id": "delegate_parent_cancelled"},
+                expected={
+                    "workflow_id": "delegate_parent_cancelled",
+                    "mode": "blocking",
+                },
             )
 
         await _assert_parent_cancellation_is_logged()
@@ -1196,6 +1200,7 @@ def _assert_shared_tool_result_classification() -> None:
         _build_child_run_audit,
         _child_run_references,
         _compact_value,
+        _delegate_argument_hint,
     )
     from core.tools.failures import classify_tool_result_state
 
@@ -1249,6 +1254,16 @@ def _assert_shared_tool_result_classification() -> None:
     ]
     assert _child_run_references(cyclic_messages) == ["artifact://kept"]
     assert _compact_value(cyclic_result, max_chars=200).startswith("{")
+    argument_hint = _delegate_argument_hint(
+        {
+            "operation": "write",
+            "path": "reports/result.md",
+            "content": "sensitive generated payload",
+        }
+    )
+    assert "reports/result.md" in argument_hint
+    assert "sensitive generated payload" not in argument_hint
+    assert "content" in argument_hint
     unresolved_audit = _build_child_run_audit(
         [
             ModelResponse(

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.identity import SYSTEM_AUTHORITY
-from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
+from core.runtime.execution_tasks import (
+    EXECUTION_TASK_RESULT_MAX_CHARS,
+    ExecutionTaskKind,
+    ExecutionTaskSource,
+)
 from core.runtime.task_runner import (
     ExecutionConcurrencyPolicy,
     ExecutionGatePolicy,
@@ -147,7 +152,10 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             terminal_result_task.task_id,
             {
                 "text": oversized_text,
-                "artifact_references": ["vault://report.md"],
+                "artifact_references": [
+                    "vault://report.md",
+                    "vault://" + ("oversized-reference" * 10_000),
+                ],
             },
         )
         await runtime.task_coordinator.mark_completed(terminal_result_task.task_id)
@@ -178,6 +186,17 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             ),
             ["vault://report.md"],
             "Result truncation should preserve artifact references",
+        )
+        self.soft_assert(
+            len(
+                json.dumps(
+                    result_snapshot.result,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            <= EXECUTION_TASK_RESULT_MAX_CHARS,
+            "Execution task result bounds should include artifact references",
         )
 
         parent = await runtime.task_coordinator.create_queued_task(

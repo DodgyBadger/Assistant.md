@@ -1,4 +1,4 @@
-"""Delegate tool - run a bounded child agent and return its output."""
+"""Delegate tool - run a supervised child agent and return its output."""
 
 import asyncio
 import json
@@ -88,6 +88,20 @@ _SUPPORTED_OPTION_KEYS = frozenset({"thinking"})
 _DELEGATE_PARTIAL_OUTPUT_MAX_CHARS = 4_000
 _DELEGATE_MAX_HANDOFF_REFERENCES = 20
 _DELEGATE_MAX_HANDOFF_REFERENCE_NODES = 1_000
+_DELEGATE_MODEL_PROGRESS_INTERVAL_SECONDS = 1.0
+_DELEGATE_VISIBLE_ARGUMENT_KEYS = frozenset(
+    {
+        "cache_ref",
+        "operation",
+        "path",
+        "paths",
+        "query",
+        "queries",
+        "ref",
+        "url",
+        "urls",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -137,38 +151,44 @@ class _DelegateProgressObserver:
         self._model_event_count = 0
         self._attention_published = False
         self._attention_logged = False
+        self._last_publish_monotonic = 0.0
         self._lock = asyncio.Lock()
 
     async def handle_events(
         self,
-        _ctx: RunContext[Any],
+        ctx: RunContext[Any],
         events: AsyncIterable[AgentStreamEvent],
     ) -> None:
         async for event in events:
             async with self._lock:
                 self._model_event_count += 1
+                is_tool_event = isinstance(
+                    event,
+                    FunctionToolCallEvent | FunctionToolResultEvent,
+                )
                 if isinstance(event, FunctionToolCallEvent):
                     self._record_started(event)
                 elif isinstance(event, FunctionToolResultEvent):
                     self._record_finished(event)
-                await self._publish()
+                now = monotonic()
+                if (
+                    is_tool_event
+                    or now - self._last_publish_monotonic
+                    >= _DELEGATE_MODEL_PROGRESS_INTERVAL_SECONDS
+                ):
+                    await self._publish(usage=ctx.usage)
+                    self._last_publish_monotonic = now
 
     def _record_started(self, event: FunctionToolCallEvent) -> None:
         part = event.part
         try:
-            arguments = part.args_as_json_str()
+            arguments: Any = json.loads(part.args_as_json_str())
         except Exception:  # noqa: BLE001 - defensive upstream event compatibility
-            arguments = _compact_value(
-                getattr(part, "args", ""),
-                max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
-            )
+            arguments = getattr(part, "args", "")
         call = _ActiveDelegateToolCall(
             tool=str(getattr(part, "tool_name", "tool")),
             call_id=event.tool_call_id,
-            arguments=_compact_value(
-                arguments,
-                max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
-            ),
+            arguments=_delegate_argument_hint(arguments),
             started_at=datetime.now(UTC).isoformat(),
             started_monotonic=monotonic(),
         )
@@ -216,15 +236,24 @@ class _DelegateProgressObserver:
         if metadata_dict.get("failure_kind") == "repeated_tool_failure":
             self._attention_published = True
 
-    async def _publish(self) -> None:
+    async def _publish(self, *, usage: RunUsage) -> None:
         health_status = "attention_required" if self._attention_published else "healthy"
         await get_runtime_context().task_coordinator.publish_progress(
             self._task.task_id,
             metadata={
-                "active_tools": [call.tool for call in self._active.values()],
+                "active_tools": [
+                    {
+                        "tool": call.tool,
+                        "call_id": call.call_id,
+                        "arguments": call.arguments,
+                        "started_at": call.started_at,
+                    }
+                    for call in self._active.values()
+                ],
                 "recent_activity": list(self._recent),
                 "tool_call_counts": dict(self._counts),
                 "model_event_count": self._model_event_count,
+                "usage": _delegate_usage_metadata(usage),
             },
             health_status=health_status,
         )
@@ -244,7 +273,7 @@ class _DelegateProgressObserver:
 
 
 class DelegateTool(BaseTool):
-    """Run a bounded child agent over a prompt with optional tools."""
+    """Run a supervised child agent over a prompt with optional tools."""
 
     @classmethod
     def get_tool(cls, vault_path: str | None = None) -> Tool:
@@ -366,6 +395,9 @@ class DelegateTool(BaseTool):
                 )
                 _log_delegate_cancelled(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     repeated_failure_limit=repeated_failure_limit,
@@ -394,6 +426,9 @@ class DelegateTool(BaseTool):
                 )
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
@@ -418,6 +453,9 @@ class DelegateTool(BaseTool):
                 )
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
@@ -449,6 +487,9 @@ class DelegateTool(BaseTool):
                     )
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
@@ -799,6 +840,9 @@ async def _collect_delegate_response(
 def _failed_delegate_return(
     *,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    mode: str,
     model: str,
     tool_names: tuple[str, ...],
     stripped_tools: tuple[str, ...],
@@ -837,6 +881,9 @@ def _failed_delegate_return(
 
     log_data = {
         "workflow_id": session_id,
+        "task_id": task_id,
+        "parent_task_id": parent_task_id,
+        "mode": mode,
         "model": model,
         "tool_names": list(tool_names),
         "error_type": classification.error_type,
@@ -867,6 +914,9 @@ def _failed_delegate_return(
 def _log_delegate_cancelled(
     *,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    mode: str,
     model: str,
     tool_names: tuple[str, ...],
     repeated_failure_limit: int,
@@ -879,6 +929,9 @@ def _log_delegate_cancelled(
         "delegate_cancelled",
         data={
             "workflow_id": session_id,
+            "task_id": task_id,
+            "parent_task_id": parent_task_id,
+            "mode": mode,
             "model": model,
             "tool_names": list(tool_names),
             "repeated_failure_limit": repeated_failure_limit,
@@ -938,10 +991,7 @@ def _build_child_run_audit(messages: Sequence[ModelMessage]) -> dict[str, Any]:
                     "tool": part.tool_name,
                     "call_id": part.tool_call_id,
                     "settled": False,
-                    "arguments": _compact_value(
-                        part.args,
-                        max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
-                    ),
+                    "arguments": _delegate_argument_hint(part.args),
                 }
                 if len(tool_calls) < DELEGATE_AUDIT_MAX_TOOL_CALLS:
                     tool_calls.append(call)
@@ -1108,6 +1158,32 @@ def _compact_value(value: Any, *, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return f"{text[:max_chars]}...[truncated {len(text) - max_chars} chars]"
+
+
+def _delegate_argument_hint(value: Any) -> str:
+    """Expose useful routing hints without retaining arbitrary tool payloads."""
+    parsed = value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            return "<unstructured arguments>"
+    if not isinstance(parsed, dict):
+        return f"<arguments type={type(parsed).__name__}>"
+
+    hint = {
+        str(key): item
+        for key, item in parsed.items()
+        if str(key).strip().lower() in _DELEGATE_VISIBLE_ARGUMENT_KEYS
+    }
+    hidden_keys = sorted(
+        str(key)
+        for key in parsed
+        if str(key).strip().lower() not in _DELEGATE_VISIBLE_ARGUMENT_KEYS
+    )
+    if hidden_keys:
+        hint["other_keys"] = hidden_keys
+    return _compact_value(hint, max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS)
 
 
 def _looks_like_tool_error(text: str) -> bool:

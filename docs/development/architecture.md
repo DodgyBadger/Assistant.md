@@ -44,7 +44,7 @@ Ordinary browser-facing tool lists and lifecycle events expose only tool identit
 
 Authoring files under `core/authoring/` define Markdown workflows and context assembly backed by Python executed in the Monty sandbox. Monty code receives only explicit host capability functions; it does not inherit the application process or unrestricted Python access. The workflow governor applies vault lanes, timeouts, cancellation, authority propagation, activity, and durable run history. APScheduler jobs under `core/scheduling/` retain the workflow owner and enter the same governed path.
 
-Execution tasks are process-local coordination objects. Domain outcomes such as chat history, workflow runs, vault activities, goals, and connection state are persisted by their owning subsystems. A process restart may end active work, but must not make transient task snapshots the canonical record of completed work.
+Execution tasks are process-local coordination objects. The shared runner owns background isolation, timeouts, keyed admission, bounded concurrency, parent-child cancellation, progress signals, and bounded terminal results. The authority-mediated `job` tool exposes compact list, status, event-driven wait, and cancellation operations without making task snapshots durable domain records. Domain outcomes such as chat history, workflow runs, vault activities, goals, and connection state are persisted by their owning subsystems. A process restart may end active work, but must not make transient task snapshots the canonical record of completed work.
 
 ## Identity, authority, and trust
 
@@ -75,7 +75,7 @@ Capabilities are assembled for the current execution authority rather than regis
 | Stdio MCP tools | Providers launched in the advanced shell | Interactive primary chat only; the same MCP governance applies after a structured, bounded SSH launch |
 | Monty host capabilities | functions used by authoring scripts | Explicitly supplied to the sandbox for the current workflow or context run |
 | Advanced shell | general `shell` tool | Interactive primary chat only, when advanced mode, authority, and SSH readiness permit it |
-| Delegation | bounded child agents | Parent-owned execution with explicit tools, limits, and failure handoff |
+| Delegation | supervised child agents | Parent-owned execution tasks with explicit tools, observable progress, bounded concurrency, cancellation, and failure handoff |
 
 Built-in tool configuration lives under `core/tools/`, shared binding under `core/authoring/shared/`, and model-facing composition under `core/llm/` and `core/chat/`. Connection gating happens before a tool reaches an agent. Global tool disablement remains authoritative after connection-specific readiness.
 
@@ -100,7 +100,7 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 | Vault activity and recovery | Attributed activities, revisions, and snapshots | vault-state databases and snapshot storage |
 | Session summaries | Rebuildable derived memory indexes | memory subsystem state |
 | Goals | Lightweight durable state with provenance | goals subsystem state |
-| Active execution coordination | Task owner, events, cancellation, checkpoints | bounded process memory |
+| Active execution coordination | Task owner, parent-child links, progress, bounded results, waits, cancellation, and checkpoints | bounded process memory |
 | Advanced-shell files | Deployment shell user; agent-accessible | Docker home and workspace volumes |
 | SSH pairing | Container-owned disposable infrastructure identity | dedicated Docker volumes |
 
@@ -147,7 +147,7 @@ ADRs under [`docs/development/adr/`](adr/) are append-oriented records of durabl
 
 Start with these groups when investigating a boundary:
 
-- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, and 0031–0033;
+- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, and 0047;
 - vaults, ingestion, memory, and goals: ADRs 0005–0006, 0011–0018, 0024–0025, and 0029–0030;
 - tools, models, and external capabilities: ADRs 0007–0010, 0021–0023, 0027, 0035, 0037, 0039, 0042, and 0045;
 - identity, storage, connections, and OAuth: ADRs 0015, 0028, and 0034–0041;

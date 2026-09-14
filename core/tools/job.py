@@ -207,6 +207,7 @@ def _project_job(
         "active_tools": _bounded_list(metadata.get("active_tools"), limit=20),
         "recent_activity": _bounded_list(metadata.get("recent_activity"), limit=20),
         "tool_call_counts": _bounded_mapping(metadata.get("tool_call_counts")),
+        "usage": _bounded_mapping(metadata.get("usage")),
     }
     if include_result and snapshot.result is not None:
         projected["result"] = snapshot.result

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -891,23 +892,53 @@ def _bound_execution_task_result(
     if len(serialized) <= EXECUTION_TASK_RESULT_MAX_CHARS:
         return normalized, False
 
+    bounded: dict[str, Any] = {"truncated": True}
     artifact_references = normalized.get("artifact_references")
-    bounded: dict[str, Any] = {
-        "truncated": True,
-        "preview": serialized[: EXECUTION_TASK_RESULT_MAX_CHARS - 1_024],
-    }
     if isinstance(artifact_references, list):
-        bounded["artifact_references"] = artifact_references
+        preserved_references: list[Any] = []
+        for reference in artifact_references[:50]:
+            candidate = [*preserved_references, reference]
+            if len(_serialize_json(candidate)) > 4_096:
+                break
+            preserved_references = candidate
+        if preserved_references:
+            bounded["artifact_references"] = preserved_references
+
+    preview_budget = max(
+        0,
+        EXECUTION_TASK_RESULT_MAX_CHARS - len(_serialize_json(bounded)) - 32,
+    )
+    bounded["preview"] = serialized[:preview_budget]
+    while len(_serialize_json(bounded)) > EXECUTION_TASK_RESULT_MAX_CHARS:
+        overflow = len(_serialize_json(bounded)) - EXECUTION_TASK_RESULT_MAX_CHARS
+        bounded["preview"] = bounded["preview"][:-overflow]
     return bounded, True
 
 
-def _json_safe_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
+def _json_safe_value(value: Any, *, _seen: set[int] | None = None) -> Any:
+    if value is None or isinstance(value, str | int | bool):
         return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
     if isinstance(value, datetime):
         return value.isoformat()
-    if isinstance(value, dict):
-        return {str(key): _json_safe_value(item) for key, item in value.items()}
-    if isinstance(value, list | tuple | set):
-        return [_json_safe_value(item) for item in value]
+    if isinstance(value, dict | list | tuple | set):
+        seen = _seen if _seen is not None else set()
+        container_id = id(value)
+        if container_id in seen:
+            return "<recursive>"
+        seen.add(container_id)
+        try:
+            if isinstance(value, dict):
+                return {
+                    str(key): _json_safe_value(item, _seen=seen)
+                    for key, item in value.items()
+                }
+            return [_json_safe_value(item, _seen=seen) for item in value]
+        finally:
+            seen.remove(container_id)
     return str(value)
+
+
+def _serialize_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)

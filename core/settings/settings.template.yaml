@@ -526,7 +526,7 @@ tools:
     chat_visible: true
   delegate:
     module: core.tools.delegate
-    description: "Run a bounded child agent for focused model reasoning or limited tool exploration"
+    description: "Run a supervised child agent for focused model reasoning or tool exploration"
     requires_secrets: []
     user_editable: false
     chat_visible: true
