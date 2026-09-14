@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.identity import SYSTEM_AUTHORITY
+from core.identity import SYSTEM_AUTHORITY, ExecutionAuthority
 from core.runtime.execution_tasks import (
     EXECUTION_TASK_RESULT_MAX_CHARS,
     ExecutionTaskKind,
@@ -114,6 +114,86 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             inline_terminal.status if inline_terminal else None,
             "completed",
             "Runner should mark successful inline work completed",
+        )
+        try:
+            await runtime.task_runner.run_inline(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:inline-detached",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="runner-inline-detached",
+                    authority=SYSTEM_AUTHORITY,
+                    detached_from_parent_lifecycle=True,
+                ),
+                _complete_task,
+            )
+        except ValueError as exc:
+            self.soft_assert_equal(
+                str(exc),
+                "Inline execution tasks cannot detach from their caller",
+                "Inline detachment should fail with a stable explanation",
+            )
+        else:
+            self.soft_assert(False, "Inline execution tasks must reject detachment")
+
+        reservation_inserted = asyncio.Event()
+        release_reservation = asyncio.Event()
+        reservation_cancel_hooks: list[str] = []
+        original_create_queued_task = runtime.task_coordinator.create_queued_task
+
+        async def _delay_background_reservation(**kwargs):
+            reserved = await original_create_queued_task(**kwargs)
+            if kwargs.get("scope") == "runner:interrupted-reservation":
+                reservation_inserted.set()
+                await release_reservation.wait()
+            return reserved
+
+        async def _record_and_fail_reservation_hook(task_id):
+            reservation_cancel_hooks.append(task_id)
+            raise RuntimeError("forced reservation cancellation hook failure")
+
+        runtime.task_coordinator.create_queued_task = _delay_background_reservation
+        try:
+            interrupted_start = asyncio.create_task(
+                runtime.task_runner.start_background(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.DELEGATE,
+                        scope="runner:interrupted-reservation",
+                        source=ExecutionTaskSource.TOOL,
+                        label="runner-interrupted-reservation",
+                        authority=SYSTEM_AUTHORITY,
+                        detached_from_parent_lifecycle=True,
+                    ),
+                    _complete_task,
+                    hooks=ExecutionTaskHooks(
+                        on_cancelled=_record_and_fail_reservation_hook
+                    ),
+                )
+            )
+            await asyncio.wait_for(reservation_inserted.wait(), timeout=1.0)
+            interrupted_start.cancel()
+            release_reservation.set()
+            try:
+                await interrupted_start
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Interrupted background start should cancel")
+        finally:
+            runtime.task_coordinator.create_queued_task = original_create_queued_task
+            release_reservation.set()
+        interrupted_records = await runtime.task_coordinator.list_tasks(
+            scope="runner:interrupted-reservation"
+        )
+        self.soft_assert_equal(
+            [task.status for task in interrupted_records],
+            ["cancelled"],
+            "Interrupted background reservation should not strand a queued task",
+        )
+        self.soft_assert_equal(
+            reservation_cancel_hooks,
+            [interrupted_records[0].task_id] if interrupted_records else [],
+            "Interrupted background reservation should run cancellation hooks",
         )
 
         observable_task = await runtime.task_coordinator.create_queued_task(
@@ -320,6 +400,51 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             authority=SYSTEM_AUTHORITY,
             parent_task_id=parent.task_id,
         )
+        completion_survivor = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.DELEGATE,
+            scope="runner:child",
+            source=ExecutionTaskSource.TOOL,
+            label="runner-completion-survivor",
+            authority=SYSTEM_AUTHORITY,
+            parent_task_id=parent.task_id,
+            detached_from_parent_lifecycle=True,
+        )
+        try:
+            await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope="runner:missing-parent-child",
+                source=ExecutionTaskSource.TOOL,
+                label="runner-missing-parent-child",
+                authority=SYSTEM_AUTHORITY,
+                parent_task_id="task_missing_parent",
+                detached_from_parent_lifecycle=True,
+            )
+        except RuntimeError as exc:
+            self.soft_assert(
+                "Parent execution task not found" in str(exc),
+                "Detached child lineage should require an existing parent",
+            )
+        else:
+            self.soft_assert(False, "Detached child must reject missing lineage")
+        try:
+            await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope="runner:cross-authority-child",
+                source=ExecutionTaskSource.TOOL,
+                label="runner-cross-authority-child",
+                authority=ExecutionAuthority(principal_id="different-principal"),
+                parent_task_id=parent.task_id,
+                detached_from_parent_lifecycle=True,
+            )
+        except RuntimeError as exc:
+            self.soft_assert(
+                "authority must match" in str(exc),
+                "Detached child lineage should preserve parent authority",
+            )
+        else:
+            self.soft_assert(
+                False, "Detached child must reject cross-authority lineage"
+            )
         await runtime.task_coordinator.cancel_task(
             first_child.task_id,
             reason="validation_direct_child_cancel",
@@ -338,13 +463,129 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "queued",
             "Direct child cancellation should not cancel siblings",
         )
-        await runtime.task_coordinator.mark_completed(parent.task_id)
+        child_cancellation_started = asyncio.Event()
+        release_child_cancellation = asyncio.Event()
+        original_cancel_task = runtime.task_coordinator.cancel_task
+
+        async def _delay_child_cancellation(task_id, *, reason="cancel_requested"):
+            if task_id == second_child.task_id:
+                child_cancellation_started.set()
+                await release_child_cancellation.wait()
+            return await original_cancel_task(task_id, reason=reason)
+
+        runtime.task_coordinator.cancel_task = _delay_child_cancellation
+        parent_completion = asyncio.create_task(
+            runtime.task_coordinator.mark_completed(parent.task_id)
+        )
+        try:
+            await asyncio.wait_for(child_cancellation_started.wait(), timeout=1.0)
+            try:
+                await runtime.task_coordinator.create_queued_task(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:late-child",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="runner-late-attached-child",
+                    authority=SYSTEM_AUTHORITY,
+                    parent_task_id=parent.task_id,
+                )
+            except RuntimeError as exc:
+                self.soft_assert(
+                    "no longer accepting children" in str(exc),
+                    "Parent transition should close attached-child admission",
+                )
+            else:
+                self.soft_assert(
+                    False,
+                    "An attached child must not enter after parent transition starts",
+                )
+        finally:
+            release_child_cancellation.set()
+            await parent_completion
+            runtime.task_coordinator.cancel_task = original_cancel_task
         cascaded_child = await runtime.task_coordinator.get_task(second_child.task_id)
+        surviving_child = await runtime.task_coordinator.get_task(
+            completion_survivor.task_id
+        )
         self.soft_assert_equal(
             cascaded_child.status if cascaded_child else None,
             "cancelled",
-            "A terminal parent should cancel active child tasks",
+            "A parent transition should cancel lifecycle-owned child tasks",
         )
+        self.soft_assert_equal(
+            surviving_child.status if surviving_child else None,
+            "queued",
+            "Normal parent completion should preserve an opted-in child task",
+        )
+        self.soft_assert_equal(
+            (
+                surviving_child.detached_from_parent_lifecycle
+                if surviving_child
+                else None
+            ),
+            True,
+            "The child snapshot should expose its detached lifecycle policy",
+        )
+        try:
+            await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope="runner:terminal-parent-child",
+                source=ExecutionTaskSource.TOOL,
+                label="runner-terminal-parent-child",
+                authority=SYSTEM_AUTHORITY,
+                parent_task_id=parent.task_id,
+                detached_from_parent_lifecycle=True,
+            )
+        except RuntimeError as exc:
+            self.soft_assert(
+                "no longer accepting children" in str(exc),
+                "Detached child lineage should require an active parent at launch",
+            )
+        else:
+            self.soft_assert(False, "Detached child must reject terminal lineage")
+        await runtime.task_coordinator.cancel_task(
+            completion_survivor.task_id,
+            reason="validation_completion_survivor_cleanup",
+        )
+
+        parent_transitions = {
+            "failed": runtime.task_coordinator.mark_failed,
+            "cancelled": runtime.task_coordinator.mark_cancelled,
+            "timed_out": runtime.task_coordinator.mark_timed_out,
+            "skipped": runtime.task_coordinator.mark_skipped,
+        }
+        for transition_name, transition in parent_transitions.items():
+            abnormal_parent = await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.CHAT,
+                scope=f"runner:{transition_name}-parent",
+                source=ExecutionTaskSource.SYSTEM,
+                label=f"runner-{transition_name}-parent",
+                authority=SYSTEM_AUTHORITY,
+            )
+            detached_child = await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope=f"runner:{transition_name}-parent-child",
+                source=ExecutionTaskSource.TOOL,
+                label=f"runner-{transition_name}-child",
+                authority=SYSTEM_AUTHORITY,
+                parent_task_id=abnormal_parent.task_id,
+                detached_from_parent_lifecycle=True,
+            )
+            await transition(
+                abnormal_parent.task_id,
+                reason=f"validation_parent_{transition_name}",
+            )
+            surviving_abnormal_child = await runtime.task_coordinator.get_task(
+                detached_child.task_id
+            )
+            self.soft_assert_equal(
+                (surviving_abnormal_child.status if surviving_abnormal_child else None),
+                "queued",
+                f"A detached child should survive parent {transition_name}",
+            )
+            await runtime.task_coordinator.cancel_task(
+                detached_child.task_id,
+                reason=f"validation_{transition_name}_survivor_cleanup",
+            )
 
         cancel_hook_task_ids: list[str] = []
         cancel_started = asyncio.Event()
@@ -1007,9 +1248,43 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             ),
         )
         observed_task_id = shutdown_task.task_id
+        detached_shutdown_child = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.DELEGATE,
+            scope="runner:shutdown-child",
+            source=ExecutionTaskSource.TOOL,
+            label="runner-detached-shutdown-child",
+            authority=SYSTEM_AUTHORITY,
+            parent_task_id=shutdown_task.task_id,
+            detached_from_parent_lifecycle=True,
+        )
         await self._wait_for_task_status(shutdown_task.task_id, "running")
         await runtime.task_coordinator.shutdown(reason="validation_shutdown")
         await asyncio.wait_for(cleanup_started.wait(), timeout=2.0)
+        try:
+            await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope="runner:late-shutdown-child",
+                source=ExecutionTaskSource.TOOL,
+                label="runner-late-shutdown-child",
+                authority=SYSTEM_AUTHORITY,
+                detached_from_parent_lifecycle=True,
+            )
+        except RuntimeError as exc:
+            self.soft_assert_equal(
+                str(exc),
+                "Execution task coordinator is shutting down",
+                "Shutdown admission should fail with a stable explanation",
+            )
+        else:
+            self.soft_assert(False, "Runtime shutdown must close task admission")
+        shutdown_child = await runtime.task_coordinator.get_task(
+            detached_shutdown_child.task_id
+        )
+        self.soft_assert_equal(
+            shutdown_child.status if shutdown_child else None,
+            "cancelled",
+            "Runtime shutdown should cancel detached child tasks",
+        )
         self.soft_assert_equal(
             observer_states,
             [],

@@ -11,8 +11,9 @@ Replace the delegate child tool-call ceiling with observable, cancellable execut
 ## Decisions
 
 - Remove `delegate_tool_calls_limit` from the product contract and runtime rather than changing its default, because persisted values would otherwise keep enforcing the old ceiling after an upgrade.
-- Register every delegate child run with `ExecutionTaskRunner`, including blocking delegates, so lifecycle, ownership, cancellation, progress, and terminal results have one implementation.
+- Register every delegate child run with `ExecutionTaskRunner`, including blocking delegates, so lifecycle attachment, lineage, cancellation, progress, and terminal results have one implementation.
 - Keep `delegate(...)` blocking by default and add `mode="managed"` as an explicit opt-in that returns a job handle backed by an execution task immediately.
+- Retain `parent_task_id` as lineage, not lifetime ownership: managed delegates detach from every launching-task terminal transition, while blocking delegates remain lifecycle-attached.
 - Add one model-facing `job` tool with `list`, `status`, `wait`, and `cancel` operations; do not add separate lifecycle tools for delegates, workflows, or ingestion.
 - Use `job` and `job_id` only at the model-facing boundary to distinguish concrete asynchronous runs from goals and conceptual tasks; retain the established execution-task names inside the runtime and API implementation.
 - Treat `wait` as an optional dependency-barrier tool, not an automatic next action after delegation.
@@ -79,6 +80,7 @@ kind
 label
 status
 parent_job_id
+detached_from_parent_lifecycle
 created_at
 started_at
 finished_at
@@ -100,8 +102,10 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - A managed delegate never retains the parent Pydantic `RunContext` after the launch tool returns.
 - A delegate launch snapshots only immutable or independently owned inputs needed by the child run.
 - Every delegate emits exactly one terminal execution-task state and one existing delegate terminal lifecycle event.
-- Parent cancellation, failure, runtime shutdown, or unexpected parent termination cancels active owned delegate children.
-- A parent should collect or cancel its children before finishing; any children still active when the parent becomes terminal are cancelled rather than orphaned.
+- Managed delegates are first-class detached runner tasks. Launching-task completion, failure, cancellation, timeout, or skip does not stop them.
+- Blocking delegates remain attached to their parent lifecycle, and parent cancellation waits for their cleanup.
+- Explicit job or scope cancellation and runtime shutdown stop active managed delegates.
+- Background reservation, parent transition, and shutdown admission races cannot leave an execution task permanently queued or running.
 - Cancelling one managed delegate does not cancel its parent or sibling tasks.
 - Blocking delegate cancellation propagates from the parent to its separately owned child task and waits for child cleanup.
 - A wait never busy-polls and never consumes a model request until its event condition or timeout returns control to the model.
@@ -130,7 +134,7 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - Add a race-safe coordinator wait method that validates the initial state and captures the relevant change signals under the coordinator lock before awaiting.
 - Support waiting on multiple task IDs and return when any selected task is terminal or has `health_status="attention_required"`.
 - Add coordinator methods for recording a bounded terminal result and listing active children by `parent_task_id`.
-- Cancel active descendants when an owning task becomes terminal, using an implementation that does not await child cancellation while holding the coordinator lock.
+- Give child tasks an explicit lifecycle-attachment policy. Close attached-child admission atomically when a parent becomes terminal, cancel only attached descendants, and do not await child cancellation while holding the coordinator lock.
 - Keep result retention aligned with the existing bounded terminal-task history and add an explicit result-size bound with a `truncated` marker and preserved artifact references.
 
 ### 2. Extend authority-mediated task access
@@ -148,13 +152,13 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - On job-wait timeout, return `timed_out: true` plus the latest compact snapshots for the selected jobs.
 - On timer-only wait completion, return the elapsed duration and no fabricated task state.
 - Register the tool for primary chat and task-owned authored execution, but exclude it from delegate child bindings.
-- Add concise model instructions: start independent work early, continue useful non-overlapping work, call wait only at a dependency barrier, prefer longer waits, and settle owned delegate tasks before finalizing.
+- Add concise model instructions: start independent work early, continue useful non-overlapping work, call wait only at a dependency barrier, prefer longer waits, return active managed job IDs before ending a turn, and cancel work that is no longer needed.
 
 ### 4. Create an immutable delegate launch boundary
 
 - Add a frozen `DelegateLaunchSpec` containing normalized prompt, instructions, model choice, tool names, thinking choice, vault path, week-start day, session ID, execution authority, parent task ID, and effective remaining guardrails.
 - Construct the launch spec while the parent `RunContext` is valid and do not retain `ctx`, `ctx.deps`, a parent agent, or a parent model connection.
-- Require a current execution-task identity for `mode="managed"`; preserve blocking behavior or return a clear structured failure on surfaces that cannot establish ownership.
+- Require a current execution-task identity for `mode="managed"`; preserve blocking behavior or return a clear structured failure on surfaces that cannot establish parent lineage.
 - Create and bind the child Pydantic agent inside the background delegate coroutine.
 - Run both blocking and managed modes as separate execution tasks; blocking mode awaits the child task internally and adapts its terminal result back to the existing `ToolReturn` contract.
 
@@ -179,12 +183,13 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - Return the same normalized envelope from blocking delegate mode, managed `job(status)`, and managed `job(wait)`.
 - Do not persist Pydantic `AgentRunResult`, `RunContext`, agent instances, provider-native message history, or live stream objects in coordinator state.
 
-### 7. Implement cancellation and ownership
+### 7. Implement cancellation and lifecycle attachment
 
 - Use the runner's separate `asyncio.Task` handle as the cancellation mechanism supported by pinned Pydantic AI `2.19.0`; do not require the newer `CancellationToken` API.
 - On cancellation, await child unwinding, capture the latest `AgentRunProgress`, record a bounded cancelled result, emit `delegate_cancelled`, and re-raise cancellation to the task runner.
 - For blocking mode, catch parent cancellation around the internal child wait, cancel the child task, await its cleanup, and then re-raise parent cancellation.
-- Add parent-child cleanup for managed mode so a terminal parent cannot leave a child running in the process.
+- Mark managed delegates as detached background tasks while retaining parent lineage for provenance and grouping; skip them on every parent terminal transition.
+- Make background reservation interruption-safe, close attached-child admission atomically with parent transitions, reject detachment for inline tasks, and close all task admission during runtime shutdown.
 - Preserve direct cancellation of an individual child through `job(operation="cancel")` without cascading upward or sideways.
 
 ### 8. Replace the tool-call ceiling with concurrency control
@@ -201,7 +206,7 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 
 ### 9. Preserve API and UI task visibility
 
-- Extend `ExecutionTaskInfo` and API projection with `parent_task_id`, `revision`, `last_heartbeat_at`, and `heartbeat_status` so existing task inspection can represent managed delegates.
+- Extend `ExecutionTaskInfo` and API projection with `parent_task_id`, `detached_from_parent_lifecycle`, `revision`, `last_heartbeat_at`, and `heartbeat_status` so existing task inspection can represent managed delegates.
 - Keep full terminal result bodies out of task list responses; expose them through the model-facing authority service first and add an API result endpoint only if the UI needs it during implementation.
 - Ensure active chat-task lookup cannot confuse child delegate tasks with their parent by giving delegates a distinct scope and kind.
 - Add UI treatment only where current generic task status surfaces already render tasks; do not build a separate delegate dashboard in this effort.
@@ -225,9 +230,9 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 ## Documentation and Architecture Records
 
 - Add a new ADR that supersedes the tool-call-limit portion of ADR 0033 while retaining its repeated-failure, audit, and partial-handoff decisions.
-- Update `docs/tools/delegate.md` to describe blocking and managed modes, removal of the tool-call ceiling, execution-task ownership, result retention, and remaining request/timeout guardrails as current behavior only.
+- Update `docs/tools/delegate.md` to describe blocking and managed modes, removal of the tool-call ceiling, execution-task lineage and lifecycle attachment, result retention, and remaining request/timeout guardrails as current behavior only.
 - Add `docs/tools/job.md` for the four operations, timer behavior, wait semantics, process-local retention, authority, and examples.
-- Update the architecture map and tool documentation index where execution-task ownership and tool routing are listed.
+- Update the architecture map and tool documentation index where execution-task lineage, lifecycle attachment, and tool routing are listed.
 - Update authoring guidance to preserve blocking delegate examples and explain when managed mode is appropriate.
 - Keep product documentation free of migration narrative; put historical rationale in the ADR and release/review material.
 
@@ -235,8 +240,8 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 
 ### Scenario targets
 
-- Extend `validation/scenarios/integration/core/execution_task_runner.py` with failing assertions for revision changes, race-free wait, timeout snapshots, bounded results, parent-child cancellation, authority isolation, and result-before-terminal ordering.
-- Extend `validation/scenarios/integration/core/delegate_tool.py` with failing assertions for managed launch handles, blocking compatibility, execution-task registration, progress projection, cancellation cleanup, terminal result delivery, and successful completion after more than 32 deterministic child tool calls.
+- Extend `validation/scenarios/integration/core/execution_task_runner.py` with failing assertions for revision changes, race-free wait, timeout snapshots, bounded results, attached-child cancellation, detached-child survival, interruption-safe reservation, shutdown admission closure, authority isolation, and result-before-terminal ordering.
+- Extend `validation/scenarios/integration/core/delegate_tool.py` with failing assertions for managed launch handles, cross-turn survival, blocking compatibility, execution-task registration, progress projection, cancellation cleanup, terminal result delivery, and successful completion after more than 32 deterministic child tool calls.
 - Add `validation/scenarios/integration/core/job_tool.py` for list, status, wait-any, already-terminal return, timer-only wait, timeout-as-success, bulk cancellation, inaccessible-job concealment, and delegate-child exclusion.
 - Extend the settings/template integration scenario to assert that `delegate_tool_calls_limit` is absent, stale values are ignored and pruned by repair, and `max_concurrent_delegates` is available from the template fallback on upgraded settings.
 - Use deterministic test models and synthetic tool events; do not assert on free-form model prose or call external services.
@@ -294,11 +299,11 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 **Outcome:** `delegate(..., mode="managed")` returns immediately with a job handle whose completion and bounded result can be observed through `job(status)` and `job(wait)`.
 
-**Assertions first:** Add deterministic cases for immediate managed return, valid public job fields, queued/running/terminal transitions, successful result collection through both status and wait, wait timeout followed by later completion, blocking and managed envelope equivalence, and rejection when no owning execution-task identity exists.
+**Assertions first:** Add deterministic cases for immediate managed return, valid public job fields, queued/running/terminal transitions, successful result collection through both status and wait, wait timeout followed by later completion, blocking and managed envelope equivalence, and rejection when no launching execution-task identity exists.
 
-**Production boundary:** Add the delegate mode schema and launch path, attach parent ownership and authority to child records, expose delegate terminal results through the job projection, and retain blocking mode as the default.
+**Production boundary:** Add the delegate mode schema and launch path, attach parent lineage and authority to child records, expose delegate terminal results through the job projection, and retain blocking mode as the default.
 
-**Complete when:** A parent can launch a delayed synthetic delegate, do independent work, wait once, and receive its result without polling or a second collection operation.
+**Complete when:** A parent can launch a delayed synthetic delegate, end its turn while the child remains active, and receive the result in a later turn without polling or a mailbox.
 
 ### Slice 5: Live delegate progress and health visibility
 
@@ -310,15 +315,15 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 **Complete when:** A deterministic web-search/read/extract-style sequence is visible in order through `job(status)`, concurrent calls settle correctly, sensitive or oversized arguments are absent, and the focused scenarios pass.
 
-### Slice 6: Cancellation and ownership closure
+### Slice 6: Cancellation and lifecycle closure
 
-**Outcome:** Parents cannot orphan managed delegate children, while cancelling one child remains isolated from its parent and siblings.
+**Outcome:** Managed delegates remain independent across launching-task terminal transitions, attached blocking children still clean up with their parent, and explicit cancellation remains reliable.
 
-**Assertions first:** Add cases for direct job cancellation during an active child tool, blocking-parent cancellation, managed-parent completion/failure/cancellation, sibling isolation, runtime shutdown, latest partial-result capture, and cancellation requested during terminal transition.
+**Assertions first:** Add cases for direct job cancellation during an active child tool, blocking-parent cancellation, managed-parent completion/failure/cancellation/timeout/skip, sibling isolation, interrupted background reservation, late child admission, runtime shutdown admission closure, latest partial-result capture, and cancellation requested during terminal transition.
 
-**Production boundary:** Add descendant lookup and cleanup, request cancellation downward on every parent terminal path, await Pydantic unwinding for blocking parent cancellation through the runner-owned `asyncio.Task`, publish the cancelled result before child terminal visibility, and avoid awaiting cancellation while holding coordinator locks.
+**Production boundary:** Add explicit lifecycle attachment, cancel only attached descendants on parent terminal paths, keep managed descendants detached, make reservation and admission race-safe, await Pydantic unwinding for blocking parent cancellation through the runner-owned `asyncio.Task`, publish the cancelled result before child terminal visibility, and avoid awaiting cancellation while holding coordinator locks.
 
-**Complete when:** All cancellation cases deterministically converge with no orphaned child tasks, exactly one child terminal event, preserved bounded partial state, and no upward or sideways cancellation.
+**Complete when:** All cancellation cases deterministically converge with no stranded reservations, managed jobs remain observable across turns, runtime shutdown cancels all active jobs, exactly one child terminal event is emitted, and cancellation never propagates upward or sideways.
 
 ### Slice 7: Remove the delegate tool-call ceiling
 

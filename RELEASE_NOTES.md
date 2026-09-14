@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Delegate children now run as supervised process-local jobs. Managed delegates return a job ID so the parent can continue independent work, inspect live tool activity, wait at a dependency barrier, or cancel the child; chat-launched children inherit the parent model unless explicitly overridden, the fixed child tool-call ceiling is removed, stale saved values are pruned during settings repair, and a separate concurrency setting bounds simultaneous delegate runs.
+- Delegate children now run as supervised process-local jobs. Managed delegates return a job ID and remain active across chat turns so the parent can continue independent work, inspect live tool activity, wait at a dependency barrier, or cancel the child; chat-launched children inherit the parent model unless explicitly overridden, the fixed child tool-call ceiling is removed, stale saved values are pruned during settings repair, and a separate concurrency setting bounds simultaneous delegate runs.
 - Chat tasks now detect model streams that remain connected without producing usable events, expose their current model or tool phase through task progress, and preserve long-running visible tools without imposing a total chat deadline. OpenAI-compatible providers use one bounded retry owner, and unresolved custom-provider base URLs fail as configuration errors before an HTTP request starts.
 
 ## v0.8.0

@@ -821,7 +821,11 @@ class ExecutionTaskInfo(BaseModel):
     )
     latest_event: str | None = Field(None, description="Latest task lifecycle event")
     parent_task_id: str | None = Field(
-        None, description="Owning execution task identifier when nested"
+        None, description="Launching or owning execution task identifier when nested"
+    )
+    detached_from_parent_lifecycle: bool = Field(
+        False,
+        description="Whether parent terminal transitions leave this task running",
     )
     revision: int = Field(0, description="Monotonic process-local state revision")
     last_heartbeat_at: datetime | None = Field(

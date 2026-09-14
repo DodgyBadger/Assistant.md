@@ -150,6 +150,7 @@ class ExecutionTaskSnapshot:
     terminal_reason: str | None = None
     latest_event: str | None = None
     parent_task_id: str | None = None
+    detached_from_parent_lifecycle: bool = False
     revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
@@ -197,6 +198,7 @@ class _ExecutionTaskRecord:
     terminal_reason: str | None = None
     latest_event: str | None = None
     parent_task_id: str | None = None
+    detached_from_parent_lifecycle: bool = False
     revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
@@ -207,6 +209,7 @@ class _ExecutionTaskRecord:
     metadata: dict[str, Any] = field(default_factory=dict)
     handle: asyncio.Task[Any] | None = None
     awaiting_handle: bool = False
+    accepting_children: bool = True
 
     def snapshot(self) -> ExecutionTaskSnapshot:
         """Return a public snapshot without the private asyncio handle."""
@@ -225,6 +228,7 @@ class _ExecutionTaskRecord:
             terminal_reason=self.terminal_reason,
             latest_event=self.latest_event,
             parent_task_id=self.parent_task_id,
+            detached_from_parent_lifecycle=self.detached_from_parent_lifecycle,
             revision=self.revision,
             last_heartbeat_at=self.last_heartbeat_at,
             heartbeat_status=self.heartbeat_status,
@@ -251,6 +255,7 @@ class TaskCoordinator:
         self._terminal_observers = list(terminal_observers or [])
         self._records: dict[str, _ExecutionTaskRecord] = {}
         self._terminal_order: list[str] = []
+        self._accepting_tasks = True
         self._lock = asyncio.Lock()
         self._changed = asyncio.Condition(self._lock)
 
@@ -265,6 +270,7 @@ class TaskCoordinator:
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
         parent_task_id: str | None = None,
+        detached_from_parent_lifecycle: bool = False,
         start_immediately: bool = True,
     ) -> AsyncIterator[ExecutionTaskSnapshot]:
         """Register the current asyncio task for the duration of one operation."""
@@ -283,6 +289,7 @@ class TaskCoordinator:
             handle=current,
             metadata=metadata,
             parent_task_id=parent_task_id,
+            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
         )
         if start_immediately:
             await self.mark_started(task_id)
@@ -315,6 +322,7 @@ class TaskCoordinator:
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
         parent_task_id: str | None = None,
+        detached_from_parent_lifecycle: bool = False,
         awaiting_handle: bool = False,
     ) -> ExecutionTaskSnapshot:
         """Create a queued task record before an asyncio handle exists."""
@@ -329,6 +337,7 @@ class TaskCoordinator:
             handle=None,
             metadata=metadata,
             parent_task_id=parent_task_id,
+            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
             awaiting_handle=awaiting_handle,
         )
         snapshot = await self.get_task(task_id)
@@ -667,7 +676,13 @@ class TaskCoordinator:
 
     async def shutdown(self, *, reason: str = "runtime_shutdown") -> None:
         """Request cancellation for all active tasks."""
-        active_tasks = await self.list_tasks(include_terminal=False)
+        async with self._lock:
+            self._accepting_tasks = False
+            active_tasks = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.status not in TERMINAL_STATUSES
+            ]
         for task in active_tasks:
             await self.cancel_task(task.task_id, reason=reason)
 
@@ -685,7 +700,7 @@ class TaskCoordinator:
         *,
         include_terminal: bool = True,
     ) -> list[ExecutionTaskSnapshot]:
-        """Return execution tasks directly owned by one parent task."""
+        """Return execution tasks with the given direct parent lineage."""
         async with self._lock:
             snapshots = [
                 record.snapshot()
@@ -696,7 +711,18 @@ class TaskCoordinator:
         return sorted(snapshots, key=lambda item: item.created_at)
 
     async def _cancel_active_children(self, task_id: str, *, reason: str) -> None:
-        children = await self.list_child_tasks(task_id, include_terminal=False)
+        async with self._lock:
+            parent = self._records.get(task_id)
+            if parent is None:
+                return
+            parent.accepting_children = False
+            children = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.parent_task_id == task_id
+                and record.status not in TERMINAL_STATUSES
+                and not record.detached_from_parent_lifecycle
+            ]
         for child in children:
             await self.cancel_task(child.task_id, reason=reason)
 
@@ -712,6 +738,7 @@ class TaskCoordinator:
         handle: asyncio.Task[Any] | None,
         metadata: dict[str, Any] | None,
         parent_task_id: str | None,
+        detached_from_parent_lifecycle: bool = False,
         awaiting_handle: bool = False,
     ) -> None:
         now = self._now()
@@ -728,6 +755,7 @@ class TaskCoordinator:
             heartbeat_status="queued",
             last_progress_at=now,
             parent_task_id=parent_task_id,
+            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
             handle=handle,
             awaiting_handle=awaiting_handle,
             metadata=dict(metadata or {}),
@@ -735,6 +763,23 @@ class TaskCoordinator:
         record.metadata.setdefault("last_heartbeat_at", now.isoformat())
         record.metadata.setdefault("heartbeat_status", "queued")
         async with self._lock:
+            if not self._accepting_tasks:
+                raise RuntimeError("Execution task coordinator is shutting down")
+            if parent_task_id is not None:
+                parent = self._records.get(parent_task_id)
+                if parent is None:
+                    raise RuntimeError(
+                        f"Parent execution task not found: {parent_task_id}"
+                    )
+                if parent.authority != authority:
+                    raise RuntimeError(
+                        "Child execution authority must match its parent: "
+                        f"{parent_task_id}"
+                    )
+                if parent.status in TERMINAL_STATUSES or not parent.accepting_children:
+                    raise RuntimeError(
+                        f"Parent execution task is no longer accepting children: {parent_task_id}"
+                    )
             self._records[task_id] = record
             self._changed.notify_all()
 

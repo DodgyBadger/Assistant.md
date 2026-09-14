@@ -105,6 +105,7 @@ class JobToolScenario(BaseScenario):
             label="owned-job",
             authority=LOCAL_USER_AUTHORITY,
             parent_task_id=parent.task_id,
+            detached_from_parent_lifecycle=True,
             metadata={
                 "active_tools": ["file_read"],
                 "usage": {"request_count": 2, "tool_call_count": 3},
@@ -184,6 +185,11 @@ class JobToolScenario(BaseScenario):
             "Job status should use public job_id naming",
         )
         self.soft_assert_equal(
+            status["jobs"][0]["detached_from_parent_lifecycle"],
+            True,
+            "Job status should expose detached lifecycle semantics",
+        )
+        self.soft_assert_equal(
             status["jobs"][0]["active_tools"],
             ["file_read"],
             "Job status should project bounded live activity",
@@ -204,6 +210,11 @@ class JobToolScenario(BaseScenario):
             api_snapshot.get("parent_task_id"),
             parent.task_id,
             "Execution task API should project parent task identity",
+        )
+        self.soft_assert_equal(
+            api_snapshot.get("detached_from_parent_lifecycle"),
+            True,
+            "Execution task API should project detached lifecycle semantics",
         )
         self.soft_assert_equal(
             isinstance(api_snapshot.get("revision"), int),

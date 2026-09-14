@@ -8,12 +8,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.identity import ExecutionAuthority
+from core.logger import UnifiedLogger
 from core.runtime.background import RuntimeBackgroundSpawner
 from core.runtime.execution_tasks import (
     ExecutionTaskSnapshot,
     ExecutionTaskStatus,
     TaskCoordinator,
 )
+
+logger = UnifiedLogger(tag="execution-task-runner")
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,7 @@ class ExecutionTaskSpec:
     authority: ExecutionAuthority
     metadata: dict[str, Any] = field(default_factory=dict)
     parent_task_id: str | None = None
+    detached_from_parent_lifecycle: bool = False
     timeout_seconds: float | None = None
     timeout_reason: str | None = None
 
@@ -138,16 +142,24 @@ class ExecutionTaskRunner:
         start_immediately: bool = True,
     ) -> ExecutionTaskSnapshot:
         """Create a queued task and run it in the runtime background."""
-        task = await self._task_coordinator.create_queued_task(
-            kind=spec.kind,
-            scope=spec.scope,
-            source=spec.source,
-            label=spec.label,
-            authority=spec.authority,
-            metadata=spec.metadata,
-            parent_task_id=spec.parent_task_id,
-            awaiting_handle=True,
+        reservation = asyncio.create_task(
+            self._task_coordinator.create_queued_task(
+                kind=spec.kind,
+                scope=spec.scope,
+                source=spec.source,
+                label=spec.label,
+                authority=spec.authority,
+                metadata=spec.metadata,
+                parent_task_id=spec.parent_task_id,
+                detached_from_parent_lifecycle=spec.detached_from_parent_lifecycle,
+                awaiting_handle=True,
+            )
         )
+        try:
+            task = await asyncio.shield(reservation)
+        except asyncio.CancelledError:
+            await self._abort_background_reservation(reservation, hooks)
+            raise
 
         async def _run() -> None:
             try:
@@ -187,6 +199,8 @@ class ExecutionTaskRunner:
         start_immediately: bool = True,
     ) -> Any:
         """Run work in the current coroutine under execution task ownership."""
+        if spec.detached_from_parent_lifecycle:
+            raise ValueError("Inline execution tasks cannot detach from their caller")
         async with self._task_coordinator.track_current_task(
             kind=spec.kind,
             scope=spec.scope,
@@ -195,6 +209,7 @@ class ExecutionTaskRunner:
             authority=spec.authority,
             metadata=spec.metadata,
             parent_task_id=spec.parent_task_id,
+            detached_from_parent_lifecycle=spec.detached_from_parent_lifecycle,
             start_immediately=start_immediately,
         ) as task:
             result = await self.run_with_timeout(
@@ -204,6 +219,32 @@ class ExecutionTaskRunner:
                 hooks=hooks,
             )
             return await self._publish_run_outcome(task.task_id, result)
+
+    async def _abort_background_reservation(
+        self,
+        reservation: asyncio.Task[ExecutionTaskSnapshot],
+        hooks: ExecutionTaskHooks | None,
+    ) -> None:
+        async def _cleanup() -> None:
+            try:
+                task = await reservation
+            except Exception:
+                return
+            try:
+                await self._call_cancelled_hook(hooks, task.task_id)
+            finally:
+                await self._task_coordinator.mark_cancelled(
+                    task.task_id,
+                    reason="background_start_cancelled",
+                )
+
+        cleanup = asyncio.create_task(_cleanup())
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+        await cleanup
 
     async def run_with_timeout(
         self,
@@ -489,7 +530,17 @@ class ExecutionTaskRunner:
         hooks: ExecutionTaskHooks | None, task_id: str
     ) -> None:
         if hooks is not None and hooks.on_cancelled is not None:
-            await hooks.on_cancelled(task_id)
+            try:
+                await hooks.on_cancelled(task_id)
+            except Exception as exc:  # noqa: BLE001 - lifecycle cleanup must continue
+                logger.error(
+                    "execution_task_cancel_hook_failed",
+                    data={
+                        "task_id": task_id,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
 
     @staticmethod
     async def _call_failed_hook(

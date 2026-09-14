@@ -559,7 +559,8 @@ class DelegateTool(BaseTool):
             """Run a focused child agent over a prompt with optional tools.
 
             Blocking mode returns the completed child output. Managed mode returns
-            a process-local job handle immediately so independent work can continue.
+            a process-local job handle immediately so independent work can continue,
+            including in later chat turns after the launching task ends.
 
             :param prompt: Primary prompt for the child agent.
             :param instructions: Optional system-style instructions for the child agent.
@@ -715,6 +716,7 @@ class DelegateTool(BaseTool):
                         "tool_names": list(spec.tool_names),
                     },
                     parent_task_id=spec.parent_task_id,
+                    detached_from_parent_lifecycle=spec.mode == "managed",
                 ),
                 _run,
                 hooks=ExecutionTaskHooks(on_cancelled=_publish_cancelled),
@@ -774,7 +776,8 @@ class DelegateTool(BaseTool):
             name="delegate",
             description=(
                 "Run a focused child agent over a prompt with optional tools. "
-                "Use managed mode for independent long-running work."
+                "Use managed mode for independent long-running work that may continue "
+                "after the launching task ends."
             ),
         )
 

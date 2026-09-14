@@ -11,9 +11,9 @@ Run a supervised child agent over a focused prompt with optional tools. A delega
 - the chat agent has a clearly separable sub-task that benefits from an isolated prompt and tool set
 - the chat agent needs to explore many vault files or web sources without crowding the parent context
 
-Use `delegate` for isolated model work, not as a larger context bucket. Before using it in chat, briefly tell the user the delegation strategy and wait for confirmation. If one deterministic tool call can answer, use that directly. Scope each child by path, query, source group, hypothesis, or deliverable, and ask it to return a compact summary or durable artifact path.
+Use `delegate` for isolated model work, not as a larger context bucket. Before discretionary delegation in chat, briefly tell the user the delegation strategy and wait for confirmation; an explicit user request to delegate already provides that confirmation. If one deterministic tool call can answer, use that directly. Scope each child by path, query, source group, hypothesis, or deliverable, and ask it to return a compact summary or durable artifact path.
 
-Blocking mode is the default and preserves the direct call contract. Managed mode returns a job handle promptly, allowing the parent to continue useful independent work and supervise the child with `job`. Use managed mode when work may take a while or when progress visibility and cancellation matter.
+Blocking mode is the default and preserves the direct call contract. Managed mode returns a job handle promptly, allowing the parent to continue useful independent work and supervise the child with `job`. A managed child is detached from the launching task lifecycle, so the parent may return its job ID and resume supervision in a later turn. Use managed mode when work may take a while or when progress visibility and cancellation matter.
 
 ## Arguments
 
@@ -72,7 +72,9 @@ The audit is a compact child-run summary with message counts, tool-call outcome 
 
 - every delegate is an execution task, including a blocking delegate
 - the child runs in isolation and its messages do not appear in the parent transcript
-- parent termination or cancellation propagates to active owned delegate children; cancelling one child does not cancel its parent or siblings
+- managed delegates retain their parent identifier for provenance and grouping but are detached from parent lifecycle transitions
+- blocking delegates retain strict parent lifecycle ownership; cancelling one child does not cancel its parent or siblings
+- explicit job or scope cancellation and runtime shutdown stop active managed delegates
 - completed, failed, timed-out, and cancelled results remain bounded and process-local; they do not survive a runtime restart
 - tool activity is progress evidence, not a guarantee of correctness; inspect `health_status`, recent activity, and the terminal result before relying on the work
 - no-health-event periods do not automatically cancel a delegate while a child tool remains active

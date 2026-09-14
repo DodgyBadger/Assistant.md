@@ -18,7 +18,7 @@ Waiting is also useful beyond delegation. A parent may need to suspend until a q
 
 ## Decision
 
-Run every delegate child as a parent-owned process-local execution task through `ExecutionTaskRunner`. Preserve blocking delegation by awaiting the child task internally, and add explicit managed mode that returns a job handle immediately. A frozen launch specification captures only owned values needed by the child and never retains the parent Pydantic `RunContext`.
+Run every delegate child as a parent-linked process-local execution task through `ExecutionTaskRunner`. Preserve blocking delegation by awaiting the child task internally, and add explicit managed mode that returns a job handle immediately. A frozen launch specification captures only owned values needed by the child and never retains the parent Pydantic `RunContext`.
 
 Remove `delegate_tool_calls_limit` from settings and runtime enforcement. Continue observing tool-call counts and retain the independent model-request, repeated-failure, and cooperative timeout guardrails. Bound aggregate resource expansion with `max_concurrent_delegates`; excess children remain queued execution tasks rather than failing.
 
@@ -26,12 +26,12 @@ Extend execution-task snapshots with parent identity, revision, last progress, h
 
 Expose one model-facing `job` tool for list, status, event-driven wait, and cancellation. A wait returns on terminal or attention-required state and returns current snapshots normally on timeout. A wait without IDs is a general timer. Result delivery uses the task record, not a mailbox, and mid-turn user messages do not wake waits.
 
-Task access remains authority-mediated, and unknown and inaccessible job IDs are indistinguishable. Parent terminal transitions request cancellation of active descendants, while cancelling one child does not affect its parent or siblings. Managed delegate records and results follow existing process-local retention and do not claim restart durability.
+Task access remains authority-mediated, and unknown and inaccessible job IDs are indistinguishable. Each child has an explicit lifecycle-attachment policy. Managed delegates retain `parent_task_id` for provenance and grouping but are detached runner tasks: no terminal transition of the launching task stops them. Blocking delegates remain attached to the parent lifecycle. Explicit job or scope cancellation and runtime shutdown still stop active managed delegates, and cancelling one child does not affect its parent or siblings. Managed delegate records and results follow existing process-local retention and do not claim restart durability.
 
 ## Consequences
 
 - Healthy research delegates can make as many useful child tool calls as their task requires without failing at an arbitrary cumulative threshold.
-- Parents can launch independent work, continue other work, inspect concrete tool progress, wait only at dependency barriers, and cancel unhealthy runs.
+- Parents can launch independent work, continue other work or return a job ID to the user, inspect concrete tool progress in later turns, wait only at dependency barriers, and cancel unhealthy runs.
 - Delegate concurrency, model requests, repeated failures, and timeouts remain separate controls with different operational purposes.
 - Progress signals support a reasonable inference that work is moving but cannot prove the semantic quality of the child result.
 - Process restart ends managed delegate jobs and clears their retained results; durable or resumable delegation would require a separate domain contract.

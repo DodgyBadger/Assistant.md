@@ -364,7 +364,38 @@ class DelegateToolScenario(BaseScenario):
 
             runtime = get_runtime_context()
             binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
-            delegate_module.create_agent = _streaming_create_agent
+            started = asyncio.Event()
+            release = asyncio.Event()
+
+            class _GatedChildRun:
+                async def __aenter__(self):
+                    return self
+
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+
+                async def stream_output(self, *, debounce_by=None):
+                    started.set()
+                    await release.wait()
+                    yield "cross-turn delegate output"
+
+                async def get_output(self):
+                    return "cross-turn delegate output"
+
+                def all_messages(self):
+                    return []
+
+            class _GatedChildAgent:
+                def instructions(self, *_args, **_kwargs):
+                    return None
+
+                def run_stream(self, *_args, **_kwargs):
+                    return _GatedChildRun()
+
+            async def _gated_create_agent(*_args, **_kwargs):
+                return _GatedChildAgent()
+
+            delegate_module.create_agent = _gated_create_agent
 
             async def _launch(parent_task):
                 result = await invoke_bound_tool(
@@ -380,43 +411,57 @@ class DelegateToolScenario(BaseScenario):
                     session_id="delegate_managed_job",
                     vault_name=vault.name,
                 )
+                return parent_task.task_id, result
+
+            try:
+                parent_task_id, result = await runtime.task_runner.run_inline(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.CHAT,
+                        scope="delegate:managed-parent",
+                        source=ExecutionTaskSource.SYSTEM,
+                        label="delegate-managed-parent",
+                        authority=LOCAL_USER_AUTHORITY,
+                    ),
+                    _launch,
+                )
+
+                self.soft_assert_equal(
+                    isinstance(result, ToolReturn),
+                    True,
+                    "Managed delegate should return a structured job handle",
+                )
                 metadata = result.metadata if isinstance(result.metadata, dict) else {}
-                await runtime.task_coordinator.wait_for_tasks(
-                    [str(metadata.get("job_id") or "")],
+                job_id = str(metadata.get("job_id") or "")
+                self.soft_assert_equal(
+                    bool(job_id),
+                    True,
+                    "Managed delegate handle should include a public job ID",
+                )
+                await asyncio.wait_for(started.wait(), timeout=2.0)
+                active_child = await runtime.task_coordinator.get_task(job_id)
+                self.soft_assert_equal(
+                    active_child.is_terminal if active_child else None,
+                    False,
+                    "Managed delegate should remain active after its launching parent completes",
+                )
+                self.soft_assert_equal(
+                    (
+                        active_child.detached_from_parent_lifecycle
+                        if active_child
+                        else None
+                    ),
+                    True,
+                    "Managed delegate should detach from its parent lifecycle",
+                )
+                release.set()
+                terminal = await runtime.task_coordinator.wait_for_tasks(
+                    [job_id],
                     timeout_seconds=2.0,
                     terminal_or_attention_only=True,
                 )
-                return parent_task.task_id, result
-
-            parent_task_id, result = await runtime.task_runner.run_inline(
-                ExecutionTaskSpec(
-                    kind=ExecutionTaskKind.CHAT,
-                    scope="delegate:managed-parent",
-                    source=ExecutionTaskSource.SYSTEM,
-                    label="delegate-managed-parent",
-                    authority=LOCAL_USER_AUTHORITY,
-                ),
-                _launch,
-            )
-
-            self.soft_assert_equal(
-                isinstance(result, ToolReturn),
-                True,
-                "Managed delegate should return a structured job handle",
-            )
-            metadata = result.metadata if isinstance(result.metadata, dict) else {}
-            job_id = str(metadata.get("job_id") or "")
-            self.soft_assert_equal(
-                bool(job_id),
-                True,
-                "Managed delegate handle should include a public job ID",
-            )
-            terminal = await runtime.task_coordinator.wait_for_tasks(
-                [job_id],
-                timeout_seconds=2.0,
-                terminal_or_attention_only=True,
-            )
-            delegate_module.create_agent = original_create_agent
+            finally:
+                release.set()
+                delegate_module.create_agent = original_create_agent
             child = terminal.snapshots[0] if terminal.snapshots else None
             self.soft_assert_equal(
                 child.kind if child else None,
@@ -434,7 +479,7 @@ class DelegateToolScenario(BaseScenario):
                     if child is not None and child.result
                     else None
                 ),
-                "streamed delegate output",
+                "cross-turn delegate output",
                 "Managed delegate terminal task should expose its bounded result",
             )
 

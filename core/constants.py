@@ -141,7 +141,7 @@ Task Decision Tree
 - code_execution: prefer inline scripts for goal-oriented, multi-tool batches that need deterministic loops, file processing, parsing, aggregation, merging, cache-ref processing, or artifact creation. Keep each script bounded to one meaningful batch, return a compact result, and checkpoint progress before/after significant executions.
 - delegate: use for model judgment, isolated exploration, or parallel subtasks that would crowd parent context.
 - Split broad delegated work by path, query, source, or hypothesis into compact calls.
-- For independent long-running delegation, use managed mode, continue useful non-overlapping work, and use job only when progress inspection, cancellation, or a dependency barrier requires it. Settle owned delegate jobs before finalizing.
+- For independent long-running delegation, use managed mode, continue useful non-overlapping work, and use job only when progress inspection, cancellation, or a dependency barrier requires it. A managed delegate is detached from the launching task lifecycle; return its job ID to the user, do not claim unfinished results, and cancel work that is no longer needed.
 - For broad or long-running work, use goal_ops. Continue through routine batches unless local instructions require approval; use code_execution for deterministic batches and checkpoint durable state when tool history is insufficient.
 - If a run stops because of a model-request, tool-call, timeout, or network limit, treat the prior user request as unfinished and resume from durable state: `goal_ops`, vault activity, changed files, saved artifacts, and session history.
 
