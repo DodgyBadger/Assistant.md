@@ -73,6 +73,112 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Runner should mark successful inline work completed",
         )
 
+        observable_task = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:observable",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-observable",
+            authority=SYSTEM_AUTHORITY,
+            metadata={"probe": "observable"},
+        )
+        wait_for_change = asyncio.create_task(
+            runtime.task_coordinator.wait_for_tasks(
+                [observable_task.task_id],
+                after_revisions={
+                    observable_task.task_id: observable_task.revision,
+                },
+                timeout_seconds=1.0,
+            )
+        )
+        await asyncio.sleep(0)
+        await runtime.task_coordinator.update_metadata(
+            observable_task.task_id,
+            {"progress": "advanced"},
+        )
+        changed = await wait_for_change
+        changed_snapshot = changed.snapshots[0] if changed.snapshots else None
+        self.soft_assert_equal(
+            changed.timed_out,
+            False,
+            "Coordinator wait should wake when an observed task revision changes",
+        )
+        self.soft_assert_equal(
+            (
+                changed_snapshot.revision > observable_task.revision
+                if changed_snapshot
+                else False
+            ),
+            True,
+            "Observable task mutations should increment the task revision",
+        )
+
+        wait_timeout = await runtime.task_coordinator.wait_for_tasks(
+            [observable_task.task_id],
+            after_revisions={
+                observable_task.task_id: (
+                    changed_snapshot.revision
+                    if changed_snapshot
+                    else observable_task.revision
+                ),
+            },
+            timeout_seconds=0.01,
+        )
+        self.soft_assert_equal(
+            wait_timeout.timed_out,
+            True,
+            "Coordinator wait timeout should be a normal observation outcome",
+        )
+        self.soft_assert_equal(
+            wait_timeout.snapshots[0].task_id if wait_timeout.snapshots else None,
+            observable_task.task_id,
+            "Coordinator wait timeout should return the latest task snapshot",
+        )
+
+        terminal_result_task = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:terminal-result",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-terminal-result",
+            authority=SYSTEM_AUTHORITY,
+        )
+        oversized_text = "x" * 70_000
+        await runtime.task_coordinator.record_result(
+            terminal_result_task.task_id,
+            {
+                "text": oversized_text,
+                "artifact_references": ["vault://report.md"],
+            },
+        )
+        await runtime.task_coordinator.mark_completed(terminal_result_task.task_id)
+        terminal_result = await runtime.task_coordinator.wait_for_tasks(
+            [terminal_result_task.task_id],
+            after_revisions={terminal_result_task.task_id: 0},
+            timeout_seconds=1.0,
+            terminal_or_attention_only=True,
+        )
+        result_snapshot = (
+            terminal_result.snapshots[0] if terminal_result.snapshots else None
+        )
+        self.soft_assert_equal(
+            result_snapshot.status if result_snapshot else None,
+            "completed",
+            "Coordinator wait should return already-terminal tasks immediately",
+        )
+        self.soft_assert_equal(
+            result_snapshot.result_truncated if result_snapshot else False,
+            True,
+            "Execution task terminal results should be bounded",
+        )
+        self.soft_assert_equal(
+            (
+                result_snapshot.result.get("artifact_references")
+                if result_snapshot and result_snapshot.result
+                else None
+            ),
+            ["vault://report.md"],
+            "Result truncation should preserve artifact references",
+        )
+
         cancel_hook_task_ids: list[str] = []
         cancel_started = asyncio.Event()
         cancelled_task = await runtime.task_runner.start_background(

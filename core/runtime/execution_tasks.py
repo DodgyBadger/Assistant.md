@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -56,6 +57,8 @@ TERMINAL_STATUSES = {
 
 
 TERMINAL_STATUS_VALUES = {status.value for status in TERMINAL_STATUSES}
+
+EXECUTION_TASK_RESULT_MAX_CHARS = 65_536
 
 
 _CURRENT_EXECUTION_TASK: ContextVar[ExecutionTaskSnapshot | None] = ContextVar(
@@ -144,8 +147,14 @@ class ExecutionTaskSnapshot:
     cancel_requested: bool = False
     terminal_reason: str | None = None
     latest_event: str | None = None
+    parent_task_id: str | None = None
+    revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
+    last_progress_at: datetime | None = None
+    health_status: str = "healthy"
+    result: dict[str, Any] | None = None
+    result_truncated: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -160,6 +169,14 @@ class ExecutionTaskCancellationResult:
 
     snapshot: ExecutionTaskSnapshot
     effective: bool
+
+
+@dataclass(frozen=True)
+class ExecutionTaskWaitResult:
+    """Snapshots returned by one event-driven coordinator wait."""
+
+    snapshots: tuple[ExecutionTaskSnapshot, ...]
+    timed_out: bool
 
 
 @dataclass
@@ -177,8 +194,14 @@ class _ExecutionTaskRecord:
     cancel_requested: bool = False
     terminal_reason: str | None = None
     latest_event: str | None = None
+    parent_task_id: str | None = None
+    revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
+    last_progress_at: datetime | None = None
+    health_status: str = "healthy"
+    result: dict[str, Any] | None = None
+    result_truncated: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     handle: asyncio.Task[Any] | None = None
 
@@ -198,8 +221,14 @@ class _ExecutionTaskRecord:
             cancel_requested=self.cancel_requested,
             terminal_reason=self.terminal_reason,
             latest_event=self.latest_event,
+            parent_task_id=self.parent_task_id,
+            revision=self.revision,
             last_heartbeat_at=self.last_heartbeat_at,
             heartbeat_status=self.heartbeat_status,
+            last_progress_at=self.last_progress_at,
+            health_status=self.health_status,
+            result=dict(self.result) if self.result is not None else None,
+            result_truncated=self.result_truncated,
             metadata=dict(self.metadata),
         )
 
@@ -220,6 +249,7 @@ class TaskCoordinator:
         self._records: dict[str, _ExecutionTaskRecord] = {}
         self._terminal_order: list[str] = []
         self._lock = asyncio.Lock()
+        self._changed = asyncio.Condition(self._lock)
 
     @asynccontextmanager
     async def track_current_task(
@@ -231,6 +261,7 @@ class TaskCoordinator:
         label: str,
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
+        parent_task_id: str | None = None,
         start_immediately: bool = True,
     ) -> AsyncIterator[ExecutionTaskSnapshot]:
         """Register the current asyncio task for the duration of one operation."""
@@ -248,6 +279,7 @@ class TaskCoordinator:
             authority=authority,
             handle=current,
             metadata=metadata,
+            parent_task_id=parent_task_id,
         )
         if start_immediately:
             await self.mark_started(task_id)
@@ -279,6 +311,7 @@ class TaskCoordinator:
         label: str,
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
+        parent_task_id: str | None = None,
     ) -> ExecutionTaskSnapshot:
         """Create a queued task record before an asyncio handle exists."""
         task_id = self._new_task_id()
@@ -291,6 +324,7 @@ class TaskCoordinator:
             authority=authority,
             handle=None,
             metadata=metadata,
+            parent_task_id=parent_task_id,
         )
         snapshot = await self.get_task(task_id)
         if snapshot is None:  # pragma: no cover - defensive
@@ -367,6 +401,62 @@ class TaskCoordinator:
 
         return sorted(snapshots, key=lambda item: item.created_at)
 
+    async def wait_for_tasks(
+        self,
+        task_ids: list[str],
+        *,
+        after_revisions: dict[str, int] | None = None,
+        timeout_seconds: float | None = None,
+        terminal_or_attention_only: bool = False,
+    ) -> ExecutionTaskWaitResult:
+        """Wait for selected task state to become relevant without polling."""
+        unique_ids = tuple(dict.fromkeys(task_ids))
+        async with self._changed:
+            initial = self._snapshots_for_ids(unique_ids)
+            revisions = (
+                dict(after_revisions)
+                if after_revisions is not None
+                else {snapshot.task_id: snapshot.revision for snapshot in initial}
+            )
+
+            def _ready() -> bool:
+                snapshots = self._snapshots_for_ids(unique_ids)
+                if any(
+                    snapshot.is_terminal
+                    or snapshot.health_status == "attention_required"
+                    for snapshot in snapshots
+                ):
+                    return True
+                if terminal_or_attention_only:
+                    return False
+                return any(
+                    snapshot.revision > revisions.get(snapshot.task_id, -1)
+                    for snapshot in snapshots
+                )
+
+            if _ready():
+                return ExecutionTaskWaitResult(
+                    snapshots=self._snapshots_for_ids(unique_ids),
+                    timed_out=False,
+                )
+
+            try:
+                if timeout_seconds is None:
+                    await self._changed.wait_for(_ready)
+                else:
+                    async with asyncio.timeout(max(0.0, timeout_seconds)):
+                        await self._changed.wait_for(_ready)
+            except TimeoutError:
+                return ExecutionTaskWaitResult(
+                    snapshots=self._snapshots_for_ids(unique_ids),
+                    timed_out=True,
+                )
+
+            return ExecutionTaskWaitResult(
+                snapshots=self._snapshots_for_ids(unique_ids),
+                timed_out=False,
+            )
+
     async def cancel_task(
         self,
         task_id: str,
@@ -392,6 +482,7 @@ class TaskCoordinator:
                 )
             record.cancel_requested = True
             record.latest_event = reason
+            self._touch(record)
             handle = record.handle
             mark_cancelled_without_handle = handle is None
             snapshot = record.snapshot()
@@ -426,6 +517,7 @@ class TaskCoordinator:
             if record is None:
                 return
             record.metadata.update(metadata)
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_metadata_updated", snapshot)
@@ -446,14 +538,44 @@ class TaskCoordinator:
             now = self._now()
             record.last_heartbeat_at = now
             record.heartbeat_status = status
+            record.last_progress_at = now
             record.latest_event = "heartbeat"
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = status
             if metadata:
                 record.metadata.update(metadata)
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_heartbeat", snapshot)
+
+    async def record_result(self, task_id: str, result: dict[str, Any]) -> None:
+        """Record one bounded, JSON-safe result before terminal publication."""
+        snapshot = None
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None or record.status in TERMINAL_STATUSES:
+                return
+            bounded, truncated = _bound_execution_task_result(result)
+            record.result = bounded
+            record.result_truncated = truncated
+            record.latest_event = "execution_task_result_recorded"
+            self._touch(record)
+            snapshot = record.snapshot()
+
+        self._log_event(
+            "execution_task_result_recorded",
+            snapshot,
+            extra={
+                "result_chars": len(
+                    json.dumps(snapshot.result, ensure_ascii=False, sort_keys=True)
+                ),
+                "truncated": snapshot.result_truncated,
+                "artifact_reference_count": len(
+                    (snapshot.result or {}).get("artifact_references", [])
+                ),
+            },
+        )
 
     async def mark_completed(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task completed."""
@@ -529,6 +651,7 @@ class TaskCoordinator:
         authority: ExecutionAuthority,
         handle: asyncio.Task[Any] | None,
         metadata: dict[str, Any] | None,
+        parent_task_id: str | None,
     ) -> None:
         now = self._now()
         record = _ExecutionTaskRecord(
@@ -542,6 +665,8 @@ class TaskCoordinator:
             created_at=now,
             last_heartbeat_at=now,
             heartbeat_status="queued",
+            last_progress_at=now,
+            parent_task_id=parent_task_id,
             handle=handle,
             metadata=dict(metadata or {}),
         )
@@ -549,6 +674,7 @@ class TaskCoordinator:
         record.metadata.setdefault("heartbeat_status", "queued")
         async with self._lock:
             self._records[task_id] = record
+            self._changed.notify_all()
 
         self._log_event("execution_task_created", record.snapshot())
 
@@ -564,8 +690,10 @@ class TaskCoordinator:
             record.latest_event = "started"
             record.last_heartbeat_at = now
             record.heartbeat_status = "started"
+            record.last_progress_at = now
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = "started"
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_started", snapshot)
@@ -592,9 +720,11 @@ class TaskCoordinator:
             record.latest_event = event
             record.last_heartbeat_at = now
             record.heartbeat_status = status.value
+            record.last_progress_at = now
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = status.value
             record.handle = None
+            self._touch(record)
             snapshot = record.snapshot()
             self._remember_terminal(task_id)
 
@@ -612,6 +742,19 @@ class TaskCoordinator:
             if stale_record is None or stale_record.status not in TERMINAL_STATUSES:
                 continue
             del self._records[stale_id]
+
+    def _snapshots_for_ids(
+        self, task_ids: tuple[str, ...]
+    ) -> tuple[ExecutionTaskSnapshot, ...]:
+        return tuple(
+            record.snapshot()
+            for task_id in task_ids
+            if (record := self._records.get(task_id)) is not None
+        )
+
+    def _touch(self, record: _ExecutionTaskRecord) -> None:
+        record.revision += 1
+        self._changed.notify_all()
 
     def _log_event(
         self,
@@ -690,3 +833,35 @@ def _clean_goal_context_value(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _bound_execution_task_result(
+    result: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    normalized = _json_safe_value(result)
+    if not isinstance(normalized, dict):  # pragma: no cover - input is typed as a dict
+        normalized = {"value": normalized}
+    serialized = json.dumps(normalized, ensure_ascii=False, sort_keys=True)
+    if len(serialized) <= EXECUTION_TASK_RESULT_MAX_CHARS:
+        return normalized, False
+
+    artifact_references = normalized.get("artifact_references")
+    bounded: dict[str, Any] = {
+        "truncated": True,
+        "preview": serialized[: EXECUTION_TASK_RESULT_MAX_CHARS - 1_024],
+    }
+    if isinstance(artifact_references, list):
+        bounded["artifact_references"] = artifact_references
+    return bounded, True
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple | set):
+        return [_json_safe_value(item) for item in value]
+    return str(value)

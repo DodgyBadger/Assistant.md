@@ -820,6 +820,20 @@ class ExecutionTaskInfo(BaseModel):
         None, description="Terminal reason when available"
     )
     latest_event: str | None = Field(None, description="Latest task lifecycle event")
+    parent_task_id: str | None = Field(
+        None, description="Owning execution task identifier when nested"
+    )
+    revision: int = Field(0, description="Monotonic process-local state revision")
+    last_heartbeat_at: datetime | None = Field(
+        None, description="Latest task heartbeat timestamp"
+    )
+    heartbeat_status: str | None = Field(
+        None, description="Latest task heartbeat status"
+    )
+    last_progress_at: datetime | None = Field(
+        None, description="Latest observable task progress timestamp"
+    )
+    health_status: str = Field("healthy", description="Current task health state")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Task metadata")
 
 

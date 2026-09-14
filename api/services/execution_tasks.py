@@ -31,6 +31,12 @@ def _execution_task_info(snapshot: ExecutionTaskSnapshot) -> ExecutionTaskInfo:
         cancel_requested=snapshot.cancel_requested,
         terminal_reason=snapshot.terminal_reason,
         latest_event=snapshot.latest_event,
+        parent_task_id=snapshot.parent_task_id,
+        revision=snapshot.revision,
+        last_heartbeat_at=snapshot.last_heartbeat_at,
+        heartbeat_status=snapshot.heartbeat_status,
+        last_progress_at=snapshot.last_progress_at,
+        health_status=snapshot.health_status,
         metadata=dict(snapshot.metadata or {}),
     )
 
