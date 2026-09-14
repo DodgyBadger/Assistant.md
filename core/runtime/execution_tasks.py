@@ -33,6 +33,7 @@ class ExecutionTaskKind(StrEnum):
     """Stable task kind values shared across runtime/API/tool callers."""
 
     CHAT = "chat"
+    DELEGATE = "delegate"
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
     INGESTION = "ingestion"

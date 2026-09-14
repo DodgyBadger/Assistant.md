@@ -295,6 +295,89 @@ class DelegateToolScenario(BaseScenario):
 
         await _assert_delegate_uses_streaming()
 
+        async def _assert_managed_delegate_job() -> None:
+            from core.authoring.helpers.runtime_common import invoke_bound_tool
+            from core.authoring.shared.tool_binding import resolve_tool_binding
+            from core.identity import LOCAL_USER_AUTHORITY
+            from core.runtime.execution_tasks import (
+                ExecutionTaskKind,
+                ExecutionTaskSource,
+            )
+            from core.runtime.state import get_runtime_context
+            from core.runtime.task_runner import ExecutionTaskSpec
+
+            runtime = get_runtime_context()
+            binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
+            delegate_module.create_agent = _streaming_create_agent
+
+            async def _launch(parent_task):
+                result = await invoke_bound_tool(
+                    binding.tool_functions[0],
+                    tool_name="delegate",
+                    arguments={
+                        "prompt": "Run a managed delegate.",
+                        "model": "test",
+                        "mode": "managed",
+                    },
+                    run_buffers={},
+                    session_buffers={},
+                    session_id="delegate_managed_job",
+                    vault_name=vault.name,
+                )
+                return parent_task.task_id, result
+
+            parent_task_id, result = await runtime.task_runner.run_inline(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="delegate:managed-parent",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="delegate-managed-parent",
+                    authority=LOCAL_USER_AUTHORITY,
+                ),
+                _launch,
+            )
+
+            self.soft_assert_equal(
+                isinstance(result, ToolReturn),
+                True,
+                "Managed delegate should return a structured job handle",
+            )
+            metadata = result.metadata if isinstance(result.metadata, dict) else {}
+            job_id = str(metadata.get("job_id") or "")
+            self.soft_assert_equal(
+                bool(job_id),
+                True,
+                "Managed delegate handle should include a public job ID",
+            )
+            terminal = await runtime.task_coordinator.wait_for_tasks(
+                [job_id],
+                timeout_seconds=2.0,
+                terminal_or_attention_only=True,
+            )
+            delegate_module.create_agent = original_create_agent
+            child = terminal.snapshots[0] if terminal.snapshots else None
+            self.soft_assert_equal(
+                child.kind if child else None,
+                ExecutionTaskKind.DELEGATE.value,
+                "Managed delegate should run as a delegate execution task",
+            )
+            self.soft_assert_equal(
+                child.parent_task_id if child else None,
+                parent_task_id,
+                "Managed delegate should retain execution-task parent ownership",
+            )
+            self.soft_assert_equal(
+                (
+                    child.result.get("return_value")
+                    if child is not None and child.result
+                    else None
+                ),
+                "streamed delegate output",
+                "Managed delegate terminal task should expose its bounded result",
+            )
+
+        await _assert_managed_delegate_job()
+
         async def _invoke_direct_delegate(session_id: str):
             from core.authoring.helpers.runtime_common import invoke_bound_tool
             from core.authoring.shared.tool_binding import resolve_tool_binding

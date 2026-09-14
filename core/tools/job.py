@@ -6,7 +6,7 @@ import asyncio
 import json
 from datetime import datetime
 from time import monotonic
-from typing import Any, Literal
+from typing import Any
 
 from pydantic_ai.tools import Tool
 
@@ -29,7 +29,7 @@ class Job(BaseTool):
 
         async def job(
             *,
-            operation: Literal["list", "status", "wait", "cancel"],
+            operation: str,
             job_ids: list[str] | None = None,
             kind: str = "",
             include_terminal: bool = True,
@@ -49,6 +49,9 @@ class Job(BaseTool):
             runtime = get_runtime_context()
             access = runtime.execution_task_access
             ids = _normalize_job_ids(job_ids)
+            operation = str(operation or "").strip().lower()
+            if operation not in {"list", "status", "wait", "cancel"}:
+                raise ValueError("job operation must be list, status, wait, or cancel")
 
             if operation == "list":
                 snapshots = await access.list_tasks(

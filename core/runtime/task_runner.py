@@ -9,7 +9,11 @@ from typing import Any
 
 from core.identity import ExecutionAuthority
 from core.runtime.background import RuntimeBackgroundSpawner
-from core.runtime.execution_tasks import ExecutionTaskSnapshot, TaskCoordinator
+from core.runtime.execution_tasks import (
+    ExecutionTaskSnapshot,
+    ExecutionTaskStatus,
+    TaskCoordinator,
+)
 
 
 @dataclass(frozen=True)
@@ -22,8 +26,18 @@ class ExecutionTaskSpec:
     label: str
     authority: ExecutionAuthority
     metadata: dict[str, Any] = field(default_factory=dict)
+    parent_task_id: str | None = None
     timeout_seconds: float | None = None
     timeout_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecutionTaskRunOutcome:
+    """Domain result plus the execution-task terminal state it represents."""
+
+    value: Any
+    status: ExecutionTaskStatus = ExecutionTaskStatus.COMPLETED
+    reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +105,7 @@ class ExecutionTaskRunner:
             label=spec.label,
             authority=spec.authority,
             metadata=spec.metadata,
+            parent_task_id=spec.parent_task_id,
         )
 
         async def _run() -> None:
@@ -100,12 +115,13 @@ class ExecutionTaskRunner:
                 ) as tracked_task:
                     if start_immediately:
                         await self._task_coordinator.mark_started(tracked_task.task_id)
-                    await self.run_with_timeout(
+                    result = await self.run_with_timeout(
                         tracked_task,
                         spec,
                         lambda: run(tracked_task),
                         hooks=hooks,
                     )
+                    await self._publish_run_outcome(tracked_task.task_id, result)
             except asyncio.CancelledError:
                 await self._call_cancelled_hook(hooks, task.task_id)
                 raise
@@ -137,14 +153,16 @@ class ExecutionTaskRunner:
             label=spec.label,
             authority=spec.authority,
             metadata=spec.metadata,
+            parent_task_id=spec.parent_task_id,
             start_immediately=start_immediately,
         ) as task:
-            return await self.run_with_timeout(
+            result = await self.run_with_timeout(
                 task,
                 spec,
                 lambda: run(task),
                 hooks=hooks,
             )
+            return await self._publish_run_outcome(task.task_id, result)
 
     async def run_with_timeout(
         self,
@@ -166,8 +184,28 @@ class ExecutionTaskRunner:
             result = await self._call_timed_out_hook(
                 hooks, task.task_id, timeout, reason
             )
+            if isinstance(result, dict):
+                await self._task_coordinator.record_result(task.task_id, result)
             await self._task_coordinator.mark_timed_out(task.task_id, reason=reason)
             return result
+
+    async def _publish_run_outcome(self, task_id: str, result: Any) -> Any:
+        outcome = (
+            result
+            if isinstance(result, ExecutionTaskRunOutcome)
+            else ExecutionTaskRunOutcome(value=result)
+        )
+        if isinstance(outcome.value, dict):
+            await self._task_coordinator.record_result(task_id, outcome.value)
+        if outcome.status == ExecutionTaskStatus.FAILED:
+            await self._task_coordinator.mark_failed(task_id, reason=outcome.reason)
+        elif outcome.status == ExecutionTaskStatus.CANCELLED:
+            await self._task_coordinator.mark_cancelled(task_id, reason=outcome.reason)
+        elif outcome.status == ExecutionTaskStatus.TIMED_OUT:
+            await self._task_coordinator.mark_timed_out(task_id, reason=outcome.reason)
+        elif outcome.status == ExecutionTaskStatus.SKIPPED:
+            await self._task_coordinator.mark_skipped(task_id, reason=outcome.reason)
+        return outcome.value
 
     async def run_with_gate(
         self,
