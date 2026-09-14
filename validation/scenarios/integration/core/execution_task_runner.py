@@ -14,6 +14,7 @@ from core.runtime.execution_tasks import (
     EXECUTION_TASK_RESULT_MAX_CHARS,
     ExecutionTaskKind,
     ExecutionTaskSource,
+    TaskCoordinator,
 )
 from core.runtime.task_runner import (
     ExecutionConcurrencyPolicy,
@@ -53,6 +54,42 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             completed.started_at is not None if completed else False,
             True,
             "Runner should mark successful background work started",
+        )
+
+        captured_spawns = []
+        original_spawn = runtime.background_spawner.spawn
+        runtime.background_spawner.spawn = captured_spawns.append
+        try:
+            cancelled_before_attachment = await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:pre-attachment-hook-failure",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="runner-pre-attachment-hook-failure",
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                _complete_task,
+                hooks=ExecutionTaskHooks(on_cancelled=_raise_cancel_hook),
+            )
+        finally:
+            runtime.background_spawner.spawn = original_spawn
+        await runtime.task_coordinator.cancel_task(
+            cancelled_before_attachment.task_id,
+            reason="validation_pre_attachment_hook_failure",
+        )
+        captured_worker = asyncio.create_task(captured_spawns.pop()())
+        await asyncio.gather(captured_worker, return_exceptions=True)
+        cancelled_after_hook_failure = await runtime.task_coordinator.get_task(
+            cancelled_before_attachment.task_id
+        )
+        self.soft_assert_equal(
+            (
+                cancelled_after_hook_failure.status
+                if cancelled_after_hook_failure
+                else None
+            ),
+            "cancelled",
+            "A failed cancellation hook should not strand a pre-attachment task",
         )
 
         inline_task_ids: list[str] = []
@@ -138,6 +175,67 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             wait_timeout.snapshots[0].task_id if wait_timeout.snapshots else None,
             observable_task.task_id,
             "Coordinator wait timeout should return the latest task snapshot",
+        )
+
+        terminal_only_wait = asyncio.create_task(
+            runtime.task_coordinator.wait_for_tasks(
+                [observable_task.task_id],
+                timeout_seconds=1.0,
+                terminal_or_attention_only=True,
+                wake_on_attention=False,
+            )
+        )
+        await asyncio.sleep(0)
+        await runtime.task_coordinator.publish_progress(
+            observable_task.task_id,
+            metadata={"progress": "needs-review"},
+            health_status="attention_required",
+        )
+        await asyncio.sleep(0)
+        self.soft_assert_equal(
+            terminal_only_wait.done(),
+            False,
+            "Terminal-only waits should ignore nonterminal attention state",
+        )
+        await runtime.task_coordinator.mark_completed(observable_task.task_id)
+        terminal_only_result = await terminal_only_wait
+        self.soft_assert_equal(
+            terminal_only_result.snapshots[0].status,
+            "completed",
+            "Terminal-only waits should wake on terminal state",
+        )
+
+        eviction_coordinator = TaskCoordinator(terminal_history_limit=1)
+        evicted_task = await eviction_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:evicted-wait",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-evicted-wait",
+            authority=SYSTEM_AUTHORITY,
+        )
+        eviction_wait = asyncio.create_task(
+            eviction_coordinator.wait_for_tasks(
+                [evicted_task.task_id],
+                timeout_seconds=0.1,
+                terminal_or_attention_only=True,
+                wake_on_attention=False,
+            )
+        )
+        await asyncio.sleep(0)
+        await eviction_coordinator.mark_completed(evicted_task.task_id)
+        churn_task = await eviction_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:eviction-churn",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-eviction-churn",
+            authority=SYSTEM_AUTHORITY,
+        )
+        await eviction_coordinator.mark_completed(churn_task.task_id)
+        evicted_wait_result = await eviction_wait
+        self.soft_assert_equal(
+            evicted_wait_result.timed_out,
+            False,
+            "Waiters should wake when a requested terminal task is evicted",
         )
 
         terminal_result_task = await runtime.task_coordinator.create_queued_task(
@@ -355,6 +453,26 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Runner should call timeout hook before terminal completion",
         )
 
+        natural_timeout_task = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:natural-timeout-error",
+                source=ExecutionTaskSource.SYSTEM,
+                label="runner-natural-timeout-error",
+                authority=SYSTEM_AUTHORITY,
+                timeout_seconds=1.0,
+            ),
+            _raise_timeout_error,
+        )
+        natural_timeout = await self._wait_for_task_terminal(
+            natural_timeout_task.task_id
+        )
+        self.soft_assert_equal(
+            natural_timeout.status if natural_timeout else None,
+            "failed",
+            "An inner TimeoutError should remain a domain failure",
+        )
+
         gate_entered = asyncio.Event()
         release_gate = asyncio.Event()
         gate_order: list[str] = []
@@ -508,6 +626,357 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Queued capacity work should run after a slot is released",
         )
 
+        single_entered = asyncio.Event()
+        single_release = asyncio.Event()
+        queued_callback_entered = asyncio.Event()
+        third_entered = asyncio.Event()
+
+        async def _block_second_queue_callback(
+            task,
+            _wait,
+        ) -> None:
+            if task.label == "runner-cancelled-waiter":
+                queued_callback_entered.set()
+                await asyncio.Event().wait()
+
+        cancellation_policy = ExecutionConcurrencyPolicy(
+            key="runner:queued-cancellation",
+            limit=1,
+            queued_status="queued_for_capacity",
+            queued_metadata={"queue_reason": "validation_capacity"},
+            on_queued=_block_second_queue_callback,
+        )
+        first_capacity_task = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:queued-cancellation",
+                source=ExecutionTaskSource.SYSTEM,
+                label="runner-capacity-holder",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                cancellation_policy,
+                lambda: _hold_capacity(single_entered, single_release),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.wait_for(single_entered.wait(), timeout=2.0)
+        cancelled_waiter = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:queued-cancellation",
+                source=ExecutionTaskSource.SYSTEM,
+                label="runner-cancelled-waiter",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                cancellation_policy,
+                lambda: _mark_capacity_entered(third_entered),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.wait_for(queued_callback_entered.wait(), timeout=2.0)
+        await runtime.task_coordinator.cancel_task(
+            cancelled_waiter.task_id,
+            reason="validation_cancel_queued_waiter",
+        )
+        await self._wait_for_task_terminal(cancelled_waiter.task_id)
+        successor = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:queued-cancellation",
+                source=ExecutionTaskSource.SYSTEM,
+                label="runner-capacity-successor",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                cancellation_policy,
+                lambda: _mark_capacity_entered(third_entered),
+            ),
+            start_immediately=False,
+        )
+        single_release.set()
+        await asyncio.wait_for(third_entered.wait(), timeout=2.0)
+        await self._wait_for_task_terminal(first_capacity_task.task_id)
+        successor_terminal = await self._wait_for_task_terminal(successor.task_id)
+        self.soft_assert_equal(
+            successor_terminal.status if successor_terminal else None,
+            "completed",
+            "Cancelling during queue publication should not leak capacity",
+        )
+
+        live_queue_release = asyncio.Event()
+        live_queue_entered = asyncio.Event()
+        live_queue_policy = ExecutionConcurrencyPolicy(
+            key="runner:live-queue",
+            limit=1,
+            queued_status="queued_for_capacity",
+            queued_metadata={"queue_reason": "live_queue_capacity"},
+        )
+        live_holder = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:live-queue",
+                source=ExecutionTaskSource.SYSTEM,
+                label="live-queue-holder",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                live_queue_policy,
+                lambda: _hold_capacity(live_queue_entered, live_queue_release),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.wait_for(live_queue_entered.wait(), timeout=2.0)
+
+        async def _start_live_waiter(label: str):
+            return await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:live-queue",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label=label,
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                lambda task: runtime.task_runner.run_with_concurrency(
+                    task,
+                    live_queue_policy,
+                    lambda: asyncio.sleep(0),
+                ),
+                start_immediately=False,
+            )
+
+        live_waiter_one = await _start_live_waiter("live-queue-one")
+        live_waiter_two = await _start_live_waiter("live-queue-two")
+        await self._wait_for_task_metadata(live_waiter_two.task_id, "queue_position", 2)
+        await runtime.task_coordinator.cancel_task(
+            live_waiter_one.task_id,
+            reason="validation_live_queue_cancel",
+        )
+        await self._wait_for_task_terminal(live_waiter_one.task_id)
+        promoted_position = await self._wait_for_task_metadata(
+            live_waiter_two.task_id,
+            "queue_position",
+            1,
+        )
+        self.soft_assert_equal(
+            (
+                promoted_position.metadata.get("queue_position")
+                if promoted_position
+                else None
+            ),
+            1,
+            "Remaining capacity waiters should expose a live queue position",
+        )
+        live_queue_release.set()
+        await self._wait_for_task_terminal(live_holder.task_id)
+        await self._wait_for_task_terminal(live_waiter_two.task_id)
+
+        cleanup_guard_release = asyncio.Event()
+        cleanup_holder_entered = asyncio.Event()
+        cleanup_policy = ExecutionConcurrencyPolicy(
+            key="runner:cancelled-cleanup",
+            limit=1,
+            queued_status="queued_for_capacity",
+        )
+        cleanup_holder = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:cancelled-cleanup",
+                source=ExecutionTaskSource.SYSTEM,
+                label="cancelled-cleanup-holder",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                cleanup_policy,
+                lambda: _hold_capacity(
+                    cleanup_holder_entered,
+                    cleanup_guard_release,
+                ),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.wait_for(cleanup_holder_entered.wait(), timeout=2.0)
+        await runtime.task_runner._gate_guard.acquire()  # noqa: SLF001
+        cleanup_guard_release.set()
+        await asyncio.sleep(0.02)
+        await runtime.task_coordinator.cancel_task(
+            cleanup_holder.task_id,
+            reason="validation_cancel_during_cleanup",
+        )
+        runtime.task_runner._gate_guard.release()  # noqa: SLF001
+        cleanup_successor_entered = asyncio.Event()
+        cleanup_successor = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:cancelled-cleanup",
+                source=ExecutionTaskSource.SYSTEM,
+                label="cancelled-cleanup-successor",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                cleanup_policy,
+                lambda: _mark_capacity_entered(cleanup_successor_entered),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.wait_for(cleanup_successor_entered.wait(), timeout=2.0)
+        await self._wait_for_task_terminal(cleanup_holder.task_id)
+        cleanup_successor_terminal = await self._wait_for_task_terminal(
+            cleanup_successor.task_id
+        )
+        self.soft_assert_equal(
+            cleanup_successor_terminal.status if cleanup_successor_terminal else None,
+            "completed",
+            "Cancellation during cleanup should not leak concurrency capacity",
+        )
+
+        dynamic_release = asyncio.Event()
+        dynamic_two_active = asyncio.Event()
+        dynamic_three_active = asyncio.Event()
+        dynamic_state = {"active": 0, "maximum": 0}
+        dynamic_policy_one = ExecutionConcurrencyPolicy(
+            key="runner:dynamic-concurrency",
+            limit=1,
+            queued_status="queued_for_capacity",
+            queued_metadata={"queue_reason": "dynamic_capacity"},
+        )
+        dynamic_policy_two = ExecutionConcurrencyPolicy(
+            key="runner:dynamic-concurrency",
+            limit=2,
+            queued_status="queued_for_capacity",
+            queued_metadata={"queue_reason": "dynamic_capacity"},
+        )
+
+        async def _start_dynamic(label: str, policy: ExecutionConcurrencyPolicy):
+            return await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:dynamic-concurrency",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label=label,
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                lambda task: runtime.task_runner.run_with_concurrency(
+                    task,
+                    policy,
+                    lambda: _hold_dynamic_capacity(
+                        dynamic_state,
+                        dynamic_two_active,
+                        dynamic_three_active,
+                        dynamic_release,
+                    ),
+                ),
+                start_immediately=False,
+            )
+
+        dynamic_tasks = [
+            await _start_dynamic("dynamic-one", dynamic_policy_one),
+        ]
+        while dynamic_state["active"] < 1:
+            await asyncio.sleep(0.01)
+        dynamic_tasks.append(await _start_dynamic("dynamic-two", dynamic_policy_one))
+        await self._wait_for_task_metadata(
+            dynamic_tasks[1].task_id,
+            "queue_reason",
+            "dynamic_capacity",
+        )
+        dynamic_tasks.extend(
+            [
+                await _start_dynamic("dynamic-three", dynamic_policy_two),
+                await _start_dynamic("dynamic-four", dynamic_policy_two),
+            ]
+        )
+        await asyncio.wait_for(dynamic_two_active.wait(), timeout=2.0)
+        await asyncio.sleep(0.02)
+        self.soft_assert_equal(
+            dynamic_three_active.is_set(),
+            False,
+            "Changing a concurrency limit should not create an independent lane",
+        )
+        dynamic_release.set()
+        for task in dynamic_tasks:
+            await self._wait_for_task_terminal(task.task_id)
+        self.soft_assert_equal(
+            dynamic_state["maximum"],
+            2,
+            "A live concurrency setting change should preserve one process-wide cap",
+        )
+
+        transition_release = asyncio.Event()
+        transition_two_active = asyncio.Event()
+        transition_state = {"active": 0, "maximum": 0}
+        unlimited_policy = ExecutionConcurrencyPolicy(
+            key="runner:unlimited-transition",
+            limit=0,
+            queued_status="queued_for_capacity",
+        )
+        limited_policy = ExecutionConcurrencyPolicy(
+            key="runner:unlimited-transition",
+            limit=1,
+            queued_status="queued_for_capacity",
+        )
+
+        async def _start_transition(label: str, policy: ExecutionConcurrencyPolicy):
+            return await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:unlimited-transition",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label=label,
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                lambda task: runtime.task_runner.run_with_concurrency(
+                    task,
+                    policy,
+                    lambda: _hold_dynamic_capacity(
+                        transition_state,
+                        transition_two_active,
+                        asyncio.Event(),
+                        transition_release,
+                    ),
+                ),
+                start_immediately=False,
+            )
+
+        transition_tasks = [
+            await _start_transition("unlimited-one", unlimited_policy),
+            await _start_transition("unlimited-two", unlimited_policy),
+        ]
+        await asyncio.wait_for(transition_two_active.wait(), timeout=2.0)
+        limited_entered = asyncio.Event()
+        limited_task = await runtime.task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="runner:unlimited-transition",
+                source=ExecutionTaskSource.SYSTEM,
+                label="limited-after-unlimited",
+                authority=SYSTEM_AUTHORITY,
+            ),
+            lambda task: runtime.task_runner.run_with_concurrency(
+                task,
+                limited_policy,
+                lambda: _mark_capacity_entered(limited_entered),
+            ),
+            start_immediately=False,
+        )
+        await asyncio.sleep(0.02)
+        self.soft_assert_equal(
+            limited_entered.is_set(),
+            False,
+            "A 0-to-1 limit change should account for already-active holders",
+        )
+        transition_release.set()
+        await asyncio.wait_for(limited_entered.wait(), timeout=2.0)
+        for task in [*transition_tasks, limited_task]:
+            await self._wait_for_task_terminal(task.task_id)
+
         observer_states: list[bool] = []
         cleanup_started = asyncio.Event()
         cleanup_released = asyncio.Event()
@@ -635,6 +1104,10 @@ async def _slow_task(_task) -> None:
     await asyncio.sleep(1)
 
 
+async def _raise_timeout_error(_task) -> None:
+    raise TimeoutError("domain timeout")
+
+
 async def _record_task_id(task_ids: list[str], task_id: str) -> None:
     task_ids.append(task_id)
 
@@ -645,6 +1118,10 @@ async def _record_failure(
     exc: BaseException,
 ) -> None:
     failures.append((task_id, type(exc).__name__))
+
+
+async def _raise_cancel_hook(_task_id: str) -> None:
+    raise RuntimeError("forced cancellation hook failure")
 
 
 async def _record_timeout(
@@ -681,6 +1158,33 @@ async def _hold_concurrency_slot(
     state["maximum"] = max(state["maximum"], state["active"])
     if state["active"] == 2:
         entered.set()
+    try:
+        await release.wait()
+    finally:
+        state["active"] -= 1
+
+
+async def _hold_capacity(entered: asyncio.Event, release: asyncio.Event) -> None:
+    entered.set()
+    await release.wait()
+
+
+async def _mark_capacity_entered(entered: asyncio.Event) -> None:
+    entered.set()
+
+
+async def _hold_dynamic_capacity(
+    state: dict[str, int],
+    two_active: asyncio.Event,
+    three_active: asyncio.Event,
+    release: asyncio.Event,
+) -> None:
+    state["active"] += 1
+    state["maximum"] = max(state["maximum"], state["active"])
+    if state["active"] >= 2:
+        two_active.set()
+    if state["active"] >= 3:
+        three_active.set()
     try:
         await release.wait()
     finally:

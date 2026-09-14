@@ -791,7 +791,9 @@ def get_max_concurrent_delegates() -> int:
         parsed = _setting_int(value)
     except (TypeError, ValueError):
         return _get_template_setting_positive_int("max_concurrent_delegates", 3)
-    return max(0, parsed)
+    if not 0 <= parsed <= 32:
+        return _get_template_setting_positive_int("max_concurrent_delegates", 3)
+    return parsed
 
 
 def get_delegate_repeated_failure_limit() -> int:

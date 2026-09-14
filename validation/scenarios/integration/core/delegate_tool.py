@@ -57,6 +57,7 @@ class DelegateToolScenario(BaseScenario):
         _assert_delegate_flight_card()
         _assert_delegate_usage_limits()
         _assert_shared_tool_result_classification()
+        await _assert_retry_prompt_progress()
         delegate_timeout_update = self.call_api(
             "/api/system/settings/general/delegate_timeout_seconds",
             method="PUT",
@@ -112,7 +113,7 @@ class DelegateToolScenario(BaseScenario):
                     return {
                         "prompt": "Use your tools.",
                         "model": "test",
-                        "tools": ["file_read", "delegate", "code_execution"],
+                        "tools": ["FILE_READ", "Delegate", "Code_Execution", "JOB"],
                     }
                 if case == "child_tools":
                     return {
@@ -597,6 +598,191 @@ class DelegateToolScenario(BaseScenario):
 
         await _assert_parent_cancellation_is_logged()
 
+        async def _assert_queued_managed_cancellation_is_recorded() -> None:
+            from core.authoring.helpers.runtime_common import invoke_bound_tool
+            from core.authoring.shared.tool_binding import resolve_tool_binding
+            from core.identity import LOCAL_USER_AUTHORITY
+            from core.runtime.execution_tasks import (
+                ExecutionTaskKind,
+                ExecutionTaskSource,
+            )
+            from core.runtime.state import get_runtime_context
+            from core.runtime.task_runner import ExecutionTaskSpec
+
+            started = asyncio.Event()
+            cancelled = asyncio.Event()
+
+            async def waiting_create_agent(*_args, **_kwargs):
+                return _WaitingChildAgent(started, cancelled)
+
+            concurrency_update = self.call_api(
+                "/api/system/settings/general/max_concurrent_delegates",
+                method="PUT",
+                data={"value": "1"},
+            )
+            assert concurrency_update.status_code == 200
+            checkpoint = self.event_checkpoint()
+            delegate_module.create_agent = waiting_create_agent
+            runtime = get_runtime_context()
+            binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
+
+            async def _launch_and_cancel(_parent_task):
+                async def _launch(session_id: str):
+                    return await invoke_bound_tool(
+                        binding.tool_functions[0],
+                        tool_name="delegate",
+                        arguments={
+                            "prompt": "Wait until cancelled.",
+                            "model": "test",
+                            "mode": "managed",
+                        },
+                        run_buffers={},
+                        session_buffers={},
+                        session_id=session_id,
+                        vault_name=vault.name,
+                    )
+
+                first = await _launch("delegate_managed_holder")
+                await asyncio.wait_for(started.wait(), timeout=1.0)
+                second = await _launch("delegate_managed_queued_cancel")
+                first_id = str(first.metadata.get("job_id"))
+                second_id = str(second.metadata.get("job_id"))
+                for _ in range(100):
+                    queued = await runtime.task_coordinator.get_task(second_id)
+                    if queued and queued.metadata.get("queue_reason"):
+                        break
+                    await asyncio.sleep(0.01)
+                else:
+                    raise AssertionError("Managed delegate did not enter the queue")
+                await runtime.task_coordinator.cancel_task(
+                    second_id,
+                    reason="validation_queued_delegate_cancel",
+                )
+                second_terminal = await runtime.task_coordinator.wait_for_tasks(
+                    [second_id],
+                    timeout_seconds=1.0,
+                    terminal_or_attention_only=True,
+                    wake_on_attention=False,
+                )
+                await runtime.task_coordinator.cancel_task(
+                    first_id,
+                    reason="validation_holder_cleanup",
+                )
+                await runtime.task_coordinator.wait_for_tasks(
+                    [first_id],
+                    timeout_seconds=1.0,
+                    terminal_or_attention_only=True,
+                    wake_on_attention=False,
+                )
+                return second_id, second_terminal.snapshots[0]
+
+            try:
+                second_id, second_terminal = await runtime.task_runner.run_inline(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.CHAT,
+                        scope="delegate:queued-cancel-parent",
+                        source=ExecutionTaskSource.SYSTEM,
+                        label="delegate-queued-cancel-parent",
+                        authority=LOCAL_USER_AUTHORITY,
+                    ),
+                    _launch_and_cancel,
+                )
+            finally:
+                delegate_module.create_agent = original_create_agent
+                self.call_api(
+                    "/api/system/settings/general/max_concurrent_delegates",
+                    method="PUT",
+                    data={"value": "3"},
+                )
+            self.soft_assert_equal(
+                second_terminal.result.get("metadata", {}).get("status"),
+                "cancelled",
+                "Queued managed cancellation should retain a normalized result",
+            )
+            self.assert_event_contains(
+                self.events_since(checkpoint),
+                name="delegate_cancelled",
+                expected={
+                    "task_id": second_id,
+                    "workflow_id": "delegate_managed_queued_cancel",
+                    "mode": "managed",
+                },
+            )
+
+        await _assert_queued_managed_cancellation_is_recorded()
+
+        async def _assert_pre_attachment_cancellation_is_recorded() -> None:
+            from core.authoring.helpers.runtime_common import invoke_bound_tool
+            from core.authoring.shared.tool_binding import resolve_tool_binding
+            from core.identity import LOCAL_USER_AUTHORITY
+            from core.runtime.execution_tasks import (
+                ExecutionTaskKind,
+                ExecutionTaskSource,
+            )
+            from core.runtime.state import get_runtime_context
+            from core.runtime.task_runner import ExecutionTaskSpec
+
+            runtime = get_runtime_context()
+            binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
+            captured_spawns = []
+            original_spawn = runtime.background_spawner.spawn
+
+            async def _launch_and_cancel(_parent_task):
+                runtime.background_spawner.spawn = captured_spawns.append
+                try:
+                    launched = await invoke_bound_tool(
+                        binding.tool_functions[0],
+                        tool_name="delegate",
+                        arguments={
+                            "prompt": "Cancel before attachment.",
+                            "model": "test",
+                            "mode": "managed",
+                        },
+                        run_buffers={},
+                        session_buffers={},
+                        session_id="delegate_pre_attachment_cancel",
+                        vault_name=vault.name,
+                    )
+                finally:
+                    runtime.background_spawner.spawn = original_spawn
+                job_id = str(launched.metadata.get("job_id"))
+                await runtime.task_coordinator.cancel_task(
+                    job_id,
+                    reason="validation_pre_attachment_cancel",
+                )
+                before_attachment = await runtime.task_coordinator.get_task(job_id)
+                self.soft_assert_equal(
+                    before_attachment.is_terminal if before_attachment else None,
+                    False,
+                    "Cancellation should wait for pending background attachment",
+                )
+                original_spawn(captured_spawns.pop())
+                terminal = await runtime.task_coordinator.wait_for_tasks(
+                    [job_id],
+                    timeout_seconds=1.0,
+                    terminal_or_attention_only=True,
+                    wake_on_attention=False,
+                )
+                return terminal.snapshots[0]
+
+            terminal = await runtime.task_runner.run_inline(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="delegate:pre-attachment-parent",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="delegate-pre-attachment-parent",
+                    authority=LOCAL_USER_AUTHORITY,
+                ),
+                _launch_and_cancel,
+            )
+            self.soft_assert_equal(
+                terminal.result.get("metadata", {}).get("status"),
+                "cancelled",
+                "Pre-attachment cancellation should retain a normalized result",
+            )
+
+        await _assert_pre_attachment_cancellation_is_recorded()
+
         async def _patched_create_agent(*args, **kwargs):
             if current_case["name"] == "model_request_limit_failure":
                 return _FailingChildAgent(
@@ -650,7 +836,7 @@ class DelegateToolScenario(BaseScenario):
                 "Basic delegate call should not produce a Monty failure response",
             )
 
-            # --- Forbidden tool stripping: delegate and code_execution removed ---
+            # --- Forbidden tool stripping is case-insensitive ---
             current_case["name"] = "forbidden_stripping"
             checkpoint = self.event_checkpoint()
             stripping = await self.run_chat_task(
@@ -676,7 +862,7 @@ class DelegateToolScenario(BaseScenario):
                 expected={
                     "workflow_id": "delegate_forbidden_stripping",
                     "tool_names": ["file_read"],
-                    "stripped_tools": ["code_execution", "delegate"],
+                    "stripped_tools": ["code_execution", "delegate", "job"],
                 },
             )
             self.assert_event_contains(
@@ -826,8 +1012,8 @@ class DelegateToolScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 timeout_tool_result.metadata.get("failure_kind"),
-                "delegate_timeout",
-                "Delegate timeout metadata should classify the failure",
+                "delegate_internal",
+                "An inner TimeoutError should not impersonate the delegate deadline",
             )
             self.soft_assert_equal(
                 timeout_tool_result.metadata.get("retryable"),
@@ -841,7 +1027,7 @@ class DelegateToolScenario(BaseScenario):
                 expected={"workflow_id": "delegate_timeout_failure"},
             )
             self.soft_assert(
-                "timeout" in timeout_tool_result.return_value,
+                "timeout" in timeout_tool_result.return_value.lower(),
                 "Delegate timeout should return actionable text",
             )
 
@@ -1264,6 +1450,15 @@ def _assert_shared_tool_result_classification() -> None:
     assert "reports/result.md" in argument_hint
     assert "sensitive generated payload" not in argument_hint
     assert "content" in argument_hint
+    signed_url_hint = _delegate_argument_hint(
+        {
+            "url": "https://user:password@example.com/report?token=secret#private",
+            "urls": ["https://example.com/second?signature=secret"],
+        }
+    )
+    assert signed_url_hint.count("secret") == 0
+    assert "password" not in signed_url_hint
+    assert "https://example.com/report" in signed_url_hint
     unresolved_audit = _build_child_run_audit(
         [
             ModelResponse(
@@ -1279,6 +1474,52 @@ def _assert_shared_tool_result_classification() -> None:
     )
     assert unresolved_audit["settled_tool_call_count"] == 0
     assert unresolved_audit["unsettled_tool_call_count"] == 1
+
+
+async def _assert_retry_prompt_progress() -> None:
+    from pydantic_ai import FunctionToolCallEvent, FunctionToolResultEvent
+    from pydantic_ai.messages import RetryPromptPart
+    from pydantic_ai.usage import RunUsage
+
+    from core.identity import LOCAL_USER_AUTHORITY
+    from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
+    from core.runtime.state import get_runtime_context
+    from core.tools.delegate import _DelegateProgressObserver
+
+    runtime = get_runtime_context()
+    task = await runtime.task_coordinator.create_queued_task(
+        kind=ExecutionTaskKind.DELEGATE,
+        scope="delegate:retry-progress",
+        source=ExecutionTaskSource.SYSTEM,
+        label="delegate-retry-progress",
+        authority=LOCAL_USER_AUTHORITY,
+    )
+    observer = _DelegateProgressObserver(task)
+    observer._record_started(  # noqa: SLF001
+        FunctionToolCallEvent(
+            ToolCallPart(
+                tool_name="file_read",
+                args={"path": "missing.md"},
+                tool_call_id="retry-call",
+            )
+        )
+    )
+    observer._record_finished(  # noqa: SLF001
+        FunctionToolResultEvent(
+            RetryPromptPart(
+                content="Path is required.",
+                tool_name="file_read",
+                tool_call_id="retry-call",
+            )
+        )
+    )
+    await observer._publish(usage=RunUsage())  # noqa: SLF001
+    snapshot = await runtime.task_coordinator.get_task(task.task_id)
+    counts = snapshot.metadata.get("tool_call_counts", {}) if snapshot else {}
+    assert counts.get("invalid") == 1
+    assert counts.get("failed") == 1
+    assert counts.get("completed") == 0
+    await runtime.task_coordinator.mark_completed(task.task_id)
 
 
 DELEGATE_WITH_TOOLS_WORKFLOW = """---

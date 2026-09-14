@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
+from enum import StrEnum
 from time import monotonic
-from typing import Any
+from typing import Annotated, Any
 
+from pydantic import Field
 from pydantic_ai.tools import Tool
 
 from core.runtime.execution_tasks import ExecutionTaskSnapshot
@@ -18,6 +20,23 @@ from .base import BaseTool, ToolRecoveryPolicy
 JOB_WAIT_DEFAULT_SECONDS = 30.0
 JOB_WAIT_MIN_SECONDS = 10.0
 JOB_WAIT_MAX_SECONDS = 3_600.0
+JOB_LIST_MAX_ITEMS = 50
+JOB_MAX_IDS = 20
+
+JobIds = Annotated[list[str] | None, Field(max_length=JOB_MAX_IDS)]
+JobWaitSeconds = Annotated[
+    float,
+    Field(ge=JOB_WAIT_MIN_SECONDS, le=JOB_WAIT_MAX_SECONDS),
+]
+
+
+class JobOperation(StrEnum):
+    """Operations supported by the model-facing job tool."""
+
+    LIST = "list"
+    STATUS = "status"
+    WAIT = "wait"
+    CANCEL = "cancel"
 
 
 class Job(BaseTool):
@@ -29,11 +48,11 @@ class Job(BaseTool):
 
         async def job(
             *,
-            operation: str,
-            job_ids: list[str] | None = None,
+            operation: JobOperation,
+            job_ids: JobIds = None,
             kind: str = "",
             include_terminal: bool = True,
-            timeout_seconds: float = JOB_WAIT_DEFAULT_SECONDS,
+            timeout_seconds: JobWaitSeconds = JOB_WAIT_DEFAULT_SECONDS,
         ) -> str:
             """Observe or control process-local asynchronous jobs.
 
@@ -49,26 +68,29 @@ class Job(BaseTool):
             runtime = get_runtime_context()
             access = runtime.execution_task_access
             ids = _normalize_job_ids(job_ids)
-            operation = str(operation or "").strip().lower()
-            if operation not in {"list", "status", "wait", "cancel"}:
-                raise ValueError("job operation must be list, status, wait, or cancel")
+            operation = JobOperation(operation)
 
-            if operation == "list":
+            if operation == JobOperation.LIST:
                 snapshots = await access.list_tasks(
                     kind=(kind or "").strip() or None,
                     include_terminal=include_terminal,
                 )
+                visible = snapshots[-JOB_LIST_MAX_ITEMS:]
                 return _encode(
                     {
                         "operation": operation,
                         "jobs": [
-                            _project_job(snapshot, include_result=False)
-                            for snapshot in snapshots
+                            _project_job_summary(snapshot) for snapshot in visible
                         ],
+                        "total_jobs": len(snapshots),
+                        "truncated": len(visible) != len(snapshots),
                     }
                 )
 
-            if operation == "status":
+            if operation in {JobOperation.STATUS, JobOperation.CANCEL} and not ids:
+                raise ValueError(f"job {operation.value} requires at least one job_id")
+
+            if operation == JobOperation.STATUS:
                 return _encode(
                     {
                         "operation": operation,
@@ -76,7 +98,7 @@ class Job(BaseTool):
                     }
                 )
 
-            if operation == "cancel":
+            if operation == JobOperation.CANCEL:
                 return _encode(
                     {
                         "operation": operation,
@@ -215,12 +237,35 @@ def _project_job(
     return projected
 
 
+def _project_job_summary(snapshot: ExecutionTaskSnapshot) -> dict[str, Any]:
+    metadata = snapshot.metadata if isinstance(snapshot.metadata, dict) else {}
+    return {
+        "job_id": snapshot.task_id,
+        "kind": snapshot.kind,
+        "label": snapshot.label,
+        "status": snapshot.status,
+        "parent_job_id": snapshot.parent_task_id,
+        "created_at": _format_datetime(snapshot.created_at),
+        "started_at": _format_datetime(snapshot.started_at),
+        "finished_at": _format_datetime(snapshot.finished_at),
+        "cancel_requested": snapshot.cancel_requested,
+        "terminal_reason": snapshot.terminal_reason,
+        "revision": snapshot.revision,
+        "last_progress_at": _format_datetime(snapshot.last_progress_at),
+        "health_status": snapshot.health_status,
+        "queue_reason": metadata.get("queue_reason"),
+        "queue_position": metadata.get("queue_position"),
+    }
+
+
 def _normalize_job_ids(job_ids: list[str] | None) -> list[str]:
     normalized: list[str] = []
     for raw_job_id in job_ids or []:
         job_id = str(raw_job_id).strip()
         if job_id and job_id not in normalized:
             normalized.append(job_id)
+    if len(normalized) > JOB_MAX_IDS:
+        raise ValueError(f"job accepts at most {JOB_MAX_IDS} job_ids per call")
     return normalized
 
 

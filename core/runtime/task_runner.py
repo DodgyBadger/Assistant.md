@@ -101,7 +101,15 @@ class ExecutionConcurrencyPolicy:
 class _ExecutionConcurrencyLane:
     limit: int
     holders: set[str] = field(default_factory=set)
-    waiters: list[tuple[str, asyncio.Future[None]]] = field(default_factory=list)
+    waiters: list[_ExecutionConcurrencyWaiter] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _ExecutionConcurrencyWaiter:
+    task_id: str
+    future: asyncio.Future[None]
+    queued_status: str
+    queued_metadata: dict[str, Any]
 
 
 class ExecutionTaskRunner:
@@ -119,7 +127,7 @@ class ExecutionTaskRunner:
         self._gate_locks: dict[str, asyncio.Lock] = {}
         self._gate_holders: dict[str, str] = {}
         self._gate_waiters: dict[str, list[str]] = {}
-        self._concurrency_lanes: dict[tuple[str, int], _ExecutionConcurrencyLane] = {}
+        self._concurrency_lanes: dict[str, _ExecutionConcurrencyLane] = {}
 
     async def start_background(
         self,
@@ -138,6 +146,7 @@ class ExecutionTaskRunner:
             authority=spec.authority,
             metadata=spec.metadata,
             parent_task_id=spec.parent_task_id,
+            awaiting_handle=True,
         )
 
         async def _run() -> None:
@@ -155,13 +164,13 @@ class ExecutionTaskRunner:
                     )
                     await self._publish_run_outcome(tracked_task.task_id, result)
             except asyncio.CancelledError:
-                await self._call_cancelled_hook(hooks, task.task_id)
+                await self._finish_cancelled_task(hooks, task.task_id)
                 raise
             except (
                 Exception
             ) as exc:  # noqa: BLE001 - task status is recorded by coordinator
                 if await self._task_has_cancelled(task.task_id):
-                    await self._call_cancelled_hook(hooks, task.task_id)
+                    await self._finish_cancelled_task(hooks, task.task_id)
                     return
                 await self._call_failed_hook(hooks, task.task_id, exc)
                 return
@@ -209,9 +218,13 @@ class ExecutionTaskRunner:
         if timeout is None or timeout <= 0:
             return await run()
 
+        deadline = asyncio.timeout(timeout)
         try:
-            return await asyncio.wait_for(run(), timeout=timeout)
+            async with deadline:
+                return await run()
         except TimeoutError:
+            if not deadline.expired():
+                raise
             reason = spec.timeout_reason or f"execution_task_timeout:{timeout:g}s"
             result = await self._call_timed_out_hook(
                 hooks, task.task_id, timeout, reason
@@ -284,29 +297,13 @@ class ExecutionTaskRunner:
         run: Callable[[], Awaitable[Any]],
     ) -> Any:
         """Run work in one deterministic bounded-concurrency lane."""
-        if policy.limit <= 0:
-            await self._task_coordinator.mark_started(task.task_id)
-            return await run()
-
-        wait, waiter = await self._reserve_concurrency_slot(
-            task.task_id,
-            policy.key,
-            policy.limit,
-        )
-        if wait is not None:
-            await self._task_coordinator.heartbeat(
-                task.task_id,
-                status=policy.queued_status,
-                metadata={
-                    **policy.queued_metadata,
-                    "queue_position": wait.queue_position,
-                    "active_task_ids": list(wait.active_task_ids),
-                },
-            )
-            if policy.on_queued is not None:
-                await policy.on_queued(task, wait)
-
+        wait: ExecutionConcurrencyWait | None = None
+        waiter: asyncio.Future[None] | None = None
         try:
+            wait, waiter = await self._reserve_concurrency_slot(task.task_id, policy)
+            if wait is not None:
+                if policy.on_queued is not None:
+                    await policy.on_queued(task, wait)
             if waiter is not None:
                 await waiter
             await self._task_coordinator.mark_started(task.task_id)
@@ -317,22 +314,35 @@ class ExecutionTaskRunner:
                 )
             return await run()
         finally:
-            await self._remove_concurrency_waiter(
-                task.task_id,
-                policy.key,
-                policy.limit,
-            )
-            await self._release_concurrency_slot(
-                task.task_id,
-                policy.key,
-                policy.limit,
-            )
+            await self._finish_concurrency_cleanup(task.task_id, policy.key)
 
     async def _task_has_cancelled(self, task_id: str) -> bool:
         snapshot = await self._task_coordinator.get_task(task_id)
         if snapshot is None:
             return True
         return snapshot.status == "cancelled" or snapshot.cancel_requested
+
+    async def _finish_cancelled_task(
+        self,
+        hooks: ExecutionTaskHooks | None,
+        task_id: str,
+    ) -> None:
+        async def _cleanup() -> None:
+            try:
+                await self._call_cancelled_hook(hooks, task_id)
+            finally:
+                await self._task_coordinator.mark_cancelled(task_id, reason="cancelled")
+
+        cleanup = asyncio.create_task(_cleanup())
+        cancelled_during_cleanup = False
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                cancelled_during_cleanup = True
+        await cleanup
+        if cancelled_during_cleanup:
+            raise asyncio.CancelledError
 
     async def _get_gate_lock(self, key: str) -> asyncio.Lock:
         async with self._gate_guard:
@@ -345,64 +355,97 @@ class ExecutionTaskRunner:
     async def _reserve_concurrency_slot(
         self,
         task_id: str,
-        key: str,
-        limit: int,
+        policy: ExecutionConcurrencyPolicy,
     ) -> tuple[ExecutionConcurrencyWait | None, asyncio.Future[None] | None]:
         async with self._gate_guard:
-            lane_key = (key, limit)
-            lane = self._concurrency_lanes.get(lane_key)
+            lane = self._concurrency_lanes.get(policy.key)
             if lane is None:
-                lane = _ExecutionConcurrencyLane(limit=limit)
-                self._concurrency_lanes[lane_key] = lane
-            if len(lane.holders) < lane.limit and not lane.waiters:
+                lane = _ExecutionConcurrencyLane(limit=policy.limit)
+                self._concurrency_lanes[policy.key] = lane
+            else:
+                lane.limit = policy.limit
+                self._admit_concurrency_waiters(lane)
+            if self._concurrency_has_capacity(lane) and not lane.waiters:
                 lane.holders.add(task_id)
+                await self._publish_concurrency_waiters(lane)
                 return None, None
             waiter = asyncio.get_running_loop().create_future()
-            lane.waiters.append((task_id, waiter))
+            lane.waiters.append(
+                _ExecutionConcurrencyWaiter(
+                    task_id=task_id,
+                    future=waiter,
+                    queued_status=policy.queued_status,
+                    queued_metadata=dict(policy.queued_metadata),
+                )
+            )
+            await self._publish_concurrency_waiters(lane)
             return (
                 ExecutionConcurrencyWait(
-                    key=key,
+                    key=policy.key,
                     queue_position=len(lane.waiters),
                     active_task_ids=tuple(sorted(lane.holders)),
                 ),
                 waiter,
             )
 
-    async def _release_concurrency_slot(
+    async def _cleanup_concurrency_registration(
         self,
         task_id: str,
         key: str,
-        limit: int,
     ) -> None:
         async with self._gate_guard:
-            lane_key = (key, limit)
-            lane = self._concurrency_lanes.get(lane_key)
+            lane = self._concurrency_lanes.get(key)
             if lane is None:
                 return
+            lane.waiters = [item for item in lane.waiters if item.task_id != task_id]
             lane.holders.discard(task_id)
-            while lane.waiters and len(lane.holders) < lane.limit:
-                next_task_id, waiter = lane.waiters.pop(0)
-                if waiter.cancelled():
-                    continue
-                lane.holders.add(next_task_id)
-                waiter.set_result(None)
+            self._admit_concurrency_waiters(lane)
+            await self._publish_concurrency_waiters(lane)
             if not lane.holders and not lane.waiters:
-                self._concurrency_lanes.pop(lane_key, None)
+                self._concurrency_lanes.pop(key, None)
 
-    async def _remove_concurrency_waiter(
+    async def _finish_concurrency_cleanup(self, task_id: str, key: str) -> None:
+        cleanup = asyncio.create_task(
+            self._cleanup_concurrency_registration(task_id, key)
+        )
+        cancelled_during_cleanup = False
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                cancelled_during_cleanup = True
+        await cleanup
+        if cancelled_during_cleanup:
+            raise asyncio.CancelledError
+
+    @staticmethod
+    def _admit_concurrency_waiters(lane: _ExecutionConcurrencyLane) -> None:
+        while lane.waiters and ExecutionTaskRunner._concurrency_has_capacity(lane):
+            queued = lane.waiters.pop(0)
+            if queued.future.cancelled():
+                continue
+            lane.holders.add(queued.task_id)
+            queued.future.set_result(None)
+
+    @staticmethod
+    def _concurrency_has_capacity(lane: _ExecutionConcurrencyLane) -> bool:
+        return lane.limit <= 0 or len(lane.holders) < lane.limit
+
+    async def _publish_concurrency_waiters(
         self,
-        task_id: str,
-        key: str,
-        limit: int,
+        lane: _ExecutionConcurrencyLane,
     ) -> None:
-        async with self._gate_guard:
-            lane_key = (key, limit)
-            lane = self._concurrency_lanes.get(lane_key)
-            if lane is None:
-                return
-            lane.waiters = [item for item in lane.waiters if item[0] != task_id]
-            if not lane.holders and not lane.waiters:
-                self._concurrency_lanes.pop(lane_key, None)
+        active_task_ids = sorted(lane.holders)
+        for position, queued in enumerate(lane.waiters, start=1):
+            await self._task_coordinator.heartbeat(
+                queued.task_id,
+                status=queued.queued_status,
+                metadata={
+                    **queued.queued_metadata,
+                    "queue_position": position,
+                    "active_task_ids": active_task_ids,
+                },
+            )
 
     async def _register_gate_waiter(
         self,

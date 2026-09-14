@@ -143,6 +143,34 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             3,
             "Settings repair should add the delegate concurrency control",
         )
+        for invalid_persisted_value in (-1, 33, "invalid"):
+            persisted = yaml.safe_load(
+                self.call_api("/api/system/settings").json()["content"]
+            )
+            persisted["settings"]["max_concurrent_delegates"][
+                "value"
+            ] = invalid_persisted_value
+            persisted_update = self.call_api(
+                "/api/system/settings",
+                method="PUT",
+                data={"content": yaml.safe_dump(persisted, sort_keys=False)},
+            )
+            self.soft_assert_equal(
+                persisted_update.status_code,
+                200,
+                "Raw settings should retain backward-compatible mapping validation",
+            )
+            self.soft_assert_equal(
+                get_max_concurrent_delegates(),
+                3,
+                "Invalid persisted delegate concurrency should fail closed to the template default",
+            )
+        persisted["settings"]["max_concurrent_delegates"]["value"] = 3
+        self.call_api(
+            "/api/system/settings",
+            method="PUT",
+            data={"content": yaml.safe_dump(persisted, sort_keys=False)},
+        )
         unlimited_update = self.call_api(
             "/api/system/settings/general/max_concurrent_delegates",
             method="PUT",

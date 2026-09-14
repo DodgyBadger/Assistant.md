@@ -48,9 +48,9 @@ await job(operation="cancel", job_ids=["task_def"])
 
 The tool returns JSON text. Job snapshots contain bounded JSON-safe fields including identity, kind, status, parent job, timestamps, cancellation state, terminal reason, revision, health, queue state, active tools, recent activity, and aggregate tool-call counts.
 
-`list` omits result bodies. `status` includes a bounded result when available. `wait` returns when a selected job becomes terminal or requests attention, or when the wait duration expires; it includes current snapshots and sets `timed_out` for a normal observation timeout. Timer-only waits return `timer_completed: true` after the requested duration.
+`list` returns at most the 50 most recently created matching summaries, reports the total and whether the response was truncated, and omits detailed activity and result bodies. `status` includes bounded activity and a bounded result when available. `wait` returns when a selected job becomes terminal or requests attention, or when the wait duration expires; it includes current snapshots and sets `timed_out` for a normal observation timeout. Timer-only waits return `timer_completed: true` after the requested duration.
 
-`cancel` reports the current snapshot and whether the request was effective for each supplied ID. Unknown and inaccessible IDs both return `outcome: "not_found"` so identifiers cannot bypass task authority.
+`status`, `wait`, and `cancel` accept at most 20 job IDs per call. `cancel` reports the current snapshot and whether the request was effective for each supplied ID. Unknown and inaccessible IDs both return `outcome: "not_found"` so identifiers cannot bypass task authority.
 
 ## Notes
 

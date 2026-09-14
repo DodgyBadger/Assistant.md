@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+- Delegate children now run as supervised process-local jobs. Managed delegates return a job ID so the parent can continue independent work, inspect live tool activity, wait at a dependency barrier, or cancel the child; the fixed child tool-call ceiling is removed, stale saved values are pruned during settings repair, and a separate concurrency setting bounds simultaneous delegate runs.
+
 ## v0.8.0
 
 v0.8.0 makes Assistant.md extensible beyond its built-in tools. It can connect to remote MCP services, run local stdio MCP providers in an optional advanced Linux environment, and search and read Gmail or create unsent drafts through a first-class connection. This release also adds encrypted credential storage and explicit deployment access controls.
@@ -44,7 +48,6 @@ v0.8.0 makes Assistant.md extensible beyond its built-in tools. It can connect t
 - The product and GitHub repository are now styled **Assistant.md**. Fresh clones use an `Assistant.md` checkout folder, while existing checkouts can retain their current local folder name. Environment variables, image names, container names, and other technical identifiers remain unchanged.
 - Reworked the user guides around an outcome-first path: start with Chat and Vault Explorer, then add project context, skills, connections, advanced execution, delegation, session search, and automation as needs grow. Installation and upgrade guidance now follows the renamed repository and favors clear UI-led setup.
 - Content imports invoked by agents now run immediately by default and return completed output paths or durable failures in the same tool call. Large multi-file submissions can opt into background processing with `queue_only`.
-- Delegate children now run as supervised process-local jobs. Managed delegates return a job ID so the parent can continue independent work, inspect live tool activity, wait at a dependency barrier, or cancel the child; the fixed child tool-call ceiling is removed, stale saved values are pruned during settings repair, and a separate concurrency setting bounds simultaneous delegate runs.
 - Reduced recurring chat prompt overhead by relying on bound tool schemas rather than repeating a capability list. The default context now loads soul and playbook instructions only when those files exist in the vault.
 - Consolidated the developer architecture, setup, security, tool, and decision documentation around the current runtime and connection model.
 - Hardened connection cleanup, cancellation, startup recovery, network policy, advanced-shell pairing, and release-image consistency.

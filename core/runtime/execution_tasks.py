@@ -206,6 +206,7 @@ class _ExecutionTaskRecord:
     result_truncated: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     handle: asyncio.Task[Any] | None = None
+    awaiting_handle: bool = False
 
     def snapshot(self) -> ExecutionTaskSnapshot:
         """Return a public snapshot without the private asyncio handle."""
@@ -314,6 +315,7 @@ class TaskCoordinator:
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
         parent_task_id: str | None = None,
+        awaiting_handle: bool = False,
     ) -> ExecutionTaskSnapshot:
         """Create a queued task record before an asyncio handle exists."""
         task_id = self._new_task_id()
@@ -327,6 +329,7 @@ class TaskCoordinator:
             handle=None,
             metadata=metadata,
             parent_task_id=parent_task_id,
+            awaiting_handle=awaiting_handle,
         )
         snapshot = await self.get_task(task_id)
         if snapshot is None:  # pragma: no cover - defensive
@@ -355,10 +358,10 @@ class TaskCoordinator:
             else:
                 should_cancel = False
             record.handle = current
+            record.awaiting_handle = False
             snapshot = record.snapshot()
 
         if should_cancel:
-            await self.mark_cancelled(task_id, reason="cancelled_before_start")
             raise asyncio.CancelledError
 
         token = _CURRENT_EXECUTION_TASK.set(snapshot)
@@ -410,10 +413,13 @@ class TaskCoordinator:
         after_revisions: dict[str, int] | None = None,
         timeout_seconds: float | None = None,
         terminal_or_attention_only: bool = False,
+        wake_on_attention: bool = True,
     ) -> ExecutionTaskWaitResult:
         """Wait for selected task state to become relevant without polling."""
         unique_ids = tuple(dict.fromkeys(task_ids))
         async with self._changed:
+            if not unique_ids:
+                return ExecutionTaskWaitResult(snapshots=(), timed_out=False)
             initial = self._snapshots_for_ids(unique_ids)
             revisions = (
                 dict(after_revisions)
@@ -423,9 +429,14 @@ class TaskCoordinator:
 
             def _ready() -> bool:
                 snapshots = self._snapshots_for_ids(unique_ids)
+                if len(snapshots) != len(unique_ids):
+                    return True
                 if any(
                     snapshot.is_terminal
-                    or snapshot.health_status == "attention_required"
+                    or (
+                        wake_on_attention
+                        and snapshot.health_status == "attention_required"
+                    )
                     for snapshot in snapshots
                 ):
                     return True
@@ -486,7 +497,9 @@ class TaskCoordinator:
             record.latest_event = reason
             self._touch(record)
             handle = record.handle
-            mark_cancelled_without_handle = handle is None
+            mark_cancelled_without_handle = (
+                handle is None and not record.awaiting_handle
+            )
             snapshot = record.snapshot()
 
         self._log_event("execution_task_cancel_requested", snapshot)
@@ -699,6 +712,7 @@ class TaskCoordinator:
         handle: asyncio.Task[Any] | None,
         metadata: dict[str, Any] | None,
         parent_task_id: str | None,
+        awaiting_handle: bool = False,
     ) -> None:
         now = self._now()
         record = _ExecutionTaskRecord(
@@ -715,6 +729,7 @@ class TaskCoordinator:
             last_progress_at=now,
             parent_task_id=parent_task_id,
             handle=handle,
+            awaiting_handle=awaiting_handle,
             metadata=dict(metadata or {}),
         )
         record.metadata.setdefault("last_heartbeat_at", now.isoformat())
