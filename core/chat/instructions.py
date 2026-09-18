@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from core.constants import ADVANCED_SHELL_FLIGHT_CARD
+from core.constants import (
+    ADVANCED_SHELL_FLIGHT_CARD,
+    DEFERRED_REVIEW_RESUME_INSTRUCTION,
+)
 
 
 def primary_chat_instruction_layers(
@@ -12,11 +15,14 @@ def primary_chat_instruction_layers(
     base_instructions: str,
     tool_instructions: str,
     has_advanced_shell: bool,
+    deferred_review_resume: bool = False,
 ) -> tuple[str, ...]:
     """Return ordered non-empty instruction layers for one primary chat run."""
     layers = [base_instructions, tool_instructions]
     if has_advanced_shell:
         layers.append(ADVANCED_SHELL_FLIGHT_CARD)
+    if deferred_review_resume:
+        layers.append(DEFERRED_REVIEW_RESUME_INSTRUCTION)
     return tuple(layer for layer in layers if layer)
 
 

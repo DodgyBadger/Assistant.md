@@ -1071,6 +1071,7 @@ async def _prepare_deferred_review_resume_execution(
             base_instructions=base_instructions,
             tool_instructions=tool_instructions,
             has_advanced_shell=advanced_shell_tool is not None,
+            deferred_review_resume=True,
         ):
             agent.instructions(constant_instruction(instruction))
         if mcp_chat is not None and (
