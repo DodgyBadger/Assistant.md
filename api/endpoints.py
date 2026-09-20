@@ -78,6 +78,7 @@ from .models import (
     ChatSessionSummaryUpdateRequest,
     ChatSessionTitleRequest,
     ChatSessionWorkspaceRequest,
+    ChatTaskReplaySnapshotResponse,
     ChatTaskRequest,
     ChatTaskStartResponse,
     ChatToolCallDetailResponse,
@@ -829,6 +830,54 @@ async def chat_task_events(
                 "X-Task-ID": task_id,
                 "X-Session-ID": str(task.metadata.get("session_id") or ""),
             },
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/chat/tasks/{task_id}/replay-snapshot",
+    response_model=ChatTaskReplaySnapshotResponse,
+)
+async def chat_task_replay_snapshot(
+    task_id: str,
+) -> ChatTaskReplaySnapshotResponse | JSONResponse:
+    """Return compact process-local state for chat stream reattachment."""
+    try:
+        task = await get_execution_task(task_id)
+        if task.kind != "chat":
+            raise APIException(
+                status_code=404,
+                error_type="ExecutionTaskNotFound",
+                message=f"Chat execution task not found: {task_id}",
+                details={"task_id": task_id},
+            )
+        snapshot = await CHAT_TASK_EVENT_BUFFER.replay_snapshot(task_id)
+        if snapshot is None:
+            if task.status in TERMINAL_STATUS_VALUES:
+                raise APIException(
+                    status_code=410,
+                    error_type="ChatTaskEventsExpired",
+                    message=f"Chat task events are no longer retained: {task_id}",
+                    details={"task_id": task_id},
+                )
+            return ChatTaskReplaySnapshotResponse(
+                task_id=task_id,
+                latest_sequence=0,
+                terminal=False,
+                events=[],
+            )
+        events: list[dict[str, Any]] = []
+        for event in snapshot.events:
+            payload = dict(event.data)
+            payload.setdefault("event", event.event)
+            payload.setdefault("sequence", event.sequence)
+            events.append(payload)
+        return ChatTaskReplaySnapshotResponse(
+            task_id=task_id,
+            latest_sequence=snapshot.latest_sequence,
+            terminal=snapshot.terminal,
+            events=events,
         )
     except Exception as e:
         return create_error_response(e)

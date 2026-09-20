@@ -100,11 +100,20 @@ async def get_active_chat_task(session_id: str) -> ExecutionTaskInfo:
         include_terminal=False,
     )
     if not snapshots:
+        details: dict[str, str | int] = {"session_id": session_id}
+        session = runtime.chat_session_access.get_session_by_id(session_id)
+        if session is not None:
+            details["history_revision"] = (
+                runtime.chat_store.get_session_history_revision(
+                    session_id,
+                    session.vault_name,
+                )
+            )
         raise APIException(
             status_code=404,
             error_type="ExecutionTaskNotFound",
             message=f"No active execution task for chat session: {session_id}",
-            details={"session_id": session_id},
+            details=details,
         )
     running = [snapshot for snapshot in snapshots if snapshot.status == "running"]
     selected = running[-1] if running else snapshots[0]

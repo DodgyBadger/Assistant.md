@@ -847,42 +847,53 @@
             context.toolCallsSummaryTitle.textContent = `Tool calls (${total})`;
         }
 
-        function appendAssistantDelta(context, delta) {
+        function appendAssistantDelta(context, delta, options = {}) {
             if (!context || !delta) {
                 return;
             }
+            const { render = true } = options;
             const answerStarted = !context.fullText;
             context.fullText += delta;
             if (answerStarted && context.thinkingText) {
                 context.collapseThinking = true;
                 context.thinkingExpanded = false;
             }
-            renderAssistantMarkdown(context);
+            if (render) {
+                renderAssistantMarkdown(context);
+            }
         }
 
-        function appendAssistantThinkingDelta(context, delta) {
+        function appendAssistantThinkingDelta(context, delta, options = {}) {
             if (!context || !delta) {
                 return;
             }
+            const { render = true } = options;
             context.thinkingText += delta;
             if (context.fullText && !context.collapseThinking) {
                 context.collapseThinking = true;
                 context.thinkingExpanded = false;
             }
-            renderAssistantMarkdown(context);
+            if (render) {
+                renderAssistantMarkdown(context);
+            }
         }
 
-        function resetAssistantStream(context) {
+        function resetAssistantStream(context, options = {}) {
             if (!context) {
                 return;
             }
+            const { render = true, showReconnectStatus = true } = options;
             context.fullText = '';
             context.thinkingText = '';
             context.collapseThinking = false;
             context.thinkingExpanded = false;
             context.errorMessages = [];
-            renderAssistantMarkdown(context);
-            setAssistantStatus(context, 'Reconnecting to model', 'thinking');
+            if (render) {
+                renderAssistantMarkdown(context);
+            }
+            if (showReconnectStatus) {
+                setAssistantStatus(context, 'Reconnecting to model', 'thinking');
+            }
         }
 
         function renderAssistantMarkdown(context, options = {}) {

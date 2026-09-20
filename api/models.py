@@ -799,6 +799,20 @@ class ChatTaskStartResponse(BaseModel):
     )
 
 
+class ChatTaskReplaySnapshotResponse(BaseModel):
+    """Compact process-local state for reattaching to a chat task stream."""
+
+    task_id: str = Field(..., description="Chat execution task identifier")
+    latest_sequence: int = Field(
+        ..., ge=0, description="Raw event cursor represented by this snapshot"
+    )
+    terminal: bool = Field(..., description="Whether the event stream is terminal")
+    events: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Compact effective events for rebuilding the active response",
+    )
+
+
 class ExecutionTaskInfo(BaseModel):
     """Process-local execution task snapshot."""
 
@@ -1309,6 +1323,9 @@ class ChatSessionDetailResponse(BaseModel):
 
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
+    history_revision: int = Field(
+        ..., ge=0, description="Monotonic effective-history revision"
+    )
     workspace: ChatWorkspaceInfo | None = Field(
         None, description="Workspace associated with this session"
     )

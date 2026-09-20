@@ -101,6 +101,213 @@ class ChatTaskEventBufferScenario(BaseScenario):
         else:
             self.soft_assert(False, "A cursor before the retained window should fail")
 
+        projection = ChatTaskEventBuffer(max_events_per_task=2, max_terminal_tasks=2)
+        await projection.append(
+            "task-projection",
+            "thinking_delta",
+            {"event": "thinking_delta", "delta": {"content": "think "}},
+        )
+        await projection.append(
+            "task-projection",
+            "thinking_delta",
+            {"event": "thinking_delta", "delta": {"content": "more"}},
+        )
+        await projection.append(
+            "task-projection",
+            "delta",
+            {
+                "event": "delta",
+                "choices": [{"delta": {"content": "hello "}, "index": 0}],
+            },
+        )
+        await projection.append(
+            "task-projection",
+            "delta",
+            {
+                "event": "delta",
+                "choices": [{"delta": {"content": "world"}, "index": 0}],
+            },
+        )
+        await projection.append(
+            "task-projection",
+            "tool_call_started",
+            {
+                "event": "tool_call_started",
+                "tool_call_id": "tool-1",
+                "tool_name": "read_file",
+            },
+        )
+        before_finish = await projection.replay_snapshot("task-projection")
+        self.soft_assert(
+            before_finish is not None, "Active streams should have snapshots"
+        )
+        if before_finish is not None:
+            self.soft_assert_equal(
+                before_finish.latest_sequence,
+                5,
+                "Snapshot cursors should include every reduced raw event",
+            )
+            self.soft_assert_equal(
+                [event.event for event in before_finish.events],
+                ["thinking_delta", "delta", "tool_call_started"],
+                "Snapshots should collapse text while preserving current tool state",
+            )
+            self.soft_assert_equal(
+                before_finish.events[0].data["delta"]["content"],
+                "think more",
+                "Reasoning deltas should collapse into one snapshot event",
+            )
+            self.soft_assert_equal(
+                before_finish.events[1].data["choices"][0]["delta"]["content"],
+                "hello world",
+                "Response deltas should collapse into one snapshot event",
+            )
+
+        await projection.append(
+            "task-projection",
+            "tool_call_started",
+            {
+                "event": "tool_call_started",
+                "tool_call_id": "tool-2",
+                "tool_name": "search",
+            },
+        )
+        await projection.append(
+            "task-projection",
+            "tool_call_finished",
+            {
+                "event": "tool_call_finished",
+                "tool_call_id": "tool-1",
+                "tool_name": "read_file",
+                "terminal_state": "completed",
+                "token_count": 7,
+            },
+        )
+        await projection.append(
+            "task-projection",
+            "chat_retry_scheduled",
+            {"event": "chat_retry_scheduled", "reset_response": True},
+        )
+        await projection.append(
+            "task-projection",
+            "delta",
+            {
+                "event": "delta",
+                "choices": [{"delta": {"content": "replacement"}, "index": 0}],
+            },
+        )
+        await projection.append(
+            "task-projection",
+            "review_required",
+            {"event": "review_required", "artifact_ref": "review-1"},
+        )
+        snapshot = await projection.replay_snapshot("task-projection")
+        self.soft_assert(
+            snapshot is not None, "Retained streams should remain snapshotable"
+        )
+        if snapshot is not None:
+            self.soft_assert_equal(
+                snapshot.latest_sequence,
+                10,
+                "Snapshot cursor should advance across omitted control events",
+            )
+            self.soft_assert_equal(
+                [event.event for event in snapshot.events],
+                [
+                    "tool_call_started",
+                    "tool_call_started",
+                    "tool_call_finished",
+                    "delta",
+                    "review_required",
+                ],
+                "Retry reset should remove stale text and preserve effective UI state",
+            )
+            self.soft_assert_equal(
+                [
+                    event.data.get("tool_call_id")
+                    for event in snapshot.events
+                    if event.event == "tool_call_started"
+                ],
+                ["tool-1", "tool-2"],
+                "Tool updates should preserve original display order",
+            )
+            self.soft_assert_equal(
+                snapshot.events[-2].event,
+                "delta",
+                "Projected events should retain effective sequence order for current status",
+            )
+            self.soft_assert_equal(
+                next(event for event in snapshot.events if event.event == "delta").data[
+                    "choices"
+                ][0]["delta"]["content"],
+                "replacement",
+                "Snapshot response should contain only post-retry content",
+            )
+            self.soft_assert(
+                all(
+                    "arguments" not in event.data and "result" not in event.data
+                    for event in snapshot.events
+                ),
+                "Snapshot tool state should not expose tool arguments or results",
+            )
+
+            await projection.append(
+                "task-projection",
+                "done",
+                {
+                    "event": "done",
+                    "choices": [{"delta": {}, "index": 0, "finish_reason": "stop"}],
+                },
+            )
+            later = await projection.events_after(
+                "task-projection", after_sequence=snapshot.latest_sequence
+            )
+            self.soft_assert_equal(
+                [event.event for event in later],
+                ["done"],
+                "Events after an atomic snapshot cursor should contain only newer events",
+            )
+            terminal_snapshot = await projection.replay_snapshot("task-projection")
+            self.soft_assert_equal(
+                terminal_snapshot.events[-1].event if terminal_snapshot else None,
+                "done",
+                "Terminal state should remain reconstructable in a snapshot",
+            )
+
+        redirect_buffer = ChatTaskEventBuffer(max_events_per_task=1)
+        await redirect_buffer.append(
+            "task-redirect",
+            "delta",
+            {
+                "event": "delta",
+                "choices": [{"delta": {"content": "discard me"}, "index": 0}],
+            },
+        )
+        await redirect_buffer.append(
+            "task-redirect",
+            "chat_retry_redirect",
+            {
+                "event": "chat_retry_redirect",
+                "replacement_task_id": "replacement-task",
+                "reset_response": True,
+            },
+        )
+        redirect_snapshot = await redirect_buffer.replay_snapshot("task-redirect")
+        self.soft_assert_equal(
+            (
+                [event.event for event in redirect_snapshot.events]
+                if redirect_snapshot
+                else []
+            ),
+            ["chat_retry_redirect"],
+            "Terminal retry redirects should survive raw event trimming without stale text",
+        )
+        self.soft_assert_equal(
+            await projection.replay_snapshot("missing-task"),
+            None,
+            "Unknown streams should not synthesize replay state",
+        )
+
         await retained.append("task-delta", "done", {})
         self.soft_assert_equal(
             await retained.events_after("task-gamma"),
