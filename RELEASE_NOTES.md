@@ -2,7 +2,9 @@
 
 ## v0.8.1
 
-### Keep long-running work moving
+### Further hardening of long-running work
+
+Assistant.md has steadily improved its ability to handle long, tool-heavy work across extended chats, browser disconnections, and background tasks. This release continues that reliability work with supervised delegated agents, stronger stalled-stream handling, and faster chat reconnection.
 
 - Long-running delegated work can continue in the background across chat turns. The assistant can share a job ID, keep doing independent work, check progress and results, wait when the result is needed, or cancel work that is no longer useful. Managed job state is temporary and does not survive an application restart.
 - Delegated work no longer stops after a fixed number of tool calls. Delegates inherit the current chat model unless another is requested, and wait in a visible queue when they reach the configurable concurrency limit.
