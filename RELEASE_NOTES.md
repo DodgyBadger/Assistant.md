@@ -1,11 +1,16 @@
 # Release Notes
 
-## Unreleased
+## v0.8.1
 
-- Returning to a chat while Assistant.md is still responding is now much faster: the partial answer, reasoning, tool progress, and any review card are restored together before live streaming resumes, including after a long disconnection.
+### Keep long-running work moving
+
 - Long-running delegated work can continue in the background across chat turns. The assistant can share a job ID, keep doing independent work, check progress and results, wait when the result is needed, or cancel work that is no longer useful. Managed job state is temporary and does not survive an application restart.
-- Delegated work no longer stops after a fixed number of tool calls. Delegates inherit the current chat model unless another model is requested, and excess work waits in a visible queue when it reaches the configurable concurrency limit.
+- Delegated work no longer stops after a fixed number of tool calls. Delegates inherit the current chat model unless another is requested, and wait in a visible queue when they reach the configurable concurrency limit.
+- Reconnecting to a detached chat session is now much faster: the partial answer, reasoning, tool progress, and any review card are restored together before live streaming resumes, including after a long disconnection.
 - Chats no longer remain stuck indefinitely when a model provider stays connected but stops producing output. Genuine long-running tool calls remain visible and are not mistaken for a stalled model, while retry exhaustion and invalid custom-provider URLs surface as clear failures.
+
+### Respect edits made during approval
+
 - When a user edits proposed inputs in an inline approval card, the resumed assistant now treats the operation that actually ran and the resulting vault files as authoritative, avoiding follow-up based on the original proposal.
 
 ## v0.8.0
