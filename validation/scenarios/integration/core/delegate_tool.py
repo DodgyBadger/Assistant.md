@@ -526,7 +526,11 @@ class DelegateToolScenario(BaseScenario):
                 self.events_since(checkpoint),
                 name="delegate_failed",
                 expected={
+                    "event": "delegate_failed",
+                    "status": "failed",
                     "workflow_id": "delegate_init_failure",
+                    "session_id": "delegate_init_failure",
+                    "error_type": "RuntimeError",
                     "failure_kind": "delegate_internal",
                     "mode": "blocking",
                 },
@@ -656,7 +660,11 @@ class DelegateToolScenario(BaseScenario):
                 self.events_since(checkpoint),
                 name="delegate_cancelled",
                 expected={
+                    "event": "delegate_cancelled",
+                    "status": "cancelled",
                     "workflow_id": "delegate_parent_cancelled",
+                    "session_id": "delegate_parent_cancelled",
+                    "reason": "delegate_parent_cancelled",
                     "mode": "blocking",
                 },
             )
@@ -768,8 +776,13 @@ class DelegateToolScenario(BaseScenario):
                 self.events_since(checkpoint),
                 name="delegate_cancelled",
                 expected={
+                    "event": "delegate_cancelled",
+                    "status": "cancelled",
                     "task_id": second_id,
                     "workflow_id": "delegate_managed_queued_cancel",
+                    "session_id": "delegate_managed_queued_cancel",
+                    "detached_from_parent_lifecycle": True,
+                    "reason": "validation_queued_delegate_cancel",
                     "mode": "managed",
                 },
             )
@@ -882,7 +895,11 @@ class DelegateToolScenario(BaseScenario):
                 basic_events,
                 name="delegate_started",
                 expected={
+                    "event": "delegate_started",
+                    "status": "started",
                     "workflow_id": "delegate_basic",
+                    "session_id": "delegate_basic",
+                    "detached_from_parent_lifecycle": False,
                     "model": "test",
                     "model_source": "explicit",
                     "timeout_seconds": configured_delegate_timeout,
@@ -892,10 +909,28 @@ class DelegateToolScenario(BaseScenario):
                 basic_events,
                 name="delegate_completed",
                 expected={
+                    "event": "delegate_completed",
+                    "status": "completed",
                     "workflow_id": "delegate_basic",
+                    "session_id": "delegate_basic",
+                    "detached_from_parent_lifecycle": False,
                     "model": "test",
                     "timeout_seconds": configured_delegate_timeout,
                 },
+            )
+            activity_log = self.call_api(
+                "/api/system/activity-log?limit=100"
+                "&tag=delegate-tool&search=delegate_basic"
+            )
+            assert activity_log.status_code == 200, "Activity log fetch should succeed"
+            self.soft_assert(
+                any(
+                    (entry.get("data") or {}).get("event") == "delegate_completed"
+                    and (entry.get("data") or {}).get("status") == "completed"
+                    and (entry.get("data") or {}).get("session_id") == "delegate_basic"
+                    for entry in activity_log.json().get("entries", [])
+                ),
+                "System Activity should retain searchable delegate completion diagnostics",
             )
             self.soft_assert(
                 "failed:" not in basic["text"].lower(),

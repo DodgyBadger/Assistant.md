@@ -878,6 +878,8 @@ class TaskCoordinator:
             "source": snapshot.source,
             "label": snapshot.label,
             "principal_id": snapshot.principal_id,
+            "parent_task_id": snapshot.parent_task_id,
+            "detached_from_parent_lifecycle": snapshot.detached_from_parent_lifecycle,
             "status": snapshot.status,
             "cancel_requested": snapshot.cancel_requested,
             "terminal_reason": snapshot.terminal_reason,
@@ -893,6 +895,12 @@ class TaskCoordinator:
             data["goal_id"] = goal_id
         if step_id:
             data["step_id"] = step_id
+        if snapshot.terminal_reason:
+            data["reason"] = snapshot.terminal_reason
+        if event == "execution_task_failed":
+            data["error"] = snapshot.terminal_reason or "Execution task failed"
+            if snapshot.terminal_reason and ":" in snapshot.terminal_reason:
+                data["error_type"] = snapshot.terminal_reason.split(":", 1)[0]
         if extra:
             data.update(extra)
         log = (
@@ -900,10 +908,12 @@ class TaskCoordinator:
             if event in {"execution_task_metadata_updated", "execution_task_heartbeat"}
             else self._logger.add_sink("validation")
         )
-        log.info(
-            event,
-            data=data,
-        )
+        if event == "execution_task_failed":
+            log.error(event, data=data)
+        elif event == "execution_task_timed_out":
+            log.warning(event, data=data)
+        else:
+            log.info(event, data=data)
 
     def _notify_terminal_observers(self, snapshot: ExecutionTaskSnapshot) -> None:
         """Notify process-local observers after a task reaches a terminal state."""

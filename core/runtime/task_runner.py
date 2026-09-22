@@ -536,6 +536,8 @@ class ExecutionTaskRunner:
                 logger.error(
                     "execution_task_cancel_hook_failed",
                     data={
+                        "event": "execution_task_cancel_hook_failed",
+                        "status": "failed",
                         "task_id": task_id,
                         "error_type": type(exc).__name__,
                         "error": str(exc),

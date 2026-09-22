@@ -289,8 +289,14 @@ class _DelegateProgressObserver:
                 "delegate_attention_required",
                 data={
                     "event": "delegate_attention_required",
+                    "status": "attention_required",
                     "task_id": self._task.task_id,
                     "parent_task_id": self._task.parent_task_id,
+                    "detached_from_parent_lifecycle": self._task.detached_from_parent_lifecycle,
+                    "session_id": self._task.metadata.get("session_id"),
+                    "workflow_id": self._task.metadata.get("session_id"),
+                    "mode": self._task.metadata.get("mode"),
+                    "model": self._task.metadata.get("model"),
                     "reason": "repeated_tool_failure",
                     "active_tool_names": [call.tool for call in self._active.values()],
                     "tool_call_counts": dict(self._counts),
@@ -323,9 +329,13 @@ class DelegateTool(BaseTool):
             logger.add_sink("validation").info(
                 "delegate_started",
                 data={
+                    "event": "delegate_started",
+                    "status": "started",
                     "workflow_id": session_id,
+                    "session_id": session_id,
                     "task_id": task.task_id,
                     "parent_task_id": task.parent_task_id,
+                    "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
                     "mode": spec.mode,
                     "model": model_value or "default",
                     "model_source": spec.model_source,
@@ -399,6 +409,9 @@ class DelegateTool(BaseTool):
                         usage_limits=usage_limits,
                         allow_retry=not safe_tool_names,
                         session_id=session_id,
+                        task_id=task.task_id,
+                        parent_task_id=task.parent_task_id,
+                        mode=spec.mode,
                         model=model_value or "default",
                         progress=progress,
                         event_stream_handler=progress_observer.handle_events,
@@ -531,9 +544,13 @@ class DelegateTool(BaseTool):
             logger.add_sink("validation").info(
                 "delegate_completed",
                 data={
+                    "event": "delegate_completed",
+                    "status": "completed",
                     "workflow_id": session_id,
+                    "session_id": session_id,
                     "task_id": task.task_id,
                     "parent_task_id": task.parent_task_id,
+                    "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
                     "mode": spec.mode,
                     "model": model_value or "default",
                     "tool_names": list(safe_tool_names),
@@ -624,6 +641,12 @@ class DelegateTool(BaseTool):
                 async with cancellation_lock:
                     if cancellation_published:
                         return
+                    task_snapshot = await runtime.task_coordinator.get_task(task_id)
+                    cancellation_reason = (
+                        task_snapshot.latest_event
+                        if task_snapshot is not None and task_snapshot.cancel_requested
+                        else None
+                    )
                     cancellation_progress = progress or AgentRunProgress()
                     await runtime.task_coordinator.record_result(
                         task_id,
@@ -641,6 +664,7 @@ class DelegateTool(BaseTool):
                         session_id=spec.session_id,
                         task_id=task_id,
                         parent_task_id=spec.parent_task_id,
+                        reason=cancellation_reason or "cancelled",
                         mode=spec.mode,
                         model=spec.model or "default",
                         tool_names=spec.tool_names,
@@ -658,8 +682,13 @@ class DelegateTool(BaseTool):
                     "delegate_concurrency_queued",
                     data={
                         "event": "delegate_concurrency_queued",
+                        "status": "queued",
+                        "workflow_id": spec.session_id,
+                        "session_id": spec.session_id,
                         "task_id": task.task_id,
                         "parent_task_id": task.parent_task_id,
+                        "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
+                        "mode": spec.mode,
                         "queue_position": wait.queue_position,
                         "limit": concurrency_limit,
                     },
@@ -856,6 +885,9 @@ async def _collect_delegate_response(
     usage_limits: UsageLimits | None,
     allow_retry: bool,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    mode: str,
     model: str,
     progress: AgentRunProgress,
     event_stream_handler: Any | None = None,
@@ -886,7 +918,13 @@ async def _collect_delegate_response(
                 "delegate_retry_scheduled",
                 data={
                     "event": "delegate_retry_scheduled",
+                    "status": "retry_scheduled",
                     "workflow_id": session_id,
+                    "session_id": session_id,
+                    "task_id": task_id,
+                    "parent_task_id": parent_task_id,
+                    "detached_from_parent_lifecycle": mode == "managed",
+                    "mode": mode,
                     "model": model,
                     "attempt": attempt,
                     "next_attempt": attempt + 1,
@@ -944,15 +982,20 @@ def _failed_delegate_return(
         metadata["stripped_tools"] = list(stripped_tools)
 
     log_data = {
+        "event": "delegate_failed",
+        "status": "failed",
         "workflow_id": session_id,
+        "session_id": session_id,
         "task_id": task_id,
         "parent_task_id": parent_task_id,
+        "detached_from_parent_lifecycle": mode == "managed",
         "mode": mode,
         "model": model,
         "tool_names": list(tool_names),
         "error_type": classification.error_type,
         "failure_kind": classification.failure_kind,
         "retryable": classification.retryable,
+        "error": message,
         "error_message": message,
         "repeated_failure_limit": repeated_failure_limit,
         "timeout_seconds": timeout_seconds,
@@ -999,6 +1042,7 @@ def _log_delegate_cancelled(
     session_id: str,
     task_id: str,
     parent_task_id: str | None,
+    reason: str,
     mode: str,
     model: str,
     tool_names: tuple[str, ...],
@@ -1011,9 +1055,14 @@ def _log_delegate_cancelled(
     logger.add_sink("validation").info(
         "delegate_cancelled",
         data={
+            "event": "delegate_cancelled",
+            "status": "cancelled",
             "workflow_id": session_id,
+            "session_id": session_id,
             "task_id": task_id,
             "parent_task_id": parent_task_id,
+            "detached_from_parent_lifecycle": mode == "managed",
+            "reason": reason,
             "mode": mode,
             "model": model,
             "tool_names": list(tool_names),

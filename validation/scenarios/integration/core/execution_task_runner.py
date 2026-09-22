@@ -400,6 +400,7 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             authority=SYSTEM_AUTHORITY,
             parent_task_id=parent.task_id,
         )
+        detached_log_checkpoint = self.event_checkpoint()
         completion_survivor = await runtime.task_coordinator.create_queued_task(
             kind=ExecutionTaskKind.DELEGATE,
             scope="runner:child",
@@ -408,6 +409,17 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             authority=SYSTEM_AUTHORITY,
             parent_task_id=parent.task_id,
             detached_from_parent_lifecycle=True,
+        )
+        self.assert_event_contains(
+            self.events_since(detached_log_checkpoint),
+            name="execution_task_created",
+            expected={
+                "event": "execution_task_created",
+                "status": "queued",
+                "task_id": completion_survivor.task_id,
+                "parent_task_id": parent.task_id,
+                "detached_from_parent_lifecycle": True,
+            },
         )
         try:
             await runtime.task_coordinator.create_queued_task(
