@@ -102,43 +102,55 @@ Each finding should name the smell, affected contract, consequence, concrete
 evidence, and the smallest defensible correction. Findings lead the review and
 are ordered by severity; summaries and cleanup suggestions come afterward.
 
-## Review Workflow
+## Required Hardening Stages
 
-1. Establish the branch diff and map every touched subsystem and public
-   contract.
-2. Write down intended invariants before judging implementation details.
-3. Trace representative operations end to end across every relevant adapter.
-4. Exercise failure, reload, cancellation, concurrency, and automation paths,
-   not only the successful interactive path.
-5. Search structurally for duplicated validation, obsolete temporary paths,
-   broad exception handling, and multiple sources of truth.
-6. Review frontend lifecycle and responsive behavior separately from backend
-   correctness.
-7. Report findings first, ordered by severity and grounded in file/line
-   references.
-8. Convert accepted findings into small hardening stages. Keep behavioral fixes
-   distinct from structural refactors when practical.
+Address every stage in order. A stage may be marked not applicable only with a concrete reason in the handoff; do not silently skip it because the implementation already passes its focused scenarios. Record findings by severity with file and line evidence, then make accepted corrections in small reviewable changes.
 
-## Checklist
-- Preserve the zero-finding
-  [Production Python Quality Gate](coding-standards.md#production-python-quality-gate);
-  structural work is not complete while new or discovered findings remain.
-- Remove duplicated logic that can drift:
-  parameter schemas, validation paths, payload construction, routing decisions.
-- Extract mixed-responsibility functions into focused helpers.
-- Centralize cross-cutting utilities when drift risk is high.
-- Improve error quality:
-  fail fast - avoid broad catches, preserve diagnostics, and keep user-facing failures specific.
-- Verify logging coverage for changed paths:
-  start, decision, success, and failure milestones with structured context.
-- Confirm docs and validation still describe the post-refactor behavior.
-  This includes `docs/development/architecture.md` when subsystem ownership,
-  trust boundaries, or major execution flows change.
-- Once behavior is stable, run the complete `integration/core` validation profile here or record that it must run during merge preparation. If the profile already passed against the same effective behavior, do not rerun it solely because the phase changed.
-- If the refactor reveals a bug, fix it explicitly and keep the scope clear.
-- Ask before building compatibility shims or adapters.
-- When a dev branch is approaching finalization, consider dependency freshness as part of the hardening pass:
-  check whether Python or Node dependencies are stale, whether security audit failures are likely, and whether newer dependency versions unlock simpler or safer implementation patterns. Only propose updates to versions that have been available for more than one week, unless a security fix requires faster action. Do not update dependencies during unrelated refactors by default; propose a scoped dependency refresh when it would reduce risk, fix CVEs, or simplify the code.
+### Stage 1: Scope And Contract Map
+
+- Establish the branch diff and map each changed subsystem, user-visible behavior, durable record, API/tool boundary, and automation entry point.
+- Write down the authoritative contract and invariants for each changed operation before reviewing implementation details.
+- Compare equivalent paths across API, UI, tools, workflows, scripts, schedulers, and background execution for drift or bypasses.
+- Exit evidence: a concise list of affected contracts and the paths that exercise them.
+
+### Stage 2: Structure And Ownership
+
+- Search for duplicated validation, normalization, mutation, payload construction, routing, and error translation that could drift.
+- Extract mixed-responsibility functions and remove abstractions that own no policy or stable contract.
+- Check new `Any`, casts, suppressions, compatibility shims, and parallel service layers; each must be narrow and justified at the owning boundary.
+- Exit evidence: structural findings are resolved or explicitly retained with rationale, and the production quality gate has no findings.
+
+### Stage 3: State, Lifecycle, And Failure Paths
+
+- Trace success, denial, retry, reload, cancellation, timeout, concurrency, process shutdown, and partial-failure behavior for each affected lifecycle.
+- Verify that safeguards such as authorization, mutation recording, snapshots, cleanup, and persistence cannot be bypassed by another adapter or an out-of-order action.
+- Fail fast on invalid states, preserve actionable error details, and confirm repeated or delayed actions are idempotent or rejected explicitly.
+- Exit evidence: focused scenarios or smoke checks cover the relevant non-happy paths and no task, lock, temporary artifact, or partial mutation is left stranded.
+
+### Stage 4: Activity Logging And Observability
+
+- Follow [Activity Logging](activity-logging.md) and inspect the actual emitted records, not only the presence of logger calls.
+- For every changed user-visible or background operation, verify a compact lifecycle: start, meaningful decision or queued/retry state when applicable, and completion, skip, cancellation, timeout, or failure.
+- Require stable `event` and `status` fields, searchable user-known and correlation identities, concise `error_type` and `error` fields on failures, and enough context to identify the next inspection step.
+- Check warning deduplication explicitly: repeated failures for different operations must carry an appropriate stable `issue` identity, while genuinely repeated noise may collapse within one boot.
+- Keep high-frequency progress, loop, token, and helper-detail events out of System Activity; use validation-only logs for those signals and exclude prompts, outputs, secrets, document contents, and bulky arguments.
+- Add or update deterministic assertions for the logging contract, including at least one System Activity assertion when introducing a new operation family.
+- Exit evidence: list the lifecycle events inspected, the identities they can be searched by, and any intentionally validation-only events.
+
+### Stage 5: Frontend And Operator Experience
+
+- Review loading, empty, error, retry, cancellation, reload, reconnect, focus restoration, keyboard, pointer, mobile, and unsaved-change behavior for affected interfaces.
+- Check that equivalent views share state and rendering contracts rather than depending on hidden DOM coupling or unrelated flags.
+- Confirm operator-facing status and error text agrees with backend state and does not imply success before durable completion.
+- Exit evidence: relevant browser or syntax checks pass, or the handoff identifies the exact manual interaction still required.
+
+### Stage 6: Documentation, Validation, And Release Readiness
+
+- Confirm current-contract docs, architecture records, examples, validation scenarios, and release notes describe the hardened behavior consistently.
+- Run affected individual deterministic scenarios after each correction and preserve the zero-finding [Production Python Quality Gate](coding-standards.md#production-python-quality-gate).
+- Once behavior is stable, run the complete `integration/core` validation profile here or record that it must run during merge preparation. Do not rerun it solely because the phase changed when it already passed against the same effective behavior.
+- Consider dependency freshness when the branch is approaching finalization. Propose a scoped refresh when it reduces risk, fixes CVEs, or simplifies the implementation; do not update unrelated dependencies by default, and normally avoid versions released less than one week ago unless a security fix requires them.
+- Exit evidence: report focused checks, the production quality gate, the deterministic pre-merge profile, documentation changes, and any external or manual validation blocker.
 
 ## Guardrails
 - Refactor in small, reviewable chunks.
@@ -146,19 +158,13 @@ are ordered by severity; summaries and cleanup suggestions come afterward.
 - Preserve validation and event contracts unless the change explicitly updates them.
 - If a refactor reveals a real bug, fix it, call it out, and keep the diff scoped.
 
-## Observability Standard
-- Any new feature or fix should leave behind useful activity logging for the changed path.
-- At minimum, cover:
-  operation start, meaningful decisions, successful completion, and failures.
-- Use stable tags and structured fields so logs remain queryable over time.
-- Avoid noisy per-loop logging; prefer lifecycle milestones and decision boundaries.
-- Never swallow exceptions without preserving actionable diagnostics.
-
 ## Common Mistakes
 - Expanding the refactor into adjacent feature work.
 - Changing public contracts accidentally while cleaning internals.
 - Leaving split-brain validation or policy logic in multiple helpers.
 - Calling work “done” once scenarios pass without addressing obvious drift risks.
+- Treating logger calls as sufficient without inspecting System Activity payloads and failure records.
+- Skipping a hardening stage without recording why it does not apply.
 - Hiding type uncertainty behind broad `Any`, casts, or checker suppressions
   instead of typing the owning boundary.
 
