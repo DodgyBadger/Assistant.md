@@ -10,7 +10,7 @@ This codebase will outlive any single contributor. Every shortcut becomes future
 
 - Python version: `3.13`.
 - Non-standard build command: `npm run build:css` compiles `static/input.css` to `static/output.css`.
-- Validation ownership: maintainers run full validation (`python validation/run_validation.py ...`); agents should request results instead of running the suite.
+- Validation cadence: during branch development, agents run fast, directly relevant checks and individual deterministic scenarios. Once a branch is stable, agents run the full deterministic pre-merge profile (`python validation/run_validation.py run integration/core`) during hardening or merge preparation; experimental and live-service scenarios remain opt-in.
 - Validation-first delivery: follow [Testing and Validation](docs/agent-guides/testing-and-validation.md#validation-first-workflow).
 - Planning output is required: planning work must end with a root-level markdown implementation plan, either by creating a new file or updating the existing one for that effort.
 - Documentation should describe the current contract only. Do not document behavior as “instead of the old way” or teach migrations inside product docs unless the task explicitly calls for migration guidance.

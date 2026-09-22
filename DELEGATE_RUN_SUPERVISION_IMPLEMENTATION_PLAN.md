@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented on `dev/delegate-run-supervision`. Focused delegate, job, execution-task runner, and settings-upgrade scenarios pass; the maintainer-owned full validation profile remains pending.
+Implemented on `dev/delegate-run-supervision`. Focused delegate, job, execution-task runner, and settings-upgrade scenarios pass, along with the complete deterministic `integration/core` profile and production quality gate.
 
 ## Purpose
 
@@ -254,12 +254,12 @@ Argument hints in live activity must use the existing delegate audit sanitizatio
 - Add `delegate_concurrency_queued` when a delegate waits for the shared concurrency lane, with minimum payload `task_id`, `parent_task_id`, and `queue_position` when available.
 - Avoid per-token and per-tool-call validation log events; live progress belongs in task state, while validation logs cover lifecycle and decision boundaries.
 
-### Agent-owned verification
+### Verification cadence
 
 - Run quick isolated smoke checks against temporary data and system roots for task wait races, timer behavior, cancellation during an active tool, and result truncation.
 - Run the affected individual deterministic scenarios directly as implementation slices land.
 - Run the production Python quality gate required by the coding standards before review handoff.
-- Do not run the full validation suite; request the maintainer result for `python validation/run_validation.py run integration/core` before merge.
+- Once branch behavior is stable, run `python validation/run_validation.py run integration/core` during hardening or merge preparation.
 
 ## Testable Delivery Slices
 
@@ -353,7 +353,7 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 **Production boundary:** Complete only the necessary existing UI/API task-status integration, add the superseding ADR, update delegate and job tool documentation plus the architecture/tool indexes, and remove temporary compatibility code or duplicated paths found during the preceding slices.
 
-**Complete when:** All affected individual scenarios pass, temporary-root smoke checks pass, the production Python quality gate and `git diff --check` pass, and the maintainer is given the exact request to run `python validation/run_validation.py run integration/core` without the agent running the full suite.
+**Complete when:** All affected individual scenarios, temporary-root smoke checks, the production Python quality gate, `git diff --check`, and the complete deterministic `integration/core` profile pass.
 
 ## Out of Scope
 
@@ -368,4 +368,4 @@ Each slice starts with a deterministic failing scenario, adds only the productio
 
 ## Review Handoff
 
-The implementation is ready for maintainer review. Before merge, maintainers should run `python validation/run_validation.py run integration/core`; agents have intentionally limited local validation to the affected individual deterministic scenarios.
+The implementation is ready for maintainer review. The complete deterministic `integration/core` profile and production Python quality gate pass against the merge-ready branch.

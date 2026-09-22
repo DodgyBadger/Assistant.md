@@ -134,6 +134,7 @@ are ordered by severity; summaries and cleanup suggestions come afterward.
 - Confirm docs and validation still describe the post-refactor behavior.
   This includes `docs/development/architecture.md` when subsystem ownership,
   trust boundaries, or major execution flows change.
+- Once behavior is stable, run the complete `integration/core` validation profile here or record that it must run during merge preparation. If the profile already passed against the same effective behavior, do not rerun it solely because the phase changed.
 - If the refactor reveals a bug, fix it explicitly and keep the scope clear.
 - Ask before building compatibility shims or adapters.
 - When a dev branch is approaching finalization, consider dependency freshness as part of the hardening pass:

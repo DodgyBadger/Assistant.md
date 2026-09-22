@@ -1,6 +1,6 @@
 # Chat Stream Reattachment Implementation Plan
 
-Status: implemented and targeted validation passed; maintainer-owned pre-merge validation remains.
+Status: implemented; targeted validation, the complete deterministic `integration/core` profile, JavaScript syntax checks, and the production Python quality gate pass.
 
 ## Goal
 
@@ -206,7 +206,7 @@ uv run black --check .
 uv run mypy api core
 ```
 
-Maintainers remain responsible for the full `integration/core` validation profile.
+Once branch behavior is stable, run the full `integration/core` validation profile during hardening or merge preparation.
 
 ## Implementation Sequence
 
@@ -244,4 +244,4 @@ Maintainers remain responsible for the full `integration/core` validation profil
 
 ## Phase Handoff
 
-Implementation, focused hardening, documentation, targeted integration scenarios, JavaScript syntax checks, and the production Python quality gate are complete. Maintainers should run the full `integration/core` validation profile before merge.
+Implementation, focused hardening, documentation, targeted integration scenarios, the complete deterministic `integration/core` profile, JavaScript syntax checks, and the production Python quality gate are complete.

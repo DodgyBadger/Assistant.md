@@ -27,16 +27,13 @@ contract required to protect a merge belongs in `integration/core`. Security
 probes that depend on live models, external content, or diagnostic judgment
 belong in `experiments` unless they can be made deterministic.
 
-The regular pre-merge validation profile is `integration/core`. Maintainers and
-CI run it with:
+The regular pre-merge validation profile is `integration/core`. Run it with:
 
 ```bash
 python validation/run_validation.py run integration/core
 ```
 
-Experimental scenarios are opt-in and are not part of that profile.
-This profile does not change validation ownership: agents run relevant
-individual scenarios directly and request the maintainer-owned pre-merge result.
+Experimental scenarios are opt-in and are not part of that profile. During active branch development, run the relevant individual scenarios for fast feedback. Once the branch is stable, run the complete `integration/core` profile during either the hardening pass or merge preparation. Do not duplicate the full run in both phases when it already passed against the same effective behavior.
 
 ## Integration Scenario Assertions
 - Never assert on non-deterministic LLM prose in integration scenarios.
@@ -91,22 +88,21 @@ Only add events at decision boundaries; avoid noisy instrumentation.
 - Assert behavior, not implementation accidents.
 - Prefer deterministic scenarios (`@model test`) unless real model behavior is essential.
 - Use local smoke tests to probe exact edge cases quickly, especially for helper functions and failure paths.
-- Ask maintainers for full validation results instead of running the suite yourself.
+- Keep development feedback fast with directly relevant scenarios, then run the complete deterministic pre-merge profile after the branch stabilizes.
 
 ## Definition of Done (Workflow Perspective)
 - New behavior is represented by scenario assertions (new or updated).
 - Decision-heavy branches have stable, behavior-oriented validation events when needed.
 - Temporary debug instrumentation is removed.
 - Relevant technical docs are updated (architecture, usage, or examples).
+- The complete `integration/core` profile has passed against the stable branch during hardening or merge preparation, unless an external blocker is documented.
 
 ## Execution Rules
-- Agents should run individual scenarios directly to validate functionality being built.
-- Only the maintainers should run the full validation suite.
-- In development environments, avoid long validation jobs unless explicitly requested.
-- Static analysis is agent-owned and is separate from the maintainer-owned
-  validation suite. Production Python changes still require the complete
-  [Production Python Quality Gate](coding-standards.md#production-python-quality-gate)
-  before commit or handoff.
+- During feature development, run individual scenarios directly to validate the functionality being built.
+- During hardening or merge preparation, run the complete `integration/core` profile once the branch is stable.
+- If behavior changes after that run, rerun affected scenarios immediately and rerun the complete profile when the change could affect broader contracts. Documentation-only changes do not require another full run.
+- Do not run `experiments` or live-service scenarios unless the task requires them; they are not part of the deterministic merge gate.
+- Static analysis is separate from scenario validation. Production Python changes still require the complete [Production Python Quality Gate](coding-standards.md#production-python-quality-gate) before commit or handoff.
 
 ## Agent Smoke Tests (Local, Fast)
 - For new functions/modules, run quick ephemeral bash-based smoke tests before handoff.
@@ -118,7 +114,8 @@ Only add events at decision boundaries; avoid noisy instrumentation.
 - Relying on free-form model output instead of deterministic artifacts.
 - Adding noisy events instead of decision-boundary events.
 - Treating smoke tests as a substitute for scenario coverage.
-- Running `validation/run_validation.py` directly instead of requesting maintainer results.
+- Running the complete pre-merge profile after every development edit instead of reserving it for a stable hardening or merge-preparation pass.
+- Reaching merge preparation without a successful `integration/core` run against the branch's effective behavior.
 
 ## Phase Exit
 Move to [Refactor and Hardening](refactor-and-hardening.md) once behavior is correct and covered.

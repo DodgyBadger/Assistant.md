@@ -27,6 +27,7 @@
   2. the linked GitHub issue, if one exists
   3. commit messages for smaller follow-on additions or cleanup
 - Re-read changed error messages and logging for clarity.
+- Confirm the complete `integration/core` validation profile passed against the branch's effective behavior during hardening or merge preparation. Run it now if it has not; rerun it after later changes only when they could affect broader contracts.
 - Confirm the final handoff explains:
   what changed, what was verified, and what still needs maintainer action.
 
@@ -37,7 +38,7 @@
   decisions that survived the work.
 - Accidentally committing secrets or local runtime-state artifacts.
 - Writing release notes from memory instead of the implementation plan and issue history.
-- Forgetting to mention unrun full validation or unresolved risks.
+- Reaching merge readiness without running the deterministic pre-merge profile or documenting an external blocker.
 
 ## Phase Exit
 The change is ready for maintainer review or merge preparation.
