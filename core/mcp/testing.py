@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from uuid import uuid4
 
 import httpx
 from fastmcp import Client
@@ -32,6 +33,7 @@ async def test_mcp_connection_runtime(
     credential: str | None,
 ) -> MCPConnectionTestResult:
     """Initialize one client and list tools without retaining runtime resources."""
+    operation_id = uuid4().hex
     logger.info(
         "MCP connection test started",
         data={
@@ -40,6 +42,7 @@ async def test_mcp_connection_runtime(
             "connection_id": connection.connection_id,
             "url": sanitize_url_for_log(connection.require_url()),
             "transport": connection.transport.value,
+            "operation_id": operation_id,
         },
     )
     configuration_error = _validate_auth_configuration(connection, credential)
@@ -49,6 +52,7 @@ async def test_mcp_connection_runtime(
             status=configuration_error.status,
             message=configuration_error.message,
             error_type="MCPConfigurationError",
+            operation_id=operation_id,
         )
 
     try:
@@ -79,6 +83,7 @@ async def test_mcp_connection_runtime(
             status="timeout",
             message="Connection timed out before MCP initialization completed.",
             error_type="TimeoutError",
+            operation_id=operation_id,
         )
     except httpx.HTTPStatusError as exc:
         status_code = exc.response.status_code
@@ -91,12 +96,14 @@ async def test_mcp_connection_runtime(
                     "Check the configured authentication mode and credential."
                 ),
                 error_type=type(exc).__name__,
+                operation_id=operation_id,
             )
         return _failed_result(
             connection,
             status="http_error",
             message=f"Server returned HTTP {status_code} during MCP initialization.",
             error_type=type(exc).__name__,
+            operation_id=operation_id,
         )
     except httpx.TimeoutException as exc:
         return _failed_result(
@@ -104,6 +111,7 @@ async def test_mcp_connection_runtime(
             status="timeout",
             message="Connection timed out before MCP initialization completed.",
             error_type=type(exc).__name__,
+            operation_id=operation_id,
         )
     except httpx.RequestError as exc:
         return _failed_result(
@@ -111,6 +119,7 @@ async def test_mcp_connection_runtime(
             status="unreachable",
             message="The MCP server could not be reached from Assistant.md.",
             error_type=type(exc).__name__,
+            operation_id=operation_id,
         )
     except Exception as exc:
         return _failed_result(
@@ -118,6 +127,7 @@ async def test_mcp_connection_runtime(
             status="connection_failed",
             message="The server did not complete a valid MCP initialization.",
             error_type=type(exc).__name__,
+            operation_id=operation_id,
         )
 
     server_tool_names = tuple(str(tool.name) for tool in tools)
@@ -149,6 +159,7 @@ async def test_mcp_connection_runtime(
             "url": sanitize_url_for_log(connection.require_url()),
             "transport": connection.transport.value,
             "tool_count": count,
+            "operation_id": operation_id,
         },
     )
     return result
@@ -197,6 +208,7 @@ def _failed_result(
     status: str,
     message: str,
     error_type: str,
+    operation_id: str,
 ) -> MCPConnectionTestResult:
     logger.warning(
         "MCP connection test failed",
@@ -208,7 +220,8 @@ def _failed_result(
             "status": status,
             "error_type": error_type,
             "error": message,
-            "issue": connection.connection_id,
+            "operation_id": operation_id,
+            "issue": f"mcp_connection_test:{operation_id}",
         },
     )
     return MCPConnectionTestResult(

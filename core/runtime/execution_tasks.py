@@ -61,6 +61,7 @@ TERMINAL_STATUSES = {
 TERMINAL_STATUS_VALUES = {status.value for status in TERMINAL_STATUSES}
 
 EXECUTION_TASK_RESULT_MAX_CHARS = 65_536
+EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS = 500
 
 
 _CURRENT_EXECUTION_TASK: ContextVar[ExecutionTaskSnapshot | None] = ContextVar(
@@ -148,6 +149,7 @@ class ExecutionTaskSnapshot:
     finished_at: datetime | None = None
     cancel_requested: bool = False
     terminal_reason: str | None = None
+    terminal_error_type: str | None = None
     latest_event: str | None = None
     parent_task_id: str | None = None
     detached_from_parent_lifecycle: bool = False
@@ -196,6 +198,7 @@ class _ExecutionTaskRecord:
     finished_at: datetime | None = None
     cancel_requested: bool = False
     terminal_reason: str | None = None
+    terminal_error_type: str | None = None
     latest_event: str | None = None
     parent_task_id: str | None = None
     detached_from_parent_lifecycle: bool = False
@@ -226,6 +229,7 @@ class _ExecutionTaskRecord:
             finished_at=self.finished_at,
             cancel_requested=self.cancel_requested,
             terminal_reason=self.terminal_reason,
+            terminal_error_type=self.terminal_error_type,
             latest_event=self.latest_event,
             parent_task_id=self.parent_task_id,
             detached_from_parent_lifecycle=self.detached_from_parent_lifecycle,
@@ -279,38 +283,47 @@ class TaskCoordinator:
             raise RuntimeError("TaskCoordinator requires an active asyncio task")
 
         task_id = self._new_task_id()
-        await self._create_record(
-            task_id=task_id,
-            kind=kind,
-            scope=scope,
-            source=source,
-            label=label,
-            authority=authority,
-            handle=current,
-            metadata=metadata,
-            parent_task_id=parent_task_id,
-            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
-        )
-        if start_immediately:
-            await self.mark_started(task_id)
-
-        snapshot = await self.get_task(task_id)
-        if snapshot is None:  # pragma: no cover - defensive
-            raise RuntimeError(f"Execution task disappeared: {task_id}")
-        token = _CURRENT_EXECUTION_TASK.set(snapshot)
+        registered = False
+        token = None
         try:
+            await self._create_record(
+                task_id=task_id,
+                kind=kind,
+                scope=scope,
+                source=source,
+                label=label,
+                authority=authority,
+                handle=current,
+                metadata=metadata,
+                parent_task_id=parent_task_id,
+                detached_from_parent_lifecycle=detached_from_parent_lifecycle,
+            )
+            registered = True
+            if start_immediately:
+                await self.mark_started(task_id)
+
+            snapshot = await self.get_task(task_id)
+            if snapshot is None:  # pragma: no cover - defensive
+                raise RuntimeError(f"Execution task disappeared: {task_id}")
+            token = _CURRENT_EXECUTION_TASK.set(snapshot)
             with use_execution_authority(authority):
                 yield snapshot
+            await self.mark_completed(task_id)
         except asyncio.CancelledError:
-            await self.mark_cancelled(task_id, reason="cancelled")
+            if registered:
+                await self._finish_cancelled_task(task_id, reason="cancelled")
             raise
         except Exception as exc:
-            await self.mark_failed(task_id, reason=f"{type(exc).__name__}: {exc}")
+            if registered:
+                await self._finish_failed_task(
+                    task_id,
+                    reason=f"{type(exc).__name__}: {exc}",
+                    error_type=type(exc).__name__,
+                )
             raise
-        else:
-            await self.mark_completed(task_id)
         finally:
-            _CURRENT_EXECUTION_TASK.reset(token)
+            if token is not None:
+                _CURRENT_EXECUTION_TASK.reset(token)
 
     async def create_queued_task(
         self,
@@ -377,14 +390,17 @@ class TaskCoordinator:
         try:
             with use_execution_authority(record.authority):
                 yield snapshot
+            await self.mark_completed(task_id)
         except asyncio.CancelledError:
-            await self.mark_cancelled(task_id, reason="cancelled")
+            await self._finish_cancelled_task(task_id, reason="cancelled")
             raise
         except Exception as exc:
-            await self.mark_failed(task_id, reason=f"{type(exc).__name__}: {exc}")
+            await self._finish_failed_task(
+                task_id,
+                reason=f"{type(exc).__name__}: {exc}",
+                error_type=type(exc).__name__,
+            )
             raise
-        else:
-            await self.mark_completed(task_id)
         finally:
             _CURRENT_EXECUTION_TASK.reset(token)
 
@@ -634,13 +650,20 @@ class TaskCoordinator:
         """Mark one queued task running."""
         await self._mark_started(task_id)
 
-    async def mark_failed(self, task_id: str, *, reason: str | None = None) -> None:
+    async def mark_failed(
+        self,
+        task_id: str,
+        *,
+        reason: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
         """Mark one task failed."""
         await self._cancel_active_children(task_id, reason="parent_failed")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.FAILED,
             reason=reason,
+            error_type=error_type,
             event="execution_task_failed",
         )
 
@@ -791,6 +814,14 @@ class TaskCoordinator:
             record = self._records.get(task_id)
             if record is None:
                 return
+            if record.status is not ExecutionTaskStatus.QUEUED:
+                raise RuntimeError(
+                    f"Execution task cannot start from {record.status.value}: {task_id}"
+                )
+            if record.cancel_requested:
+                raise RuntimeError(
+                    f"Execution task cannot start after cancellation: {task_id}"
+                )
             record.status = ExecutionTaskStatus.RUNNING
             now = self._now()
             record.started_at = now
@@ -812,6 +843,7 @@ class TaskCoordinator:
         *,
         reason: str | None,
         event: str,
+        error_type: str | None = None,
     ) -> None:
         snapshot = None
         async with self._lock:
@@ -824,6 +856,7 @@ class TaskCoordinator:
             now = self._now()
             record.finished_at = now
             record.terminal_reason = reason
+            record.terminal_error_type = error_type
             record.latest_event = event
             record.last_heartbeat_at = now
             record.heartbeat_status = status.value
@@ -837,6 +870,36 @@ class TaskCoordinator:
 
         self._log_event(event, snapshot)
         self._notify_terminal_observers(snapshot)
+
+    async def _finish_cancelled_task(self, task_id: str, *, reason: str) -> None:
+        """Publish cancellation even while the owning coroutine is being cancelled."""
+
+        cleanup = asyncio.create_task(self.mark_cancelled(task_id, reason=reason))
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+        await cleanup
+
+    async def _finish_failed_task(
+        self,
+        task_id: str,
+        *,
+        reason: str,
+        error_type: str,
+    ) -> None:
+        """Publish an observed failure before honoring a later cancellation."""
+
+        cleanup = asyncio.create_task(
+            self.mark_failed(task_id, reason=reason, error_type=error_type)
+        )
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+        await cleanup
 
     def _remember_terminal(self, task_id: str) -> None:
         if task_id in self._terminal_order:
@@ -870,6 +933,7 @@ class TaskCoordinator:
         *,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        terminal_reason = _bound_activity_text(snapshot.terminal_reason)
         data = {
             "event": event,
             "task_id": snapshot.task_id,
@@ -882,7 +946,7 @@ class TaskCoordinator:
             "detached_from_parent_lifecycle": snapshot.detached_from_parent_lifecycle,
             "status": snapshot.status,
             "cancel_requested": snapshot.cancel_requested,
-            "terminal_reason": snapshot.terminal_reason,
+            "terminal_reason": terminal_reason,
             "last_heartbeat_at": (
                 snapshot.last_heartbeat_at.isoformat()
                 if snapshot.last_heartbeat_at
@@ -895,12 +959,11 @@ class TaskCoordinator:
             data["goal_id"] = goal_id
         if step_id:
             data["step_id"] = step_id
-        if snapshot.terminal_reason:
-            data["reason"] = snapshot.terminal_reason
+        if terminal_reason:
+            data["reason"] = terminal_reason
         if event == "execution_task_failed":
-            data["error"] = snapshot.terminal_reason or "Execution task failed"
-            if snapshot.terminal_reason and ":" in snapshot.terminal_reason:
-                data["error_type"] = snapshot.terminal_reason.split(":", 1)[0]
+            data["error"] = terminal_reason or "Execution task failed"
+            data["error_type"] = snapshot.terminal_error_type or "ExecutionTaskFailure"
         if extra:
             data.update(extra)
         log = (
@@ -911,6 +974,7 @@ class TaskCoordinator:
         if event == "execution_task_failed":
             log.error(event, data=data)
         elif event == "execution_task_timed_out":
+            data["issue"] = f"execution_task_timeout:{snapshot.task_id}"
             log.warning(event, data=data)
         else:
             log.info(event, data=data)
@@ -950,6 +1014,13 @@ def _clean_goal_context_value(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _bound_activity_text(value: str | None) -> str | None:
+    """Bound free-form task detail before it reaches retained System Activity."""
+    if value is None or len(value) <= EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS:
+        return value
+    return f"{value[:EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS]}..."
 
 
 def _bound_execution_task_result(

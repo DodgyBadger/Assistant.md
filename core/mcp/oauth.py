@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from urllib.parse import urlencode, urljoin, urlparse
+from uuid import uuid4
 
 import httpx
 from fastmcp import Client
@@ -58,6 +59,7 @@ class MCPOAuthStart:
     state: str
     redirect_uri: str
     expires_at: str
+    operation_id: str
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,7 @@ class MCPOAuthStatus:
     status: str
     connected: bool
     pending_expires_at: str | None = None
+    operation_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -122,6 +125,7 @@ class _Attempt:
     expires_at: datetime
     storage: EncryptedMCPOAuthStorage
     client_secret: str | None
+    operation_id: str
 
 
 class _HeadlessOAuth(OAuth):
@@ -137,11 +141,13 @@ class _HeadlessOAuth(OAuth):
         scopes: tuple[str, ...] | None,
         client_id: str | None,
         client_secret: str | None,
+        operation_id: str,
     ) -> None:
         self._authorization_url = authorization_url
         self._callback = callback
         self._storage = storage
         self._requested_scopes = scopes
+        self._operation_id = operation_id
         super().__init__(
             mcp_url=mcp_url,
             token_storage=storage,
@@ -216,6 +222,7 @@ class _HeadlessOAuth(OAuth):
                     datetime.now(UTC)
                     + timedelta(seconds=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS)
                 ).isoformat(),
+                "operation_id": self._operation_id,
             },
             collection=_PENDING_COLLECTION,
             ttl=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS,
@@ -271,12 +278,29 @@ class MCPOAuthCoordinator:
         connection = self._require_oauth_connection(authority, connection_id)
         clean_redirect_uri = _validate_redirect_uri(redirect_uri)
         key = (authority.principal_id, connection.connection_id)
-        await self._cancel_attempt(key)
+        superseded_attempt = await self._cancel_attempt(key)
+        superseded_operation_id = (
+            superseded_attempt.operation_id
+            if superseded_attempt is not None
+            else await self._pending_operation_id(authority, connection)
+        )
         if self._closed:
             raise MCPOAuthError("MCP OAuth coordinator is closed.")
         # A new attempt revokes old completion and refresh writers while retaining
         # configured client credentials. Capture all material before yielding.
         connection = self._connections.disconnect_oauth(authority, connection_id)
+        if superseded_operation_id is not None:
+            self._log_operation_event(
+                connection_id=connection.connection_id,
+                operation_id=superseded_operation_id,
+                event="mcp_oauth_attempt_cancelled",
+                status="cancelled",
+                phase="superseded",
+                reason="superseded_by_new_attempt",
+                error_type="MCPOAuthAttemptSuperseded",
+                error="A newer MCP OAuth authorization attempt replaced this attempt.",
+                warning=False,
+            )
         storage = self._connections.oauth_storage(
             authority, connection_id, expected_connection=connection
         )
@@ -295,11 +319,21 @@ class MCPOAuthCoordinator:
             + timedelta(seconds=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS),
             storage=storage,
             client_secret=client_secret,
+            operation_id=uuid4().hex,
         )
         async with self._lock:
             if self._closed:
                 raise MCPOAuthError("MCP OAuth coordinator is closed.")
             self._attempts[key] = attempt
+        logger.info(
+            "MCP OAuth authorization attempt started",
+            data={
+                "event": "mcp_oauth_attempt_started",
+                "status": "started",
+                "connection_id": connection.connection_id,
+                "operation_id": attempt.operation_id,
+            },
+        )
         task = asyncio.create_task(self._run_attempt(attempt))
         attempt.task = task
         self._attempt_tasks.add(task)
@@ -326,7 +360,20 @@ class MCPOAuthCoordinator:
             await self._cancel_attempt(key, expected=attempt)
             self._clear_attempt_pending(attempt)
             if isinstance(exc, asyncio.CancelledError):
+                self._log_attempt_event(
+                    attempt,
+                    event="mcp_oauth_attempt_cancelled",
+                    status="cancelled",
+                    phase="authorization_start",
+                    error_type="CancelledError",
+                    error="The MCP OAuth authorization attempt was cancelled.",
+                    warning=False,
+                )
                 raise
+            if not (
+                task.done() and not task.cancelled() and task.exception() is not None
+            ):
+                self._log_attempt_failure(attempt, exc, phase="authorization_start")
             if isinstance(exc, MCPOAuthError):
                 raise
             raise MCPOAuthError(
@@ -338,6 +385,7 @@ class MCPOAuthCoordinator:
             state=state,
             redirect_uri=clean_redirect_uri,
             expires_at=attempt.expires_at.isoformat(),
+            operation_id=attempt.operation_id,
         )
 
     async def complete(
@@ -374,24 +422,52 @@ class MCPOAuthCoordinator:
             attempt = self._attempts.get(key)
         if attempt is None or attempt.task is None:
             connection = self._require_oauth_connection(authority, connection_id)
-            await self._complete_persisted_attempt(
+            operation_id = await self._complete_persisted_attempt(
                 authority=authority,
                 connection=connection,
                 code=code,
                 state=state,
             )
             self._invalidate_committed(authority, connection_id, "oauth_complete")
-            return MCPOAuthStatus(status="connected", connected=True)
+            return MCPOAuthStatus(
+                status="connected",
+                connected=True,
+                operation_id=operation_id,
+            )
         if datetime.now(UTC) >= attempt.expires_at:
             await self._cancel_attempt(key, expected=attempt)
             self._clear_attempt_pending(attempt)
+            self._log_attempt_event(
+                attempt,
+                event="mcp_oauth_attempt_expired",
+                status="expired",
+                phase="completion",
+                error_type="MCPOAuthExpired",
+                error="The MCP OAuth connection attempt expired.",
+            )
             raise MCPOAuthError("The MCP OAuth connection attempt has expired.")
         expected_state = _required_query_value(
             await asyncio.shield(attempt.authorization_url), "state"
         )
         if not secrets.compare_digest(state, expected_state):
+            self._log_attempt_event(
+                attempt,
+                event="mcp_oauth_completion_rejected",
+                status="rejected",
+                phase="completion",
+                error_type="MCPOAuthStateMismatch",
+                error="The MCP OAuth completion state did not match.",
+            )
             raise MCPOAuthError("The MCP OAuth state did not match.")
         if attempt.callback.done():
+            self._log_attempt_event(
+                attempt,
+                event="mcp_oauth_completion_rejected",
+                status="rejected",
+                phase="completion",
+                error_type="MCPOAuthAttemptConsumed",
+                error="The MCP OAuth authorization attempt was already consumed.",
+            )
             raise MCPOAuthError(
                 "The MCP OAuth authorization attempt was already consumed."
             )
@@ -405,9 +481,25 @@ class MCPOAuthCoordinator:
         except BaseException as exc:
             if isinstance(exc, asyncio.CancelledError):
                 await self._cancel_attempt(key, expected=attempt)
+                self._log_attempt_event(
+                    attempt,
+                    event="mcp_oauth_attempt_cancelled",
+                    status="cancelled",
+                    phase="completion",
+                    error_type="CancelledError",
+                    error="The MCP OAuth authorization attempt was cancelled.",
+                    warning=False,
+                )
                 raise
+            task_failed = (
+                attempt.task.done()
+                and not attempt.task.cancelled()
+                and attempt.task.exception() is not None
+            )
             await self._cancel_attempt(key, expected=attempt)
             self._clear_attempt_pending(attempt)
+            if not task_failed:
+                self._log_attempt_failure(attempt, exc, phase="completion")
             raise MCPOAuthError(
                 "The MCP server did not complete OAuth authorization."
             ) from exc
@@ -416,7 +508,11 @@ class MCPOAuthCoordinator:
                 if self._attempts.get(key) is attempt:
                     self._attempts.pop(key, None)
         self._invalidate_committed(authority, connection_id, "oauth_complete")
-        return MCPOAuthStatus(status="connected", connected=True)
+        return MCPOAuthStatus(
+            status="connected",
+            connected=True,
+            operation_id=attempt.operation_id,
+        )
 
     async def status(
         self, *, authority: ExecutionAuthority, connection_id: str
@@ -439,6 +535,14 @@ class MCPOAuthCoordinator:
             )
         if attempt is not None:
             await self._cancel_attempt(key, expected=attempt)
+            self._log_attempt_event(
+                attempt,
+                event="mcp_oauth_attempt_expired",
+                status="expired",
+                phase="status",
+                error_type="MCPOAuthExpired",
+                error="The MCP OAuth connection attempt expired.",
+            )
         adapter = TokenStorageAdapter(
             async_key_value=self._connections.oauth_storage(authority, connection_id),
             server_url=connection.require_url(),
@@ -462,8 +566,25 @@ class MCPOAuthCoordinator:
     ) -> None:
         connection = self._require_oauth_connection(authority, connection_id)
         key = (authority.principal_id, connection.connection_id)
-        await self._cancel_attempt(key)
+        cancelled_attempt = await self._cancel_attempt(key)
+        cancelled_operation_id = (
+            cancelled_attempt.operation_id
+            if cancelled_attempt is not None
+            else await self._pending_operation_id(authority, connection)
+        )
         self._connections.disconnect_oauth(authority, connection_id)
+        if cancelled_operation_id is not None:
+            self._log_operation_event(
+                connection_id=connection.connection_id,
+                operation_id=cancelled_operation_id,
+                event="mcp_oauth_attempt_cancelled",
+                status="cancelled",
+                phase="disconnect",
+                reason="user_disconnect",
+                error_type="MCPOAuthDisconnected",
+                error="The MCP OAuth authorization attempt was disconnected.",
+                warning=False,
+            )
         self._invalidate_committed(authority, connection_id, "oauth_disconnect")
 
     def _invalidate_committed(
@@ -523,6 +644,7 @@ class MCPOAuthCoordinator:
             scopes=attempt.connection.oauth_scopes,
             client_id=attempt.connection.oauth_client_id,
             client_secret=attempt.client_secret,
+            operation_id=attempt.operation_id,
         )
         await _prime_oauth_authorization(auth, attempt.connection.require_url())
         http_client_factory = mcp_oauth_http_client_factory(
@@ -550,17 +672,97 @@ class MCPOAuthCoordinator:
             return
         error = task.exception()
         if error is not None:
-            logger.warning(
-                "MCP OAuth authorization attempt failed",
-                data={
-                    "event": "mcp_oauth_attempt_failed",
-                    "status": "failed",
-                    "connection_id": attempt.connection.connection_id,
-                    "error_type": type(error).__name__,
-                    "error": str(error)[:500],
-                    "issue": attempt.connection.connection_id,
-                },
-            )
+            self._log_attempt_failure(attempt, error, phase="authorization")
+
+    @staticmethod
+    def _log_attempt_failure(
+        attempt: _Attempt, error: BaseException, *, phase: str
+    ) -> None:
+        safe_error = {
+            "authorization": "The MCP server authorization flow failed.",
+            "authorization_start": (
+                "The MCP server did not start an OAuth authorization flow."
+            ),
+        }.get(phase, "The MCP server did not complete OAuth authorization.")
+        MCPOAuthCoordinator._log_attempt_event(
+            attempt,
+            event="mcp_oauth_attempt_failed",
+            status="failed",
+            phase=phase,
+            error_type=type(error).__name__,
+            error=safe_error,
+        )
+
+    @staticmethod
+    def _log_attempt_event(
+        attempt: _Attempt,
+        *,
+        event: str,
+        status: str,
+        phase: str,
+        error_type: str,
+        error: str,
+        reason: str | None = None,
+        warning: bool = True,
+    ) -> None:
+        MCPOAuthCoordinator._log_operation_event(
+            connection_id=attempt.connection.connection_id,
+            operation_id=attempt.operation_id,
+            event=event,
+            status=status,
+            phase=phase,
+            error_type=error_type,
+            error=error,
+            reason=reason,
+            warning=warning,
+        )
+
+    @staticmethod
+    def _log_operation_event(
+        *,
+        connection_id: str,
+        operation_id: str,
+        event: str,
+        status: str,
+        phase: str,
+        error_type: str,
+        error: str,
+        reason: str | None = None,
+        warning: bool = True,
+    ) -> None:
+        payload = {
+            "event": event,
+            "status": status,
+            "connection_id": connection_id,
+            "operation_id": operation_id,
+            "phase": phase,
+            "error_type": error_type,
+            "error": error,
+            "issue": f"mcp_oauth_attempt:{operation_id}",
+        }
+        if reason is not None:
+            payload["reason"] = reason
+        message = {
+            "mcp_oauth_attempt_cancelled": "MCP OAuth authorization attempt cancelled",
+            "mcp_oauth_attempt_expired": "MCP OAuth authorization attempt expired",
+            "mcp_oauth_attempt_failed": "MCP OAuth authorization attempt failed",
+            "mcp_oauth_completion_rejected": "MCP OAuth completion rejected",
+        }.get(event, "MCP OAuth authorization attempt ended")
+        if warning:
+            logger.warning(message, data=payload)
+        else:
+            logger.info(message, data=payload)
+
+    async def _pending_operation_id(
+        self, authority: ExecutionAuthority, connection: MCPConnection
+    ) -> str | None:
+        try:
+            pending = await self._load_pending(authority, connection)
+        except MCPOAuthError:
+            return None
+        if pending is None:
+            return None
+        return str(pending.get("operation_id") or "").strip() or None
 
     async def _complete_persisted_attempt(
         self,
@@ -569,37 +771,38 @@ class MCPOAuthCoordinator:
         connection: MCPConnection,
         code: str,
         state: str,
-    ) -> None:
+    ) -> str | None:
         storage = self._connections.oauth_storage(
             authority, connection.connection_id, expected_connection=connection
         )
         pending = self._consume_pending(storage, state)
-        token_data = {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": str(pending["redirect_uri"]),
-            "client_id": str(pending["client_id"]),
-            "code_verifier": str(pending["code_verifier"]),
-        }
-        resource = pending.get("resource")
-        if isinstance(resource, str) and resource:
-            token_data["resource"] = resource
-        auth: httpx.Auth | None = None
-        method = str(pending["token_endpoint_auth_method"])
-        client_secret = pending.get("client_secret")
-        if method == "client_secret_post":
-            if not isinstance(client_secret, str) or not client_secret:
-                raise MCPOAuthError("Stored MCP OAuth client state is incomplete.")
-            token_data["client_secret"] = client_secret
-        elif method == "client_secret_basic":
-            if not isinstance(client_secret, str) or not client_secret:
-                raise MCPOAuthError("Stored MCP OAuth client state is incomplete.")
-            auth = httpx.BasicAuth(str(pending["client_id"]), client_secret)
-        elif method != "none":
-            raise MCPOAuthError(
-                "This MCP OAuth client authentication method is not supported."
-            )
+        operation_id = str(pending.get("operation_id") or "").strip() or None
         try:
+            token_data = {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": str(pending["redirect_uri"]),
+                "client_id": str(pending["client_id"]),
+                "code_verifier": str(pending["code_verifier"]),
+            }
+            resource = pending.get("resource")
+            if isinstance(resource, str) and resource:
+                token_data["resource"] = resource
+            auth: httpx.Auth | None = None
+            method = str(pending["token_endpoint_auth_method"])
+            client_secret = pending.get("client_secret")
+            if method == "client_secret_post":
+                if not isinstance(client_secret, str) or not client_secret:
+                    raise MCPOAuthError("Stored MCP OAuth client state is incomplete.")
+                token_data["client_secret"] = client_secret
+            elif method == "client_secret_basic":
+                if not isinstance(client_secret, str) or not client_secret:
+                    raise MCPOAuthError("Stored MCP OAuth client state is incomplete.")
+                auth = httpx.BasicAuth(str(pending["client_id"]), client_secret)
+            elif method != "none":
+                raise MCPOAuthError(
+                    "This MCP OAuth client authentication method is not supported."
+                )
             http_client_factory = mcp_oauth_http_client_factory(
                 allow_private_http=connection.allow_private_http
             )
@@ -616,10 +819,45 @@ class MCPOAuthCoordinator:
                 server_url=connection.require_url(),
             )
             await adapter.set_tokens(tokens)
-        except (httpx.HTTPError, ValueError, SecretGuardMismatchError) as exc:
+        except asyncio.CancelledError:
+            raise
+        except (
+            httpx.HTTPError,
+            ValueError,
+            SecretGuardMismatchError,
+            MCPOAuthError,
+        ) as exc:
+            http_status = (
+                exc.response.status_code
+                if isinstance(exc, httpx.HTTPStatusError)
+                else None
+            )
+            failure_data: dict[str, Any] = {
+                "event": "mcp_oauth_attempt_failed",
+                "status": "failed",
+                "connection_id": connection.connection_id,
+                "operation_id": operation_id,
+                "phase": "token_exchange",
+                "error_type": type(exc).__name__,
+                "error": "The MCP server rejected OAuth completion.",
+                "issue": (
+                    f"mcp_oauth_attempt:{operation_id}"
+                    if operation_id
+                    else f"mcp_oauth_attempt:{connection.connection_id}"
+                ),
+            }
+            if http_status is not None:
+                failure_data["http_status"] = http_status
+            logger.warning(
+                "MCP OAuth authorization attempt failed",
+                data=failure_data,
+            )
+            if isinstance(exc, MCPOAuthError):
+                raise
             raise MCPOAuthError(
                 "The MCP server rejected OAuth completion. Start a new connection attempt."
             ) from exc
+        return operation_id
 
     async def _load_pending(
         self, authority: ExecutionAuthority, connection: MCPConnection
@@ -721,19 +959,20 @@ class MCPOAuthCoordinator:
 
     async def _cancel_attempt(
         self, key: tuple[str, str], *, expected: _Attempt | None = None
-    ) -> None:
+    ) -> _Attempt | None:
         async with self._lock:
             attempt = self._attempts.get(key)
             if expected is not None and attempt is not expected:
-                return
+                return None
             self._attempts.pop(key, None)
         if attempt is None:
-            return
+            return None
         if not attempt.callback.done():
             attempt.callback.cancel()
         if attempt.task is not None and not attempt.task.done():
             attempt.task.cancel()
             await asyncio.gather(attempt.task, return_exceptions=True)
+        return attempt
 
     def _require_oauth_connection(
         self, authority: ExecutionAuthority, connection_id: str

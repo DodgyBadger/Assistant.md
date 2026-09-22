@@ -95,6 +95,16 @@ class ImportPipelineScenario(BaseScenario):
         assert "Import validation" not in str(
             ingestion_events
         ), "Import activity must not retain document content"
+        completed_activity = next(
+            entry
+            for entry in ingestion_events
+            if entry.get("event") == "ingestion_job_completed"
+        )
+        assert completed_activity.get("warning_count") == 1
+        assert completed_activity.get("warning_reasons") == ["missing_secret"]
+        assert (
+            "warnings" not in completed_activity
+        ), "System Activity should retain warning reason codes, not raw warning text"
 
         vault_id = self._vault_id(vault.name)
         assert self._manifest_row(
@@ -172,6 +182,49 @@ class ImportPipelineScenario(BaseScenario):
         preserved_output = vault / preserved_outputs[0]
         assert preserved_output.exists()
         assert "Preserved source validation" in preserved_output.read_text()
+
+        cleanup_jobs = []
+        with patch(
+            "core.ingestion.service.delete_vault_file",
+            side_effect=RuntimeError("cleanup sentinel"),
+        ):
+            for suffix in ("one", "two"):
+                cleanup_source = (
+                    vault / "AssistantMD" / "Import" / f"cleanup-{suffix}.pdf"
+                )
+                cleanup_source.write_bytes(self.make_pdf(f"cleanup {suffix}"))
+                cleanup_job = runtime.ingestion.enqueue_job(
+                    source_uri=f"AssistantMD/Import/cleanup-{suffix}.pdf",
+                    vault=vault.name,
+                    source_type=SourceKind.FILE.value,
+                    mime_hint="application/pdf",
+                    options={"consume_source": True},
+                )
+                cleanup_jobs.append(cleanup_job)
+                try:
+                    runtime.ingestion._cleanup_source_file_if_requested(  # noqa: SLF001
+                        job=cleanup_job,
+                        source_path=cleanup_source,
+                        vault=vault.name,
+                    )
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError(
+                        "Injected source cleanup failure should surface"
+                    )
+        cleanup_activity = self.call_api(
+            "/api/system/activity-log?limit=100&tag=ingestion&search=cleanup sentinel"
+        )
+        assert cleanup_activity.status_code == 200
+        cleanup_issues = {
+            (entry.get("data") or {}).get("issue")
+            for entry in cleanup_activity.json().get("entries", [])
+            if (entry.get("data") or {}).get("event") == "ingestion_source_cleanup"
+        }
+        assert cleanup_issues == {
+            f"ingestion_source_cleanup:{job.id}" for job in cleanup_jobs
+        }, "Distinct ingestion cleanup failures should survive warning deduplication"
 
         await self.stop_system()
         self.teardown_scenario()

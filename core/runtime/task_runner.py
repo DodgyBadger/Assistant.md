@@ -42,6 +42,7 @@ class ExecutionTaskRunOutcome:
     value: Any
     status: ExecutionTaskStatus = ExecutionTaskStatus.COMPLETED
     reason: str | None = None
+    error_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -284,7 +285,11 @@ class ExecutionTaskRunner:
         if isinstance(outcome.value, dict):
             await self._task_coordinator.record_result(task_id, outcome.value)
         if outcome.status == ExecutionTaskStatus.FAILED:
-            await self._task_coordinator.mark_failed(task_id, reason=outcome.reason)
+            await self._task_coordinator.mark_failed(
+                task_id,
+                reason=outcome.reason,
+                error_type=outcome.error_type,
+            )
         elif outcome.status == ExecutionTaskStatus.CANCELLED:
             await self._task_coordinator.mark_cancelled(task_id, reason=outcome.reason)
         elif outcome.status == ExecutionTaskStatus.TIMED_OUT:
@@ -361,7 +366,9 @@ class ExecutionTaskRunner:
         snapshot = await self._task_coordinator.get_task(task_id)
         if snapshot is None:
             return True
-        return snapshot.status == "cancelled" or snapshot.cancel_requested
+        return snapshot.status == "cancelled" or (
+            not snapshot.is_terminal and snapshot.cancel_requested
+        )
 
     async def _finish_cancelled_task(
         self,

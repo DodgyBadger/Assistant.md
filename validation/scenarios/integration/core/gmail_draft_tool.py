@@ -91,6 +91,11 @@ class GmailDraftToolScenario(BaseScenario):
             "Draft body" not in repr(lifecycle),
             "Draft activity must not retain message content",
         )
+        operation_ids = {entry.get("operation_id") for entry in lifecycle}
+        self.soft_assert(
+            len(operation_ids) == 1 and None not in operation_ids,
+            "Gmail start and terminal activity should share one operation identity",
+        )
 
         await self._assert_gate(authority, selected, enabled=False, scope=True)
         await self._assert_gate(authority, selected, enabled=True, scope=False)

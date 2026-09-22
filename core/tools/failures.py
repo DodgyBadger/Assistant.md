@@ -20,6 +20,12 @@ from core.llm.stream_retry import ModelStreamIdleTimeout
 ToolTerminalState = Literal["completed", "failed", "interrupted"]
 
 
+def bounded_failure_message(value: str | BaseException, *, limit: int = 500) -> str:
+    """Return one compact line of failure detail for retained diagnostics."""
+    message = " ".join(str(value).splitlines())
+    return message if len(message) <= limit else f"{message[:limit]}..."
+
+
 def classify_tool_result_state(
     *, outcome: Any = None, metadata: Any = None
 ) -> ToolTerminalState:

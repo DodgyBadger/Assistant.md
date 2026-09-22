@@ -308,6 +308,54 @@ class ChatTaskEventBufferScenario(BaseScenario):
             "Unknown streams should not synthesize replay state",
         )
 
+        future_events = ChatTaskEventBuffer(max_events_per_task=3)
+        await future_events.append(
+            "task-future-event",
+            "delta",
+            {
+                "event": "delta",
+                "choices": [{"delta": {"content": "before"}, "index": 0}],
+            },
+        )
+        await future_events.append(
+            "task-future-event",
+            "future_ui_control",
+            {"event": "future_ui_control", "state": "important"},
+        )
+        future_snapshot = await future_events.replay_snapshot("task-future-event")
+        self.soft_assert_equal(
+            future_snapshot.available if future_snapshot else None,
+            False,
+            "Unknown events should make compact replay unavailable",
+        )
+        self.soft_assert_equal(
+            [
+                event.event
+                for event in await future_events.events_after("task-future-event")
+            ],
+            ["delta", "future_ui_control"],
+            "Raw replay should preserve unknown events for a compatible browser",
+        )
+
+        known_ignored_events = ChatTaskEventBuffer(max_events_per_task=3)
+        await known_ignored_events.append(
+            "task-known-ignored",
+            "mcp_connection_unavailable",
+            {
+                "event": "mcp_connection_unavailable",
+                "connection_name": "Unavailable Server",
+                "status": "unavailable",
+            },
+        )
+        known_ignored_snapshot = await known_ignored_events.replay_snapshot(
+            "task-known-ignored"
+        )
+        self.soft_assert_equal(
+            known_ignored_snapshot.available if known_ignored_snapshot else None,
+            True,
+            "Known non-rendered events should preserve compact replay availability",
+        )
+
         await retained.append("task-delta", "done", {})
         self.soft_assert_equal(
             await retained.events_after("task-gamma"),

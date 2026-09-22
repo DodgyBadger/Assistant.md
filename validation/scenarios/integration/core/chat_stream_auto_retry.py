@@ -50,8 +50,11 @@ class _FakeStreamResult:
 
 
 class _FlakyStreamAgent:
-    def __init__(self, failures: int) -> None:
+    def __init__(
+        self, failures: int, *, failure_message: str = "stream disconnected"
+    ) -> None:
         self.remaining_failures = failures
+        self.failure_message = failure_message
         self.attempts = 0
         self.usage_ids: list[int] = []
 
@@ -63,7 +66,7 @@ class _FlakyStreamAgent:
             self.remaining_failures -= 1
             yield PartStartEvent(index=0, part=TextPart("discarded partial response"))
             request = httpx.Request("POST", "https://provider.invalid/stream")
-            raise httpx.ReadError("stream disconnected", request=request)
+            raise httpx.ReadError(self.failure_message, request=request)
         response = "recovered primary response"
         yield PartStartEvent(index=0, part=TextPart(response))
         yield AgentRunResultEvent(result=_FakeStreamResult(prompt, response))
@@ -117,7 +120,10 @@ class ChatStreamAutoRetryScenario(BaseScenario):
         async def _prepared_failure(*args, **kwargs):
             del args
             prompt = kwargs.get("prompt", "retry primary stream")
-            agent = _FlakyStreamAgent(failures=1)
+            agent = _FlakyStreamAgent(
+                failures=1,
+                failure_message=("x" * 800) + "PRIVATE_PROVIDER_SUFFIX",
+            )
             agents.append(agent)
             return PreparedChatExecution(
                 agent=agent,
@@ -185,10 +191,13 @@ class ChatStreamAutoRetryScenario(BaseScenario):
                 self.events_since(checkpoint),
                 name="model_stream_idle_timed_out",
                 expected={
+                    "status": "timed_out",
                     "session_id": "primary_idle_timeout",
                     "model": "test",
                     "attempt": 1,
                     "active_tool_count": 0,
+                    "error_type": "ModelStreamIdleTimeout",
+                    "issue": (f"model_stream_idle:{stalled['task_ids'][-1]}:1"),
                 },
             )
 
@@ -295,6 +304,22 @@ class ChatStreamAutoRetryScenario(BaseScenario):
             assert retry_events[0].get("status") == "scheduled"
             assert retry_events[0].get("vault_name") == vault.name
             assert retry_events[0].get("error")
+            assert retry_events[0].get("issue") == (
+                f"chat_retry:{recovered['task_ids'][-1]}:1"
+            )
+            retry_activity = self.call_api(
+                "/api/system/activity-log?limit=100&tag=chat-executor"
+                "&search=primary_auto_retry"
+            )
+            assert retry_activity.status_code == 200
+            retained_retries = [
+                entry.get("data") or {}
+                for entry in retry_activity.json().get("entries", [])
+                if (entry.get("data") or {}).get("event") == "chat_retry_scheduled"
+            ]
+            assert retained_retries, "Chat retries should appear in System Activity"
+            assert len(str(retained_retries[-1].get("error") or "")) <= 503
+            assert "PRIVATE_PROVIDER_SUFFIX" not in str(retained_retries)
 
             checkpoint_agent, tool_effects = _checkpoint_recovery_agent(
                 session_id="primary_checkpoint_retry"

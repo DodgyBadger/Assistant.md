@@ -342,7 +342,7 @@ class IngestionService:
                         "error_type": "ExtractionUnavailableError",
                         "error": msg,
                         "strategies": strategies,
-                        "warnings": warnings or [],
+                        **self._strategy_warning_summary(warnings),
                     },
                 )
                 self.mark_failed(job_id, msg)
@@ -398,7 +398,7 @@ class IngestionService:
                     "status": "completed",
                     "selected_strategy": extracted.strategy_id,
                     "strategies": strategies,
-                    "warnings": warnings or [],
+                    **self._strategy_warning_summary(warnings),
                     "primary_output": outputs[0] if outputs else None,
                     "outputs_count": len(outputs),
                 },
@@ -576,6 +576,7 @@ class IngestionService:
                     "job_id": job.id,
                     "vault_name": vault,
                     "source": job.source_uri,
+                    "issue": f"ingestion_source_cleanup:{job.id}",
                     "error_type": type(exc).__name__,
                     "error": self._truncate_log_value(str(exc)),
                 },
@@ -955,7 +956,7 @@ class IngestionService:
             except Exception as exc:
                 warning = f"{strat}:error:{exc}"
                 warnings.append(warning)
-                self.logger.info(
+                self.logger.set_sinks(["validation"]).info(
                     "ingestion_strategy_failed",
                     data={
                         **base_log_context,
@@ -979,7 +980,7 @@ class IngestionService:
                         "event": "ingestion_strategy_selected",
                         "status": "selected",
                         "strategy": strat,
-                        "warnings": warnings,
+                        **self._strategy_warning_summary(warnings),
                     },
                 )
                 return result, warnings if warnings else None, attempts
@@ -1019,6 +1020,23 @@ class IngestionService:
         if len(value) <= limit:
             return value
         return f"{value[:limit]}..."
+
+    @staticmethod
+    def _strategy_warning_summary(
+        warnings: list[str] | None,
+    ) -> dict[str, object]:
+        """Return bounded reason codes for retained ingestion activity."""
+        values = warnings or []
+        reasons: set[str] = set()
+        for warning in values:
+            parts = warning.split(":", 2)
+            reasons.add(parts[1] if len(parts) > 1 else "unknown")
+        ordered_reasons = sorted(reasons)
+        return {
+            "warning_count": len(values),
+            "warning_reasons": ordered_reasons[:20],
+            "warning_reasons_truncated": len(ordered_reasons) > 20,
+        }
 
     def _load_builtin_handlers(self) -> None:
         """

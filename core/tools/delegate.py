@@ -79,6 +79,7 @@ from core.settings import (
 from core.tools.base import BaseTool
 from core.tools.failures import (
     FailureClassification,
+    bounded_failure_message,
     classify_exception,
     classify_tool_result_state,
 )
@@ -298,6 +299,7 @@ class _DelegateProgressObserver:
                     "mode": self._task.metadata.get("mode"),
                     "model": self._task.metadata.get("model"),
                     "reason": "repeated_tool_failure",
+                    "issue": f"delegate_attention:{self._task.task_id}",
                     "active_tool_names": [call.tool for call in self._active.values()],
                     "tool_call_counts": dict(self._counts),
                 },
@@ -833,6 +835,7 @@ def _delegate_execution_outcome(result: ToolReturn) -> ExecutionTaskRunOutcome:
         value=payload,
         status=terminal_status,
         reason=failure_kind,
+        error_type=(str(metadata.get("error_type") or "") or None),
     )
 
 
@@ -932,7 +935,9 @@ async def _collect_delegate_response(
                     "delay_seconds": delay_seconds,
                     "failure_kind": classification.failure_kind,
                     "error_type": classification.error_type,
+                    "error": bounded_failure_message(classification.message),
                     "replay_scope": "no_child_tools",
+                    "issue": f"delegate_retry:{task_id}:{attempt}",
                 },
             )
             await asyncio.sleep(delay_seconds)

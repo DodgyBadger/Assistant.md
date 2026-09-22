@@ -149,6 +149,11 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
         )
         snapshot = snapshot_response.json()
         self.soft_assert_equal(
+            snapshot.get("available"),
+            True,
+            "Known chat events should produce a safe replay projection",
+        )
+        self.soft_assert_equal(
             snapshot.get("task_id"),
             completed.task.task_id,
             "Replay snapshots should identify their chat task",

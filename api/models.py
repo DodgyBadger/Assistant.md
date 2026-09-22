@@ -807,6 +807,10 @@ class ChatTaskReplaySnapshotResponse(BaseModel):
         ..., ge=0, description="Raw event cursor represented by this snapshot"
     )
     terminal: bool = Field(..., description="Whether the event stream is terminal")
+    available: bool = Field(
+        True,
+        description="Whether the compact projection safely represents every event",
+    )
     events: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Compact effective events for rebuilding the active response",

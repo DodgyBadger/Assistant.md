@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from pydantic_ai.exceptions import ModelHTTPError, UsageLimitExceeded
@@ -58,7 +60,7 @@ class DelegateToolScenario(BaseScenario):
         _assert_delegate_flight_card()
         _assert_delegate_usage_limits()
         _assert_shared_tool_result_classification()
-        await _assert_retry_prompt_progress()
+        await _assert_retry_prompt_progress(self)
         delegate_timeout_update = self.call_api(
             "/api/system/settings/general/delegate_timeout_seconds",
             method="PUT",
@@ -1107,6 +1109,48 @@ class DelegateToolScenario(BaseScenario):
             checkpoint = self.event_checkpoint()
             timeout_binding = resolve_tool_binding(["delegate"], vault_path=str(vault))
 
+            retry_checkpoint = self.event_checkpoint()
+
+            async def _retryable_failure_create_agent(*_args, **_kwargs):
+                return _FailingChildAgent(
+                    httpx.ReadError(
+                        "delegate stream disconnected",
+                        request=httpx.Request(
+                            "POST", "https://provider.invalid/delegate"
+                        ),
+                    )
+                )
+
+            delegate_module.create_agent = _retryable_failure_create_agent
+            try:
+                await invoke_bound_tool(
+                    timeout_binding.tool_functions[0],
+                    tool_name="delegate",
+                    arguments={"prompt": "Retry child transport.", "model": "test"},
+                    run_buffers={},
+                    session_buffers={},
+                    session_id="delegate_retry_failure",
+                    vault_name=vault.name,
+                )
+            finally:
+                delegate_module.create_agent = _patched_create_agent
+            retry_events = self.events_since(retry_checkpoint)
+            retry_started = self.assert_event_contains(
+                retry_events,
+                name="delegate_started",
+                expected={"workflow_id": "delegate_retry_failure"},
+            )
+            retry_task_id = str((retry_started.get("data") or {}).get("task_id"))
+            self.assert_event_contains(
+                retry_events,
+                name="delegate_retry_scheduled",
+                expected={
+                    "task_id": retry_task_id,
+                    "issue": f"delegate_retry:{retry_task_id}:1",
+                    "error_type": "ReadError",
+                },
+            )
+
             async def _timeout_create_agent(*_args, **_kwargs):
                 return _FailingChildAgent(TimeoutError())
 
@@ -1599,7 +1643,7 @@ def _assert_shared_tool_result_classification() -> None:
     assert unresolved_audit["unsettled_tool_call_count"] == 1
 
 
-async def _assert_retry_prompt_progress() -> None:
+async def _assert_retry_prompt_progress(scenario: BaseScenario) -> None:
     from pydantic_ai import FunctionToolCallEvent, FunctionToolResultEvent
     from pydantic_ai.messages import RetryPromptPart
     from pydantic_ai.usage import RunUsage
@@ -1643,6 +1687,57 @@ async def _assert_retry_prompt_progress() -> None:
     assert counts.get("failed") == 1
     assert counts.get("completed") == 0
     await runtime.task_coordinator.mark_completed(task.task_id)
+
+    attention_checkpoint = scenario.event_checkpoint()
+    attention_task_ids: list[str] = []
+    for suffix in ("one", "two"):
+        attention_task = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.DELEGATE,
+            scope=f"delegate:attention:{suffix}",
+            source=ExecutionTaskSource.SYSTEM,
+            label=f"delegate-attention-{suffix}",
+            authority=LOCAL_USER_AUTHORITY,
+            metadata={
+                "session_id": f"delegate_attention_{suffix}",
+                "mode": "managed",
+                "model": "test",
+            },
+        )
+        attention_task_ids.append(attention_task.task_id)
+        attention_observer = _DelegateProgressObserver(attention_task)
+        call_id = f"attention-call-{suffix}"
+        attention_observer._record_started(  # noqa: SLF001
+            FunctionToolCallEvent(
+                ToolCallPart(
+                    tool_name="file_read",
+                    args={"path": "missing.md"},
+                    tool_call_id=call_id,
+                )
+            )
+        )
+        attention_observer._record_finished(  # noqa: SLF001
+            FunctionToolResultEvent(
+                ToolReturnPart(
+                    tool_name="file_read",
+                    content="Repeated failure blocked.",
+                    tool_call_id=call_id,
+                    outcome="failed",
+                    metadata={
+                        "status": "failed",
+                        "failure_kind": "repeated_tool_failure",
+                    },
+                )
+            )
+        )
+        await attention_observer._publish(usage=RunUsage())  # noqa: SLF001
+        await runtime.task_coordinator.mark_completed(attention_task.task_id)
+    attention_events = scenario.find_events(
+        scenario.events_since(attention_checkpoint),
+        name="delegate_attention_required",
+    )
+    assert {(event.get("data") or {}).get("issue") for event in attention_events} == {
+        f"delegate_attention:{task_id}" for task_id in attention_task_ids
+    }, "Distinct delegate attention warnings should survive deduplication"
 
 
 DELEGATE_WITH_TOOLS_WORKFLOW = """---

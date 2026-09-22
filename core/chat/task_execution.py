@@ -65,7 +65,11 @@ from core.runtime.task_runner import (
     ExecutionTaskHooks,
     ExecutionTaskSpec,
 )
-from core.tools.failures import classify_exception, classify_tool_result_state
+from core.tools.failures import (
+    bounded_failure_message,
+    classify_exception,
+    classify_tool_result_state,
+)
 from core.tools.utils import estimate_token_count
 from core.vault_state.rollback import rollback_task_file_mutations
 
@@ -764,7 +768,9 @@ async def _publish_deferred_preflight_failure(
     payload = _preflight_error_event_data(exc)
     await event_buffer.append(task_id, "error", payload)
     await runtime.task_coordinator.mark_failed(
-        task_id, reason=f"{type(exc).__name__}: {exc}"
+        task_id,
+        reason=f"{type(exc).__name__}: {exc}",
+        error_type=type(exc).__name__,
     )
 
 
@@ -1015,6 +1021,7 @@ async def _run_prepared_chat_stream_task_inner(
                                 "vault_name": vault_name,
                                 "strategy": str(recovery_decision.strategy),
                                 "reason": rejection_reason,
+                                "issue": f"chat_recovery:{task.task_id}:{attempt}",
                                 "completed_tool_count": (
                                     recovery_decision.completed_tool_count
                                 ),
@@ -1046,7 +1053,8 @@ async def _run_prepared_chat_stream_task_inner(
                         "delay_seconds": delay_seconds,
                         "failure_kind": classification.failure_kind,
                         "error_type": classification.error_type,
-                        "error": classification.message,
+                        "error": bounded_failure_message(classification.message),
+                        "issue": f"chat_retry:{task.task_id}:{attempt}",
                         "replay_scope": replay_scope,
                         "strategy": replay_scope,
                         "reset_response": True,
@@ -1496,6 +1504,7 @@ async def _collect_chat_stream_attempt(
                     "model_stream_idle_timed_out",
                     data={
                         "event": "model_stream_idle_timed_out",
+                        "status": "timed_out",
                         "task_id": task_id,
                         "vault_name": vault_name,
                         "session_id": session_id,
@@ -1503,6 +1512,9 @@ async def _collect_chat_stream_attempt(
                         "attempt": attempt,
                         "timeout_seconds": exc.timeout_seconds,
                         "active_tool_count": len(active_tools),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                        "issue": f"model_stream_idle:{task_id}:{attempt}",
                     },
                 )
                 raise

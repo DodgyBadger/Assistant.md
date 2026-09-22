@@ -138,10 +138,11 @@ def _raise_retryable_model_status(response: httpx.Response) -> None:
 def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
     """Emit one lifecycle event before Pydantic AI retry transport sleeps."""
     exc = retry_state.outcome.exception() if retry_state.outcome else None
-    logger.add_sink("validation").warning(
+    logger.set_sinks(["validation"]).warning(
         "model_http_retry_scheduled",
         data={
             "event": "model_http_retry_scheduled",
+            "status": "retry_scheduled",
             "attempt": retry_state.attempt_number,
             "next_action": "retry",
             "delay_seconds": (
@@ -154,6 +155,10 @@ def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
                 exc.response.status_code
                 if isinstance(exc, httpx.HTTPStatusError)
                 else None
+            ),
+            "issue": (
+                f"model_http_retry:{retry_state.start_time}:"
+                f"{retry_state.attempt_number}"
             ),
         },
     )

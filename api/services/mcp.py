@@ -285,15 +285,18 @@ async def start_mcp_oauth(
             redirect_uri=redirect_uri,
         )
     logger.info(
-        "MCP OAuth authorization started",
+        "MCP OAuth authorization is ready",
         data={
-            "event": "mcp_oauth_started",
-            "status": "started",
+            "event": "mcp_oauth_authorization_ready",
+            "status": "ready",
             "connection_id": connection_id,
             "redirect_source": redirect_source,
+            "operation_id": result.operation_id,
         },
     )
-    return MCPOAuthStartResponse(**asdict(result), redirect_source=redirect_source)
+    payload = asdict(result)
+    payload.pop("operation_id", None)
+    return MCPOAuthStartResponse(**payload, redirect_source=redirect_source)
 
 
 async def complete_mcp_oauth(
@@ -318,9 +321,12 @@ async def complete_mcp_oauth(
             "event": "mcp_oauth_completed",
             "status": "completed",
             "connection_id": connection_id,
+            "operation_id": result.operation_id,
         },
     )
-    return MCPOAuthStatusResponse(**asdict(result))
+    payload = asdict(result)
+    payload.pop("operation_id", None)
+    return MCPOAuthStatusResponse(**payload)
 
 
 async def get_mcp_oauth_status(connection_id: str) -> MCPOAuthStatusResponse:

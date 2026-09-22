@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
+from uuid import uuid4
 
 from core.connections import (
     GmailPreferences,
@@ -422,6 +423,7 @@ def _secrets_locked() -> APIException:
 def _domain_errors(
     *, operation: str | None = None, connection_id: str | None = None
 ) -> Iterator[None]:
+    operation_id = uuid4().hex
     try:
         yield
     except Exception as exc:
@@ -433,9 +435,10 @@ def _domain_errors(
                     "status": "failed",
                     "operation": operation,
                     "connection_id": connection_id,
+                    "operation_id": operation_id,
                     "error_type": type(exc).__name__,
                     "error": str(exc)[:500],
-                    "issue": f"google_connection:{operation}:{connection_id or 'default'}",
+                    "issue": f"google_connection:{operation_id}",
                 },
             )
         if isinstance(exc, APIException):

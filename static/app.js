@@ -785,6 +785,7 @@ async function hydrateChatTaskReplaySnapshot(
 ) {
     const snapshot = await fetchChatTaskReplaySnapshot(taskId, abortController.signal);
     if (!snapshot) return null;
+    if (snapshot.available === false) return null;
     if (reset) {
         chatRendering.resetAssistantStream(assistantMessage, {
             render: false,
@@ -838,12 +839,19 @@ async function consumeChatTaskEvents(
     let eventGap = false;
 
     async function recoverExpiredCursor() {
-        const recovered = await hydrateChatTaskReplaySnapshot(
-            currentTaskId,
-            assistantMessage,
-            abortController,
-            { reset: true }
-        );
+        let recovered;
+        try {
+            recovered = await hydrateChatTaskReplaySnapshot(
+                currentTaskId,
+                assistantMessage,
+                abortController,
+                { reset: true }
+            );
+        } catch (error) {
+            if (abortController.signal.aborted || error.name === 'AbortError') throw error;
+            console.warn('Could not hydrate expired chat cursor; waiting for durable completion.', error);
+            return null;
+        }
         if (!recovered) return null;
         currentTaskId = recovered.currentTaskId;
         lastSequence = recovered.lastSequence;
@@ -1960,8 +1968,13 @@ function handleDeferredReviewEvent(assistantMessage, payload) {
     if (!assistantMessage?.artifactList || !payload?.artifact_ref) return;
     state.pendingDeferredReview = payload;
     syncChatControlLocks();
+    const alreadyRendered = Array.from(
+        document.querySelectorAll('.message-artifact-item[data-review-artifact-ref]')
+    ).some((item) => item.dataset.reviewArtifactRef === payload.artifact_ref);
+    if (alreadyRendered) return;
     const container = document.createElement('div');
     container.className = 'message-artifact-item';
+    container.dataset.reviewArtifactRef = payload.artifact_ref;
     assistantMessage.artifactList.appendChild(container);
     deferredReviews.renderReviewEvent(container, payload);
     scrollChatToBottom();
@@ -1987,9 +2000,20 @@ async function streamStartedChatTask(
     state.activeChatTaskId = taskId;
 
     const assistantMessage = createAssistantStreamingMessage();
-    const hydrated = hydrateReplay
-        ? await hydrateChatTaskReplaySnapshot(taskId, assistantMessage, abortController)
-        : null;
+    let hydrated = null;
+    if (hydrateReplay) {
+        try {
+            hydrated = await hydrateChatTaskReplaySnapshot(
+                taskId,
+                assistantMessage,
+                abortController
+            );
+        } catch (error) {
+            if (abortController.signal.aborted || error.name === 'AbortError') throw error;
+            console.warn('Could not hydrate chat replay snapshot; continuing with live events.', error);
+            setAssistantStatus(assistantMessage, 'Reconnecting…', 'thinking');
+        }
+    }
     if (hydrated?.currentTaskId) {
         state.activeChatTaskId = hydrated.currentTaskId;
     }
@@ -2000,12 +2024,23 @@ async function streamStartedChatTask(
         hydrated || {}
     );
 
-    finalizeAssistantMessage(assistantMessage, {
-        sessionId: state.sessionId || 'unknown',
-        messageCount: Math.max(streamResult.messageCount, assistantMessage.fullText ? 1 : 0),
-        toolCount: assistantMessage.toolStatusMap.size,
-        status: streamResult.finished ? 'done' : 'incomplete'
-    });
+    const emptyDuplicateReviewMessage = (
+        streamResult.finishReason === 'tool_review_required'
+        && !assistantMessage.fullText
+        && !assistantMessage.thinkingText
+        && assistantMessage.toolStatusMap.size === 0
+        && assistantMessage.artifactList.childElementCount === 0
+    );
+    if (emptyDuplicateReviewMessage) {
+        assistantMessage.messageDiv.remove();
+    } else {
+        finalizeAssistantMessage(assistantMessage, {
+            sessionId: state.sessionId || 'unknown',
+            messageCount: Math.max(streamResult.messageCount, assistantMessage.fullText ? 1 : 0),
+            toolCount: assistantMessage.toolStatusMap.size,
+            status: streamResult.finished ? 'done' : 'incomplete'
+        });
+    }
     if (streamResult.finishReason === 'tool_review_required') {
         await reconcileCommittedToolCalls(
             assistantMessage,

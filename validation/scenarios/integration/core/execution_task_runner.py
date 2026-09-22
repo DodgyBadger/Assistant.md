@@ -136,6 +136,354 @@ class ExecutionTaskRunnerScenario(BaseScenario):
         else:
             self.soft_assert(False, "Inline execution tasks must reject detachment")
 
+        inline_start_entered = asyncio.Event()
+        release_inline_start = asyncio.Event()
+        original_mark_started = runtime.task_coordinator.mark_started
+
+        async def _delay_inline_start(task_id):
+            inline_start_entered.set()
+            await release_inline_start.wait()
+            await original_mark_started(task_id)
+
+        runtime.task_coordinator.mark_started = _delay_inline_start
+        try:
+            interrupted_inline = asyncio.create_task(
+                runtime.task_runner.run_inline(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.CHAT,
+                        scope="runner:interrupted-inline-start",
+                        source=ExecutionTaskSource.SYSTEM,
+                        label="runner-interrupted-inline-start",
+                        authority=SYSTEM_AUTHORITY,
+                    ),
+                    _complete_task,
+                )
+            )
+            await asyncio.wait_for(inline_start_entered.wait(), timeout=1.0)
+            interrupted_inline.cancel()
+            try:
+                await interrupted_inline
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Interrupted inline start should cancel")
+        finally:
+            runtime.task_coordinator.mark_started = original_mark_started
+            release_inline_start.set()
+        interrupted_inline_records = await runtime.task_coordinator.list_tasks(
+            scope="runner:interrupted-inline-start"
+        )
+        self.soft_assert_equal(
+            [task.status for task in interrupted_inline_records],
+            ["cancelled"],
+            "Interrupted inline startup should not strand a queued task",
+        )
+
+        terminal_start = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope="runner:terminal-start",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-terminal-start",
+            authority=SYSTEM_AUTHORITY,
+        )
+        await runtime.task_coordinator.mark_cancelled(
+            terminal_start.task_id, reason="validation_terminal_start"
+        )
+        try:
+            await runtime.task_coordinator.mark_started(terminal_start.task_id)
+        except RuntimeError:
+            pass
+        else:
+            self.soft_assert(False, "A terminal task must reject a delayed start")
+        terminal_after_start = await runtime.task_coordinator.get_task(
+            terminal_start.task_id
+        )
+        self.soft_assert_equal(
+            terminal_after_start.status if terminal_after_start else None,
+            "cancelled",
+            "A delayed start must not resurrect a terminal task",
+        )
+
+        completion_entered: dict[str, asyncio.Event] = {
+            "runner:inline-completion-cancel": asyncio.Event(),
+            "runner:background-completion-cancel": asyncio.Event(),
+        }
+        hold_completion = asyncio.Event()
+        original_mark_completed = runtime.task_coordinator.mark_completed
+
+        async def _delay_task_completion(task_id, *, reason=None):
+            snapshot = await runtime.task_coordinator.get_task(task_id)
+            scope = snapshot.scope if snapshot else ""
+            if scope in completion_entered:
+                completion_entered[scope].set()
+                await hold_completion.wait()
+            await original_mark_completed(task_id, reason=reason)
+
+        runtime.task_coordinator.mark_completed = _delay_task_completion
+        try:
+            completing_inline = asyncio.create_task(
+                runtime.task_runner.run_inline(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.CHAT,
+                        scope="runner:inline-completion-cancel",
+                        source=ExecutionTaskSource.SYSTEM,
+                        label="runner-inline-completion-cancel",
+                        authority=SYSTEM_AUTHORITY,
+                    ),
+                    _complete_task,
+                )
+            )
+            await asyncio.wait_for(
+                completion_entered["runner:inline-completion-cancel"].wait(),
+                timeout=1.0,
+            )
+            completing_inline.cancel()
+            try:
+                await completing_inline
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Inline completion cancellation should cancel")
+            inline_completion_records = await runtime.task_coordinator.list_tasks(
+                scope="runner:inline-completion-cancel"
+            )
+            self.soft_assert_equal(
+                [task.status for task in inline_completion_records],
+                ["cancelled"],
+                "Cancellation during inline completion should remain terminal-safe",
+            )
+
+            completing_background = await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:background-completion-cancel",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="runner-background-completion-cancel",
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                _complete_task,
+            )
+            await asyncio.wait_for(
+                completion_entered["runner:background-completion-cancel"].wait(),
+                timeout=1.0,
+            )
+            await runtime.task_coordinator.cancel_task(
+                completing_background.task_id,
+                reason="validation_completion_cancel",
+            )
+            background_completion_terminal = await self._wait_for_task_terminal(
+                completing_background.task_id
+            )
+            self.soft_assert_equal(
+                (
+                    background_completion_terminal.status
+                    if background_completion_terminal
+                    else None
+                ),
+                "cancelled",
+                "Cancellation during attached completion should remain terminal-safe",
+            )
+        finally:
+            runtime.task_coordinator.mark_completed = original_mark_completed
+            hold_completion.set()
+
+        failure_entered: dict[str, asyncio.Event] = {
+            "runner:inline-failure-cancel": asyncio.Event(),
+            "runner:background-failure-cancel": asyncio.Event(),
+        }
+        release_failure: dict[str, asyncio.Event] = {
+            scope: asyncio.Event() for scope in failure_entered
+        }
+        original_mark_failed = runtime.task_coordinator.mark_failed
+
+        async def _delay_task_failure(task_id, *, reason=None, error_type=None):
+            snapshot = await runtime.task_coordinator.get_task(task_id)
+            scope = snapshot.scope if snapshot else ""
+            if scope in failure_entered:
+                failure_entered[scope].set()
+                await release_failure[scope].wait()
+            await original_mark_failed(
+                task_id,
+                reason=reason,
+                error_type=error_type,
+            )
+
+        async def _raise_task_failure(_task):
+            raise RuntimeError("forced terminalization race")
+
+        runtime.task_coordinator.mark_failed = _delay_task_failure
+        try:
+            failing_inline = asyncio.create_task(
+                runtime.task_runner.run_inline(
+                    ExecutionTaskSpec(
+                        kind=ExecutionTaskKind.CHAT,
+                        scope="runner:inline-failure-cancel",
+                        source=ExecutionTaskSource.SYSTEM,
+                        label="runner-inline-failure-cancel",
+                        authority=SYSTEM_AUTHORITY,
+                    ),
+                    _raise_task_failure,
+                )
+            )
+            await asyncio.wait_for(
+                failure_entered["runner:inline-failure-cancel"].wait(),
+                timeout=1.0,
+            )
+            failing_inline.cancel()
+            release_failure["runner:inline-failure-cancel"].set()
+            try:
+                await failing_inline
+            except RuntimeError as exc:
+                self.soft_assert_equal(
+                    str(exc),
+                    "forced terminalization race",
+                    "Observed inline failure should win over later cancellation",
+                )
+            else:
+                self.soft_assert(False, "Inline terminalization race should fail")
+            inline_failure_records = await runtime.task_coordinator.list_tasks(
+                scope="runner:inline-failure-cancel"
+            )
+            self.soft_assert_equal(
+                [task.status for task in inline_failure_records],
+                ["failed"],
+                "Cancellation during inline failure publication should remain terminal-safe",
+            )
+
+            race_failure_hooks: list[tuple[str, str]] = []
+            race_cancel_hooks: list[str] = []
+            failing_background = await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.CHAT,
+                    scope="runner:background-failure-cancel",
+                    source=ExecutionTaskSource.SYSTEM,
+                    label="runner-background-failure-cancel",
+                    authority=SYSTEM_AUTHORITY,
+                ),
+                _raise_task_failure,
+                hooks=ExecutionTaskHooks(
+                    on_failed=lambda task_id, exc: _record_failure(
+                        race_failure_hooks, task_id, exc
+                    ),
+                    on_cancelled=lambda task_id: _record_task_id(
+                        race_cancel_hooks, task_id
+                    ),
+                ),
+            )
+            await asyncio.wait_for(
+                failure_entered["runner:background-failure-cancel"].wait(),
+                timeout=1.0,
+            )
+            await runtime.task_coordinator.cancel_task(
+                failing_background.task_id,
+                reason="validation_failure_cancel",
+            )
+            release_failure["runner:background-failure-cancel"].set()
+            background_failure_terminal = await self._wait_for_task_terminal(
+                failing_background.task_id
+            )
+            self.soft_assert_equal(
+                (
+                    background_failure_terminal.status
+                    if background_failure_terminal
+                    else None
+                ),
+                "failed",
+                "Observed background failure should win over later cancellation",
+            )
+            self.soft_assert_equal(
+                race_failure_hooks,
+                [(failing_background.task_id, "RuntimeError")],
+                "Failure-winning races should call the failure hook exactly once",
+            )
+            self.soft_assert_equal(
+                race_cancel_hooks,
+                [],
+                "Failure-winning races should not call the cancellation hook",
+            )
+        finally:
+            runtime.task_coordinator.mark_failed = original_mark_failed
+            for release in release_failure.values():
+                release.set()
+
+        warning_checkpoint = self.event_checkpoint()
+        timed_out_tasks = []
+        for suffix in ("one", "two"):
+            timed_out_task = await runtime.task_coordinator.create_queued_task(
+                kind=ExecutionTaskKind.DELEGATE,
+                scope=f"runner:timeout-warning:{suffix}",
+                source=ExecutionTaskSource.SYSTEM,
+                label=f"runner-timeout-warning-{suffix}",
+                authority=SYSTEM_AUTHORITY,
+            )
+            timed_out_tasks.append(timed_out_task)
+            await runtime.task_coordinator.mark_timed_out(
+                timed_out_task.task_id, reason="validation_timeout"
+            )
+        timeout_events = [
+            event
+            for event in self.events_since(warning_checkpoint)
+            if event.get("name") == "execution_task_timed_out"
+        ]
+        self.soft_assert_equal(
+            len(timeout_events),
+            2,
+            "Distinct task timeout warnings must survive warning deduplication",
+        )
+
+        failure_checkpoint = self.event_checkpoint()
+        bounded_failure = await runtime.task_coordinator.create_queued_task(
+            kind=ExecutionTaskKind.DELEGATE,
+            scope="runner:bounded-failure",
+            source=ExecutionTaskSource.SYSTEM,
+            label="runner-bounded-failure",
+            authority=SYSTEM_AUTHORITY,
+        )
+        await runtime.task_coordinator.mark_failed(
+            bounded_failure.task_id,
+            reason="sensitive-sentinel-" + ("x" * 1_000),
+            error_type="ValidationFailure",
+        )
+        failure_events = [
+            event
+            for event in self.events_since(failure_checkpoint)
+            if event.get("name") == "execution_task_failed"
+        ]
+        failure_data = failure_events[-1].get("data", {}) if failure_events else {}
+        self.soft_assert_equal(
+            failure_data.get("error_type"),
+            "ValidationFailure",
+            "Execution task failures should retain a structured error type",
+        )
+        self.soft_assert(
+            len(str(failure_data.get("error") or "")) <= 503,
+            "Execution task activity errors should remain bounded",
+        )
+        activity_response = self.call_api(
+            "/api/system/activity-log?limit=100&tag=execution-tasks"
+            f"&search={bounded_failure.task_id}"
+        )
+        self.soft_assert_equal(
+            activity_response.status_code,
+            200,
+            "Execution task System Activity should be queryable",
+        )
+        activity_failures = [
+            entry.get("data") or {}
+            for entry in activity_response.json().get("entries", [])
+            if (entry.get("data") or {}).get("event") == "execution_task_failed"
+        ]
+        self.soft_assert_equal(
+            activity_failures[-1].get("error_type") if activity_failures else None,
+            "ValidationFailure",
+            "System Activity should retain the structured execution failure type",
+        )
+        self.soft_assert(
+            bool(activity_failures)
+            and len(str(activity_failures[-1].get("error") or "")) <= 503,
+            "System Activity should retain only bounded execution failure text",
+        )
+
         reservation_inserted = asyncio.Event()
         release_reservation = asyncio.Event()
         reservation_cancel_hooks: list[str] = []

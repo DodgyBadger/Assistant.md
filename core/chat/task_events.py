@@ -14,6 +14,20 @@ from typing import Any
 CHAT_TASK_TERMINAL_EVENTS = frozenset(
     {"done", "cancelled", "error", "chat_retry_redirect"}
 )
+CHAT_TASK_PROJECTED_EVENTS = frozenset(
+    {
+        "delta",
+        "thinking_delta",
+        "chat_recovery_rejected",
+        "chat_recovery_checkpoint_selected",
+        "chat_retry_scheduled",
+        "mcp_connection_unavailable",
+        "tool_call_started",
+        "tool_call_finished",
+        "review_required",
+        *CHAT_TASK_TERMINAL_EVENTS,
+    }
+)
 
 
 class ChatTaskEventCursorExpired(ValueError):
@@ -59,6 +73,7 @@ class ChatTaskReplaySnapshot:
     task_id: str
     latest_sequence: int
     terminal: bool
+    available: bool
     events: tuple[ChatTaskEvent, ...]
 
 
@@ -78,6 +93,7 @@ class _ChatTaskReplayProjection:
     review_event: ChatTaskEvent | None = None
     terminal_event: ChatTaskEvent | None = None
     latest_sequence: int = 0
+    available: bool = True
 
 
 @dataclass
@@ -210,6 +226,7 @@ class ChatTaskEventBuffer:
                 task_id=task_id,
                 latest_sequence=projection.latest_sequence,
                 terminal=stream.terminal_sequence is not None,
+                available=projection.available,
                 events=tuple(events),
             )
 
@@ -308,6 +325,9 @@ class ChatTaskEventBuffer:
     ) -> None:
         projection = stream.projection
         projection.latest_sequence = event.sequence
+        if event.event not in CHAT_TASK_PROJECTED_EVENTS:
+            projection.available = False
+            return
         if event.event == "delta":
             content = _response_delta_content(event.data)
             if content:

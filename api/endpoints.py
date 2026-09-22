@@ -865,6 +865,7 @@ async def chat_task_replay_snapshot(
                 task_id=task_id,
                 latest_sequence=0,
                 terminal=False,
+                available=True,
                 events=[],
             )
         events: list[dict[str, Any]] = []
@@ -877,6 +878,7 @@ async def chat_task_replay_snapshot(
             task_id=task_id,
             latest_sequence=snapshot.latest_sequence,
             terminal=snapshot.terminal,
+            available=snapshot.available,
             events=events,
         )
     except Exception as e:

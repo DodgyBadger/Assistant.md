@@ -191,7 +191,14 @@ async def bootstrap_runtime(
             ]
             logger.error(
                 "Critical configuration validation failed",
-                metadata={"errors": error_messages},
+                data={
+                    "event": "runtime_configuration_validation_failed",
+                    "status": "failed",
+                    "error_type": "RuntimeConfigError",
+                    "error": "; ".join(error_messages)[:500],
+                    "issue": "runtime_configuration_validation",
+                    "error_count": len(error_messages),
+                },
             )
             raise RuntimeConfigError("; ".join(error_messages))
 
@@ -315,7 +322,14 @@ async def bootstrap_runtime(
             logger.warning(
                 "Scheduler failed to start — job store may contain stale references. "
                 "Wiping job store and retrying.",
-                data={"error": str(start_err)},
+                data={
+                    "event": "scheduler_start_recovery_started",
+                    "status": "retrying",
+                    "error_type": type(start_err).__name__,
+                    "error": str(start_err)[:500],
+                    "issue": "scheduler_start_recovery",
+                    "recovery": "wipe_job_store",
+                },
             )
             try:
                 scheduler.shutdown(wait=False)
@@ -403,7 +417,9 @@ async def bootstrap_runtime(
                 "data_root": str(config.data_root),
                 "system_root": str(config.system_root),
                 "scheduler_workers": config.max_scheduler_workers,
-                "features": config.features,
+                "enabled_features": sorted(
+                    key for key, enabled in config.features.items() if enabled
+                ),
             },
         )
 
