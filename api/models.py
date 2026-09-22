@@ -799,6 +799,24 @@ class ChatTaskStartResponse(BaseModel):
     )
 
 
+class ChatTaskReplaySnapshotResponse(BaseModel):
+    """Compact process-local state for reattaching to a chat task stream."""
+
+    task_id: str = Field(..., description="Chat execution task identifier")
+    latest_sequence: int = Field(
+        ..., ge=0, description="Raw event cursor represented by this snapshot"
+    )
+    terminal: bool = Field(..., description="Whether the event stream is terminal")
+    available: bool = Field(
+        True,
+        description="Whether the compact projection safely represents every event",
+    )
+    events: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Compact effective events for rebuilding the active response",
+    )
+
+
 class ExecutionTaskInfo(BaseModel):
     """Process-local execution task snapshot."""
 
@@ -820,6 +838,24 @@ class ExecutionTaskInfo(BaseModel):
         None, description="Terminal reason when available"
     )
     latest_event: str | None = Field(None, description="Latest task lifecycle event")
+    parent_task_id: str | None = Field(
+        None, description="Launching or owning execution task identifier when nested"
+    )
+    detached_from_parent_lifecycle: bool = Field(
+        False,
+        description="Whether parent terminal transitions leave this task running",
+    )
+    revision: int = Field(0, description="Monotonic process-local state revision")
+    last_heartbeat_at: datetime | None = Field(
+        None, description="Latest task heartbeat timestamp"
+    )
+    heartbeat_status: str | None = Field(
+        None, description="Latest task heartbeat status"
+    )
+    last_progress_at: datetime | None = Field(
+        None, description="Latest observable task progress timestamp"
+    )
+    health_status: str = Field("healthy", description="Current task health state")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Task metadata")
 
 
@@ -1291,6 +1327,9 @@ class ChatSessionDetailResponse(BaseModel):
 
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
+    history_revision: int = Field(
+        ..., ge=0, description="Monotonic effective-history revision"
+    )
     workspace: ChatWorkspaceInfo | None = Field(
         None, description="Workspace associated with this session"
     )

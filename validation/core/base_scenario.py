@@ -605,6 +605,33 @@ class BaseScenario(ABC):
                 f"last_buffered_event={last_event.event if last_event else None}, "
                 f"last_buffered_sequence={last_event.sequence if last_event else None}"
             ) from exc
+        terminal_task_id = result["task_ids"][-1]
+        if isinstance(terminal_task_id, str) and terminal_task_id:
+            from core.runtime.state import get_runtime_context
+
+            async def _wait_for_execution_task_terminal() -> None:
+                while True:
+                    task = await get_runtime_context().task_coordinator.get_task(
+                        terminal_task_id
+                    )
+                    if task is not None and task.is_terminal:
+                        return
+                    await asyncio.sleep(0.01)
+
+            try:
+                await asyncio.wait_for(
+                    _wait_for_execution_task_terminal(), timeout=timeout_seconds
+                )
+            except TimeoutError as exc:
+                task = await get_runtime_context().task_coordinator.get_task(
+                    terminal_task_id
+                )
+                raise AssertionError(
+                    "Timed out waiting for chat execution task finalization "
+                    f"after terminal event: task_id={terminal_task_id}, "
+                    f"status={task.status if task else None}, "
+                    f"cancel_requested={task.cancel_requested if task else None}"
+                ) from exc
         return result
 
     def _parse_sse_events(self, text: str) -> list[dict[str, Any]]:

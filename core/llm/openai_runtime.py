@@ -3,25 +3,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 import httpx
-from openai import AsyncOpenAI
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from core.llm.openai_auth import (
     OPENAI_AUTH_MODE_API_KEY,
     OPENAI_AUTH_MODE_OAUTH,
     OpenAIAuthResolution,
+    openai_api_key_base_url_invalid,
     openai_oauth_enabled_from_settings,
     openai_provider_api_key_available,
     openai_provider_base_url_available,
     resolve_openai_auth,
 )
+from core.llm.openai_client import build_openai_sdk_client
 from core.llm.openai_oauth import (
     ensure_fresh_openai_oauth_token,
     get_openai_oauth_status,
     load_openai_oauth_token_state,
+)
+from core.llm.provider_policy import (
+    require_provider_base_url,
+    resolve_provider_base_url,
 )
 from core.settings.secrets_store import get_secret_value, secret_has_value
 from core.settings.store import get_general_settings
@@ -75,14 +80,11 @@ class DefaultOpenAIOAuthRuntimeAdapter:
         if token_state.account_id:
             headers["ChatGPT-Account-ID"] = token_state.account_id
 
-        client = AsyncOpenAI(
+        client = build_openai_sdk_client(
             api_key=bearer_token,
             base_url=OPENAI_CHATGPT_CODEX_BASE_URL,
             default_headers=headers or None,
-            # OpenAI 3.x annotates this as its httpx2 client while Pydantic AI's
-            # provider retry transport still supplies a runtime-compatible
-            # httpx client. Keep the cast at this upstream typing boundary.
-            http_client=cast(Any, http_client),
+            http_client=http_client,
         )
         return OpenAIProvider(openai_client=client)
 
@@ -120,7 +122,10 @@ def build_openai_provider_with_resolution(
     """Build an OpenAI provider and return its auth resolution."""
 
     api_key = _resolve_config_value(provider_config.get("api_key"))
-    base_url = _resolve_base_url(provider_config.get("base_url"))
+    base_url = resolve_provider_base_url(
+        provider_config,
+        get_secret_value=get_secret_value,
+    )
     resolution = resolve_openai_auth(
         provider_config,
         oauth_enabled=_openai_oauth_enabled(),
@@ -136,12 +141,23 @@ def build_openai_provider_with_resolution(
     )
 
     if resolution.effective_auth_mode == OPENAI_AUTH_MODE_API_KEY:
+        if openai_api_key_base_url_invalid(
+            provider_config,
+            effective_auth_mode=resolution.effective_auth_mode,
+            base_url_available=resolution.base_url_available,
+        ):
+            require_provider_base_url(
+                "openai",
+                provider_config,
+                get_secret_value=get_secret_value,
+            )
+        client = build_openai_sdk_client(
+            api_key=api_key,
+            base_url=base_url,
+            http_client=http_client,
+        )
         return OpenAIProviderBuildResult(
-            provider=OpenAIProvider(
-                api_key=api_key,
-                base_url=base_url,
-                http_client=http_client,
-            ),
+            provider=OpenAIProvider(openai_client=client),
             resolution=resolution,
         )
 
@@ -172,17 +188,3 @@ def _resolve_config_value(raw_value: str | None) -> str | None:
     if not value or value.lower() == "null":
         return None
     return get_secret_value(value) or value
-
-
-def _resolve_base_url(raw_value: str | None) -> str | None:
-    if raw_value is None:
-        return None
-    value = raw_value.strip()
-    if not value or value.lower() == "null":
-        return None
-    secret_value = get_secret_value(value)
-    if secret_value:
-        return secret_value
-    if "://" in value:
-        return value
-    return None

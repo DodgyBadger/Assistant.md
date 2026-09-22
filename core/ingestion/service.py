@@ -108,6 +108,7 @@ class IngestionService:
             data={
                 **log_context,
                 "event": "ingestion_job_started",
+                "status": "started",
             },
         )
 
@@ -142,7 +143,15 @@ class IngestionService:
                     if importer_fn is None:
                         msg = "Unsupported URL ingestion source"
                         self.logger.warning(
-                            msg, metadata={"job_id": job_id, "source": job.source_uri}
+                            "ingestion_job_failed",
+                            data={
+                                **log_context,
+                                "event": "ingestion_job_failed",
+                                "status": "failed",
+                                "error_type": "UnsupportedSourceError",
+                                "error": msg,
+                                "issue": f"ingestion_job_failed:{job_id}",
+                            },
                         )
                         self.mark_failed(job_id, msg)
                         return
@@ -186,7 +195,15 @@ class IngestionService:
                 if importer_fn is None:
                     msg = f"Unsupported file type for ingestion: {source_path.name}"
                     self.logger.warning(
-                        msg, metadata={"job_id": job_id, "mime_hint": job.mime_hint}
+                        "ingestion_job_failed",
+                        data={
+                            **log_context,
+                            "event": "ingestion_job_failed",
+                            "status": "failed",
+                            "error_type": "UnsupportedSourceError",
+                            "error": msg,
+                            "issue": f"ingestion_job_failed:{job_id}",
+                        },
                     )
                     self.mark_failed(job_id, msg)
                     return
@@ -265,8 +282,9 @@ class IngestionService:
                     data={
                         **log_context,
                         "event": "ingestion_job_completed",
+                        "status": "completed",
                         "pdf_mode": "page_images",
-                        "outputs": outputs,
+                        "primary_output": outputs[0] if outputs else None,
                         "outputs_count": len(outputs),
                     },
                 )
@@ -288,6 +306,7 @@ class IngestionService:
                 data={
                     **log_context,
                     "event": "ingestion_strategies_resolved",
+                    "status": "selected",
                     "strategies": strategies,
                     "pdf_mode": pdf_mode,
                     "extractor_option_keys": sorted(extractor_opts.keys()),
@@ -317,10 +336,13 @@ class IngestionService:
                     data={
                         **log_context,
                         "event": "ingestion_job_failed",
+                        "status": "failed",
                         "issue": f"ingestion_job_failed:{job_id}",
                         "reason": msg,
+                        "error_type": "ExtractionUnavailableError",
+                        "error": msg,
                         "strategies": strategies,
-                        "warnings": warnings or [],
+                        **self._strategy_warning_summary(warnings),
                     },
                 )
                 self.mark_failed(job_id, msg)
@@ -373,10 +395,11 @@ class IngestionService:
                 data={
                     **log_context,
                     "event": "ingestion_job_completed",
+                    "status": "completed",
                     "selected_strategy": extracted.strategy_id,
                     "strategies": strategies,
-                    "warnings": warnings or [],
-                    "outputs": outputs,
+                    **self._strategy_warning_summary(warnings),
+                    "primary_output": outputs[0] if outputs else None,
                     "outputs_count": len(outputs),
                 },
             )
@@ -386,8 +409,10 @@ class IngestionService:
                 data={
                     **log_context,
                     "event": "ingestion_job_failed",
+                    "status": "failed",
                     "error_type": type(exc).__name__,
                     "error": self._truncate_log_value(str(exc)),
+                    "issue": f"ingestion_job_failed:{job_id}",
                 },
             )
             if job.source_type == SourceKind.URL.value:
@@ -399,11 +424,13 @@ class IngestionService:
                     )
                 except Exception:
                     url_cfg = {}
-                self.logger.error(
+                self.logger.set_sinks(["validation"]).error(
                     "URL ingestion failed",
-                    metadata={
+                    data={
+                        "event": "ingestion_url_failure_details",
+                        "status": "failed",
                         "job_id": job_id,
-                        "vault": job.vault,
+                        "vault_name": job.vault,
                         "source_uri": sanitize_url_for_log(job.source_uri),
                         "source_type": job.source_type,
                         "fetch_strategy": url_cfg.get("fetch_strategy", "curl"),
@@ -412,7 +439,7 @@ class IngestionService:
                         ),
                         "read_timeout_seconds": url_cfg.get("read_timeout_seconds"),
                         "error_type": type(exc).__name__,
-                        "error": str(exc),
+                        "error": self._truncate_log_value(str(exc)),
                     },
                 )
             self.mark_failed(job_id, str(exc))
@@ -549,6 +576,7 @@ class IngestionService:
                     "job_id": job.id,
                     "vault_name": vault,
                     "source": job.source_uri,
+                    "issue": f"ingestion_source_cleanup:{job.id}",
                     "error_type": type(exc).__name__,
                     "error": self._truncate_log_value(str(exc)),
                 },
@@ -896,6 +924,7 @@ class IngestionService:
                     data={
                         **base_log_context,
                         "event": "ingestion_strategy_skipped",
+                        "status": "skipped",
                         "strategy": strat,
                         "reason": "missing_secret",
                         "secret_name": secret_name,
@@ -912,6 +941,7 @@ class IngestionService:
                     data={
                         **base_log_context,
                         "event": "ingestion_strategy_skipped",
+                        "status": "skipped",
                         "strategy": strat,
                         "reason": "missing_extractor",
                     },
@@ -926,11 +956,12 @@ class IngestionService:
             except Exception as exc:
                 warning = f"{strat}:error:{exc}"
                 warnings.append(warning)
-                self.logger.info(
+                self.logger.set_sinks(["validation"]).info(
                     "ingestion_strategy_failed",
                     data={
                         **base_log_context,
                         "event": "ingestion_strategy_failed",
+                        "status": "failed",
                         "strategy": strat,
                         "error_type": type(exc).__name__,
                         "error": self._truncate_log_value(str(exc)),
@@ -947,8 +978,9 @@ class IngestionService:
                     data={
                         **base_log_context,
                         "event": "ingestion_strategy_selected",
+                        "status": "selected",
                         "strategy": strat,
-                        "warnings": warnings,
+                        **self._strategy_warning_summary(warnings),
                     },
                 )
                 return result, warnings if warnings else None, attempts
@@ -959,6 +991,7 @@ class IngestionService:
                 data={
                     **base_log_context,
                     "event": "ingestion_strategy_empty",
+                    "status": "empty",
                     "strategy": strat,
                 },
             )
@@ -975,6 +1008,7 @@ class IngestionService:
         return {
             "job_id": job.id,
             "vault": job.vault,
+            "vault_name": job.vault,
             "source_uri": source_uri,
             "source_type": job.source_type,
             "mime_hint": job.mime_hint,
@@ -986,6 +1020,23 @@ class IngestionService:
         if len(value) <= limit:
             return value
         return f"{value[:limit]}..."
+
+    @staticmethod
+    def _strategy_warning_summary(
+        warnings: list[str] | None,
+    ) -> dict[str, object]:
+        """Return bounded reason codes for retained ingestion activity."""
+        values = warnings or []
+        reasons: set[str] = set()
+        for warning in values:
+            parts = warning.split(":", 2)
+            reasons.add(parts[1] if len(parts) > 1 else "unknown")
+        ordered_reasons = sorted(reasons)
+        return {
+            "warning_count": len(values),
+            "warning_reasons": ordered_reasons[:20],
+            "warning_reasons_truncated": len(ordered_reasons) > 20,
+        }
 
     def _load_builtin_handlers(self) -> None:
         """

@@ -85,7 +85,11 @@ async def bootstrap_runtime(
     logger = UnifiedLogger(tag="runtime-bootstrap")
     logger.info(
         "Starting runtime bootstrap",
-        data={"data_root": str(config.data_root)},
+        data={
+            "event": "runtime_bootstrap_started",
+            "status": "started",
+            "data_root": str(config.data_root),
+        },
     )
 
     try:
@@ -97,6 +101,8 @@ async def bootstrap_runtime(
         logger.info(
             "Startup system database migration check completed",
             data={
+                "event": "system_database_migration_checked",
+                "status": "completed",
                 "pending_after": migration_status.pending_count,
                 "backups_created": sum(
                     1 for target in migration_status.targets if target.backup_path
@@ -111,6 +117,7 @@ async def bootstrap_runtime(
                 "Encrypted secrets are locked",
                 data={
                     "event": "secrets_locked",
+                    "status": "blocked",
                     "reason": secrets_status.reason,
                 },
             )
@@ -124,6 +131,7 @@ async def bootstrap_runtime(
                 "Legacy secrets migration checked",
                 data={
                     "event": "legacy_secrets_migration_checked",
+                    "status": "completed",
                     "phase": migration_result.phase,
                     "imported_count": migration_result.imported_count,
                     "skipped_oauth_count": migration_result.skipped_oauth_count,
@@ -183,7 +191,14 @@ async def bootstrap_runtime(
             ]
             logger.error(
                 "Critical configuration validation failed",
-                metadata={"errors": error_messages},
+                data={
+                    "event": "runtime_configuration_validation_failed",
+                    "status": "failed",
+                    "error_type": "RuntimeConfigError",
+                    "error": "; ".join(error_messages)[:500],
+                    "issue": "runtime_configuration_validation",
+                    "error_count": len(error_messages),
+                },
             )
             raise RuntimeConfigError("; ".join(error_messages))
 
@@ -238,8 +253,11 @@ async def bootstrap_runtime(
                 "Interrupted ingestion jobs reconciled",
                 data={
                     "event": "ingestion_jobs_reconciled",
-                    "job_ids": interrupted_job_ids,
-                    "status": "failed",
+                    "status": "completed",
+                    "job_count": len(interrupted_job_ids),
+                    "job_ids": interrupted_job_ids[:25],
+                    "job_ids_truncated": len(interrupted_job_ids) > 25,
+                    "reconciled_job_status": "failed",
                     "reason": "application_restart",
                 },
             )
@@ -304,7 +322,14 @@ async def bootstrap_runtime(
             logger.warning(
                 "Scheduler failed to start — job store may contain stale references. "
                 "Wiping job store and retrying.",
-                data={"error": str(start_err)},
+                data={
+                    "event": "scheduler_start_recovery_started",
+                    "status": "retrying",
+                    "error_type": type(start_err).__name__,
+                    "error": str(start_err)[:500],
+                    "issue": "scheduler_start_recovery",
+                    "recovery": "wipe_job_store",
+                },
             )
             try:
                 scheduler.shutdown(wait=False)
@@ -387,30 +412,59 @@ async def bootstrap_runtime(
         logger.info(
             "Runtime bootstrap completed successfully",
             data={
+                "event": "runtime_bootstrap_completed",
+                "status": "completed",
                 "data_root": str(config.data_root),
                 "system_root": str(config.system_root),
                 "scheduler_workers": config.max_scheduler_workers,
-                "features": config.features,
+                "enabled_features": sorted(
+                    key for key, enabled in config.features.items() if enabled
+                ),
             },
         )
 
         return runtime_context
 
     except Exception as e:
-        if not isinstance(e, RuntimeConfigError):
-            logger.error(f"Runtime bootstrap failed: {e}")
+        logger.error(
+            "Runtime bootstrap failed",
+            data={
+                "event": "runtime_bootstrap_failed",
+                "status": "failed",
+                "error_type": type(e).__name__,
+                "error": str(e)[:500],
+            },
+        )
 
         # Attempt cleanup of any partially initialized services
         try:
             if "scheduler" in locals() and scheduler and scheduler.running:
                 scheduler.shutdown(wait=False)
         except Exception as cleanup_error:
-            logger.error(f"Error during bootstrap cleanup: {cleanup_error}")
+            logger.error(
+                "Runtime bootstrap cleanup failed",
+                data={
+                    "event": "runtime_bootstrap_cleanup_failed",
+                    "status": "failed",
+                    "component": "scheduler",
+                    "error_type": type(cleanup_error).__name__,
+                    "error": str(cleanup_error)[:500],
+                },
+            )
         try:
             if "mcp_manager" in locals() and mcp_manager is not None:
                 await mcp_manager.shutdown()
         except Exception as cleanup_error:
-            logger.error(f"Error during MCP manager cleanup: {cleanup_error}")
+            logger.error(
+                "Runtime bootstrap cleanup failed",
+                data={
+                    "event": "runtime_bootstrap_cleanup_failed",
+                    "status": "failed",
+                    "component": "mcp_manager",
+                    "error_type": type(cleanup_error).__name__,
+                    "error": str(cleanup_error)[:500],
+                },
+            )
 
         if isinstance(e, RuntimeConfigError):
             # Configuration errors retain their public type after partial-start cleanup.

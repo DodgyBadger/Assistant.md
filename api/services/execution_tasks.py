@@ -31,6 +31,13 @@ def _execution_task_info(snapshot: ExecutionTaskSnapshot) -> ExecutionTaskInfo:
         cancel_requested=snapshot.cancel_requested,
         terminal_reason=snapshot.terminal_reason,
         latest_event=snapshot.latest_event,
+        parent_task_id=snapshot.parent_task_id,
+        detached_from_parent_lifecycle=snapshot.detached_from_parent_lifecycle,
+        revision=snapshot.revision,
+        last_heartbeat_at=snapshot.last_heartbeat_at,
+        heartbeat_status=snapshot.heartbeat_status,
+        last_progress_at=snapshot.last_progress_at,
+        health_status=snapshot.health_status,
         metadata=dict(snapshot.metadata or {}),
     )
 
@@ -93,11 +100,20 @@ async def get_active_chat_task(session_id: str) -> ExecutionTaskInfo:
         include_terminal=False,
     )
     if not snapshots:
+        details: dict[str, str | int] = {"session_id": session_id}
+        session = runtime.chat_session_access.get_session_by_id(session_id)
+        if session is not None:
+            details["history_revision"] = (
+                runtime.chat_store.get_session_history_revision(
+                    session_id,
+                    session.vault_name,
+                )
+            )
         raise APIException(
             status_code=404,
             error_type="ExecutionTaskNotFound",
             message=f"No active execution task for chat session: {session_id}",
-            details={"session_id": session_id},
+            details=details,
         )
     running = [snapshot for snapshot in snapshots if snapshot.status == "running"]
     selected = running[-1] if running else snapshots[0]

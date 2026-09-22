@@ -2,13 +2,49 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from core.settings import (
+    get_model_stream_idle_timeout_seconds,
     get_model_stream_retries,
     get_model_stream_retry_base_delay_seconds,
     get_model_stream_retry_max_delay_seconds,
 )
+
+
+class ModelStreamIdleTimeout(TimeoutError):
+    """Raised when a model stream produces no usable event before its deadline."""
+
+    def __init__(self, timeout_seconds: float) -> None:
+        self.timeout_seconds = timeout_seconds
+        super().__init__(
+            f"Model stream produced no usable event for {timeout_seconds:g} seconds."
+        )
+
+
+async def next_model_stream_event[StreamEventT](
+    iterator: AsyncIterator[StreamEventT],
+    *,
+    timeout_seconds: float | None = None,
+) -> StreamEventT:
+    """Return the next semantic stream event under an optional idle deadline."""
+    timeout = (
+        get_model_stream_idle_timeout_seconds()
+        if timeout_seconds is None
+        else timeout_seconds
+    )
+    if timeout <= 0:
+        return await anext(iterator)
+    deadline = asyncio.timeout(timeout)
+    try:
+        async with deadline:
+            return await anext(iterator)
+    except TimeoutError as exc:
+        if not deadline.expired():
+            raise
+        raise ModelStreamIdleTimeout(timeout) from exc
 
 
 @dataclass(frozen=True)

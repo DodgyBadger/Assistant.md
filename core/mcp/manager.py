@@ -480,7 +480,13 @@ class MCPConnectionManager:
             error_type = type(error).__name__
         logger.warning(
             "MCP invalidated client cleanup failed",
-            data={"event": "mcp_invalidation_cleanup_failed", "error_type": error_type},
+            data={
+                "event": "mcp_invalidation_cleanup_failed",
+                "status": "failed",
+                "error_type": error_type,
+                "error": "Invalidated MCP client cleanup did not complete.",
+                "issue": "mcp_invalidation_cleanup",
+            },
         )
 
     async def _idle_eviction_loop(self) -> None:
@@ -567,6 +573,7 @@ class MCPConnectionManager:
             "MCP connection ready",
             data={
                 "event": "mcp_connection_ready",
+                "status": "ready",
                 "principal_id": authority.principal_id,
                 "connection_id": connection.connection_id,
                 "url": sanitize_url_for_log(url),
@@ -637,10 +644,12 @@ class MCPConnectionManager:
                     "MCP stdio launch capacity unavailable",
                     data={
                         "event": "mcp_stdio_capacity_rejected",
+                        "status": "rejected",
                         "principal_id": authority.principal_id,
                         "connection_id": connection.connection_id,
                         "limit": self._max_concurrent_stdio_launches,
                         "reason": "launch_queue_timeout",
+                        "issue": connection.connection_id,
                     },
                 )
             await _close_client(client, connection=connection)
@@ -655,6 +664,7 @@ class MCPConnectionManager:
             "MCP connection ready",
             data={
                 "event": "mcp_connection_ready",
+                "status": "ready",
                 "principal_id": authority.principal_id,
                 "connection_id": connection.connection_id,
                 "transport": connection.transport.value,
@@ -674,6 +684,21 @@ class MCPConnectionManager:
         authority: ExecutionAuthority,
         connection: MCPConnection,
     ) -> _ManagedConnection:
+        logger.info(
+            "MCP connection started",
+            data={
+                "event": "mcp_connection_started",
+                "status": "started",
+                "principal_id": authority.principal_id,
+                "connection_id": connection.connection_id,
+                "url": (
+                    sanitize_url_for_log(connection.url)
+                    if connection.url is not None
+                    else None
+                ),
+                "transport": connection.transport.value,
+            },
+        )
         for attempt in range(1, MCP_CONNECT_ATTEMPTS + 1):
             try:
                 return await self._connect(authority, connection)
@@ -684,9 +709,11 @@ class MCPConnectionManager:
                     "Retrying transient MCP connection failure",
                     data={
                         "event": "mcp_connection_retrying",
+                        "status": "retrying",
                         "connection_id": connection.connection_id,
                         "attempt": attempt + 1,
                         "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
                     },
                 )
                 await asyncio.sleep(0)
@@ -825,13 +852,16 @@ async def _close_client(
     except (Exception, asyncio.CancelledError) as exc:
         context: dict[str, object] = {
             "event": "mcp_client_cleanup_failed",
+            "status": "failed",
             "error_type": type(exc).__name__,
+            "error": str(exc)[:500],
         }
         if connection is not None:
             context.update(
                 {
                     "connection_id": connection.connection_id,
                     "transport": connection.transport.value,
+                    "issue": connection.connection_id,
                 }
             )
         logger.warning(
@@ -877,6 +907,8 @@ def _unavailable(
             "transport": connection.transport.value,
             "status": status,
             "error_type": type(error).__name__,
+            "error": message,
+            "issue": connection.connection_id,
         },
     )
     return MCPUnavailableConnection(

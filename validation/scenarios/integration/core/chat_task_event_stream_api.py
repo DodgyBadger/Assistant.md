@@ -27,7 +27,14 @@ from core.chat.task_execution import (
     start_prepared_chat_stream_task,
     stream_chat_task_sse,
 )
+from core.identity import LOCAL_USER_AUTHORITY
+from core.runtime.execution_tasks import (
+    ExecutionTaskKind,
+    ExecutionTaskSnapshot,
+    ExecutionTaskSource,
+)
 from core.runtime.state import get_runtime_context
+from core.runtime.task_runner import ExecutionTaskSpec
 from validation.core.base_scenario import BaseScenario
 from validation.core.streaming import stream_events_context
 
@@ -84,6 +91,25 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
                 session_id, vault.name, owner_principal_id="local-user"
             )
 
+        initial_detail = self.call_api(
+            "/api/chat/sessions/chat_task_event_stream_api_session",
+            params={"vault_name": vault.name},
+        ).json()
+        initial_revision = int(initial_detail.get("history_revision") or 0)
+        inactive_lookup = self.call_api(
+            "/api/chat/sessions/chat_task_event_stream_api_session/active-task"
+        )
+        self.soft_assert_equal(
+            inactive_lookup.status_code,
+            404,
+            "A session without live work should have no active task",
+        )
+        self.soft_assert_equal(
+            inactive_lookup.json().get("details", {}).get("history_revision"),
+            initial_revision,
+            "Missing active-task responses should expose a lightweight history revision",
+        )
+
         completed = await start_prepared_chat_stream_task(
             prepared=PreparedChatExecution(
                 agent=_CompletingStreamAgent(),
@@ -103,6 +129,104 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
             completed_task.status if completed_task else None,
             "completed",
             "Started chat task should complete before event replay",
+        )
+        completed_lookup = self.call_api(
+            "/api/chat/sessions/chat_task_event_stream_api_session/active-task"
+        )
+        self.soft_assert(
+            completed_lookup.json().get("details", {}).get("history_revision", 0)
+            > initial_revision,
+            "Task completion should advance the revision returned with a missing active task",
+        )
+
+        snapshot_response = self.call_api(
+            f"/api/chat/tasks/{completed.task.task_id}/replay-snapshot"
+        )
+        self.soft_assert_equal(
+            snapshot_response.status_code,
+            200,
+            "Completed chat tasks should expose retained replay snapshots",
+        )
+        snapshot = snapshot_response.json()
+        self.soft_assert_equal(
+            snapshot.get("available"),
+            True,
+            "Known chat events should produce a safe replay projection",
+        )
+        self.soft_assert_equal(
+            snapshot.get("task_id"),
+            completed.task.task_id,
+            "Replay snapshots should identify their chat task",
+        )
+        self.soft_assert(
+            snapshot.get("terminal") is True and snapshot.get("latest_sequence", 0) > 0,
+            "Replay snapshots should expose terminal state and an atomic cursor",
+        )
+        snapshot_events = snapshot.get("events", [])
+        self.soft_assert_equal(
+            [event.get("event") for event in snapshot_events],
+            ["thinking_delta", "delta", "done"],
+            "Replay snapshots should compact text and preserve terminal state",
+        )
+        self.soft_assert(
+            "thinking start thinking delta"
+            in snapshot_events[0].get("delta", {}).get("content", "")
+            and "api delta"
+            in snapshot_events[1]
+            .get("choices", [{}])[0]
+            .get("delta", {})
+            .get("content", ""),
+            "Replay snapshots should concatenate buffered reasoning and response text",
+        )
+
+        non_chat_task = await get_runtime_context().task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.WORKFLOW,
+                scope="workflow:replay-snapshot-probe",
+                source=ExecutionTaskSource.SYSTEM,
+                label="replay-snapshot-probe",
+                authority=LOCAL_USER_AUTHORITY,
+            ),
+            _complete_task,
+        )
+        await self._wait_for_task_terminal(non_chat_task.task_id)
+        non_chat_snapshot = self.call_api(
+            f"/api/chat/tasks/{non_chat_task.task_id}/replay-snapshot"
+        )
+        self.soft_assert_equal(
+            non_chat_snapshot.status_code,
+            404,
+            "Replay snapshots should reject non-chat execution tasks",
+        )
+
+        queued_chat_task = await get_runtime_context().task_runner.start_background(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.CHAT,
+                scope="chat:queued-replay-snapshot-probe",
+                source=ExecutionTaskSource.SYSTEM,
+                label="queued-replay-snapshot-probe",
+                authority=LOCAL_USER_AUTHORITY,
+            ),
+            _complete_task,
+            start_immediately=False,
+        )
+        queued_snapshot_response = self.call_api(
+            f"/api/chat/tasks/{queued_chat_task.task_id}/replay-snapshot"
+        )
+        self.soft_assert_equal(
+            queued_snapshot_response.status_code,
+            200,
+            "Queued chat tasks should expose an empty replay snapshot",
+        )
+        queued_snapshot = queued_snapshot_response.json()
+        self.soft_assert_equal(
+            (queued_snapshot.get("latest_sequence"), queued_snapshot.get("events")),
+            (0, []),
+            "A chat task without events should begin at cursor zero",
+        )
+        await get_runtime_context().task_coordinator.cancel_task(
+            queued_chat_task.task_id,
+            reason="validation_cleanup",
         )
 
         replay = self.call_api(f"/api/chat/tasks/{completed.task.task_id}/events")
@@ -180,6 +304,38 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
                 "ChatTaskEventCursorExpired" in expired_cursor.text
                 and "oldest_available_sequence" in expired_cursor.text,
                 "Cursor expiry should return a stable recovery envelope",
+            )
+            overflow_snapshot_response = self.call_api(
+                f"/api/chat/tasks/{overflowed.task.task_id}/replay-snapshot"
+            )
+            self.soft_assert_equal(
+                overflow_snapshot_response.status_code,
+                200,
+                "A compact replay snapshot should survive raw cursor expiry",
+            )
+            overflow_snapshot = overflow_snapshot_response.json()
+            self.soft_assert(
+                any(
+                    event.get("event") == "delta"
+                    and "api delta"
+                    in event.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    for event in overflow_snapshot.get("events", [])
+                ),
+                "Expired raw replay should retain the complete projected response",
+            )
+            handoff = self.call_api(
+                f"/api/chat/tasks/{overflowed.task.task_id}/events",
+                params={"after_sequence": overflow_snapshot["latest_sequence"]},
+            )
+            self.soft_assert_equal(
+                handoff.status_code,
+                200,
+                "The snapshot cursor should be accepted by the SSE endpoint",
+            )
+            self.soft_assert_equal(
+                handoff.text,
+                "",
+                "A terminal snapshot cursor should not replay duplicate events",
             )
             race_buffer = ChatTaskEventBuffer(max_events_per_task=2)
             await race_buffer.append("cursor-race", "delta", {"index": 1})
@@ -285,6 +441,23 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
             "running",
             "Closing the SSE subscriber should not cancel the chat task",
         )
+        detached_snapshot = self.call_api(
+            f"/api/chat/tasks/{running.task.task_id}/replay-snapshot"
+        )
+        self.soft_assert_equal(
+            detached_snapshot.status_code,
+            200,
+            "Running chat snapshots should remain available without an SSE subscriber",
+        )
+        self.soft_assert(
+            any(
+                event.get("event") == "delta"
+                and "still running"
+                in event.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                for event in detached_snapshot.json().get("events", [])
+            ),
+            "Detached snapshots should retain the in-progress response",
+        )
         await get_runtime_context().task_coordinator.cancel_task(running.task.task_id)
         cancelled_task = await self._wait_for_task_terminal(running.task.task_id)
         self.soft_assert_equal(
@@ -314,3 +487,7 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
                 return task
             await asyncio.sleep(0.02)
         return None
+
+
+async def _complete_task(_task: ExecutionTaskSnapshot) -> None:
+    await asyncio.sleep(0)

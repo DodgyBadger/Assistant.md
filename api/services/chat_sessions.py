@@ -621,6 +621,9 @@ def get_chat_session_detail(
     return ChatSessionDetailResponse(
         session_id=session_id,
         vault_name=vault_name,
+        history_revision=_chat_store.get_session_history_revision(
+            session_id, vault_name
+        ),
         workspace=_chat_workspace_info(
             vault_name, _chat_store.get_session_workspace_path(session_id, vault_name)
         ),

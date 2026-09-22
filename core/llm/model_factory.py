@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, cast
 
 import httpx
@@ -31,7 +32,9 @@ from tenacity import RetryCallState, retry_if_exception, stop_after_attempt
 from core.llm.model_selection import ModelExecutionSpec, resolve_model_execution_spec
 from core.llm.model_utils import get_provider_config, resolve_model, validate_api_keys
 from core.llm.openai_auth import OPENAI_AUTH_MODE_OAUTH
+from core.llm.openai_client import build_openai_sdk_client
 from core.llm.openai_runtime import build_openai_provider_with_resolution
+from core.llm.provider_policy import require_provider_base_url
 from core.llm.thinking import ThinkingValue
 from core.logger import UnifiedLogger
 from core.secrets import require_secrets_ready
@@ -46,6 +49,7 @@ from core.utils.value_parser import DirectiveValueParser
 logger = UnifiedLogger(tag="model-factory")
 _MODEL_HTTP_RETRY_ATTEMPTS = 3
 _MODEL_HTTP_RETRY_MAX_WAIT_SECONDS = 30.0
+_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def _resolve_config_value(raw_value: str | None) -> str | None:
@@ -105,8 +109,20 @@ def _apply_openai_oauth_responses_settings(settings_kwargs: dict[str, object]) -
     settings_kwargs["openai_send_reasoning_ids"] = False
 
 
+def _openrouter_attribution_headers() -> dict[str, str] | None:
+    """Preserve OpenRouter's environment-configured application attribution."""
+    headers = {}
+    if app_url := os.getenv("OPENROUTER_APP_URL"):
+        headers["HTTP-Referer"] = app_url
+    if app_title := os.getenv("OPENROUTER_APP_TITLE"):
+        headers["X-Title"] = app_title
+    return headers or None
+
+
 def _is_retryable_model_http_exception(exc: BaseException) -> bool:
     """Return whether Pydantic AI model HTTP transport should retry the exception."""
+    if isinstance(exc, httpx.UnsupportedProtocol | httpx.InvalidURL):
+        return False
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = int(exc.response.status_code)
         return status_code == 429 or 500 <= status_code <= 599
@@ -122,10 +138,11 @@ def _raise_retryable_model_status(response: httpx.Response) -> None:
 def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
     """Emit one lifecycle event before Pydantic AI retry transport sleeps."""
     exc = retry_state.outcome.exception() if retry_state.outcome else None
-    logger.add_sink("validation").warning(
+    logger.set_sinks(["validation"]).warning(
         "model_http_retry_scheduled",
         data={
             "event": "model_http_retry_scheduled",
+            "status": "retry_scheduled",
             "attempt": retry_state.attempt_number,
             "next_action": "retry",
             "delay_seconds": (
@@ -138,6 +155,10 @@ def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
                 exc.response.status_code
                 if isinstance(exc, httpx.HTTPStatusError)
                 else None
+            ),
+            "issue": (
+                f"model_http_retry:{retry_state.start_time}:"
+                f"{retry_state.attempt_number}"
             ),
         },
     )
@@ -290,10 +311,16 @@ def build_model_instance(
         api_key = _resolve_config_value(provider_config.get("api_key"))
         _apply_openrouter_settings(settings_kwargs, provider_config)
         http_client = _build_retrying_model_http_client()
+        openai_client = build_openai_sdk_client(
+            api_key=api_key,
+            base_url=_OPENROUTER_BASE_URL,
+            http_client=http_client,
+            default_headers=_openrouter_attribution_headers(),
+        )
         return OpenRouterModel(
             model_string,
             provider=_mark_provider_owns_http_client(
-                OpenRouterProvider(api_key=api_key, http_client=http_client),
+                OpenRouterProvider(openai_client=openai_client),
                 http_client,
             ),
             settings=cast(OpenRouterModelSettings, settings_kwargs),
@@ -312,17 +339,24 @@ def build_model_instance(
                 f"URL or the name of a stored secret."
             )
 
-        base_url = _resolve_config_value(base_url_config)
+        base_url = require_provider_base_url(
+            provider,
+            provider_config,
+            get_secret_value=get_secret_value,
+        )
         settings_kwargs = _base_settings_kwargs(thinking)
 
         api_key = _resolve_config_value(provider_config.get("api_key"))
         http_client = _build_retrying_model_http_client()
+        openai_client = build_openai_sdk_client(
+            api_key=api_key or "api-key-not-set",
+            base_url=base_url,
+            http_client=http_client,
+        )
         return OpenAIChatModel(
             model_string,
             provider=_mark_provider_owns_http_client(
-                OpenAIProvider(
-                    api_key=api_key, base_url=base_url, http_client=http_client
-                ),
+                OpenAIProvider(openai_client=openai_client),
                 http_client,
             ),
             settings=cast(OpenAIChatModelSettings, settings_kwargs),

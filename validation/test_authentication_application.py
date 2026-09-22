@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from core.authentication import (
     OWNER_SESSION_COOKIE,
     load_authentication_policy,
 )
-from core.runtime.paths import set_bootstrap_roots
+from core.runtime.paths import get_system_root, set_bootstrap_roots
 from core.settings import AppSettings
 
 _TEST_ROOT = tempfile.TemporaryDirectory(prefix="assistantmd-auth-application-")
@@ -99,6 +100,22 @@ def test_owner_login_exchange_sets_secure_bounded_cookies() -> None:
     assert all(_SECRET not in header for header in set_cookie_headers)
     assert response.headers["cache-control"].startswith("no-store")
     assert client.get("/").status_code == 200
+    auth_events = [
+        entry for entry in _activity_entries() if entry.get("tag") == "authentication"
+    ]
+    assert any(
+        entry.get("data", {}).get("event") == "owner_session_exchange_failed"
+        and entry.get("data", {}).get("status") == "failed"
+        and entry.get("data", {}).get("reason") == "invalid_credential"
+        for entry in auth_events
+    )
+    assert any(
+        entry.get("data", {}).get("event") == "owner_session_exchange_completed"
+        and entry.get("data", {}).get("status") == "completed"
+        and entry.get("data", {}).get("secure_cookie") is True
+        for entry in auth_events
+    )
+    assert _SECRET not in json.dumps(auth_events)
 
 
 def test_owner_logout_requires_csrf_and_clears_session() -> None:
@@ -183,3 +200,12 @@ def test_login_surfaces_are_disabled_outside_owner_mode() -> None:
     assert (
         client.post("/auth/session", json={"owner_token": _SECRET}).status_code == 404
     )
+
+
+def _activity_entries() -> list[dict[str, object]]:
+    activity_path = Path(get_system_root()) / "activity.log"
+    return [
+        json.loads(line)
+        for line in activity_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]

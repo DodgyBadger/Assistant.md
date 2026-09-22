@@ -75,6 +75,16 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Managed advanced-shell stdio launch concurrency must be between 1 and 32."
         )
+    if name == "max_concurrent_delegates" and not (
+        isinstance(value, int) and 0 <= value <= 32
+    ):
+        raise SettingsError(
+            "Delegate concurrency must be between 0 (unlimited) and 32."
+        )
+    if name == "model_stream_idle_timeout_seconds" and not 0 <= value <= 3_600:
+        raise SettingsError(
+            "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
+        )
 
     delay_names = {
         "model_stream_retry_base_delay_seconds",

@@ -19,12 +19,12 @@
 - Write a focused commit message using [Git and Review Workflow](git-and-review.md).
 - Commit completed work before beginning a distinct experiment or redesign that
   will touch the same files.
-- Note any unrun checks or maintainer-owned validation requests in the handoff.
+- Confirm the complete `integration/core` profile passed during hardening or run it during merge preparation. Note any unrun checks or external blockers in the handoff.
 
 ## Common Mistakes
 - Mixing multiple logical changes into one commit.
 - Writing commit subjects that describe files instead of behavior.
-- Forgetting to mention validation ownership or remaining maintainer actions.
+- Forgetting to mention unrun checks, external blockers, or remaining maintainer actions.
 - Skipping a final duplication and cleanliness pass before committing.
 - Relying only on checks scoped to changed files.
 - Letting several accepted milestones accumulate in one dirty worktree, making

@@ -59,14 +59,14 @@ settings:
     description: "Persist provider reasoning/thinking parts in durable chat history. Disabled by default to keep history portable across providers and avoid replaying extra reasoning tokens. Enabling this can increase token usage and make old turns less portable when switching models."
     category: "Chat"
     restart_required: false
-  delegate_tool_calls_limit:
-    value: 32
-    description: "Maximum tool calls allowed inside one delegate child-agent run. 0 disables the limit. Increase for broad delegated searches, or lower it to force tighter scoped delegation."
-    category: "Delegation"
-    restart_required: false
   delegate_model_requests_limit:
     value: 75
-    description: "Maximum model requests allowed inside one delegate child-agent run. 0 disables the limit. Keep at least one of the model-request, tool-call, or timeout delegate limits enabled to retain runaway protection."
+    description: "Maximum model requests allowed inside one delegate child-agent run. 0 disables the limit. This remains independent from delegate concurrency and timeout controls."
+    category: "Delegation"
+    restart_required: false
+  max_concurrent_delegates:
+    value: 3
+    description: "Maximum delegate child runs active at once. Additional delegates remain queued. 0 disables the concurrency limit."
     category: "Delegation"
     restart_required: false
   delegate_repeated_failure_limit:
@@ -92,6 +92,11 @@ settings:
   model_stream_retry_max_delay_seconds:
     value: 10.0
     description: "Maximum delay in seconds between model-stream retry attempts."
+    category: "Resilience"
+    restart_required: false
+  model_stream_idle_timeout_seconds:
+    value: 120.0
+    description: "Maximum seconds to wait between usable model-stream events while no tool is running. 0 disables the idle timeout."
     category: "Resilience"
     restart_required: false
   default_api_timeout:
@@ -526,7 +531,13 @@ tools:
     chat_visible: true
   delegate:
     module: core.tools.delegate
-    description: "Run a bounded child agent for focused model reasoning or limited tool exploration"
+    description: "Run a supervised child agent for focused model reasoning or tool exploration"
+    requires_secrets: []
+    user_editable: false
+    chat_visible: true
+  job:
+    module: core.tools.job
+    description: "List, inspect, wait for, and cancel process-local asynchronous jobs"
     requires_secrets: []
     user_editable: false
     chat_visible: true

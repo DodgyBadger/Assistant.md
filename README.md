@@ -1,14 +1,17 @@
 # Assistant.md
 
-**A self-hosted, Markdown-first agent workspace for knowledge work.**
+Assistant.md is a self-hosted AI agent harness for non-coding knowledge work. It is built with a focus on:
+
+- **Safe automation:** no direct host access and a limited blast radius if something goes wrong
+- **Rapid onboarding:** useful out of the box, with plenty of room to customize and grow
+- **Observability:** behaviour is explicit and important activity is logged
+- **Data ownership:** everything remains a useful, portable file with or without Assistant.md
+
+Mount one or more Markdown vaults when you install Assistant.md, and they become available to the chat agent and automated workflows. At the start of each chat session, choose any folder within a vault as the workspace, giving the agent immediate project context.
 
 > [!IMPORTANT]
 >
-> **v0.8.0 is a major agentic upgrade.** Assistant.md can now connect to remote MCP services, run local MCP providers and commands in an optional advanced environment, work with Gmail, and securely manage the credentials those capabilities require. Chat is now the control surface for a substantially more capable agent system.
-
-Assistant.md gives AI agents a place to do sustained work with your notes, research, tools, and repeatable processes—not merely answer questions in chat. Choose any folder in your vault as a project workspace; the agent can follow local `README.md` and `playbook.md` guidance, work across the vault when needed, and leave useful results behind as durable Markdown.
-
-Your files remain readable, portable, and useful without Assistant.md. The system around them provides project context, connected tools, automation, and reviewable execution while keeping agent capabilities explicit and bounded.
+> **v0.8.0 is a major agentic upgrade.** Assistant.md can now connect to remote MCP services, run local MCP providers and commands in an optional advanced shell environment, work with Gmail, and securely manage the credentials those capabilities require.
 
 ## Features
 

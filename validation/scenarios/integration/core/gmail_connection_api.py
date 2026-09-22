@@ -91,11 +91,25 @@ class GmailConnectionAPIScenario(BaseScenario):
                 "api.services.google_connections._oauth_coordinator",
                 return_value=oauth,
             ),
+            patch("api.services.google_connections.logger.info") as log_info,
         ):
             start_google_oauth(read_only.connection_id)
             start_google_oauth(drafts.connection_id)
             read_response = _google_connection_response(read_only.connection_id)
             draft_response = _google_connection_response(drafts.connection_id)
+
+        oauth_events = [call.kwargs["data"] for call in log_info.call_args_list]
+        self.soft_assert_equal(
+            [
+                (event["event"], event["status"], event["connection_id"])
+                for event in oauth_events
+            ],
+            [
+                ("google_oauth_started", "started", read_only.connection_id),
+                ("google_oauth_started", "started", drafts.connection_id),
+            ],
+            "Google OAuth activity should retain the selected connection identity",
+        )
 
         self.soft_assert_equal(
             oauth.capabilities,

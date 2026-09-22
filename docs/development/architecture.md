@@ -38,13 +38,13 @@ The web UI calls the same API and runtime services used by programmatic clients.
 
 `main.py` resolves data and system roots before importing path-sensitive modules, constructs infrastructure configuration, and creates the FastAPI application. The application lifespan calls `core/runtime/bootstrap.py`, which migrates and opens managed state, validates configuration, builds shared services, synchronizes scheduled work, and publishes one process-wide `RuntimeContext` composition root. Mutable request or task identity is context-local and is never stored globally in that runtime object.
 
-Interactive chat enters through `core/chat/`. A session has an immutable owner and workspace. A process-local execution task owns the model stream, tool-call state, cancellation, buffered event replay, and safe recovery checkpoints. Agent construction resolves the selected model, context instructions, effective tools, connections, limits, and output handling for the captured execution authority. Deferred inline-edit review resumes through the same task-owned execution path.
+Interactive chat enters through `core/chat/`. A session has an immutable owner and workspace. A process-local execution task owns the model stream, tool-call state, cancellation, buffered event replay, and safe recovery checkpoints. Each chat event stream also retains a compact process-local projection of its current response, reasoning, safe tool state, review state, and terminal state; reconnecting browsers hydrate that projection once and resume SSE strictly after its atomic event cursor, while persisted session history remains authoritative after completion. Model-stream liveness is measured between semantic Pydantic AI events rather than raw connection traffic; the idle deadline resets on model progress and is suspended while an observed tool call is running. Agent construction resolves the selected model, context instructions, effective tools, connections, limits, and output handling for the captured execution authority. Deferred inline-edit review resumes through the same task-owned execution path.
 
 Ordinary browser-facing tool lists and lifecycle events expose only tool identity, lifecycle state, and estimated result size. Persisted tool arguments and results cross into the browser through the authenticated per-call detail endpoint after an explicit user request; those responses are non-cacheable and the UI clears its detail references when the modal closes. Deferred-review cards are the deliberate exception: they receive proposed tool arguments because the user must inspect and may edit them before approving execution.
 
 Authoring files under `core/authoring/` define Markdown workflows and context assembly backed by Python executed in the Monty sandbox. Monty code receives only explicit host capability functions; it does not inherit the application process or unrestricted Python access. The workflow governor applies vault lanes, timeouts, cancellation, authority propagation, activity, and durable run history. APScheduler jobs under `core/scheduling/` retain the workflow owner and enter the same governed path.
 
-Execution tasks are process-local coordination objects. Domain outcomes such as chat history, workflow runs, vault activities, goals, and connection state are persisted by their owning subsystems. A process restart may end active work, but must not make transient task snapshots the canonical record of completed work.
+Execution tasks are process-local coordination objects. The shared runner owns background isolation, timeouts, keyed admission, bounded concurrency, explicit parent-lifecycle attachment, progress signals, and bounded terminal results. Managed work can retain parent provenance while remaining detached from every parent terminal transition so it can be supervised in a later chat turn; explicit job or scope cancellation and runtime shutdown still stop it. The authority-mediated `job` tool exposes compact list, status, event-driven wait, and cancellation operations without making task snapshots durable domain records. Domain outcomes such as chat history, workflow runs, vault activities, goals, and connection state are persisted by their owning subsystems. A process restart may end active work, but must not make transient task snapshots the canonical record of completed work.
 
 ## Identity, authority, and trust
 
@@ -75,7 +75,7 @@ Capabilities are assembled for the current execution authority rather than regis
 | Stdio MCP tools | Providers launched in the advanced shell | Interactive primary chat only; the same MCP governance applies after a structured, bounded SSH launch |
 | Monty host capabilities | functions used by authoring scripts | Explicitly supplied to the sandbox for the current workflow or context run |
 | Advanced shell | general `shell` tool | Interactive primary chat only, when advanced mode, authority, and SSH readiness permit it |
-| Delegation | bounded child agents | Parent-owned execution with explicit tools, limits, and failure handoff |
+| Delegation | supervised child agents | Parent-linked execution tasks with explicit lifecycle attachment, tools, observable progress, bounded concurrency, cancellation, and failure handoff |
 
 Built-in tool configuration lives under `core/tools/`, shared binding under `core/authoring/shared/`, and model-facing composition under `core/llm/` and `core/chat/`. Connection gating happens before a tool reaches an agent. Global tool disablement remains authoritative after connection-specific readiness.
 
@@ -100,7 +100,7 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 | Vault activity and recovery | Attributed activities, revisions, and snapshots | vault-state databases and snapshot storage |
 | Session summaries | Rebuildable derived memory indexes | memory subsystem state |
 | Goals | Lightweight durable state with provenance | goals subsystem state |
-| Active execution coordination | Task owner, events, cancellation, checkpoints | bounded process memory |
+| Active execution coordination | Task owner, parent-child links, progress, bounded results, waits, cancellation, and checkpoints | bounded process memory |
 | Advanced-shell files | Deployment shell user; agent-accessible | Docker home and workspace volumes |
 | SSH pairing | Container-owned disposable infrastructure identity | dedicated Docker volumes |
 
@@ -147,7 +147,7 @@ ADRs under [`docs/development/adr/`](adr/) are append-oriented records of durabl
 
 Start with these groups when investigating a boundary:
 
-- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, and 0031–0033;
+- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, and 0047;
 - vaults, ingestion, memory, and goals: ADRs 0005–0006, 0011–0018, 0024–0025, and 0029–0030;
 - tools, models, and external capabilities: ADRs 0007–0010, 0021–0023, 0027, 0035, 0037, 0039, 0042, and 0045;
 - identity, storage, connections, and OAuth: ADRs 0015, 0028, and 0034–0041;

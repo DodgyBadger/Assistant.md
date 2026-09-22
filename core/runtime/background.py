@@ -44,4 +44,4 @@ class RuntimeBackgroundSpawner:
         ):
             target_loop.call_soon_threadsafe(_spawn, context=contextvars.Context())
             return
-        current_loop.call_soon(_spawn, context=contextvars.Context())
+        _spawn()

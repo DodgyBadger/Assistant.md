@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from time import monotonic
 from typing import Any
 
 from pydantic_ai import (
@@ -45,7 +46,11 @@ from core.chat.task_events import ChatTaskEventBuffer, ChatTaskEventCursorExpire
 from core.identity import ExecutionAuthority
 from core.llm.capabilities.chat_context import build_context_template_error_details
 from core.llm.capabilities.chat_tool_output_cache import tool_result_as_text
-from core.llm.stream_retry import ModelStreamRetryPolicy
+from core.llm.stream_retry import (
+    ModelStreamIdleTimeout,
+    ModelStreamRetryPolicy,
+    next_model_stream_event,
+)
 from core.runtime.buffers import get_session_buffer_store
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
@@ -60,7 +65,11 @@ from core.runtime.task_runner import (
     ExecutionTaskHooks,
     ExecutionTaskSpec,
 )
-from core.tools.failures import classify_exception, classify_tool_result_state
+from core.tools.failures import (
+    bounded_failure_message,
+    classify_exception,
+    classify_tool_result_state,
+)
 from core.tools.utils import estimate_token_count
 from core.vault_state.rollback import rollback_task_file_mutations
 
@@ -385,6 +394,7 @@ async def start_chat_turn_retry_task(
         "Manual chat retry task started",
         data={
             "event": "chat_manual_retry_started",
+            "status": "started",
             "vault_name": vault_name,
             "session_id": session_id,
             "task_id": started.task.task_id,
@@ -428,10 +438,18 @@ async def start_deferred_review_resume_task(
                     else None
                 ),
             )
-        except DeferredReviewError:
+        except DeferredReviewError as exc:
             chat_executor.logger.warning(
                 "Deferred review terminal state could not be recorded",
-                data={"artifact_ref": review.artifact_ref, "status": status},
+                data={
+                    "event": "deferred_review_terminal_record_failed",
+                    "status": "failed",
+                    "artifact_ref": review.artifact_ref,
+                    "requested_status": status,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": f"deferred_review_terminal:{review.artifact_ref}",
+                },
             )
 
     async def _run(tracked_task: ExecutionTaskSnapshot) -> None:
@@ -750,7 +768,9 @@ async def _publish_deferred_preflight_failure(
     payload = _preflight_error_event_data(exc)
     await event_buffer.append(task_id, "error", payload)
     await runtime.task_coordinator.mark_failed(
-        task_id, reason=f"{type(exc).__name__}: {exc}"
+        task_id,
+        reason=f"{type(exc).__name__}: {exc}",
+        error_type=type(exc).__name__,
     )
 
 
@@ -861,6 +881,7 @@ async def _run_prepared_chat_stream_task_inner(
             buffer_store_registry={"session": session_buffer_store},
             session_id=session_id,
             vault_name=vault_name,
+            model_alias=prepared.model,
             message_history=list(prepared.message_history or []),
             tools=list(prepared.tools or []),
             authority=ExecutionAuthority(principal_id=task.principal_id),
@@ -931,6 +952,7 @@ async def _run_prepared_chat_stream_task_inner(
                         tool_activity=tool_activity,
                         vault_name=vault_name,
                         session_id=session_id,
+                        attempt=attempt,
                     )
                     if (
                         attempt_history is not None
@@ -999,6 +1021,7 @@ async def _run_prepared_chat_stream_task_inner(
                                 "vault_name": vault_name,
                                 "strategy": str(recovery_decision.strategy),
                                 "reason": rejection_reason,
+                                "issue": f"chat_recovery:{task.task_id}:{attempt}",
                                 "completed_tool_count": (
                                     recovery_decision.completed_tool_count
                                 ),
@@ -1019,8 +1042,10 @@ async def _run_prepared_chat_stream_task_inner(
                     delay_seconds = retry_policy.delay_after(attempt)
                     retry_data = {
                         "event": "chat_retry_scheduled",
+                        "status": "scheduled",
                         "task_id": task.task_id,
                         "session_id": session_id,
+                        "vault_name": vault_name,
                         "model": prepared.model,
                         "attempt": attempt,
                         "next_attempt": attempt + 1,
@@ -1028,6 +1053,8 @@ async def _run_prepared_chat_stream_task_inner(
                         "delay_seconds": delay_seconds,
                         "failure_kind": classification.failure_kind,
                         "error_type": classification.error_type,
+                        "error": bounded_failure_message(classification.message),
+                        "issue": f"chat_retry:{task.task_id}:{attempt}",
                         "replay_scope": replay_scope,
                         "strategy": replay_scope,
                         "reset_response": True,
@@ -1435,10 +1462,24 @@ async def _collect_chat_stream_attempt(
     tool_activity: dict[str, dict[str, Any]],
     vault_name: str,
     session_id: str,
+    attempt: int,
 ) -> tuple[Any, str]:
     """Collect one Pydantic chat stream attempt and publish provisional events."""
+    _mark_running_tools_interrupted(tool_activity)
     final_result = None
     full_response = ""
+    event_count = 0
+    last_progress_publish = 0.0
+    runtime = get_runtime_context()
+    await runtime.task_coordinator.publish_progress(
+        task_id,
+        metadata={
+            "model_stream_state": "waiting_for_model",
+            "model_stream_attempt": attempt,
+            "model_stream_event_count": 0,
+            "active_tools": [],
+        },
+    )
     async with prepared.agent.run_stream_events(
         user_prompt,
         message_history=message_history,
@@ -1448,7 +1489,36 @@ async def _collect_chat_stream_attempt(
         usage=usage,
         conversation_id=session_id,
     ) as stream_events:
-        async for event in stream_events:
+        iterator = stream_events.__aiter__()
+        while True:
+            active_tools = _running_tool_names(tool_activity)
+            try:
+                event = await next_model_stream_event(
+                    iterator,
+                    timeout_seconds=0.0 if active_tools else None,
+                )
+            except StopAsyncIteration:
+                break
+            except ModelStreamIdleTimeout as exc:
+                chat_executor.logger.add_sink("validation").warning(
+                    "model_stream_idle_timed_out",
+                    data={
+                        "event": "model_stream_idle_timed_out",
+                        "status": "timed_out",
+                        "task_id": task_id,
+                        "vault_name": vault_name,
+                        "session_id": session_id,
+                        "model": prepared.model,
+                        "attempt": attempt,
+                        "timeout_seconds": exc.timeout_seconds,
+                        "active_tool_count": len(active_tools),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                        "issue": f"model_stream_idle:{task_id}:{attempt}",
+                    },
+                )
+                raise
+            event_count += 1
             if isinstance(event, PartStartEvent):
                 if isinstance(event.part, TextPart) and event.part.content:
                     delta_text = event.part.content
@@ -1497,7 +1567,46 @@ async def _collect_chat_stream_attempt(
                 )
             elif isinstance(event, AgentRunResultEvent):
                 final_result = event.result
+            now = monotonic()
+            force_progress = isinstance(
+                event,
+                FunctionToolCallEvent | FunctionToolResultEvent | AgentRunResultEvent,
+            )
+            if force_progress or now - last_progress_publish >= 1.0:
+                active_tools = _running_tool_names(tool_activity)
+                await runtime.task_coordinator.publish_progress(
+                    task_id,
+                    metadata={
+                        "model_stream_state": (
+                            "tool_running" if active_tools else "receiving_model"
+                        ),
+                        "model_stream_attempt": attempt,
+                        "model_stream_event_count": event_count,
+                        "active_tools": active_tools,
+                    },
+                )
+                last_progress_publish = now
     return final_result, full_response
+
+
+def _running_tool_names(tool_activity: dict[str, dict[str, Any]]) -> list[str]:
+    """Return stable names for tool calls that have started but not finished."""
+    return sorted(
+        {
+            str(item.get("tool_name") or "tool")
+            for item in tool_activity.values()
+            if item.get("status") == "running"
+        }
+    )
+
+
+def _mark_running_tools_interrupted(
+    tool_activity: dict[str, dict[str, Any]],
+) -> None:
+    """Prevent a failed attempt's unfinished tools from disabling the next deadline."""
+    for item in tool_activity.values():
+        if item.get("status") == "running":
+            item["status"] = "interrupted"
 
 
 async def stream_chat_task_sse(
@@ -1597,6 +1706,11 @@ def _stream_failure_display_message(failure_kind: str) -> str:
         return (
             "\n\nThe model service is temporarily rate-limited. "
             "You can retry this interrupted turn shortly."
+        )
+    if failure_kind == "model_stream_idle_timeout":
+        return (
+            "\n\nThe model stopped responding before completing this turn. "
+            "You can retry or switch models or providers if this keeps happening."
         )
     if failure_kind in {"transient_network", "transient_provider"}:
         return (

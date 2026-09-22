@@ -2,6 +2,8 @@
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import httpx
 import openai
@@ -27,7 +29,11 @@ class ApiErrorResilienceScenario(BaseScenario):
             _build_retrying_model_http_client,
             _is_retryable_model_http_exception,
             _mark_provider_owns_http_client,
+            _openrouter_attribution_headers,
         )
+        from core.llm.openai_client import build_openai_sdk_client
+        from core.llm.provider_policy import custom_provider_base_url_available
+        from core.llm.stream_retry import ModelStreamIdleTimeout
         from core.tools.failures import classify_exception
 
         self.create_vault("ApiErrorVault")
@@ -134,6 +140,114 @@ class ApiErrorResilienceScenario(BaseScenario):
             "Streamed provider overload errors should support manual retry",
         )
 
+        idle_timeout = classify_exception(
+            ModelStreamIdleTimeout(12.5),
+            phase="agent_stream",
+        )
+        self.soft_assert_equal(
+            idle_timeout.failure_kind,
+            "model_stream_idle_timeout",
+            "Semantic stream stalls should have a distinct failure classification",
+        )
+        self.soft_assert(
+            idle_timeout.retryable,
+            "A semantic stream stall should support policy-controlled replay",
+        )
+
+        self.soft_assert(
+            not custom_provider_base_url_available(
+                {"base_url": "MISSING_BASE_URL"},
+                get_secret_value=lambda _name: None,
+            ),
+            "An unresolved base URL secret pointer must not be treated as a URL",
+        )
+        self.soft_assert(
+            custom_provider_base_url_available(
+                {"base_url": "CUSTOM_BASE_URL"},
+                get_secret_value=lambda _name: "https://provider.example/v1",
+            ),
+            "A populated base URL secret should make a custom provider available",
+        )
+        for invalid_base_url in (
+            "https://",
+            "https:///path",
+            "https:// invalid.example",
+            "ftp://provider.example",
+        ):
+            self.soft_assert(
+                not custom_provider_base_url_available(
+                    {"base_url": invalid_base_url},
+                    get_secret_value=lambda _name: None,
+                ),
+                f"Incomplete provider URL should be unavailable: {invalid_base_url}",
+            )
+
+        with patch.dict(
+            "os.environ",
+            {
+                "OPENROUTER_APP_URL": "https://assistant.example",
+                "OPENROUTER_APP_TITLE": "Assistant.md",
+            },
+        ):
+            self.soft_assert_equal(
+                _openrouter_attribution_headers(),
+                {
+                    "HTTP-Referer": "https://assistant.example",
+                    "X-Title": "Assistant.md",
+                },
+                "Prebuilt OpenRouter clients should preserve attribution headers",
+            )
+
+        import core.llm.openai_runtime as openai_runtime
+
+        invalid_openai_http_client = httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
+        )
+        try:
+            with (
+                patch.object(
+                    openai_runtime, "_openai_oauth_enabled", return_value=False
+                ),
+                patch.object(
+                    openai_runtime,
+                    "get_openai_oauth_status",
+                    return_value=SimpleNamespace(connected=False),
+                ),
+                patch.object(
+                    openai_runtime,
+                    "get_secret_value",
+                    side_effect=lambda name: (
+                        "validation-key" if name == "OPENAI_API_KEY" else None
+                    ),
+                ),
+                patch.object(
+                    openai_runtime,
+                    "secret_has_value",
+                    side_effect=lambda name: name == "OPENAI_API_KEY",
+                ),
+            ):
+                try:
+                    openai_runtime.build_openai_provider_with_resolution(
+                        provider_config={
+                            "api_key": "OPENAI_API_KEY",
+                            "base_url": "MISSING_OPENAI_BASE_URL",
+                            "auth_mode": "api_key",
+                        },
+                        http_client=invalid_openai_http_client,
+                    )
+                except ValueError as exc:
+                    self.soft_assert(
+                        "complete HTTP(S) URL" in str(exc),
+                        "Invalid OpenAI base URLs should fail with actionable copy",
+                    )
+                else:
+                    self.soft_assert(
+                        False,
+                        "An unresolved OpenAI base URL must not fall back to the public endpoint",
+                    )
+        finally:
+            await invalid_openai_http_client.aclose()
+
         self.soft_assert(
             callable(wait_retry_after),
             "Pydantic AI wait_retry_after should be available for retry timing",
@@ -151,6 +265,23 @@ class ApiErrorResilienceScenario(BaseScenario):
             )
         finally:
             await retrying_client.aclose()
+
+        sdk_http_client = httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
+        )
+        sdk_client = build_openai_sdk_client(
+            api_key="validation-key",
+            base_url="https://provider.example/v1",
+            http_client=sdk_http_client,
+        )
+        try:
+            self.soft_assert_equal(
+                sdk_client.max_retries,
+                0,
+                "AssistantMD retry clients should disable nested OpenAI SDK retries",
+            )
+        finally:
+            await sdk_client.close()
 
         owned_client = _build_retrying_model_http_client()
         owned_provider = _mark_provider_owns_http_client(
@@ -185,6 +316,14 @@ class ApiErrorResilienceScenario(BaseScenario):
         self.soft_assert(
             not _is_retryable_model_http_exception(_http_status_error(400)),
             "Model retry predicate should not retry permanent bad requests",
+        )
+        self.soft_assert(
+            not _is_retryable_model_http_exception(
+                httpx.UnsupportedProtocol(
+                    "Request URL is missing an 'http://' or 'https://' protocol."
+                )
+            ),
+            "Model retry predicate should not retry invalid provider URLs",
         )
 
         self.teardown_scenario()

@@ -1,16 +1,21 @@
-"""Delegate tool - run a bounded child agent and return its output."""
+"""Delegate tool - run a supervised child agent and return its output."""
 
 import asyncio
 import json
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import AsyncIterable, Awaitable, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from time import monotonic
+from typing import Any, Literal
 
-from pydantic_ai import RunContext
+from pydantic_ai import FunctionToolCallEvent, FunctionToolResultEvent, RunContext
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
+    AgentStreamEvent,
     ModelMessage,
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     ToolCallPart,
     ToolReturn,
     ToolReturnPart,
@@ -30,6 +35,11 @@ from core.constants import (
     DELEGATE_AUDIT_MAX_TOOL_CALLS,
     DELEGATE_FLIGHT_CARD,
 )
+from core.identity import (
+    LOCAL_USER_AUTHORITY,
+    ExecutionAuthority,
+    get_current_execution_authority,
+)
 from core.llm.agents import AgentRunProgress, collect_response, create_agent
 from core.llm.capabilities.assistant_tools import build_assistant_tools_capabilities
 from core.llm.capabilities.delegate_repeated_failure_guard import (
@@ -38,93 +48,310 @@ from core.llm.capabilities.delegate_repeated_failure_guard import (
 from core.llm.model_factory import build_model_instance
 from core.llm.model_selection import ModelExecutionSpec
 from core.llm.stream_retry import ModelStreamRetryPolicy
-from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
+from core.llm.thinking import (
+    ThinkingValue,
+    normalize_thinking_value,
+    thinking_value_to_label,
+)
 from core.logger import UnifiedLogger
+from core.runtime.execution_tasks import (
+    ExecutionTaskKind,
+    ExecutionTaskSnapshot,
+    ExecutionTaskSource,
+    ExecutionTaskStatus,
+    get_current_execution_task,
+)
+from core.runtime.state import get_runtime_context
+from core.runtime.task_runner import (
+    ExecutionConcurrencyPolicy,
+    ExecutionConcurrencyWait,
+    ExecutionTaskHooks,
+    ExecutionTaskRunOutcome,
+    ExecutionTaskSpec,
+)
 from core.settings import (
     get_default_model_thinking,
     get_delegate_model_requests_limit,
     get_delegate_repeated_failure_limit,
     get_delegate_timeout_seconds,
-    get_delegate_tool_calls_limit,
+    get_max_concurrent_delegates,
 )
 from core.tools.base import BaseTool
 from core.tools.failures import (
     FailureClassification,
+    bounded_failure_message,
     classify_exception,
     classify_tool_result_state,
 )
+from core.web.security import sanitize_url_for_log
 
 logger = UnifiedLogger(tag="delegate-tool")
 
-_FORBIDDEN_CHILD_TOOLS = frozenset({"delegate", "code_execution"})
+_FORBIDDEN_CHILD_TOOLS = frozenset({"delegate", "code_execution", "job"})
 _SUPPORTED_OPTION_KEYS = frozenset({"thinking"})
 _DELEGATE_PARTIAL_OUTPUT_MAX_CHARS = 4_000
 _DELEGATE_MAX_HANDOFF_REFERENCES = 20
 _DELEGATE_MAX_HANDOFF_REFERENCE_NODES = 1_000
+_DELEGATE_MODEL_PROGRESS_INTERVAL_SECONDS = 1.0
+_DELEGATE_VISIBLE_ARGUMENT_KEYS = frozenset(
+    {
+        "cache_ref",
+        "operation",
+        "path",
+        "paths",
+        "query",
+        "queries",
+        "ref",
+        "url",
+        "urls",
+    }
+)
+
+
+async def _finish_cancellation_cleanup(cleanup_awaitable: Awaitable[None]) -> None:
+    """Finish cancellation publication even if another cancel request arrives."""
+    cleanup: asyncio.Future[None] = asyncio.ensure_future(cleanup_awaitable)
+    cancelled_during_cleanup = False
+    while not cleanup.done():
+        try:
+            await asyncio.shield(cleanup)
+        except asyncio.CancelledError:
+            cancelled_during_cleanup = True
+    await cleanup
+    if cancelled_during_cleanup:
+        raise asyncio.CancelledError
+
+
+@dataclass(frozen=True)
+class DelegateLaunchSpec:
+    """Immutable inputs captured before a delegate leaves its parent context."""
+
+    prompt: str
+    instructions: str | None
+    model: str | None
+    model_source: Literal["explicit", "parent", "runtime_default"]
+    tool_names: tuple[str, ...]
+    stripped_tools: tuple[str, ...]
+    resolved_thinking: ThinkingValue
+    thinking_source: str
+    vault_path: str
+    week_start_day: int
+    session_id: str
+    authority: ExecutionAuthority
+    parent_task_id: str | None
+    repeated_failure_limit: int
+    timeout_seconds: float
+    mode: Literal["blocking", "managed"]
+
+
+@dataclass
+class _ActiveDelegateToolCall:
+    tool: str
+    call_id: str
+    arguments: str
+    started_at: str
+    started_monotonic: float
+
+
+class _DelegateProgressObserver:
+    """Project bounded Pydantic stream activity into execution-task state."""
+
+    def __init__(self, task: ExecutionTaskSnapshot) -> None:
+        self._task = task
+        self._active: dict[str, _ActiveDelegateToolCall] = {}
+        self._recent: list[dict[str, Any]] = []
+        self._counts = {
+            "started": 0,
+            "completed": 0,
+            "failed": 0,
+            "invalid": 0,
+            "unsettled": 0,
+        }
+        self._model_event_count = 0
+        self._attention_published = False
+        self._attention_logged = False
+        self._last_publish_monotonic = 0.0
+        self._lock = asyncio.Lock()
+
+    async def handle_events(
+        self,
+        ctx: RunContext[Any],
+        events: AsyncIterable[AgentStreamEvent],
+    ) -> None:
+        async for event in events:
+            async with self._lock:
+                self._model_event_count += 1
+                is_tool_event = isinstance(
+                    event,
+                    FunctionToolCallEvent | FunctionToolResultEvent,
+                )
+                if isinstance(event, FunctionToolCallEvent):
+                    self._record_started(event)
+                elif isinstance(event, FunctionToolResultEvent):
+                    self._record_finished(event)
+                now = monotonic()
+                if (
+                    is_tool_event
+                    or now - self._last_publish_monotonic
+                    >= _DELEGATE_MODEL_PROGRESS_INTERVAL_SECONDS
+                ):
+                    await self._publish(usage=ctx.usage)
+                    self._last_publish_monotonic = now
+
+    def _record_started(self, event: FunctionToolCallEvent) -> None:
+        part = event.part
+        try:
+            arguments: Any = json.loads(part.args_as_json_str())
+        except Exception:  # noqa: BLE001 - defensive upstream event compatibility
+            arguments = getattr(part, "args", "")
+        call = _ActiveDelegateToolCall(
+            tool=str(getattr(part, "tool_name", "tool")),
+            call_id=event.tool_call_id,
+            arguments=_delegate_argument_hint(arguments),
+            started_at=datetime.now(UTC).isoformat(),
+            started_monotonic=monotonic(),
+        )
+        self._active[event.tool_call_id] = call
+        self._counts["started"] += 1
+        self._counts["unsettled"] = len(self._active)
+
+    def _record_finished(self, event: FunctionToolResultEvent) -> None:
+        part = event.part
+        call = self._active.pop(event.tool_call_id, None)
+        if isinstance(part, RetryPromptPart):
+            outcome = "invalid"
+            metadata_dict = {
+                "status": "failed",
+                "failure_kind": "tool_retry_prompt",
+            }
+            terminal_state = "failed"
+        else:
+            outcome = str(getattr(part, "outcome", "success") or "success")
+            metadata = getattr(part, "metadata", None)
+            metadata_dict = metadata if isinstance(metadata, dict) else {}
+            terminal_state = classify_tool_result_state(
+                outcome=outcome,
+                metadata=metadata_dict,
+            )
+        if terminal_state == "failed":
+            self._counts["failed"] += 1
+        else:
+            self._counts["completed"] += 1
+        if outcome == "invalid":
+            self._counts["invalid"] += 1
+        now = monotonic()
+        self._recent.append(
+            {
+                "tool": (
+                    call.tool
+                    if call is not None
+                    else str(getattr(part, "tool_name", "tool"))
+                ),
+                "call_id": event.tool_call_id,
+                "arguments": call.arguments if call is not None else "",
+                "started_at": call.started_at if call is not None else None,
+                "finished_at": datetime.now(UTC).isoformat(),
+                "duration_seconds": (
+                    max(0.0, now - call.started_monotonic) if call is not None else None
+                ),
+                "outcome": outcome,
+                "terminal_state": terminal_state,
+            }
+        )
+        self._recent = self._recent[-20:]
+        self._counts["unsettled"] = len(self._active)
+        if metadata_dict.get("failure_kind") == "repeated_tool_failure":
+            self._attention_published = True
+
+    async def _publish(self, *, usage: RunUsage) -> None:
+        health_status = "attention_required" if self._attention_published else "healthy"
+        await get_runtime_context().task_coordinator.publish_progress(
+            self._task.task_id,
+            metadata={
+                "active_tools": [
+                    {
+                        "tool": call.tool,
+                        "call_id": call.call_id,
+                        "arguments": call.arguments,
+                        "started_at": call.started_at,
+                    }
+                    for call in self._active.values()
+                ],
+                "recent_activity": list(self._recent),
+                "tool_call_counts": dict(self._counts),
+                "model_event_count": self._model_event_count,
+                "usage": _delegate_usage_metadata(usage),
+            },
+            health_status=health_status,
+        )
+        if self._attention_published and not self._attention_logged:
+            self._attention_logged = True
+            logger.add_sink("validation").warning(
+                "delegate_attention_required",
+                data={
+                    "event": "delegate_attention_required",
+                    "status": "attention_required",
+                    "task_id": self._task.task_id,
+                    "parent_task_id": self._task.parent_task_id,
+                    "detached_from_parent_lifecycle": self._task.detached_from_parent_lifecycle,
+                    "session_id": self._task.metadata.get("session_id"),
+                    "workflow_id": self._task.metadata.get("session_id"),
+                    "mode": self._task.metadata.get("mode"),
+                    "model": self._task.metadata.get("model"),
+                    "reason": "repeated_tool_failure",
+                    "issue": f"delegate_attention:{self._task.task_id}",
+                    "active_tool_names": [call.tool for call in self._active.values()],
+                    "tool_call_counts": dict(self._counts),
+                },
+            )
 
 
 class DelegateTool(BaseTool):
-    """Run a bounded child agent over a prompt with optional tools."""
+    """Run a supervised child agent over a prompt with optional tools."""
 
     @classmethod
     def get_tool(cls, vault_path: str | None = None) -> Tool:
         _vault_path = vault_path or ""
 
-        async def delegate(
-            ctx: RunContext,
-            prompt: str,
-            instructions: str | None = None,
-            model: str | None = None,
-            tools: list[str] | None = None,
-            options: dict | None = None,
+        async def _execute_delegate(
+            spec: DelegateLaunchSpec,
+            task: ExecutionTaskSnapshot,
+            progress: AgentRunProgress,
         ) -> ToolReturn:
-            """Run a focused child agent over a prompt with optional tools.
-
-            :param prompt: Primary prompt for the child agent.
-            :param instructions: Optional system-style instructions for the child agent.
-            :param model: Optional model alias.
-            :param tools: Optional list of tool names available to the child agent.
-            :param options: Optional controls: thinking.
-            """
-            session_id = getattr(ctx.deps, "session_id", None) or "delegate"
-
-            prompt = str(prompt or "").strip()
-            if not prompt:
-                raise ValueError("delegate requires a non-empty 'prompt'")
-
-            model_value = str(model).strip() if model else None
-            tool_names = _parse_tool_names(tools)
-            requested_thinking, max_tool_calls, timeout_seconds = _parse_options(
-                options or {}
-            )
-            repeated_failure_limit = get_delegate_repeated_failure_limit()
-
-            safe_tool_names = tuple(
-                n for n in tool_names if n not in _FORBIDDEN_CHILD_TOOLS
-            )
-            stripped = tuple(sorted(set(tool_names) - set(safe_tool_names)))
-
-            resolved_thinking, thinking_source = resolve_effective_thinking(
-                requested_thinking=requested_thinking,
-                default_thinking=get_default_model_thinking(),
-            )
+            session_id = spec.session_id
+            prompt = spec.prompt
+            model_value = spec.model
+            safe_tool_names = spec.tool_names
+            stripped = spec.stripped_tools
+            resolved_thinking = spec.resolved_thinking
+            thinking_source = spec.thinking_source
+            repeated_failure_limit = spec.repeated_failure_limit
+            timeout_seconds = spec.timeout_seconds
 
             logger.add_sink("validation").info(
                 "delegate_started",
                 data={
+                    "event": "delegate_started",
+                    "status": "started",
                     "workflow_id": session_id,
+                    "session_id": session_id,
+                    "task_id": task.task_id,
+                    "parent_task_id": task.parent_task_id,
+                    "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
+                    "mode": spec.mode,
                     "model": model_value or "default",
+                    "model_source": spec.model_source,
                     "tool_names": list(safe_tool_names),
                     "stripped_tools": list(stripped),
                     "resolved_thinking": thinking_value_to_label(resolved_thinking),
                     "thinking_source": thinking_source,
-                    "max_tool_calls": max_tool_calls,
                     "repeated_failure_limit": repeated_failure_limit,
                     "timeout_seconds": timeout_seconds,
                 },
             )
 
-            progress = AgentRunProgress()
+            progress_observer = _DelegateProgressObserver(task)
+            deadline = asyncio.timeout(_delegate_wait_timeout(timeout_seconds))
 
             try:
                 resolved_model = None
@@ -140,11 +367,10 @@ class DelegateTool(BaseTool):
 
                 tool_capabilities: list[Any] = []
                 if safe_tool_names:
-                    week_start_day = getattr(ctx.deps, "week_start_day", 0)
                     binding = resolve_tool_binding(
                         list(safe_tool_names),
-                        vault_path=_vault_path,
-                        week_start_day=week_start_day,
+                        vault_path=spec.vault_path,
+                        week_start_day=spec.week_start_day,
                     )
                     tool_capabilities = build_assistant_tools_capabilities(
                         tools=binding.tool_functions,
@@ -174,41 +400,29 @@ class DelegateTool(BaseTool):
                 )
                 _apply_delegate_instruction_layers(
                     agent,
-                    max_tool_calls=max_tool_calls,
-                    caller_instructions=instructions,
+                    caller_instructions=spec.instructions,
                 )
 
-                usage_limits = _delegate_usage_limits(max_tool_calls)
-                result = await asyncio.wait_for(
-                    _collect_delegate_response(
+                usage_limits = _delegate_usage_limits()
+                async with deadline:
+                    result = await _collect_delegate_response(
                         agent=agent,
                         prompt=prompt,
                         usage_limits=usage_limits,
                         allow_retry=not safe_tool_names,
                         session_id=session_id,
+                        task_id=task.task_id,
+                        parent_task_id=task.parent_task_id,
+                        mode=spec.mode,
                         model=model_value or "default",
                         progress=progress,
-                    ),
-                    timeout=_delegate_wait_timeout(timeout_seconds),
-                )
+                        event_stream_handler=progress_observer.handle_events,
+                    )
                 output = result.output
                 text = coerce_output_data(output)
                 audit = _build_child_run_audit(result.messages)
-            except asyncio.CancelledError:
-                _log_delegate_cancelled(
-                    session_id=session_id,
-                    model=model_value or "default",
-                    tool_names=safe_tool_names,
-                    max_tool_calls=max_tool_calls,
-                    repeated_failure_limit=repeated_failure_limit,
-                    timeout_seconds=timeout_seconds,
-                    progress=progress,
-                )
-                raise
             except UsageLimitExceeded as exc:
-                limit_context = _delegate_usage_limit_context(
-                    exc, max_tool_calls=max_tool_calls
-                )
+                limit_context = _delegate_usage_limit_context(exc)
                 classification = classify_exception(exc, phase="delegate_child_run")
                 classification = FailureClassification(
                     error_type=classification.error_type,
@@ -228,11 +442,13 @@ class DelegateTool(BaseTool):
                 )
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -240,6 +456,26 @@ class DelegateTool(BaseTool):
                     message=limit_context["message"],
                 )
             except TimeoutError as exc:
+                if not deadline.expired():
+                    classification = _delegate_runtime_failure_classification(exc)
+                    return _failed_delegate_return(
+                        session_id=session_id,
+                        task_id=task.task_id,
+                        parent_task_id=task.parent_task_id,
+                        mode=spec.mode,
+                        model=model_value or "default",
+                        tool_names=safe_tool_names,
+                        stripped_tools=stripped,
+                        thinking=thinking_value_to_label(resolved_thinking),
+                        timeout_seconds=timeout_seconds,
+                        repeated_failure_limit=repeated_failure_limit,
+                        progress=progress,
+                        classification=classification,
+                        message=(
+                            "Delegate stopped because the child run raised an internal "
+                            f"{type(exc).__name__}. {classification.suggested_action}"
+                        ),
+                    )
                 classification = FailureClassification(
                     error_type=type(exc).__name__,
                     failure_kind="delegate_timeout",
@@ -253,11 +489,13 @@ class DelegateTool(BaseTool):
                 )
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -270,26 +508,16 @@ class DelegateTool(BaseTool):
                     ),
                 )
             except Exception as exc:
-                classification = classify_exception(exc, phase="delegate_child_run")
-                if classification.failure_kind == "unknown":
-                    classification = FailureClassification(
-                        error_type=type(exc).__name__,
-                        failure_kind="delegate_internal",
-                        retryable=False,
-                        phase="delegate_child_run",
-                        message=str(exc),
-                        suggested_action=(
-                            "Inspect the delegate failure log and correct the model, tool binding, "
-                            "or child-run configuration before retrying."
-                        ),
-                    )
+                classification = _delegate_runtime_failure_classification(exc)
                 return _failed_delegate_return(
                     session_id=session_id,
+                    task_id=task.task_id,
+                    parent_task_id=task.parent_task_id,
+                    mode=spec.mode,
                     model=model_value or "default",
                     tool_names=safe_tool_names,
                     stripped_tools=stripped,
                     thinking=thinking_value_to_label(resolved_thinking),
-                    max_tool_calls=max_tool_calls,
                     timeout_seconds=timeout_seconds,
                     repeated_failure_limit=repeated_failure_limit,
                     progress=progress,
@@ -303,10 +531,10 @@ class DelegateTool(BaseTool):
             metadata: dict[str, Any] = {
                 "status": "completed",
                 "model": model_value or "default",
+                "model_source": spec.model_source,
                 "tool_names": list(safe_tool_names),
                 "thinking": thinking_value_to_label(resolved_thinking),
                 "output_chars": len(text),
-                "max_tool_calls": max_tool_calls,
                 "repeated_failure_limit": repeated_failure_limit,
                 "timeout_seconds": timeout_seconds,
                 "audit": audit,
@@ -318,13 +546,19 @@ class DelegateTool(BaseTool):
             logger.add_sink("validation").info(
                 "delegate_completed",
                 data={
+                    "event": "delegate_completed",
+                    "status": "completed",
                     "workflow_id": session_id,
+                    "session_id": session_id,
+                    "task_id": task.task_id,
+                    "parent_task_id": task.parent_task_id,
+                    "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
+                    "mode": spec.mode,
                     "model": model_value or "default",
                     "tool_names": list(safe_tool_names),
                     "output_chars": len(text),
                     "child_tool_call_count": audit["tool_call_count"],
                     "child_tool_error_count": audit["tool_error_count"],
-                    "max_tool_calls": max_tool_calls,
                     "timeout_seconds": timeout_seconds,
                     **_delegate_usage_metadata(progress.usage),
                 },
@@ -332,12 +566,319 @@ class DelegateTool(BaseTool):
 
             return ToolReturn(return_value=text, content=None, metadata=metadata)
 
+        async def delegate(
+            ctx: RunContext,
+            prompt: str,
+            instructions: str | None = None,
+            model: str | None = None,
+            tools: list[str] | None = None,
+            options: dict | None = None,
+            mode: Literal["blocking", "managed"] = "blocking",
+        ) -> ToolReturn:
+            """Run a focused child agent over a prompt with optional tools.
+
+            Blocking mode returns the completed child output. Managed mode returns
+            a process-local job handle immediately so independent work can continue,
+            including in later chat turns after the launching task ends.
+
+            :param prompt: Primary prompt for the child agent.
+            :param instructions: Optional system-style instructions for the child agent.
+            :param model: Optional model alias. Omit to inherit a calling chat's model or use the runtime default when no parent model is available.
+            :param tools: Optional list of tool names available to the child agent.
+            :param options: Optional controls: thinking.
+            :param mode: blocking or managed.
+            """
+            normalized_prompt = str(prompt or "").strip()
+            if not normalized_prompt:
+                raise ValueError("delegate requires a non-empty 'prompt'")
+            if mode not in {"blocking", "managed"}:
+                raise ValueError("delegate mode must be 'blocking' or 'managed'")
+
+            model_value, model_source = _resolve_delegate_model_value(model, ctx.deps)
+            requested_tools = tuple(name.lower() for name in _parse_tool_names(tools))
+            safe_tool_names = tuple(
+                name for name in requested_tools if name not in _FORBIDDEN_CHILD_TOOLS
+            )
+            stripped_tools = tuple(sorted(set(requested_tools) - set(safe_tool_names)))
+            requested_thinking, timeout_seconds = _parse_options(options or {})
+            resolved_thinking, thinking_source = resolve_effective_thinking(
+                requested_thinking=requested_thinking,
+                default_thinking=get_default_model_thinking(),
+            )
+            parent_task = get_current_execution_task()
+            if mode == "managed" and parent_task is None:
+                raise ValueError(
+                    "managed delegate mode requires an owning execution task"
+                )
+            authority = get_current_execution_authority() or LOCAL_USER_AUTHORITY
+            spec = DelegateLaunchSpec(
+                prompt=normalized_prompt,
+                instructions=instructions,
+                model=model_value,
+                model_source=model_source,
+                tool_names=safe_tool_names,
+                stripped_tools=stripped_tools,
+                resolved_thinking=resolved_thinking,
+                thinking_source=thinking_source,
+                vault_path=_vault_path,
+                week_start_day=int(getattr(ctx.deps, "week_start_day", 0) or 0),
+                session_id=str(getattr(ctx.deps, "session_id", None) or "delegate"),
+                authority=authority,
+                parent_task_id=parent_task.task_id if parent_task else None,
+                repeated_failure_limit=get_delegate_repeated_failure_limit(),
+                timeout_seconds=timeout_seconds,
+                mode=mode,
+            )
+            runtime = get_runtime_context()
+            completed_result: dict[str, ToolReturn] = {}
+            concurrency_limit = get_max_concurrent_delegates()
+            cancellation_published = False
+            cancellation_lock = asyncio.Lock()
+
+            async def _publish_cancelled(
+                task_id: str,
+                progress: AgentRunProgress | None = None,
+            ) -> None:
+                nonlocal cancellation_published
+                async with cancellation_lock:
+                    if cancellation_published:
+                        return
+                    task_snapshot = await runtime.task_coordinator.get_task(task_id)
+                    cancellation_reason = (
+                        task_snapshot.latest_event
+                        if task_snapshot is not None and task_snapshot.cancel_requested
+                        else None
+                    )
+                    cancellation_progress = progress or AgentRunProgress()
+                    await runtime.task_coordinator.record_result(
+                        task_id,
+                        _cancelled_delegate_result(
+                            model=spec.model or "default",
+                            tool_names=spec.tool_names,
+                            stripped_tools=spec.stripped_tools,
+                            thinking=thinking_value_to_label(spec.resolved_thinking),
+                            repeated_failure_limit=spec.repeated_failure_limit,
+                            timeout_seconds=spec.timeout_seconds,
+                            progress=cancellation_progress,
+                        ),
+                    )
+                    _log_delegate_cancelled(
+                        session_id=spec.session_id,
+                        task_id=task_id,
+                        parent_task_id=spec.parent_task_id,
+                        reason=cancellation_reason or "cancelled",
+                        mode=spec.mode,
+                        model=spec.model or "default",
+                        tool_names=spec.tool_names,
+                        repeated_failure_limit=spec.repeated_failure_limit,
+                        timeout_seconds=spec.timeout_seconds,
+                        progress=cancellation_progress,
+                    )
+                    cancellation_published = True
+
+            async def _on_queued(
+                task: ExecutionTaskSnapshot,
+                wait: ExecutionConcurrencyWait,
+            ) -> None:
+                logger.add_sink("validation").info(
+                    "delegate_concurrency_queued",
+                    data={
+                        "event": "delegate_concurrency_queued",
+                        "status": "queued",
+                        "workflow_id": spec.session_id,
+                        "session_id": spec.session_id,
+                        "task_id": task.task_id,
+                        "parent_task_id": task.parent_task_id,
+                        "detached_from_parent_lifecycle": task.detached_from_parent_lifecycle,
+                        "mode": spec.mode,
+                        "queue_position": wait.queue_position,
+                        "limit": concurrency_limit,
+                    },
+                )
+
+            async def _run(task: ExecutionTaskSnapshot) -> ExecutionTaskRunOutcome:
+                progress = AgentRunProgress()
+
+                async def _execute() -> ExecutionTaskRunOutcome:
+                    result = await _execute_delegate(spec, task, progress)
+                    completed_result["value"] = result
+                    return _delegate_execution_outcome(result)
+
+                try:
+                    outcome = await runtime.task_runner.run_with_concurrency(
+                        task,
+                        ExecutionConcurrencyPolicy(
+                            key="delegate",
+                            limit=concurrency_limit,
+                            queued_status="queued_for_delegate_slot",
+                            queued_metadata={
+                                "queue_reason": "delegate_concurrency_limit"
+                            },
+                            clear_metadata={
+                                "queue_reason": None,
+                                "queue_position": None,
+                                "active_task_ids": None,
+                            },
+                            on_queued=_on_queued,
+                        ),
+                        _execute,
+                    )
+                except asyncio.CancelledError:
+                    await _finish_cancellation_cleanup(
+                        _publish_cancelled(task.task_id, progress)
+                    )
+                    raise
+                if not isinstance(outcome, ExecutionTaskRunOutcome):
+                    raise RuntimeError("Delegate concurrency lane lost its run outcome")
+                return outcome
+
+            child_task = await runtime.task_runner.start_background(
+                ExecutionTaskSpec(
+                    kind=ExecutionTaskKind.DELEGATE,
+                    scope=f"delegate_parent:{spec.parent_task_id or spec.session_id}",
+                    source=ExecutionTaskSource.TOOL,
+                    label=f"delegate:{spec.session_id}",
+                    authority=spec.authority,
+                    metadata={
+                        "session_id": spec.session_id,
+                        "model": spec.model or "default",
+                        "model_source": spec.model_source,
+                        "mode": spec.mode,
+                        "tool_names": list(spec.tool_names),
+                    },
+                    parent_task_id=spec.parent_task_id,
+                    detached_from_parent_lifecycle=spec.mode == "managed",
+                ),
+                _run,
+                hooks=ExecutionTaskHooks(on_cancelled=_publish_cancelled),
+                start_immediately=False,
+            )
+            handle = {
+                "job_id": child_task.task_id,
+                "kind": child_task.kind,
+                "status": child_task.status,
+                "mode": "managed",
+                "process_local": True,
+            }
+            if mode == "managed":
+                return ToolReturn(return_value=handle, content=None, metadata=handle)
+
+            try:
+                terminal = await runtime.task_coordinator.wait_for_tasks(
+                    [child_task.task_id],
+                    timeout_seconds=None,
+                    terminal_or_attention_only=True,
+                    wake_on_attention=False,
+                )
+            except asyncio.CancelledError:
+                await runtime.task_coordinator.cancel_task(
+                    child_task.task_id,
+                    reason="delegate_parent_cancelled",
+                )
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(
+                            runtime.task_coordinator.wait_for_tasks(
+                                [child_task.task_id],
+                                timeout_seconds=5.0,
+                                terminal_or_attention_only=True,
+                                wake_on_attention=False,
+                            )
+                        ),
+                        timeout=5.0,
+                    )
+                except TimeoutError:
+                    pass
+                raise
+
+            direct_result = completed_result.get("value")
+            if direct_result is not None:
+                return direct_result
+            snapshot = terminal.snapshots[0] if terminal.snapshots else None
+            if snapshot is not None and snapshot.result is not None:
+                return _delegate_result_to_tool_return(snapshot.result)
+            raise RuntimeError(
+                f"Delegate execution task ended without a result: {child_task.task_id}"
+            )
+
         return Tool(
             delegate,
             takes_ctx=True,
             name="delegate",
-            description="Run a focused child agent over a prompt with optional tools.",
+            description=(
+                "Run a focused child agent over a prompt with optional tools. "
+                "Use managed mode for independent long-running work that may continue "
+                "after the launching task ends."
+            ),
         )
+
+
+def _delegate_execution_outcome(result: ToolReturn) -> ExecutionTaskRunOutcome:
+    metadata = result.metadata if isinstance(result.metadata, dict) else {}
+    status = str(metadata.get("status") or "completed")
+    failure_kind = str(metadata.get("failure_kind") or "") or None
+    if status != "failed":
+        terminal_status = ExecutionTaskStatus.COMPLETED
+    elif failure_kind == "delegate_timeout":
+        terminal_status = ExecutionTaskStatus.TIMED_OUT
+    else:
+        terminal_status = ExecutionTaskStatus.FAILED
+    references = metadata.get("handoff_references")
+    payload: dict[str, Any] = {
+        "return_value": result.return_value,
+        "content": result.content,
+        "metadata": metadata,
+    }
+    if isinstance(references, list):
+        payload["artifact_references"] = references
+    return ExecutionTaskRunOutcome(
+        value=payload,
+        status=terminal_status,
+        reason=failure_kind,
+        error_type=(str(metadata.get("error_type") or "") or None),
+    )
+
+
+def _delegate_result_to_tool_return(result: dict[str, Any]) -> ToolReturn:
+    return ToolReturn(
+        return_value=result.get("return_value", "Delegate result was truncated."),
+        content=result.get("content"),
+        metadata=result.get("metadata"),
+    )
+
+
+def _cancelled_delegate_result(
+    *,
+    model: str,
+    tool_names: tuple[str, ...],
+    stripped_tools: tuple[str, ...],
+    thinking: str,
+    repeated_failure_limit: int,
+    timeout_seconds: float,
+    progress: AgentRunProgress,
+) -> dict[str, Any]:
+    audit = _build_child_run_audit(progress.messages)
+    references = _child_run_references(progress.messages)
+    metadata: dict[str, Any] = {
+        "status": "cancelled",
+        "model": model,
+        "tool_names": list(tool_names),
+        "thinking": thinking,
+        "repeated_failure_limit": repeated_failure_limit,
+        "timeout_seconds": timeout_seconds,
+        "audit": audit,
+        "usage": _delegate_usage_metadata(progress.usage),
+        "partial_output": _partial_delegate_output(progress.output),
+        "handoff_references": references,
+    }
+    if stripped_tools:
+        metadata["stripped_tools"] = list(stripped_tools)
+    return {
+        "return_value": "Delegate cancelled.",
+        "content": None,
+        "metadata": metadata,
+        "artifact_references": references,
+    }
 
 
 async def _collect_delegate_response(
@@ -347,8 +888,12 @@ async def _collect_delegate_response(
     usage_limits: UsageLimits | None,
     allow_retry: bool,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    mode: str,
     model: str,
     progress: AgentRunProgress,
+    event_stream_handler: Any | None = None,
 ) -> Any:
     """Collect a child run, retrying only when replay cannot duplicate tools."""
     retry_policy = ModelStreamRetryPolicy.from_settings()
@@ -360,6 +905,7 @@ async def _collect_delegate_response(
                 usage_limits=usage_limits,
                 usage=progress.usage,
                 progress=progress,
+                event_stream_handler=event_stream_handler,
             )
         except Exception as exc:
             classification = classify_exception(exc, phase="delegate_child_run")
@@ -375,7 +921,13 @@ async def _collect_delegate_response(
                 "delegate_retry_scheduled",
                 data={
                     "event": "delegate_retry_scheduled",
+                    "status": "retry_scheduled",
                     "workflow_id": session_id,
+                    "session_id": session_id,
+                    "task_id": task_id,
+                    "parent_task_id": parent_task_id,
+                    "detached_from_parent_lifecycle": mode == "managed",
+                    "mode": mode,
                     "model": model,
                     "attempt": attempt,
                     "next_attempt": attempt + 1,
@@ -383,7 +935,9 @@ async def _collect_delegate_response(
                     "delay_seconds": delay_seconds,
                     "failure_kind": classification.failure_kind,
                     "error_type": classification.error_type,
+                    "error": bounded_failure_message(classification.message),
                     "replay_scope": "no_child_tools",
+                    "issue": f"delegate_retry:{task_id}:{attempt}",
                 },
             )
             await asyncio.sleep(delay_seconds)
@@ -393,11 +947,13 @@ async def _collect_delegate_response(
 def _failed_delegate_return(
     *,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    mode: str,
     model: str,
     tool_names: tuple[str, ...],
     stripped_tools: tuple[str, ...],
     thinking: str,
-    max_tool_calls: int,
     timeout_seconds: float,
     repeated_failure_limit: int,
     progress: AgentRunProgress,
@@ -419,7 +975,6 @@ def _failed_delegate_return(
         "tool_names": list(tool_names),
         "thinking": thinking,
         "output_chars": len(handoff_message),
-        "max_tool_calls": max_tool_calls,
         "repeated_failure_limit": repeated_failure_limit,
         "timeout_seconds": timeout_seconds,
         "audit": audit,
@@ -432,14 +987,21 @@ def _failed_delegate_return(
         metadata["stripped_tools"] = list(stripped_tools)
 
     log_data = {
+        "event": "delegate_failed",
+        "status": "failed",
         "workflow_id": session_id,
+        "session_id": session_id,
+        "task_id": task_id,
+        "parent_task_id": parent_task_id,
+        "detached_from_parent_lifecycle": mode == "managed",
+        "mode": mode,
         "model": model,
         "tool_names": list(tool_names),
         "error_type": classification.error_type,
         "failure_kind": classification.failure_kind,
         "retryable": classification.retryable,
+        "error": message,
         "error_message": message,
-        "max_tool_calls": max_tool_calls,
         "repeated_failure_limit": repeated_failure_limit,
         "timeout_seconds": timeout_seconds,
         "suggested_action": classification.suggested_action,
@@ -461,12 +1023,34 @@ def _failed_delegate_return(
     return ToolReturn(return_value=handoff_message, content=None, metadata=metadata)
 
 
+def _delegate_runtime_failure_classification(
+    exc: Exception,
+) -> FailureClassification:
+    classification = classify_exception(exc, phase="delegate_child_run")
+    if classification.failure_kind != "unknown":
+        return classification
+    return FailureClassification(
+        error_type=type(exc).__name__,
+        failure_kind="delegate_internal",
+        retryable=False,
+        phase="delegate_child_run",
+        message=str(exc),
+        suggested_action=(
+            "Inspect the delegate failure log and correct the model, tool binding, "
+            "or child-run configuration before retrying."
+        ),
+    )
+
+
 def _log_delegate_cancelled(
     *,
     session_id: str,
+    task_id: str,
+    parent_task_id: str | None,
+    reason: str,
+    mode: str,
     model: str,
     tool_names: tuple[str, ...],
-    max_tool_calls: int,
     repeated_failure_limit: int,
     timeout_seconds: float,
     progress: AgentRunProgress,
@@ -476,10 +1060,17 @@ def _log_delegate_cancelled(
     logger.add_sink("validation").info(
         "delegate_cancelled",
         data={
+            "event": "delegate_cancelled",
+            "status": "cancelled",
             "workflow_id": session_id,
+            "session_id": session_id,
+            "task_id": task_id,
+            "parent_task_id": parent_task_id,
+            "detached_from_parent_lifecycle": mode == "managed",
+            "reason": reason,
+            "mode": mode,
             "model": model,
             "tool_names": list(tool_names),
-            "max_tool_calls": max_tool_calls,
             "repeated_failure_limit": repeated_failure_limit,
             "timeout_seconds": timeout_seconds,
             "partial_message_count": audit["message_count"],
@@ -491,47 +1082,25 @@ def _log_delegate_cancelled(
     )
 
 
-def _delegate_usage_limit_context(
-    exc: UsageLimitExceeded, *, max_tool_calls: int
-) -> dict[str, Any]:
+def _delegate_usage_limit_context(exc: UsageLimitExceeded) -> dict[str, Any]:
     """Return model-visible details for a delegate child usage-limit failure."""
-    error_text = str(exc)
-    if "request_limit" in error_text:
-        limit = get_delegate_model_requests_limit()
-        limit_label = f" of {limit}" if limit > 0 else ""
-        return {
-            "limit_kind": "model_requests",
-            "limit_setting": "delegate_model_requests_limit",
-            "limit": limit,
-            "suggested_action": (
-                "Do not retry the same broad delegation. Split the work into smaller child runs, "
-                "ask each child to return a compact summary or saved artifact path, and checkpoint "
-                "progress with goal_ops before continuing."
-            ),
-            "message": (
-                f"Delegate stopped because the child agent reached its model-request limit{limit_label}. "
-                "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls "
-                "scoped by path, query, source group, or hypothesis; have each child return a compact summary "
-                "or saved artifact path; and checkpoint progress with goal_ops before continuing."
-            ),
-        }
-
-    limit = max_tool_calls
+    del exc
+    limit = get_delegate_model_requests_limit()
     limit_label = f" of {limit}" if limit > 0 else ""
     return {
-        "limit_kind": "tool_calls",
-        "limit_setting": "delegate_tool_calls_limit",
+        "limit_kind": "model_requests",
+        "limit_setting": "delegate_model_requests_limit",
         "limit": limit,
         "suggested_action": (
-            "Do not retry the same broad delegation. Split the work into smaller child runs, use direct "
-            "deterministic tools for simple retrieval, and checkpoint progress with goal_ops before continuing."
+            "Do not retry the same broad delegation. Split the work into smaller child runs, "
+            "ask each child to return a compact summary or saved artifact path, and checkpoint "
+            "progress with goal_ops before continuing."
         ),
         "message": (
-            f"Delegate stopped because the child agent exceeded its tool-call limit{limit_label}. "
-            "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls scoped "
-            "by path, query, source group, or hypothesis; use direct deterministic tools for simple retrieval; "
-            "have each child return a compact summary or saved artifact path; and checkpoint progress with "
-            "goal_ops before continuing."
+            f"Delegate stopped because the child agent reached its model-request limit{limit_label}. "
+            "Do not retry the same broad delegation unchanged. Split the work into smaller delegate calls "
+            "scoped by path, query, source group, or hypothesis; have each child return a compact summary "
+            "or saved artifact path; and checkpoint progress with goal_ops before continuing."
         ),
     }
 
@@ -559,10 +1128,7 @@ def _build_child_run_audit(messages: Sequence[ModelMessage]) -> dict[str, Any]:
                     "tool": part.tool_name,
                     "call_id": part.tool_call_id,
                     "settled": False,
-                    "arguments": _compact_value(
-                        part.args,
-                        max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS,
-                    ),
+                    "arguments": _delegate_argument_hint(part.args),
                 }
                 if len(tool_calls) < DELEGATE_AUDIT_MAX_TOOL_CALLS:
                     tool_calls.append(call)
@@ -731,6 +1297,49 @@ def _compact_value(value: Any, *, max_chars: int) -> str:
     return f"{text[:max_chars]}...[truncated {len(text) - max_chars} chars]"
 
 
+def _delegate_argument_hint(value: Any) -> str:
+    """Expose useful routing hints without retaining arbitrary tool payloads."""
+    parsed = value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            return "<unstructured arguments>"
+    if not isinstance(parsed, dict):
+        return f"<arguments type={type(parsed).__name__}>"
+
+    hint: dict[str, Any] = {}
+    for key, item in parsed.items():
+        normalized_key = str(key).strip().lower()
+        if normalized_key not in _DELEGATE_VISIBLE_ARGUMENT_KEYS:
+            continue
+        hint[str(key)] = (
+            _sanitize_url_argument_hint(item)
+            if normalized_key in {"url", "urls"}
+            else item
+        )
+    hidden_keys = sorted(
+        str(key)
+        for key in parsed
+        if str(key).strip().lower() not in _DELEGATE_VISIBLE_ARGUMENT_KEYS
+    )
+    if hidden_keys:
+        hint["other_keys"] = hidden_keys
+    return _compact_value(hint, max_chars=DELEGATE_AUDIT_MAX_ARGUMENT_CHARS)
+
+
+def _sanitize_url_argument_hint(value: Any) -> Any:
+    if isinstance(value, str):
+        return sanitize_url_for_log(value)
+    if isinstance(value, dict):
+        return {
+            str(key): _sanitize_url_argument_hint(item) for key, item in value.items()
+        }
+    if isinstance(value, list | tuple | set):
+        return [_sanitize_url_argument_hint(item) for item in value]
+    return f"<{type(value).__name__}>"
+
+
 def _looks_like_tool_error(text: str) -> bool:
     lowered = text.strip().lower()
     if lowered.startswith(("error:", "error ", "failed:", "failure:")):
@@ -749,6 +1358,20 @@ def _looks_like_tool_error(text: str) -> bool:
     )
 
 
+def _resolve_delegate_model_value(
+    requested_model: str | None,
+    deps: Any,
+) -> tuple[str | None, Literal["explicit", "parent", "runtime_default"]]:
+    """Resolve an explicit child model, then a parent chat model, then runtime default."""
+    explicit_model = str(requested_model or "").strip()
+    if explicit_model:
+        return explicit_model, "explicit"
+    parent_model = str(getattr(deps, "model_alias", None) or "").strip()
+    if parent_model:
+        return parent_model, "parent"
+    return None, "runtime_default"
+
+
 def _parse_tool_names(tools: Any) -> tuple[str, ...]:
     if tools is None:
         return ()
@@ -764,7 +1387,7 @@ def _parse_tool_names(tools: Any) -> tuple[str, ...]:
     raise ValueError("delegate tools must be a list or tuple of strings when provided")
 
 
-def _parse_options(options: dict[str, Any]) -> tuple[object, int, float]:
+def _parse_options(options: dict[str, Any]) -> tuple[object, float]:
     unknown = sorted(set(options) - _SUPPORTED_OPTION_KEYS)
     if unknown:
         raise ValueError(f"Unsupported delegate options: {', '.join(unknown)}")
@@ -776,43 +1399,24 @@ def _parse_options(options: dict[str, Any]) -> tuple[object, int, float]:
             options["thinking"], source_name="delegate option 'thinking'"
         )
 
-    return (
-        requested_thinking,
-        get_delegate_tool_calls_limit(),
-        get_delegate_timeout_seconds(),
-    )
+    return requested_thinking, get_delegate_timeout_seconds()
 
 
-def _delegate_usage_limits(max_tool_calls: int) -> UsageLimits | None:
+def _delegate_usage_limits() -> UsageLimits:
     model_requests_limit = get_delegate_model_requests_limit()
     return UsageLimits(
         request_limit=model_requests_limit if model_requests_limit > 0 else None,
-        tool_calls_limit=max_tool_calls if max_tool_calls > 0 else None,
+        tool_calls_limit=None,
     )
-
-
-def _delegate_flight_card(max_tool_calls: int) -> str:
-    if max_tool_calls > 0:
-        budget_instruction = (
-            f"This run has a maximum of {max_tool_calls} total tool calls. "
-            "Finish tool use early enough to synthesize the compact handoff."
-        )
-    else:
-        budget_instruction = (
-            "The configured tool-call limit is disabled for this run. "
-            "Keep tool use bounded to the smallest set needed for the deliverable."
-        )
-    return f"{DELEGATE_FLIGHT_CARD.strip()}\n- {budget_instruction}"
 
 
 def _apply_delegate_instruction_layers(
     agent: Any,
     *,
-    max_tool_calls: int,
     caller_instructions: str | None,
 ) -> None:
     """Register delegate layers in the same base-before-specific order as chat."""
-    agent.instructions(_delegate_flight_card(max_tool_calls))
+    agent.instructions(DELEGATE_FLIGHT_CARD.strip())
     if caller_instructions:
         agent.instructions(caller_instructions)
 

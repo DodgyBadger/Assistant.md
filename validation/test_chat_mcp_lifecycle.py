@@ -1,4 +1,4 @@
-"""Focused lease-ownership tests for chat preparation."""
+"""Focused tests for primary chat preparation."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ _TEST_ROOT = Path("/tmp/assistantmd-chat-mcp-lifecycle-tests")
 set_bootstrap_roots(_TEST_ROOT / "data", _TEST_ROOT / "system")
 
 import core.chat.executor as executor  # noqa: E402
+from core.constants import DEFERRED_REVIEW_RESUME_INSTRUCTION  # noqa: E402
 from core.llm.capabilities.mcp_tools import MCPChatCapabilities  # noqa: E402
 from core.mcp import MCPReadinessSnapshot  # noqa: E402
 
@@ -32,6 +33,14 @@ class _ChatStore:
     def get_session_workspace_path(self, session_id: str, vault_name: str) -> Path:
         del session_id, vault_name
         return Path("/tmp/assistantmd-chat-mcp-lifecycle")
+
+
+class _InstructionAgent:
+    def __init__(self) -> None:
+        self.instruction_values: list[str] = []
+
+    def instructions(self, provider: Any) -> None:
+        self.instruction_values.append(str(provider()))
 
 
 def _patch_preparation_until_shell(
@@ -106,3 +115,47 @@ async def test_deferred_preparation_releases_mcp_snapshot_on_shell_failure(
         )
 
     assert snapshot.close_count == 1
+
+
+@pytest.mark.asyncio
+async def test_deferred_preparation_registers_review_resume_notice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agent = _InstructionAgent()
+
+    async def no_mcp() -> None:
+        return None
+
+    async def no_shell() -> None:
+        return None
+
+    async def create_test_agent(**_kwargs: Any) -> _InstructionAgent:
+        return agent
+
+    monkeypatch.setattr(executor, "_CHAT_STORE", _ChatStore())
+    monkeypatch.setattr(
+        executor,
+        "_prepare_agent_config",
+        lambda *_args, **_kwargs: ("base", "tools", object(), []),
+    )
+    monkeypatch.setattr(executor, "_acquire_chat_mcp_capabilities", no_mcp)
+    monkeypatch.setattr(executor, "_acquire_primary_chat_advanced_shell_tool", no_shell)
+    monkeypatch.setattr(executor, "build_chat_capabilities", lambda **_kwargs: [])
+    monkeypatch.setattr(executor, "create_agent", create_test_agent)
+
+    prepared = await executor._prepare_deferred_review_resume_execution(
+        vault_name="vault",
+        vault_path="/tmp/vault",
+        session_id="session",
+        tools=[],
+        model="test-model",
+        message_history=[],
+        deferred_tool_results=cast(DeferredToolResults, object()),
+    )
+
+    assert prepared.agent is agent
+    assert agent.instruction_values == [
+        "base",
+        "tools",
+        DEFERRED_REVIEW_RESUME_INSTRUCTION,
+    ]

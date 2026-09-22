@@ -7,6 +7,7 @@ from core.identity import AuthorizationService, require_current_execution_author
 from .execution_tasks import (
     ExecutionTaskCancellationResult,
     ExecutionTaskSnapshot,
+    ExecutionTaskWaitResult,
     TaskCoordinator,
 )
 
@@ -62,3 +63,33 @@ class ExecutionTaskAccessService:
         if await self.get_task(task_id) is None:
             return None
         return await self._coordinator.cancel_task(task_id, reason=reason)
+
+    async def wait_for_tasks(
+        self,
+        task_ids: list[str],
+        *,
+        timeout_seconds: float,
+    ) -> ExecutionTaskWaitResult:
+        """Wait for accessible tasks to finish or request attention."""
+        initial = [
+            snapshot
+            for task_id in dict.fromkeys(task_ids)
+            if (snapshot := await self.get_task(task_id)) is not None
+        ]
+        result = await self._coordinator.wait_for_tasks(
+            [snapshot.task_id for snapshot in initial],
+            after_revisions={
+                snapshot.task_id: snapshot.revision for snapshot in initial
+            },
+            timeout_seconds=timeout_seconds,
+            terminal_or_attention_only=True,
+        )
+        accessible = [
+            snapshot
+            for snapshot in result.snapshots
+            if await self.get_task(snapshot.task_id) is not None
+        ]
+        return ExecutionTaskWaitResult(
+            snapshots=tuple(accessible),
+            timed_out=result.timed_out,
+        )

@@ -6,7 +6,7 @@ import importlib
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, get_type_hints
 
 from pydantic_ai import RunContext, Tool
 from pydantic_ai.messages import ToolReturn
@@ -434,7 +434,10 @@ def _wrap_tool_function(
 
     wrapper.__name__ = getattr(original_func, "__name__", tool_name)
     wrapper.__doc__ = getattr(original_func, "__doc__", None)
-    annotations = dict(getattr(original_func, "__annotations__", {}) or {})
+    try:
+        annotations = get_type_hints(original_func, include_extras=True)
+    except (NameError, TypeError):
+        annotations = dict(getattr(original_func, "__annotations__", {}) or {})
     if not original_takes_ctx:
         annotations["ctx"] = RunContext
     wrapper.__annotations__ = annotations

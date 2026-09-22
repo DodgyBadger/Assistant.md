@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted, and superseded in part by [0047 - Supervise Delegates As Process-Local Jobs](0047-supervise-delegates-as-process-local-jobs.md) for tool-call limits and progress visibility.
 
 ## Context
 

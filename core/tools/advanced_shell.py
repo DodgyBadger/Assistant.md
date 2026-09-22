@@ -339,7 +339,10 @@ class FixedSshShellExecutor:
                         "Advanced shell process cleanup failed",
                         data={
                             "event": "advanced_shell_process_cleanup_failed",
+                            "status": "failed",
                             "error_type": type(exc).__name__,
+                            "error": str(exc)[:500],
+                            "issue": "advanced_shell_process_cleanup",
                         },
                     )
             if process is not None and process.stdin is not None:
@@ -481,6 +484,8 @@ class AdvancedShell(BaseTool):
                         "status": "failed",
                         **task_data,
                         "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                        "issue": task_data["task_id"],
                         "duration_seconds": round(time.monotonic() - started_at, 3),
                     },
                 )

@@ -109,6 +109,7 @@ async def process_ingestion_job_now(
             "Immediate ingestion task failed",
             data={
                 "event": "ingestion_immediate_processing_failed",
+                "status": "failed",
                 "job_id": job_id,
                 "vault_name": vault,
                 "source": source.value,

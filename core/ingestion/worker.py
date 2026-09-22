@@ -60,7 +60,14 @@ class IngestionWorker:
                 )
                 self.logger.error(
                     "Failed to start ingestion task",
-                    metadata={"job_id": job.id, "error": str(exc)},
+                    data={
+                        "event": "ingestion_task_start_failed",
+                        "status": "failed",
+                        "job_id": job.id,
+                        "vault_name": job.vault,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                    },
                 )
         await asyncio.gather(
             *(self._wait_for_task_terminal(task.task_id) for task in tracked_tasks)
@@ -97,5 +104,12 @@ class IngestionWorker:
     async def _log_job_failure(self, job_id: int, exc: BaseException) -> None:
         self.logger.error(
             "Failed to process ingestion job",
-            metadata={"job_id": job_id, "error": str(exc)},
+            data={
+                "event": "ingestion_task_failed",
+                "status": "failed",
+                "job_id": job_id,
+                "vault_name": self._job_vault(job_id),
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+            },
         )

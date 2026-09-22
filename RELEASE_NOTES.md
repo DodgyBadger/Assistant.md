@@ -1,5 +1,21 @@
 # Release Notes
 
+## v0.8.1
+
+### Further hardening of long-running work
+
+Assistant.md has steadily improved its ability to handle long, tool-heavy work across extended chats, browser disconnections, and background tasks. This release continues that reliability work with supervised delegated agents, stronger stalled-stream handling, and faster chat reconnection.
+
+- Long-running delegated work can continue in the background across chat turns. The assistant can share a job ID, keep doing independent work, check progress and results, wait when the result is needed, or cancel work that is no longer useful. Managed job state is temporary and does not survive an application restart.
+- Assistant.md has retired fixed tool-call ceilings as the way to control delegated work because they could stop healthy research simply for requiring many useful steps. Delegates are instead supervised through visible progress and cancellation, targeted safeguards for running time, model requests, and repeated failures, and a configurable concurrency limit that keeps excess work queued. They also inherit the current chat model unless another is requested.
+- System Activity now records searchable delegate and background-task lifecycle details, including chat session, parent task, detached state, queueing, cancellation reasons, and concise failures, while high-frequency progress updates stay out of the user-facing log.
+- Reconnecting to a detached chat session is now much faster: the partial answer, reasoning, tool progress, and any review card are restored together before live streaming resumes, including after a long disconnection.
+- Chats no longer remain stuck indefinitely when a model provider stays connected but stops producing output. Genuine long-running tool calls remain visible and are not mistaken for a stalled model, while retry exhaustion and invalid custom-provider URLs surface as clear failures.
+
+### Respect edits made during approval
+
+- When a user edits proposed inputs in an inline approval card, the resumed assistant now treats the operation that actually ran and the resulting vault files as authoritative, avoiding follow-up based on the original proposal.
+
 ## v0.8.0
 
 v0.8.0 makes Assistant.md extensible beyond its built-in tools. It can connect to remote MCP services, run local stdio MCP providers in an optional advanced Linux environment, and search and read Gmail or create unsent drafts through a first-class connection. This release also adds encrypted credential storage and explicit deployment access controls.

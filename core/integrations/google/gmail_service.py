@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from uuid import uuid4
 
 from core.connections import (
     BuiltInConnectionService,
@@ -112,14 +113,17 @@ class GmailResourceService:
         requested = max_results or preferences.search_default_results
         effective = min(requested, preferences.search_max_results)
         capped = requested > effective
+        operation_id = uuid4().hex
         logger.info(
             "Gmail search started",
             data={
                 "event": "gmail_search_started",
+                "status": "started",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "max_results": effective,
                 "request_capped": capped,
+                "operation_id": operation_id,
             },
         )
         try:
@@ -127,16 +131,24 @@ class GmailResourceService:
                 query=query, max_results=effective
             )
         except Exception as exc:
-            _log_failure("search", authority, exc)
+            _log_failure(
+                "search",
+                authority,
+                exc,
+                connection_id=selected.connection_id,
+                operation_id=operation_id,
+            )
             raise
         logger.info(
             "Gmail search completed",
             data={
                 "event": "gmail_search_completed",
+                "status": "completed",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "result_count": result.result_count,
                 "partial": result.partial,
+                "operation_id": operation_id,
             },
         )
         return result, capped
@@ -149,23 +161,42 @@ class GmailResourceService:
         connection: str | None = None,
     ) -> GmailMessage:
         selected, preferences = self._preferences(authority, connection)
+        operation_id = uuid4().hex
+        logger.info(
+            "Gmail message read started",
+            data={
+                "event": "gmail_message_read_started",
+                "status": "started",
+                "principal_id": authority.principal_id,
+                "connection_id": selected.connection_id,
+                "operation_id": operation_id,
+            },
+        )
         try:
             result = await self._client(authority, selected.connection_id).get_message(
                 message_id, max_characters=preferences.message_max_characters
             )
         except Exception as exc:
-            _log_failure("get_message", authority, exc)
+            _log_failure(
+                "get_message",
+                authority,
+                exc,
+                connection_id=selected.connection_id,
+                operation_id=operation_id,
+            )
             raise
         logger.info(
             "Gmail message read completed",
             data={
                 "event": "gmail_message_read_completed",
+                "status": "completed",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "text_characters": len(result.text),
                 "text_truncated": result.text_truncated,
                 "attachment_count": len(result.attachments),
                 "attachments_truncated": result.attachments_truncated,
+                "operation_id": operation_id,
             },
         )
         return result
@@ -178,6 +209,17 @@ class GmailResourceService:
         connection: str | None = None,
     ) -> GmailThread:
         selected, preferences = self._preferences(authority, connection)
+        operation_id = uuid4().hex
+        logger.info(
+            "Gmail thread read started",
+            data={
+                "event": "gmail_thread_read_started",
+                "status": "started",
+                "principal_id": authority.principal_id,
+                "connection_id": selected.connection_id,
+                "operation_id": operation_id,
+            },
+        )
         try:
             result = await self._client(authority, selected.connection_id).get_thread(
                 thread_id,
@@ -185,17 +227,25 @@ class GmailResourceService:
                 max_characters=preferences.message_max_characters,
             )
         except Exception as exc:
-            _log_failure("get_thread", authority, exc)
+            _log_failure(
+                "get_thread",
+                authority,
+                exc,
+                connection_id=selected.connection_id,
+                operation_id=operation_id,
+            )
             raise
         logger.info(
             "Gmail thread read completed",
             data={
                 "event": "gmail_thread_read_completed",
+                "status": "completed",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "message_count": len(result.messages),
                 "omitted_message_count": result.omitted_message_count,
                 "truncated": result.truncated,
+                "operation_id": operation_id,
             },
         )
         return result
@@ -210,11 +260,13 @@ class GmailResourceService:
     ) -> GmailAttachmentDownload:
         """Authorize and download one bounded PDF attachment."""
         selected, preferences = self._preferences(authority, connection)
+        operation_id = uuid4().hex
         if not preferences.attachment_download_enabled:
             logger.info(
                 "Gmail attachment download denied by connection policy",
                 data={
                     "event": "gmail_attachment_download_disabled",
+                    "status": "rejected",
                     "principal_id": authority.principal_id,
                     "connection_id": selected.connection_id,
                 },
@@ -227,9 +279,11 @@ class GmailResourceService:
             "Gmail attachment download started",
             data={
                 "event": "gmail_attachment_download_started",
+                "status": "started",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "max_bytes": limit,
+                "operation_id": operation_id,
             },
         )
         try:
@@ -255,16 +309,19 @@ class GmailResourceService:
                 authority,
                 exc,
                 connection_id=selected.connection_id,
+                operation_id=operation_id,
             )
             raise
         logger.info(
             "Gmail attachment download completed",
             data={
                 "event": "gmail_attachment_download_completed",
+                "status": "completed",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "content_bytes": len(content),
                 "declared_bytes": attachment.declared_size,
+                "operation_id": operation_id,
             },
         )
         return GmailAttachmentDownload(attachment=attachment, content=content)
@@ -279,8 +336,15 @@ class GmailResourceService:
     ) -> GmailDraft:
         """Create one bounded plain-text draft under explicit connection policy."""
         selected = self._resolve_connection(authority, connection)
+        operation_id = uuid4().hex
         preferences = selected.gmail
         if not preferences.draft_creation_enabled:
+            _log_rejection(
+                "create_draft",
+                authority,
+                connection_id=selected.connection_id,
+                reason="draft_creation_disabled",
+            )
             raise GmailConfigurationError(
                 "Gmail draft creation is disabled for this connection."
             )
@@ -288,22 +352,42 @@ class GmailResourceService:
             authority, GoogleCapability.GMAIL_COMPOSE, selected.connection_id
         )
         if not availability.available:
+            _log_rejection(
+                "create_draft",
+                authority,
+                connection_id=selected.connection_id,
+                reason="compose_permission_missing",
+            )
             raise GmailConfigurationError(
                 "Gmail draft creation requires adding Gmail compose permission."
             )
         if len(body) > preferences.draft_max_characters:
+            _log_rejection(
+                "create_draft",
+                authority,
+                connection_id=selected.connection_id,
+                reason="body_too_large",
+            )
             raise GmailRequestError(
                 "Gmail draft body exceeds this connection's character limit."
             )
         if not body:
+            _log_rejection(
+                "create_draft",
+                authority,
+                connection_id=selected.connection_id,
+                reason="body_empty",
+            )
             raise GmailRequestError("Gmail draft body cannot be empty.")
         logger.info(
             "Gmail draft creation started",
             data={
                 "event": "gmail_draft_creation_started",
+                "status": "started",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "body_characters": len(body),
+                "operation_id": operation_id,
             },
         )
         try:
@@ -312,16 +396,22 @@ class GmailResourceService:
             )
         except Exception as exc:
             _log_failure(
-                "create_draft", authority, exc, connection_id=selected.connection_id
+                "create_draft",
+                authority,
+                exc,
+                connection_id=selected.connection_id,
+                operation_id=operation_id,
             )
             raise
         logger.info(
             "Gmail draft creation completed",
             data={
                 "event": "gmail_draft_creation_completed",
+                "status": "completed",
                 "principal_id": authority.principal_id,
                 "connection_id": selected.connection_id,
                 "body_characters": len(body),
+                "operation_id": operation_id,
             },
         )
         return draft
@@ -379,16 +469,46 @@ def _log_failure(
     exc: Exception,
     *,
     connection_id: str | None = None,
+    operation_id: str,
 ) -> None:
     logger.warning(
         "Gmail resource operation failed",
         data={
             "event": "gmail_resource_failed",
+            "status": "failed",
             "principal_id": authority.principal_id,
             "operation": operation,
             "connection_id": connection_id,
+            "operation_id": operation_id,
+            "issue": f"gmail_resource_failed:{operation_id}",
             "error_type": type(exc).__name__,
+            "error": _bounded_error(exc),
             "category": getattr(exc, "category", "unknown"),
             "retryable": bool(getattr(exc, "retryable", False)),
         },
     )
+
+
+def _log_rejection(
+    operation: str,
+    authority: ExecutionAuthority,
+    *,
+    connection_id: str,
+    reason: str,
+) -> None:
+    logger.info(
+        "Gmail resource operation rejected",
+        data={
+            "event": "gmail_resource_rejected",
+            "status": "rejected",
+            "principal_id": authority.principal_id,
+            "operation": operation,
+            "connection_id": connection_id,
+            "reason": reason,
+        },
+    )
+
+
+def _bounded_error(exc: Exception, limit: int = 500) -> str:
+    error = " ".join(str(exc).splitlines())
+    return error if len(error) <= limit else f"{error[:limit]}..."

@@ -653,12 +653,14 @@ function parseSseEvent(rawEvent) {
     }
 }
 
-function applyChatStreamPayload(payload, assistantMessage) {
+function applyChatStreamPayload(payload, assistantMessage, options = {}) {
+    const { render = true } = options;
     const eventType = payload.event || 'delta';
     if (eventType === 'delta') {
         const delta = payload.choices?.[0]?.delta?.content;
         if (delta) {
-            appendAssistantDelta(assistantMessage, delta);
+            appendAssistantDelta(assistantMessage, delta, { render });
+            setAssistantStatus(assistantMessage, 'Assistant is responding', 'thinking');
         }
         return { finished: false, messageCount: 0 };
     }
@@ -666,21 +668,22 @@ function applyChatStreamPayload(payload, assistantMessage) {
     if (eventType === 'thinking_delta') {
         const delta = payload.delta?.content;
         if (delta) {
-            appendAssistantThinkingDelta(assistantMessage, delta);
+            appendAssistantThinkingDelta(assistantMessage, delta, { render });
+            setAssistantStatus(assistantMessage, 'Assistant is responding', 'thinking');
         }
         return { finished: false, messageCount: 0 };
     }
 
     if (eventType === 'chat_retry_scheduled') {
         if (payload.reset_response) {
-            chatRendering.resetAssistantStream(assistantMessage);
+            chatRendering.resetAssistantStream(assistantMessage, { render });
         }
         return { finished: false, messageCount: 0 };
     }
 
     if (eventType === 'chat_retry_redirect') {
         if (payload.reset_response) {
-            chatRendering.resetAssistantStream(assistantMessage);
+            chatRendering.resetAssistantStream(assistantMessage, { render });
         }
         return {
             finished: false,
@@ -725,7 +728,9 @@ function applyChatStreamPayload(payload, assistantMessage) {
         const errorDelta = payload.choices?.[0]?.delta?.content;
         if (errorDelta) {
             assistantMessage.fullText += `\n\n${errorDelta}`;
-            renderAssistantMarkdown(assistantMessage);
+            if (render) {
+                renderAssistantMarkdown(assistantMessage);
+            }
         }
         assistantMessage.errorMessages.push(errorDelta || 'Unknown streaming error.');
         setAssistantStatus(assistantMessage, 'Something went wrong', 'error');
@@ -738,12 +743,13 @@ function applyChatStreamPayload(payload, assistantMessage) {
 function applyConsumedChatStreamEvent(
     payload,
     assistantMessage,
-    { currentTaskId, lastSequence, messageCount, finishReason }
+    { currentTaskId, lastSequence, messageCount, finishReason },
+    options = {}
 ) {
     const nextSequence = Number.isInteger(payload.sequence)
         ? Math.max(lastSequence, payload.sequence)
         : lastSequence;
-    const result = applyChatStreamPayload(payload, assistantMessage);
+    const result = applyChatStreamPayload(payload, assistantMessage, options);
     return {
         currentTaskId: result.nextTaskId || currentTaskId,
         lastSequence: result.nextTaskId ? 0 : nextSequence,
@@ -756,14 +762,109 @@ function applyConsumedChatStreamEvent(
     };
 }
 
-async function consumeChatTaskEvents(taskId, assistantMessage, abortController) {
-    let currentTaskId = taskId;
-    let lastSequence = 0;
-    let messageCount = 0;
+async function fetchChatTaskReplaySnapshot(taskId, signal) {
+    const response = await fetch(
+        `api/chat/tasks/${encodeURIComponent(taskId)}/replay-snapshot`,
+        { cache: 'no-store', signal }
+    );
+    if (response.status === 404 || response.status === 410) {
+        return null;
+    }
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+async function hydrateChatTaskReplaySnapshot(
+    taskId,
+    assistantMessage,
+    abortController,
+    { reset = false } = {}
+) {
+    const snapshot = await fetchChatTaskReplaySnapshot(taskId, abortController.signal);
+    if (!snapshot) return null;
+    if (snapshot.available === false) return null;
+    if (reset) {
+        chatRendering.resetAssistantStream(assistantMessage, {
+            render: false,
+            showReconnectStatus: false,
+        });
+    }
+
+    let accumulator = {
+        currentTaskId: taskId,
+        lastSequence: 0,
+        messageCount: 0,
+        finishReason: '',
+    };
     let finished = false;
-    let finishReason = '';
+    let eventGap = false;
+    let redirected = false;
+    for (const payload of snapshot.events || []) {
+        const transition = applyConsumedChatStreamEvent(
+            payload,
+            assistantMessage,
+            accumulator,
+            { render: false }
+        );
+        accumulator = transition;
+        finished = transition.finished;
+        eventGap = transition.eventGap;
+        redirected = transition.redirected;
+    }
+    renderAssistantMarkdown(assistantMessage);
+    return {
+        ...accumulator,
+        lastSequence: redirected ? 0 : Math.max(0, Number(snapshot.latest_sequence) || 0),
+        finished,
+        eventGap,
+        redirected,
+    };
+}
+
+async function consumeChatTaskEvents(
+    taskId,
+    assistantMessage,
+    abortController,
+    initialState = {}
+) {
+    let currentTaskId = initialState.currentTaskId || taskId;
+    let lastSequence = initialState.lastSequence || 0;
+    let messageCount = initialState.messageCount || 0;
+    let finished = Boolean(initialState.finished);
+    let finishReason = initialState.finishReason || '';
     let reconnectAttempts = 0;
     let eventGap = false;
+
+    async function recoverExpiredCursor() {
+        let recovered;
+        try {
+            recovered = await hydrateChatTaskReplaySnapshot(
+                currentTaskId,
+                assistantMessage,
+                abortController,
+                { reset: true }
+            );
+        } catch (error) {
+            if (abortController.signal.aborted || error.name === 'AbortError') throw error;
+            console.warn('Could not hydrate expired chat cursor; waiting for durable completion.', error);
+            return null;
+        }
+        if (!recovered) return null;
+        currentTaskId = recovered.currentTaskId;
+        lastSequence = recovered.lastSequence;
+        messageCount = Math.max(messageCount, recovered.messageCount);
+        finishReason = recovered.finishReason || finishReason;
+        finished = recovered.finished;
+        eventGap = false;
+        reconnectAttempts = 0;
+        if (recovered.redirected) {
+            state.activeChatTaskId = currentTaskId;
+        }
+        return recovered;
+    }
 
     while (!finished) {
         let redirected = false;
@@ -787,6 +888,12 @@ async function consumeChatTaskEvents(taskId, assistantMessage, abortController) 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             if (response.status === 410) {
+                const recovered = await recoverExpiredCursor();
+                if (recovered) {
+                    redirected = recovered.redirected;
+                    if (finished) break;
+                    continue;
+                }
                 eventGap = true;
                 chatRendering.resetAssistantStream(assistantMessage);
                 setAssistantStatus(assistantMessage, 'Finishing in background…', 'thinking');
@@ -864,6 +971,11 @@ async function consumeChatTaskEvents(taskId, assistantMessage, abortController) 
         if (redirected) continue;
 
         if (eventGap) {
+            const recovered = await recoverExpiredCursor();
+            if (recovered) {
+                if (finished) break;
+                continue;
+            }
             await waitForChatTaskTerminal(currentTaskId, abortController.signal);
             break;
         }
@@ -892,6 +1004,11 @@ async function consumeChatTaskEvents(taskId, assistantMessage, abortController) 
         if (redirected) continue;
 
         if (eventGap) {
+            const recovered = await recoverExpiredCursor();
+            if (recovered) {
+                if (finished) break;
+                continue;
+            }
             await waitForChatTaskTerminal(currentTaskId, abortController.signal);
             break;
         }
@@ -1059,11 +1176,12 @@ async function loadSession(sessionId, options = {}) {
     }
     chatRendering.closeToolCallDetails();
     let loadedSessionId = '';
+    let loadedHistoryRevision = null;
     try {
         state.pendingDeferredReview = null;
         state.sessionId = sessionId;
         sessionControls.renderSelector();
-        sessionControls.refreshCompactionProgress();
+        void sessionControls.refreshCompactionProgress();
         state.isLoading = true;
         syncChatControlLocks();
         const response = await fetch(
@@ -1073,8 +1191,14 @@ async function loadSession(sessionId, options = {}) {
             throw new Error('Failed to load chat session');
         }
         const payload = await response.json();
+        if (state.sessionId !== sessionId || chatElements.vaultSelector?.value !== vault) {
+            return;
+        }
         state.sessionId = payload.session_id || sessionId;
         loadedSessionId = state.sessionId;
+        loadedHistoryRevision = Number.isInteger(payload.history_revision)
+            ? payload.history_revision
+            : null;
         if (chatElements.chatModeSelector) {
             chatElements.chatModeSelector.value = payload.chat_mode === 'inline_edit'
                 ? 'inline_edit'
@@ -1096,7 +1220,6 @@ async function loadSession(sessionId, options = {}) {
         sessionControls.renderSelector();
         sessionControls.updateTitleRow();
         updateStatus();
-        await sessionControls.refreshCompactionProgress();
     } catch (error) {
         console.error('Error loading chat session:', error);
         addChatErrorMessage(error.message);
@@ -1104,8 +1227,15 @@ async function loadSession(sessionId, options = {}) {
         state.isLoading = false;
         syncChatControlLocks();
     }
-    if (loadedSessionId && !state.activeChatTaskId && state.sessionId === loadedSessionId) {
-        await reattachActiveChatTask(loadedSessionId, vault);
+    if (
+        loadedSessionId
+        && !options.skipActiveTaskCheck
+        && !state.activeChatTaskId
+        && state.sessionId === loadedSessionId
+    ) {
+        await reattachActiveChatTask(loadedSessionId, vault, {
+            historyRevision: loadedHistoryRevision,
+        });
     }
 }
 
@@ -1131,7 +1261,11 @@ async function reconcileCommittedToolCalls(context, vault, sessionId) {
     }
 }
 
-async function reattachActiveChatTask(sessionId, vault) {
+async function reattachActiveChatTask(
+    sessionId,
+    vault,
+    { historyRevision = null } = {}
+) {
     let response;
     try {
         response = await fetch(
@@ -1142,7 +1276,20 @@ async function reattachActiveChatTask(sessionId, vault) {
         console.warn('Could not check for an active chat task:', error);
         return;
     }
-    if (response.status === 404) return;
+    if (response.status === 404) {
+        const errorData = await response.json().catch(() => ({}));
+        const currentRevision = errorData?.details?.history_revision;
+        if (
+            Number.isInteger(historyRevision)
+            && Number.isInteger(currentRevision)
+            && currentRevision !== historyRevision
+            && state.sessionId === sessionId
+            && chatElements.vaultSelector?.value === vault
+        ) {
+            await loadSession(sessionId, { skipActiveTaskCheck: true });
+        }
+        return;
+    }
     if (!response.ok) {
         console.warn(`Could not check for an active chat task: HTTP ${response.status}`);
         return;
@@ -1163,7 +1310,8 @@ async function reattachActiveChatTask(sessionId, vault) {
         await streamStartedChatTask(
             { session_id: sessionId, task },
             vault,
-            abortController
+            abortController,
+            { hydrateReplay: true }
         );
     } catch (error) {
         console.error('Error reattaching to active chat task:', error);
@@ -1820,14 +1968,24 @@ function handleDeferredReviewEvent(assistantMessage, payload) {
     if (!assistantMessage?.artifactList || !payload?.artifact_ref) return;
     state.pendingDeferredReview = payload;
     syncChatControlLocks();
+    const alreadyRendered = Array.from(
+        document.querySelectorAll('.message-artifact-item[data-review-artifact-ref]')
+    ).some((item) => item.dataset.reviewArtifactRef === payload.artifact_ref);
+    if (alreadyRendered) return;
     const container = document.createElement('div');
     container.className = 'message-artifact-item';
+    container.dataset.reviewArtifactRef = payload.artifact_ref;
     assistantMessage.artifactList.appendChild(container);
     deferredReviews.renderReviewEvent(container, payload);
     scrollChatToBottom();
 }
 
-async function streamStartedChatTask(started, vault, abortController) {
+async function streamStartedChatTask(
+    started,
+    vault,
+    abortController,
+    { hydrateReplay = false } = {}
+) {
     if (started.session_id) {
         state.sessionId = started.session_id;
         syncChatControlLocks();
@@ -1842,14 +2000,47 @@ async function streamStartedChatTask(started, vault, abortController) {
     state.activeChatTaskId = taskId;
 
     const assistantMessage = createAssistantStreamingMessage();
-    const streamResult = await consumeChatTaskEvents(taskId, assistantMessage, abortController);
+    let hydrated = null;
+    if (hydrateReplay) {
+        try {
+            hydrated = await hydrateChatTaskReplaySnapshot(
+                taskId,
+                assistantMessage,
+                abortController
+            );
+        } catch (error) {
+            if (abortController.signal.aborted || error.name === 'AbortError') throw error;
+            console.warn('Could not hydrate chat replay snapshot; continuing with live events.', error);
+            setAssistantStatus(assistantMessage, 'Reconnecting…', 'thinking');
+        }
+    }
+    if (hydrated?.currentTaskId) {
+        state.activeChatTaskId = hydrated.currentTaskId;
+    }
+    const streamResult = await consumeChatTaskEvents(
+        taskId,
+        assistantMessage,
+        abortController,
+        hydrated || {}
+    );
 
-    finalizeAssistantMessage(assistantMessage, {
-        sessionId: state.sessionId || 'unknown',
-        messageCount: Math.max(streamResult.messageCount, assistantMessage.fullText ? 1 : 0),
-        toolCount: assistantMessage.toolStatusMap.size,
-        status: streamResult.finished ? 'done' : 'incomplete'
-    });
+    const emptyDuplicateReviewMessage = (
+        streamResult.finishReason === 'tool_review_required'
+        && !assistantMessage.fullText
+        && !assistantMessage.thinkingText
+        && assistantMessage.toolStatusMap.size === 0
+        && assistantMessage.artifactList.childElementCount === 0
+    );
+    if (emptyDuplicateReviewMessage) {
+        assistantMessage.messageDiv.remove();
+    } else {
+        finalizeAssistantMessage(assistantMessage, {
+            sessionId: state.sessionId || 'unknown',
+            messageCount: Math.max(streamResult.messageCount, assistantMessage.fullText ? 1 : 0),
+            toolCount: assistantMessage.toolStatusMap.size,
+            status: streamResult.finished ? 'done' : 'incomplete'
+        });
+    }
     if (streamResult.finishReason === 'tool_review_required') {
         await reconcileCommittedToolCalls(
             assistantMessage,
@@ -2096,7 +2287,15 @@ async function stopChatResponse() {
                 { method: 'POST' }
             );
         }
-        if ((!response || response.status === 404) && sessionId) {
+        let taskCancellationWasStale = false;
+        if (response?.ok) {
+            const cancellation = await response.json().catch(() => ({}));
+            taskCancellationWasStale = cancellation.cancelled === false;
+        }
+        if (
+            (!response || response.status === 404 || taskCancellationWasStale)
+            && sessionId
+        ) {
             response = await fetch(
                 `api/chat/sessions/${encodeURIComponent(sessionId)}/cancel`,
                 { method: 'POST' }
@@ -2140,12 +2339,12 @@ function renderAssistantMarkdown(context, options = {}) {
     chatRendering.renderAssistantMarkdown(context, options);
 }
 
-function appendAssistantDelta(context, delta) {
-    chatRendering.appendAssistantDelta(context, delta);
+function appendAssistantDelta(context, delta, options = {}) {
+    chatRendering.appendAssistantDelta(context, delta, options);
 }
 
-function appendAssistantThinkingDelta(context, delta) {
-    chatRendering.appendAssistantThinkingDelta(context, delta);
+function appendAssistantThinkingDelta(context, delta, options = {}) {
+    chatRendering.appendAssistantThinkingDelta(context, delta, options);
 }
 
 function setAssistantStatus(context, label, state = 'thinking') {

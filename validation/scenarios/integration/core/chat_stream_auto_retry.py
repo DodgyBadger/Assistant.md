@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -49,8 +50,11 @@ class _FakeStreamResult:
 
 
 class _FlakyStreamAgent:
-    def __init__(self, failures: int) -> None:
+    def __init__(
+        self, failures: int, *, failure_message: str = "stream disconnected"
+    ) -> None:
         self.remaining_failures = failures
+        self.failure_message = failure_message
         self.attempts = 0
         self.usage_ids: list[int] = []
 
@@ -62,7 +66,7 @@ class _FlakyStreamAgent:
             self.remaining_failures -= 1
             yield PartStartEvent(index=0, part=TextPart("discarded partial response"))
             request = httpx.Request("POST", "https://provider.invalid/stream")
-            raise httpx.ReadError("stream disconnected", request=request)
+            raise httpx.ReadError(self.failure_message, request=request)
         response = "recovered primary response"
         yield PartStartEvent(index=0, part=TextPart(response))
         yield AgentRunResultEvent(result=_FakeStreamResult(prompt, response))
@@ -116,7 +120,10 @@ class ChatStreamAutoRetryScenario(BaseScenario):
         async def _prepared_failure(*args, **kwargs):
             del args
             prompt = kwargs.get("prompt", "retry primary stream")
-            agent = _FlakyStreamAgent(failures=1)
+            agent = _FlakyStreamAgent(
+                failures=1,
+                failure_message=("x" * 800) + "PRIVATE_PROVIDER_SUFFIX",
+            )
             agents.append(agent)
             return PreparedChatExecution(
                 agent=agent,
@@ -131,6 +138,141 @@ class ChatStreamAutoRetryScenario(BaseScenario):
         original_prepare = chat_executor._prepare_chat_execution
         chat_executor._prepare_chat_execution = _prepared_failure
         try:
+            stalled_agent, stalled_attempts = _stalled_stream_agent()
+
+            async def _prepared_stall(*args, **kwargs):
+                del args, kwargs
+                return PreparedChatExecution(
+                    agent=stalled_agent,
+                    message_history=None,
+                    prompt_for_history="stall primary stream",
+                    user_prompt="stall primary stream",
+                    attached_image_count=0,
+                    model="test",
+                    tools=[],
+                )
+
+            idle_update = self.call_api(
+                "/api/system/settings/general/model_stream_idle_timeout_seconds",
+                method="PUT",
+                data={"value": "0.05"},
+            )
+            assert idle_update.status_code == 200
+            retry_disable = self.call_api(
+                "/api/system/settings/general/model_stream_retries",
+                method="PUT",
+                data={"value": "0"},
+            )
+            assert retry_disable.status_code == 200
+            checkpoint = self.event_checkpoint()
+            chat_executor._prepare_chat_execution = _prepared_stall
+            stalled = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "stall primary stream",
+                    "session_id": "primary_idle_timeout",
+                    "tools": [],
+                    "model": "test",
+                }
+            )
+            assert stalled["terminal_event"].get("event") == "error"
+            assert (
+                stalled["terminal_event"].get("details", {}).get("failure_kind")
+                == "model_stream_idle_timeout"
+            )
+            assert "model stopped responding" in stalled["text"].lower()
+            assert len(stalled_attempts) == 1
+            stalled_task = self.call_api(f"/api/tasks/{stalled['task_ids'][-1]}").json()
+            assert (
+                stalled_task.get("metadata", {}).get("model_stream_state")
+                == "waiting_for_model"
+            )
+            self.assert_event_contains(
+                self.events_since(checkpoint),
+                name="model_stream_idle_timed_out",
+                expected={
+                    "status": "timed_out",
+                    "session_id": "primary_idle_timeout",
+                    "model": "test",
+                    "attempt": 1,
+                    "active_tool_count": 0,
+                    "error_type": "ModelStreamIdleTimeout",
+                    "issue": (f"model_stream_idle:{stalled['task_ids'][-1]}:1"),
+                },
+            )
+
+            slow_tool_started = asyncio.Event()
+            release_slow_tool = asyncio.Event()
+            slow_tool_agent = _slow_tool_agent(
+                started=slow_tool_started,
+                release=release_slow_tool,
+            )
+
+            async def _prepared_slow_tool(*args, **kwargs):
+                del args, kwargs
+                return PreparedChatExecution(
+                    agent=slow_tool_agent,
+                    message_history=None,
+                    prompt_for_history="run slow visible tool",
+                    user_prompt="run slow visible tool",
+                    attached_image_count=0,
+                    model="test",
+                    tools=["slow_probe"],
+                )
+
+            chat_executor._prepare_chat_execution = _prepared_slow_tool
+            slow_tool_run = asyncio.create_task(
+                self.run_chat_task(
+                    {
+                        "vault_name": vault.name,
+                        "prompt": "run slow visible tool",
+                        "session_id": "primary_slow_tool",
+                        "tools": ["slow_probe"],
+                        "model": "test",
+                    }
+                )
+            )
+            await asyncio.wait_for(slow_tool_started.wait(), timeout=2.0)
+            running_tool_task = self.call_api(
+                "/api/chat/sessions/primary_slow_tool/active-task"
+            ).json()
+            release_slow_tool.set()
+            slow_tool = await asyncio.wait_for(slow_tool_run, timeout=2.0)
+            assert running_tool_task.get("metadata", {}).get("model_stream_state") == (
+                "tool_running"
+            )
+            assert running_tool_task.get("metadata", {}).get("active_tools") == [
+                "slow_probe"
+            ]
+            assert slow_tool["terminal_event"].get("event") == "done"
+            assert slow_tool["text"] == "slow tool completed"
+            completed_tool_task = self.call_api(
+                f"/api/tasks/{slow_tool['task_ids'][-1]}"
+            ).json()
+            assert (
+                completed_tool_task.get("metadata", {}).get("model_stream_state")
+                == "receiving_model"
+            )
+            assert (
+                completed_tool_task.get("metadata", {}).get(
+                    "model_stream_event_count", 0
+                )
+                > 1
+            )
+            idle_restore = self.call_api(
+                "/api/system/settings/general/model_stream_idle_timeout_seconds",
+                method="PUT",
+                data={"value": "120"},
+            )
+            assert idle_restore.status_code == 200
+            retry_restore = self.call_api(
+                "/api/system/settings/general/model_stream_retries",
+                method="PUT",
+                data={"value": "1"},
+            )
+            assert retry_restore.status_code == 200
+            chat_executor._prepare_chat_execution = _prepared_failure
+
             delay_update = self.call_api(
                 "/api/system/settings/general/model_stream_retry_base_delay_seconds",
                 method="PUT",
@@ -159,6 +301,25 @@ class ChatStreamAutoRetryScenario(BaseScenario):
             assert len(retry_events) == 1
             assert retry_events[0].get("reset_response") is True
             assert retry_events[0].get("replay_scope") == "no_chat_tools"
+            assert retry_events[0].get("status") == "scheduled"
+            assert retry_events[0].get("vault_name") == vault.name
+            assert retry_events[0].get("error")
+            assert retry_events[0].get("issue") == (
+                f"chat_retry:{recovered['task_ids'][-1]}:1"
+            )
+            retry_activity = self.call_api(
+                "/api/system/activity-log?limit=100&tag=chat-executor"
+                "&search=primary_auto_retry"
+            )
+            assert retry_activity.status_code == 200
+            retained_retries = [
+                entry.get("data") or {}
+                for entry in retry_activity.json().get("entries", [])
+                if (entry.get("data") or {}).get("event") == "chat_retry_scheduled"
+            ]
+            assert retained_retries, "Chat retries should appear in System Activity"
+            assert len(str(retained_retries[-1].get("error") or "")) <= 503
+            assert "PRIVATE_PROVIDER_SUFFIX" not in str(retained_retries)
 
             checkpoint_agent, tool_effects = _checkpoint_recovery_agent(
                 session_id="primary_checkpoint_retry"
@@ -402,6 +563,61 @@ def _checkpoint_recovery_agent(
         return "read complete"
 
     return (agent, recovery), tool_effects
+
+
+def _slow_tool_agent(
+    *,
+    started: asyncio.Event | None = None,
+    release: asyncio.Event | None = None,
+) -> Agent[Any, str]:
+    """Build an agent whose visible tool legitimately exceeds the model idle limit."""
+
+    async def stream(
+        messages: list[Any], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        has_result = any(
+            isinstance(part, ToolReturnPart)
+            for message in messages
+            for part in message.parts
+        )
+        if not has_result:
+            yield {
+                0: DeltaToolCall(
+                    name="slow_probe",
+                    json_args="{}",
+                    tool_call_id="slow-probe-1",
+                )
+            }
+            return
+        yield "slow tool completed"
+
+    agent = Agent(FunctionModel(stream_function=stream))
+
+    @agent.tool_plain
+    async def slow_probe() -> str:
+        if started is not None:
+            started.set()
+        if release is not None:
+            await release.wait()
+        else:
+            await asyncio.sleep(0.1)
+        return "complete"
+
+    return agent
+
+
+def _stalled_stream_agent() -> tuple[Agent[Any, str], list[bool]]:
+    """Build a Pydantic agent whose model stream never emits an event."""
+    attempts: list[bool] = []
+
+    async def stream(
+        _messages: list[Any], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        attempts.append(True)
+        await asyncio.Event().wait()
+        yield "unreachable"  # pragma: no cover - unreachable
+
+    return Agent(FunctionModel(stream_function=stream)), attempts
 
 
 async def _seed_unresolved_vault_effect(

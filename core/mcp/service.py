@@ -579,7 +579,11 @@ class MCPConnectionService:
         }
         logger.info(
             "MCP connection mutation started",
-            data={"event": "mcp_connection_mutation_started", **details},
+            data={
+                "event": "mcp_connection_mutation_started",
+                "status": "started",
+                **details,
+            },
         )
         try:
             with write_transaction(self._system_root) as conn:
@@ -589,11 +593,15 @@ class MCPConnectionService:
                 "MCP connection mutation rolled back",
                 data={
                     "event": "connection_mutation_failed",
+                    "status": "failed",
                     **details,
                     "provider": "mcp",
                     "phase": "transaction",
                     "committed": False,
                     "error_class": type(exc).__name__,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": details["operation_id"],
                 },
             )
             raise
@@ -604,11 +612,15 @@ class MCPConnectionService:
                 "MCP state committed but runtime invalidation failed",
                 data={
                     "event": "connection_mutation_failed",
+                    "status": "failed",
                     **details,
                     "provider": "mcp",
                     "phase": "runtime_invalidation",
                     "committed": True,
                     "error_class": type(exc).__name__,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": details["operation_id"],
                 },
             )
             raise MCPMutationUnavailableError(
@@ -616,7 +628,11 @@ class MCPConnectionService:
             ) from exc
         logger.info(
             "MCP connection mutation completed",
-            data={"event": "mcp_connection_mutation_completed", **details},
+            data={
+                "event": "mcp_connection_mutation_completed",
+                "status": "completed",
+                **details,
+            },
         )
 
     def _notify(self, authority: ExecutionAuthority, connection_id: str) -> None:

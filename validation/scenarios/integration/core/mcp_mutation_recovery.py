@@ -220,11 +220,32 @@ class MCPMutationRecoveryScenario(BaseScenario):
             ["mcp_connection_mutation_started"],
             "Completion event must wait for acknowledged invalidation",
         )
+        self.soft_assert_equal(
+            events[0]["status"],
+            "started",
+            "Mutation diagnostics should expose a stable lifecycle status",
+        )
         failure = error.call_args.kwargs["data"]
         self.soft_assert_equal(
-            (failure["event"], failure["committed"], failure["phase"]),
-            ("connection_mutation_failed", True, "runtime_invalidation"),
+            (
+                failure["event"],
+                failure["status"],
+                failure["committed"],
+                failure["phase"],
+                failure["error_type"],
+            ),
+            (
+                "connection_mutation_failed",
+                "failed",
+                True,
+                "runtime_invalidation",
+                "RuntimeError",
+            ),
             "Failure diagnostics must distinguish committed changes from rollback",
+        )
+        self.soft_assert(
+            bool(failure["error"]),
+            "Failure diagnostics should retain a concise actionable error",
         )
         self.soft_assert(
             "saved-despite-notification" not in repr(events + [failure]),

@@ -237,7 +237,11 @@ def delete_mcp_connection(connection_id: str) -> OperationResult:
         _service().delete_connection(connection_id)
     logger.info(
         "MCP connection deleted",
-        data={"event": "mcp_connection_deleted", "connection_id": connection_id},
+        data={
+            "event": "mcp_connection_deleted",
+            "status": "completed",
+            "connection_id": connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -281,14 +285,18 @@ async def start_mcp_oauth(
             redirect_uri=redirect_uri,
         )
     logger.info(
-        "MCP OAuth authorization started",
+        "MCP OAuth authorization is ready",
         data={
-            "event": "mcp_oauth_started",
+            "event": "mcp_oauth_authorization_ready",
+            "status": "ready",
             "connection_id": connection_id,
             "redirect_source": redirect_source,
+            "operation_id": result.operation_id,
         },
     )
-    return MCPOAuthStartResponse(**asdict(result), redirect_source=redirect_source)
+    payload = asdict(result)
+    payload.pop("operation_id", None)
+    return MCPOAuthStartResponse(**payload, redirect_source=redirect_source)
 
 
 async def complete_mcp_oauth(
@@ -309,9 +317,16 @@ async def complete_mcp_oauth(
         )
     logger.info(
         "MCP OAuth authorization completed",
-        data={"event": "mcp_oauth_completed", "connection_id": connection_id},
+        data={
+            "event": "mcp_oauth_completed",
+            "status": "completed",
+            "connection_id": connection_id,
+            "operation_id": result.operation_id,
+        },
     )
-    return MCPOAuthStatusResponse(**asdict(result))
+    payload = asdict(result)
+    payload.pop("operation_id", None)
+    return MCPOAuthStatusResponse(**payload)
 
 
 async def get_mcp_oauth_status(connection_id: str) -> MCPOAuthStatusResponse:
@@ -333,7 +348,11 @@ async def disconnect_mcp_oauth(connection_id: str) -> OperationResult:
         )
     logger.info(
         "MCP OAuth disconnected",
-        data={"event": "mcp_oauth_disconnected", "connection_id": connection_id},
+        data={
+            "event": "mcp_oauth_disconnected",
+            "status": "completed",
+            "connection_id": connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -409,6 +428,7 @@ def _log_change(event: str, connection: MCPConnection) -> None:
         "MCP connection configuration changed",
         data={
             "event": event,
+            "status": "completed",
             "connection_id": connection.connection_id,
             "slug": connection.slug,
             "enabled": connection.enabled,

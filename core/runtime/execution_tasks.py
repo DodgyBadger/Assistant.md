@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import math
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -32,6 +34,7 @@ class ExecutionTaskKind(StrEnum):
     """Stable task kind values shared across runtime/API/tool callers."""
 
     CHAT = "chat"
+    DELEGATE = "delegate"
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
     INGESTION = "ingestion"
@@ -56,6 +59,9 @@ TERMINAL_STATUSES = {
 
 
 TERMINAL_STATUS_VALUES = {status.value for status in TERMINAL_STATUSES}
+
+EXECUTION_TASK_RESULT_MAX_CHARS = 65_536
+EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS = 500
 
 
 _CURRENT_EXECUTION_TASK: ContextVar[ExecutionTaskSnapshot | None] = ContextVar(
@@ -143,9 +149,17 @@ class ExecutionTaskSnapshot:
     finished_at: datetime | None = None
     cancel_requested: bool = False
     terminal_reason: str | None = None
+    terminal_error_type: str | None = None
     latest_event: str | None = None
+    parent_task_id: str | None = None
+    detached_from_parent_lifecycle: bool = False
+    revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
+    last_progress_at: datetime | None = None
+    health_status: str = "healthy"
+    result: dict[str, Any] | None = None
+    result_truncated: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -162,6 +176,14 @@ class ExecutionTaskCancellationResult:
     effective: bool
 
 
+@dataclass(frozen=True)
+class ExecutionTaskWaitResult:
+    """Snapshots returned by one event-driven coordinator wait."""
+
+    snapshots: tuple[ExecutionTaskSnapshot, ...]
+    timed_out: bool
+
+
 @dataclass
 class _ExecutionTaskRecord:
     task_id: str
@@ -176,11 +198,21 @@ class _ExecutionTaskRecord:
     finished_at: datetime | None = None
     cancel_requested: bool = False
     terminal_reason: str | None = None
+    terminal_error_type: str | None = None
     latest_event: str | None = None
+    parent_task_id: str | None = None
+    detached_from_parent_lifecycle: bool = False
+    revision: int = 0
     last_heartbeat_at: datetime | None = None
     heartbeat_status: str | None = None
+    last_progress_at: datetime | None = None
+    health_status: str = "healthy"
+    result: dict[str, Any] | None = None
+    result_truncated: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
     handle: asyncio.Task[Any] | None = None
+    awaiting_handle: bool = False
+    accepting_children: bool = True
 
     def snapshot(self) -> ExecutionTaskSnapshot:
         """Return a public snapshot without the private asyncio handle."""
@@ -197,9 +229,17 @@ class _ExecutionTaskRecord:
             finished_at=self.finished_at,
             cancel_requested=self.cancel_requested,
             terminal_reason=self.terminal_reason,
+            terminal_error_type=self.terminal_error_type,
             latest_event=self.latest_event,
+            parent_task_id=self.parent_task_id,
+            detached_from_parent_lifecycle=self.detached_from_parent_lifecycle,
+            revision=self.revision,
             last_heartbeat_at=self.last_heartbeat_at,
             heartbeat_status=self.heartbeat_status,
+            last_progress_at=self.last_progress_at,
+            health_status=self.health_status,
+            result=dict(self.result) if self.result is not None else None,
+            result_truncated=self.result_truncated,
             metadata=dict(self.metadata),
         )
 
@@ -219,7 +259,9 @@ class TaskCoordinator:
         self._terminal_observers = list(terminal_observers or [])
         self._records: dict[str, _ExecutionTaskRecord] = {}
         self._terminal_order: list[str] = []
+        self._accepting_tasks = True
         self._lock = asyncio.Lock()
+        self._changed = asyncio.Condition(self._lock)
 
     @asynccontextmanager
     async def track_current_task(
@@ -231,6 +273,8 @@ class TaskCoordinator:
         label: str,
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
+        parent_task_id: str | None = None,
+        detached_from_parent_lifecycle: bool = False,
         start_immediately: bool = True,
     ) -> AsyncIterator[ExecutionTaskSnapshot]:
         """Register the current asyncio task for the duration of one operation."""
@@ -239,36 +283,47 @@ class TaskCoordinator:
             raise RuntimeError("TaskCoordinator requires an active asyncio task")
 
         task_id = self._new_task_id()
-        await self._create_record(
-            task_id=task_id,
-            kind=kind,
-            scope=scope,
-            source=source,
-            label=label,
-            authority=authority,
-            handle=current,
-            metadata=metadata,
-        )
-        if start_immediately:
-            await self.mark_started(task_id)
-
-        snapshot = await self.get_task(task_id)
-        if snapshot is None:  # pragma: no cover - defensive
-            raise RuntimeError(f"Execution task disappeared: {task_id}")
-        token = _CURRENT_EXECUTION_TASK.set(snapshot)
+        registered = False
+        token = None
         try:
+            await self._create_record(
+                task_id=task_id,
+                kind=kind,
+                scope=scope,
+                source=source,
+                label=label,
+                authority=authority,
+                handle=current,
+                metadata=metadata,
+                parent_task_id=parent_task_id,
+                detached_from_parent_lifecycle=detached_from_parent_lifecycle,
+            )
+            registered = True
+            if start_immediately:
+                await self.mark_started(task_id)
+
+            snapshot = await self.get_task(task_id)
+            if snapshot is None:  # pragma: no cover - defensive
+                raise RuntimeError(f"Execution task disappeared: {task_id}")
+            token = _CURRENT_EXECUTION_TASK.set(snapshot)
             with use_execution_authority(authority):
                 yield snapshot
+            await self.mark_completed(task_id)
         except asyncio.CancelledError:
-            await self.mark_cancelled(task_id, reason="cancelled")
+            if registered:
+                await self._finish_cancelled_task(task_id, reason="cancelled")
             raise
         except Exception as exc:
-            await self.mark_failed(task_id, reason=f"{type(exc).__name__}: {exc}")
+            if registered:
+                await self._finish_failed_task(
+                    task_id,
+                    reason=f"{type(exc).__name__}: {exc}",
+                    error_type=type(exc).__name__,
+                )
             raise
-        else:
-            await self.mark_completed(task_id)
         finally:
-            _CURRENT_EXECUTION_TASK.reset(token)
+            if token is not None:
+                _CURRENT_EXECUTION_TASK.reset(token)
 
     async def create_queued_task(
         self,
@@ -279,6 +334,9 @@ class TaskCoordinator:
         label: str,
         authority: ExecutionAuthority,
         metadata: dict[str, Any] | None = None,
+        parent_task_id: str | None = None,
+        detached_from_parent_lifecycle: bool = False,
+        awaiting_handle: bool = False,
     ) -> ExecutionTaskSnapshot:
         """Create a queued task record before an asyncio handle exists."""
         task_id = self._new_task_id()
@@ -291,6 +349,9 @@ class TaskCoordinator:
             authority=authority,
             handle=None,
             metadata=metadata,
+            parent_task_id=parent_task_id,
+            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
+            awaiting_handle=awaiting_handle,
         )
         snapshot = await self.get_task(task_id)
         if snapshot is None:  # pragma: no cover - defensive
@@ -319,24 +380,27 @@ class TaskCoordinator:
             else:
                 should_cancel = False
             record.handle = current
+            record.awaiting_handle = False
             snapshot = record.snapshot()
 
         if should_cancel:
-            await self.mark_cancelled(task_id, reason="cancelled_before_start")
             raise asyncio.CancelledError
 
         token = _CURRENT_EXECUTION_TASK.set(snapshot)
         try:
             with use_execution_authority(record.authority):
                 yield snapshot
+            await self.mark_completed(task_id)
         except asyncio.CancelledError:
-            await self.mark_cancelled(task_id, reason="cancelled")
+            await self._finish_cancelled_task(task_id, reason="cancelled")
             raise
         except Exception as exc:
-            await self.mark_failed(task_id, reason=f"{type(exc).__name__}: {exc}")
+            await self._finish_failed_task(
+                task_id,
+                reason=f"{type(exc).__name__}: {exc}",
+                error_type=type(exc).__name__,
+            )
             raise
-        else:
-            await self.mark_completed(task_id)
         finally:
             _CURRENT_EXECUTION_TASK.reset(token)
 
@@ -367,6 +431,70 @@ class TaskCoordinator:
 
         return sorted(snapshots, key=lambda item: item.created_at)
 
+    async def wait_for_tasks(
+        self,
+        task_ids: list[str],
+        *,
+        after_revisions: dict[str, int] | None = None,
+        timeout_seconds: float | None = None,
+        terminal_or_attention_only: bool = False,
+        wake_on_attention: bool = True,
+    ) -> ExecutionTaskWaitResult:
+        """Wait for selected task state to become relevant without polling."""
+        unique_ids = tuple(dict.fromkeys(task_ids))
+        async with self._changed:
+            if not unique_ids:
+                return ExecutionTaskWaitResult(snapshots=(), timed_out=False)
+            initial = self._snapshots_for_ids(unique_ids)
+            revisions = (
+                dict(after_revisions)
+                if after_revisions is not None
+                else {snapshot.task_id: snapshot.revision for snapshot in initial}
+            )
+
+            def _ready() -> bool:
+                snapshots = self._snapshots_for_ids(unique_ids)
+                if len(snapshots) != len(unique_ids):
+                    return True
+                if any(
+                    snapshot.is_terminal
+                    or (
+                        wake_on_attention
+                        and snapshot.health_status == "attention_required"
+                    )
+                    for snapshot in snapshots
+                ):
+                    return True
+                if terminal_or_attention_only:
+                    return False
+                return any(
+                    snapshot.revision > revisions.get(snapshot.task_id, -1)
+                    for snapshot in snapshots
+                )
+
+            if _ready():
+                return ExecutionTaskWaitResult(
+                    snapshots=self._snapshots_for_ids(unique_ids),
+                    timed_out=False,
+                )
+
+            try:
+                if timeout_seconds is None:
+                    await self._changed.wait_for(_ready)
+                else:
+                    async with asyncio.timeout(max(0.0, timeout_seconds)):
+                        await self._changed.wait_for(_ready)
+            except TimeoutError:
+                return ExecutionTaskWaitResult(
+                    snapshots=self._snapshots_for_ids(unique_ids),
+                    timed_out=True,
+                )
+
+            return ExecutionTaskWaitResult(
+                snapshots=self._snapshots_for_ids(unique_ids),
+                timed_out=False,
+            )
+
     async def cancel_task(
         self,
         task_id: str,
@@ -392,8 +520,11 @@ class TaskCoordinator:
                 )
             record.cancel_requested = True
             record.latest_event = reason
+            self._touch(record)
             handle = record.handle
-            mark_cancelled_without_handle = handle is None
+            mark_cancelled_without_handle = (
+                handle is None and not record.awaiting_handle
+            )
             snapshot = record.snapshot()
 
         self._log_event("execution_task_cancel_requested", snapshot)
@@ -426,6 +557,7 @@ class TaskCoordinator:
             if record is None:
                 return
             record.metadata.update(metadata)
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_metadata_updated", snapshot)
@@ -446,17 +578,67 @@ class TaskCoordinator:
             now = self._now()
             record.last_heartbeat_at = now
             record.heartbeat_status = status
+            record.last_progress_at = now
             record.latest_event = "heartbeat"
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = status
             if metadata:
                 record.metadata.update(metadata)
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_heartbeat", snapshot)
 
+    async def publish_progress(
+        self,
+        task_id: str,
+        *,
+        metadata: dict[str, Any],
+        health_status: str = "healthy",
+    ) -> None:
+        """Publish bounded live progress without emitting per-event log noise."""
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None or record.status in TERMINAL_STATUSES:
+                return
+            now = self._now()
+            record.last_progress_at = now
+            record.health_status = health_status
+            record.metadata.update(metadata)
+            record.latest_event = "progress"
+            self._touch(record)
+
+    async def record_result(self, task_id: str, result: dict[str, Any]) -> None:
+        """Record one bounded, JSON-safe result before terminal publication."""
+        snapshot = None
+        async with self._lock:
+            record = self._records.get(task_id)
+            if record is None or record.status in TERMINAL_STATUSES:
+                return
+            bounded, truncated = _bound_execution_task_result(result)
+            record.result = bounded
+            record.result_truncated = truncated
+            record.latest_event = "execution_task_result_recorded"
+            self._touch(record)
+            snapshot = record.snapshot()
+
+        self._log_event(
+            "execution_task_result_recorded",
+            snapshot,
+            extra={
+                "result_chars": len(
+                    json.dumps(snapshot.result, ensure_ascii=False, sort_keys=True)
+                ),
+                "truncated": snapshot.result_truncated,
+                "artifact_reference_count": len(
+                    (snapshot.result or {}).get("artifact_references", [])
+                ),
+            },
+        )
+
     async def mark_completed(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task completed."""
+        await self._cancel_active_children(task_id, reason="parent_completed")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.COMPLETED,
@@ -468,17 +650,26 @@ class TaskCoordinator:
         """Mark one queued task running."""
         await self._mark_started(task_id)
 
-    async def mark_failed(self, task_id: str, *, reason: str | None = None) -> None:
+    async def mark_failed(
+        self,
+        task_id: str,
+        *,
+        reason: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
         """Mark one task failed."""
+        await self._cancel_active_children(task_id, reason="parent_failed")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.FAILED,
             reason=reason,
+            error_type=error_type,
             event="execution_task_failed",
         )
 
     async def mark_cancelled(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task cancelled."""
+        await self._cancel_active_children(task_id, reason="parent_cancelled")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.CANCELLED,
@@ -488,6 +679,7 @@ class TaskCoordinator:
 
     async def mark_timed_out(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task timed out."""
+        await self._cancel_active_children(task_id, reason="parent_timed_out")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.TIMED_OUT,
@@ -497,6 +689,7 @@ class TaskCoordinator:
 
     async def mark_skipped(self, task_id: str, *, reason: str | None = None) -> None:
         """Mark one task skipped."""
+        await self._cancel_active_children(task_id, reason="parent_skipped")
         await self._mark_terminal(
             task_id,
             ExecutionTaskStatus.SKIPPED,
@@ -506,7 +699,13 @@ class TaskCoordinator:
 
     async def shutdown(self, *, reason: str = "runtime_shutdown") -> None:
         """Request cancellation for all active tasks."""
-        active_tasks = await self.list_tasks(include_terminal=False)
+        async with self._lock:
+            self._accepting_tasks = False
+            active_tasks = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.status not in TERMINAL_STATUSES
+            ]
         for task in active_tasks:
             await self.cancel_task(task.task_id, reason=reason)
 
@@ -517,6 +716,38 @@ class TaskCoordinator:
         active_tasks = await self.list_tasks(include_terminal=False)
         for task in active_tasks:
             await self.mark_cancelled(task.task_id, reason=reason)
+
+    async def list_child_tasks(
+        self,
+        parent_task_id: str,
+        *,
+        include_terminal: bool = True,
+    ) -> list[ExecutionTaskSnapshot]:
+        """Return execution tasks with the given direct parent lineage."""
+        async with self._lock:
+            snapshots = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.parent_task_id == parent_task_id
+                and (include_terminal or record.status not in TERMINAL_STATUSES)
+            ]
+        return sorted(snapshots, key=lambda item: item.created_at)
+
+    async def _cancel_active_children(self, task_id: str, *, reason: str) -> None:
+        async with self._lock:
+            parent = self._records.get(task_id)
+            if parent is None:
+                return
+            parent.accepting_children = False
+            children = [
+                record.snapshot()
+                for record in self._records.values()
+                if record.parent_task_id == task_id
+                and record.status not in TERMINAL_STATUSES
+                and not record.detached_from_parent_lifecycle
+            ]
+        for child in children:
+            await self.cancel_task(child.task_id, reason=reason)
 
     async def _create_record(
         self,
@@ -529,6 +760,9 @@ class TaskCoordinator:
         authority: ExecutionAuthority,
         handle: asyncio.Task[Any] | None,
         metadata: dict[str, Any] | None,
+        parent_task_id: str | None,
+        detached_from_parent_lifecycle: bool = False,
+        awaiting_handle: bool = False,
     ) -> None:
         now = self._now()
         record = _ExecutionTaskRecord(
@@ -542,13 +776,35 @@ class TaskCoordinator:
             created_at=now,
             last_heartbeat_at=now,
             heartbeat_status="queued",
+            last_progress_at=now,
+            parent_task_id=parent_task_id,
+            detached_from_parent_lifecycle=detached_from_parent_lifecycle,
             handle=handle,
+            awaiting_handle=awaiting_handle,
             metadata=dict(metadata or {}),
         )
         record.metadata.setdefault("last_heartbeat_at", now.isoformat())
         record.metadata.setdefault("heartbeat_status", "queued")
         async with self._lock:
+            if not self._accepting_tasks:
+                raise RuntimeError("Execution task coordinator is shutting down")
+            if parent_task_id is not None:
+                parent = self._records.get(parent_task_id)
+                if parent is None:
+                    raise RuntimeError(
+                        f"Parent execution task not found: {parent_task_id}"
+                    )
+                if parent.authority != authority:
+                    raise RuntimeError(
+                        "Child execution authority must match its parent: "
+                        f"{parent_task_id}"
+                    )
+                if parent.status in TERMINAL_STATUSES or not parent.accepting_children:
+                    raise RuntimeError(
+                        f"Parent execution task is no longer accepting children: {parent_task_id}"
+                    )
             self._records[task_id] = record
+            self._changed.notify_all()
 
         self._log_event("execution_task_created", record.snapshot())
 
@@ -558,14 +814,24 @@ class TaskCoordinator:
             record = self._records.get(task_id)
             if record is None:
                 return
+            if record.status is not ExecutionTaskStatus.QUEUED:
+                raise RuntimeError(
+                    f"Execution task cannot start from {record.status.value}: {task_id}"
+                )
+            if record.cancel_requested:
+                raise RuntimeError(
+                    f"Execution task cannot start after cancellation: {task_id}"
+                )
             record.status = ExecutionTaskStatus.RUNNING
             now = self._now()
             record.started_at = now
             record.latest_event = "started"
             record.last_heartbeat_at = now
             record.heartbeat_status = "started"
+            record.last_progress_at = now
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = "started"
+            self._touch(record)
             snapshot = record.snapshot()
 
         self._log_event("execution_task_started", snapshot)
@@ -577,6 +843,7 @@ class TaskCoordinator:
         *,
         reason: str | None,
         event: str,
+        error_type: str | None = None,
     ) -> None:
         snapshot = None
         async with self._lock:
@@ -589,17 +856,50 @@ class TaskCoordinator:
             now = self._now()
             record.finished_at = now
             record.terminal_reason = reason
+            record.terminal_error_type = error_type
             record.latest_event = event
             record.last_heartbeat_at = now
             record.heartbeat_status = status.value
+            record.last_progress_at = now
             record.metadata["last_heartbeat_at"] = now.isoformat()
             record.metadata["heartbeat_status"] = status.value
             record.handle = None
+            self._touch(record)
             snapshot = record.snapshot()
             self._remember_terminal(task_id)
 
         self._log_event(event, snapshot)
         self._notify_terminal_observers(snapshot)
+
+    async def _finish_cancelled_task(self, task_id: str, *, reason: str) -> None:
+        """Publish cancellation even while the owning coroutine is being cancelled."""
+
+        cleanup = asyncio.create_task(self.mark_cancelled(task_id, reason=reason))
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+        await cleanup
+
+    async def _finish_failed_task(
+        self,
+        task_id: str,
+        *,
+        reason: str,
+        error_type: str,
+    ) -> None:
+        """Publish an observed failure before honoring a later cancellation."""
+
+        cleanup = asyncio.create_task(
+            self.mark_failed(task_id, reason=reason, error_type=error_type)
+        )
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+        await cleanup
 
     def _remember_terminal(self, task_id: str) -> None:
         if task_id in self._terminal_order:
@@ -613,6 +913,19 @@ class TaskCoordinator:
                 continue
             del self._records[stale_id]
 
+    def _snapshots_for_ids(
+        self, task_ids: tuple[str, ...]
+    ) -> tuple[ExecutionTaskSnapshot, ...]:
+        return tuple(
+            record.snapshot()
+            for task_id in task_ids
+            if (record := self._records.get(task_id)) is not None
+        )
+
+    def _touch(self, record: _ExecutionTaskRecord) -> None:
+        record.revision += 1
+        self._changed.notify_all()
+
     def _log_event(
         self,
         event: str,
@@ -620,6 +933,7 @@ class TaskCoordinator:
         *,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        terminal_reason = _bound_activity_text(snapshot.terminal_reason)
         data = {
             "event": event,
             "task_id": snapshot.task_id,
@@ -628,9 +942,11 @@ class TaskCoordinator:
             "source": snapshot.source,
             "label": snapshot.label,
             "principal_id": snapshot.principal_id,
+            "parent_task_id": snapshot.parent_task_id,
+            "detached_from_parent_lifecycle": snapshot.detached_from_parent_lifecycle,
             "status": snapshot.status,
             "cancel_requested": snapshot.cancel_requested,
-            "terminal_reason": snapshot.terminal_reason,
+            "terminal_reason": terminal_reason,
             "last_heartbeat_at": (
                 snapshot.last_heartbeat_at.isoformat()
                 if snapshot.last_heartbeat_at
@@ -643,6 +959,11 @@ class TaskCoordinator:
             data["goal_id"] = goal_id
         if step_id:
             data["step_id"] = step_id
+        if terminal_reason:
+            data["reason"] = terminal_reason
+        if event == "execution_task_failed":
+            data["error"] = terminal_reason or "Execution task failed"
+            data["error_type"] = snapshot.terminal_error_type or "ExecutionTaskFailure"
         if extra:
             data.update(extra)
         log = (
@@ -650,10 +971,13 @@ class TaskCoordinator:
             if event in {"execution_task_metadata_updated", "execution_task_heartbeat"}
             else self._logger.add_sink("validation")
         )
-        log.info(
-            event,
-            data=data,
-        )
+        if event == "execution_task_failed":
+            log.error(event, data=data)
+        elif event == "execution_task_timed_out":
+            data["issue"] = f"execution_task_timeout:{snapshot.task_id}"
+            log.warning(event, data=data)
+        else:
+            log.info(event, data=data)
 
     def _notify_terminal_observers(self, snapshot: ExecutionTaskSnapshot) -> None:
         """Notify process-local observers after a task reaches a terminal state."""
@@ -690,3 +1014,72 @@ def _clean_goal_context_value(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _bound_activity_text(value: str | None) -> str | None:
+    """Bound free-form task detail before it reaches retained System Activity."""
+    if value is None or len(value) <= EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS:
+        return value
+    return f"{value[:EXECUTION_TASK_ACTIVITY_TEXT_MAX_CHARS]}..."
+
+
+def _bound_execution_task_result(
+    result: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    normalized = _json_safe_value(result)
+    if not isinstance(normalized, dict):  # pragma: no cover - input is typed as a dict
+        normalized = {"value": normalized}
+    serialized = json.dumps(normalized, ensure_ascii=False, sort_keys=True)
+    if len(serialized) <= EXECUTION_TASK_RESULT_MAX_CHARS:
+        return normalized, False
+
+    bounded: dict[str, Any] = {"truncated": True}
+    artifact_references = normalized.get("artifact_references")
+    if isinstance(artifact_references, list):
+        preserved_references: list[Any] = []
+        for reference in artifact_references[:50]:
+            candidate = [*preserved_references, reference]
+            if len(_serialize_json(candidate)) > 4_096:
+                break
+            preserved_references = candidate
+        if preserved_references:
+            bounded["artifact_references"] = preserved_references
+
+    preview_budget = max(
+        0,
+        EXECUTION_TASK_RESULT_MAX_CHARS - len(_serialize_json(bounded)) - 32,
+    )
+    bounded["preview"] = serialized[:preview_budget]
+    while len(_serialize_json(bounded)) > EXECUTION_TASK_RESULT_MAX_CHARS:
+        overflow = len(_serialize_json(bounded)) - EXECUTION_TASK_RESULT_MAX_CHARS
+        bounded["preview"] = bounded["preview"][:-overflow]
+    return bounded, True
+
+
+def _json_safe_value(value: Any, *, _seen: set[int] | None = None) -> Any:
+    if value is None or isinstance(value, str | int | bool):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict | list | tuple | set):
+        seen = _seen if _seen is not None else set()
+        container_id = id(value)
+        if container_id in seen:
+            return "<recursive>"
+        seen.add(container_id)
+        try:
+            if isinstance(value, dict):
+                return {
+                    str(key): _json_safe_value(item, _seen=seen)
+                    for key, item in value.items()
+                }
+            return [_json_safe_value(item, _seen=seen) for item in value]
+        finally:
+            seen.remove(container_id)
+    return str(value)
+
+
+def _serialize_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
