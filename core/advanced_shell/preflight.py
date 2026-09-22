@@ -109,6 +109,7 @@ class AdvancedShellPreflightService:
             data={
                 "event": "advanced_shell_readiness_changed",
                 "state": snapshot.state.value,
+                "status": snapshot.state.value,
             },
         )
         return snapshot

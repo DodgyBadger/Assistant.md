@@ -1385,7 +1385,10 @@ async def complete_google_oauth_callback_endpoint(
             "Google OAuth browser callback failed",
             data={
                 "event": "google_oauth_callback_failed",
+                "status": "failed",
                 "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+                "issue": "google_oauth_callback",
             },
         )
         return HTMLResponse(_google_oauth_callback_page(success=False), status_code=400)

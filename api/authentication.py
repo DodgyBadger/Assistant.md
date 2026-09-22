@@ -18,8 +18,10 @@ from core.authentication import (
     AuthenticationPolicy,
     OwnerSessionCodec,
 )
+from core.logger import UnifiedLogger
 
 router = APIRouter(prefix="/auth", tags=["Assistant.md authentication"])
+logger = UnifiedLogger(tag="authentication")
 _COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60
 _MAXIMUM_SESSION_EXCHANGE_BYTES = 8192
 _COOKIE_EXPIRY_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -57,6 +59,22 @@ async def create_owner_session(
     supplied_token = await _read_owner_token(request)
     if policy.authenticate_owner_bearer(supplied_token) is None:
         limiter.record_failure(peer_key)
+        limited = limiter.is_limited(peer_key)
+        failure_reason = "rate_limit_reached" if limited else "invalid_credential"
+        logger.warning(
+            "Owner session exchange failed",
+            data={
+                "event": (
+                    "owner_session_exchange_rejected"
+                    if limited
+                    else "owner_session_exchange_failed"
+                ),
+                "status": "rejected" if limited else "failed",
+                "reason": failure_reason,
+                "issue": f"owner_session_exchange:{failure_reason}",
+                "authentication_mode": policy.mode.value,
+            },
+        )
         raise HTTPException(status_code=401, detail="Authentication failed.")
     limiter.record_success(peer_key)
     issued = OwnerSessionCodec(policy).issue()
@@ -83,6 +101,15 @@ async def create_owner_session(
         samesite="lax",
     )
     response.headers["Cache-Control"] = "no-store"
+    logger.info(
+        "Owner session exchange completed",
+        data={
+            "event": "owner_session_exchange_completed",
+            "status": "completed",
+            "authentication_mode": policy.mode.value,
+            "secure_cookie": secure,
+        },
+    )
     return response
 
 
@@ -112,6 +139,15 @@ async def delete_owner_session(request: Request) -> JSONResponse:
         samesite="lax",
     )
     response.headers["Cache-Control"] = "no-store"
+    logger.info(
+        "Owner session logout completed",
+        data={
+            "event": "owner_session_logout_completed",
+            "status": "completed",
+            "authentication_mode": _policy(request).mode.value,
+            "secure_cookie": secure,
+        },
+    )
     return response
 
 

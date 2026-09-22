@@ -292,6 +292,9 @@ class ChatStreamAutoRetryScenario(BaseScenario):
             assert len(retry_events) == 1
             assert retry_events[0].get("reset_response") is True
             assert retry_events[0].get("replay_scope") == "no_chat_tools"
+            assert retry_events[0].get("status") == "scheduled"
+            assert retry_events[0].get("vault_name") == vault.name
+            assert retry_events[0].get("error")
 
             checkpoint_agent, tool_effects = _checkpoint_recovery_agent(
                 session_id="primary_checkpoint_retry"

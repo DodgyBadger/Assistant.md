@@ -390,6 +390,7 @@ async def start_chat_turn_retry_task(
         "Manual chat retry task started",
         data={
             "event": "chat_manual_retry_started",
+            "status": "started",
             "vault_name": vault_name,
             "session_id": session_id,
             "task_id": started.task.task_id,
@@ -433,10 +434,18 @@ async def start_deferred_review_resume_task(
                     else None
                 ),
             )
-        except DeferredReviewError:
+        except DeferredReviewError as exc:
             chat_executor.logger.warning(
                 "Deferred review terminal state could not be recorded",
-                data={"artifact_ref": review.artifact_ref, "status": status},
+                data={
+                    "event": "deferred_review_terminal_record_failed",
+                    "status": "failed",
+                    "artifact_ref": review.artifact_ref,
+                    "requested_status": status,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": f"deferred_review_terminal:{review.artifact_ref}",
+                },
             )
 
     async def _run(tracked_task: ExecutionTaskSnapshot) -> None:
@@ -1026,8 +1035,10 @@ async def _run_prepared_chat_stream_task_inner(
                     delay_seconds = retry_policy.delay_after(attempt)
                     retry_data = {
                         "event": "chat_retry_scheduled",
+                        "status": "scheduled",
                         "task_id": task.task_id,
                         "session_id": session_id,
+                        "vault_name": vault_name,
                         "model": prepared.model,
                         "attempt": attempt,
                         "next_attempt": attempt + 1,
@@ -1035,6 +1046,7 @@ async def _run_prepared_chat_stream_task_inner(
                         "delay_seconds": delay_seconds,
                         "failure_kind": classification.failure_kind,
                         "error_type": classification.error_type,
+                        "error": classification.message,
                         "replay_scope": replay_scope,
                         "strategy": replay_scope,
                         "reset_response": True,

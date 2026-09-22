@@ -303,8 +303,10 @@ async def test_shell_activity_is_bounded_and_omits_command_content(
     ]
     assert recording_logger.events[0]["command_chars"] == 22
     assert recording_logger.events[0]["stdin_bytes"] == 13
+    assert recording_logger.events[0]["status"] == "running"
     assert recording_logger.events[1]["exit_code"] == 0
     assert recording_logger.events[1]["output_bytes"] == 2
+    assert recording_logger.events[1]["status"] == "completed"
     assert "sensitive command text" not in str(recording_logger.events)
     assert "private input" not in str(recording_logger.events)
 

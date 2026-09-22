@@ -477,12 +477,16 @@ class MCPOAuthCoordinator:
                 "MCP OAuth state committed but runtime invalidation failed",
                 data={
                     "event": "connection_mutation_failed",
+                    "status": "failed",
                     "provider": "mcp",
                     "connection_id": connection_id,
                     "mutation_kind": mutation_kind,
                     "phase": "runtime_invalidation",
                     "committed": True,
                     "error_class": type(exc).__name__,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": f"mcp_oauth_mutation:{connection_id}",
                 },
             )
             raise MCPMutationUnavailableError(
@@ -550,8 +554,11 @@ class MCPOAuthCoordinator:
                 "MCP OAuth authorization attempt failed",
                 data={
                     "event": "mcp_oauth_attempt_failed",
+                    "status": "failed",
                     "connection_id": attempt.connection.connection_id,
                     "error_type": type(error).__name__,
+                    "error": str(error)[:500],
+                    "issue": attempt.connection.connection_id,
                 },
             )
 

@@ -51,7 +51,7 @@ def create_google_connection(
 ) -> GoogleConnectionResponse:
     if get_runtime_context().google_connection is None:
         raise _secrets_locked()
-    with _domain_errors():
+    with _domain_errors(operation="create_connection"):
         connection = (
             get_runtime_context().built_in_connections.create_google_connection(
                 GoogleConnectionCreate(
@@ -62,6 +62,15 @@ def create_google_connection(
                 )
             )
         )
+    logger.info(
+        "Google connection created",
+        data={
+            "event": "google_connection_created",
+            "status": "completed",
+            "connection_id": connection.connection_id,
+            "config_version": connection.config_version,
+        },
+    )
     return _google_connection_response(connection.connection_id)
 
 
@@ -136,7 +145,10 @@ def update_google_connection(
         is_default=request.is_default,
         gmail=GmailPreferences(**request.gmail.model_dump()),
     )
-    with _domain_errors():
+    with _domain_errors(
+        operation="update_connection",
+        connection_id=previous.connection_id if previous is not None else None,
+    ):
         if previous is None:
             connection = runtime.built_in_connections.create_google_connection(
                 GoogleConnectionCreate(
@@ -157,6 +169,8 @@ def update_google_connection(
         "Google connection configuration changed",
         data={
             "event": "google_connection_updated",
+            "status": "completed",
+            "connection_id": connection.connection_id,
             "config_version": connection.config_version,
         },
     )
@@ -173,13 +187,13 @@ def update_google_connection_by_id(
     previous = runtime.built_in_connections.get_google_connection_for_authority(
         authority, connection_id
     )
-    with _domain_errors():
+    with _domain_errors(operation="update_connection", connection_id=connection_id):
         if previous is None:
             raise LookupError("Google connection not found.")
         service = runtime.google_connection
         if service is None:
             raise _secrets_locked()
-        service.update_connection(
+        connection = service.update_connection(
             authority,
             connection_id,
             GoogleConnectionUpdate(
@@ -189,6 +203,15 @@ def update_google_connection_by_id(
                 gmail=GmailPreferences(**request.gmail.model_dump()),
             ),
         )
+    logger.info(
+        "Google connection configuration changed",
+        data={
+            "event": "google_connection_updated",
+            "status": "completed",
+            "connection_id": connection.connection_id,
+            "config_version": connection.config_version,
+        },
+    )
     return _google_connection_response(connection_id)
 
 
@@ -200,17 +223,23 @@ def set_google_client_secret(
     service = get_runtime_context().google_connection
     if service is None:
         raise _secrets_locked()
-    with _domain_errors():
+    authority = require_current_execution_authority()
+    with _domain_errors(operation="update_client_secret", connection_id=connection_id):
         service.set_client_secret(
-            require_current_execution_authority(),
+            authority,
             request.client_secret.get_secret_value(),
             connection_id,
         )
+    response = _google_connection_response(connection_id)
     logger.info(
         "Google OAuth client secret updated",
-        data={"event": "google_oauth_client_secret_updated"},
+        data={
+            "event": "google_oauth_client_secret_updated",
+            "status": "completed",
+            "connection_id": response.connection_id,
+        },
     )
-    return _google_connection_response(connection_id)
+    return response
 
 
 def start_google_oauth(connection_id: str | None = None) -> GoogleOAuthStartResponse:
@@ -227,14 +256,23 @@ def start_google_oauth(connection_id: str | None = None) -> GoogleOAuthStartResp
         )
     )
     capabilities = _google_oauth_capabilities(connection)
-    with _domain_errors():
+    with _domain_errors(operation="start_oauth", connection_id=connection_id):
         result = _oauth_coordinator().start(
             authority=authority,
             redirect_uri=redirect_uri,
             capabilities=capabilities,
             connection_id=connection_id,
         )
-    logger.info("Google OAuth started", data={"event": "google_oauth_started"})
+    logger.info(
+        "Google OAuth started",
+        data={
+            "event": "google_oauth_started",
+            "status": "started",
+            "connection_id": (
+                connection.connection_id if connection is not None else connection_id
+            ),
+        },
+    )
     payload = asdict(result)
     payload["requested_scopes"] = list(result.requested_scopes)
     return GoogleOAuthStartResponse.model_validate(payload)
@@ -255,7 +293,7 @@ async def complete_google_oauth(
     connection_id: str | None = None,
 ) -> GoogleConnectionResponse:
     """Complete one callback or pasted-redirect Google OAuth attempt."""
-    with _domain_errors():
+    with _domain_errors(operation="complete_oauth", connection_id=connection_id):
         code, state = parse_oauth_completion(
             redirect_url=request.redirect_url,
             code=request.code,
@@ -267,8 +305,16 @@ async def complete_google_oauth(
             state=state,
             connection_id=connection_id,
         )
-    logger.info("Google OAuth completed", data={"event": "google_oauth_completed"})
-    return _google_connection_response(connection_id)
+    response = _google_connection_response(connection_id)
+    logger.info(
+        "Google OAuth completed",
+        data={
+            "event": "google_oauth_completed",
+            "status": "completed",
+            "connection_id": response.connection_id,
+        },
+    )
+    return response
 
 
 def disconnect_google_oauth(connection_id: str | None = None) -> OperationResult:
@@ -279,7 +325,7 @@ def disconnect_google_oauth(connection_id: str | None = None) -> OperationResult
     authority = require_current_execution_authority()
     if get_runtime_context().google_connection is None:
         raise _secrets_locked()
-    with _domain_errors():
+    with _domain_errors(operation="disconnect_oauth", connection_id=connection_id):
         connection = get_runtime_context().built_in_connections.get_google_connection_for_authority(
             authority, connection_id
         )
@@ -287,7 +333,12 @@ def disconnect_google_oauth(connection_id: str | None = None) -> OperationResult
             raise LookupError("Google connection not found.")
         service.clear_token_state(authority, connection.connection_id)
     logger.info(
-        "Google OAuth disconnected", data={"event": "google_oauth_disconnected"}
+        "Google OAuth disconnected",
+        data={
+            "event": "google_oauth_disconnected",
+            "status": "completed",
+            "connection_id": connection.connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -309,7 +360,7 @@ def delete_google_connection(
     if service is None:
         raise _secrets_locked()
     authority = require_current_execution_authority()
-    with _domain_errors():
+    with _domain_errors(operation="delete_connection", connection_id=connection_id):
         connection = runtime.built_in_connections.get_google_connection_for_authority(
             authority, connection_id
         )
@@ -321,7 +372,12 @@ def delete_google_connection(
             replacement_default_id=replacement_default_id,
         )
     logger.info(
-        "Google connection deleted", data={"event": "google_connection_deleted"}
+        "Google connection deleted",
+        data={
+            "event": "google_connection_deleted",
+            "status": "completed",
+            "connection_id": connection.connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -363,20 +419,37 @@ def _secrets_locked() -> APIException:
 
 
 @contextmanager
-def _domain_errors() -> Iterator[None]:
+def _domain_errors(
+    *, operation: str | None = None, connection_id: str | None = None
+) -> Iterator[None]:
     try:
         yield
-    except APIException:
+    except Exception as exc:
+        if operation is not None:
+            logger.warning(
+                "Google connection operation failed",
+                data={
+                    "event": "google_connection_operation_failed",
+                    "status": "failed",
+                    "operation": operation,
+                    "connection_id": connection_id,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                    "issue": f"google_connection:{operation}:{connection_id or 'default'}",
+                },
+            )
+        if isinstance(exc, APIException):
+            raise
+        if isinstance(exc, LookupError):
+            raise APIException(
+                status_code=404,
+                error_type="GoogleConnectionNotFound",
+                message="Google connection not found.",
+            ) from exc
+        if isinstance(exc, ValueError):
+            raise APIException(
+                status_code=400,
+                error_type="InvalidGoogleConnection",
+                message=str(exc),
+            ) from exc
         raise
-    except LookupError as exc:
-        raise APIException(
-            status_code=404,
-            error_type="GoogleConnectionNotFound",
-            message="Google connection not found.",
-        ) from exc
-    except ValueError as exc:
-        raise APIException(
-            status_code=400,
-            error_type="InvalidGoogleConnection",
-            message=str(exc),
-        ) from exc

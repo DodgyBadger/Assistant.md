@@ -32,9 +32,24 @@ async def test_mcp_connection_runtime(
     credential: str | None,
 ) -> MCPConnectionTestResult:
     """Initialize one client and list tools without retaining runtime resources."""
+    logger.info(
+        "MCP connection test started",
+        data={
+            "event": "mcp_connection_test_started",
+            "status": "started",
+            "connection_id": connection.connection_id,
+            "url": sanitize_url_for_log(connection.require_url()),
+            "transport": connection.transport.value,
+        },
+    )
     configuration_error = _validate_auth_configuration(connection, credential)
     if configuration_error is not None:
-        return configuration_error
+        return _failed_result(
+            connection,
+            status=configuration_error.status,
+            message=configuration_error.message,
+            error_type="MCPConfigurationError",
+        )
 
     try:
         headers, auth = _build_auth(connection, credential)
@@ -129,6 +144,7 @@ async def test_mcp_connection_runtime(
         "MCP connection test succeeded",
         data={
             "event": "mcp_connection_test_succeeded",
+            "status": "ready",
             "connection_id": connection.connection_id,
             "url": sanitize_url_for_log(connection.require_url()),
             "transport": connection.transport.value,
@@ -191,6 +207,8 @@ def _failed_result(
             "transport": connection.transport.value,
             "status": status,
             "error_type": error_type,
+            "error": message,
+            "issue": connection.connection_id,
         },
     )
     return MCPConnectionTestResult(

@@ -237,7 +237,11 @@ def delete_mcp_connection(connection_id: str) -> OperationResult:
         _service().delete_connection(connection_id)
     logger.info(
         "MCP connection deleted",
-        data={"event": "mcp_connection_deleted", "connection_id": connection_id},
+        data={
+            "event": "mcp_connection_deleted",
+            "status": "completed",
+            "connection_id": connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -284,6 +288,7 @@ async def start_mcp_oauth(
         "MCP OAuth authorization started",
         data={
             "event": "mcp_oauth_started",
+            "status": "started",
             "connection_id": connection_id,
             "redirect_source": redirect_source,
         },
@@ -309,7 +314,11 @@ async def complete_mcp_oauth(
         )
     logger.info(
         "MCP OAuth authorization completed",
-        data={"event": "mcp_oauth_completed", "connection_id": connection_id},
+        data={
+            "event": "mcp_oauth_completed",
+            "status": "completed",
+            "connection_id": connection_id,
+        },
     )
     return MCPOAuthStatusResponse(**asdict(result))
 
@@ -333,7 +342,11 @@ async def disconnect_mcp_oauth(connection_id: str) -> OperationResult:
         )
     logger.info(
         "MCP OAuth disconnected",
-        data={"event": "mcp_oauth_disconnected", "connection_id": connection_id},
+        data={
+            "event": "mcp_oauth_disconnected",
+            "status": "completed",
+            "connection_id": connection_id,
+        },
     )
     return OperationResult(
         success=True,
@@ -409,6 +422,7 @@ def _log_change(event: str, connection: MCPConnection) -> None:
         "MCP connection configuration changed",
         data={
             "event": event,
+            "status": "completed",
             "connection_id": connection.connection_id,
             "slug": connection.slug,
             "enabled": connection.enabled,

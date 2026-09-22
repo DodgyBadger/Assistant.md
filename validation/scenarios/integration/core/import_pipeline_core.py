@@ -69,6 +69,33 @@ class ImportPipelineScenario(BaseScenario):
         assert "Import validation" in sample_content
         assert "mime: application/pdf" in sample_content
 
+        system_activity = self.call_api("/api/system/activity-log?limit=200")
+        assert system_activity.status_code == 200, "System Activity should respond"
+        ingestion_events = [
+            entry.get("data") or {}
+            for entry in system_activity.json().get("entries", [])
+            if (entry.get("data") or {}).get("job_id") == job.get("id")
+        ]
+        observed_lifecycle = {
+            (entry.get("event"), entry.get("status")) for entry in ingestion_events
+        }
+        assert (
+            "ingestion_job_started",
+            "started",
+        ) in observed_lifecycle, "Import start should be visible in System Activity"
+        assert (
+            "ingestion_job_completed",
+            "completed",
+        ) in observed_lifecycle, (
+            "Import completion should be visible in System Activity"
+        )
+        assert all(
+            entry.get("vault_name") == vault.name for entry in ingestion_events
+        ), "Import activity should retain the searchable vault identity"
+        assert "Import validation" not in str(
+            ingestion_events
+        ), "Import activity must not retain document content"
+
         vault_id = self._vault_id(vault.name)
         assert self._manifest_row(
             vault_id, sample_rel_path, deleted=False

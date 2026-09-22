@@ -62,6 +62,7 @@ class GmailDraftToolScenario(BaseScenario):
         with (
             patch.object(service, "_resolve_connection", return_value=selected),
             patch.object(service, "_client", return_value=client),
+            patch("core.integrations.google.gmail_service.logger.info") as log_info,
         ):
             result = await service.create_draft(
                 authority,
@@ -76,6 +77,19 @@ class GmailDraftToolScenario(BaseScenario):
                 [("Hello", "Draft body")],
             ),
             "The service should create one draft after policy and scope checks",
+        )
+        lifecycle = [call.kwargs["data"] for call in log_info.call_args_list]
+        self.soft_assert_equal(
+            [(entry["event"], entry["status"]) for entry in lifecycle],
+            [
+                ("gmail_draft_creation_started", "started"),
+                ("gmail_draft_creation_completed", "completed"),
+            ],
+            "Draft activity should expose a stable start and terminal lifecycle",
+        )
+        self.soft_assert(
+            "Draft body" not in repr(lifecycle),
+            "Draft activity must not retain message content",
         )
 
         await self._assert_gate(authority, selected, enabled=False, scope=True)

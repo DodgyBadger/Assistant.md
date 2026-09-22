@@ -464,8 +464,11 @@ class GoogleOAuthCoordinator:
                     "Stale Google OAuth pending cleanup deferred",
                     data={
                         "event": "google_oauth_stale_cleanup_deferred",
+                        "status": "deferred",
                         "connection_id": connection_id,
                         "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                        "issue": connection_id,
                     },
                 )
             return None
