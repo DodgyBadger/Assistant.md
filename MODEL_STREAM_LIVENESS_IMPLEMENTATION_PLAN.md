@@ -1,5 +1,9 @@
 # Model Stream Liveness Implementation Plan
 
+## Status
+
+Implemented on `dev/delegate-run-supervision`. Focused stream-recovery and provider-boundary scenarios pass, along with the production Python quality gate; the maintainer-owned full validation profile remains pending.
+
 ## Objective
 
 Prevent a provider stream that remains connected without producing usable model events from leaving a chat indefinitely in `running`, while preserving long agent runs that continue to make model or tool progress.

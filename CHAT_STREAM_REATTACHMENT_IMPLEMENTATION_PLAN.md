@@ -17,7 +17,7 @@ When the user reloads the browser or returns to a session with an active chat ta
 - the in-progress response, reasoning, tool states, and pending review state are restored in one bounded catch-up operation;
 - live SSE consumption resumes after the restored event cursor without missing or duplicating content;
 - an old model-retry event does not leave the UI incorrectly labeled `Reconnecting to model`;
-- a task whose raw event cursor has expired can still restore its current projected state instead of forcing the browser to wait until terminal persistence; and
+- a task whose raw event cursor has expired can still restore its current projected state instead of forcing the browser to wait until terminal persistence;
 - a task that completes between persisted-session loading and active-task discovery triggers one final session refresh instead of leaving the browser on a stale pre-completion transcript; and
 - ordinary short network interruptions continue to use cursor-based SSE replay.
 
