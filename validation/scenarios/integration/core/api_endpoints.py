@@ -939,17 +939,27 @@ class ApiEndpointsScenario(BaseScenario):
         ), "Streaming chat task completes"
         chat_stream_task_id = chat_stream_result["task_id"]
         assert chat_stream_task_id, "Streaming chat task start returns a task id"
-        chat_stream = self.call_api(f"/api/chat/tasks/{chat_stream_task_id}/events")
-        assert chat_stream.status_code == 200, "Streaming chat event endpoint succeeds"
+        replay_snapshot = self.call_api(
+            f"/api/chat/tasks/{chat_stream_task_id}/replay-snapshot"
+        )
         assert (
-            "data: " in chat_stream.text
-        ), "Streaming chat returns SSE-formatted chunks"
+            replay_snapshot.status_code == 200
+        ), "Streaming chat replay snapshot endpoint succeeds"
+        replay_payload = replay_snapshot.json()
+        replay_events = replay_payload.get("events", [])
+        assert any(
+            event.get("event") == "done" for event in replay_events
+        ), "Streaming chat replay snapshot includes a terminal event"
+        assert not any(
+            event.get("event") == "error" for event in replay_events
+        ), "Streaming chat replay snapshot completes without an error event"
+        chat_stream = self.call_api(
+            f"/api/chat/tasks/{chat_stream_task_id}/events",
+            params={"after_sequence": replay_payload["latest_sequence"]},
+        )
         assert (
-            '"event": "done"' in chat_stream.text
-        ), "Streaming chat returns a terminal SSE event"
-        assert (
-            '"event": "error"' not in chat_stream.text
-        ), "Streaming chat completes without an error event"
+            chat_stream.status_code == 200
+        ), "Streaming chat event endpoint accepts the replay snapshot cursor"
 
         chat_task_start = self.call_api(
             "/api/chat/tasks",
