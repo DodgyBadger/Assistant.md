@@ -519,7 +519,11 @@ class IngestionService:
 
     @staticmethod
     def _resolve_output_base_dir(*, configured_value: object, vault_root: Path) -> str:
-        raw_value = str(configured_value or "Imported/").strip()
+        raw_value = str(
+            "Imported/" if configured_value is None else configured_value
+        ).strip()
+        if raw_value in {"", "."}:
+            return ""
         output_path = Path(raw_value)
         if output_path.is_absolute():
             raise ValueError("Ingestion output path must be vault-relative")

@@ -79,10 +79,14 @@
                         <button type="button" class="ui-button-secondary" data-vault-explorer-upload-change-destination>Change</button>
                     </div>
                     <div class="vault-explorer-upload-list" data-vault-explorer-upload-list></div>
-                    <p class="text-xs text-txt-secondary">To convert PDFs or images to Markdown, upload them to <span class="cell-mono">AssistantMD/Import</span>, then use Import Files.</p>
+                    <p class="text-xs text-txt-secondary">Upload the source files only, or upload supported PDFs/images and import them to Markdown in one operation.</p>
                     <div class="vault-explorer-form-actions">
                         <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
                         <button type="submit" class="ui-button-primary">Upload</button>
+                        <button type="submit" name="upload_mode" value="upload_import" class="ui-button-primary"
+                            ${activeUploadFiles.every((file) => window.VaultExplorerImports.supportsPath(file.name)) ? '' : 'disabled title="Every file must be a supported PDF or image."'}>
+                            Upload &amp; import
+                        </button>
                     </div>
                     <div class="text-sm" data-vault-explorer-form-status></div>
                 </form>`;
@@ -117,7 +121,12 @@
             `).join('');
         }
 
-        async function submitUploads(overlay, form, options) {
+        async function submitUploads(
+            overlay,
+            form,
+            options,
+            { importAfterUpload = false } = {}
+        ) {
             if (isReadOnly(options) || !activeUploadFiles.length) return;
             const destinationInput = form.elements.namedItem('destination');
             const destination = destinationInput instanceof HTMLInputElement
@@ -172,15 +181,61 @@
                     );
                 }
             }
+            let importError = null;
+            if (importAfterUpload && uploadedPaths.length) {
+                uploadInProgress = true;
+                setUploadInteractionState(overlay, form, true);
+                callbacks.syncInteractionLocks();
+                try {
+                    if (typeof options.onImportSources !== 'function') {
+                        throw new Error('Content import is unavailable.');
+                    }
+                    if (status) status.textContent = 'Upload complete. Importing to Markdown…';
+                    await options.onImportSources({
+                        sources: uploadedPaths,
+                        destination,
+                        queue_only: false,
+                    });
+                } catch (error) {
+                    importError = error;
+                } finally {
+                    uploadInProgress = false;
+                    setUploadInteractionState(overlay, form, false);
+                }
+            }
             if (!failures.length) {
+                if (importError) {
+                    activeUploadFiles = [];
+                    form.querySelectorAll('button[type="submit"]').forEach((button) => {
+                        if (button instanceof HTMLButtonElement) button.disabled = true;
+                    });
+                    if (status) {
+                        status.innerHTML = `<span class="state-error">Upload succeeded, but import failed: ${escapeHtml(importError.message)}</span>`;
+                    }
+                    return;
+                }
                 closeActionPanel(overlay, { restoreFocus: false });
+                callbacks.setStatus(
+                    overlay,
+                    importAfterUpload
+                        ? `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded and imported.`
+                        : `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded.`
+                );
                 return;
             }
 
             activeUploadFiles = failures.map(({ file }) => file);
             renderUploadPaths(form);
+            const importButton = form.querySelector('button[value="upload_import"]');
+            if (importButton instanceof HTMLButtonElement) {
+                importButton.disabled = !activeUploadFiles.every((file) => (
+                    window.VaultExplorerImports.supportsPath(file.name)
+                ));
+            }
             if (status) {
-                status.innerHTML = failures.map(({ file, message }) => (
+                status.innerHTML = (importError
+                    ? `<div class="state-error">Import failed: ${escapeHtml(importError.message)}</div>`
+                    : '') + failures.map(({ file, message }) => (
                     `<div class="state-error">${escapeHtml(file.name)}: ${escapeHtml(message)}</div>`
                 )).join('');
             }
@@ -193,7 +248,14 @@
                     control instanceof HTMLButtonElement
                     || control instanceof HTMLInputElement
                 ) {
-                    control.disabled = busy;
+                    control.disabled = busy || (
+                        !busy
+                        && control instanceof HTMLButtonElement
+                        && control.value === 'upload_import'
+                        && !activeUploadFiles.every((file) => (
+                            window.VaultExplorerImports.supportsPath(file.name)
+                        ))
+                    );
                 }
             });
             const closeButton = overlay.querySelector('[data-vault-path-picker-close]');

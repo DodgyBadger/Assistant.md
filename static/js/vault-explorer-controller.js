@@ -46,7 +46,12 @@
             }
             if (['rename', 'move'].includes(operation) && targetPath) {
                 state.deselect(sourcePath);
-                state.select({ path: targetPath, kind, importEligible: false });
+                state.select({
+                    path: targetPath,
+                    kind,
+                    importEligible: kind === 'file'
+                        && callbacks.supportsImportPath(targetPath),
+                });
             }
         }
 
@@ -64,6 +69,15 @@
                 }
                 if (action === 'upload') {
                     overlay.querySelector('[data-vault-explorer-upload-input]')?.click();
+                    return;
+                }
+                if (action === 'import_file' || action === 'import_url') {
+                    await callbacks.handleImportAction(
+                        action,
+                        overlay,
+                        currentSnapshot,
+                        options
+                    );
                     return;
                 }
                 if (action === 'new_file' || action === 'new_directory') {
@@ -142,11 +156,17 @@
                 actions.push('new_file', 'new_directory');
             }
             if (typeof currentOptions.onUpload === 'function') actions.push('upload');
+            if (typeof currentOptions.onImportSources === 'function') {
+                actions.push('import_url');
+            }
             actions.push('refresh', 'open');
             if (typeof currentOptions.onAddReference === 'function') actions.push('reference');
             actions.push('copy');
             if (typeof currentOptions.onSetWorkspace === 'function') actions.push('workspace');
             actions.push('rename', 'move', 'delete');
+            if (typeof currentOptions.onImportSources === 'function') {
+                actions.push('import_file');
+            }
             return actions;
         }
 

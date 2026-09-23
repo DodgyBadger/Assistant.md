@@ -734,6 +734,32 @@ details summary::-webkit-details-marker {
     flex-direction: column;
     gap: 0.65rem;
 }
+.vault-explorer-import-form,
+.vault-explorer-import-options,
+.vault-explorer-import-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.vault-explorer-import-options {
+    padding: 0.6rem;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 0.375rem;
+}
+.vault-explorer-import-options summary {
+    cursor: pointer;
+    color: rgb(var(--text-primary));
+    font-weight: 600;
+}
+.vault-explorer-import-sources {
+    max-height: 8rem;
+    overflow-y: auto;
+}
+.vault-explorer-option-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 .vault-explorer-upload-list {
     display: flex;
     flex-direction: column;

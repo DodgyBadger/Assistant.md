@@ -285,6 +285,7 @@ from .execution_tasks import (
 )
 from .ingestion import (
     cancel_import_job,
+    import_sources_direct,
     import_url_direct,
     list_recent_import_jobs,
     scan_import_folder,

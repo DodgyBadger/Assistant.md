@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ImportScanRequest(BaseModel):
@@ -60,6 +60,27 @@ class ImportRunNowResponse(BaseModel):
 class ImportScanResponse(BaseModel):
     jobs_created: list[ImportJobInfo]
     skipped: list[str]
+
+
+class ImportSourcesRequest(BaseModel):
+    vault: str
+    sources: list[str] = Field(min_length=1)
+    destination: str | None = None
+    queue_only: bool = False
+    clean_html: bool = True
+    strategies: list[str] | None = None
+    pdf_strategies: list[str] | None = None
+    capture_ocr_images: bool | None = None
+    pdf_mode: str | None = None
+    include_ocr_blocks: bool | None = None
+    ocr_table_format: str | None = None
+    extract_ocr_header: bool | None = None
+    extract_ocr_footer: bool | None = None
+    ocr_confidence: str | None = None
+
+
+class ImportSourcesResponse(BaseModel):
+    jobs_created: list[ImportJobInfo]
 
 
 class ImportUrlRequest(BaseModel):

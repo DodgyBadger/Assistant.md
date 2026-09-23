@@ -20,8 +20,8 @@ def resolve_import_output_paths(
     source_filename: str | None,
     title: str | None,
 ) -> ImportOutputPaths:
-    base_dir = path_pattern or "Imported/"
-    rel_dir = base_dir.rstrip("/")
+    base_dir = "Imported/" if path_pattern is None else path_pattern
+    rel_dir = "" if base_dir in {"", "."} else base_dir.rstrip("/")
     if relative_dir:
         rel_dir = os.path.join(rel_dir, relative_dir.strip("/"))
 
