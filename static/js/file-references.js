@@ -89,6 +89,7 @@
                     if (workspaceSelectionMode && saved === true) closePicker();
                 },
                 onMutate: (payload) => mutatePath(payload, vault),
+                onBatchMove: (payload) => movePathsBatch(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),
                 onImportSources: (payload) => importSources(payload, vault),
                 onClose: () => {
@@ -104,6 +105,23 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...payload, vault }),
             });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function movePathsBatch(payload, vaultName = '') {
+            const vault = vaultName || selectedVault();
+            const response = await fetch(
+                `api/vaults/${encodeURIComponent(vault)}/paths/move-batch`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                }
+            );
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || `HTTP ${response.status}`);

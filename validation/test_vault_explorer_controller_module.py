@@ -41,7 +41,7 @@ const controller = VaultExplorerController.create({
 
 assert.deepStrictEqual(
     Object.keys(controller).sort(),
-    ['close', 'mutationCompleted', 'open', 'render', 'setActiveFolder', 'snapshot', 'toggleSelection']
+    ['batchMutationCompleted', 'close', 'mutationCompleted', 'open', 'render', 'setActiveFolder', 'snapshot', 'toggleSelection']
 );
 controller.setActiveFolder('Projects');
 controller.toggleSelection({ path: 'Projects/old.md', kind: 'file' });

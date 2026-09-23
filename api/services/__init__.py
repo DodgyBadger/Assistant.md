@@ -328,6 +328,7 @@ from .vault_files import (
     get_vault_file_revisions,
     list_vault_directories,
     list_vault_file_references,
+    move_vault_paths_batch,
     mutate_vault_path,
     resolve_vault_path_references,
     resolve_vault_root,

@@ -18,6 +18,9 @@
             options = nextOptions;
             toolbar.mount(overlay.querySelector('[data-vault-explorer-toolbar]'));
             state.reset({ activeFolder });
+            state.setFeatures({
+                batchMove: typeof options.onBatchMove === 'function',
+            });
         }
 
         function close() {
@@ -51,6 +54,18 @@
                     kind,
                     importEligible: kind === 'file'
                         && callbacks.supportsImportPath(targetPath),
+                });
+            }
+        }
+
+        function batchMutationCompleted(results) {
+            state.clearSelection();
+            for (const result of results) {
+                state.select({
+                    path: result.destination,
+                    kind: result.kind,
+                    importEligible: result.kind === 'file'
+                        && callbacks.supportsImportPath(result.destination),
                 });
             }
         }
@@ -109,6 +124,15 @@
                 }
                 if (action === 'workspace' && selectedItem) {
                     await options.onSetWorkspace?.(selectedItem.path);
+                    return;
+                }
+                if (action === 'move' && currentSnapshot.selectedCount > 1) {
+                    callbacks.handleBatchMove(
+                        overlay,
+                        currentSnapshot.selectedItems,
+                        currentSnapshot.activeFolder,
+                        options
+                    );
                     return;
                 }
                 if (['rename', 'move', 'delete'].includes(action) && selectedItem) {
@@ -171,6 +195,7 @@
         }
 
         return Object.freeze({
+            batchMutationCompleted,
             close,
             mutationCompleted,
             open,

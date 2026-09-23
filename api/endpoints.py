@@ -141,6 +141,8 @@ from .models import (
     VaultActivityRollbackPreviewResponse,
     VaultActivityRollbackRequest,
     VaultActivityRollbackResponse,
+    VaultBatchMoveRequest,
+    VaultBatchMoveResponse,
     VaultDirectoryListResponse,
     VaultFileReferenceListResponse,
     VaultFileResponse,
@@ -219,6 +221,7 @@ from .services import (
     list_vault_directories,
     list_vault_file_references,
     list_workflow_tasks,
+    move_vault_paths_batch,
     mutate_vault_path,
     purge_chat_sessions,
     purge_expired_cache,
@@ -2196,6 +2199,24 @@ async def mutate_vault_explorer_path(
             path=request.path,
             destination=request.destination,
             content=request.content,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/vaults/{vault_name}/paths/move-batch", response_model=VaultBatchMoveResponse
+)
+async def move_vault_explorer_paths_batch(
+    vault_name: str,
+    request: VaultBatchMoveRequest,
+) -> VaultBatchMoveResponse | JSONResponse:
+    """Move several selected Explorer items as one preflighted command."""
+    try:
+        return move_vault_paths_batch(
+            vault_name=vault_name,
+            sources=request.sources,
+            destination=request.destination,
         )
     except Exception as e:
         return create_error_response(e)

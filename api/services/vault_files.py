@@ -14,6 +14,7 @@ from core.vault_state.activity import VaultActivityContext, use_vault_activity
 from core.vault_state.file_mutations import (
     VaultMutationRejected,
     restore_vault_file,
+    vault_directory_mutation_lock,
     write_vault_file,
     write_vault_file_bytes,
 )
@@ -36,6 +37,7 @@ from core.vault_state.service import VaultStateService
 
 from ..exceptions import APIException
 from ..models import (
+    VaultBatchMoveResponse,
     VaultDirectoryInfo,
     VaultDirectoryListResponse,
     VaultFileReferenceInfo,
@@ -714,6 +716,181 @@ def mutate_vault_path(
             destination=destination,
             content=content,
         )
+
+
+def move_vault_paths_batch(
+    *,
+    vault_name: str,
+    sources: list[str],
+    destination: str,
+) -> VaultBatchMoveResponse:
+    """Move several top-level selections as one preflighted Explorer activity."""
+    if len(sources) < 2:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidVaultBatchMove",
+            message="Batch move requires at least two source paths.",
+        )
+    vault_root = resolve_vault_root(vault_name)
+    normalized_sources = [_normalize_vault_file_path(source) for source in sources]
+    if len(set(normalized_sources)) != len(normalized_sources):
+        raise APIException(
+            status_code=400,
+            error_type="DuplicateVaultBatchSource",
+            message="Batch move source paths must be unique.",
+        )
+    for source in normalized_sources:
+        if any(
+            other != source and other.startswith(f"{source}/")
+            for other in normalized_sources
+        ):
+            raise APIException(
+                status_code=400,
+                error_type="OverlappingVaultBatchSources",
+                message="A selected folder contains another selected source.",
+            )
+    normalized_destination = _normalize_batch_destination(destination)
+    destination_root = (
+        resolve_vault_relative_path(
+            vault_path=vault_root,
+            path=normalized_destination,
+            markdown_only=False,
+        )
+        if normalized_destination
+        else vault_root
+    )
+    resolved_sources = [
+        resolve_vault_relative_path(
+            vault_path=vault_root,
+            path=source,
+            markdown_only=False,
+        )
+        for source in normalized_sources
+    ]
+    targets = [destination_root / source.name for source in resolved_sources]
+
+    with vault_directory_mutation_lock(
+        vault_root, *resolved_sources, destination_root, *targets
+    ):
+        _preflight_batch_move(
+            normalized_sources=normalized_sources,
+            resolved_sources=resolved_sources,
+            destination_root=destination_root,
+            targets=targets,
+            vault_root=vault_root,
+        )
+        completed: list[VaultPathMutationResponse] = []
+        with _explorer_activity(label=f"Move {len(normalized_sources)} items"):
+            try:
+                for source, source_path, target in zip(
+                    normalized_sources,
+                    resolved_sources,
+                    targets,
+                    strict=True,
+                ):
+                    target_relative = target.relative_to(vault_root).as_posix()
+                    completed.append(
+                        _mutate_vault_path_attributed(
+                            vault_name=vault_name,
+                            vault_root=vault_root,
+                            normalized=source,
+                            full_path=source_path,
+                            operation="move",
+                            destination=target_relative,
+                            content="",
+                        )
+                    )
+            except Exception as exc:
+                compensation_errors: list[str] = []
+                for result in reversed(completed):
+                    try:
+                        target_path = resolve_vault_relative_path(
+                            vault_path=vault_root,
+                            path=result.destination,
+                            markdown_only=False,
+                        )
+                        _mutate_vault_path_attributed(
+                            vault_name=vault_name,
+                            vault_root=vault_root,
+                            normalized=result.destination,
+                            full_path=target_path,
+                            operation="move",
+                            destination=result.path,
+                            content="",
+                        )
+                    except Exception as compensation_error:
+                        compensation_errors.append(str(compensation_error))
+                if compensation_errors:
+                    raise APIException(
+                        status_code=500,
+                        error_type="VaultBatchMoveStateUncertain",
+                        message="Batch move failed and could not be fully compensated.",
+                        details={"compensation_errors": compensation_errors},
+                    ) from exc
+                raise
+
+    return VaultBatchMoveResponse(
+        destination=normalized_destination,
+        results=completed,
+        message=f"Moved {len(completed)} items.",
+    )
+
+
+def _normalize_batch_destination(path: str) -> str:
+    raw_path = str(path or "").strip()
+    if not raw_path:
+        return ""
+    return _normalize_vault_file_path(raw_path)
+
+
+def _preflight_batch_move(
+    *,
+    normalized_sources: list[str],
+    resolved_sources: list[Path],
+    destination_root: Path,
+    targets: list[Path],
+    vault_root: Path,
+) -> None:
+    if not destination_root.exists() or not destination_root.is_dir():
+        raise APIException(
+            status_code=400,
+            error_type="VaultBatchDestinationNotDirectory",
+            message="Batch move destination must be an existing folder.",
+        )
+    if len(set(targets)) != len(targets):
+        raise APIException(
+            status_code=409,
+            error_type="VaultBatchTargetCollision",
+            message="Two selected items would have the same destination path.",
+        )
+    for source, source_path, target in zip(
+        normalized_sources, resolved_sources, targets, strict=True
+    ):
+        if not source_path.exists():
+            raise APIException(
+                status_code=404,
+                error_type="VaultPathNotFound",
+                message=f"Vault path not found: {source}",
+            )
+        if target == source_path:
+            raise APIException(
+                status_code=409,
+                error_type="VaultBatchSourceEqualsDestination",
+                message=f"{source} is already in the selected destination.",
+            )
+        if source_path.is_dir() and source_path in target.parents:
+            raise APIException(
+                status_code=400,
+                error_type="VaultBatchDestinationInsideSource",
+                message=f"Cannot move {source} inside itself.",
+            )
+        if target.exists():
+            target_relative = target.relative_to(vault_root).as_posix()
+            raise APIException(
+                status_code=409,
+                error_type="VaultPathExists",
+                message=f"Vault path already exists: {target_relative}",
+            )
 
 
 def upload_vault_file(

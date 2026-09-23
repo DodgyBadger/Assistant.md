@@ -5,6 +5,7 @@
         function begin({
             initialPath = '',
             purpose = '',
+            sourceItems = [],
             sourceKind = '',
             sourcePath = '',
         } = {}) {
@@ -12,6 +13,10 @@
             mode = {
                 path: normalizePath(initialPath, { allowRoot: true }),
                 purpose,
+                sources: Array.from(sourceItems, (item) => ({
+                    kind: item.kind === 'directory' ? 'directory' : 'file',
+                    path: normalizePath(item.path, { allowRoot: false }),
+                })),
                 sourceKind,
                 sourcePath: sourcePath
                     ? normalizePath(sourcePath, { allowRoot: false })
@@ -45,12 +50,19 @@
                     active: false,
                     path: '',
                     purpose: '',
+                    sources: [],
                     sourceKind: '',
                     sourcePath: '',
                 });
         }
 
         function validateDestination(path) {
+            if (mode?.sources.some((source) => (
+                source.kind === 'directory'
+                && (path === source.path || path.startsWith(`${source.path}/`))
+            ))) {
+                throw new TypeError('A folder cannot be moved into itself.');
+            }
             if (
                 mode?.sourceKind === 'directory'
                 && (path === mode.sourcePath || path.startsWith(`${mode.sourcePath}/`))

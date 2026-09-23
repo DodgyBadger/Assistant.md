@@ -493,13 +493,25 @@
 
         function moveForm(overlay) {
             const form = overlay.querySelector(
-                '[data-vault-explorer-mutation-form][data-operation="move"]'
+                '[data-vault-explorer-mutation-form][data-operation="move"], '
+                + '[data-vault-explorer-mutation-form][data-operation="batch_move"]'
             );
             return form instanceof HTMLFormElement ? form : null;
         }
 
         function hasDestinationMode() {
             return destinationMode.snapshot().active;
+        }
+
+        function beginDestinationMode(overlay, config) {
+            const snapshot = destinationMode.begin(config);
+            overlay.classList.add('vault-explorer-choosing-destination');
+            syncDestinationSelection(overlay);
+            return snapshot;
+        }
+
+        function destinationSnapshot() {
+            return destinationMode.snapshot();
         }
 
         function selectDestination(overlay, path) {
@@ -518,6 +530,12 @@
                     if (uploadForm instanceof HTMLFormElement) renderUploadPaths(uploadForm);
                 }
                 if (status) status.textContent = '';
+                const destinationLabel = form?.querySelector(
+                    '[data-vault-explorer-move-destination]'
+                );
+                if (destinationLabel) {
+                    destinationLabel.textContent = destination.path || 'Vault root';
+                }
                 updateMovePreview(overlay);
                 syncDestinationSelection(overlay);
             } catch (error) {
@@ -530,6 +548,7 @@
         function updateMovePreview(overlay) {
             const form = moveForm(overlay);
             if (!form) return;
+            if (form.dataset.operation === 'batch_move') return;
             const destination = destinationMode.snapshot().path;
             const nameInput = form.querySelector('[data-vault-explorer-move-name]');
             const name = nameInput instanceof HTMLInputElement ? nameInput.value.trim() : '';
@@ -559,7 +578,9 @@
         }
 
         return Object.freeze({
+            beginDestinationMode,
             closeActionPanel,
+            destinationSnapshot,
             handleAction,
             hasDestinationMode,
             isBusy,
