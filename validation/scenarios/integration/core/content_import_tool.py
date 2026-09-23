@@ -341,18 +341,18 @@ class ContentImportToolScenario(BaseScenario):
                 and "max-width: 20rem" in import_styles,
                 "Import sources should wrap without dominating the job table",
             )
-            import_script = (
-                static_root / "js" / "configuration" / "imports.js"
+            import_jobs_script = (
+                static_root / "js" / "configuration" / "import-jobs.js"
             ).read_text(encoding="utf-8")
             self.soft_assert(
-                "data-import-job-edit" in import_script
-                and "Edit import settings for job" in import_script
-                and "Adjust PDF/OCR settings" in import_script,
+                "data-import-job-edit" in import_jobs_script
+                and "Edit import settings for job" in import_jobs_script
+                and "Adjust PDF/OCR settings" in import_jobs_script,
                 "URL imports should expose a recognizable edit action",
             )
             self.soft_assert(
-                "params.set('vault', selectedVault)" in import_script
-                and "Select a vault to load its import history" in import_script,
+                "params.set('vault', selectedVault)" in import_jobs_script
+                and "Select a vault to load its import history" in import_jobs_script,
                 "Import history should be scoped by the top-level vault selection",
             )
             await get_runtime_context().ingestion_worker.run_once()
