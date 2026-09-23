@@ -10,6 +10,7 @@
             icons,
             utils,
             callbacks: {
+                batchMutationCompleted,
                 isReadOnly,
                 mutationCompleted,
                 refreshExplorer,
@@ -26,10 +27,25 @@
                 syncInteractionLocks,
             },
         });
+        const explorerBatchMoves = window.VaultExplorerBatchMoves.create({
+            icons,
+            utils,
+            callbacks: {
+                batchMutationCompleted,
+                beginDestinationMode: explorerActions.beginDestinationMode,
+                closeActionPanel: explorerActions.closeActionPanel,
+                destinationSnapshot: explorerActions.destinationSnapshot,
+                isReadOnly,
+                refreshExplorer,
+                selectDestination: explorerActions.selectDestination,
+                workspacePath,
+            },
+        });
         const explorer = window.VaultExplorerController.create({
             utils,
             callbacks: {
                 expandDirectory,
+                handleBatchMove: explorerBatchMoves.show,
                 handleImportAction,
                 handleMutationAction: explorerActions.handleAction,
                 isBusy: isExplorerBusy,
@@ -58,6 +74,10 @@
 
         function mutationCompleted({ operation, sourcePath, targetPath, kind }) {
             explorer.mutationCompleted({ operation, sourcePath, targetPath, kind });
+        }
+
+        function batchMutationCompleted(results) {
+            explorer.batchMutationCompleted(results);
         }
 
         function open(options = {}) {
@@ -215,6 +235,14 @@
                 if (form instanceof HTMLFormElement && form.matches('[data-vault-explorer-import-form]')) {
                     event.preventDefault();
                     await explorerImports.submit(overlay, form, options);
+                    return;
+                }
+                if (
+                    form instanceof HTMLFormElement
+                    && form.dataset.operation === 'batch_move'
+                ) {
+                    event.preventDefault();
+                    await explorerBatchMoves.submit(overlay, form, options);
                     return;
                 }
                 if (!(form instanceof HTMLFormElement) || !form.matches('[data-vault-explorer-mutation-form]')) return;

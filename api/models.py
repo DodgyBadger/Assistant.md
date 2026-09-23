@@ -276,6 +276,22 @@ class VaultPathMutationResponse(BaseModel):
     )
 
 
+class VaultBatchMoveRequest(BaseModel):
+    """One atomic multi-item move requested from the vault explorer."""
+
+    sources: list[str] = Field(..., min_length=2, max_length=100)
+    destination: str = Field("", description="Vault-relative destination folder")
+
+
+class VaultBatchMoveResponse(BaseModel):
+    """Result of one atomic Vault Explorer batch move."""
+
+    operation: Literal["move"] = "move"
+    destination: str
+    results: list[VaultPathMutationResponse]
+    message: str
+
+
 class EditProposalResponse(BaseModel):
     """Stored historical inline edit proposal artifact."""
 
