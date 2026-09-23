@@ -130,6 +130,12 @@
                 explorer.open(overlay, options, {
                     activeFolder: scopeSelect?.value === 'workspace' ? workspacePath() : '',
                 });
+                if (options.importUrl) {
+                    explorerImports.showUrl(overlay, {
+                        destination: explorer.snapshot().activeFolder,
+                        url: options.importUrl,
+                    }, options);
+                }
             }
 
             function syncSearchPlaceholder() {

@@ -565,7 +565,8 @@ async function init() {
         window.ConfigurationPanel.init({
             refreshMetadata: () => fetchMetadata(),
             refreshStatus: () => fetchSystemStatus(),
-            openFile: (path, vaultName) => fileReferences.openFile(path, { vaultName })
+            openFile: (path, vaultName) => fileReferences.openFile(path, { vaultName }),
+            openExplorer: (options) => fileReferences.openExplorer(options)
         });
     }
     await fetchMetadata();

@@ -271,6 +271,11 @@ settings:
     description: "Available strategies and priority for PDF ingestion. JSON array. OCR is recommended first when configured; unavailable strategies are skipped. Remove a value to disable it or reorder as needed. E.g. [\"pdf_ocr\"] forces all imports through OCR."
     category: "Import"
     restart_required: false
+  ingestion_pdf_default_mode:
+    value: "markdown"
+    description: "Default PDF output mode. Supported values: markdown or page_images."
+    category: "Import"
+    restart_required: false
   ingestion_ocr_model:
     value: "mistral-ocr-latest"
     description: "Model used for ingestion OCR extraction."

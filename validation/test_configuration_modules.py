@@ -111,3 +111,14 @@ for (const name of [
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_dashboard_import_owns_defaults_and_job_observability_only() -> None:
+    markup = (_STATIC_ROOT / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="import-defaults-save"' in markup
+    assert 'id="import-open-explorer"' in markup
+    assert 'id="import-jobs-list"' in markup
+    assert 'id="import-scan"' not in markup
+    assert 'id="import-url-form"' not in markup
+    assert 'id="import-url-input"' not in markup

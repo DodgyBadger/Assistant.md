@@ -16,12 +16,13 @@
             });
         }
 
-        function showUrl(overlay, { destination = '' }, options) {
+        function showUrl(overlay, { destination = '', url = '' }, options) {
             showForm(overlay, {
                 destination,
                 options,
                 sources: [],
                 title: 'Import URL to Markdown',
+                url,
                 urlMode: true,
             });
         }
@@ -31,6 +32,7 @@
             options,
             sources,
             title,
+            url = '',
             urlMode = false,
         }) {
             const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
@@ -45,7 +47,7 @@
                     data-sources="${escapeHtml(JSON.stringify(sources))}">
                     ${urlMode ? `
                         <label>URL
-                            <input name="url" type="url" class="vault-explorer-path-input" placeholder="https://example.com/document.pdf" required />
+                            <input name="url" type="url" value="${escapeHtml(url)}" class="vault-explorer-path-input" placeholder="https://example.com/document.pdf" required />
                         </label>
                     ` : `
                         <div class="vault-explorer-import-sources">
@@ -55,7 +57,7 @@
                     <p>Destination: <strong class="cell-mono">${escapeHtml(destination || 'Vault root')}</strong></p>
                     <input type="hidden" name="destination" value="${escapeHtml(destination)}" />
                     <details class="vault-explorer-import-options">
-                        <summary>Options for this import</summary>
+                        <summary>Options for this import <span class="text-xs text-txt-secondary">(using saved defaults)</span></summary>
                         <label class="vault-explorer-option-row">
                             <input type="checkbox" name="queue_only" /> Queue for background processing
                         </label>
@@ -66,9 +68,46 @@
                                 <option value="page_images">Page images</option>
                             </select>
                         </label>
-                        <label class="vault-explorer-option-row">
-                            <input type="checkbox" name="capture_ocr_images" /> Capture OCR images
+                        <label>PDF conversion strategy
+                            <select name="pdf_strategy" class="vault-explorer-path-input">
+                                <option value="">Use default</option>
+                                <option value="local_text">Local text only</option>
+                                <option value="ocr">Mistral OCR only</option>
+                            </select>
                         </label>
+                        <label>OCR images
+                            <select name="capture_ocr_images" class="vault-explorer-path-input">
+                                <option value="">Use default</option>
+                                <option value="true">Capture images</option>
+                                <option value="false">Do not capture images</option>
+                            </select>
+                        </label>
+                        <div class="vault-explorer-import-advanced">
+                            <span class="text-xs text-txt-secondary">Advanced OCR output</span>
+                            <label class="vault-explorer-option-row">
+                                <input type="checkbox" name="include_ocr_blocks" /> Structure blocks
+                            </label>
+                            <label class="vault-explorer-option-row">
+                                <input type="checkbox" name="extract_ocr_header" /> Separate headers
+                            </label>
+                            <label class="vault-explorer-option-row">
+                                <input type="checkbox" name="extract_ocr_footer" /> Separate footers
+                            </label>
+                            <label>Separate tables
+                                <select name="ocr_table_format" class="vault-explorer-path-input">
+                                    <option value="">Off</option>
+                                    <option value="markdown">Markdown</option>
+                                    <option value="html">HTML</option>
+                                </select>
+                            </label>
+                            <label>Confidence metadata
+                                <select name="ocr_confidence" class="vault-explorer-path-input">
+                                    <option value="">Off</option>
+                                    <option value="page">Page</option>
+                                    <option value="word">Word</option>
+                                </select>
+                            </label>
+                        </div>
                     </details>
                     <div class="vault-explorer-form-actions">
                         <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
@@ -93,7 +132,13 @@
             const destinationInput = form.elements.namedItem('destination');
             const queueInput = form.elements.namedItem('queue_only');
             const pdfModeInput = form.elements.namedItem('pdf_mode');
+            const pdfStrategyInput = form.elements.namedItem('pdf_strategy');
             const captureInput = form.elements.namedItem('capture_ocr_images');
+            const includeBlocksInput = form.elements.namedItem('include_ocr_blocks');
+            const extractHeaderInput = form.elements.namedItem('extract_ocr_header');
+            const extractFooterInput = form.elements.namedItem('extract_ocr_footer');
+            const tableFormatInput = form.elements.namedItem('ocr_table_format');
+            const confidenceInput = form.elements.namedItem('ocr_confidence');
             const payload = {
                 sources,
                 destination: destinationInput instanceof HTMLInputElement
@@ -104,8 +149,28 @@
             if (pdfModeInput instanceof HTMLSelectElement && pdfModeInput.value) {
                 payload.pdf_mode = pdfModeInput.value;
             }
-            if (captureInput instanceof HTMLInputElement && captureInput.checked) {
-                payload.capture_ocr_images = true;
+            if (pdfStrategyInput instanceof HTMLSelectElement && pdfStrategyInput.value) {
+                payload.pdf_strategies = pdfStrategyInput.value === 'ocr'
+                    ? ['pdf_ocr']
+                    : ['pdf_text'];
+            }
+            if (captureInput instanceof HTMLSelectElement && captureInput.value) {
+                payload.capture_ocr_images = captureInput.value === 'true';
+            }
+            if (includeBlocksInput instanceof HTMLInputElement && includeBlocksInput.checked) {
+                payload.include_ocr_blocks = true;
+            }
+            if (extractHeaderInput instanceof HTMLInputElement && extractHeaderInput.checked) {
+                payload.extract_ocr_header = true;
+            }
+            if (extractFooterInput instanceof HTMLInputElement && extractFooterInput.checked) {
+                payload.extract_ocr_footer = true;
+            }
+            if (tableFormatInput instanceof HTMLSelectElement && tableFormatInput.value) {
+                payload.ocr_table_format = tableFormatInput.value;
+            }
+            if (confidenceInput instanceof HTMLSelectElement && confidenceInput.value) {
+                payload.ocr_confidence = confidenceInput.value;
             }
             busy = true;
             callbacks.syncInteractionLocks();
