@@ -63,7 +63,7 @@
                                 ? `<button data-import-job-cancel="${escapeHtml(job.id)}" ${iconButton('x', `Cancel import job ${job.id}`, 'is-danger')}>${iconSvg('x')}</button>`
                                 : '';
                             const editButton = job.source_type === 'url'
-                                ? `<button data-import-job-edit="${escapeHtml(job.id)}" ${iconButton('edit', `Edit import settings for job ${job.id}`, 'is-primary')}>${iconSvg('edit')}</button>`
+                                ? `<button data-import-job-edit="${escapeHtml(job.id)}" ${iconButton('edit', `Edit import settings for job ${job.id} · Adjust PDF/OCR settings`, 'is-primary')}>${iconSvg('edit')}</button>`
                                 : '';
                             return `
                                 <tr>
