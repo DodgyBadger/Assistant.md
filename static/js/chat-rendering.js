@@ -3,7 +3,6 @@
 
     function createChatRenderingController({ state, elements, icons, utils, callbacks }) {
         let currentEmptyStateMessage = CHAT_EMPTY_STATE_MESSAGE;
-        let workspaceEditorOpen = false;
         const persistedToolEntriesById = new Map();
         const toolDetails = window.ChatToolDetails.create({
             state,
@@ -25,6 +24,25 @@
                 scrollChatToBottom: callbacks.scrollChatToBottom,
             },
         });
+        const startPanel = window.ChatStartPanel.create({
+            elements,
+            icons,
+            utils,
+            callbacks: {
+                openChatSettings: callbacks.openChatSettings,
+                openWorkspacePicker: callbacks.openWorkspacePicker,
+                renderEmptyState: () => renderChatEmptyState(),
+            },
+        });
+        const thinking = window.ChatThinking.create();
+
+        function renderChatStartPanel(container) {
+            startPanel.render(container);
+        }
+
+        function renderAssistantThinking(context) {
+            thinking.render(context);
+        }
 
         function isChatPlaceholderNode(node) {
             if (!node || !(node instanceof HTMLElement)) return false;
@@ -77,125 +95,6 @@
                 return;
             }
             renderChatEmptyState(currentEmptyStateMessage);
-        }
-
-        function renderChatStartPanel(container) {
-            const modelText = selectedOptionText(elements.modelSelector) || 'No model selected';
-            const thinkingText = selectedOptionText(elements.thinkingSelector).replace(/^Thinking:\s*/i, '') || 'Default';
-            const workspacePath = (elements.workspacePathInput?.value || '').trim();
-
-            const panel = document.createElement('div');
-            panel.className = 'chat-start-panel';
-            panel.innerHTML = `
-                <div class="chat-start-panel-title">Ready for a new chat</div>
-                <div class="chat-start-panel-grid">
-                    <div class="chat-start-panel-item">
-                        <span class="chat-start-panel-label">Model</span>
-                        <span class="chat-start-panel-value">${utils.escapeHtml(modelText)}</span>
-                    </div>
-                    <div class="chat-start-panel-item">
-                        <span class="chat-start-panel-label">Thinking</span>
-                        <span class="chat-start-panel-value">${utils.escapeHtml(thinkingText)}</span>
-                    </div>
-                    <button type="button" class="chat-start-settings-button" data-chat-start-settings="true" aria-label="Change chat settings" title="Change chat settings">
-                        <span>Change settings</span>
-                        ${icons.SETTINGS_ICON_SVG}
-                    </button>
-                </div>
-                ${renderWorkspaceRow(workspacePath)}
-            `;
-            attachChatStartPanelEvents(panel);
-            container.appendChild(panel);
-        }
-
-        function selectedOptionText(select) {
-            if (!(select instanceof HTMLSelectElement)) return '';
-            const option = select.selectedOptions && select.selectedOptions.length
-                ? select.selectedOptions[0]
-                : null;
-            return (option?.textContent || select.value || '').trim();
-        }
-
-        function renderWorkspaceRow(workspacePath) {
-            return `
-                <div class="chat-start-workspace-block">
-                    <div class="chat-start-workspace-editor">
-                        <span class="chat-start-workspace-label">Workspace</span>
-                        ${workspacePath
-                            ? `<span class="chat-start-workspace-path">${utils.escapeHtml(workspacePath)}</span>`
-                            : renderWorkspaceEntryControls()}
-                    </div>
-                    <p class="chat-start-workspace-help">A workspace is a folder in your vault. Setting this helps orient the chat agent. See <a href="https://github.com/DodgyBadger/Assistant.md/blob/main/docs/use/getting-the-most.md" target="_blank" rel="noopener noreferrer">Getting the Most from Assistant.md</a> for more info.</p>
-                </div>
-            `;
-        }
-
-        function renderWorkspaceEntryControls() {
-            if (!workspaceEditorOpen) {
-                return '<button type="button" class="chat-start-link-button" data-chat-start-workspace-open="true">Add workspace</button>';
-            }
-            return `
-                <input
-                    type="text"
-                    class="chat-start-workspace-input"
-                    placeholder="Workspace path..."
-                    aria-label="Workspace path"
-                    data-chat-start-workspace-input
-                />
-                <button type="button" class="chat-start-icon-button" data-chat-start-workspace-browse="true" aria-label="Choose workspace folder" title="Choose workspace folder">
-                    ${icons.FOLDER_ICON_SVG}
-                </button>
-                <button type="button" class="chat-start-link-button" data-chat-start-workspace-apply="true">Apply</button>
-                <button type="button" class="chat-start-link-button is-muted" data-chat-start-workspace-cancel="true">Cancel</button>
-            `;
-        }
-
-        function attachChatStartPanelEvents(panel) {
-            panel.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) return;
-                if (target.closest('[data-chat-start-settings]')) {
-                    callbacks.openChatSettings?.();
-                    return;
-                }
-                if (target.closest('[data-chat-start-workspace-open]')) {
-                    workspaceEditorOpen = true;
-                    renderChatEmptyState();
-                    return;
-                }
-                if (target.closest('[data-chat-start-workspace-cancel]')) {
-                    workspaceEditorOpen = false;
-                    renderChatEmptyState();
-                    return;
-                }
-                if (target.closest('[data-chat-start-workspace-browse]')) {
-                    callbacks.openWorkspacePicker?.();
-                    return;
-                }
-                if (target.closest('[data-chat-start-workspace-apply]')) {
-                    applyWorkspaceFromStartPanel(panel);
-                }
-            });
-            panel.addEventListener('keydown', (event) => {
-                if (event.key !== 'Enter') return;
-                const target = event.target;
-                if (!(target instanceof HTMLInputElement) || !target.matches('[data-chat-start-workspace-input]')) {
-                    return;
-                }
-                event.preventDefault();
-                applyWorkspaceFromStartPanel(panel);
-            });
-        }
-
-        function applyWorkspaceFromStartPanel(panel) {
-            const input = panel.querySelector('[data-chat-start-workspace-input]');
-            if (!(input instanceof HTMLInputElement)) return;
-            const path = input.value.trim();
-            if (!path || !elements.workspacePathInput) return;
-            elements.workspacePathInput.value = path;
-            elements.workspacePathInput.dispatchEvent(new Event('input', { bubbles: true }));
-            workspaceEditorOpen = false;
-            renderChatEmptyState();
         }
 
         function addChatErrorMessage(errorText) {
@@ -703,116 +602,6 @@
             callbacks.scrollChatToBottom();
         }
 
-        function renderAssistantThinking(context) {
-            const thinking = context.thinkingText.trim();
-            if (!thinking && context.thinkingDiv) {
-                context.thinkingDiv.remove();
-                context.thinkingDiv = null;
-                context.thinkingTextSpan = null;
-                context.thinkingToggle = null;
-                return;
-            }
-            if (!thinking) {
-                return;
-            }
-            if (!context.thinkingDiv) {
-                context.thinkingDiv = document.createElement('div');
-                context.thinkingDiv.className = 'assistant-thinking';
-                context.contentDiv.insertBefore(context.thinkingDiv, context.bodyDiv);
-            }
-            const formattedThinking = formatThinkingText(thinking);
-            if (!context.collapseThinking) {
-                renderPlainAssistantThinking(context, formattedThinking);
-                return;
-            }
-            renderCollapsibleAssistantThinking(context, formattedThinking);
-        }
-
-        function renderPlainAssistantThinking(context, text) {
-            if (context.thinkingTextSpan && !context.thinkingToggle) {
-                context.thinkingTextSpan.textContent = text;
-                return;
-            }
-            context.thinkingDiv.innerHTML = '';
-            context.thinkingDiv.className = 'assistant-thinking';
-
-            const label = document.createElement('div');
-            label.className = 'assistant-thinking-label';
-            label.textContent = 'Reasoning';
-
-            const textSpan = document.createElement('div');
-            textSpan.className = 'assistant-thinking-text';
-            textSpan.textContent = text;
-
-            context.thinkingDiv.appendChild(label);
-            context.thinkingDiv.appendChild(textSpan);
-            context.thinkingTextSpan = textSpan;
-            context.thinkingToggle = null;
-        }
-
-        function renderCollapsibleAssistantThinking(context, text) {
-            ensureCollapsibleThinkingStructure(context);
-            context.thinkingTextSpan.textContent = text;
-            setThinkingExpanded(context, Boolean(context.thinkingExpanded));
-        }
-
-        function ensureCollapsibleThinkingStructure(context) {
-            if (context.thinkingToggle && context.thinkingTextSpan) {
-                return;
-            }
-
-            context.thinkingDiv.innerHTML = '';
-            context.thinkingDiv.className = 'assistant-thinking assistant-thinking-collapsible';
-
-            const toggle = document.createElement('button');
-            toggle.type = 'button';
-            toggle.className = 'assistant-thinking-toggle';
-            toggle.title = 'Show reasoning';
-
-            const chevron = document.createElement('span');
-            chevron.className = 'assistant-thinking-chevron';
-            chevron.setAttribute('aria-hidden', 'true');
-            chevron.textContent = '▸';
-
-            const label = document.createElement('span');
-            label.className = 'assistant-thinking-label';
-            label.textContent = 'Reasoning';
-
-            const textSpan = document.createElement('div');
-            textSpan.className = 'assistant-thinking-text';
-
-            toggle.appendChild(chevron);
-            toggle.appendChild(label);
-            toggle.addEventListener('click', () => {
-                context.thinkingExpanded = !context.thinkingExpanded;
-                setThinkingExpanded(context, context.thinkingExpanded);
-            });
-
-            context.thinkingDiv.appendChild(toggle);
-            context.thinkingDiv.appendChild(textSpan);
-            context.thinkingToggle = toggle;
-            context.thinkingTextSpan = textSpan;
-        }
-
-        function setThinkingExpanded(context, expanded) {
-            if (!context.thinkingDiv || !context.thinkingToggle) {
-                return;
-            }
-            context.thinkingDiv.classList.toggle('is-expanded', expanded);
-            context.thinkingDiv.classList.toggle('is-collapsed', !expanded);
-            context.thinkingToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            context.thinkingToggle.title = expanded ? 'Hide reasoning' : 'Show reasoning';
-            const chevron = context.thinkingToggle.querySelector('.assistant-thinking-chevron');
-            if (chevron) {
-                chevron.textContent = expanded ? '▾' : '▸';
-            }
-        }
-
-        function formatThinkingText(text) {
-            return String(text || '')
-                .replace(/([.!?]["')\]]?)(?=[A-Z])/g, '$1 ')
-                .replace(/[ \t]{2,}/g, ' ');
-        }
 
         function setAssistantStatus(context, label, state = 'thinking') {
             context.statusText.textContent = label;

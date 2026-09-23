@@ -8,6 +8,8 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _DETAILS_MODULE = _PROJECT_ROOT / "static/js/chat-tool-details.js"
 _MARKDOWN_MODULE = _PROJECT_ROOT / "static/js/chat-markdown.js"
+_START_PANEL_MODULE = _PROJECT_ROOT / "static/js/chat-start-panel.js"
+_THINKING_MODULE = _PROJECT_ROOT / "static/js/chat-thinking.js"
 _RENDERING_MODULE = _PROJECT_ROOT / "static/js/chat-rendering.js"
 
 
@@ -58,6 +60,8 @@ if (controller.getActiveToolDetailId() !== '') {
             harness,
             str(_DETAILS_MODULE),
             str(_MARKDOWN_MODULE),
+            str(_START_PANEL_MODULE),
+            str(_THINKING_MODULE),
             str(_RENDERING_MODULE),
         ],
         check=True,
@@ -74,8 +78,20 @@ def test_tool_details_load_before_chat_rendering() -> None:
     markdown_position = markup.index(
         '<script src="static/js/chat-markdown.js"></script>'
     )
+    start_panel_position = markup.index(
+        '<script src="static/js/chat-start-panel.js"></script>'
+    )
+    thinking_position = markup.index(
+        '<script src="static/js/chat-thinking.js"></script>'
+    )
     rendering_position = markup.index(
         '<script src="static/js/chat-rendering.js"></script>'
     )
 
-    assert details_position < markdown_position < rendering_position
+    assert (
+        details_position
+        < markdown_position
+        < start_panel_position
+        < thinking_position
+        < rendering_position
+    )
