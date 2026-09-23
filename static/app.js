@@ -3,7 +3,6 @@ const {
 } = window.AssistantMDIcons;
 
 const {
-    escapeHtml,
     truncateText,
     formatShortDate,
 } = window.AssistantMDUtils;
@@ -15,8 +14,6 @@ const browserStorage = window.AssistantMDBrowserStorage || Object.freeze({
 });
 
 // State management
-const RESTART_NOTICE_TEXT = 'Restart the container to apply changes.';
-const RESTART_STORAGE_KEY = 'assistantmd_restart_required';
 
 const state = {
     sessionId: null,
@@ -107,6 +104,29 @@ const configElements = {
     advancedShellReadiness: document.getElementById('advanced-shell-readiness'),
     configTab: document.getElementById('configuration-tab')
 };
+
+const configurationStatus = window.ConfigurationStatus.create({
+    state,
+    elements: configElements,
+    browserStorage,
+    icons: window.AssistantMDIcons,
+    utils: window.AssistantMDUtils,
+    callbacks: {
+        refreshStatus: () => fetchSystemStatus(),
+    },
+});
+
+function updateStatus() {
+    configurationStatus.update();
+}
+
+function setRestartRequired(required = true) {
+    configurationStatus.setRestartRequired(required);
+}
+
+function syncRestartFlagWithStorage() {
+    configurationStatus.syncRestartFlagWithStorage();
+}
 
 const chatComposer = window.ChatComposer.create({
     state,
@@ -778,31 +798,6 @@ function switchTab(tabName) {
 // Update collapsible section arrows (placeholder)
 function updateCollapsibleArrows() {}
 
-function getConfigurationWarnings() {
-    const status = state.systemStatus;
-    if (!status || !status.configuration_status) return [];
-    const issues = status.configuration_status.issues || [];
-    const warnings = issues.filter((issue) => {
-        const severity = (issue.severity || '').toLowerCase();
-        if (severity !== 'warning' && severity !== 'error') {
-            return false;
-        }
-        const name = issue.name || '';
-        if (name.startsWith('model:') || name.startsWith('tool:')) {
-            return false;
-        }
-        return true;
-    });
-    if (status.authentication_warning) {
-        warnings.unshift({
-            name: 'authentication:disabled',
-            severity: 'warning',
-            message: status.authentication_warning
-        });
-    }
-    return warnings;
-}
-
 // Fetch metadata from API
 async function fetchMetadata() {
     try {
@@ -1356,157 +1351,6 @@ function isTerminalTaskStatus(status) {
     );
 }
 
-function updateStatus(message) {
-    if (!configElements.statusBanner || !configElements.statusMessages || !configElements.configTab) return;
-
-    const warnings = getConfigurationWarnings();
-    const noticeLines = [];
-    let repairNeeded = false;
-
-    if (state.restartRequired) {
-        noticeLines.push(RESTART_NOTICE_TEXT);
-    }
-
-    warnings.forEach((issue) => {
-        noticeLines.push(issue.message);
-        if (issue.name && /^(settings|models|providers|tools):(missing|extra|missing_metadata)$/.test(issue.name)) {
-            repairNeeded = true;
-        }
-    });
-
-    // Check for no vaults
-    if (state.metadata && state.metadata.vaults && state.metadata.vaults.length === 0) {
-        noticeLines.push('No vaults found. Review installation instructions.');
-    }
-
-    // Update System tab and banner
-    if (noticeLines.length === 0) {
-        // No warnings - hide banner and remove tab highlight
-        configElements.statusBanner.classList.add('hidden');
-        configElements.statusMessages.innerHTML = '';
-        configElements.configTab.classList.remove('font-semibold', 'bg-app-elevated', 'px-3', 'rounded-t-md', 'text-accent');
-        configElements.configTab.classList.add('text-txt-secondary');
-        configElements.configTab.style.borderColor = '';
-        configElements.configTab.textContent = 'System';
-    } else {
-        // Show warnings in banner and highlight tab with background
-        configElements.statusBanner.classList.remove('hidden');
-        const noticeHtml = noticeLines.map(line => `<div>• ${escapeHtml(line)}</div>`).join('');
-        let messageHtml = noticeHtml;
-        if (repairNeeded) {
-            messageHtml = `
-                <div class="flex flex-wrap items-start gap-2">
-                    <button id="repair-settings-btn" type="button" class="ui-icon-button is-primary shrink-0" data-icon="wrench" data-icon-label="Repair settings from template"></button>
-                    <div class="flex-1 min-w-0 space-y-1">${noticeHtml}</div>
-                </div>
-            `;
-        }
-        configElements.statusMessages.innerHTML = messageHtml;
-        window.AssistantMDIcons.hydrateIconButtons(configElements.statusMessages);
-        configElements.configTab.classList.remove('text-txt-secondary', 'text-txt-primary');
-        configElements.configTab.classList.add('text-accent', 'font-semibold', 'bg-app-elevated', 'px-3', 'rounded-t-md');
-        configElements.configTab.style.borderColor = 'rgb(var(--border-primary))';
-        configElements.configTab.textContent = 'System ⚠️';
-        const repairBtn = document.getElementById('repair-settings-btn');
-        if (repairBtn) {
-            repairBtn.addEventListener('click', async () => {
-                const confirmed = window.confirm(
-                    'Repair settings from template?\n\nThis will add missing keys and metadata from settings.template.yaml, prune unknown settings, and remove unknown non-user-editable tools/models/providers. Existing values for matching keys will be preserved.\nA backup will be written to system/settings.bak. Reload the page after repair to see changes.'
-                );
-                if (!confirmed) return;
-
-                repairBtn.disabled = true;
-                window.AssistantMDIcons.setIconButtonLabel(repairBtn, 'Repairing settings...');
-                let alertEl = document.getElementById('config-repair-alert');
-                if (!alertEl && configElements.statusMessages) {
-                    alertEl = document.createElement('div');
-                    alertEl.id = 'config-repair-alert';
-                    alertEl.className = 'mt-2 text-sm';
-                    configElements.statusMessages.appendChild(alertEl);
-                }
-                const showAlert = (text, tone = 'info') => {
-                    if (!alertEl) return;
-                    alertEl.textContent = text;
-                    alertEl.className = `mt-2 text-sm ${tone === 'error' ? 'state-error' : 'text-txt-secondary'}`;
-                };
-                try {
-                    const resp = await fetch('api/system/settings/repair', { method: 'POST' });
-                    if (!resp.ok) throw new Error(await resp.text() || 'Repair failed');
-                    await fetchSystemStatus();
-                    showAlert('Settings repaired. Backup saved to system/settings.bak. Reload the page to see new defaults.', 'info');
-                } catch (err) {
-                    console.error('Settings repair failed', err);
-                    showAlert('Settings repair failed: ' + err.message, 'error');
-                } finally {
-                    repairBtn.disabled = false;
-                    window.AssistantMDIcons.setIconButtonLabel(repairBtn, 'Repair settings from template');
-                }
-            });
-        }
-    }
-}
-
-function setRestartRequired(required = true) {
-    const currentStartup = state.systemStatus?.system?.startup_time || null;
-
-    if (!required) {
-        state.restartRequired = false;
-        browserStorage.removeItem(RESTART_STORAGE_KEY);
-        if (window.ConfigurationPanel && typeof window.ConfigurationPanel.setRestartRequired === 'function') {
-            window.ConfigurationPanel.setRestartRequired(false);
-        }
-        updateStatus();
-        return;
-    }
-
-    const payload = { required: true, startupTime: currentStartup };
-    browserStorage.setItem(RESTART_STORAGE_KEY, JSON.stringify(payload));
-
-    state.restartRequired = true;
-    if (window.ConfigurationPanel && typeof window.ConfigurationPanel.setRestartRequired === 'function') {
-        window.ConfigurationPanel.setRestartRequired(true);
-    }
-    updateStatus();
-}
-
-function syncRestartFlagWithStorage() {
-    let stored = null;
-    try {
-        const raw = browserStorage.getItem(RESTART_STORAGE_KEY);
-        stored = raw ? JSON.parse(raw) : null;
-    } catch (error) {
-        console.warn('Failed to read restart-required flag:', error);
-        browserStorage.removeItem(RESTART_STORAGE_KEY);
-    }
-
-    const currentStartup = state.systemStatus?.system?.startup_time || null;
-
-    const isValid = stored && stored.required && (!stored.startupTime || stored.startupTime === currentStartup);
-
-    if (isValid) {
-        if (currentStartup && stored.startupTime !== currentStartup) {
-            browserStorage.setItem(RESTART_STORAGE_KEY, JSON.stringify({ required: true, startupTime: currentStartup }));
-        }
-        if (!state.restartRequired) {
-            state.restartRequired = true;
-            if (window.ConfigurationPanel && typeof window.ConfigurationPanel.setRestartRequired === 'function') {
-                window.ConfigurationPanel.setRestartRequired(true);
-            }
-            updateStatus();
-        }
-        return;
-    }
-
-    if (state.restartRequired) {
-        state.restartRequired = false;
-        if (window.ConfigurationPanel && typeof window.ConfigurationPanel.setRestartRequired === 'function') {
-            window.ConfigurationPanel.setRestartRequired(false);
-        }
-        updateStatus();
-    }
-
-    browserStorage.removeItem(RESTART_STORAGE_KEY);
-}
 
 // Start app
 window.App = window.App || {};
