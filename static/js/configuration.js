@@ -78,23 +78,12 @@
         elements.importPdfStrategySelect = document.getElementById('import-pdf-strategy');
         elements.importPdfStrategyHelp = document.getElementById('import-pdf-strategy-help');
         elements.importMarkdownOptions = document.getElementById('import-markdown-options');
-        elements.importOcrOptions = document.getElementById('import-ocr-options');
-        elements.importPdfOcrEnrichments = document.getElementById('import-pdf-ocr-enrichments');
         elements.importPageImageOptions = document.getElementById('import-page-image-options');
-        elements.importQueueCheckbox = document.getElementById('import-queue');
         elements.importCaptureOcrImagesCheckbox = document.getElementById('import-capture-ocr-images');
-        elements.importIncludeOcrBlocksCheckbox = document.getElementById('import-include-ocr-blocks');
-        elements.importExtractOcrHeaderCheckbox = document.getElementById('import-extract-ocr-header');
-        elements.importExtractOcrFooterCheckbox = document.getElementById('import-extract-ocr-footer');
-        elements.importOcrTableFormatSelect = document.getElementById('import-ocr-table-format');
-        elements.importOcrConfidenceSelect = document.getElementById('import-ocr-confidence');
         elements.importStatus = document.getElementById('import-status');
-        elements.importScanBtn = document.getElementById('import-scan');
+        elements.importDefaultsSaveBtn = document.getElementById('import-defaults-save');
+        elements.importOpenExplorerBtn = document.getElementById('import-open-explorer');
         elements.importRefreshVaultsBtn = document.getElementById('import-refresh-vaults');
-        elements.importResults = document.getElementById('import-results');
-        elements.importUrlForm = document.getElementById('import-url-form');
-        elements.importUrlInput = document.getElementById('import-url-input');
-        elements.importUrlSubmit = document.getElementById('import-url-submit');
         elements.importJobsSummary = document.getElementById('import-jobs-summary');
         elements.importJobsFeedback = document.getElementById('import-jobs-feedback');
         elements.importJobsList = document.getElementById('import-jobs-list');
@@ -163,21 +152,17 @@
         elements.purgeSessionsBtn?.addEventListener('click', actions.handlePurgeSessions);
         elements.cleanupGoalsBtn?.addEventListener('click', actions.handleCleanupGoals);
 
-        elements.importScanBtn?.addEventListener('click', actions.handleImportScan);
+        elements.importDefaultsSaveBtn?.addEventListener('click', actions.saveImportDefaults);
+        elements.importOpenExplorerBtn?.addEventListener('click', actions.openImportExplorer);
         elements.importRefreshVaultsBtn?.addEventListener('click', actions.handleImportVaultRescan);
         elements.importVaultSelect?.addEventListener('change', actions.handleImportVaultChange);
-        elements.importUrlForm?.addEventListener('submit', (event) => {
-            event.preventDefault();
-            actions.handleImportUrl();
-        });
         elements.importJobsRefreshBtn?.addEventListener('click', () => actions.loadImportJobs());
         elements.importJobsRunNowBtn?.addEventListener('click', actions.handleRunImportQueueNow);
         elements.importJobsStatusFilters?.addEventListener('change', actions.handleImportJobFilterChange);
         elements.importJobsLoadOlderBtn?.addEventListener('click', () => actions.loadImportJobs({ append: true }));
         elements.importJobsList?.addEventListener('click', actions.handleImportJobAction);
-        elements.importResults?.addEventListener('click', actions.handleImportJobAction);
-        elements.importPdfModeSelect?.addEventListener('change', actions.updateImportOcrAvailability);
-        elements.importPdfStrategySelect?.addEventListener('change', actions.updateImportOcrAvailability);
+        elements.importPdfModeSelect?.addEventListener('change', actions.updateImportDefaultControls);
+        elements.importPdfStrategySelect?.addEventListener('change', actions.updateImportDefaultControls);
     }
 
 
@@ -207,6 +192,7 @@
         callbacks.refreshMetadata = options.refreshMetadata || null;
         callbacks.refreshStatus = options.refreshStatus || null;
         callbacks.openFile = options.openFile || null;
+        callbacks.openExplorer = options.openExplorer || null;
 
         cacheElements();
         bindEvents();

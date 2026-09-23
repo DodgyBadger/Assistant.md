@@ -760,6 +760,13 @@ details summary::-webkit-details-marker {
     align-items: center;
     gap: 0.5rem;
 }
+.vault-explorer-import-advanced {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgb(var(--border-primary));
+}
 .vault-explorer-upload-list {
     display: flex;
     flex-direction: column;

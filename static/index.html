@@ -224,7 +224,7 @@
                 <div class="p-4 pt-0 space-y-4">
                     <div class="space-y-2 border border-border-primary rounded-md p-4">
                         <label for="import-vault-select" class="block font-semibold text-txt-primary">Selected vault</label>
-                        <p class="text-xs text-txt-secondary">Controls the import history shown here and the destination vault for inbox and URL imports below.</p>
+                        <p class="text-xs text-txt-secondary">Filters the job history and chooses which Vault Explorer to open for new imports.</p>
                         <div class="flex items-center gap-2">
                             <select id="import-vault-select" class="w-full md:max-w-xl px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary focus:outline-none focus:ring-2 focus:ring-accent">
                                 <option value="">Select vault…</option>
@@ -260,8 +260,8 @@
                     </div>
                     <div class="space-y-3 border border-border-primary rounded-md p-4">
                         <div>
-                            <p class="font-semibold text-txt-primary">PDF conversion options</p>
-                            <p class="text-xs text-txt-secondary">Applied to PDFs found in the selected vault's import inbox and to PDF URLs.</p>
+                            <p class="font-semibold text-txt-primary">Default import options</p>
+                            <p class="text-xs text-txt-secondary">Used when an Explorer import keeps “Use default” selected. One import can override these from its collapsed options.</p>
                         </div>
                         <div class="space-y-3">
                             <div class="flex items-center gap-4 flex-wrap">
@@ -288,71 +288,20 @@
                                     <input id="import-capture-ocr-images" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
                                     <span>Capture OCR images (PDF and image OCR)</span>
                                 </label>
-                                <div id="import-pdf-ocr-enrichments" class="flex items-center gap-4 flex-wrap">
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Retain labeled reading-order blocks and page bounding boxes in ocr.json. Useful for scripted layout analysis; leave off for routine imports.">
-                                    <input id="import-include-ocr-blocks" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
-                                    <span>Structure blocks</span>
-                                </label>
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Remove repeated page headers from the main Markdown and retain them separately in ocr.json.">
-                                    <input id="import-extract-ocr-header" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
-                                    <span>Separate headers</span>
-                                </label>
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Remove repeated page footers from the main Markdown and retain them separately in ocr.json.">
-                                    <input id="import-extract-ocr-footer" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
-                                    <span>Separate footers</span>
-                                </label>
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Keep tables inline by default, or additionally retain each table as Markdown or HTML in ocr.json. HTML better preserves complex cells.">
-                                    <span>Tables</span>
-                                    <select id="import-ocr-table-format" class="px-2 py-1 border border-border-secondary rounded-md bg-app-card text-txt-primary">
-                                        <option value="">Inline Markdown</option>
-                                        <option value="markdown">Separate Markdown</option>
-                                        <option value="html">Separate HTML</option>
-                                    </select>
-                                </label>
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Request OCR certainty scores. Page is compact and useful for review; Word produces substantially larger metadata.">
-                                    <span>Confidence</span>
-                                    <select id="import-ocr-confidence" class="px-2 py-1 border border-border-secondary rounded-md bg-app-card text-txt-primary">
-                                        <option value="">Off</option>
-                                        <option value="page">Page</option>
-                                        <option value="word">Word</option>
-                                    </select>
-                                </label>
-                                </div>
                                 </div>
                             </div>
                             <div id="import-page-image-options" class="hidden rounded-md border border-border-primary bg-app-elevated p-3">
                                 <p class="text-sm font-medium text-txt-primary">Page Images</p>
                                 <p class="text-xs text-txt-secondary">Renders each PDF page as an image and creates a Markdown page index. Rendering options such as DPI, format, and page range will appear here.</p>
                             </div>
-                        </div>
-
-                        <div class="pt-3 border-t border-border-primary space-y-2">
-                            <div>
-                                <p class="font-semibold text-txt-primary">Import inbox</p>
-                                <p class="text-xs text-txt-secondary">Processes supported files from <code>AssistantMD/Import/</code> in the selected vault. Successfully imported source files are removed from the inbox.</p>
-                            </div>
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <label class="flex items-center gap-2 text-sm text-txt-primary">
-                                    <input id="import-queue" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
-                                    <span>Queue for background processing</span>
-                                </label>
-                                <button id="import-scan" type="button" class="ui-icon-button is-primary" data-icon="fileDown" data-icon-label="Import Inbox"></button>
+                            <div class="flex justify-end">
+                                <button id="import-defaults-save" type="button" class="ui-button-primary">Save defaults</button>
                             </div>
                         </div>
 
-                        <div class="pt-3 border-t border-border-primary space-y-2">
-                            <div>
-                                <p class="font-semibold text-txt-primary">Import URL</p>
-                                <p class="text-xs text-txt-secondary">Fetches and imports one web page or document URL immediately into the selected vault.</p>
-                            </div>
-                            <form id="import-url-form" class="flex flex-col md:flex-row gap-4 items-end">
-                                <div class="md:flex-1 w-full">
-                                    <input id="import-url-input" type="url" placeholder="https://example.com/article-or-document.pdf" class="w-full px-3 py-2 border border-border-secondary rounded-md bg-app-card text-txt-primary focus:outline-none focus:ring-2 focus:ring-accent">
-                                </div>
-                                <div class="flex items-end justify-end">
-                                    <button id="import-url-submit" type="submit" class="ui-icon-button is-primary" data-icon="fileDown" data-icon-label="Import URL"></button>
-                                </div>
-                            </form>
+                        <div class="pt-3 border-t border-border-primary flex flex-wrap items-center justify-between gap-3">
+                            <p class="text-sm text-txt-secondary">Upload and import files, import existing vault files, or import a URL from the Vault Explorer.</p>
+                            <button id="import-open-explorer" type="button" class="ui-button-primary">Open Vault Explorer</button>
                         </div>
 
                         <div class="text-sm text-txt-secondary">
@@ -360,9 +309,6 @@
                         </div>
                     </div>
 
-                    <div id="import-results" class="border border-border-primary rounded-md bg-app-elevated p-4 text-sm text-txt-secondary">
-                        No imports yet.
-                    </div>
                 </div>
             </details>
 

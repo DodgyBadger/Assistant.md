@@ -44,6 +44,7 @@
         }
 
         function openExplorer({
+            importUrl = '',
             revealPath = '',
             vaultName = '',
             workspaceSelection = false,
@@ -72,6 +73,7 @@
                 workspaceRecovery,
                 workspaceSelectionMode,
                 explorer: true,
+                importUrl,
                 showPath: true,
                 expandDirectoriesOnSelect: true,
                 closeOnSelect: false,

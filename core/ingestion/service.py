@@ -236,7 +236,16 @@ class IngestionService:
                 job.options if isinstance(job.options, dict) else {}
             )
             pdf_mode = (
-                str(options.get("pdf_mode", "markdown")).strip().lower()
+                str(
+                    options.get(
+                        "pdf_mode",
+                        ingestion_settings.get("pdf", {}).get(
+                            "default_mode", "markdown"
+                        ),
+                    )
+                )
+                .strip()
+                .lower()
                 if isinstance(options, dict)
                 else "markdown"
             )
@@ -736,6 +745,7 @@ class IngestionService:
             return entry.value
 
         pdf_default_strategies: list[str] = []
+        pdf_default_mode = "markdown"
         ocr_model = "mistral-ocr-latest"
         ocr_endpoint = "https://api.mistral.ai/v1/ocr"
         image_default_strategies: list[str] = []
@@ -750,6 +760,14 @@ class IngestionService:
             )
         except Exception:
             pdf_default_strategies = []
+        try:
+            configured_pdf_mode = (
+                str(setting_value("ingestion_pdf_default_mode")).strip().lower()
+            )
+            if configured_pdf_mode in {"markdown", "page_images"}:
+                pdf_default_mode = configured_pdf_mode
+        except Exception:
+            pdf_default_mode = "markdown"
         try:
             ocr_model = str(setting_value("ingestion_ocr_model"))
         except Exception:
@@ -801,6 +819,7 @@ class IngestionService:
         return {
             "pdf": {
                 "default_strategies": pdf_default_strategies,
+                "default_mode": pdf_default_mode,
                 "ocr_model": ocr_model,
                 "ocr_endpoint": ocr_endpoint,
             },

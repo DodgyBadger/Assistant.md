@@ -207,32 +207,10 @@
         if (editJobId) {
             const job = state.importJobs.find(item => String(item.id) === editJobId);
             if (!job || job.source_type !== 'url') return;
-            if (elements.importVaultSelect) elements.importVaultSelect.value = job.vault || '';
-            if (elements.importPdfModeSelect && elements.importPdfStrategySelect) {
-                if (job.selected_strategy === 'pdf_page_images') {
-                    elements.importPdfModeSelect.value = 'page_images';
-                } else {
-                    elements.importPdfModeSelect.value = 'markdown';
-                    if (job.selected_strategy === 'pdf_ocr') {
-                        elements.importPdfStrategySelect.value = 'ocr';
-                    } else if (job.selected_strategy === 'pdf_text') {
-                        elements.importPdfStrategySelect.value = 'local_text';
-                    } else {
-                        elements.importPdfStrategySelect.value = 'default';
-                    }
-                }
-                actions.updateImportOcrAvailability();
-            }
-            if (elements.importUrlInput) {
-                elements.importUrlInput.value = job.source_uri || '';
-                elements.importUrlInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                elements.importUrlInput.focus({ preventScroll: true });
-            }
-            setStatus(
-                elements.importStatus,
-                `Loaded URL from job ${editJobId}. Adjust PDF/OCR settings and import again.`,
-                'info'
-            );
+            callbacks.openExplorer?.({
+                vaultName: job.vault || '',
+                importUrl: job.source_uri || '',
+            });
             return;
         }
         const jobId = button.getAttribute('data-import-job-cancel');

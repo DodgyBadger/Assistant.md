@@ -112,6 +112,37 @@ class VaultDirectImportScenario(BaseScenario):
                 "Direct import collisions should use the existing numbered-copy policy",
             )
 
+            saved_default = self.call_api(
+                "/api/system/settings/general/ingestion_pdf_default_mode",
+                method="PUT",
+                data={"value": "page_images"},
+            )
+            self.soft_assert_equal(
+                saved_default.status_code,
+                200,
+                "The Dashboard PDF output default should be persisted",
+            )
+            defaulted = self.call_api(
+                "/api/import/sources",
+                method="POST",
+                data={
+                    "vault": vault.name,
+                    "sources": ["Uploads/source.pdf"],
+                    "destination": "PageDefault",
+                },
+            )
+            defaulted_jobs = defaulted.json().get("jobs_created") or []
+            defaulted_outputs = (
+                defaulted_jobs[0].get("outputs") if defaulted_jobs else []
+            )
+            self.soft_assert(
+                "PageDefault/source.md" in defaulted_outputs
+                and any(
+                    path.endswith("/pages/page_0001.png") for path in defaulted_outputs
+                ),
+                "An import without an override should use the persisted PDF mode default",
+            )
+
             jobs_before_invalid = count_jobs()
             invalid = self.call_api(
                 "/api/import/sources",
