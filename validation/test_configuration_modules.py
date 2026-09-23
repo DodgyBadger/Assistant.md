@@ -13,7 +13,8 @@ _EXPECTED_SCRIPTS = [
     "static/js/configuration/runtime.js",
     "static/js/configuration/activity-log.js",
     "static/js/configuration/settings.js",
-    "static/js/configuration/models-providers.js",
+    "static/js/configuration/models.js",
+    "static/js/configuration/providers.js",
     "static/js/configuration/connections.js",
     "static/js/configuration/secrets.js",
     "static/js/configuration/maintenance.js",
@@ -78,6 +79,18 @@ for (const name of [
 ]) {
     if (typeof ConfigurationPanel[name] !== 'function') {
         throw new Error(`Missing ConfigurationPanel.${name}`);
+    }
+}
+for (const name of [
+    'loadModels',
+    'renderModels',
+    'handleModelTableClick',
+    'loadProviders',
+    'renderProviders',
+    'handleProviderTableClick',
+]) {
+    if (typeof ConfigurationPanelRuntime.actions[name] !== 'function') {
+        throw new Error(`Missing configuration action: ${name}`);
     }
 }
 """
