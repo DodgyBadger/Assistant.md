@@ -112,6 +112,16 @@ def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> 
     source = _PICKER_MODULE.read_text(encoding="utf-8")
 
     assert "data-vault-explorer-toolbar" in source
+    assert "data-vault-explorer-header-location" in source
+    assert "vault-explorer-search-control" in source
+    assert 'data-vault-explorer-tree="expand"' in source
+    assert 'data-vault-explorer-tree="collapse"' in source
+    assert "data-vault-explorer-descendant-selection" in source
+    assert (
+        source.index("data-vault-explorer-header-location")
+        < source.index("vault-explorer-search-control")
+        < source.index("data-vault-explorer-toolbar")
+    )
     assert "data-vault-explorer-select-item" in source
     assert "data-vault-explorer-row-menu" not in source
     assert "data-vault-explorer-more" not in source
