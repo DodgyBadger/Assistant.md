@@ -6,7 +6,10 @@ import subprocess
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_STATE_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-state.js"
+_TOOLBAR_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-toolbar.js"
 _ACTIONS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-actions.js"
+_CONTROLLER_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-controller.js"
 _PICKER_MODULE = _PROJECT_ROOT / "static/js/vault-path-picker.js"
 
 
@@ -42,7 +45,10 @@ for (const name of ['open', 'close', 'syncInteractionLocks']) {
             "node",
             "-e",
             harness,
+            str(_STATE_MODULE),
+            str(_TOOLBAR_MODULE),
             str(_ACTIONS_MODULE),
+            str(_CONTROLLER_MODULE),
             str(_PICKER_MODULE),
         ],
         check=True,
@@ -50,14 +56,38 @@ for (const name of ['open', 'close', 'syncInteractionLocks']) {
     )
 
 
-def test_vault_explorer_actions_load_before_path_picker() -> None:
+def test_vault_explorer_modules_load_before_path_picker() -> None:
     markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
 
+    state_position = markup.index(
+        '<script src="static/js/vault-explorer-state.js"></script>'
+    )
+    toolbar_position = markup.index(
+        '<script src="static/js/vault-explorer-toolbar.js"></script>'
+    )
     actions_position = markup.index(
         '<script src="static/js/vault-explorer-actions.js"></script>'
+    )
+    controller_position = markup.index(
+        '<script src="static/js/vault-explorer-controller.js"></script>'
     )
     picker_position = markup.index(
         '<script src="static/js/vault-path-picker.js"></script>'
     )
 
-    assert actions_position < picker_position
+    assert (
+        state_position
+        < toolbar_position
+        < actions_position
+        < controller_position
+        < picker_position
+    )
+
+
+def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> None:
+    source = _PICKER_MODULE.read_text(encoding="utf-8")
+
+    assert "data-vault-explorer-toolbar" in source
+    assert "data-vault-explorer-select-item" in source
+    assert "data-vault-explorer-row-menu" not in source
+    assert "data-vault-explorer-more" not in source

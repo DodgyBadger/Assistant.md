@@ -1,21 +1,32 @@
 (function vaultPathPickerModule(window, document) {
     function createVaultPathPickerController({ elements, icons, utils }) {
-        const { escapeHtml, flashCopyFeedback, handleCopy } = utils;
+        const { escapeHtml } = utils;
         let activePickerId = '';
         let activeOnClose = null;
         let activeOptions = null;
         let rootLoadGeneration = 0;
         let rootAbortController = null;
-
         const explorerActions = window.VaultExplorerActions.create({
             icons,
             utils,
             callbacks: {
                 isReadOnly,
+                mutationCompleted,
                 refreshExplorer,
                 setStatus,
                 syncInteractionLocks,
                 workspacePath,
+            },
+        });
+        const explorer = window.VaultExplorerController.create({
+            utils,
+            callbacks: {
+                expandDirectory,
+                handleMutationAction: explorerActions.handleAction,
+                isBusy: explorerActions.isBusy,
+                isReadOnly,
+                refreshExplorer,
+                setStatus,
             },
         });
 
@@ -29,6 +40,10 @@
 
         function isReadOnly(options) {
             return Boolean(options?.isReadOnly?.());
+        }
+
+        function mutationCompleted({ operation, sourcePath, targetPath, kind }) {
+            explorer.mutationCompleted({ operation, sourcePath, targetPath, kind });
         }
 
         function open(options = {}) {
@@ -56,24 +71,6 @@
                             <p class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(options.subtitle || vault)}</p>
                         </div>
                         <div class="app-modal-actions">
-                            ${options.explorer ? `
-                                <form class="vault-explorer-header-create hidden" data-vault-explorer-header-create data-direct-path="true">
-                                    <label class="vault-explorer-visually-hidden" data-vault-explorer-header-create-label for="${escapeHtml(id)}-create-path">New path</label>
-                                    <input id="${escapeHtml(id)}-create-path" name="value" class="vault-explorer-header-create-input" autocomplete="off" required />
-                                    <button type="submit" class="ui-icon-button is-primary is-compact" aria-label="Create" title="Create">${icons.CHECK_ICON_SVG}</button>
-                                    <button type="button" class="ui-icon-button is-compact" data-vault-explorer-header-create-cancel aria-label="Cancel creation" title="Cancel creation">${icons.X_ICON_SVG}</button>
-                                </form>
-                                <div class="vault-explorer-header-new">
-                                    <button type="button" class="ui-icon-button is-compact" data-vault-explorer-new aria-label="Create file or folder" title="Create file or folder">${icons.PLUS_ICON_SVG}</button>
-                                    <div class="vault-explorer-header-new-menu hidden" data-vault-explorer-new-menu>
-                                        <button type="button" data-vault-explorer-create-kind="file">New file</button>
-                                        <button type="button" data-vault-explorer-create-kind="directory">New folder</button>
-                                    </div>
-                                </div>
-                                <input type="file" class="hidden" data-vault-explorer-upload-input multiple />
-                                <button type="button" class="ui-icon-button is-compact" data-vault-explorer-upload aria-label="Upload files" title="Upload files">${icons.IMPORT_ICON_SVG}</button>
-                                <button type="button" class="ui-icon-button is-compact" data-vault-explorer-refresh aria-label="Refresh vault" title="Refresh vault">${icons.REFRESH_ICON_SVG}</button>
-                            ` : ''}
                             <button type="button" class="ui-icon-button is-compact" data-vault-path-picker-close aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                     </div>
@@ -96,7 +93,11 @@
                                 <input data-vault-path-picker-query type="search" class="file-reference-search" placeholder="${escapeHtml(options.searchPlaceholder || 'Search workspace...')}" aria-label="Search files" />
                             </div>
                         ` : ''}
-                        ${options.explorer ? '<div class="vault-explorer-action-panel hidden" data-vault-explorer-action-panel></div>' : ''}
+                        ${options.explorer ? `
+                            <input type="file" class="hidden" data-vault-explorer-upload-input multiple />
+                            <div class="vault-explorer-toolbar" data-vault-explorer-toolbar></div>
+                            <div class="vault-explorer-action-panel hidden" data-vault-explorer-action-panel></div>
+                        ` : ''}
                         <div data-vault-path-picker-status class="text-sm text-txt-secondary">Loading...</div>
                         <div data-vault-path-picker-results class="workspace-tree flex-1 min-h-0 overflow-y-auto" role="tree"></div>
                     </div>
@@ -107,14 +108,15 @@
 
             const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
             const scopeSelect = overlay.querySelector('[data-vault-path-picker-scope]');
-            const headerCreateInput = overlay.querySelector('.vault-explorer-header-create-input');
             const uploadInput = overlay.querySelector('[data-vault-explorer-upload-input]');
             if (scopeSelect instanceof HTMLSelectElement) {
                 scopeSelect.value = options.initialScope || (workspacePath() ? 'workspace' : 'vault');
             }
-            headerCreateInput?.addEventListener('input', () => {
-                headerCreateInput.setCustomValidity('');
-            });
+            if (options.explorer) {
+                explorer.open(overlay, options, {
+                    activeFolder: scopeSelect?.value === 'workspace' ? workspacePath() : '',
+                });
+            }
 
             function syncSearchPlaceholder() {
                 if (!(queryInput instanceof HTMLInputElement) || options.searchPlaceholder) return;
@@ -127,43 +129,18 @@
             overlay.addEventListener('click', async (event) => {
                 const target = event.target;
                 if (!(target instanceof Element)) return;
-                if (!target.closest('.vault-explorer-header-new')) {
-                    overlay.querySelector('[data-vault-explorer-new-menu]')?.classList.add('hidden');
-                }
                 if (event.target === overlay || target.closest('[data-vault-path-picker-close]')) {
                     if (explorerActions.isBusy()) return;
                     close();
                     return;
                 }
-                if (target.closest('[data-vault-explorer-header-create-cancel]')) {
-                    explorerActions.closeHeaderCreateForm(overlay);
-                    return;
-                }
-                if (target.closest('[data-vault-explorer-new]')) {
-                    explorerActions.toggleHeaderCreateMenu(overlay);
-                    return;
-                }
-                if (target.closest('[data-vault-explorer-upload]')) {
-                    if (!isReadOnly(options) && uploadInput instanceof HTMLInputElement) {
-                        uploadInput.click();
-                    }
-                    return;
-                }
-                const createKindButton = target.closest('[data-vault-explorer-create-kind]');
-                if (createKindButton instanceof HTMLButtonElement) {
-                    if (isReadOnly(options)) return;
-                    explorerActions.showHeaderCreateForm(
-                        overlay,
-                        createKindButton.dataset.vaultExplorerCreateKind || 'file'
-                    );
-                    return;
-                }
-                if (target.closest('[data-vault-explorer-refresh]')) {
-                    try {
-                        await refreshExplorer(overlay, options);
-                    } catch (error) {
-                        setStatus(overlay, `Unable to refresh paths: ${error.message}`, true);
-                    }
+                const selection = target.closest('[data-vault-explorer-select-item]');
+                if (selection instanceof HTMLInputElement) {
+                    explorer.toggleSelection({
+                        path: selection.dataset.path || '',
+                        kind: selection.dataset.kind || '',
+                        importEligible: selection.dataset.importEligible === 'true',
+                    });
                     return;
                 }
                 const loadMoreButton = target.closest('[data-vault-path-picker-more]');
@@ -174,23 +151,6 @@
                 if (target.closest('[data-vault-explorer-action-cancel]')) {
                     if (explorerActions.isBusy()) return;
                     explorerActions.closeActionPanel(overlay);
-                    return;
-                }
-                const copyButton = target.closest('[data-vault-explorer-copy]');
-                if (copyButton instanceof HTMLButtonElement) {
-                    const path = copyButton.getAttribute('data-vault-explorer-copy') || '';
-                    flashCopyFeedback(copyButton, await handleCopy(path));
-                    return;
-                }
-                const moreButton = target.closest('[data-vault-explorer-more]');
-                if (moreButton instanceof HTMLButtonElement) {
-                    explorerActions.toggleRowMenu(overlay, moreButton);
-                    return;
-                }
-                const rowAction = target.closest('[data-vault-explorer-row-action]');
-                if (rowAction instanceof HTMLButtonElement) {
-                    if (isReadOnly(options)) return;
-                    await explorerActions.handleRowAction(overlay, rowAction, options);
                     return;
                 }
                 const toggle = target.closest('[data-vault-path-picker-toggle]');
@@ -209,6 +169,7 @@
                         return;
                     }
                     if (kind === 'directory' && options.expandDirectoriesOnSelect) {
+                        explorer.setActiveFolder(path);
                         const row = selectButton.closest('[data-vault-path-picker-row]');
                         const rowToggle = row?.querySelector(':scope > .workspace-tree-row [data-vault-path-picker-toggle]');
                         if (rowToggle instanceof HTMLElement) {
@@ -224,11 +185,6 @@
             });
             overlay.addEventListener('submit', async (event) => {
                 const form = event.target;
-                if (form instanceof HTMLFormElement && form.matches('[data-vault-explorer-header-create]')) {
-                    event.preventDefault();
-                    await explorerActions.submitMutation(overlay, form, options);
-                    return;
-                }
                 if (form instanceof HTMLFormElement && form.matches('[data-vault-explorer-upload-form]')) {
                     event.preventDefault();
                     await explorerActions.submitUploads(overlay, form, options);
@@ -257,11 +213,19 @@
             const debouncedLoad = debounce(loadRoot, 180);
             queryInput?.addEventListener('input', debouncedLoad);
             uploadInput?.addEventListener('change', () => {
-                explorerActions.setUploadFiles(overlay, uploadInput.files);
+                explorerActions.setUploadFiles(
+                    overlay,
+                    uploadInput.files,
+                    explorer.snapshot().destinationPath
+                );
                 uploadInput.value = '';
             });
             scopeSelect?.addEventListener('change', () => {
-                explorerActions.closeHeaderCreateForm(overlay);
+                if (options.explorer) {
+                    explorer.setActiveFolder(
+                        scopeSelect.value === 'workspace' ? workspacePath() : ''
+                    );
+                }
                 syncSearchPlaceholder();
                 loadRoot();
             });
@@ -290,7 +254,26 @@
             activePickerId = '';
             activeOnClose = null;
             activeOptions = null;
+            explorer.close();
             explorerActions.reset();
+        }
+
+        async function expandDirectory(overlay, path, options) {
+            const row = Array.from(
+                overlay.querySelectorAll('[data-vault-path-picker-row]')
+            ).find((candidate) => (
+                candidate instanceof HTMLElement
+                && candidate.getAttribute('data-vault-path-picker-row') === path
+            ));
+            const toggle = row?.querySelector(
+                ':scope > .workspace-tree-row [data-vault-path-picker-toggle]'
+            );
+            if (
+                toggle instanceof HTMLElement
+                && toggle.getAttribute('aria-expanded') !== 'true'
+            ) {
+                await toggleNode(overlay, toggle, options);
+            }
         }
 
         function syncInteractionLocks() {
@@ -298,28 +281,12 @@
             const overlay = document.getElementById(activePickerId);
             if (!(overlay instanceof HTMLElement)) return;
             const readOnly = isReadOnly(activeOptions);
-            const lockMessage = 'Available when the active response finishes.';
-            overlay.querySelectorAll('[data-vault-explorer-more]').forEach((button) => {
-                if (!(button instanceof HTMLButtonElement)) return;
-                button.disabled = readOnly;
-                button.title = readOnly ? lockMessage : 'More actions';
-            });
             overlay.querySelectorAll('[data-vault-explorer-mutation-form] button[type="submit"]').forEach((button) => {
                 if (button instanceof HTMLButtonElement) button.disabled = readOnly;
             });
-            const newButton = overlay.querySelector('[data-vault-explorer-new]');
-            if (newButton instanceof HTMLButtonElement) {
-                newButton.disabled = readOnly;
-                newButton.title = readOnly ? lockMessage : 'Create file or folder';
-            }
-            const uploadButton = overlay.querySelector('[data-vault-explorer-upload]');
-            if (uploadButton instanceof HTMLButtonElement) {
-                uploadButton.disabled = readOnly;
-                uploadButton.title = readOnly ? lockMessage : 'Upload files';
-            }
+            explorer.render();
             if (readOnly) {
                 explorerActions.closeActionPanel(overlay);
-                explorerActions.closeHeaderCreateForm(overlay);
             }
         }
 
@@ -343,6 +310,7 @@
                 results.innerHTML = items.length
                     ? items.map((item) => renderRow(item, 0, options)).join('')
                     : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No folders available.')}</p>`;
+                explorer.render();
                 return;
             }
 
@@ -361,6 +329,7 @@
             results.innerHTML = items.length
                 ? items.map((item) => renderRow(item, 0, options)).join('') + renderLoadMore(payload, 0, options)
                 : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No matching files.')}</p>`;
+            explorer.render();
         }
 
         async function fetchDirectories(path, signal = undefined, options = {}) {
@@ -431,6 +400,7 @@
                 }
                 children.dataset.loaded = 'true';
                 explorerActions.syncMoveDestinationSelection(overlay);
+                explorer.render();
             } catch (error) {
                 children.innerHTML = `<div class="py-1 text-xs state-error">Unable to load paths: ${escapeHtml(error.message)}</div>`;
             }
@@ -470,11 +440,14 @@
             const indent = Math.min(Math.max(depth, 0) * 1.25, 5);
             const canExpand = kind === 'directory' && item.has_children;
             const icon = kind === 'directory' ? icons.FOLDER_ICON_SVG : fileIcon();
-            const readOnly = options.explorer && isReadOnly(options);
-            const moreTitle = readOnly ? 'Available when the active response finishes.' : 'More actions';
+            const selected = options.explorer
+                && explorer.snapshot().selectedPaths.includes(path);
+            const active = options.explorer
+                && kind === 'directory'
+                && explorer.snapshot().activeFolder === path;
             return `
                 <div data-vault-path-picker-row="${escapeHtml(path)}" data-vault-path-picker-depth="${depth}">
-                    <div class="workspace-tree-row" role="treeitem" style="padding-left: ${indent}rem;">
+                    <div class="workspace-tree-row${selected ? ' is-selected' : ''}${active ? ' is-active-folder' : ''}" role="treeitem" style="padding-left: ${indent}rem;">
                         ${canExpand
                             ? `<button type="button" class="workspace-tree-toggle" data-vault-path-picker-toggle aria-expanded="false" aria-label="Expand ${escapeHtml(name)}">
                                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -482,6 +455,12 @@
                                 </svg>
                             </button>`
                             : '<span class="workspace-tree-spacer" aria-hidden="true"></span>'}
+                        ${options.explorer ? `
+                            <input type="checkbox" class="vault-explorer-row-selection"
+                                data-vault-explorer-select-item data-path="${escapeHtml(path)}"
+                                data-kind="${kind}" data-import-eligible="false"
+                                aria-label="Select ${escapeHtml(name)}" ${selected ? 'checked' : ''} />
+                        ` : ''}
                         <button type="button" class="workspace-tree-select" data-vault-path-picker-select="${escapeHtml(path)}" data-vault-path-picker-kind="${escapeHtml(kind)}">
                             <span class="file-reference-row-icon" aria-hidden="true">${icon}</span>
                             <span class="workspace-tree-label min-w-0">
@@ -489,24 +468,6 @@
                                 ${options.showPath === false ? '' : `<span class="file-reference-path">${escapeHtml(path)}</span>`}
                             </span>
                         </button>
-                        ${options.explorer ? `
-                            <div class="vault-explorer-row-actions">
-                                ${options.workspaceSelectionMode && kind === 'directory'
-                                    ? `<button type="button" class="vault-explorer-workspace-use" data-vault-explorer-row-action="workspace" data-path="${escapeHtml(path)}" data-kind="${kind}" aria-label="Use ${escapeHtml(path)} as the workspace" title="Use as workspace" ${readOnly ? 'disabled' : ''}>Use</button>`
-                                    : ''}
-                                <button type="button" class="ui-icon-button is-compact" data-vault-explorer-copy="${escapeHtml(path)}" aria-label="Copy path" title="Copy path">${icons.COPY_ICON_SVG}</button>
-                                <button type="button" class="ui-icon-button is-compact" data-vault-explorer-more="${escapeHtml(path)}" aria-label="More actions" title="${moreTitle}" ${readOnly ? 'disabled' : ''}>${icons.MORE_HORIZONTAL_ICON_SVG}</button>
-                                <div class="vault-explorer-row-menu hidden" data-vault-explorer-row-menu>
-                                    <button type="button" data-vault-explorer-row-action="reference" data-path="${escapeHtml(path)}" data-kind="${kind}">Add to prompt</button>
-                                    ${kind === 'directory' ? `<button type="button" data-vault-explorer-row-action="workspace" data-path="${escapeHtml(path)}" data-kind="${kind}">Set as workspace</button>` : ''}
-                                    ${kind === 'directory' ? `<button type="button" data-vault-explorer-row-action="create_file" data-path="${escapeHtml(path)}" data-kind="${kind}">Create file</button>` : ''}
-                                    ${kind === 'directory' ? `<button type="button" data-vault-explorer-row-action="create_directory" data-path="${escapeHtml(path)}" data-kind="${kind}">Create folder</button>` : ''}
-                                    <button type="button" data-vault-explorer-row-action="rename" data-path="${escapeHtml(path)}" data-kind="${kind}">Rename</button>
-                                    <button type="button" data-vault-explorer-row-action="move" data-path="${escapeHtml(path)}" data-kind="${kind}">Move</button>
-                                    <button type="button" class="state-error" data-vault-explorer-row-action="delete" data-path="${escapeHtml(path)}" data-kind="${kind}">Delete</button>
-                                </div>
-                            </div>
-                        ` : ''}
                     </div>
                     <div class="workspace-tree-children hidden" data-vault-path-picker-children></div>
                 </div>
