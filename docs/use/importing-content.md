@@ -1,15 +1,22 @@
 # Importing Content
 
-Assistant.md imports vault files and public HTTP/HTTPS URLs into Markdown files. Imports can be submitted from chat, Monty workflows, or the Dashboard Import section. Every accepted import creates a durable ingestion job so status, outputs, errors, and cancellation remain visible across the application.
+Assistant.md imports vault files and public HTTP/HTTPS URLs into Markdown files. Imports can be submitted from Vault Explorer, chat, or Monty workflows. Every accepted import creates a durable ingestion job so status, outputs, errors, and cancellation remain visible across the application.
+
+## Start an import
+
+Open Vault Explorer and make the intended output folder active. Select one or more supported PDF or image files and choose **Import**, or choose **Import URL** for a public HTTP/HTTPS source. To add local files, choose **Upload** and then **Upload & import** to create the source files and submit their Markdown imports in one workflow. Imported source files remain in the vault.
+
+The import panel uses the saved defaults unless you expand **Options for this import** and choose one-off overrides. The panel shows the destination explicitly, so normal Explorer imports do not depend on a typed vault-relative path or the global fallback output pattern.
 
 Interactive submissions normally process each new job immediately. The `content_import` tool waits for terminal results by default, making imported Markdown available in the same agent turn. For a large multi-file submission, the caller can set `queue_only=true` and let the background worker process it. See the [`content_import` tool reference](../tools/content_import.md) for the complete invocation contract.
 
 ## Monitor and control imports
 
-Open **Dashboard → Import** to see recent jobs for the selected vault. The vault selector controls the visible history, inbox processing, and manual URL imports. The Import Status table shows queued, processing, completed, failed, and cancelled jobs, along with their outputs or errors.
+Open **Dashboard → Import** to see recent jobs for the selected vault and edit the defaults used by new imports. The Import Status table shows queued, processing, completed, failed, and cancelled jobs, along with their outputs or errors. Use **Open Vault Explorer** to start another file or URL import.
 
 - Use **Refresh Import Status** to reload the durable job list.
 - Use **Process Queue Now** to request an immediate run of the scheduled ingestion worker. The run still observes the configured batch size.
+- Save **Import defaults** to change the PDF output mode, strategy order, and OCR behavior used when a request does not provide an override.
 - Queued jobs can be cancelled. A processing job cannot be cancelled because its extraction thread or external OCR request may already be running.
 
 The table refreshes automatically while queued or processing jobs are present.

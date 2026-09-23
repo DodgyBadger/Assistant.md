@@ -52,6 +52,7 @@ from core.vault_state.pathing import (
     normalize_vault_relative_path,
     resolve_vault_relative_path,
 )
+from core.vault_state.search import VaultContentSearchError, search_vault_content
 
 
 class VaultFileOperationRejected(Exception):
@@ -423,6 +424,53 @@ def search_vault_files_operation(
             status="completed",
             exists=True,
             metadata={"match_count": 0, "matches": []},
+        )
+
+    if not result_prefix and len(search_roots) == 1 and search_roots[0].is_dir():
+        try:
+            structured = search_vault_content(
+                vault_path=vault_root,
+                path=(
+                    search_roots[0].relative_to(vault_root).as_posix()
+                    if search_roots[0] != vault_root
+                    else ""
+                ),
+                query=query,
+                limit=_default_list_max_results(),
+                timeout_seconds=_default_search_timeout_seconds(),
+            )
+        except VaultContentSearchError as exc:
+            return _operation_result(
+                str(exc),
+                operation="search",
+                path=search_path,
+                search_term=query,
+                status="error",
+                error_type=exc.code,
+            )
+        matches = [
+            f"{match.path}:{match.line}:{match.snippet}" for match in structured.matches
+        ]
+        if not matches:
+            return _operation_result(
+                f"No matches found for '{query}' in text files",
+                operation="search",
+                path=search_path,
+                search_term=query,
+                status="completed",
+                metadata={"match_count": 0, "matches": [], "truncated": False},
+            )
+        return _operation_result(
+            "\n".join(matches),
+            operation="search",
+            path=search_path,
+            search_term=query,
+            status="completed",
+            metadata={
+                "match_count": len(matches),
+                "matches": matches,
+                "truncated": structured.truncated,
+            },
         )
 
     command = [

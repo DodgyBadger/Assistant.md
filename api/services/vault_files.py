@@ -578,7 +578,10 @@ def list_vault_file_references(
     bounded_offset = max(int(offset or 0), 0)
 
     if normalized_query:
-        base_relative = normalized_workspace if normalized_scope == "workspace" else ""
+        requested_search_path = _normalize_workspace_path(path)
+        base_relative = requested_search_path or (
+            normalized_workspace if normalized_scope == "workspace" else ""
+        )
         base_dir = resolve_vault_relative_path(
             vault_path=vault_root, path=base_relative
         )

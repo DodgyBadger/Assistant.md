@@ -12,11 +12,11 @@ The chat agent can help with the setup described in this guide. Tell it what you
 
 ## Chat and Vault Explorer
 
-Open Assistant.md, choose a vault and model, and start talking. Alongside chat, use Vault Explorer to browse, preview, upload, move, and edit vault files directly. The agent can work with the same files using its built-in tools.
+Open Assistant.md, choose a vault and model, and start talking. Alongside chat, use Vault Explorer to browse, preview, select, upload, import, move, search, and edit vault files directly. The operation bar applies available actions to the selected files or folders, while the active folder supplies the destination for creation, upload, and URL import. The agent can work with the same files using its built-in tools.
 
 With no additional customization, Chat and Vault Explorer let you:
 
-- browse, search, and preview Markdown across your vaults;
+- browse by name or path, search file contents, and preview Markdown across your vaults;
 - create, edit, upload, move, and organize files directly;
 - import PDFs and public URLs as durable Markdown;
 - ask the agent to find, compare, or summarize information across your notes;

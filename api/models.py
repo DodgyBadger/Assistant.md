@@ -209,6 +209,21 @@ class VaultFileReferenceListResponse(BaseModel):
     )
 
 
+class VaultContentSearchMatch(BaseModel):
+    path: str
+    line: int
+    column: int
+    snippet: str
+
+
+class VaultContentSearchResponse(BaseModel):
+    vault_name: str
+    path: str = ""
+    query: str
+    truncated: bool = False
+    matches: list[VaultContentSearchMatch] = Field(default_factory=list)
+
+
 class VaultPathResolveRequest(BaseModel):
     """Candidate vault paths extracted from rendered chat content."""
 

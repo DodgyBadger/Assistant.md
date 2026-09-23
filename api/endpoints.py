@@ -13,6 +13,7 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from pydantic_ai import BinaryContent
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import FormData, UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -55,6 +56,7 @@ from core.settings import (
     get_vault_upload_max_mb_per_file,
 )
 from core.vault_state.pathing import VaultRootResolutionError
+from core.vault_state.search import VaultContentSearchError
 
 from .exceptions import (
     APIException,
@@ -143,6 +145,8 @@ from .models import (
     VaultActivityRollbackResponse,
     VaultBatchMoveRequest,
     VaultBatchMoveResponse,
+    VaultContentSearchMatch,
+    VaultContentSearchResponse,
     VaultDirectoryListResponse,
     VaultFileReferenceListResponse,
     VaultFileResponse,
@@ -236,6 +240,7 @@ from .services import (
     rollback_vault_activity,
     run_system_database_migrations,
     scan_import_folder,
+    search_vault_text,
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,
@@ -2161,6 +2166,53 @@ async def vault_file_references(
             scope=scope,
             limit=limit,
             offset=offset,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/vaults/{vault_name}/content-search", response_model=VaultContentSearchResponse
+)
+async def vault_content_search(
+    vault_name: str,
+    query: str,
+    path: str = "",
+    limit: int = Query(100, ge=1, le=200),
+) -> VaultContentSearchResponse | JSONResponse:
+    """Return bounded structured literal matches from vault text files."""
+    try:
+        result = await run_in_threadpool(
+            search_vault_text,
+            vault_name=vault_name,
+            query=query,
+            path=path,
+            limit=limit,
+        )
+        return VaultContentSearchResponse(
+            vault_name=vault_name,
+            path=path,
+            query=query,
+            truncated=result.truncated,
+            matches=[
+                VaultContentSearchMatch(
+                    path=match.path,
+                    line=match.line,
+                    column=match.column,
+                    snippet=match.snippet,
+                )
+                for match in result.matches
+            ],
+        )
+    except VaultContentSearchError as e:
+        status_code = 408 if e.code == "timeout" else 400
+        return create_error_response(
+            APIException(
+                status_code=status_code,
+                error_type="VaultContentSearchFailed",
+                message=str(e),
+                details={"code": e.code},
+            )
         )
     except Exception as e:
         return create_error_response(e)
