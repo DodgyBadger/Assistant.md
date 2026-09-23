@@ -116,6 +116,13 @@ const configurationStatus = window.ConfigurationStatus.create({
     },
 });
 
+const appShell = window.AppShell.create({
+    browserStorage,
+    callbacks: {
+        refreshStatus: () => fetchSystemStatus(),
+    },
+});
+
 function updateStatus() {
     configurationStatus.update();
 }
@@ -547,90 +554,10 @@ function reconcileCommittedToolCalls(context, vault, sessionId) {
 
 
 // Tab management
-const tabs = {
-    chat: {
-        button: document.getElementById('chat-tab'),
-        content: document.getElementById('chat-content')
-    },
-    dashboard: {
-        button: document.getElementById('dashboard-tab'),
-        content: document.getElementById('dashboard-content')
-    },
-    configuration: {
-        button: document.getElementById('configuration-tab'),
-        content: document.getElementById('configuration-content')
-    }
-};
-
-// Theme management
-const themeManager = {
-    themes: [
-        { name: 'light', label: 'Light' },
-        { name: 'dark', label: 'Dark' },
-        { name: 'ocean', label: 'Ocean' },
-        { name: 'sunset', label: 'Sunset' },
-        { name: 'lavender', label: 'Lavender' },
-        { name: 'forest', label: 'Forest' }
-    ],
-
-    current: null,
-
-    safeGet(key) {
-        return browserStorage.getItem(key);
-    },
-
-    safeSet(key, value) {
-        browserStorage.setItem(key, value);
-    },
-
-    init() {
-        const saved = this.safeGet('theme');
-        let initialTheme = saved;
-
-        if (!saved) {
-            // No saved preference - check system preference
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            initialTheme = prefersDark ? 'dark' : 'light';
-        }
-
-        this.apply(initialTheme);
-
-        // Set up click handler
-        const button = document.getElementById('theme-toggle');
-        if (button) {
-            button.addEventListener('click', () => this.cycle());
-        }
-    },
-
-    apply(themeName) {
-        const theme = this.themes.find(t => t.name === themeName) || this.themes[0];
-        this.current = theme;
-
-        // Update DOM
-        document.documentElement.setAttribute('data-theme', theme.name);
-
-        // Update button title
-        const button = document.getElementById('theme-toggle');
-        if (button) {
-            button.title = `Theme: ${theme.label} (click to change)`;
-        }
-
-        // Save preference (best-effort)
-        this.safeSet('theme', theme.name);
-    },
-
-    cycle() {
-        const currentIndex = this.themes.findIndex(t => t.name === this.current?.name);
-        const nextIndex = (currentIndex + 1) % this.themes.length;
-        this.apply(this.themes[nextIndex].name);
-    }
-};
-
 // Initialize app
 async function init() {
     window.AssistantMDIcons.hydrateIconButtons(document);
-    themeManager.init();
-    setupTabs();
+    appShell.init();
     setupEventListeners();
     restoreChatComposerHeight();
     syncChatFocusToggle();
@@ -649,44 +576,6 @@ async function init() {
 }
 
 // Setup tab switching
-function setupTabs() {
-    Object.entries(tabs).forEach(([name, tabControls]) => {
-        if (tabControls.button) {
-            tabControls.button.addEventListener('click', () => switchTab(name));
-        } else {
-            console.error(`Tab button not found for ${name}`, tabControls);
-        }
-    });
-}
-
-function switchTab(tabName) {
-    if (tabName !== 'configuration') {
-        window.ConfigurationPanel?.onTabDeactivated?.();
-    }
-    Object.entries(tabs).forEach(([name, tabControls]) => {
-        if (!tabControls.button || !tabControls.content) return;
-
-        const isActive = name === tabName;
-        tabControls.button.classList.toggle('border-accent', isActive);
-        tabControls.button.classList.toggle('text-accent', isActive);
-        tabControls.button.classList.toggle('border-transparent', !isActive);
-        tabControls.button.classList.toggle('text-txt-secondary', !isActive);
-        tabControls.content.classList.toggle('hidden', !isActive);
-    });
-
-    if (tabName === 'dashboard') {
-        fetchSystemStatus();
-        if (window.ConfigurationPanel) {
-            window.ConfigurationPanel.onDashboardActivated();
-        }
-    } else if (tabName === 'configuration') {
-        fetchSystemStatus();
-        if (window.ConfigurationPanel) {
-            window.ConfigurationPanel.onTabActivated();
-        }
-    }
-}
-
 // Update collapsible section arrows (placeholder)
 function updateCollapsibleArrows() {}
 
