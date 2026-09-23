@@ -131,7 +131,8 @@ class GmailConnectionAPIScenario(BaseScenario):
         )
 
         script = (
-            Path(__file__).resolve().parents[4] / "static/js/configuration.js"
+            Path(__file__).resolve().parents[4]
+            / "static/js/configuration/connections.js"
         ).read_text(encoding="utf-8")
         self.soft_assert(
             "Save the Gmail capability changes before authorizing Google." in script

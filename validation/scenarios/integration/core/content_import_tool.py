@@ -341,9 +341,9 @@ class ContentImportToolScenario(BaseScenario):
                 and "max-width: 20rem" in import_styles,
                 "Import sources should wrap without dominating the job table",
             )
-            import_script = (static_root / "js" / "configuration.js").read_text(
-                encoding="utf-8"
-            )
+            import_script = (
+                static_root / "js" / "configuration" / "imports.js"
+            ).read_text(encoding="utf-8")
             self.soft_assert(
                 "data-import-job-edit" in import_script
                 and "Edit import settings for job" in import_script
