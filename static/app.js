@@ -313,6 +313,19 @@ const chatSessions = window.ChatSessions.create({
     },
 });
 
+const chatSelection = window.ChatSelection.create({
+    state,
+    elements: chatElements,
+    sessionControls,
+    callbacks: {
+        fetchSessions,
+        syncControls: syncChatControlLocks,
+        renderEmptyState: renderChatEmptyState,
+        updateStatus,
+        addErrorMessage: addChatErrorMessage,
+    },
+});
+
 const vaultActivity = window.VaultActivity.create({
     state,
     elements: dashElements,
@@ -476,12 +489,33 @@ function syncVaultExplorerButtons() {
     });
 }
 
-function populateThinkingSelector() {
-    if (!chatElements.thinkingSelector) return;
-    const defaultThinking = state.metadata?.settings?.default_model_thinking || 'default';
-    const allowed = new Set(Array.from(chatElements.thinkingSelector.options).map((option) => option.value));
-    const selected = allowed.has(defaultThinking) ? defaultThinking : 'default';
-    chatElements.thinkingSelector.value = selected;
+
+function fetchMetadata() {
+    return chatSelection.fetchMetadata();
+}
+
+function populateSelectors() {
+    chatSelection.populateSelectors();
+}
+
+function resetChatModeToDefault() {
+    chatSelection.resetChatModeToDefault();
+}
+
+function isChatSelectableModel(model) {
+    return chatSelection.isChatSelectableModel(model);
+}
+
+function persistSelectedChatMode() {
+    return chatSelection.persistSelectedChatMode();
+}
+
+function handleVaultChange() {
+    chatSelection.handleVaultChange();
+}
+
+function fetchTemplates(vault, preferredTemplate = '') {
+    return chatSelection.fetchTemplates(vault, preferredTemplate);
 }
 
 function fetchSessions(vault, preferredSessionId = '') {
@@ -643,112 +677,6 @@ function switchTab(tabName) {
 function updateCollapsibleArrows() {}
 
 // Fetch metadata from API
-async function fetchMetadata() {
-    try {
-        const response = await fetch('api/metadata');
-        if (!response.ok) throw new Error('Failed to fetch metadata');
-
-        state.metadata = await response.json();
-        // Expose for other modules (e.g., configuration import panel) to avoid duplicate fetches.
-        window.App = window.App || {};
-        window.App.metadata = state.metadata;
-        window.ConfigurationPanel?.onMetadataUpdated?.();
-        populateSelectors();
-        updateStatus();
-    } catch (error) {
-        console.error('Error fetching metadata:', error);
-        // Connection failure - could add a warning here if needed
-        updateStatus();
-    }
-}
-
-// Populate selectors with metadata
-function populateSelectors() {
-    const previousVault = chatElements.vaultSelector?.value || '';
-    const previousModel = chatElements.modelSelector?.value || '';
-    const previousTemplate = chatElements.templateSelector?.value || '';
-
-    chatElements.vaultSelector.innerHTML = '<option value="">Select vault...</option>';
-    chatElements.modelSelector.innerHTML = '<option value="">Select model...</option>';
-    if (chatElements.templateSelector) {
-        chatElements.templateSelector.innerHTML = '<option value="">No context script</option>';
-        chatElements.templateSelector.disabled = true;
-    }
-    populateThinkingSelector();
-    if (!state.sessionId) {
-        resetChatModeToDefault();
-    }
-
-    state.metadata.vaults.forEach(vault => {
-        const option = document.createElement('option');
-        option.value = vault;
-        option.textContent = vault;
-        chatElements.vaultSelector.appendChild(option);
-    });
-
-    if (previousVault && state.metadata.vaults.includes(previousVault)) {
-        chatElements.vaultSelector.value = previousVault;
-    }
-
-    let firstAvailableModel = null;
-    const envDefaultModel = state.systemStatus && state.systemStatus.configuration_status
-        ? state.systemStatus.configuration_status.default_model
-        : null;
-
-    const chatModels = state.metadata.models.filter(isChatSelectableModel);
-
-    chatModels.forEach(model => {
-        const option = document.createElement('option');
-        option.value = model.name;
-        const displayModelName = model.model_string || model.model || model.provider;
-        option.textContent = `${model.name} (${displayModelName})${model.available ? '' : ' (unavailable)'}`;
-        option.disabled = model.available === false;
-        chatElements.modelSelector.appendChild(option);
-
-        if (model.available && !firstAvailableModel) {
-            firstAvailableModel = model.name;
-        }
-    });
-
-    if (
-        previousModel &&
-        chatModels.some(m => m.name === previousModel && m.available !== false)
-    ) {
-        chatElements.modelSelector.value = previousModel;
-    } else if (envDefaultModel && chatModels.some(m => m.name === envDefaultModel && m.available)) {
-        chatElements.modelSelector.value = envDefaultModel;
-    } else if (firstAvailableModel) {
-        chatElements.modelSelector.value = firstAvailableModel;
-    }
-
-    // Trigger template fetch if a vault is already selected (e.g., persisted UI state in future)
-    if (chatElements.vaultSelector && chatElements.vaultSelector.value) {
-        fetchTemplates(chatElements.vaultSelector.value, previousTemplate);
-        fetchSessions(chatElements.vaultSelector.value, state.sessionId || '');
-    }
-
-    sessionControls.renderSelector();
-    syncChatControlLocks();
-}
-
-function configuredDefaultChatMode() {
-    return state.metadata?.settings?.default_chat_mode === 'inline_edit'
-        ? 'inline_edit'
-        : 'normal';
-}
-
-function resetChatModeToDefault() {
-    if (chatElements.chatModeSelector) {
-        chatElements.chatModeSelector.value = configuredDefaultChatMode();
-    }
-}
-
-function isChatSelectableModel(model) {
-    const capabilities = Array.isArray(model?.capabilities)
-        ? model.capabilities.map(capability => String(capability || '').trim().toLowerCase())
-        : [];
-    return !capabilities.includes('embedding');
-}
 
 // Fetch system status
 async function fetchSystemStatus() {
@@ -1017,95 +945,6 @@ function setupEventListeners() {
     syncChatControlLocks();
 }
 
-async function persistSelectedChatMode() {
-    const vault = chatElements.vaultSelector?.value || '';
-    const sessionId = state.sessionId;
-    if (!vault || !sessionId || !chatElements.chatModeSelector) return;
-    const chatMode = chatElements.chatModeSelector.value === 'inline_edit'
-        ? 'inline_edit'
-        : 'normal';
-    try {
-        const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/mode`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ vault_name: vault, chat_mode: chatMode }),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const session = state.sessions.find((item) => item.session_id === sessionId);
-        if (session) session.chat_mode = chatMode;
-    } catch (error) {
-        console.error('Failed to persist chat mode:', error);
-        addChatErrorMessage('Could not save the selected chat mode.');
-    }
-}
-
-function handleVaultChange() {
-    const vault = chatElements.vaultSelector ? chatElements.vaultSelector.value : '';
-    state.sessionId = null;
-    state.pendingDeferredReview = null;
-    state.workspaceExists = null;
-    state.sessions = [];
-    resetChatModeToDefault();
-    if (chatElements.workspacePathInput) {
-        chatElements.workspacePathInput.value = '';
-    }
-    sessionControls.clearCompactionProgress();
-    sessionControls.renderSelector();
-    sessionControls.updateTitleRow();
-    renderChatEmptyState();
-    updateStatus();
-    populateTemplates([]); // reset while loading
-    if (vault) {
-        fetchTemplates(vault);
-        fetchSessions(vault);
-    }
-}
-
-function populateTemplates(templates, preferredTemplate = '') {
-    if (!chatElements.templateSelector) return;
-    const templateList = Array.isArray(templates) ? templates : [];
-    chatElements.templateSelector.innerHTML = '<option value="">No context script</option>';
-    templateList.forEach((tmpl) => {
-        const option = document.createElement('option');
-        option.value = tmpl.name;
-        option.textContent = `${tmpl.name} (${tmpl.source})`;
-        chatElements.templateSelector.appendChild(option);
-    });
-    const configuredDefaultTemplate = state.metadata?.default_context_script || '';
-    const fallbackCandidates = [
-        preferredTemplate,
-        configuredDefaultTemplate,
-        'default.md'
-    ].filter((value, index, values) => value && values.indexOf(value) === index);
-
-    const selectedTemplate = fallbackCandidates.find((candidate) =>
-        Array.from(chatElements.templateSelector.options).some((option) => option.value === candidate)
-    );
-    if (selectedTemplate) {
-        chatElements.templateSelector.value = selectedTemplate;
-    } else {
-        chatElements.templateSelector.value = '';
-    }
-    chatElements.templateSelector.disabled = false;
-}
-
-async function fetchTemplates(vault, preferredTemplate = '') {
-    if (!vault) {
-        populateTemplates([], preferredTemplate);
-        return;
-    }
-    try {
-        const response = await fetch(`api/context/templates?vault_name=${encodeURIComponent(vault)}`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch templates');
-        }
-        const templates = await response.json();
-        populateTemplates(templates, preferredTemplate);
-    } catch (error) {
-        console.error('Error fetching templates:', error);
-        populateTemplates([], preferredTemplate);
-    }
-}
 
 function handleDeferredReviewEvent(assistantMessage, payload) {
     if (!assistantMessage?.artifactList || !payload?.artifact_ref) return;
