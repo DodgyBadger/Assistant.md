@@ -2740,7 +2740,7 @@ summary.connection-card-summary .summary-title {
 }
 .file-reference-toolbar {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
     gap: 0.5rem;
 }
 .file-reference-search,
@@ -2780,6 +2780,10 @@ summary.connection-card-summary .summary-title {
     font-size: 0.72rem;
     color: rgb(var(--text-secondary));
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.vault-content-search-row .file-reference-path {
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 .vault-file-link {
     color: rgb(var(--accent-primary));

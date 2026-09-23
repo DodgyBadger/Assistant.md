@@ -337,6 +337,7 @@ from .vault_files import (
     update_vault_file,
     upload_vault_file,
 )
+from .vault_search import search_vault_text
 from .workflows import (
     _project_latest_workflow_runs,
     _sha256_text,
