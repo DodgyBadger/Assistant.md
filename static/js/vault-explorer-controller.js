@@ -1,22 +1,27 @@
 (function vaultExplorerControllerModule(window) {
-    function createVaultExplorerController({ utils, callbacks }) {
+    function createVaultExplorerController({ icons = {}, utils, callbacks }) {
         const { flashCopyFeedback, handleCopy } = utils;
         let overlay = null;
         let options = null;
         let toolbar = null;
         const state = window.VaultExplorerState.create({ onChange: render });
         toolbar = window.VaultExplorerToolbar.create({
+            icons,
             utils,
             callbacks: {
                 onAction: handleToolbarAction,
-                onLocation: state.setActiveFolder,
+                onLocation: handleLocation,
             },
         });
 
         function open(nextOverlay, nextOptions, { activeFolder = '' } = {}) {
             overlay = nextOverlay;
             options = nextOptions;
-            toolbar.mount(overlay.querySelector('[data-vault-explorer-toolbar]'));
+            toolbar.mount(
+                overlay.querySelector('[data-vault-explorer-toolbar]'),
+                overlay.querySelector('[data-vault-explorer-header-location]'),
+                overlay.querySelector('[data-vault-explorer-selection-summary]')
+            );
             state.reset({ activeFolder });
             state.setFeatures({
                 batchMove: typeof options.onBatchMove === 'function',
@@ -36,6 +41,11 @@
 
         function setActiveFolder(path) {
             state.setActiveFolder(path);
+        }
+
+        function handleLocation(path) {
+            state.setActiveFolder(path);
+            callbacks.navigateLocation?.(path);
         }
 
         function toggleSelection(item) {
@@ -76,6 +86,10 @@
             try {
                 if (action === 'clear') {
                     state.clearSelection();
+                    return;
+                }
+                if (action === 'show_selection') {
+                    await callbacks.showSelection?.(overlay, currentSnapshot, options);
                     return;
                 }
                 if (action === 'refresh') {
@@ -164,6 +178,21 @@
                     ':scope > .workspace-tree-row [data-vault-explorer-select-item]'
                 );
                 if (checkbox instanceof HTMLInputElement) checkbox.checked = selected;
+                const descendantIndicator = row.querySelector(
+                    ':scope > .workspace-tree-row [data-vault-explorer-descendant-selection]'
+                );
+                if (descendantIndicator instanceof HTMLElement) {
+                    const descendantCount = currentSnapshot.selectedPaths.filter(
+                        (selectedPath) => selectedPath.startsWith(`${path}/`)
+                    ).length;
+                    descendantIndicator.hidden = descendantCount === 0;
+                    descendantIndicator.textContent = String(descendantCount);
+                    descendantIndicator.title = `${descendantCount} selected inside`;
+                    rowContent?.classList.toggle(
+                        'has-selected-descendants',
+                        descendantCount > 0
+                    );
+                }
             });
             toolbar.render(currentSnapshot, {
                 readOnly: callbacks.isReadOnly(options) || callbacks.isBusy(),
@@ -171,6 +200,8 @@
                     ? 'Available after the upload finishes.'
                     : 'Available when the active response finishes.',
                 supportedActions: supportedToolbarActions(options),
+                vaultName: options.vaultName || '',
+                workspacePath: callbacks.workspacePath?.() || '',
             });
         }
 

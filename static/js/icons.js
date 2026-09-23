@@ -5,6 +5,13 @@
                 <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        MESSAGE_SQUARE_PLUS_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 8v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="M9 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+            </svg>
+        `.trim(),
         DASHBOARD_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <rect x="3" y="3" width="7" height="9" rx="1" stroke="currentColor" stroke-width="2"></rect>
@@ -32,12 +39,31 @@
                 <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        CLIPBOARD_COPY_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect width="8" height="4" x="8" y="2" rx="1" ry="1" stroke="currentColor" stroke-width="2"></rect>
+                <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M16 4h2a2 2 0 0 1 2 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M21 14H11" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="m15 10-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
         FORK_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M16 3h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M8 3H3v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="m21 3-7.828 7.828A4 4 0 0 0 12 13.657V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
+        MOVE_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 2v20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="m15 19-3 3-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="m19 9 3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="m5 9-3 3 3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="m9 5 3-3 3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
         SESSION_SUMMARY_ICON_SVG: `
@@ -59,6 +85,23 @@
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="m12 19-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M19 12H5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
+        SLASH_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M22 2 2 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
+        CHEVRONS_DOWN_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m7 6 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="m7 13 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
+        CHEVRONS_UP_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m17 11-5-5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="m17 18-5-5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
         PLUS_ICON_SVG: `
@@ -105,11 +148,26 @@
                 <path d="M2 10h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        BRIEFCASE_BUSINESS_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M22 13a18.15 18.15 0 0 1-20 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <rect width="20" height="14" x="2" y="6" rx="2" stroke="currentColor" stroke-width="2"></rect>
+            </svg>
+        `.trim(),
         DOWNLOAD_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
+        UPLOAD_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="m17 8-5-5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
         TRASH_ICON_SVG: `
@@ -162,8 +220,8 @@
         IMPORT_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="m8 11 4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
         FILE_DOWN_ICON_SVG: `
@@ -235,9 +293,13 @@
     const iconByName = {
         alert: icons.ALERT_ICON_SVG,
         chat: icons.CHAT_ICON_SVG,
+        chevronsDown: icons.CHEVRONS_DOWN_ICON_SVG,
+        chevronsUp: icons.CHEVRONS_UP_ICON_SVG,
+        messageSquarePlus: icons.MESSAGE_SQUARE_PLUS_ICON_SVG,
         circleX: icons.CIRCLE_X_ICON_SVG,
         clean: icons.CLEAN_ICON_SVG,
         copy: icons.COPY_ICON_SVG,
+        clipboardCopy: icons.CLIPBOARD_COPY_ICON_SVG,
         dashboard: icons.DASHBOARD_ICON_SVG,
         database: icons.DATABASE_ICON_SVG,
         download: icons.DOWNLOAD_ICON_SVG,
@@ -245,20 +307,24 @@
         eye: icons.EYE_ICON_SVG,
         fileDown: icons.FILE_DOWN_ICON_SVG,
         folder: icons.FOLDER_ICON_SVG,
+        briefcaseBusiness: icons.BRIEFCASE_BUSINESS_ICON_SVG,
         import: icons.IMPORT_ICON_SVG,
         link: icons.LINK_ICON_SVG,
         more: icons.MORE_HORIZONTAL_ICON_SVG,
+        move: icons.MOVE_ICON_SVG,
         play: icons.PLAY_ICON_SVG,
         plus: icons.PLUS_ICON_SVG,
         refresh: icons.REFRESH_ICON_SVG,
         save: icons.SAVE_ICON_SVG,
         send: icons.SEND_ICON_SVG,
         sendHorizontal: icons.SEND_HORIZONTAL_ICON_SVG,
+        slash: icons.SLASH_ICON_SVG,
         settings: icons.SETTINGS_ICON_SVG,
         shredder: icons.SHREDDER_ICON_SVG,
         stop: icons.STOP_ICON_SVG,
         system: icons.SYSTEM_ICON_SVG,
         trash: icons.TRASH_ICON_SVG,
+        upload: icons.UPLOAD_ICON_SVG,
         wrench: icons.WRENCH_ICON_SVG,
         x: icons.X_ICON_SVG,
     };

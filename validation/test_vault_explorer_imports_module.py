@@ -43,3 +43,15 @@ assert.strictEqual(controller.isBusy(), false);
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_vault_explorer_import_forms_use_compact_progressive_layout() -> None:
+    source = _IMPORTS_MODULE.read_text(encoding="utf-8")
+
+    assert "vault-explorer-import-primary" in source
+    assert "vault-explorer-import-source-count" in source
+    assert "sources.map" not in source
+    assert "vault-explorer-import-footer" in source
+    assert "vault-explorer-import-options-grid" in source
+    assert '<details class="vault-explorer-import-advanced">' in source
+    assert "vault-explorer-action-header" not in source

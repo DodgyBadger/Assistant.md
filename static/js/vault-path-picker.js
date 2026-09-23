@@ -43,6 +43,7 @@
             },
         });
         const explorer = window.VaultExplorerController.create({
+            icons,
             utils,
             callbacks: {
                 expandDirectory,
@@ -53,7 +54,10 @@
                 isReadOnly,
                 refreshExplorer,
                 setStatus,
+                showSelection: showExplorerSelection,
                 supportsImportPath: window.VaultExplorerImports.supportsPath,
+                navigateLocation: navigateExplorerLocation,
+                workspacePath,
             },
         });
 
@@ -99,12 +103,28 @@
             overlay.id = id;
             overlay.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
             overlay.innerHTML = `
-                <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="${escapeHtml(titleId)}">
-                    <div class="app-modal-header flex-none">
-                        <div class="app-modal-title-block">
-                            <h2 id="${escapeHtml(titleId)}" class="text-lg font-semibold text-txt-primary">${escapeHtml(options.title || 'Choose Path')}</h2>
-                            <p class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(options.subtitle || vault)}</p>
-                        </div>
+                <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" ${options.explorer ? 'aria-label="Vault Explorer"' : `aria-labelledby="${escapeHtml(titleId)}"`}>
+                    <div class="app-modal-header vault-path-picker-header${options.explorer ? ' vault-explorer-modal-header' : ''} flex-none">
+                        ${options.explorer ? `
+                            <div class="vault-explorer-header-location" data-vault-explorer-header-location></div>
+                        ` : `
+                            <div class="app-modal-title-block">
+                                <h2 id="${escapeHtml(titleId)}" class="text-lg font-semibold text-txt-primary">${escapeHtml(options.title || 'Choose Path')}</h2>
+                                <p class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(options.subtitle || vault)}</p>
+                            </div>
+                            ${showSearch ? `<div class="file-reference-toolbar vault-explorer-header-search">
+                                <select data-vault-path-picker-search-mode class="file-reference-scope" aria-label="Search type">
+                                    <option value="name">Name / path</option>
+                                    <option value="content">Contents</option>
+                                </select>
+                                <select data-vault-path-picker-scope class="file-reference-scope" aria-label="Search scope">
+                                    <option value="workspace">Workspace only</option>
+                                    <option value="active">Current folder</option>
+                                    <option value="vault">Entire vault</option>
+                                </select>
+                                <input data-vault-path-picker-query type="search" class="file-reference-search" placeholder="${escapeHtml(options.searchPlaceholder || 'Search workspace...')}" aria-label="Search files" />
+                            </div>` : ''}
+                        `}
                         <div class="app-modal-actions">
                             <button type="button" class="ui-icon-button is-compact" data-vault-path-picker-close aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
@@ -119,26 +139,37 @@
                                     : ''}
                             </div>
                         ` : ''}
-                        ${showSearch ? `
-                            <div class="file-reference-toolbar">
-                                <select data-vault-path-picker-search-mode class="file-reference-scope" aria-label="Search type">
-                                    <option value="name">Name / path</option>
-                                    <option value="content">Contents</option>
-                                </select>
-                                <select data-vault-path-picker-scope class="file-reference-scope" aria-label="Search scope">
-                                    <option value="workspace">Workspace only</option>
-                                    <option value="active">Current folder</option>
-                                    <option value="vault">Entire vault</option>
-                                </select>
-                                <input data-vault-path-picker-query type="search" class="file-reference-search" placeholder="${escapeHtml(options.searchPlaceholder || 'Search workspace...')}" aria-label="Search files" />
-                            </div>
-                        ` : ''}
                         ${options.explorer ? `
                             <input type="file" class="hidden" data-vault-explorer-upload-input multiple />
-                            <div class="vault-explorer-toolbar" data-vault-explorer-toolbar></div>
+                            <div class="vault-explorer-toolbar">
+                                <div class="vault-explorer-search-control">
+                                    <input data-vault-path-picker-query type="search" class="file-reference-search"
+                                        placeholder="Search this folder..." aria-label="Search files" />
+                                    <input data-vault-path-picker-search-mode type="hidden" value="name" />
+                                    <button type="button" class="vault-explorer-search-mode-toggle"
+                                        data-vault-explorer-search-mode-toggle aria-haspopup="menu" aria-expanded="false"
+                                        aria-label="Search mode" title="Search mode">Names</button>
+                                    <div class="vault-explorer-search-mode-menu" data-vault-explorer-search-mode-menu role="menu" hidden>
+                                        <button type="button" data-vault-explorer-search-mode-option="name" role="menuitemradio" aria-checked="true">Name and path</button>
+                                        <button type="button" data-vault-explorer-search-mode-option="content" role="menuitemradio" aria-checked="false">File contents</button>
+                                    </div>
+                                </div>
+                                <div class="vault-explorer-toolbar-controls" data-vault-explorer-toolbar></div>
+                            </div>
                             <div class="vault-explorer-action-panel hidden" data-vault-explorer-action-panel></div>
                         ` : ''}
-                        <div data-vault-path-picker-status class="text-sm text-txt-secondary">Loading...</div>
+                        ${options.explorer ? `
+                            <div class="vault-explorer-tree-toolbar">
+                                <div data-vault-explorer-selection-summary></div>
+                                <div data-vault-path-picker-status class="vault-explorer-tree-status text-sm text-txt-secondary">Loading...</div>
+                                <div class="vault-explorer-tree-toggles">
+                                    <button type="button" class="ui-icon-button is-compact"
+                                        data-vault-explorer-tree="expand" aria-label="Expand all folders" title="Expand all folders">${icons.CHEVRONS_DOWN_ICON_SVG}</button>
+                                    <button type="button" class="ui-icon-button is-compact"
+                                        data-vault-explorer-tree="collapse" aria-label="Collapse all folders" title="Collapse all folders">${icons.CHEVRONS_UP_ICON_SVG}</button>
+                                </div>
+                            </div>
+                        ` : '<div data-vault-path-picker-status class="text-sm text-txt-secondary">Loading...</div>'}
                         <div data-vault-path-picker-results class="workspace-tree flex-1 min-h-0 overflow-y-auto" role="tree"></div>
                     </div>
                 </section>
@@ -155,7 +186,7 @@
             }
             if (options.explorer) {
                 explorer.open(overlay, options, {
-                    activeFolder: scopeSelect?.value === 'workspace' ? workspacePath() : '',
+                    activeFolder: options.initialScope === 'workspace' ? workspacePath() : '',
                 });
                 if (options.importUrl) {
                     explorerImports.showUrl(overlay, {
@@ -168,14 +199,26 @@
             function syncSearchPlaceholder() {
                 if (!(queryInput instanceof HTMLInputElement) || options.searchPlaceholder) return;
                 const content = searchModeSelect?.value === 'content';
-                const scope = scopeSelect?.value === 'vault'
-                    ? 'entire vault'
-                    : scopeSelect?.value === 'active'
-                        ? 'current folder'
-                        : 'workspace';
+                const scope = options.explorer
+                    ? 'this folder'
+                    : scopeSelect?.value === 'vault'
+                        ? 'entire vault'
+                        : scopeSelect?.value === 'active'
+                            ? 'current folder'
+                            : 'workspace';
                 queryInput.placeholder = content
                     ? `Search contents in ${scope}...`
                     : `Search names in ${scope}...`;
+                const modeToggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
+                if (modeToggle instanceof HTMLButtonElement) {
+                    modeToggle.textContent = content ? 'Contents' : 'Names';
+                }
+                overlay.querySelectorAll('[data-vault-explorer-search-mode-option]').forEach((button) => {
+                    button.setAttribute(
+                        'aria-checked',
+                        String(button.getAttribute('data-vault-explorer-search-mode-option') === searchModeSelect?.value)
+                    );
+                });
             }
             syncSearchPlaceholder();
 
@@ -187,6 +230,24 @@
                     close();
                     return;
                 }
+                const searchModeOption = target.closest('[data-vault-explorer-search-mode-option]');
+                if (searchModeOption instanceof HTMLButtonElement) {
+                    if (searchModeSelect instanceof HTMLInputElement) {
+                        searchModeSelect.value = searchModeOption.getAttribute(
+                            'data-vault-explorer-search-mode-option'
+                        ) || 'name';
+                    }
+                    closeSearchModeMenu(overlay);
+                    syncSearchPlaceholder();
+                    loadRoot();
+                    return;
+                }
+                const searchModeToggle = target.closest('[data-vault-explorer-search-mode-toggle]');
+                if (searchModeToggle instanceof HTMLButtonElement) {
+                    toggleSearchModeMenu(overlay, searchModeToggle);
+                    return;
+                }
+                closeSearchModeMenu(overlay);
                 const selection = target.closest('[data-vault-explorer-select-item]');
                 if (selection instanceof HTMLInputElement) {
                     explorer.toggleSelection({
@@ -204,6 +265,16 @@
                 if (target.closest('[data-vault-explorer-action-cancel]')) {
                     if (explorerActions.isBusy()) return;
                     explorerActions.closeActionPanel(overlay);
+                    return;
+                }
+                const treeToggle = target.closest('[data-vault-explorer-tree]');
+                if (treeToggle instanceof HTMLButtonElement) {
+                    const action = treeToggle.getAttribute('data-vault-explorer-tree');
+                    if (action === 'expand') {
+                        await expandAllFolders(overlay, options, treeToggle);
+                    } else if (action === 'collapse') {
+                        collapseAllFolders(overlay);
+                    }
                     return;
                 }
                 const toggle = target.closest('[data-vault-path-picker-toggle]');
@@ -296,7 +367,9 @@
                 syncSearchPlaceholder();
                 loadRoot();
             });
-            const initialPath = options.revealInitialPath ? '' : (options.initialPath || '');
+            const initialPath = options.revealInitialPath
+                ? ''
+                : (options.initialPath || (options.explorer ? explorer.snapshot().activeFolder : ''));
             loadResults(overlay, options, initialPath)
                 .then(() => {
                     if (options.revealInitialPath) {
@@ -351,6 +424,65 @@
             return parents.size === 1 ? Array.from(parents)[0] : null;
         }
 
+        function toggleSearchModeMenu(overlay, toggle) {
+            const menu = overlay.querySelector('[data-vault-explorer-search-mode-menu]');
+            if (!(menu instanceof HTMLElement)) return;
+            const opening = menu.hidden;
+            menu.hidden = !opening;
+            toggle.setAttribute('aria-expanded', String(opening));
+        }
+
+        function closeSearchModeMenu(overlay) {
+            const menu = overlay.querySelector('[data-vault-explorer-search-mode-menu]');
+            const toggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
+            if (menu instanceof HTMLElement) menu.hidden = true;
+            toggle?.setAttribute('aria-expanded', 'false');
+        }
+
+        function navigateExplorerLocation(path) {
+            const overlay = document.getElementById(activePickerId);
+            if (!(overlay instanceof HTMLElement) || !activeOptions) return;
+            loadCurrentResults(overlay, activeOptions).catch((error) => {
+                if (error.name !== 'AbortError') {
+                    setStatus(overlay, `Unable to load paths: ${error.message}`, true);
+                }
+            });
+        }
+
+        async function showExplorerSelection(overlay, snapshot, options) {
+            const selectedPaths = snapshot.selectedPaths || [];
+            if (!selectedPaths.length) return;
+            const query = overlay.querySelector('[data-vault-path-picker-query]');
+            const searchMode = overlay.querySelector('[data-vault-path-picker-search-mode]');
+            if (query instanceof HTMLInputElement) {
+                query.value = '';
+                if (!options.searchPlaceholder) {
+                    query.placeholder = 'Search names in this folder...';
+                }
+            }
+            if (searchMode instanceof HTMLInputElement) searchMode.value = 'name';
+            const modeToggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
+            if (modeToggle instanceof HTMLButtonElement) modeToggle.textContent = 'Names';
+            closeSearchModeMenu(overlay);
+            overlay.querySelectorAll('[data-vault-explorer-search-mode-option]').forEach((button) => {
+                button.setAttribute(
+                    'aria-checked',
+                    String(button.getAttribute('data-vault-explorer-search-mode-option') === 'name')
+                );
+            });
+            explorer.setActiveFolder('');
+            await loadResults(overlay, options, '');
+            for (const path of selectedPaths) {
+                await revealPath(overlay, options, path, { scroll: false });
+            }
+            const firstSelected = Array.from(
+                overlay.querySelectorAll('[data-vault-path-picker-row]')
+            ).find((row) => selectedPaths.includes(
+                row.getAttribute('data-vault-path-picker-row') || ''
+            ));
+            firstSelected?.scrollIntoView({ block: 'nearest' });
+        }
+
         async function expandDirectory(overlay, path, options) {
             const row = Array.from(
                 overlay.querySelectorAll('[data-vault-path-picker-row]')
@@ -367,6 +499,36 @@
             ) {
                 await toggleNode(overlay, toggle, options);
             }
+        }
+
+        async function expandAllFolders(overlay, options, button) {
+            button.disabled = true;
+            try {
+                while (true) {
+                    const collapsed = Array.from(
+                        overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="false"]')
+                    );
+                    if (!collapsed.length) return;
+                    for (const toggle of collapsed) {
+                        if (
+                            toggle instanceof HTMLElement
+                            && toggle.isConnected
+                            && toggle.getAttribute('aria-expanded') === 'false'
+                        ) {
+                            await toggleNode(overlay, toggle, options);
+                        }
+                    }
+                }
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function collapseAllFolders(overlay) {
+            overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="true"]')
+                .forEach((toggle) => toggle.setAttribute('aria-expanded', 'false'));
+            overlay.querySelectorAll('[data-vault-path-picker-children]')
+                .forEach((children) => children.classList.add('hidden'));
         }
 
         function syncInteractionLocks() {
@@ -411,9 +573,11 @@
             const scopeSelect = overlay.querySelector('[data-vault-path-picker-scope]');
             const selectedScope = scopeSelect instanceof HTMLSelectElement
                 ? scopeSelect.value
-                : 'workspace';
+                : options.explorer ? 'vault' : 'workspace';
             const payload = await fetchFileRefs({
-                path: path || (selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
+                path: path || (options.explorer
+                    ? explorer.snapshot().activeFolder
+                    : selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
                 query: queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '',
                 scope: selectedScope === 'active' ? 'vault' : selectedScope,
                 signal: controller.signal,
@@ -430,7 +594,10 @@
 
         function loadCurrentResults(overlay, options) {
             const searchMode = overlay.querySelector('[data-vault-path-picker-search-mode]');
-            if (searchMode instanceof HTMLSelectElement && searchMode.value === 'content') {
+            if (
+                (searchMode instanceof HTMLSelectElement || searchMode instanceof HTMLInputElement)
+                && searchMode.value === 'content'
+            ) {
                 return loadContentResults(overlay, options);
             }
             explorerSearch.cancel();
@@ -438,6 +605,7 @@
         }
 
         function searchScopePath(overlay) {
+            if (activeOptions?.explorer) return explorer.snapshot().activeFolder;
             const scope = overlay.querySelector('[data-vault-path-picker-scope]');
             if (!(scope instanceof HTMLSelectElement)) return workspacePath();
             if (scope.value === 'vault') return '';
@@ -536,7 +704,7 @@
             }
         }
 
-        async function revealPath(overlay, options, path) {
+        async function revealPath(overlay, options, path, { scroll = true } = {}) {
             const segments = String(path || '').split('/').filter(Boolean);
             let currentPath = '';
             let revealedRow = null;
@@ -560,7 +728,7 @@
                     await toggleNode(overlay, toggle, options);
                 }
             }
-            revealedRow?.scrollIntoView({ block: 'nearest' });
+            if (scroll) revealedRow?.scrollIntoView({ block: 'nearest' });
         }
 
         function renderRow(item, depth, options) {
@@ -598,6 +766,9 @@
                                 ${options.showPath === false ? '' : `<span class="file-reference-path">${escapeHtml(path)}</span>`}
                             </span>
                         </button>
+                        ${options.explorer && kind === 'directory'
+                            ? '<span class="vault-explorer-descendant-selection" data-vault-explorer-descendant-selection hidden></span>'
+                            : ''}
                     </div>
                     <div class="workspace-tree-children hidden" data-vault-path-picker-children></div>
                 </div>
@@ -615,7 +786,8 @@
 
         function renderFileStatus(payload, count) {
             const scope = payload?.scope === 'vault' ? 'vault' : 'workspace';
-            const base = payload?.query ? `Found ${count}` : `Showing ${count}`;
+            if (!payload?.query) return '';
+            const base = `Found ${count}`;
             const root = payload?.path || (scope === 'workspace' ? workspacePath() : '') || 'vault root';
             const suffix = payload?.truncated && payload?.next_offset == null
                 ? ' Refine the search to see more.'
@@ -664,7 +836,11 @@
             const scope = overlay.querySelector('[data-vault-path-picker-scope]');
             if (query instanceof HTMLInputElement) query.value = '';
             if (scope instanceof HTMLSelectElement) scope.value = 'vault';
-            await loadResults(overlay, options);
+            await loadResults(
+                overlay,
+                options,
+                options.explorer ? explorer.snapshot().activeFolder : ''
+            );
             if (reveal) await revealPath(overlay, options, reveal);
         }
 

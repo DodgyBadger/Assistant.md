@@ -624,30 +624,97 @@ details summary::-webkit-details-marker {
     flex: 0 0 auto;
     accent-color: rgb(var(--accent-primary));
 }
+.vault-explorer-descendant-selection {
+    min-width: 1.25rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 9999px;
+    background: rgb(var(--accent-primary) / 0.14);
+    color: rgb(var(--accent-primary));
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+}
 .vault-explorer-toolbar {
     display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 0.65rem 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.6rem;
+    padding: 0.4rem 0.5rem;
     border: 1px solid rgb(var(--border-primary));
     border-radius: 0.45rem;
     background: rgb(var(--bg-elevated));
 }
-.vault-explorer-toolbar-summary,
 .vault-explorer-toolbar-actions,
 .vault-explorer-toolbar-location {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.5rem;
-}
-.vault-explorer-toolbar-summary {
-    justify-content: space-between;
-    color: rgb(var(--text-secondary));
-    font-size: 0.78rem;
+    gap: 0.3rem;
 }
 .vault-explorer-toolbar-location {
     min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+.vault-explorer-toolbar-controls {
+    display: contents;
+}
+.vault-explorer-search-control {
+    position: relative;
+    min-width: 10rem;
+    flex: 1 1 14rem;
+    display: flex;
+    align-items: stretch;
+}
+.vault-explorer-search-control .file-reference-search {
+    width: 100%;
+    min-height: 1.85rem;
+    padding-right: 4.8rem;
+}
+.vault-explorer-search-mode-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.25rem;
+    transform: translateY(-50%);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    color: rgb(var(--text-secondary));
+    font-size: 0.72rem;
+}
+.vault-explorer-search-mode-toggle:hover,
+.vault-explorer-search-mode-toggle:focus-visible {
+    background: rgb(var(--bg-elevated));
+    color: rgb(var(--accent-primary));
+    outline: none;
+}
+.vault-explorer-search-mode-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 6;
+    min-width: 9.5rem;
+    padding: 0.3rem;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 0.45rem;
+    background: rgb(var(--bg-card));
+    box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.2);
+}
+.vault-explorer-search-mode-menu button {
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.3rem;
+    color: rgb(var(--text-primary));
+    font-size: 0.82rem;
+    text-align: left;
+}
+.vault-explorer-search-mode-menu button:hover,
+.vault-explorer-search-mode-menu button:focus-visible,
+.vault-explorer-search-mode-menu button[aria-checked="true"] {
+    background: rgb(var(--bg-elevated));
+    color: rgb(var(--accent-primary));
+    outline: none;
 }
 .vault-explorer-toolbar-location strong {
     min-width: 0;
@@ -673,22 +740,106 @@ details summary::-webkit-details-marker {
 .vault-explorer-toolbar-separator {
     color: rgb(var(--text-secondary));
 }
-.vault-explorer-toolbar-label {
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
 .vault-explorer-toolbar-action.is-danger {
     color: rgb(var(--state-error));
 }
-.vault-explorer-toolbar-clear {
-    min-height: 2rem;
-    padding: 0.35rem 0.2rem;
-    color: rgb(var(--text-secondary));
-    font-size: 0.8rem;
+.vault-explorer-toolbar-actions {
+    flex: 0 1 auto;
+    justify-content: flex-end;
 }
-.vault-explorer-toolbar-clear:hover,
-.vault-explorer-toolbar-clear:focus-visible {
+.vault-explorer-toolbar-selection {
+    min-width: 1.65rem;
+    min-height: 1.65rem;
+    padding: 0.15rem 0.4rem;
+    border: 1px solid rgb(var(--accent-primary) / 0.25);
+    border-radius: 9999px;
+    background: rgb(var(--accent-primary) / 0.1);
+    color: rgb(var(--accent-primary));
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.vault-explorer-toolbar-selection:hover,
+.vault-explorer-toolbar-selection:focus-visible {
+    border-color: rgb(var(--accent-primary));
+    background: rgb(var(--accent-primary) / 0.18);
+    outline: none;
+}
+.vault-explorer-selection-menu .vault-explorer-action-menu-options {
+    right: auto;
+    left: 0;
+}
+.vault-explorer-tree-toolbar {
+    min-height: 1.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.vault-explorer-tree-status {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.vault-explorer-tree-toggles {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0.3rem;
+}
+.vault-explorer-tree-toggles .ui-icon-button {
+    width: 1.7rem;
+    height: 1.7rem;
+    min-width: 1.7rem;
+}
+.vault-explorer-action-menu {
+    position: relative;
+}
+.vault-explorer-action-menu-options {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    z-index: 5;
+    width: max-content;
+    min-width: 10.5rem;
+    padding: 0.3rem;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 0.45rem;
+    background: rgb(var(--bg-card));
+    box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.2);
+}
+.vault-explorer-action-menu-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.3rem;
     color: rgb(var(--text-primary));
+    font-size: 0.82rem;
+    text-align: left;
+}
+.vault-explorer-action-menu-option:hover,
+.vault-explorer-action-menu-option:focus-visible {
+    background: rgb(var(--bg-elevated));
+    color: rgb(var(--accent-primary));
+    outline: none;
+}
+.vault-explorer-action-menu-option:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.vault-explorer-action-menu-option-icon {
+    width: 1rem;
+    height: 1rem;
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+.vault-explorer-action-menu-option-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+.vault-explorer-toolbar-action.ui-icon-button {
+    width: 1.85rem;
+    height: 1.85rem;
+    min-width: 1.85rem;
 }
 .vault-path-picker-more {
     align-self: flex-start;
@@ -734,15 +885,38 @@ details summary::-webkit-details-marker {
     flex-direction: column;
     gap: 0.65rem;
 }
-.vault-explorer-import-form,
-.vault-explorer-import-options,
-.vault-explorer-import-sources {
+.vault-explorer-import-form {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.4rem;
+}
+.vault-explorer-import-primary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.vault-explorer-import-primary > input[name="url"] {
+    min-width: 12rem;
+    flex: 1 1 18rem;
+}
+.vault-explorer-import-destination {
+    min-width: 0;
+    max-width: 14rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: rgb(var(--text-secondary));
+    white-space: nowrap;
+}
+.vault-explorer-import-destination strong {
+    min-width: 0;
+    overflow: hidden;
+    color: rgb(var(--text-primary));
+    text-overflow: ellipsis;
 }
 .vault-explorer-import-options {
-    padding: 0.6rem;
+    padding: 0.35rem 0.5rem;
     border: 1px solid rgb(var(--border-primary));
     border-radius: 0.375rem;
 }
@@ -751,21 +925,67 @@ details summary::-webkit-details-marker {
     color: rgb(var(--text-primary));
     font-weight: 600;
 }
-.vault-explorer-import-sources {
-    max-height: 8rem;
-    overflow-y: auto;
+.vault-explorer-import-options > summary span {
+    margin-left: 0.25rem;
+    color: rgb(var(--text-secondary));
+    font-size: 0.72rem;
+    font-weight: 400;
+}
+.vault-explorer-import-options[open] > summary {
+    margin-bottom: 0.5rem;
+}
+.vault-explorer-import-source-count {
+    flex: 0 0 auto;
+    color: rgb(var(--text-primary));
+    font-weight: 600;
+    white-space: nowrap;
 }
 .vault-explorer-option-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
-.vault-explorer-import-advanced {
+.vault-explorer-import-options-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    gap: 0.6rem;
-    padding-top: 0.6rem;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    align-items: end;
+    gap: 0.45rem;
+}
+.vault-explorer-import-options-grid > label:not(.vault-explorer-option-row) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    color: rgb(var(--text-secondary));
+    font-size: 0.75rem;
+}
+.vault-explorer-import-options-grid .vault-explorer-path-input {
+    min-height: 1.9rem;
+    padding: 0.25rem 0.4rem;
+}
+.vault-explorer-import-advanced {
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
     border-top: 1px solid rgb(var(--border-primary));
+}
+.vault-explorer-import-advanced > summary {
+    margin-bottom: 0;
+    color: rgb(var(--text-secondary));
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+.vault-explorer-import-advanced[open] > summary {
+    margin-bottom: 0.45rem;
+}
+.vault-explorer-import-footer {
+    min-height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+.vault-explorer-import-footer [data-vault-explorer-form-status] {
+    min-width: 0;
+    flex: 1 1 auto;
 }
 .vault-explorer-upload-list {
     display: flex;
@@ -1459,6 +1679,39 @@ details summary::-webkit-details-marker {
     background: rgb(var(--bg-card));
     z-index: 1;
 }
+.vault-path-picker-header {
+    display: grid;
+    grid-template-columns: minmax(8rem, auto) minmax(18rem, 1fr) auto;
+    align-items: center;
+}
+.vault-explorer-modal-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+.vault-explorer-header-search {
+    min-width: 0;
+}
+.vault-explorer-header-location {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.vault-explorer-namespace {
+    flex: 0 0 auto;
+    color: rgb(var(--text-primary));
+    font-weight: 600;
+    white-space: nowrap;
+}
+.vault-explorer-location-shortcuts {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0.3rem;
+}
+.vault-explorer-location-shortcuts .ui-icon-button {
+    width: 1.85rem;
+    height: 1.85rem;
+    min-width: 1.85rem;
+}
 .app-modal-title-block {
     flex: 1 1 auto;
     min-width: 0;
@@ -1694,6 +1947,21 @@ details summary::-webkit-details-marker {
     }
     .app-modal-actions > button {
         flex: 0 0 auto;
+    }
+    .vault-path-picker-header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .vault-path-picker-header .app-modal-title-block {
+        flex: 1 1 10rem;
+    }
+    .vault-explorer-header-search {
+        order: 3;
+        flex: 1 1 100%;
+    }
+    .vault-explorer-header-location {
+        flex: 1 1 12rem;
     }
     .vault-file-history {
         grid-template-columns: minmax(0, 1fr);
@@ -2739,9 +3007,17 @@ summary.connection-card-summary .summary-title {
     color: rgb(var(--accent-primary));
 }
 .file-reference-toolbar {
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
+}
+.file-reference-search {
+    flex: 1 1 12rem;
+    min-width: 8rem;
+}
+.file-reference-scope {
+    flex: 0 1 auto;
 }
 .file-reference-search,
 .file-reference-scope {
@@ -3207,11 +3483,6 @@ summary.connection-card-summary .summary-title {
 
     .edit-proposal-title {
         white-space: normal;
-    }
-}
-@media (max-width: 640px) {
-    .file-reference-toolbar {
-        grid-template-columns: 1fr;
     }
 }
 .chat-stop-btn {

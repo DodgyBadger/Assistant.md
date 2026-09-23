@@ -24,6 +24,8 @@ class VaultFileReferenceApiScenario(BaseScenario):
         self.create_file(vault, "Pagination/a.md", "a\n")
         self.create_file(vault, "Pagination/b.md", "b\n")
         self.create_file(vault, "Pagination/c.md", "c\n")
+        self.create_file(vault, "Spanish/lesson.md", "hola\n")
+        self.create_file(vault, "Spanish-vocabulary.md", "hola\n")
         self.create_file(vault, ".hidden/secret.md", "hidden\n")
         (vault / "binary.docx").write_bytes(b"PK\x03\x04\x00\x00not plain text")
 
@@ -106,6 +108,18 @@ class VaultFileReferenceApiScenario(BaseScenario):
         assert (
             ".hidden/secret.md" not in search_paths
         ), "Search should not expose hidden files"
+
+        basename_search = self.call_api(
+            f"/api/vaults/{vault.name}/file-refs",
+            params={"scope": "vault", "query": "spanish", "limit": 20},
+        )
+        assert basename_search.status_code == 200
+        basename_paths = {item["path"] for item in basename_search.json()["items"]}
+        assert "Spanish" in basename_paths
+        assert "Spanish-vocabulary.md" in basename_paths
+        assert (
+            "Spanish/lesson.md" not in basename_paths
+        ), "Name search should match item basenames, not ancestor folder names"
 
         resolved = self.call_api(
             f"/api/vaults/{vault.name}/file-refs/resolve",

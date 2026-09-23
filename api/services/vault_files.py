@@ -571,7 +571,7 @@ def list_vault_file_references(
     normalized_scope: Literal["workspace", "vault"] = (
         "vault" if scope == "vault" else "workspace"
     )
-    normalized_query = (query or "").strip().lower()
+    normalized_query = (query or "").strip().casefold()
     bounded_limit = min(
         max(int(limit or _VAULT_FILE_REFERENCE_LIMIT), 1), _VAULT_FILE_REFERENCE_LIMIT
     )
@@ -1252,12 +1252,7 @@ def _search_vault_file_references(
             break
         if not _is_file_reference_path(child):
             continue
-        try:
-            relative = child.resolve().relative_to(vault_root).as_posix()
-        except ValueError:
-            continue
-        haystack = f"{child.name.lower()} {relative.lower()}"
-        if query not in haystack:
+        if query not in child.name.casefold():
             continue
         info = _vault_file_reference_info(
             vault_root=vault_root,
