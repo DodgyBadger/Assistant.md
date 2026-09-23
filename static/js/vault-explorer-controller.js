@@ -7,7 +7,10 @@
         const state = window.VaultExplorerState.create({ onChange: render });
         toolbar = window.VaultExplorerToolbar.create({
             utils,
-            callbacks: { onAction: handleToolbarAction },
+            callbacks: {
+                onAction: handleToolbarAction,
+                onLocation: state.setActiveFolder,
+            },
         });
 
         function open(nextOverlay, nextOptions, { activeFolder = '' } = {}) {

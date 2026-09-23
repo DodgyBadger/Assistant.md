@@ -53,10 +53,10 @@
                 : '';
             container.innerHTML = `
                 <div class="vault-explorer-toolbar-summary">
-                    <span class="vault-explorer-toolbar-location">
+                    <nav class="vault-explorer-toolbar-location" aria-label="Active folder">
                         <span class="vault-explorer-toolbar-label">Folder</span>
-                        <strong class="cell-mono">${escapeHtml(activeFolder || 'Vault root')}</strong>
-                    </span>
+                        ${renderLocation(activeFolder)}
+                    </nav>
                     <span class="vault-explorer-toolbar-selection">${selectedCount ? `${selectedCount} selected` : 'No selection'}</span>
                 </div>
                 <div class="vault-explorer-toolbar-actions">
@@ -64,6 +64,24 @@
                     ${clearButton}
                 </div>
             `;
+        }
+
+        function renderLocation(activeFolder) {
+            const segments = String(activeFolder || '').split('/').filter(Boolean);
+            const crumbs = [{ label: 'Vault root', path: '' }];
+            let path = '';
+            for (const segment of segments) {
+                path = path ? `${path}/${segment}` : segment;
+                crumbs.push({ label: segment, path });
+            }
+            return crumbs.map((crumb, index) => `
+                ${index ? '<span class="vault-explorer-toolbar-separator" aria-hidden="true">/</span>' : ''}
+                <button type="button" class="vault-explorer-toolbar-crumb cell-mono"
+                    data-vault-explorer-location="${escapeHtml(crumb.path)}"
+                    ${index === crumbs.length - 1 ? 'aria-current="location"' : ''}>
+                    ${escapeHtml(crumb.label)}
+                </button>
+            `).join('');
         }
 
         function shouldRenderAction(name, operationState, selectedCount) {
@@ -107,10 +125,19 @@
 
         function handleClick(event) {
             const button = event.target?.closest?.('[data-vault-explorer-toolbar-action]');
-            if (!button || button.disabled) return;
-            const action = button.getAttribute('data-vault-explorer-toolbar-action') || '';
-            if (!action || !currentSnapshot) return;
-            callbacks.onAction?.(action, currentSnapshot, button);
+            if (button) {
+                if (button.disabled) return;
+                const action = button.getAttribute('data-vault-explorer-toolbar-action') || '';
+                if (!action || !currentSnapshot) return;
+                callbacks.onAction?.(action, currentSnapshot, button);
+                return;
+            }
+            const location = event.target?.closest?.('[data-vault-explorer-location]');
+            if (!location || !currentSnapshot) return;
+            callbacks.onLocation?.(
+                location.getAttribute('data-vault-explorer-location') || '',
+                currentSnapshot
+            );
         }
 
         function destroy() {
