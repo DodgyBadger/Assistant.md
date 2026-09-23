@@ -162,9 +162,9 @@
                 if (selectButton instanceof HTMLElement) {
                     const path = selectButton.getAttribute('data-vault-path-picker-select') || '';
                     const kind = selectButton.getAttribute('data-vault-path-picker-kind') || '';
-                    if (explorerActions.hasMoveForm(overlay)) {
+                    if (explorerActions.hasDestinationMode()) {
                         if (kind === 'directory') {
-                            explorerActions.selectMoveDestination(overlay, path);
+                            explorerActions.selectDestination(overlay, path);
                         }
                         return;
                     }
@@ -399,7 +399,7 @@
                         : '<div class="py-1 text-xs text-txt-secondary">No child files.</div>';
                 }
                 children.dataset.loaded = 'true';
-                explorerActions.syncMoveDestinationSelection(overlay);
+                explorerActions.syncDestinationSelection(overlay);
                 explorer.render();
             } catch (error) {
                 children.innerHTML = `<div class="py-1 text-xs state-error">Unable to load paths: ${escapeHtml(error.message)}</div>`;

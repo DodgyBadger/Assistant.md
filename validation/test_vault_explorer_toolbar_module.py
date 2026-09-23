@@ -43,6 +43,9 @@ const toolbar = VaultExplorerToolbar.create({
         onAction(action, snapshot) {
             dispatched.push({ action, count: snapshot.selectedCount });
         },
+        onLocation(path) {
+            dispatched.push({ location: path });
+        },
     },
 });
 
@@ -69,6 +72,8 @@ const noSelection = {
 };
 toolbar.render(noSelection, { supportedActions: ['new_file', 'new_directory', 'upload', 'refresh', 'rename'] });
 assert.match(container.innerHTML, /Projects &amp; Notes/);
+assert.match(container.innerHTML, /data-vault-explorer-location=""/);
+assert.match(container.innerHTML, /data-vault-explorer-location="Projects &amp; Notes"/);
 assert.match(container.innerHTML, /New file/);
 assert.match(container.innerHTML, /New folder/);
 assert.match(container.innerHTML, /Upload/);
@@ -119,6 +124,20 @@ const lockedButton = {
 };
 handlers.click({ target: { closest() { return lockedButton; } } });
 assert.strictEqual(dispatched.length, 1);
+
+const rootButton = {
+    getAttribute(name) {
+        return name === 'data-vault-explorer-location' ? '' : null;
+    },
+};
+handlers.click({
+    target: {
+        closest(selector) {
+            return selector === '[data-vault-explorer-location]' ? rootButton : null;
+        },
+    },
+});
+assert.deepStrictEqual(dispatched[1], { location: '' });
 
 toolbar.destroy();
 assert.strictEqual(handlers.click, undefined);

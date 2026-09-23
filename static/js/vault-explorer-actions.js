@@ -4,6 +4,7 @@
         let activeUploadFiles = [];
         let activeUploadDestination = '';
         let uploadInProgress = false;
+        const destinationMode = window.VaultExplorerDestination.create();
 
         function workspacePath() {
             return callbacks.workspacePath();
@@ -21,6 +22,7 @@
             activeUploadFiles = [];
             activeUploadDestination = '';
             uploadInProgress = false;
+            destinationMode.cancel();
         }
 
         function isBusy() {
@@ -35,9 +37,10 @@
             );
             panel.classList.add('hidden');
             panel.innerHTML = '';
+            destinationMode.cancel();
             overlay.classList.remove('vault-explorer-choosing-destination');
             overlay.classList.remove('vault-explorer-preparing-upload');
-            syncMoveDestinationSelection(overlay);
+            syncDestinationSelection(overlay);
             if (wasUpload) {
                 activeUploadFiles = [];
                 activeUploadDestination = '';
@@ -70,7 +73,11 @@
                 </div>
                 <form class="vault-explorer-upload-form" data-vault-explorer-upload-form>
                     <input type="hidden" name="destination" value="${escapeHtml(activeUploadDestination)}" />
-                    <p>Destination: <strong class="cell-mono">${escapeHtml(activeUploadDestination || 'Vault root')}</strong></p>
+                    <div class="vault-explorer-move-destination">
+                        <span>Destination</span>
+                        <strong class="cell-mono" data-vault-explorer-upload-destination>${escapeHtml(activeUploadDestination || 'Vault root')}</strong>
+                        <button type="button" class="ui-button-secondary" data-vault-explorer-upload-change-destination>Change</button>
+                    </div>
                     <div class="vault-explorer-upload-list" data-vault-explorer-upload-list></div>
                     <p class="text-xs text-txt-secondary">To convert PDFs or images to Markdown, upload them to <span class="cell-mono">AssistantMD/Import</span>, then use Import Files.</p>
                     <div class="vault-explorer-form-actions">
@@ -82,6 +89,15 @@
             panel.classList.remove('hidden');
             overlay.classList.add('vault-explorer-preparing-upload');
             renderUploadPaths(panel);
+            panel.querySelector('[data-vault-explorer-upload-change-destination]')
+                ?.addEventListener('click', () => {
+                    destinationMode.begin({
+                        initialPath: activeUploadDestination,
+                        purpose: 'upload',
+                    });
+                    overlay.classList.add('vault-explorer-choosing-destination');
+                    syncDestinationSelection(overlay);
+                });
             panel.querySelector('button[type="submit"]')?.focus();
         }
 
@@ -262,16 +278,22 @@
                 </form>`;
             panel.classList.remove('hidden');
             overlay.classList.add('vault-explorer-choosing-destination');
+            destinationMode.begin({
+                initialPath: initialParent,
+                purpose: 'move',
+                sourceKind: kind,
+                sourcePath: path,
+            });
             panel.querySelectorAll('[data-vault-explorer-move-shortcut]').forEach((button) => {
                 button.addEventListener('click', () => {
-                    selectMoveDestination(
+                    selectDestination(
                         overlay,
                         button.getAttribute('data-vault-explorer-move-shortcut') || ''
                     );
                 });
             });
             updateMovePreview(overlay);
-            syncMoveDestinationSelection(overlay);
+            syncDestinationSelection(overlay);
         }
 
         async function handleAction(overlay, { action, path = '', kind = '' }, options) {
@@ -414,35 +436,39 @@
             return form instanceof HTMLFormElement ? form : null;
         }
 
-        function hasMoveForm(overlay) {
-            return Boolean(moveForm(overlay));
+        function hasDestinationMode() {
+            return destinationMode.snapshot().active;
         }
 
-        function selectMoveDestination(overlay, destination) {
+        function selectDestination(overlay, path) {
             const form = moveForm(overlay);
-            if (!form) return;
-            const source = form.dataset.path || '';
-            const kind = form.dataset.kind || '';
-            const status = form.querySelector('[data-vault-explorer-form-status]');
-            if (
-                kind === 'directory'
-                && (destination === source || destination.startsWith(`${source}/`))
-            ) {
-                if (status) {
-                    status.innerHTML = '<span class="state-error">A folder cannot be moved into itself.</span>';
+            const status = form?.querySelector('[data-vault-explorer-form-status]');
+            try {
+                const destination = destinationMode.select(path);
+                if (form) form.dataset.destination = destination.path;
+                if (destination.purpose === 'upload') {
+                    activeUploadDestination = destination.path;
+                    const uploadForm = overlay.querySelector('[data-vault-explorer-upload-form]');
+                    const input = uploadForm?.elements.namedItem('destination');
+                    if (input instanceof HTMLInputElement) input.value = destination.path;
+                    const label = overlay.querySelector('[data-vault-explorer-upload-destination]');
+                    if (label) label.textContent = destination.path || 'Vault root';
+                    if (uploadForm instanceof HTMLFormElement) renderUploadPaths(uploadForm);
                 }
-                return;
+                if (status) status.textContent = '';
+                updateMovePreview(overlay);
+                syncDestinationSelection(overlay);
+            } catch (error) {
+                if (status) {
+                    status.innerHTML = `<span class="state-error">${escapeHtml(error.message)}</span>`;
+                }
             }
-            form.dataset.destination = destination;
-            if (status) status.textContent = '';
-            updateMovePreview(overlay);
-            syncMoveDestinationSelection(overlay);
         }
 
         function updateMovePreview(overlay) {
             const form = moveForm(overlay);
             if (!form) return;
-            const destination = form.dataset.destination || '';
+            const destination = destinationMode.snapshot().path;
             const nameInput = form.querySelector('[data-vault-explorer-move-name]');
             const name = nameInput instanceof HTMLInputElement ? nameInput.value.trim() : '';
             const destinationLabel = form.querySelector('[data-vault-explorer-move-destination]');
@@ -456,16 +482,15 @@
             }
         }
 
-        function syncMoveDestinationSelection(overlay) {
-            const form = moveForm(overlay);
-            const destination = form?.dataset.destination;
+        function syncDestinationSelection(overlay) {
+            const destination = destinationMode.snapshot();
             overlay.querySelectorAll('[data-vault-path-picker-row]').forEach((row) => {
                 if (!(row instanceof HTMLElement)) return;
                 const rowPath = row.getAttribute('data-vault-path-picker-row') || '';
                 const rowButton = row.querySelector(
                     ':scope > .workspace-tree-row [data-vault-path-picker-select]'
                 );
-                const selected = destination !== undefined && rowPath === destination;
+                const selected = destination.active && rowPath === destination.path;
                 rowButton?.classList.toggle('is-move-destination', selected);
                 rowButton?.setAttribute('aria-selected', selected ? 'true' : 'false');
             });
@@ -474,14 +499,14 @@
         return Object.freeze({
             closeActionPanel,
             handleAction,
-            hasMoveForm,
+            hasDestinationMode,
             isBusy,
             reset,
-            selectMoveDestination,
+            selectDestination,
             setUploadFiles,
             submitMutation,
             submitUploads,
-            syncMoveDestinationSelection,
+            syncDestinationSelection,
             updateMovePreview,
         });
     }
