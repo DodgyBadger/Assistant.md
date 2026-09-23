@@ -181,7 +181,7 @@ The existing inbox-scan API can remain for compatibility and automation, but the
 
 ## Contract-Sensitive Areas
 
-- `static/js/vault-path-picker.js`: active location, tree rendering, expansion/reveal state, normalized selection state, the operation applicability matrix, shared folder-targeting mode, folder-only search, optional drag/drop targets, pagination, search transitions, keyboard behavior, and refresh restoration.
+- `static/js/vault-path-picker.js`: modal lifecycle, tree rendering, expansion/reveal, pagination, folder-only loading, search transitions, keyboard behavior, and refresh restoration.
 - `static/js/vault-explorer-actions.js`: operation-bar rendering and dispatch, folder-targeting reuse, upload/create defaults, upload/import staging, existing-file import, batch actions, validation, progress, failure summaries, and focus restoration.
 - `static/js/file-references.js`: Explorer entry-state construction, prompt insertion for several references, return from file view, and interaction locks.
 - `static/app.css` and compiled `static/output.css`: active-folder, selected-row, destination-mode, operation-bar, breadcrumb, responsive, and focus styles. Run `npm run build:css` after stylesheet changes.
@@ -202,6 +202,7 @@ The existing inbox-scan API can remain for compatibility and automation, but the
 - Keep `static/js/vault-path-picker.js` as the coordinator for modal lifecycle, tree loading, row rendering, navigation, pagination, and delegation. It must not absorb operation policy, import orchestration, or content-search parsing.
 - Add `static/js/vault-explorer-state.js` as a DOM-light controller for active folder, normalized selected items, selection validity, and the operation applicability matrix. Its public methods and emitted snapshots form the testable state contract.
 - Add `static/js/vault-explorer-toolbar.js` for operation-bar rendering, responsive grouping, accessible disabled reasons, and dispatch of user intent. It consumes state snapshots and callbacks; it does not perform fetches or own mutations.
+- Add `static/js/vault-explorer-controller.js` as the small composition boundary between selection state, toolbar intent, tree callbacks, and the existing action module. It owns no network or tree-loading behavior and prevents cross-module UI lifecycle logic from accumulating in the picker.
 - Keep `static/js/vault-explorer-actions.js` focused on create, rename, move, delete, and upload action panels. Extract shared destination-mode behavior to `static/js/vault-explorer-destination.js` when Phase 2 begins rather than growing the action module further.
 - Add `static/js/vault-explorer-imports.js` in Phase 3 for upload/import composition, direct file/URL import requests, per-import overrides, and durable job progress. It consumes destination selection through callbacks and does not own tree state.
 - Add `static/js/vault-explorer-search.js` only in the final search phase for content-query state, request cancellation, result grouping, and safe result rendering. Name/path tree filtering remains coordinated by the picker.
