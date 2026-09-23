@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.8.2
+
+- Refactored the frontend into focused modules to improve maintainability without changing user-facing behavior.
+
 ## v0.8.1
 
 ### Further hardening of long-running work
