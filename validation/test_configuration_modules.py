@@ -16,6 +16,7 @@ _EXPECTED_SCRIPTS = [
     "static/js/configuration/models.js",
     "static/js/configuration/providers.js",
     "static/js/configuration/connections.js",
+    "static/js/configuration/mcp-connections.js",
     "static/js/configuration/secrets.js",
     "static/js/configuration/maintenance.js",
     "static/js/configuration/imports.js",
@@ -88,6 +89,9 @@ for (const name of [
     'loadProviders',
     'renderProviders',
     'handleProviderTableClick',
+    'loadMcpConnections',
+    'renderMcpConnections',
+    'handleMcpConnectionAction',
 ]) {
     if (typeof ConfigurationPanelRuntime.actions[name] !== 'function') {
         throw new Error(`Missing configuration action: ${name}`);
