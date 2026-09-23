@@ -8,6 +8,7 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _DETAILS_MODULE = _PROJECT_ROOT / "static/js/chat-tool-details.js"
 _MARKDOWN_MODULE = _PROJECT_ROOT / "static/js/chat-markdown.js"
+_MESSAGE_CONTROLS_MODULE = _PROJECT_ROOT / "static/js/chat-message-controls.js"
 _START_PANEL_MODULE = _PROJECT_ROOT / "static/js/chat-start-panel.js"
 _THINKING_MODULE = _PROJECT_ROOT / "static/js/chat-thinking.js"
 _RENDERING_MODULE = _PROJECT_ROOT / "static/js/chat-rendering.js"
@@ -60,6 +61,7 @@ if (controller.getActiveToolDetailId() !== '') {
             harness,
             str(_DETAILS_MODULE),
             str(_MARKDOWN_MODULE),
+            str(_MESSAGE_CONTROLS_MODULE),
             str(_START_PANEL_MODULE),
             str(_THINKING_MODULE),
             str(_RENDERING_MODULE),
@@ -78,6 +80,9 @@ def test_tool_details_load_before_chat_rendering() -> None:
     markdown_position = markup.index(
         '<script src="static/js/chat-markdown.js"></script>'
     )
+    message_controls_position = markup.index(
+        '<script src="static/js/chat-message-controls.js"></script>'
+    )
     start_panel_position = markup.index(
         '<script src="static/js/chat-start-panel.js"></script>'
     )
@@ -91,6 +96,7 @@ def test_tool_details_load_before_chat_rendering() -> None:
     assert (
         details_position
         < markdown_position
+        < message_controls_position
         < start_panel_position
         < thinking_position
         < rendering_position
