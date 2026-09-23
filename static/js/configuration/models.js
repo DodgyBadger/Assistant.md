@@ -267,20 +267,20 @@
             focusModelInput('capabilities');
         }
     }
-    
+
     function startModelEdit(modelName) {
         if (state.isSavingModel) return;
         if (state.modelEdit && state.modelEdit.mode === 'new') {
             setStatus(elements.modelFeedback, 'Finish creating the new model before editing another.', 'warning');
             return;
         }
-    
+
         const model = state.models.find(m => m.name === modelName);
         if (!model || model.user_editable === false) {
             setStatus(elements.modelFeedback, 'This model is read-only.', 'warning');
             return;
         }
-    
+
         state.modelEdit = { mode: 'existing', key: model.name };
         state.modelDraft = {
             name: model.name,
@@ -290,19 +290,19 @@
                 ? model.capabilities.join(', ')
                 : 'text'
         };
-    
+
         renderModels();
         focusModelInput('name');
         setStatus(elements.modelFeedback, `Editing '${model.name}'.`, 'info');
     }
-    
+
     function startNewModel() {
         if (state.isSavingModel) return;
         if (state.modelEdit) {
             setStatus(elements.modelFeedback, 'Finish editing the current row before adding a new model.', 'warning');
             return;
         }
-    
+
         const defaultProvider = state.providers[0]?.name || '';
         state.modelEdit = { mode: 'new', key: '__new' };
         state.modelDraft = {
@@ -311,12 +311,12 @@
             model_string: '',
             capabilities: 'text'
         };
-    
+
         renderModels();
         focusModelInput('name');
         setStatus(elements.modelFeedback, 'Enter details for the new model row and click Save.', 'info');
     }
-    
+
     function cancelModelEdit(message = true) {
         state.modelEdit = null;
         state.modelDraft = null;
@@ -325,10 +325,10 @@
             setStatus(elements.modelFeedback, 'Editing cancelled.', 'info');
         }
     }
-    
+
     async function saveModelRow(rowKey) {
         if (state.isSavingModel || !state.modelEdit || !state.modelDraft) return;
-    
+
         const draft = state.modelDraft;
         let alias = (draft.name || '').trim().toLowerCase();
         const provider = (draft.provider || '').trim();
@@ -338,15 +338,15 @@
             .split(',')
             .map((item) => item.trim().toLowerCase())
             .filter((item) => item.length > 0);
-    
+
         const isNew = state.modelEdit.mode === 'new' || rowKey === '__new';
         const originalName = state.modelEdit.mode === 'existing' ? state.modelEdit.key : null;
-    
+
         if (!alias) {
             setStatus(elements.modelFeedback, 'Model name is required.', 'error');
             return;
         }
-    
+
         if (!provider || !modelString) {
             setStatus(elements.modelFeedback, 'Provider and model identifier are required.', 'error');
             return;
@@ -359,37 +359,37 @@
             setStatus(elements.modelFeedback, 'Embedding models currently support only the OpenAI provider.', 'error');
             return;
         }
-    
+
         if ((isNew || alias !== originalName) && state.models.some(m => m.name === alias)) {
             setStatus(elements.modelFeedback, `Model '${alias}' already exists.`, 'error');
             return;
         }
-    
+
         state.modelDraft.name = alias;
         state.isSavingModel = true;
         setStatus(elements.modelFeedback, 'Saving model…', 'info');
-    
+
         try {
             const payload = {
                 provider: provider,
                 model_string: modelString,
                 capabilities: capabilities
             };
-    
+
             const response = await fetch(`api/system/models/${encodeURIComponent(alias)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-    
+
             if (!response.ok) {
                 const errorData = await safeJson(response);
                 throw new Error(errorData?.message || `HTTP ${response.status}`);
             }
-    
+
             const result = await response.json();
             let restartRequired = Boolean(result && result.restart_required);
-    
+
             if (originalName && alias !== originalName) {
                 const deleteResponse = await fetch(`api/system/models/${encodeURIComponent(originalName)}`, {
                     method: 'DELETE'
@@ -398,11 +398,11 @@
                     const deleteError = await safeJson(deleteResponse);
                     throw new Error(deleteError?.message || `Failed to remove old alias '${originalName}'.`);
                 }
-    
+
                 const deleteResult = await safeJson(deleteResponse);
                 restartRequired = restartRequired || Boolean(deleteResult && deleteResult.restart_required);
             }
-    
+
             cancelModelEdit(false);
             await loadModels();
             await notifyConfigChanged();

@@ -45,7 +45,8 @@ def test_configuration_modules_load_in_declared_order() -> None:
     configuration_sources = [
         source
         for source in parser.sources
-        if source.startswith("static/js/configuration")
+        if source == "static/js/configuration.js"
+        or source.startswith("static/js/configuration/")
     ]
 
     assert configuration_sources == _EXPECTED_SCRIPTS
