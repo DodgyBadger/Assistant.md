@@ -2,11 +2,29 @@
     const CHAT_EMPTY_STATE_MESSAGE = 'Start a conversation...';
 
     function createChatRenderingController({ state, elements, icons, utils, callbacks }) {
-        let mathTypesetQueue = Promise.resolve();
         let currentEmptyStateMessage = CHAT_EMPTY_STATE_MESSAGE;
         let workspaceEditorOpen = false;
-        let activeToolDetailEntry = null;
         const persistedToolEntriesById = new Map();
+        const toolDetails = window.ChatToolDetails.create({
+            state,
+            elements,
+            icons,
+            utils,
+            callbacks: {
+                createCopyButton,
+                formatToolElapsed,
+                renderEditProposalArtifact: callbacks.renderEditProposalArtifact,
+                toolStateLabel,
+            },
+        });
+        const markdown = window.ChatMarkdown.create({
+            utils,
+            callbacks: {
+                attachCodeCopyButtons,
+                enhanceFileLinks: callbacks.enhanceFileLinks,
+                scrollChatToBottom: callbacks.scrollChatToBottom,
+            },
+        });
 
         function isChatPlaceholderNode(node) {
             if (!node || !(node instanceof HTMLElement)) return false;
@@ -37,7 +55,7 @@
         function renderChatEmptyState(message = CHAT_EMPTY_STATE_MESSAGE) {
             const container = elements.chatMessages;
             if (!container) return;
-            closeToolCallDetails();
+            toolDetails.close();
             persistedToolEntriesById.clear();
             currentEmptyStateMessage = message;
             container.innerHTML = '';
@@ -186,7 +204,7 @@
 
 
         function renderPersistedSession(payload, options = {}) {
-            closeToolCallDetails();
+            toolDetails.close();
             persistedToolEntriesById.clear();
             elements.chatMessages.innerHTML = '';
 
@@ -243,7 +261,7 @@
             renderLatestFailureAction(payload?.latest_failure);
             const reopenEntry = persistedToolEntriesById.get(options.reopenToolCallId || '');
             if (reopenEntry) {
-                openToolCallDetails(reopenEntry);
+                toolDetails.open(reopenEntry);
             }
         }
 
@@ -407,7 +425,7 @@
                 }
                 entry.persisted = true;
                 persistedToolEntriesById.set(toolCall.tool_call_id, entry);
-                setToolEntryTokenCount(entry, toolCall.token_count);
+                toolDetails.setEntryTokenCount(entry, toolCall.token_count);
                 setToolEntryState(entry, toolCall.status || 'interrupted');
             });
 
@@ -447,229 +465,6 @@
             }
         }
 
-        function enforceExternalLinkBehavior(container) {
-            if (!container) return;
-            const links = container.querySelectorAll('a[href]');
-            links.forEach(link => {
-                link.setAttribute('target', '_blank');
-                link.setAttribute('rel', 'noopener noreferrer');
-            });
-        }
-
-        function renderAssistantHtml(bodyDiv, markdownContent = '', { softBreaks = false } = {}) {
-            if (!bodyDiv) return;
-            const content = (markdownContent || '').trim();
-            const protectedContent = protectLatexForMarkdown(content);
-            const renderedHtml = content
-                ? marked.parse(protectedContent.markdown, { breaks: softBreaks })
-                : '';
-            const restoredHtml = restoreLatexPlaceholders(renderedHtml, protectedContent.segments);
-            const sanitizedHtml = sanitizeAssistantHtml(restoredHtml);
-            if (sanitizedHtml === null) {
-                bodyDiv.textContent = content;
-                return;
-            }
-            bodyDiv.innerHTML = sanitizedHtml;
-        }
-
-        function renderMarkdownPreview(container, markdownContent = '', options = {}) {
-            renderAssistantHtml(container, markdownContent, options);
-            postProcessAssistantBody(container, { decorateVaultTags: true });
-        }
-
-        function protectLatexForMarkdown(markdown) {
-            if (!markdown) {
-                return { markdown: '', segments: [] };
-            }
-
-            const segments = [];
-            const codePattern = /(```[\s\S]*?```|`[^`\n]*`)/g;
-            let cursor = 0;
-            let output = '';
-            let match = codePattern.exec(markdown);
-
-            while (match) {
-                output += replaceLatexSegments(markdown.slice(cursor, match.index), segments);
-                output += match[0];
-                cursor = match.index + match[0].length;
-                match = codePattern.exec(markdown);
-            }
-
-            output += replaceLatexSegments(markdown.slice(cursor), segments);
-            return { markdown: output, segments };
-        }
-
-        function replaceLatexSegments(text, segments) {
-            if (!text) return '';
-
-            const pattern =
-                /(\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\))/g;
-
-            return text.replace(pattern, (rawMath) => {
-                const placeholder = `@@MATH_SEGMENT_${segments.length}@@`;
-                const display = rawMath.startsWith('\\[');
-                const tex = rawMath.slice(2, -2);
-                segments.push({ tex, display });
-                return placeholder;
-            });
-        }
-
-        function restoreLatexPlaceholders(html, segments) {
-            if (!html || !segments.length) return html;
-
-            return segments.reduce((acc, segment, index) => {
-                const placeholder = `@@MATH_SEGMENT_${index}@@`;
-                const display = segment.display ? 'true' : 'false';
-                const mathHtml = `<span class="assistant-latex-segment" data-math-display="${display}">${utils.escapeHtml(segment.tex)}</span>`;
-                return acc.split(placeholder).join(mathHtml);
-            }, html);
-        }
-
-        function getMathJax() {
-            if (typeof window === 'undefined') return null;
-            const mathJax = window.MathJax;
-            if (!mathJax || typeof mathJax.tex2chtmlPromise !== 'function') return null;
-            return mathJax;
-        }
-
-        function sanitizeAssistantHtml(html) {
-            if (!html) return '';
-
-            if (!window.DOMPurify || typeof window.DOMPurify.sanitize !== 'function') {
-                return null;
-            }
-
-            return window.DOMPurify.sanitize(html, {
-                USE_PROFILES: { html: true }
-            });
-        }
-
-        function postProcessAssistantBody(bodyDiv, { decorateVaultTags = false } = {}) {
-            if (!bodyDiv) return;
-            enforceExternalLinkBehavior(bodyDiv);
-            renderAssistantMath(bodyDiv);
-            attachCodeCopyButtons(bodyDiv);
-            if (decorateVaultTags) {
-                decorateVaultMarkdownTags(bodyDiv);
-            }
-            callbacks.enhanceFileLinks?.(bodyDiv);
-        }
-
-        function decorateVaultMarkdownTags(container) {
-            const textNodes = [];
-            const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-                acceptNode(node) {
-                    const parent = node.parentElement;
-                    if (!parent || parent.closest(
-                        'a, button, code, pre, textarea, .assistant-latex-segment, .vault-markdown-tag'
-                    )) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-                    return vaultTagMatches(node.textContent || '').length
-                        ? NodeFilter.FILTER_ACCEPT
-                        : NodeFilter.FILTER_REJECT;
-                },
-            });
-            while (walker.nextNode()) {
-                textNodes.push(walker.currentNode);
-            }
-            textNodes.forEach(decorateVaultTagTextNode);
-        }
-
-        function decorateVaultTagTextNode(node) {
-            const text = node.textContent || '';
-            const matches = vaultTagMatches(text);
-            if (!matches.length) return;
-
-            let cursor = 0;
-            const fragment = document.createDocumentFragment();
-            matches.forEach(({ start, end, value }) => {
-                if (start > cursor) {
-                    fragment.appendChild(document.createTextNode(text.slice(cursor, start)));
-                }
-                const tag = document.createElement('span');
-                tag.className = 'vault-markdown-tag';
-                tag.textContent = value;
-                fragment.appendChild(tag);
-                cursor = end;
-            });
-            if (cursor < text.length) {
-                fragment.appendChild(document.createTextNode(text.slice(cursor)));
-            }
-            node.parentNode?.replaceChild(fragment, node);
-        }
-
-        function vaultTagMatches(text) {
-            const matches = [];
-            const pattern =
-                /(^|[\s([{"'“‘>])#([\p{L}\p{M}\p{N}_-]+(?:\/[\p{L}\p{M}\p{N}_-]+)*)(?![\p{L}\p{M}\p{N}_/-])/gu;
-            for (const match of text.matchAll(pattern)) {
-                const tagBody = match[2] || '';
-                if (!/[\p{L}\p{M}_-]/u.test(tagBody)) continue;
-                const prefixLength = (match[1] || '').length;
-                const start = (match.index || 0) + prefixLength;
-                const value = `#${tagBody}`;
-                matches.push({ start, end: start + value.length, value });
-            }
-            return matches;
-        }
-
-        function renderAssistantMath(bodyDiv) {
-            if (!bodyDiv) return;
-            const mathJax = getMathJax();
-            if (!mathJax || typeof mathJax.tex2chtmlPromise !== 'function') return;
-            const mathNodes = Array.from(bodyDiv.querySelectorAll('.assistant-latex-segment:not(.assistant-latex-rendered)'));
-            if (!mathNodes.length) return;
-
-            mathTypesetQueue = mathTypesetQueue
-                .then(() => mathJax.startup?.promise)
-                .then(() => {
-                    const conversions = mathNodes.map((node) => {
-                        const tex = node.textContent || '';
-                        const display = node.dataset.mathDisplay === 'true';
-                        return mathJax.tex2chtmlPromise(tex, { display })
-                            .then((mathNode) => {
-                                node.replaceChildren(mathNode);
-                                node.classList.add('assistant-latex-rendered');
-                            })
-                            .catch((error) => {
-                                const open = display ? '\\[' : '\\(';
-                                const close = display ? '\\]' : '\\)';
-                                node.textContent = `${open}${tex}${close}`;
-                                console.warn('MathJax render failed:', error);
-                            });
-                    });
-                    return Promise.all(conversions);
-                })
-                .catch((error) => {
-                    console.warn('MathJax render failed:', error);
-                });
-        }
-
-        function scheduleAssistantPostProcess(context, delayMs = 120) {
-            if (!context || !context.bodyDiv) return;
-
-            if (context.postProcessTimer) {
-                clearTimeout(context.postProcessTimer);
-            }
-
-            context.postProcessTimer = window.setTimeout(() => {
-                postProcessAssistantBody(context.bodyDiv);
-                context.postProcessTimer = null;
-                callbacks.scrollChatToBottom();
-            }, delayMs);
-        }
-
-        function flushAssistantPostProcess(context) {
-            if (!context || !context.bodyDiv) return;
-
-            if (context.postProcessTimer) {
-                clearTimeout(context.postProcessTimer);
-                context.postProcessTimer = null;
-            }
-
-            postProcessAssistantBody(context.bodyDiv);
-        }
 
         // Add message to chat with copy controls
         function addMessage(role, content, options = {}) {
@@ -689,8 +484,8 @@
             bodyDiv.className = 'message-body';
 
             if (role === 'assistant') {
-                renderAssistantHtml(bodyDiv, content);
-                postProcessAssistantBody(bodyDiv);
+                markdown.renderHtml(bodyDiv, content);
+                markdown.postProcess(bodyDiv);
             } else {
                 const escapedContent = content
                     .replace(/&/g, '&amp;')
@@ -899,11 +694,11 @@
         function renderAssistantMarkdown(context, options = {}) {
             const { finalize = false } = options;
             renderAssistantThinking(context);
-            renderAssistantHtml(context.bodyDiv, context.fullText);
+            markdown.renderHtml(context.bodyDiv, context.fullText);
             if (finalize) {
-                flushAssistantPostProcess(context);
+                markdown.flushPostProcess(context);
             } else {
-                scheduleAssistantPostProcess(context);
+                markdown.schedulePostProcess(context);
             }
             callbacks.scrollChatToBottom();
         }
@@ -1058,8 +853,8 @@
             const symbols = { running: '', completed: '✓', failed: '×', interrupted: '!' };
             entry.stateIcon.textContent = symbols[nextState] || '';
             updateToolElapsed(entry);
-            if (activeToolDetailEntry === entry) {
-                refreshToolCallDetails(entry);
+            if (toolDetails.getActiveEntry() === entry) {
+                toolDetails.refresh(entry);
             }
         }
 
@@ -1072,7 +867,7 @@
                 'aria-label',
                 `${entry.toolName}: ${toolStateLabel(entry)}${tokenLabel}`
             );
-            if (activeToolDetailEntry === entry) {
+            if (toolDetails.getActiveEntry() === entry) {
                 const elapsedBlock = document.querySelector(
                     '#chat-tool-call-modal [data-tool-call-elapsed] .tool-status-block'
                 );
@@ -1135,13 +930,13 @@
             }
 
             if (payload.event === 'tool_call_finished') {
-                setToolEntryTokenCount(entry, payload.token_count);
+                toolDetails.setEntryTokenCount(entry, payload.token_count);
                 setToolEntryState(entry, toolResultState(payload));
-                if (activeToolDetailEntry === entry) {
+                if (toolDetails.getActiveEntry() === entry) {
                     if (entry.persisted) {
-                        void loadToolCallDetail(entry, { force: true });
+                        void toolDetails.load(entry, { force: true });
                     } else {
-                        refreshToolCallDetails(entry);
+                        toolDetails.refresh(entry);
                     }
                 }
 
@@ -1153,7 +948,7 @@
                 }
             } else if (payload.event === 'tool_call_started') {
                 setToolEntryState(entry, 'running');
-                updateToolDetail(entry);
+                toolDetails.updateEntry(entry);
                 startToolElapsedTimer(context);
             }
             updateToolCallsSummary(context);
@@ -1179,7 +974,7 @@
 
             container.appendChild(summary);
             container.addEventListener('click', () => {
-                openToolCallDetails(entry);
+                toolDetails.open(entry);
             });
 
             context.toolList.classList.remove('hidden');
@@ -1191,7 +986,7 @@
                 stateIcon,
                 toolId,
                 toolName: payload.tool_name || 'Tool call',
-                tokenCount: normalizeToolTokenCount(payload.token_count),
+                tokenCount: toolDetails.normalizeTokenCount(payload.token_count),
                 persisted: false,
                 detailUnavailable: false,
                 detailArgs: null,
@@ -1212,7 +1007,7 @@
                 modalAbortController: null
             };
             setToolEntryState(entry, 'running');
-            updateToolDetail(entry);
+            toolDetails.updateEntry(entry);
             context.toolStatusMap.set(toolId, entry);
 
             return entry;
@@ -1293,435 +1088,21 @@
                 const committed = committedById.get(entry.toolId);
                 entry.persisted = Boolean(committed);
                 entry.detailUnavailable = !committed;
-                setToolEntryTokenCount(entry, committed?.token_count);
+                toolDetails.setEntryTokenCount(entry, committed?.token_count);
                 if (committed?.status) {
                     setToolEntryState(entry, committed.status);
                 }
             });
+            const activeEntry = toolDetails.getActiveEntry();
             if (
-                activeToolDetailEntry
-                && context.toolStatusMap.get(activeToolDetailEntry.toolId) === activeToolDetailEntry
+                activeEntry
+                && context.toolStatusMap.get(activeEntry.toolId) === activeEntry
             ) {
-                refreshToolCallDetails(activeToolDetailEntry);
-                if (activeToolDetailEntry.persisted) {
-                    void loadToolCallDetail(activeToolDetailEntry);
+                toolDetails.refresh(activeEntry);
+                if (activeEntry.persisted) {
+                    void toolDetails.load(activeEntry);
                 }
             }
-        }
-
-        function parseSseEvent(rawEvent) {
-            if (!rawEvent) return null;
-
-            const lines = rawEvent.split('\n');
-            const dataLines = [];
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.startsWith('data:')) {
-                    dataLines.push(trimmed.slice(5).trim());
-                }
-            }
-
-            if (!dataLines.length) {
-                // Attempt to parse raw JSON as fallback
-                try {
-                    return JSON.parse(rawEvent);
-                } catch {
-                    return null;
-                }
-            }
-
-            // Preserve SSE semantics: each `data:` line is joined with a newline.
-            const dataPayload = dataLines.join('\n');
-            if (!dataPayload) return null;
-
-            try {
-                return JSON.parse(dataPayload);
-            } catch (error) {
-                console.warn('Failed to parse SSE chunk:', dataPayload, error);
-                return null;
-            }
-        }
-
-        function formatToolDetail(value) {
-            value = normalizeToolDisplayValue(value);
-            if (value === undefined || value === null) return '';
-            return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-        }
-
-        function normalizeToolDisplayValue(value) {
-            if (typeof value !== 'string') return value;
-            const trimmed = value.trim();
-            if (!trimmed) return '';
-            if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return value;
-            try {
-                return JSON.parse(trimmed);
-            } catch {
-                return value;
-            }
-        }
-
-        function isEmptyToolValue(value) {
-            value = normalizeToolDisplayValue(value);
-            if (value === undefined || value === null) return true;
-            if (typeof value === 'string') return value.trim() === '';
-            if (Array.isArray(value)) return value.every(isEmptyToolValue);
-            if (typeof value === 'object') {
-                const entries = Object.entries(value);
-                return entries.length === 0 || entries.every(([, item]) => isEmptyToolValue(item));
-            }
-            return false;
-        }
-
-        function updateToolDetail(entry) {
-            if (!entry) return;
-            entry.line.innerHTML = '';
-            const name = document.createElement('span');
-            name.className = 'tool-status-name';
-            name.textContent = entry.toolName;
-            entry.line.appendChild(name);
-            if (entry.tokenCount !== null) {
-                const count = document.createElement('span');
-                count.className = 'tool-status-token-count';
-                count.textContent = ` (${entry.tokenCount.toLocaleString()} ${entry.tokenCount === 1 ? 'token' : 'tokens'})`;
-                entry.line.appendChild(count);
-            }
-            entry.container.title = 'Open tool details';
-        }
-
-        function normalizeToolTokenCount(value) {
-            if (value === null || value === undefined || value === '') return null;
-            const count = Number(value);
-            return Number.isInteger(count) && count >= 0 ? count : null;
-        }
-
-        function setToolEntryTokenCount(entry, value) {
-            if (!entry) return;
-            entry.tokenCount = normalizeToolTokenCount(value);
-            updateToolDetail(entry);
-        }
-
-        function openToolCallDetails(entry) {
-            if (!entry) return;
-            closeToolCallDetails();
-            activeToolDetailEntry = entry;
-            entry.modalAbortController = new AbortController();
-
-            const overlay = document.createElement('div');
-            overlay.id = 'chat-tool-call-modal';
-            overlay.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
-            overlay.innerHTML = `
-                <div class="absolute inset-0" data-tool-call-close="true"></div>
-                <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="chat-tool-call-modal-title">
-                    <div class="app-modal-header sticky top-0">
-                        <div class="app-modal-title-block">
-                            <h2 id="chat-tool-call-modal-title" class="text-lg font-semibold text-txt-primary">${utils.escapeHtml(entry.toolName || 'Tool call')}</h2>
-                            <p class="mt-1 text-xs text-txt-secondary cell-mono">${utils.escapeHtml(entry.toolId || '')}</p>
-                        </div>
-                        <div class="app-modal-actions">
-                            <button type="button" class="ui-icon-button is-compact" data-tool-call-close="true" aria-label="Close" title="Close">
-                                ${icons.X_ICON_SVG}
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-4" data-tool-call-modal-body></div>
-                </section>
-            `;
-            overlay.addEventListener('click', (event) => {
-                const target = event.target;
-                if (!(target instanceof Element)) return;
-                if (target.closest('[data-tool-call-close="true"]')) {
-                    closeToolCallDetails();
-                }
-            });
-            document.addEventListener('keydown', handleToolCallModalKeydown);
-            document.body.appendChild(overlay);
-            refreshToolCallDetails(entry);
-            if (entry.persisted) {
-                void loadToolCallDetail(entry);
-            }
-        }
-
-        async function loadToolCallDetail(entry, options = {}) {
-            const vault = elements.vaultSelector?.value || '';
-            const sessionId = state.sessionId || '';
-            if (
-                !entry
-                || !entry.persisted
-                || entry.detailUnavailable
-                || !vault
-                || !sessionId
-                || (entry.detailLoaded && !options.force)
-            ) return;
-
-            entry.detailAbortController?.abort();
-            const abortController = new AbortController();
-            const requestId = entry.detailRequestId + 1;
-            entry.detailRequestId = requestId;
-            entry.detailAbortController = abortController;
-            entry.detailLoading = true;
-            entry.detailError = '';
-            refreshToolCallDetails(entry);
-            try {
-                const response = await fetch(
-                    `api/chat/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(entry.toolId)}?vault_name=${encodeURIComponent(vault)}`,
-                    { cache: 'no-store', signal: abortController.signal }
-                );
-                if (!response.ok) {
-                    if (response.status === 404 && entry.state === 'running') return;
-                    throw new Error(`Full tool detail is unavailable (HTTP ${response.status}).`);
-                }
-                const payload = await response.json();
-                if (entry.detailRequestId !== requestId) return;
-                entry.detailArgs = payload.args ?? null;
-                if (payload.result_text !== undefined && payload.result_text !== null) {
-                    entry.detailResult = {
-                        text: payload.result_text,
-                        ...(payload.result_metadata && Object.keys(payload.result_metadata).length > 0
-                            ? { metadata: payload.result_metadata }
-                            : {}),
-                        ...(payload.artifact_ref ? { artifact_ref: payload.artifact_ref } : {})
-                    };
-                } else {
-                    entry.detailResult = null;
-                }
-                entry.detailMetadata = payload.result_metadata || {};
-                entry.detailArtifactRef = payload.artifact_ref || '';
-                entry.detailVault = vault;
-                entry.detailSessionId = sessionId;
-                entry.detailEvents = Array.isArray(payload.events) ? payload.events : [];
-                entry.detailLoaded = true;
-            } catch (error) {
-                if (error?.name !== 'AbortError' && entry.detailRequestId === requestId) {
-                    entry.detailError = error.message || 'Full tool detail is unavailable.';
-                }
-            } finally {
-                if (entry.detailRequestId === requestId) {
-                    entry.detailAbortController = null;
-                    entry.detailLoading = false;
-                    refreshToolCallDetails(entry);
-                }
-            }
-        }
-
-        function refreshToolCallDetails(entry) {
-            if (!entry || activeToolDetailEntry !== entry) return;
-            const body = document.querySelector('#chat-tool-call-modal [data-tool-call-modal-body]');
-            if (!body) return;
-
-            const sections = [
-                { label: 'Tool', value: entry.toolName || 'Tool call' },
-                { label: 'Tool call ID', value: entry.toolId || '' },
-                { label: 'Status', value: toolStateLabel(entry) },
-                { label: 'Elapsed', value: formatToolElapsed(entry), elapsed: true },
-                { label: 'Context', value: 'Retained in active chat context.' }
-            ];
-            if (!isEmptyToolValue(entry.detailArgs)) {
-                sections.push({ label: 'Args', value: entry.detailArgs, kind: 'args' });
-            }
-            if (!isEmptyToolValue(entry.detailResult)) {
-                sections.push({ label: 'Result', value: entry.detailResult, kind: 'result' });
-            }
-            if (entry.state === 'failed' && !isEmptyToolValue(entry.detailMetadata)) {
-                sections.push({ label: 'Failure', value: entry.detailMetadata });
-            }
-            if (entry.detailLoading) {
-                sections.push({ label: 'Full detail', value: 'Loading…' });
-            } else if (entry.detailError) {
-                sections.push({ label: 'Full detail', value: entry.detailError });
-            } else if (entry.detailUnavailable) {
-                sections.push({ label: 'Full detail', value: 'No execution detail is available for this tool call.' });
-            } else if (!entry.persisted) {
-                sections.push({ label: 'Full detail', value: 'Available when this response finishes.' });
-            }
-            if (entry.detailEvents.length > 0) {
-                sections.push({ label: 'Events', value: entry.detailEvents });
-            }
-
-            body.replaceChildren();
-            sections.forEach(({ label, value, kind, elapsed }) => {
-                const section = createToolDetailSection(label, value, { kind });
-                if (elapsed) section.dataset.toolCallElapsed = 'true';
-                body.appendChild(section);
-            });
-            if (
-                entry.detailLoaded
-                && entry.toolName === 'propose_file_edits'
-                && entry.detailArtifactRef
-                && callbacks.renderEditProposalArtifact
-            ) {
-                const artifactContainer = document.createElement('div');
-                callbacks.renderEditProposalArtifact(
-                    artifactContainer,
-                    entry.detailArtifactRef,
-                    {
-                        signal: entry.modalAbortController?.signal,
-                        vaultName: entry.detailVault,
-                        sessionId: entry.detailSessionId
-                    }
-                );
-                body.appendChild(artifactContainer);
-            }
-        }
-
-        function closeToolCallDetails() {
-            const entry = activeToolDetailEntry;
-            activeToolDetailEntry = null;
-            const modal = document.getElementById('chat-tool-call-modal');
-            if (modal) {
-                modal.remove();
-            }
-            clearToolCallDetail(entry);
-            document.removeEventListener('keydown', handleToolCallModalKeydown);
-        }
-
-        function getActiveToolDetailId() {
-            return activeToolDetailEntry?.toolId || '';
-        }
-
-        function clearToolCallDetail(entry) {
-            if (!entry) return;
-            entry.detailAbortController?.abort();
-            entry.detailAbortController = null;
-            entry.modalAbortController?.abort();
-            entry.modalAbortController = null;
-            entry.detailRequestId += 1;
-            entry.detailArgs = null;
-            entry.detailResult = null;
-            entry.detailMetadata = {};
-            entry.detailArtifactRef = '';
-            entry.detailVault = '';
-            entry.detailSessionId = '';
-            entry.detailEvents = [];
-            entry.detailLoaded = false;
-            entry.detailLoading = false;
-            entry.detailError = '';
-        }
-
-        function handleToolCallModalKeydown(event) {
-            if (event.key === 'Escape') {
-                closeToolCallDetails();
-            }
-        }
-
-        function createToolDetailSection(label, value, options = {}) {
-            const section = document.createElement('div');
-            section.className = 'tool-status-section';
-
-            const heading = document.createElement('div');
-            heading.className = 'tool-status-label';
-            heading.textContent = label;
-            section.appendChild(heading);
-
-            if (options.kind === 'args') {
-                renderToolArgsValue(section, value);
-            } else if (options.kind === 'result') {
-                renderToolResultValue(section, value);
-            } else {
-                section.appendChild(createToolDetailBlock(formatToolDetail(value)));
-            }
-
-            return section;
-        }
-
-        function renderToolArgsValue(section, value) {
-            const normalized = normalizeToolDisplayValue(value);
-            if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized)) {
-                section.appendChild(createToolDetailBlock(formatToolDetail(normalized)));
-                return;
-            }
-
-            const handled = new Set();
-            if (typeof normalized.code === 'string' && normalized.code.trim()) {
-                section.appendChild(createToolDetailSubsection('code', normalized.code, { kind: 'code' }));
-                handled.add('code');
-            }
-
-            const remaining = Object.fromEntries(
-                Object.entries(normalized).filter(([key, item]) => !handled.has(key) && !isEmptyToolValue(item))
-            );
-            if (Object.keys(remaining).length > 0) {
-                section.appendChild(createToolDetailSubsection('other args', remaining, { kind: 'json' }));
-            }
-        }
-
-        function renderToolResultValue(section, value) {
-            const normalized = normalizeToolDisplayValue(value);
-            if (!normalized || typeof normalized !== 'object' || Array.isArray(normalized)) {
-                section.appendChild(createToolDetailBlock(formatToolDetail(normalized)));
-                return;
-            }
-
-            const handled = new Set();
-            ['text', 'return_value', 'content', 'message'].forEach((key) => {
-                if (!isEmptyToolValue(normalized[key])) {
-                    section.appendChild(createToolDetailSubsection(key, normalized[key]));
-                    handled.add(key);
-                }
-            });
-            ['metadata', 'items', 'artifact_ref'].forEach((key) => {
-                if (!isEmptyToolValue(normalized[key])) {
-                    section.appendChild(createToolDetailSubsection(key, normalized[key]));
-                    handled.add(key);
-                }
-            });
-
-            const remaining = Object.fromEntries(
-                Object.entries(normalized).filter(([key, item]) => !handled.has(key) && !isEmptyToolValue(item))
-            );
-            if (Object.keys(remaining).length > 0) {
-                section.appendChild(createToolDetailSubsection('other', remaining));
-            }
-        }
-
-        function createToolDetailSubsection(label, value, options = {}) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'tool-status-subsection';
-
-            const subheading = document.createElement('div');
-            subheading.className = 'tool-status-sublabel';
-            subheading.textContent = label;
-
-            wrapper.appendChild(subheading);
-            const formattedValue = options.kind === 'code' && typeof value === 'string'
-                ? value
-                : formatToolDetail(value);
-            wrapper.appendChild(createToolDetailBlock(formattedValue, options));
-            return wrapper;
-        }
-
-        function createToolDetailBlock(value, options = {}) {
-            const block = document.createElement('pre');
-            block.className = options.kind === 'code'
-                ? 'tool-status-block tool-status-block-code'
-                : 'tool-status-block';
-            const fullText = String(value ?? '');
-            const displayLimit = 4000;
-            let expanded = fullText.length <= displayLimit;
-
-            const renderBlock = (focusToggle = false) => {
-                block.textContent = expanded
-                    ? fullText
-                    : `${fullText.slice(0, displayLimit).trimEnd()}\n… [display collapsed]`;
-                if (fullText.length > displayLimit) {
-                    const toggle = document.createElement('button');
-                    toggle.type = 'button';
-                    toggle.className = 'copy-button tool-detail-toggle';
-                    toggle.textContent = expanded ? 'Show less' : 'Show all';
-                    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-                    toggle.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                        expanded = !expanded;
-                        renderBlock(true);
-                    });
-                    block.appendChild(toggle);
-                    if (focusToggle) toggle.focus();
-                }
-                const copyButton = createCopyButton(() => fullText, 'code-copy-button');
-                block.appendChild(copyButton);
-            };
-            renderBlock();
-            return block;
         }
 
         function attachCodeCopyButtons(container) {
@@ -1828,9 +1209,9 @@
             handleToolEvent,
             finalizeAssistantMessage,
             reconcileToolCallPersistence,
-            renderMarkdownPreview,
-            closeToolCallDetails,
-            getActiveToolDetailId,
+            renderMarkdownPreview: markdown.renderPreview,
+            closeToolCallDetails: toolDetails.close,
+            getActiveToolDetailId: toolDetails.getActiveId,
         });
     }
 
