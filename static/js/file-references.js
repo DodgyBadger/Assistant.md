@@ -88,10 +88,25 @@
                 },
                 onMutate: (payload) => mutatePath(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),
+                onImportSources: (payload) => importSources(payload, vault),
                 onClose: () => {
                     pickerOpen = false;
                 },
             });
+        }
+
+        async function importSources(payload, vaultName = '') {
+            const vault = vaultName || selectedVault();
+            const response = await fetch('api/import/sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payload, vault }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+            return response.json();
         }
 
         function openPicker() {

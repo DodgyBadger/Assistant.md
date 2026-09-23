@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from core.ingestion.jobs import IngestionJob
 from core.ingestion.models import SourceKind
+from core.ingestion.registry import importer_registry
 from core.runtime.state import get_runtime_context
 from core.settings.store import get_general_settings
 from core.tools.utils import validate_and_resolve_path
@@ -206,6 +207,11 @@ class ContentImportService:
         )
         if not resolved.is_file():
             raise ValueError(f"Vault file source does not exist: {source}")
+        supported_extensions = {
+            key for key in importer_registry.keys() if key.startswith(".")
+        }
+        if resolved.suffix.lower() not in supported_extensions:
+            raise ValueError(f"Vault file source type is not supported: {source}")
         relative_source = resolved.relative_to(self._vault_path).as_posix()
         return ContentImportRequest(
             source=source,
@@ -228,11 +234,20 @@ class ContentImportService:
         translated: dict[str, Any] = {}
         destination = options.get("destination")
         if destination is not None:
-            if not isinstance(destination, str) or not destination.strip():
-                raise ValueError("destination must be a non-empty vault-relative path")
+            if not isinstance(destination, str):
+                raise ValueError("destination must be a vault-relative path")
+            normalized_destination = destination.strip()
+            if normalized_destination in {"", "."}:
+                translated["output_path_pattern"] = ""
+                normalized_destination = ""
+            if not normalized_destination:
+                destination = None
+            else:
+                destination = normalized_destination
+        if destination is not None:
             resolved_destination = Path(
                 validate_and_resolve_path(
-                    destination.strip(),
+                    destination,
                     str(self._vault_path),
                     markdown_only=False,
                 )

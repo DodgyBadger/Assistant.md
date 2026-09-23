@@ -271,3 +271,69 @@ async def import_url_direct(
         },
     )
     return refreshed_job
+
+
+async def import_sources_direct(
+    *,
+    vault: str,
+    sources: list[str],
+    destination: str | None = None,
+    queue_only: bool = False,
+    clean_html: bool = True,
+    strategies: list[str] | None = None,
+    pdf_strategies: list[str] | None = None,
+    capture_ocr_images: bool | None = None,
+    pdf_mode: str | None = None,
+    ocr_options: dict[str, Any] | None = None,
+) -> list[IngestionJob]:
+    """Submit validated vault-file or URL sources and optionally process them."""
+    runtime = get_runtime_context()
+    vault_root = resolve_configured_vault_root(
+        data_root=runtime.config.data_root,
+        vault_name=vault,
+    )
+    import_service = ContentImportService(str(vault_root))
+    options: dict[str, Any] = {"clean_html": clean_html}
+    if destination is not None:
+        options["destination"] = destination
+    if strategies:
+        options["strategies"] = strategies
+    if pdf_strategies:
+        options["pdf_strategies"] = pdf_strategies
+    if capture_ocr_images is not None:
+        options["capture_ocr_images"] = capture_ocr_images
+    if pdf_mode:
+        options["pdf_mode"] = pdf_mode
+    options.update(ocr_options or {})
+
+    submitted = import_service.submit(sources=sources, options=options)
+    jobs: list[IngestionJob] = []
+    for item in submitted:
+        job = runtime.ingestion.get_job(item.job_id)
+        if job is None:
+            raise RuntimeError(f"Import job {item.job_id} was not created")
+        jobs.append(job)
+
+    if not queue_only:
+        processed: list[IngestionJob] = []
+        for job in jobs:
+            await process_ingestion_job_now(
+                ingestion=runtime.ingestion,
+                task_coordinator=runtime.task_coordinator,
+                job_id=job.id,
+                source=ExecutionTaskSource.API,
+                authority=require_current_execution_authority(),
+            )
+            processed.append(runtime.ingestion.get_job(job.id) or job)
+        jobs = processed
+
+    logger.info(
+        "Direct content import submitted",
+        data={
+            "vault": vault_root.name,
+            "jobs_created": len(jobs),
+            "queue_only": queue_only,
+            "destination": destination,
+        },
+    )
+    return jobs

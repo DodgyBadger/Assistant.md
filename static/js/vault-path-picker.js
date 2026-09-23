@@ -18,15 +18,25 @@
                 workspacePath,
             },
         });
+        const explorerImports = window.VaultExplorerImports.create({
+            utils,
+            callbacks: {
+                closeActionPanel: explorerActions.closeActionPanel,
+                refreshExplorer,
+                syncInteractionLocks,
+            },
+        });
         const explorer = window.VaultExplorerController.create({
             utils,
             callbacks: {
                 expandDirectory,
+                handleImportAction,
                 handleMutationAction: explorerActions.handleAction,
-                isBusy: explorerActions.isBusy,
+                isBusy: isExplorerBusy,
                 isReadOnly,
                 refreshExplorer,
                 setStatus,
+                supportsImportPath: window.VaultExplorerImports.supportsPath,
             },
         });
 
@@ -40,6 +50,10 @@
 
         function isReadOnly(options) {
             return Boolean(options?.isReadOnly?.());
+        }
+
+        function isExplorerBusy() {
+            return explorerActions.isBusy() || explorerImports.isBusy();
         }
 
         function mutationCompleted({ operation, sourcePath, targetPath, kind }) {
@@ -130,7 +144,7 @@
                 const target = event.target;
                 if (!(target instanceof Element)) return;
                 if (event.target === overlay || target.closest('[data-vault-path-picker-close]')) {
-                    if (explorerActions.isBusy()) return;
+                    if (isExplorerBusy()) return;
                     close();
                     return;
                 }
@@ -187,7 +201,14 @@
                 const form = event.target;
                 if (form instanceof HTMLFormElement && form.matches('[data-vault-explorer-upload-form]')) {
                     event.preventDefault();
-                    await explorerActions.submitUploads(overlay, form, options);
+                    await explorerActions.submitUploads(overlay, form, options, {
+                        importAfterUpload: event.submitter?.value === 'upload_import',
+                    });
+                    return;
+                }
+                if (form instanceof HTMLFormElement && form.matches('[data-vault-explorer-import-form]')) {
+                    event.preventDefault();
+                    await explorerImports.submit(overlay, form, options);
                     return;
                 }
                 if (!(form instanceof HTMLFormElement) || !form.matches('[data-vault-explorer-mutation-form]')) return;
@@ -255,7 +276,32 @@
             activeOnClose = null;
             activeOptions = null;
             explorer.close();
+            explorerImports.reset();
             explorerActions.reset();
+        }
+
+        function handleImportAction(action, overlay, snapshot, options) {
+            if (action === 'import_url') {
+                explorerImports.showUrl(overlay, {
+                    destination: snapshot.destinationPath,
+                }, options);
+                return;
+            }
+            const destination = sharedParent(snapshot.selectedItems)
+                ?? snapshot.activeFolder;
+            explorerImports.showFiles(overlay, {
+                destination,
+                items: snapshot.selectedItems,
+            }, options);
+        }
+
+        function sharedParent(items) {
+            const parents = new Set(items.map((item) => {
+                const parts = item.path.split('/');
+                parts.pop();
+                return parts.join('/');
+            }));
+            return parents.size === 1 ? Array.from(parents)[0] : null;
         }
 
         async function expandDirectory(overlay, path, options) {
@@ -458,7 +504,7 @@
                         ${options.explorer ? `
                             <input type="checkbox" class="vault-explorer-row-selection"
                                 data-vault-explorer-select-item data-path="${escapeHtml(path)}"
-                                data-kind="${kind}" data-import-eligible="false"
+                                data-kind="${kind}" data-import-eligible="${kind === 'file' && window.VaultExplorerImports.supportsPath(path)}"
                                 aria-label="Select ${escapeHtml(name)}" ${selected ? 'checked' : ''} />
                         ` : ''}
                         <button type="button" class="workspace-tree-select" data-vault-path-picker-select="${escapeHtml(path)}" data-vault-path-picker-kind="${escapeHtml(kind)}">

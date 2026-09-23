@@ -35,6 +35,7 @@ const controller = VaultExplorerController.create({
         isReadOnly() { return false; },
         refreshExplorer() {},
         setStatus() {},
+        supportsImportPath(path) { return path.endsWith('.pdf'); },
     },
 });
 

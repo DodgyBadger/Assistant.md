@@ -23,6 +23,8 @@ from api.import_models import (
     ImportRunNowResponse,
     ImportScanRequest,
     ImportScanResponse,
+    ImportSourcesRequest,
+    ImportSourcesResponse,
     ImportUrlRequest,
     ImportUrlResponse,
 )
@@ -207,6 +209,7 @@ from .services import (
     get_workflow_file,
     get_workflow_load_errors,
     get_workflow_run_history,
+    import_sources_direct,
     import_url_direct,
     list_chat_sessions,
     list_context_templates,
@@ -1139,6 +1142,46 @@ async def import_url(
         return create_error_response(
             APIException(
                 status_code=400,
+                error_type="InvalidImportRequest",
+                message=str(e),
+            )
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post("/import/sources", response_model=ImportSourcesResponse)
+async def import_sources(
+    request: ImportSourcesRequest,
+) -> ImportSourcesResponse | JSONResponse:
+    """Submit vault-file or URL sources to the durable ingestion pipeline."""
+    try:
+        jobs = await import_sources_direct(
+            vault=request.vault,
+            sources=request.sources,
+            destination=request.destination,
+            queue_only=request.queue_only,
+            clean_html=request.clean_html,
+            strategies=request.strategies,
+            pdf_strategies=request.pdf_strategies,
+            capture_ocr_images=request.capture_ocr_images,
+            pdf_mode=request.pdf_mode,
+            ocr_options=_ocr_options_from_request(request),
+        )
+        return ImportSourcesResponse(
+            jobs_created=[
+                _import_job_info(job, fallback_vault=request.vault) for job in jobs
+            ]
+        )
+    except (ValueError, VaultRootResolutionError) as e:
+        return create_error_response(
+            APIException(
+                status_code=(
+                    404
+                    if isinstance(e, VaultRootResolutionError)
+                    and e.code == "vault_not_found"
+                    else 400
+                ),
                 error_type="InvalidImportRequest",
                 message=str(e),
             )

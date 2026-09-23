@@ -9,6 +9,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _STATE_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-state.js"
 _TOOLBAR_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-toolbar.js"
 _DESTINATION_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-destination.js"
+_IMPORTS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-imports.js"
 _ACTIONS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-actions.js"
 _CONTROLLER_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-controller.js"
 _PICKER_MODULE = _PROJECT_ROOT / "static/js/vault-path-picker.js"
@@ -49,6 +50,7 @@ for (const name of ['open', 'close', 'syncInteractionLocks']) {
             str(_STATE_MODULE),
             str(_TOOLBAR_MODULE),
             str(_DESTINATION_MODULE),
+            str(_IMPORTS_MODULE),
             str(_ACTIONS_MODULE),
             str(_CONTROLLER_MODULE),
             str(_PICKER_MODULE),
@@ -70,6 +72,9 @@ def test_vault_explorer_modules_load_before_path_picker() -> None:
     destination_position = markup.index(
         '<script src="static/js/vault-explorer-destination.js"></script>'
     )
+    imports_position = markup.index(
+        '<script src="static/js/vault-explorer-imports.js"></script>'
+    )
     actions_position = markup.index(
         '<script src="static/js/vault-explorer-actions.js"></script>'
     )
@@ -84,6 +89,7 @@ def test_vault_explorer_modules_load_before_path_picker() -> None:
         state_position
         < toolbar_position
         < destination_position
+        < imports_position
         < actions_position
         < controller_position
         < picker_position
