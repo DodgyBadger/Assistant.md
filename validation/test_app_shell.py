@@ -43,3 +43,9 @@ def test_app_shell_loads_before_application() -> None:
     application_position = markup.index('<script src="static/app.js"></script>')
 
     assert shell_position < application_position
+
+
+def test_app_shell_leaves_base_url_to_the_serving_environment() -> None:
+    markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
+
+    assert "<base " not in markup
