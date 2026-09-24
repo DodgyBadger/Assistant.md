@@ -174,6 +174,7 @@
                 )) && path === currentSnapshot.activeFolder;
                 rowContent?.classList.toggle('is-selected', selected);
                 rowContent?.classList.toggle('is-active-folder', active);
+                rowContent?.setAttribute('aria-selected', selected ? 'true' : 'false');
                 const checkbox = row.querySelector(
                     ':scope > .workspace-tree-row [data-vault-explorer-select-item]'
                 );

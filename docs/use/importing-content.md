@@ -8,7 +8,7 @@ Open Vault Explorer and make the intended output folder active. Select one or mo
 
 The import panel uses the saved defaults unless you expand **Options for this import** and choose one-off overrides. The panel shows the destination explicitly, so normal Explorer imports do not depend on a typed vault-relative path or the global fallback output pattern.
 
-Interactive submissions normally process each new job immediately. The `content_import` tool waits for terminal results by default, making imported Markdown available in the same agent turn. For a large multi-file submission, the caller can set `queue_only=true` and let the background worker process it. See the [`content_import` tool reference](../tools/content_import.md) for the complete invocation contract.
+Interactive Explorer submissions acknowledge each durable job immediately, begin processing after that acknowledgement, and update the open import panel as jobs reach a terminal state. The `content_import` tool waits for terminal results by default, making imported Markdown available in the same agent turn. For a large multi-file submission, the caller can set `queue_only=true` and let the background worker process it. See the [`content_import` tool reference](../tools/content_import.md) for the complete invocation contract.
 
 ## Monitor and control imports
 
@@ -17,6 +17,7 @@ Open **Dashboard → Import** to see recent jobs for the selected vault and edit
 - Use **Refresh Import Status** to reload the durable job list.
 - Use **Process Queue Now** to request an immediate run of the scheduled ingestion worker. The run still observes the configured batch size.
 - Save **Import defaults** to change the PDF output mode, strategy order, and OCR behavior used when a request does not provide an override.
+- Use a job's edit action to reopen its preserved source, destination, and effective user-facing options in Vault Explorer. Reset the options there to use the current defaults before resubmitting.
 - Queued jobs can be cancelled. A processing job cannot be cancelled because its extraction thread or external OCR request may already be running.
 
 The table refreshes automatically while queued or processing jobs are present.

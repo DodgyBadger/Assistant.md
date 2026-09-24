@@ -9,6 +9,7 @@ from typing import Any, Literal
 import yaml
 
 from core.ingestion.capabilities import get_pdf_ocr_capability
+from core.ingestion.import_service import supported_file_extensions
 from core.llm.openai_auth import (
     openai_oauth_enabled_from_settings,
     openai_provider_api_key_available,
@@ -932,13 +933,18 @@ async def get_metadata() -> MetadataResponse:
             ),
         },
         ingestion_capabilities={
+            "file_import": IngestionCapabilityInfo(
+                available=True,
+                provider="registry",
+                features=supported_file_extensions(),
+            ),
             "pdf_ocr": IngestionCapabilityInfo(
                 available=pdf_ocr.available,
                 provider=pdf_ocr.provider,
                 missing=list(pdf_ocr.missing),
                 features=list(pdf_ocr.features),
                 default_order=list(pdf_ocr.default_order),
-            )
+            ),
         },
         default_context_script=default_context_script,
     )

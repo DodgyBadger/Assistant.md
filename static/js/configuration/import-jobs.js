@@ -62,13 +62,13 @@
                             const cancelButton = job.status === 'queued'
                                 ? `<button data-import-job-cancel="${escapeHtml(job.id)}" ${iconButton('x', `Cancel import job ${job.id}`, 'is-danger')}>${iconSvg('x')}</button>`
                                 : '';
-                            const editButton = job.source_type === 'url'
-                                ? `<button data-import-job-edit="${escapeHtml(job.id)}" ${iconButton('edit', `Edit import settings for job ${job.id} · Adjust PDF/OCR settings`, 'is-primary')}>${iconSvg('edit')}</button>`
+                            const editButton = job.can_resubmit
+                                ? `<button data-import-job-edit="${escapeHtml(job.id)}" ${iconButton('edit', `Edit and resubmit import job ${job.id}`, 'is-primary')}>${iconSvg('edit')}</button>`
                                 : '';
                             return `
                                 <tr>
                                     <td data-label="Job" class="cell-xs cell-mono import-job-compact">${escapeHtml(job.id)}</td>
-                                    <td data-label="Source" class="cell-xs import-job-source">${actions.renderImportSource(job.source_uri)}</td>
+                                    <td data-label="Source" class="cell-xs import-job-source">${actions.renderImportSource(job.source_uri, job.vault)}</td>
                                     <td data-label="Status" class="cell-xs import-job-compact">${escapeHtml(job.status || 'unknown')}</td>
                                     <td data-label="Strategy" class="cell-xs">${escapeHtml(strategy)}</td>
                                     <td data-label="Updated" class="cell-xs import-job-compact">${escapeHtml(formatDateTime(job.updated_at))}</td>
@@ -201,16 +201,26 @@
             if (path && callbacks.openFile) callbacks.openFile(path, vault || undefined);
             return;
         }
+        const sourceLink = target.closest('[data-import-source-path]');
+        if (sourceLink instanceof HTMLElement) {
+            const path = sourceLink.getAttribute('data-import-source-path');
+            const vault = sourceLink.getAttribute('data-import-source-vault');
+            if (path) callbacks.openExplorer?.({ vaultName: vault || '', revealPath: path });
+            return;
+        }
         const button = target.closest('[data-import-job-cancel], [data-import-job-edit]');
         if (!(button instanceof HTMLElement) || button.disabled) return;
         const editJobId = button.getAttribute('data-import-job-edit');
         if (editJobId) {
             const job = state.importJobs.find(item => String(item.id) === editJobId);
-            if (!job || job.source_type !== 'url') return;
-            callbacks.openExplorer?.({
+            if (!job || !job.can_resubmit) return;
+            const request = {
                 vaultName: job.vault || '',
-                importUrl: job.source_uri || '',
-            });
+                importOptions: job.request_options || {},
+            };
+            if (job.source_type === 'url') request.importUrl = job.source_uri || '';
+            else request.importSources = [job.source_uri || ''].filter(Boolean);
+            callbacks.openExplorer?.(request);
             return;
         }
         const jobId = button.getAttribute('data-import-job-cancel');

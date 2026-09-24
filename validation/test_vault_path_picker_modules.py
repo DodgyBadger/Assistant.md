@@ -9,6 +9,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _STATE_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-state.js"
 _TOOLBAR_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-toolbar.js"
 _DESTINATION_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-destination.js"
+_IMPORT_OPTIONS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-import-options.js"
 _IMPORTS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-imports.js"
 _ACTIONS_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-actions.js"
 _BATCH_MOVES_MODULE = _PROJECT_ROOT / "static/js/vault-explorer-batch-moves.js"
@@ -52,6 +53,7 @@ for (const name of ['open', 'close', 'syncInteractionLocks']) {
             str(_STATE_MODULE),
             str(_TOOLBAR_MODULE),
             str(_DESTINATION_MODULE),
+            str(_IMPORT_OPTIONS_MODULE),
             str(_IMPORTS_MODULE),
             str(_ACTIONS_MODULE),
             str(_BATCH_MOVES_MODULE),
@@ -79,6 +81,9 @@ def test_vault_explorer_modules_load_before_path_picker() -> None:
     imports_position = markup.index(
         '<script src="static/js/vault-explorer-imports.js"></script>'
     )
+    import_options_position = markup.index(
+        '<script src="static/js/vault-explorer-import-options.js"></script>'
+    )
     actions_position = markup.index(
         '<script src="static/js/vault-explorer-actions.js"></script>'
     )
@@ -99,6 +104,7 @@ def test_vault_explorer_modules_load_before_path_picker() -> None:
         state_position
         < toolbar_position
         < destination_position
+        < import_options_position
         < imports_position
         < actions_position
         < batch_moves_position
@@ -117,6 +123,11 @@ def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> 
     assert 'data-vault-explorer-tree="expand"' in source
     assert 'data-vault-explorer-tree="collapse"' in source
     assert "data-vault-explorer-descendant-selection" in source
+    assert "visibleTreeRows" in source
+    assert "event.key === 'ArrowDown'" in source
+    assert "event.key === 'ArrowRight'" in source
+    assert "await loadMoreResults(more, options)" in source
+    assert 'aria-level="${depth + 1}"' in source
     assert (
         source.index("data-vault-explorer-header-location")
         < source.index("vault-explorer-search-control")

@@ -4,6 +4,12 @@
 
 Reduce routine Vault Explorer and content-import friction across several co-equal gaps by replacing scattered row menus with a selection-aware operation bar, making action targets predictable, adding bounded vault-content search, supporting direct upload and URL import to folders, combining upload with Markdown import when requested, assigning import initiation to the Explorer and import observability/defaults to the Dashboard, and adding bounded batch workflows while preserving the shared chat-native Explorer, canonical filesystem storage, mutation safety, durable activity history, and durable ingestion jobs.
 
+## Delivery Status
+
+The required delivery slices are implemented. Selection and operation-bar behavior, active-folder targeting, direct file/URL/upload imports, persistent defaults, Dashboard job handoff, atomic batch Move, bounded content search, pagination-safe reveal, and baseline keyboard tree behavior are present. Interactive Explorer imports now acknowledge durable jobs promptly and poll their status, while import eligibility is derived from the backend importer registry.
+
+Bulk Delete and external-file drag-and-drop remain deliberately excluded from this release under the plan's bounded-scope decisions. Duplicate was discussed later and separately deferred. Final hardening consists of the production quality gate, compiled CSS verification, the complete deterministic `integration/core` profile, and a manual responsive browser smoke pass.
+
 ## Current Behavior
 
 - The Vault Explorer is a right-side modal shared by toolbar access, workspace selection, file and directory links, and activity/revision entry points.

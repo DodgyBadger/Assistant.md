@@ -1,24 +1,38 @@
 (function vaultExplorerImportsModule(window) {
-    const SUPPORTED_EXTENSIONS = new Set([
-        '.jpeg', '.jpg', '.pdf', '.png', '.tif', '.tiff', '.webp',
-    ]);
+    function supportedExtensions() {
+        const features = window.App?.metadata?.ingestion_capabilities
+            ?.file_import?.features;
+        return new Set(Array.isArray(features) ? features.map(String) : []);
+    }
 
     function createVaultExplorerImportsController({ utils, callbacks }) {
         const { escapeHtml } = utils;
+        const importOptions = window.VaultExplorerImportOptions;
         let busy = false;
+        let pollGeneration = 0;
 
-        function showFiles(overlay, { destination = '', items = [] }, options) {
+        function showFiles(overlay, {
+            destination = '',
+            items = [],
+            requestOptions = {},
+        }, options) {
             showForm(overlay, {
                 destination,
                 options,
+                requestOptions,
                 sources: items.map((item) => item.path),
             });
         }
 
-        function showUrl(overlay, { destination = '', url = '' }, options) {
+        function showUrl(overlay, {
+            destination = '',
+            requestOptions = {},
+            url = '',
+        }, options) {
             showForm(overlay, {
                 destination,
                 options,
+                requestOptions,
                 sources: [],
                 url,
                 urlMode: true,
@@ -28,12 +42,14 @@
         function showForm(overlay, {
             destination,
             options,
+            requestOptions,
             sources,
             url = '',
             urlMode = false,
         }) {
             const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
             if (!(panel instanceof HTMLElement)) return;
+            pollGeneration += 1;
             callbacks.closeActionPanel(overlay, { restoreFocus: false });
             panel.innerHTML = `
                 <form class="vault-explorer-import-form" data-vault-explorer-import-form
@@ -49,67 +65,12 @@
                         `}
                         <span class="vault-explorer-import-destination" title="${escapeHtml(destination || 'Vault root')}">
                             <span aria-hidden="true">→</span>
-                            <strong class="cell-mono">${escapeHtml(destination || 'Vault root')}</strong>
+                            <strong class="cell-mono" data-vault-explorer-import-destination>${escapeHtml(destination || 'Vault root')}</strong>
                         </span>
+                        <button type="button" class="ui-button-secondary" data-vault-explorer-import-change-destination>Change</button>
                     </div>
                     <input type="hidden" name="destination" value="${escapeHtml(destination)}" />
-                    <details class="vault-explorer-import-options">
-                        <summary>Options <span>Saved defaults</span></summary>
-                        <div class="vault-explorer-import-options-grid">
-                            <label class="vault-explorer-option-row">
-                                <input type="checkbox" name="queue_only" /> Queue only
-                            </label>
-                            <label><span>PDF output</span>
-                                <select name="pdf_mode" class="vault-explorer-path-input">
-                                    <option value="">Default</option>
-                                    <option value="markdown">Markdown</option>
-                                    <option value="page_images">Page images</option>
-                                </select>
-                            </label>
-                            <label><span>PDF strategy</span>
-                                <select name="pdf_strategy" class="vault-explorer-path-input">
-                                    <option value="">Default</option>
-                                    <option value="local_text">Local text</option>
-                                    <option value="ocr">Mistral OCR</option>
-                                </select>
-                            </label>
-                            <label><span>OCR images</span>
-                                <select name="capture_ocr_images" class="vault-explorer-path-input">
-                                    <option value="">Default</option>
-                                    <option value="true">Capture</option>
-                                    <option value="false">Skip</option>
-                                </select>
-                            </label>
-                        </div>
-                        <details class="vault-explorer-import-advanced">
-                            <summary>Advanced OCR</summary>
-                            <div class="vault-explorer-import-options-grid">
-                                <label class="vault-explorer-option-row">
-                                    <input type="checkbox" name="include_ocr_blocks" /> Structure blocks
-                                </label>
-                                <label class="vault-explorer-option-row">
-                                    <input type="checkbox" name="extract_ocr_header" /> Separate headers
-                                </label>
-                                <label class="vault-explorer-option-row">
-                                    <input type="checkbox" name="extract_ocr_footer" /> Separate footers
-                                </label>
-                                <label><span>Tables</span>
-                                    <select name="ocr_table_format" class="vault-explorer-path-input">
-                                        <option value="">Off</option>
-                                        <option value="markdown">Markdown</option>
-                                        <option value="html">HTML</option>
-                                    </select>
-                                </label>
-                                <label><span>Confidence</span>
-                                    <select name="ocr_confidence" class="vault-explorer-path-input">
-                                        <option value="">Off</option>
-                                        <option value="page">Page</option>
-                                        <option value="word">Word</option>
-                                    </select>
-                                </label>
-                            </div>
-                        </details>
-                    </details>
+                    ${importOptions.renderMarkup()}
                     <div class="vault-explorer-import-footer">
                         <div class="text-sm" data-vault-explorer-form-status></div>
                         <div class="vault-explorer-form-actions">
@@ -119,10 +80,60 @@
                     </div>
                 </form>`;
             panel.classList.remove('hidden');
+            const form = panel.querySelector('[data-vault-explorer-import-form]');
+            if (form instanceof HTMLFormElement) {
+                applyRequestOptions(form, requestOptions);
+                importOptions.bind(form);
+                form.querySelector('[data-vault-explorer-import-change-destination]')
+                    ?.addEventListener('click', () => callbacks.beginDestinationMode?.(overlay, {
+                        initialPath: form.elements.namedItem('destination')?.value || '',
+                        purpose: 'import',
+                    }));
+            }
             panel.querySelector(urlMode ? 'input[name="url"]' : 'button[type="submit"]')?.focus();
             panel.dataset.importOptionsAvailable = typeof options.onImportSources === 'function'
                 ? 'true'
                 : 'false';
+        }
+
+        function applyRequestOptions(form, requestOptions = {}) {
+            const setValue = (name, value) => {
+                const control = form.elements.namedItem(name);
+                if (control instanceof HTMLSelectElement && value != null) {
+                    control.value = String(value);
+                }
+                if (control instanceof HTMLInputElement && control.type === 'checkbox') {
+                    control.checked = value === true;
+                }
+            };
+            setValue('pdf_mode', requestOptions.pdf_mode);
+            const strategies = requestOptions.pdf_strategies || requestOptions.strategies || [];
+            setValue(
+                'pdf_strategy',
+                strategies.length === 1 && strategies[0] === 'pdf_ocr'
+                    ? 'ocr'
+                    : strategies.length === 1 && strategies[0] === 'pdf_text'
+                        ? 'local_text'
+                        : ''
+            );
+            if (requestOptions.capture_ocr_images != null) {
+                setValue('capture_ocr_images', String(requestOptions.capture_ocr_images));
+            }
+            setValue('include_ocr_blocks', requestOptions.include_ocr_blocks);
+            setValue('extract_ocr_header', requestOptions.extract_ocr_header);
+            setValue('extract_ocr_footer', requestOptions.extract_ocr_footer);
+            setValue('ocr_table_format', requestOptions.ocr_table_format);
+            setValue('ocr_confidence', requestOptions.ocr_confidence);
+            updateOptionsSummary(form);
+        }
+
+        function updateDestination(overlay, destination) {
+            const form = overlay.querySelector('[data-vault-explorer-import-form]');
+            if (!(form instanceof HTMLFormElement)) return;
+            const input = form.elements.namedItem('destination');
+            if (input instanceof HTMLInputElement) input.value = destination;
+            const label = form.querySelector('[data-vault-explorer-import-destination]');
+            if (label) label.textContent = destination || 'Vault root';
         }
 
         async function submit(overlay, form, options) {
@@ -133,48 +144,13 @@
             const urlInput = form.elements.namedItem('url');
             if (urlInput instanceof HTMLInputElement) sources = [urlInput.value.trim()];
             const destinationInput = form.elements.namedItem('destination');
-            const queueInput = form.elements.namedItem('queue_only');
-            const pdfModeInput = form.elements.namedItem('pdf_mode');
-            const pdfStrategyInput = form.elements.namedItem('pdf_strategy');
-            const captureInput = form.elements.namedItem('capture_ocr_images');
-            const includeBlocksInput = form.elements.namedItem('include_ocr_blocks');
-            const extractHeaderInput = form.elements.namedItem('extract_ocr_header');
-            const extractFooterInput = form.elements.namedItem('extract_ocr_footer');
-            const tableFormatInput = form.elements.namedItem('ocr_table_format');
-            const confidenceInput = form.elements.namedItem('ocr_confidence');
             const payload = {
+                ...importOptions.read(form),
                 sources,
                 destination: destinationInput instanceof HTMLInputElement
                     ? destinationInput.value
                     : '',
-                queue_only: queueInput instanceof HTMLInputElement && queueInput.checked,
             };
-            if (pdfModeInput instanceof HTMLSelectElement && pdfModeInput.value) {
-                payload.pdf_mode = pdfModeInput.value;
-            }
-            if (pdfStrategyInput instanceof HTMLSelectElement && pdfStrategyInput.value) {
-                payload.pdf_strategies = pdfStrategyInput.value === 'ocr'
-                    ? ['pdf_ocr']
-                    : ['pdf_text'];
-            }
-            if (captureInput instanceof HTMLSelectElement && captureInput.value) {
-                payload.capture_ocr_images = captureInput.value === 'true';
-            }
-            if (includeBlocksInput instanceof HTMLInputElement && includeBlocksInput.checked) {
-                payload.include_ocr_blocks = true;
-            }
-            if (extractHeaderInput instanceof HTMLInputElement && extractHeaderInput.checked) {
-                payload.extract_ocr_header = true;
-            }
-            if (extractFooterInput instanceof HTMLInputElement && extractFooterInput.checked) {
-                payload.extract_ocr_footer = true;
-            }
-            if (tableFormatInput instanceof HTMLSelectElement && tableFormatInput.value) {
-                payload.ocr_table_format = tableFormatInput.value;
-            }
-            if (confidenceInput instanceof HTMLSelectElement && confidenceInput.value) {
-                payload.ocr_confidence = confidenceInput.value;
-            }
             busy = true;
             callbacks.syncInteractionLocks();
             if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
@@ -183,7 +159,16 @@
                 const result = await options.onImportSources(payload);
                 const jobs = Array.isArray(result?.jobs_created) ? result.jobs_created : [];
                 renderResult(status, jobs, payload.queue_only);
-                await callbacks.refreshExplorer(overlay, options, firstOutput(jobs));
+                const output = firstOutput(jobs);
+                if (output) await callbacks.refreshExplorer(overlay, options, output);
+                if (
+                    !payload.queue_only
+                    && jobs.some((job) => !isTerminal(job.status))
+                    && typeof options.onGetImportJob === 'function'
+                ) {
+                    const generation = ++pollGeneration;
+                    void pollJobs(overlay, status, jobs, options, generation);
+                }
             } catch (error) {
                 if (status) status.innerHTML = `<span class="state-error">${escapeHtml(error.message)}</span>`;
                 if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
@@ -197,14 +182,47 @@
             if (!status) return;
             const failures = jobs.filter((job) => job.status === 'failed');
             const outputs = jobs.flatMap((job) => job.outputs || []);
+            const pending = jobs.filter((job) => !isTerminal(job.status));
             const summary = queueOnly
                 ? `${jobs.length} import job${jobs.length === 1 ? '' : 's'} queued.`
+                : pending.length
+                    ? `${jobs.length} import job${jobs.length === 1 ? '' : 's'} accepted.`
                 : `${jobs.length - failures.length} import${jobs.length - failures.length === 1 ? '' : 's'} completed.`;
             status.innerHTML = `
                 <div class="${failures.length ? 'state-warning' : 'state-success'}">${escapeHtml(summary)}</div>
                 ${outputs.map((path) => `<div class="cell-mono">${escapeHtml(path)}</div>`).join('')}
                 ${failures.map((job) => `<div class="state-error">${escapeHtml(job.error || 'Import failed.')}</div>`).join('')}
             `;
+        }
+
+        async function pollJobs(overlay, status, initialJobs, options, generation) {
+            let jobs = initialJobs;
+            for (let attempt = 0; attempt < 240; attempt += 1) {
+                if (generation !== pollGeneration || !overlay.isConnected) return;
+                await new Promise((resolve) => window.setTimeout(resolve, 500));
+                if (generation !== pollGeneration || !overlay.isConnected) return;
+                try {
+                    jobs = await Promise.all(jobs.map((job) => (
+                        isTerminal(job.status) ? job : options.onGetImportJob(job.id)
+                    )));
+                    renderResult(status, jobs, false);
+                    if (jobs.every((job) => isTerminal(job.status))) {
+                        const output = firstOutput(jobs);
+                        if (output) await callbacks.refreshExplorer(overlay, options, output);
+                        return;
+                    }
+                } catch (error) {
+                    if (status) {
+                        status.innerHTML = `<span class="state-warning">Import accepted; status refresh failed: ${escapeHtml(error.message)}</span>`;
+                    }
+                    return;
+                }
+            }
+            if (status) status.textContent = 'Import is still processing. Check Dashboard → Import for status.';
+        }
+
+        function isTerminal(status) {
+            return ['completed', 'failed', 'cancelled'].includes(String(status || ''));
         }
 
         function firstOutput(jobs) {
@@ -217,15 +235,23 @@
 
         function reset() {
             busy = false;
+            pollGeneration += 1;
         }
 
-        return Object.freeze({ isBusy, reset, showFiles, showUrl, submit });
+        return Object.freeze({
+            isBusy,
+            reset,
+            showFiles,
+            showUrl,
+            submit,
+            updateDestination,
+        });
     }
 
     function supportsPath(path) {
         const name = String(path || '').toLowerCase();
         const dot = name.lastIndexOf('.');
-        return dot >= 0 && SUPPORTED_EXTENSIONS.has(name.slice(dot));
+        return dot >= 0 && supportedExtensions().has(name.slice(dot));
     }
 
     window.VaultExplorerImports = Object.freeze({

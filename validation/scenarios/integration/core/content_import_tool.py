@@ -346,9 +346,9 @@ class ContentImportToolScenario(BaseScenario):
             ).read_text(encoding="utf-8")
             self.soft_assert(
                 "data-import-job-edit" in import_jobs_script
-                and "Edit import settings for job" in import_jobs_script
-                and "Adjust PDF/OCR settings" in import_jobs_script,
-                "URL imports should expose a recognizable edit action",
+                and "Edit and resubmit import job" in import_jobs_script
+                and "importOptions: job.request_options" in import_jobs_script,
+                "Resubmittable imports should expose a recognizable edit action",
             )
             self.soft_assert(
                 "params.set('vault', selectedVault)" in import_jobs_script

@@ -16,6 +16,9 @@
                 mutationCompleted,
                 refreshExplorer,
                 setStatus,
+                importDestinationSelected: (overlay, destination) => (
+                    explorerImports.updateDestination(overlay, destination)
+                ),
                 syncInteractionLocks,
                 workspacePath,
             },
@@ -24,6 +27,7 @@
             utils,
             callbacks: {
                 closeActionPanel: explorerActions.closeActionPanel,
+                beginDestinationMode: explorerActions.beginDestinationMode,
                 refreshExplorer,
                 syncInteractionLocks,
             },
@@ -190,8 +194,17 @@
                 });
                 if (options.importUrl) {
                     explorerImports.showUrl(overlay, {
-                        destination: explorer.snapshot().activeFolder,
+                        destination: options.importOptions?.destination
+                            ?? explorer.snapshot().activeFolder,
+                        requestOptions: options.importOptions,
                         url: options.importUrl,
+                    }, options);
+                } else if (Array.isArray(options.importSources) && options.importSources.length) {
+                    explorerImports.showFiles(overlay, {
+                        destination: options.importOptions?.destination
+                            ?? explorer.snapshot().activeFolder,
+                        items: options.importSources.map((path) => ({ path, kind: 'file' })),
+                        requestOptions: options.importOptions,
                     }, options);
                 }
             }
@@ -343,6 +356,68 @@
                     explorerActions.updateMovePreview(overlay);
                 }
             });
+            overlay.addEventListener('keydown', async (event) => {
+                if (!options.explorer) return;
+                if (event.key === 'Escape') {
+                    const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
+                    if (panel instanceof HTMLElement && !panel.classList.contains('hidden')) {
+                        event.preventDefault();
+                        explorerActions.closeActionPanel(overlay);
+                    }
+                    return;
+                }
+                const control = event.target instanceof Element
+                    ? event.target.closest(
+                        '[data-vault-path-picker-select], [data-vault-path-picker-toggle], [data-vault-explorer-select-item]'
+                    )
+                    : null;
+                if (!(control instanceof HTMLElement)) return;
+                const row = control.closest('[data-vault-path-picker-row]');
+                if (!(row instanceof HTMLElement)) return;
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    const rows = visibleTreeRows(overlay);
+                    const index = rows.indexOf(row);
+                    const nextIndex = event.key === 'ArrowDown' ? index + 1 : index - 1;
+                    const next = rows[nextIndex]?.querySelector('[data-vault-path-picker-select]');
+                    if (next instanceof HTMLElement) {
+                        event.preventDefault();
+                        next.focus();
+                    }
+                    return;
+                }
+                const toggle = row.querySelector(
+                    ':scope > .workspace-tree-row [data-vault-path-picker-toggle]'
+                );
+                if (event.key === 'ArrowRight' && toggle instanceof HTMLElement) {
+                    event.preventDefault();
+                    if (toggle.getAttribute('aria-expanded') !== 'true') {
+                        await toggleNode(overlay, toggle, options);
+                    } else {
+                        row.querySelector(
+                            ':scope > [data-vault-path-picker-children] [data-vault-path-picker-select]'
+                        )?.focus();
+                    }
+                    return;
+                }
+                if (event.key === 'ArrowLeft') {
+                    if (
+                        toggle instanceof HTMLElement
+                        && toggle.getAttribute('aria-expanded') === 'true'
+                    ) {
+                        event.preventDefault();
+                        await toggleNode(overlay, toggle, options);
+                        return;
+                    }
+                    const parent = row.parentElement?.closest('[data-vault-path-picker-row]');
+                    const parentControl = parent?.querySelector(
+                        ':scope > .workspace-tree-row [data-vault-path-picker-select]'
+                    );
+                    if (parentControl instanceof HTMLElement) {
+                        event.preventDefault();
+                        parentControl.focus();
+                    }
+                }
+            });
 
             const loadRoot = () => loadCurrentResults(overlay, options).catch((error) => {
                 if (error.name !== 'AbortError') {
@@ -404,6 +479,7 @@
             if (action === 'import_url') {
                 explorerImports.showUrl(overlay, {
                     destination: snapshot.destinationPath,
+                    requestOptions: {},
                 }, options);
                 return;
             }
@@ -412,6 +488,7 @@
             explorerImports.showFiles(overlay, {
                 destination,
                 items: snapshot.selectedItems,
+                requestOptions: {},
             }, options);
         }
 
@@ -667,12 +744,15 @@
             const children = row.querySelector(':scope > [data-vault-path-picker-children]');
             if (!(children instanceof HTMLElement)) return;
             const expanded = toggle.getAttribute('aria-expanded') === 'true';
+            const treeItem = row.querySelector(':scope > .workspace-tree-row');
             if (expanded) {
                 toggle.setAttribute('aria-expanded', 'false');
+                treeItem?.setAttribute('aria-expanded', 'false');
                 children.classList.add('hidden');
                 return;
             }
             toggle.setAttribute('aria-expanded', 'true');
+            treeItem?.setAttribute('aria-expanded', 'true');
             children.classList.remove('hidden');
             if (children.dataset.loaded === 'true') return;
 
@@ -710,12 +790,18 @@
             let revealedRow = null;
             for (const segment of segments) {
                 currentPath = currentPath ? `${currentPath}/${segment}` : segment;
-                const row = Array.from(
-                    overlay.querySelectorAll('[data-vault-path-picker-row]')
-                ).find((candidate) => (
-                    candidate instanceof HTMLElement
-                    && candidate.getAttribute('data-vault-path-picker-row') === currentPath
-                ));
+                let row = findTreeRow(overlay, currentPath);
+                while (!(row instanceof HTMLElement)) {
+                    const parentPath = currentPath.split('/').slice(0, -1).join('/');
+                    const parent = parentPath ? findTreeRow(overlay, parentPath) : null;
+                    const pageRoot = parent?.querySelector(
+                        ':scope > [data-vault-path-picker-children]'
+                    ) || overlay.querySelector('[data-vault-path-picker-results]');
+                    const more = pageRoot?.querySelector('[data-vault-path-picker-more]');
+                    if (!(more instanceof HTMLButtonElement)) break;
+                    await loadMoreResults(more, options);
+                    row = findTreeRow(overlay, currentPath);
+                }
                 if (!(row instanceof HTMLElement)) return;
                 revealedRow = row;
                 const toggle = row.querySelector(
@@ -729,6 +815,19 @@
                 }
             }
             if (scroll) revealedRow?.scrollIntoView({ block: 'nearest' });
+        }
+
+        function findTreeRow(overlay, path) {
+            return Array.from(overlay.querySelectorAll('[data-vault-path-picker-row]'))
+                .find((candidate) => (
+                    candidate instanceof HTMLElement
+                    && candidate.getAttribute('data-vault-path-picker-row') === path
+                )) || null;
+        }
+
+        function visibleTreeRows(overlay) {
+            return Array.from(overlay.querySelectorAll('[data-vault-path-picker-row]'))
+                .filter((row) => row instanceof HTMLElement && row.offsetParent !== null);
         }
 
         function renderRow(item, depth, options) {
@@ -745,7 +844,7 @@
                 && explorer.snapshot().activeFolder === path;
             return `
                 <div data-vault-path-picker-row="${escapeHtml(path)}" data-vault-path-picker-depth="${depth}">
-                    <div class="workspace-tree-row${selected ? ' is-selected' : ''}${active ? ' is-active-folder' : ''}" role="treeitem" style="padding-left: ${indent}rem;">
+                    <div class="workspace-tree-row${selected ? ' is-selected' : ''}${active ? ' is-active-folder' : ''}" role="treeitem" aria-level="${depth + 1}" aria-selected="${selected ? 'true' : 'false'}"${canExpand ? ' aria-expanded="false"' : ''} style="padding-left: ${indent}rem;">
                         ${canExpand
                             ? `<button type="button" class="workspace-tree-toggle" data-vault-path-picker-toggle aria-expanded="false" aria-label="Expand ${escapeHtml(name)}">
                                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
