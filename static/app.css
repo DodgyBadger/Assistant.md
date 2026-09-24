@@ -1073,16 +1073,31 @@ details summary::-webkit-details-marker {
     color: rgb(var(--text-primary));
     font-size: 0.8125rem;
 }
+.ui-button-primary,
 .ui-button-secondary {
     min-height: 2rem;
     padding: 0.35rem 0.65rem;
     border: 1px solid rgb(var(--border-secondary));
     border-radius: 0.375rem;
-    background: rgb(var(--bg-card));
-    color: rgb(var(--text-primary));
     font-size: 0.8125rem;
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.ui-button-primary {
+    border-color: rgb(var(--accent-primary));
+    background: rgb(var(--accent-primary));
+    color: rgb(var(--text-on-accent));
+}
+.ui-button-primary:hover,
+.ui-button-primary:focus-visible {
+    border-color: rgb(var(--accent-hover));
+    background: rgb(var(--accent-hover));
+    color: rgb(var(--text-on-accent));
+    outline: none;
+}
+.ui-button-secondary {
+    background: rgb(var(--bg-card));
+    color: rgb(var(--text-primary));
 }
 .ui-button-secondary:hover,
 .ui-button-secondary:focus-visible {
@@ -1091,6 +1106,7 @@ details summary::-webkit-details-marker {
     color: rgb(var(--accent-primary));
     outline: none;
 }
+.ui-button-primary:disabled,
 .ui-button-secondary:disabled {
     opacity: 0.55;
     cursor: not-allowed;
