@@ -582,12 +582,10 @@ def list_vault_file_references(
         base_relative = requested_search_path or (
             normalized_workspace if normalized_scope == "workspace" else ""
         )
-        base_dir = resolve_vault_relative_path(
-            vault_path=vault_root, path=base_relative
+        base_relative, base_dir = _resolve_existing_vault_directory(
+            vault_name=vault_name,
+            path=base_relative,
         )
-        if not base_dir.exists() or not base_dir.is_dir():
-            base_relative = ""
-            base_dir = vault_root
         items, truncated = _search_vault_file_references(
             vault_root=vault_root,
             base_dir=base_dir,
@@ -770,6 +768,21 @@ def move_vault_paths_batch(
         )
         for source in normalized_sources
     ]
+    for index, source_path in enumerate(resolved_sources):
+        for other_path in resolved_sources[index + 1 :]:
+            if (
+                source_path == other_path
+                or source_path in other_path.parents
+                or other_path in source_path.parents
+            ):
+                raise APIException(
+                    status_code=400,
+                    error_type="OverlappingVaultBatchSources",
+                    message=(
+                        "Batch move sources must not resolve to the same path or "
+                        "contain another selected source."
+                    ),
+                )
     targets = [destination_root / source.name for source in resolved_sources]
 
     with vault_directory_mutation_lock(
@@ -804,31 +817,25 @@ def move_vault_paths_batch(
                         )
                     )
             except Exception as exc:
-                compensation_errors: list[str] = []
-                for result in reversed(completed):
-                    try:
-                        target_path = resolve_vault_relative_path(
-                            vault_path=vault_root,
-                            path=result.destination,
-                            markdown_only=False,
-                        )
-                        _mutate_vault_path_attributed(
-                            vault_name=vault_name,
-                            vault_root=vault_root,
-                            normalized=result.destination,
-                            full_path=target_path,
-                            operation="move",
-                            destination=result.path,
-                            content="",
-                        )
-                    except Exception as compensation_error:
-                        compensation_errors.append(str(compensation_error))
+                compensation_errors = _compensate_batch_moves(
+                    vault_name=vault_name,
+                    vault_root=vault_root,
+                    normalized_sources=normalized_sources,
+                    resolved_sources=resolved_sources,
+                    targets=targets,
+                )
                 if compensation_errors:
                     raise APIException(
                         status_code=500,
                         error_type="VaultBatchMoveStateUncertain",
                         message="Batch move failed and could not be fully compensated.",
                         details={"compensation_errors": compensation_errors},
+                    ) from exc
+                if isinstance(exc, VaultMutationRejected):
+                    raise _vault_path_mutation_error(
+                        exc,
+                        vault_name=vault_name,
+                        path="batch move",
                     ) from exc
                 raise
 
@@ -844,6 +851,44 @@ def _normalize_batch_destination(path: str) -> str:
     if not raw_path:
         return ""
     return _normalize_vault_file_path(raw_path)
+
+
+def _compensate_batch_moves(
+    *,
+    vault_name: str,
+    vault_root: Path,
+    normalized_sources: list[str],
+    resolved_sources: list[Path],
+    targets: list[Path],
+) -> list[str]:
+    """Restore every moved batch item based on its current filesystem state."""
+    errors: list[str] = []
+    for source, source_path, target in reversed(
+        list(zip(normalized_sources, resolved_sources, targets, strict=True))
+    ):
+        if source_path.exists() and not target.exists():
+            continue
+        if not source_path.exists() and target.exists():
+            target_relative = target.relative_to(vault_root).as_posix()
+            try:
+                _mutate_vault_path_attributed(
+                    vault_name=vault_name,
+                    vault_root=vault_root,
+                    normalized=target_relative,
+                    full_path=target,
+                    operation="move",
+                    destination=source,
+                    content="",
+                )
+            except Exception as exc:
+                if not (source_path.exists() and not target.exists()):
+                    errors.append(f"{target_relative} -> {source}: {exc}")
+            continue
+        errors.append(
+            f"Ambiguous batch move state for {source}: "
+            f"source_exists={source_path.exists()}, target_exists={target.exists()}"
+        )
+    return errors
 
 
 def _preflight_batch_move(
@@ -1154,6 +1199,7 @@ def _vault_path_mutation_error(
         "file_exists": 409,
         "file_not_found": 404,
         "invalid_path": 400,
+        "mutation_state_uncertain": 500,
     }
     return APIException(
         status_code=status_by_code.get(exc.code, 400),

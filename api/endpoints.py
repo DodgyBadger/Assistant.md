@@ -42,6 +42,7 @@ from core.chat.task_execution import (
     stream_chat_task_sse,
 )
 from core.identity import require_current_execution_authority
+from core.ingestion.jobs import IngestionJob
 from core.ingestion.models import JobStatus
 from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
@@ -57,6 +58,7 @@ from core.settings import (
     get_vault_upload_max_bytes_per_file,
     get_vault_upload_max_mb_per_file,
 )
+from core.settings.store import get_general_settings
 from core.vault_state.pathing import VaultRootResolutionError
 from core.vault_state.search import VaultContentSearchError
 
@@ -986,13 +988,19 @@ async def update_general_setting(
 #######################################################################
 
 
-def _import_job_info(job: Any, *, fallback_vault: str = "") -> ImportJobInfo:
+def _import_job_info(job: IngestionJob, *, fallback_vault: str = "") -> ImportJobInfo:
     """Project one durable ingestion job into the public import contract."""
     options = job.options if isinstance(job.options, dict) else {}
     extractor_options = options.get("extractor_options")
     extractor_options = extractor_options if isinstance(extractor_options, dict) else {}
+    output_path_pattern = options.get("output_path_pattern")
+    if output_path_pattern is None:
+        configured = get_general_settings().get("ingestion_output_path_pattern")
+        output_path_pattern = (
+            configured.value if configured is not None else "Imported/"
+        )
     public_options = {
-        "destination": str(options.get("output_path_pattern") or ""),
+        "destination": str(output_path_pattern or ""),
         "strategies": options.get("strategies"),
         "pdf_strategies": options.get("pdf_strategies"),
         "pdf_mode": options.get("pdf_mode"),
@@ -1018,7 +1026,13 @@ def _import_job_info(job: Any, *, fallback_vault: str = "") -> ImportJobInfo:
         strategy_attempts=job.strategy_attempts,
         fallback_reason=job.fallback_reason,
         can_resubmit=(
-            job.source_type == "url" or options.get("consume_source") is False
+            job.status
+            in {
+                JobStatus.COMPLETED.value,
+                JobStatus.FAILED.value,
+                JobStatus.CANCELLED.value,
+            }
+            and (job.source_type == "url" or options.get("consume_source") is False)
         ),
         request_options=ImportJobRequestOptions.model_validate(public_options),
         created_at=job.created_at,
@@ -1026,7 +1040,9 @@ def _import_job_info(job: Any, *, fallback_vault: str = "") -> ImportJobInfo:
     )
 
 
-def _ocr_options_from_request(request: Any) -> dict[str, object]:
+def _ocr_options_from_request(
+    request: ImportScanRequest | ImportSourcesRequest | ImportUrlRequest,
+) -> dict[str, object]:
     return {
         key: value
         for key, value in {
@@ -1207,6 +1223,9 @@ async def import_sources(
 ) -> ImportSourcesResponse | JSONResponse:
     """Submit vault-file or URL sources to the durable ingestion pipeline."""
     try:
+        authority = (
+            None if request.queue_only else require_current_execution_authority()
+        )
         jobs = await import_sources_direct(
             vault=request.vault,
             sources=request.sources,
@@ -1220,10 +1239,11 @@ async def import_sources(
             ocr_options=_ocr_options_from_request(request),
         )
         if not request.queue_only:
+            assert authority is not None
             background_tasks.add_task(
                 process_import_jobs_background,
                 [job.id for job in jobs],
-                require_current_execution_authority(),
+                authority,
             )
         return ImportSourcesResponse(
             jobs_created=[
@@ -2254,7 +2274,13 @@ async def vault_content_search(
             ],
         )
     except VaultContentSearchError as e:
-        status_code = 408 if e.code == "timeout" else 400
+        status_code = {
+            "missing_query": 400,
+            "invalid_scope": 400,
+            "timeout": 408,
+            "ripgrep_not_found": 503,
+            "search_failed": 500,
+        }.get(e.code, 500)
         return create_error_response(
             APIException(
                 status_code=status_code,

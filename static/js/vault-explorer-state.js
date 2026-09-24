@@ -1,5 +1,4 @@
 (function vaultExplorerStateModule(window) {
-    const FILE_OPERATIONS = ['open', 'edit', 'history'];
     const SINGLE_ITEM_OPERATIONS = ['copy', 'rename'];
 
     function createVaultExplorerStateController({ onChange = null } = {}) {
@@ -145,7 +144,6 @@
     function operationStates({ destinationPath, features, hasAncestorConflict, items }) {
         const count = items.length;
         const single = count === 1 ? items[0] : null;
-        const singleFile = single?.kind === 'file';
         const singleDirectory = single?.kind === 'directory';
         const hasSelection = count > 0;
         const allImportEligible = hasSelection && items.every((item) => (
@@ -161,9 +159,6 @@
             import_url: folderDestinationState(count, singleDirectory, destinationPath),
             refresh: enabled(),
             clear: hasSelection ? enabled() : disabled('Nothing is selected.'),
-            open: single ? enabled() : disabled('Select one file or folder.'),
-            edit: singleFile ? enabled() : disabled('Select one file.'),
-            history: singleFile ? enabled() : disabled('Select one file.'),
             reference: hasSelection ? enabled() : disabled('Select one or more items.'),
             copy: single ? enabled() : disabled('Select one item.'),
             workspace: singleDirectory ? enabled() : disabled('Select one folder.'),
@@ -184,11 +179,6 @@
                 batchConflictReason,
             }),
         };
-        for (const operation of FILE_OPERATIONS) {
-            if (!singleFile && operations[operation].enabled) {
-                operations[operation] = disabled('Select one file.');
-            }
-        }
         for (const operation of SINGLE_ITEM_OPERATIONS) {
             if (!single && operations[operation].enabled) {
                 operations[operation] = disabled('Select one item.');

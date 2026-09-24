@@ -48,6 +48,7 @@ global.HTMLSelectElement = class HTMLSelectElement extends HTMLElement {};
 global.HTMLFormElement = class HTMLFormElement extends HTMLElement {
     constructor() {
         super();
+        this.dataset = {};
         this.elements = { namedItem() { return null; } };
     }
     addEventListener() {}
@@ -76,6 +77,44 @@ assert.doesNotThrow(() => controller.showUrl(overlay, { destination: '' }, {
 }));
 assert.match(panel.innerHTML, /Document URL/);
 assert.match(panel.innerHTML, /Vault root/);
+
+const roundTripForm = new HTMLFormElement();
+const controls = {
+    queue_only: Object.assign(new HTMLInputElement(), { type: 'checkbox', checked: false }),
+    pdf_mode: Object.assign(new HTMLSelectElement(), { value: '' }),
+    pdf_strategy: Object.assign(new HTMLSelectElement(), { value: '' }),
+    capture_ocr_images: Object.assign(new HTMLSelectElement(), { value: '' }),
+    include_ocr_blocks: Object.assign(new HTMLInputElement(), { type: 'checkbox', checked: false }),
+    extract_ocr_header: Object.assign(new HTMLInputElement(), { type: 'checkbox', checked: false }),
+    extract_ocr_footer: Object.assign(new HTMLInputElement(), { type: 'checkbox', checked: false }),
+    ocr_table_format: Object.assign(new HTMLSelectElement(), { value: '' }),
+    ocr_confidence: Object.assign(new HTMLSelectElement(), { value: '' }),
+};
+roundTripForm.elements = { namedItem(name) { return controls[name] || null; } };
+VaultExplorerImportOptions.preserve(roundTripForm, {
+    clean_html: false,
+    strategies: ['custom_strategy'],
+    pdf_strategies: ['pdf_ocr'],
+    include_ocr_blocks: false,
+    extract_ocr_header: true,
+});
+assert.deepStrictEqual(VaultExplorerImportOptions.read(roundTripForm), {
+    clean_html: false,
+    strategies: ['custom_strategy'],
+    pdf_strategies: ['pdf_ocr'],
+    include_ocr_blocks: false,
+    extract_ocr_header: true,
+    queue_only: false,
+});
+controls.pdf_strategy.value = 'ocr';
+roundTripForm.dataset.importTouchedOptions = '["pdf_strategy"]';
+assert.deepStrictEqual(VaultExplorerImportOptions.read(roundTripForm), {
+    clean_html: false,
+    pdf_strategies: ['pdf_ocr'],
+    include_ocr_blocks: false,
+    extract_ocr_header: true,
+    queue_only: false,
+});
 """
     subprocess.run(
         ["node", "-e", harness, str(_IMPORT_OPTIONS_MODULE), str(_IMPORTS_MODULE)],

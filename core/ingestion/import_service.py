@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from core.ingestion.jobs import IngestionJob
+from core.ingestion.jobs import IngestionJob, IngestionJobCreate
 from core.ingestion.models import SourceKind
 from core.ingestion.registry import importer_registry
 from core.runtime.state import get_runtime_context
@@ -141,20 +141,23 @@ class ContentImportService:
             self._validate_source(source=source, job_options=job_options)
             for source in normalized_sources
         ]
-        jobs = [
-            self._ingestion.enqueue_job(
-                source_uri=request.source_uri,
-                vault=self._vault_name,
-                source_type=(
-                    SourceKind.URL.value
-                    if request.source_kind == "url"
-                    else SourceKind.FILE.value
-                ),
-                mime_hint=None,
-                options=request.job_options,
-            )
-            for request in requests
-        ]
+        jobs = self._ingestion.enqueue_jobs(
+            [
+                IngestionJobCreate(
+                    source_uri=request.source_uri,
+                    vault=self._vault_name,
+                    source_type=(
+                        SourceKind.URL.value
+                        if request.source_kind == "url"
+                        else SourceKind.FILE.value
+                    ),
+                    mime_hint=None,
+                    options=request.job_options,
+                )
+                for request in requests
+            ],
+            vault=self._vault_name,
+        )
         return [
             self._serialize_job(job, source_kind=request.source_kind)
             for request, job in zip(requests, jobs, strict=True)
@@ -225,7 +228,7 @@ class ContentImportService:
 
     def _validate_options(self, options: dict[str, Any] | None) -> dict[str, Any]:
         if options is None:
-            return {}
+            options = {}
         if not isinstance(options, dict):
             raise ValueError("options must be an object")
         unknown = sorted(set(options) - _ALLOWED_OPTION_KEYS)
@@ -241,7 +244,10 @@ class ContentImportService:
             entry = general_settings.get(key)
             return fallback if entry is None else entry.value
 
-        destination = options.get("destination")
+        destination = options.get(
+            "destination",
+            setting_value("ingestion_output_path_pattern", "Imported/"),
+        )
         if destination is not None:
             if not isinstance(destination, str):
                 raise ValueError("destination must be a vault-relative path")

@@ -5,6 +5,7 @@
         let activeUploadDestination = '';
         let activeImportDestination = '';
         let uploadInProgress = false;
+        let mutationInProgress = false;
         const destinationMode = window.VaultExplorerDestination.create();
 
         function workspacePath() {
@@ -24,11 +25,12 @@
             activeUploadDestination = '';
             activeImportDestination = '';
             uploadInProgress = false;
+            mutationInProgress = false;
             destinationMode.cancel();
         }
 
         function isBusy() {
-            return uploadInProgress;
+            return uploadInProgress || mutationInProgress;
         }
 
         function closeActionPanel(overlay, { restoreFocus = true } = {}) {
@@ -182,86 +184,97 @@
                             throw new Error('File uploads are unavailable.');
                         }
                         const result = await options.onUpload(file, path);
+                        if (!callbacks.isActiveOverlay(overlay)) return;
                         uploadedPaths.push(result?.path || path);
                     } catch (error) {
+                        if (!callbacks.isActiveOverlay(overlay)) return;
                         failures.push({ file, message: error.message });
                     }
                 }
+
+                if (uploadedPaths.length) {
+                    try {
+                        await callbacks.refreshExplorer(overlay, options, uploadedPaths[0]);
+                    } catch (refreshError) {
+                        if (!callbacks.isActiveOverlay(overlay)) return;
+                        callbacks.setStatus(
+                            overlay,
+                            `Upload succeeded, but the Explorer could not refresh: ${refreshError.message}`,
+                            true
+                        );
+                    }
+                    if (!callbacks.isActiveOverlay(overlay)) return;
+                }
+                let importError = null;
+                let importAcknowledgement = '';
+                if (importAfterUpload && uploadedPaths.length) {
+                    try {
+                        if (typeof options.onImportSources !== 'function') {
+                            throw new Error('Content import is unavailable.');
+                        }
+                        if (status) status.textContent = 'Upload complete. Importing to Markdown…';
+                        const importRequestOptions = window.VaultExplorerImportOptions.read(form);
+                        const result = await options.onImportSources({
+                            ...importRequestOptions,
+                            sources: uploadedPaths,
+                            destination: activeImportDestination,
+                        });
+                        const jobs = Array.isArray(result?.jobs_created)
+                            ? result.jobs_created
+                            : [];
+                        if (!callbacks.isActiveOverlay(overlay)) return;
+                        importAcknowledgement = importRequestOptions.queue_only
+                            ? `${jobs.length} import job${jobs.length === 1 ? '' : 's'} queued.`
+                            : `${jobs.length} import job${jobs.length === 1 ? '' : 's'} accepted; check Dashboard → Import for completion.`;
+                    } catch (error) {
+                        if (!callbacks.isActiveOverlay(overlay)) return;
+                        importError = error;
+                    }
+                }
+                if (!failures.length) {
+                    if (importError) {
+                        activeUploadFiles = [];
+                        form.querySelectorAll('button[type="submit"]').forEach((button) => {
+                            if (button instanceof HTMLButtonElement) button.disabled = true;
+                        });
+                        if (status) {
+                            status.innerHTML = `<span class="state-error">Upload succeeded, but import failed: ${escapeHtml(importError.message)}</span>`;
+                        }
+                        return;
+                    }
+                    closeActionPanel(overlay, { restoreFocus: false });
+                    callbacks.setStatus(
+                        overlay,
+                        importAfterUpload
+                            ? `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded. ${importAcknowledgement}`
+                            : `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded.`
+                    );
+                    return;
+                }
+
+                activeUploadFiles = failures.map(({ file }) => file);
+                renderUploadFiles(form);
+                const importButton = form.querySelector('button[value="upload_import"]');
+                if (importButton instanceof HTMLButtonElement) {
+                    importButton.disabled = !activeUploadFiles.every((file) => (
+                        window.VaultExplorerImports.supportsPath(file.name)
+                    ));
+                }
+                if (status) {
+                    status.innerHTML = (importError
+                        ? `<div class="state-error">Import failed: ${escapeHtml(importError.message)}</div>`
+                        : importAcknowledgement
+                            ? `<div class="state-success">${escapeHtml(importAcknowledgement)}</div>`
+                            : '') + failures.map(({ file, message }) => (
+                        `<div class="state-error">${escapeHtml(file.name)}: ${escapeHtml(message)}</div>`
+                    )).join('');
+                }
+                if (submit instanceof HTMLButtonElement) submit.disabled = false;
             } finally {
                 uploadInProgress = false;
                 setUploadInteractionState(overlay, form, false);
+                if (callbacks.isActiveOverlay(overlay)) callbacks.syncInteractionLocks();
             }
-
-            if (uploadedPaths.length) {
-                try {
-                    await callbacks.refreshExplorer(overlay, options, uploadedPaths[0]);
-                } catch (refreshError) {
-                    callbacks.setStatus(
-                        overlay,
-                        `Upload succeeded, but the Explorer could not refresh: ${refreshError.message}`,
-                        true
-                    );
-                }
-            }
-            let importError = null;
-            if (importAfterUpload && uploadedPaths.length) {
-                uploadInProgress = true;
-                setUploadInteractionState(overlay, form, true);
-                callbacks.syncInteractionLocks();
-                try {
-                    if (typeof options.onImportSources !== 'function') {
-                        throw new Error('Content import is unavailable.');
-                    }
-                    if (status) status.textContent = 'Upload complete. Importing to Markdown…';
-                    await options.onImportSources({
-                        ...window.VaultExplorerImportOptions.read(form),
-                        sources: uploadedPaths,
-                        destination: activeImportDestination,
-                    });
-                } catch (error) {
-                    importError = error;
-                } finally {
-                    uploadInProgress = false;
-                    setUploadInteractionState(overlay, form, false);
-                }
-            }
-            if (!failures.length) {
-                if (importError) {
-                    activeUploadFiles = [];
-                    form.querySelectorAll('button[type="submit"]').forEach((button) => {
-                        if (button instanceof HTMLButtonElement) button.disabled = true;
-                    });
-                    if (status) {
-                        status.innerHTML = `<span class="state-error">Upload succeeded, but import failed: ${escapeHtml(importError.message)}</span>`;
-                    }
-                    return;
-                }
-                closeActionPanel(overlay, { restoreFocus: false });
-                callbacks.setStatus(
-                    overlay,
-                    importAfterUpload
-                        ? `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded and imported.`
-                        : `${uploadedPaths.length} file${uploadedPaths.length === 1 ? '' : 's'} uploaded.`
-                );
-                return;
-            }
-
-            activeUploadFiles = failures.map(({ file }) => file);
-            renderUploadFiles(form);
-            const importButton = form.querySelector('button[value="upload_import"]');
-            if (importButton instanceof HTMLButtonElement) {
-                importButton.disabled = !activeUploadFiles.every((file) => (
-                    window.VaultExplorerImports.supportsPath(file.name)
-                ));
-            }
-            if (status) {
-                status.innerHTML = (importError
-                    ? `<div class="state-error">Import failed: ${escapeHtml(importError.message)}</div>`
-                    : '') + failures.map(({ file, message }) => (
-                    `<div class="state-error">${escapeHtml(file.name)}: ${escapeHtml(message)}</div>`
-                )).join('');
-            }
-            if (submit instanceof HTMLButtonElement) submit.disabled = false;
         }
 
         function setUploadInteractionState(overlay, form, busy) {
@@ -457,6 +470,8 @@
             }
             if (valueInput instanceof HTMLInputElement) valueInput.setCustomValidity('');
             if (status) status.textContent = 'Working...';
+            mutationInProgress = true;
+            callbacks.syncInteractionLocks();
             try {
                 const destination = operation === 'rename'
                     ? joinPath(parentPath(sourcePath), value)
@@ -472,6 +487,7 @@
                 };
                 if (['rename', 'move'].includes(operation)) payload.destination = destination;
                 const result = await options.onMutate?.(payload);
+                if (!callbacks.isActiveOverlay(overlay)) return;
                 callbacks.mutationCompleted?.({
                     operation,
                     sourcePath,
@@ -493,9 +509,13 @@
                 }
                 if (operation === 'create_file') options.onOpenFile?.(result?.path || targetPath);
             } catch (error) {
+                if (!callbacks.isActiveOverlay(overlay)) return;
                 if (directPath) callbacks.setStatus(overlay, error.message, true);
                 if (status) status.innerHTML = `<span class="state-error">${escapeHtml(error.message)}</span>`;
                 if (submit instanceof HTMLButtonElement) submit.disabled = false;
+            } finally {
+                mutationInProgress = false;
+                if (callbacks.isActiveOverlay(overlay)) callbacks.syncInteractionLocks();
             }
         }
 

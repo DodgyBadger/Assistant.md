@@ -47,7 +47,7 @@ assert.strictEqual(snapshot.selectedCount, 0);
 assert.strictEqual(snapshot.operations.new_file.enabled, true);
 assert.strictEqual(snapshot.operations.upload.enabled, true);
 assert.strictEqual(snapshot.operations.import_url.enabled, true);
-assert.strictEqual(snapshot.operations.open.enabled, false);
+assert.strictEqual(Object.hasOwn(snapshot.operations, 'open'), false);
 
 state.setActiveFolder('/Projects//Current/');
 snapshot = state.snapshot();
@@ -58,7 +58,6 @@ state.select({ path: 'Projects/Current/source.pdf', kind: 'file', importEligible
 snapshot = state.snapshot();
 assert.strictEqual(snapshot.selectedCount, 1);
 assert.deepStrictEqual(snapshot.selectedPaths, ['Projects/Current/source.pdf']);
-assert.strictEqual(snapshot.operations.open.enabled, true);
 assert.strictEqual(snapshot.operations.import_file.enabled, true);
 assert.strictEqual(snapshot.operations.rename.enabled, true);
 assert.strictEqual(snapshot.operations.upload.enabled, false);

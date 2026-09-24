@@ -127,6 +127,7 @@ def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> 
     assert "visibleTreeRows" in source
     assert "event.key === 'ArrowDown'" in source
     assert "event.key === 'ArrowRight'" in source
+    assert source.count("event.stopPropagation();") >= 2
     assert "await loadMoreResults(more, options)" in source
     assert 'aria-level="${depth + 1}"' in source
     assert (

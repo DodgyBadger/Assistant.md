@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import glob
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -52,7 +51,7 @@ from core.vault_state.pathing import (
     normalize_vault_relative_path,
     resolve_vault_relative_path,
 )
-from core.vault_state.search import VaultContentSearchError, search_vault_content
+from core.vault_state.search import VaultContentSearchError, search_content_roots
 
 
 class VaultFileOperationRejected(Exception):
@@ -426,103 +425,28 @@ def search_vault_files_operation(
             metadata={"match_count": 0, "matches": []},
         )
 
-    if not result_prefix and len(search_roots) == 1 and search_roots[0].is_dir():
-        try:
-            structured = search_vault_content(
-                vault_path=vault_root,
-                path=(
-                    search_roots[0].relative_to(vault_root).as_posix()
-                    if search_roots[0] != vault_root
-                    else ""
-                ),
-                query=query,
-                limit=_default_list_max_results(),
-                timeout_seconds=_default_search_timeout_seconds(),
-            )
-        except VaultContentSearchError as exc:
-            return _operation_result(
-                str(exc),
-                operation="search",
-                path=search_path,
-                search_term=query,
-                status="error",
-                error_type=exc.code,
-            )
-        matches = [
-            f"{match.path}:{match.line}:{match.snippet}" for match in structured.matches
-        ]
-        if not matches:
-            return _operation_result(
-                f"No matches found for '{query}' in text files",
-                operation="search",
-                path=search_path,
-                search_term=query,
-                status="completed",
-                metadata={"match_count": 0, "matches": [], "truncated": False},
-            )
-        return _operation_result(
-            "\n".join(matches),
-            operation="search",
-            path=search_path,
-            search_term=query,
-            status="completed",
-            metadata={
-                "match_count": len(matches),
-                "matches": matches,
-                "truncated": structured.truncated,
-            },
-        )
-
-    command = [
-        "rg",
-        "--no-heading",
-        "--with-filename",
-        "--line-number",
-        "--color",
-        "never",
-        "--ignore-case",
-        query,
-        *(str(root) for root in search_roots),
-    ]
     try:
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=_default_search_timeout_seconds(),
-            check=False,
+        structured = search_content_roots(
+            root_path=result_root,
+            search_roots=search_roots,
+            query=query,
+            limit=_default_list_max_results(),
+            timeout_seconds=_default_search_timeout_seconds(),
         )
-    except FileNotFoundError:
+    except VaultContentSearchError as exc:
         return _operation_result(
-            "Error: ripgrep (rg) not found. Please install ripgrep to use search functionality.",
+            str(exc),
             operation="search",
             path=search_path,
             search_term=query,
             status="error",
-            error_type="ripgrep_not_found",
+            error_type=exc.code,
         )
-    except subprocess.TimeoutExpired:
-        return _operation_result(
-            f"Search timed out for '{query}'.",
-            operation="search",
-            path=search_path,
-            search_term=query,
-            status="error",
-            error_type="timeout",
-        )
-    if completed.returncode not in {0, 1}:
-        return _operation_result(
-            completed.stderr.strip() or f"Search failed for '{query}'.",
-            operation="search",
-            path=search_path,
-            search_term=query,
-            status="error",
-            error_type="search_failed",
-        )
-
-    matches = _format_rg_matches(
-        completed.stdout, result_root, result_prefix=result_prefix
-    )
+    matches = [
+        f"{f'{result_prefix}/' if result_prefix else ''}{match.path}:"
+        f"{match.line}:{match.snippet}"
+        for match in structured.matches
+    ]
     if not matches:
         return _operation_result(
             f"No matches found for '{query}' in text files",
@@ -530,7 +454,7 @@ def search_vault_files_operation(
             path=search_path,
             search_term=query,
             status="completed",
-            metadata={"match_count": 0, "matches": []},
+            metadata={"match_count": 0, "matches": [], "truncated": False},
         )
     return _operation_result(
         "\n".join(matches),
@@ -538,7 +462,11 @@ def search_vault_files_operation(
         path=search_path,
         search_term=query,
         status="completed",
-        metadata={"match_count": len(matches), "matches": matches},
+        metadata={
+            "match_count": len(matches),
+            "matches": matches,
+            "truncated": structured.truncated,
+        },
     )
 
 
@@ -2201,25 +2129,6 @@ def _resolve_search_roots(root: Path, scope: str) -> list[Path]:
             continue
         matches.append(match)
     return sorted(dict.fromkeys(matches))
-
-
-def _format_rg_matches(
-    output: str, vault_root: Path, *, result_prefix: str = ""
-) -> list[str]:
-    matches: list[str] = []
-    for line in output.splitlines():
-        parts = line.split(":", 2)
-        if len(parts) < 3:
-            continue
-        file_path, line_number, text = parts
-        try:
-            relative = _relative_to_root(vault_root, Path(file_path).resolve())
-        except VaultFileOperationRejected:
-            continue
-        if result_prefix:
-            relative = f"{result_prefix}/{relative}"
-        matches.append(f"{relative}:{line_number}: {text}")
-    return matches
 
 
 def _virtual_mount_key(path: str) -> str | None:

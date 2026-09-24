@@ -4,14 +4,18 @@
         let activePickerId = '';
         let activeOnClose = null;
         let activeOptions = null;
+        let activeOpener = null;
         let rootLoadGeneration = 0;
         let rootAbortController = null;
+        let cancelPendingSearch = () => {};
+        let treeExpansionGeneration = 0;
         const explorerSearch = window.VaultExplorerSearch.create({ utils });
         const explorerActions = window.VaultExplorerActions.create({
             icons,
             utils,
             callbacks: {
                 batchMutationCompleted,
+                isActiveOverlay,
                 isReadOnly,
                 mutationCompleted,
                 refreshExplorer,
@@ -40,9 +44,13 @@
                 beginDestinationMode: explorerActions.beginDestinationMode,
                 closeActionPanel: explorerActions.closeActionPanel,
                 destinationSnapshot: explorerActions.destinationSnapshot,
+                isActiveOverlay,
+                isBusy: isExplorerBusy,
                 isReadOnly,
                 refreshExplorer,
                 selectDestination: explorerActions.selectDestination,
+                setStatus,
+                syncInteractionLocks,
                 workspacePath,
             },
         });
@@ -50,7 +58,6 @@
             icons,
             utils,
             callbacks: {
-                expandDirectory,
                 handleBatchMove: explorerBatchMoves.show,
                 handleImportAction,
                 handleMutationAction: explorerActions.handleAction,
@@ -70,6 +77,12 @@
         }
 
         function workspacePath() {
+            if (
+                activeOptions
+                && Object.prototype.hasOwnProperty.call(activeOptions, 'workspacePath')
+            ) {
+                return String(activeOptions.workspacePath || '').trim();
+            }
             return (elements.workspacePathInput?.value || '').trim();
         }
 
@@ -78,7 +91,17 @@
         }
 
         function isExplorerBusy() {
-            return explorerActions.isBusy() || explorerImports.isBusy();
+            return explorerActions.isBusy()
+                || explorerImports.isBusy()
+                || explorerBatchMoves.isBusy();
+        }
+
+        function isActiveOverlay(overlay) {
+            return Boolean(
+                overlay?.isConnected
+                && activePickerId
+                && document.getElementById(activePickerId) === overlay
+            );
         }
 
         function mutationCompleted({ operation, sourcePath, targetPath, kind }) {
@@ -95,7 +118,9 @@
                 alert(options.missingVaultMessage || 'Select a vault first.');
                 return;
             }
+            const opener = document.activeElement;
             close();
+            activeOpener = typeof opener?.focus === 'function' ? opener : null;
             const id = options.id || 'vault-path-picker-modal';
             activePickerId = id;
             activeOnClose = typeof options.onClose === 'function' ? options.onClose : null;
@@ -250,7 +275,7 @@
                             'data-vault-explorer-search-mode-option'
                         ) || 'name';
                     }
-                    closeSearchModeMenu(overlay);
+                    closeSearchModeMenu(overlay, { restoreFocus: true });
                     syncSearchPlaceholder();
                     loadRoot();
                     return;
@@ -276,7 +301,8 @@
                     return;
                 }
                 if (target.closest('[data-vault-explorer-action-cancel]')) {
-                    if (explorerActions.isBusy()) return;
+                    if (isExplorerBusy()) return;
+                    explorerImports.reset();
                     explorerActions.closeActionPanel(overlay);
                     return;
                 }
@@ -357,11 +383,59 @@
                 }
             });
             overlay.addEventListener('keydown', async (event) => {
+                const searchModeMenu = event.target instanceof Element
+                    ? event.target.closest('[data-vault-explorer-search-mode-menu]')
+                    : null;
+                if (event.key === 'Escape' && searchModeMenu instanceof HTMLElement) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closeSearchModeMenu(overlay, { restoreFocus: true });
+                    return;
+                }
+                if (
+                    searchModeMenu instanceof HTMLElement
+                    && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)
+                ) {
+                    const menuOptions = Array.from(
+                        searchModeMenu.querySelectorAll('[data-vault-explorer-search-mode-option]')
+                    );
+                    const currentIndex = menuOptions.indexOf(event.target);
+                    let nextIndex;
+                    if (event.key === 'Home') nextIndex = 0;
+                    else if (event.key === 'End') nextIndex = menuOptions.length - 1;
+                    else if (event.key === 'ArrowDown') {
+                        nextIndex = (currentIndex + 1) % menuOptions.length;
+                    } else {
+                        nextIndex = (currentIndex - 1 + menuOptions.length) % menuOptions.length;
+                    }
+                    event.preventDefault();
+                    menuOptions[nextIndex]?.focus?.();
+                    return;
+                }
+                if (event.key === 'Tab') {
+                    const focusable = Array.from(overlay.querySelectorAll(
+                        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+                    )).filter((element) => !element.closest('[hidden], .hidden'));
+                    if (focusable.length) {
+                        const first = focusable[0];
+                        const last = focusable[focusable.length - 1];
+                        if (event.shiftKey && document.activeElement === first) {
+                            event.preventDefault();
+                            last.focus();
+                        } else if (!event.shiftKey && document.activeElement === last) {
+                            event.preventDefault();
+                            first.focus();
+                        }
+                    }
+                }
                 if (!options.explorer) return;
                 if (event.key === 'Escape') {
                     const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
                     if (panel instanceof HTMLElement && !panel.classList.contains('hidden')) {
+                        if (isExplorerBusy()) return;
                         event.preventDefault();
+                        event.stopPropagation();
+                        explorerImports.reset();
                         explorerActions.closeActionPanel(overlay);
                     }
                     return;
@@ -425,6 +499,7 @@
                 }
             });
             const debouncedLoad = debounce(loadRoot, 180);
+            cancelPendingSearch = debouncedLoad.cancel;
             queryInput?.addEventListener('input', debouncedLoad);
             uploadInput?.addEventListener('change', () => {
                 explorerActions.setUploadFiles(
@@ -442,6 +517,7 @@
                 syncSearchPlaceholder();
                 loadRoot();
             });
+            (queryInput || overlay.querySelector('[data-vault-path-picker-close]'))?.focus?.();
             const initialPath = options.revealInitialPath
                 ? ''
                 : (options.initialPath || (options.explorer ? explorer.snapshot().activeFolder : ''));
@@ -458,6 +534,11 @@
         }
 
         function close() {
+            const opener = activeOpener;
+            activeOpener = null;
+            cancelPendingSearch();
+            cancelPendingSearch = () => {};
+            treeExpansionGeneration += 1;
             rootAbortController?.abort();
             rootAbortController = null;
             explorerSearch.cancel();
@@ -471,8 +552,10 @@
             activeOnClose = null;
             activeOptions = null;
             explorer.close();
+            explorerBatchMoves.reset();
             explorerImports.reset();
             explorerActions.reset();
+            if (opener?.isConnected !== false) opener?.focus?.();
         }
 
         function handleImportAction(action, overlay, snapshot, options) {
@@ -507,13 +590,20 @@
             const opening = menu.hidden;
             menu.hidden = !opening;
             toggle.setAttribute('aria-expanded', String(opening));
+            if (opening) {
+                const selected = Array.from(
+                    menu.querySelectorAll('[data-vault-explorer-search-mode-option]')
+                ).find((option) => option.getAttribute('aria-checked') === 'true');
+                selected?.focus?.();
+            }
         }
 
-        function closeSearchModeMenu(overlay) {
+        function closeSearchModeMenu(overlay, { restoreFocus = false } = {}) {
             const menu = overlay.querySelector('[data-vault-explorer-search-mode-menu]');
             const toggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
             if (menu instanceof HTMLElement) menu.hidden = true;
             toggle?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus) toggle?.focus?.();
         }
 
         function navigateExplorerLocation(path) {
@@ -560,39 +650,28 @@
             firstSelected?.scrollIntoView({ block: 'nearest' });
         }
 
-        async function expandDirectory(overlay, path, options) {
-            const row = Array.from(
-                overlay.querySelectorAll('[data-vault-path-picker-row]')
-            ).find((candidate) => (
-                candidate instanceof HTMLElement
-                && candidate.getAttribute('data-vault-path-picker-row') === path
-            ));
-            const toggle = row?.querySelector(
-                ':scope > .workspace-tree-row [data-vault-path-picker-toggle]'
-            );
-            if (
-                toggle instanceof HTMLElement
-                && toggle.getAttribute('aria-expanded') !== 'true'
-            ) {
-                await toggleNode(overlay, toggle, options);
-            }
-        }
-
         async function expandAllFolders(overlay, options, button) {
+            const generation = ++treeExpansionGeneration;
             button.disabled = true;
             try {
                 while (true) {
+                    if (
+                        generation !== treeExpansionGeneration
+                        || !isActiveOverlay(overlay)
+                    ) return;
                     const collapsed = Array.from(
                         overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="false"]')
                     );
                     if (!collapsed.length) return;
                     for (const toggle of collapsed) {
+                        if (generation !== treeExpansionGeneration) return;
                         if (
                             toggle instanceof HTMLElement
                             && toggle.isConnected
                             && toggle.getAttribute('aria-expanded') === 'false'
                         ) {
                             await toggleNode(overlay, toggle, options);
+                            if (generation !== treeExpansionGeneration) return;
                         }
                     }
                 }
@@ -602,6 +681,7 @@
         }
 
         function collapseAllFolders(overlay) {
+            treeExpansionGeneration += 1;
             overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="true"]')
                 .forEach((toggle) => toggle.setAttribute('aria-expanded', 'false'));
             overlay.querySelectorAll('[data-vault-path-picker-children]')
@@ -700,6 +780,7 @@
                 vault: options.vaultName || selectedVault(),
                 query,
                 path: searchScopePath(overlay),
+                selectable: options.explorer === true,
                 selectedPaths: explorer.snapshot().selectedPaths,
                 supportsPath: window.VaultExplorerImports.supportsPath,
                 setStatus: (message) => setStatus(overlay, message),
@@ -746,6 +827,7 @@
             const expanded = toggle.getAttribute('aria-expanded') === 'true';
             const treeItem = row.querySelector(':scope > .workspace-tree-row');
             if (expanded) {
+                treeExpansionGeneration += 1;
                 toggle.setAttribute('aria-expanded', 'false');
                 treeItem?.setAttribute('aria-expanded', 'false');
                 children.classList.add('hidden');
@@ -757,12 +839,18 @@
             if (children.dataset.loaded === 'true') return;
 
             const path = row.getAttribute('data-vault-path-picker-row') || '';
+            const generation = treeExpansionGeneration;
             children.innerHTML = '<div class="py-1 text-xs text-txt-secondary">Loading...</div>';
             try {
                 const mode = options.mode === 'directories' ? 'directories' : 'files';
                 const depth = Number.parseInt(row.getAttribute('data-vault-path-picker-depth') || '0', 10) + 1;
                 if (mode === 'directories') {
                     const payload = await fetchDirectories(path, undefined, options);
+                    if (
+                        generation !== treeExpansionGeneration
+                        || !isActiveOverlay(overlay)
+                        || toggle.getAttribute('aria-expanded') !== 'true'
+                    ) return;
                     const items = Array.isArray(payload.directories)
                         ? payload.directories.map((item) => ({ ...item, kind: 'directory' }))
                         : [];
@@ -771,6 +859,11 @@
                         : '<div class="py-1 text-xs text-txt-secondary">No child folders.</div>';
                 } else {
                     const payload = await fetchFileRefs({ path, scope: 'vault', options });
+                    if (
+                        generation !== treeExpansionGeneration
+                        || !isActiveOverlay(overlay)
+                        || toggle.getAttribute('aria-expanded') !== 'true'
+                    ) return;
                     const items = Array.isArray(payload.items) ? payload.items : [];
                     children.innerHTML = items.length
                         ? items.map((item) => renderRow(item, depth, options)).join('') + renderLoadMore(payload, depth, options)
@@ -780,6 +873,7 @@
                 explorerActions.syncDestinationSelection(overlay);
                 explorer.render();
             } catch (error) {
+                if (generation !== treeExpansionGeneration || !isActiveOverlay(overlay)) return;
                 children.innerHTML = `<div class="py-1 text-xs state-error">Unable to load paths: ${escapeHtml(error.message)}</div>`;
             }
         }
@@ -945,10 +1039,18 @@
 
         function debounce(fn, delayMs) {
             let timer = null;
-            return (...args) => {
+            const debounced = (...args) => {
                 if (timer) window.clearTimeout(timer);
-                timer = window.setTimeout(() => fn(...args), delayMs);
+                timer = window.setTimeout(() => {
+                    timer = null;
+                    fn(...args);
+                }, delayMs);
             };
+            debounced.cancel = () => {
+                if (timer) window.clearTimeout(timer);
+                timer = null;
+            };
+            return debounced;
         }
 
         return Object.freeze({ open, close, syncInteractionLocks });

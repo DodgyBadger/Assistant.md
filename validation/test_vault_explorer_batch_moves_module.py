@@ -21,7 +21,10 @@ const controller = VaultExplorerBatchMoves.create({
     utils: { escapeHtml(value) { return String(value); } },
     callbacks: {},
 });
-assert.deepStrictEqual(Object.keys(controller).sort(), ['show', 'submit']);
+assert.deepStrictEqual(
+    Object.keys(controller).sort(),
+    ['isBusy', 'reset', 'show', 'submit']
+);
 """
     subprocess.run(
         ["node", "-e", harness, str(_MODULE)],

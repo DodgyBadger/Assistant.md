@@ -52,7 +52,8 @@
             workspaceSelection = false,
         } = {}) {
             const vault = vaultName || selectedVault();
-            const savedWorkspace = workspacePath();
+            const contextBound = vault === selectedVault();
+            const savedWorkspace = contextBound ? workspacePath() : '';
             const workspaceRecovery = Boolean(savedWorkspace)
                 && state.workspaceExists === false;
             const workspaceSelectionMode = workspaceRecovery || workspaceSelection;
@@ -74,6 +75,7 @@
                 selectedPath: workspaceSelectionMode ? savedWorkspace : '',
                 workspaceRecovery,
                 workspaceSelectionMode,
+                workspacePath: savedWorkspace,
                 explorer: true,
                 importOptions,
                 importSources,
@@ -86,12 +88,13 @@
                     if (kind === 'file') openFile(path, { vaultName: vault, onBack: () => {} });
                 },
                 onOpenFile: (path) => openFile(path, { vaultName: vault, onBack: () => {} }),
-                onAddReference: insertReference,
-                onSetWorkspace: async (path) => {
-                    if (interactionLocked()) return;
+                onAddReference: contextBound ? insertReference : undefined,
+                onSetWorkspace: contextBound ? async (path) => {
+                    if (interactionLocked()) return false;
                     const saved = await callbacks.setWorkspace?.(path);
                     if (workspaceSelectionMode && saved === true) closePicker();
-                },
+                    return saved === true;
+                } : undefined,
                 onMutate: (payload) => mutatePath(payload, vault),
                 onBatchMove: (payload) => movePathsBatch(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),

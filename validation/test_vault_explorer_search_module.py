@@ -59,6 +59,14 @@ assert.match(rendered, /data-import-eligible="true"/);
 assert.match(rendered, /is-selected/);
 assert.doesNotMatch(rendered, /<script>/);
 assert.strictEqual((rendered.match(/data-vault-path-picker-row=/g) || []).length, 1);
+
+const pickerRendered = controller.render({
+    matches: [{ path: 'Notes/result.md', line: 1, column: 1, snippet: 'Match' }],
+}, {
+    selectable: false,
+    supportsPath() { return true; },
+});
+assert.doesNotMatch(pickerRendered, /data-vault-explorer-select-item/);
 """
     subprocess.run(
         ["node", "-e", harness, str(_SEARCH_MODULE)],

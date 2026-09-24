@@ -15,8 +15,10 @@ import yaml
 from core.constants import ASSISTANTMD_ROOT_DIR, IMPORT_DIR
 from core.ingestion.jobs import (
     IngestionJob,
+    IngestionJobCreate,
     claim_queued_job,
     create_job,
+    create_jobs,
     get_job,
     init_db,
     list_jobs,
@@ -73,6 +75,28 @@ class IngestionService:
         )
         opts = options or {}
         return create_job(source_uri, vault_root.name, source_type, mime_hint, opts)
+
+    def enqueue_jobs(
+        self,
+        requests: list[IngestionJobCreate],
+        *,
+        vault: str,
+    ) -> list[IngestionJob]:
+        """Persist one vault-bound job batch atomically."""
+        vault_root = resolve_configured_vault_root(
+            data_root=get_data_root(), vault_name=vault
+        )
+        normalized = [
+            IngestionJobCreate(
+                source_uri=request.source_uri,
+                vault=vault_root.name,
+                source_type=request.source_type,
+                mime_hint=request.mime_hint,
+                options=request.options or {},
+            )
+            for request in requests
+        ]
+        return create_jobs(normalized)
 
     def list_recent_jobs(self, limit: int = 50) -> list[IngestionJob]:
         return list_jobs(limit)
