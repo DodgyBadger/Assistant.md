@@ -13,7 +13,7 @@ Run a supervised child agent over a focused prompt with optional tools. A delega
 
 Use `delegate` for isolated model work, not as a larger context bucket. Before discretionary delegation in chat, briefly tell the user the delegation strategy and wait for confirmation; an explicit user request to delegate already provides that confirmation. If one deterministic tool call can answer, use that directly. Scope each child by path, query, source group, hypothesis, or deliverable, and ask it to return a compact summary or durable artifact path.
 
-Blocking mode is the default and preserves the direct call contract. Managed mode returns a job handle promptly, allowing the parent to continue useful independent work and supervise the child with `job`. A managed child is detached from the launching task lifecycle, so the parent may return its job ID and resume supervision in a later turn. Use managed mode when work may take a while or when progress visibility and cancellation matter.
+Blocking mode is the default and preserves the direct call contract. Managed mode returns a job handle promptly, allowing the parent to continue useful independent work and supervise the child with `job`. Use managed mode when work may take a while or when progress visibility and cancellation matter. If the current request depends on the child's result, wait for it and integrate the terminal result before answering. Leave a required managed child active across turns only when the user requested background work or completion requires new user input; provide the job ID and current status, and never present unfinished work as complete.
 
 ## Arguments
 

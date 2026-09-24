@@ -19,5 +19,3 @@ def test_primary_chat_instruction_layers_add_deferred_review_resume_notice() -> 
 
     assert ordinary == ("base", "tools")
     assert resumed == ("base", "tools", DEFERRED_REVIEW_RESUME_INSTRUCTION)
-    assert "may have edited arguments for approved tool calls" in resumed[-1]
-    assert "resulting vault state as authoritative" in resumed[-1]

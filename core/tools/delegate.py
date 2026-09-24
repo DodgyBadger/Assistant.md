@@ -807,8 +807,8 @@ class DelegateTool(BaseTool):
             name="delegate",
             description=(
                 "Run a focused child agent over a prompt with optional tools. "
-                "Use managed mode for independent long-running work that may continue "
-                "after the launching task ends."
+                "Managed mode returns a supervised job; wait for its result before "
+                "answering when the current request depends on it."
             ),
         )
 
