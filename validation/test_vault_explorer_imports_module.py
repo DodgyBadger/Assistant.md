@@ -41,6 +41,41 @@ assert.deepStrictEqual(
     ['isBusy', 'reset', 'showFiles', 'showUrl', 'submit', 'updateDestination']
 );
 assert.strictEqual(controller.isBusy(), false);
+
+global.HTMLElement = class HTMLElement {};
+global.HTMLInputElement = class HTMLInputElement extends HTMLElement {};
+global.HTMLSelectElement = class HTMLSelectElement extends HTMLElement {};
+global.HTMLFormElement = class HTMLFormElement extends HTMLElement {
+    constructor() {
+        super();
+        this.elements = { namedItem() { return null; } };
+    }
+    addEventListener() {}
+    querySelector(selector) {
+        if (selector === '[data-vault-explorer-import-options-summary]') {
+            return { textContent: '' };
+        }
+        return null;
+    }
+    querySelectorAll() { return []; }
+};
+const form = new HTMLFormElement();
+const panel = new HTMLElement();
+panel.dataset = {};
+panel.classList = { remove() {} };
+panel.querySelector = (selector) => (
+    selector === '[data-vault-explorer-import-form]' ? form : null
+);
+const overlay = {
+    querySelector(selector) {
+        return selector === '[data-vault-explorer-action-panel]' ? panel : null;
+    },
+};
+assert.doesNotThrow(() => controller.showUrl(overlay, { destination: '' }, {
+    onImportSources() {},
+}));
+assert.match(panel.innerHTML, /Document URL/);
+assert.match(panel.innerHTML, /Vault root/);
 """
     subprocess.run(
         ["node", "-e", harness, str(_IMPORT_OPTIONS_MODULE), str(_IMPORTS_MODULE)],

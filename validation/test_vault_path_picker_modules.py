@@ -119,6 +119,7 @@ def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> 
 
     assert "data-vault-explorer-toolbar" in source
     assert "data-vault-explorer-header-location" in source
+    assert "vault-path-picker-body" in source
     assert "vault-explorer-search-control" in source
     assert 'data-vault-explorer-tree="expand"' in source
     assert 'data-vault-explorer-tree="collapse"' in source

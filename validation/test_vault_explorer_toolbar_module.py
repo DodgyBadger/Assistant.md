@@ -16,6 +16,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 global.window = global;
+global.innerWidth = 320;
 vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
     filename: process.argv[1],
 });
@@ -23,8 +24,14 @@ vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
 const handlers = {};
 const locationHandlers = {};
 const selectionHandlers = {};
-const createOptions = { hidden: true };
-const importOptions = { hidden: true };
+const createOptions = { hidden: true, style: {} };
+const importOptions = {
+    hidden: true,
+    style: {},
+    getBoundingClientRect() {
+        return { left: -80, right: 88 };
+    },
+};
 const createToggle = {
     disabled: false,
     expanded: 'false',
@@ -218,6 +225,7 @@ handlers.click({
 });
 assert.strictEqual(importOptions.hidden, false);
 assert.strictEqual(importToggle.expanded, 'true');
+assert.strictEqual(importOptions.style.transform, 'translateX(88px)');
 
 handlers.keydown({ key: 'Escape' });
 assert.strictEqual(importOptions.hidden, true);
