@@ -78,8 +78,6 @@ preserves portability and lets users continue using any external editor.
 ## Evidence
 
 - Current system map: `docs/development/architecture.md`
-- Implementation: `static/js/file-references.js`,
-  `static/js/vault-path-picker.js`, `static/js/workspace-picker.js`,
-  `static/js/vault-activity.js`, `api/services.py`
+- Implementation: `static/js/file-references.js`, `static/js/vault-path-picker.js`, `static/js/vault-explorer-controller.js`, `static/js/vault-explorer-actions.js`, `static/js/workspace-picker.js`, `static/js/vault-activity.js`, and `api/services/vault_files.py`
 - Validation: `validation/scenarios/integration/core/vault_file_reference_api.py`
 - Implementation plan: `inline-editor-implementation-plan.md`
