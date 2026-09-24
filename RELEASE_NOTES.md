@@ -4,7 +4,7 @@
 
 This release significantly improves the Vault Explorer, making everyday file and import tasks faster and easier.
 
-- Navigate folders, select multiple items, search names or contents, and create, upload, move, import, or add files to prompts from a compact operation bar.
+- Navigate folders, select multiple items, search files and contents, and create, upload, move, import, or add files to prompts from a compact operation bar.
 - We split the frontend into focused modules and hardened asynchronous operations, batch moves, imports, and error recovery for a more reliable experience.
 
 ## v0.8.1
