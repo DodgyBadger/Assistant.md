@@ -33,6 +33,11 @@ _ALLOWED_OCR_TABLE_FORMATS = {"markdown", "html"}
 _ALLOWED_OCR_CONFIDENCE = {"page", "word"}
 
 
+def supported_file_extensions() -> list[str]:
+    """Return the registered vault-file import extensions."""
+    return sorted(key for key in importer_registry.keys() if key.startswith("."))
+
+
 def translate_ocr_options(options: dict[str, Any]) -> dict[str, Any]:
     """Validate public OCR enrichment options and return extractor options."""
     translated: dict[str, Any] = {}
@@ -207,9 +212,7 @@ class ContentImportService:
         )
         if not resolved.is_file():
             raise ValueError(f"Vault file source does not exist: {source}")
-        supported_extensions = {
-            key for key in importer_registry.keys() if key.startswith(".")
-        }
+        supported_extensions = set(supported_file_extensions())
         if resolved.suffix.lower() not in supported_extensions:
             raise ValueError(f"Vault file source type is not supported: {source}")
         relative_source = resolved.relative_to(self._vault_path).as_posix()
@@ -232,6 +235,12 @@ class ContentImportService:
             )
 
         translated: dict[str, Any] = {}
+        general_settings = get_general_settings()
+
+        def setting_value(key: str, fallback: Any) -> Any:
+            entry = general_settings.get(key)
+            return fallback if entry is None else entry.value
+
         destination = options.get("destination")
         if destination is not None:
             if not isinstance(destination, str):
@@ -259,7 +268,9 @@ class ContentImportService:
             ).as_posix()
             translated["output_path_pattern"] = relative_destination
 
-        pdf_mode = options.get("pdf_mode")
+        pdf_mode = options.get(
+            "pdf_mode", setting_value("ingestion_pdf_default_mode", "markdown")
+        )
         if pdf_mode is not None:
             normalized_pdf_mode = str(pdf_mode).strip().lower()
             if normalized_pdf_mode not in _ALLOWED_PDF_MODES:
@@ -268,6 +279,14 @@ class ContentImportService:
 
         for option_name in ("strategies", "pdf_strategies"):
             strategies = options.get(option_name)
+            if (
+                option_name == "pdf_strategies"
+                and strategies is None
+                and options.get("strategies") is None
+            ):
+                strategies = setting_value(
+                    "ingestion_pdf_default_strategies", ["pdf_ocr", "pdf_text"]
+                )
             if strategies is None:
                 continue
             if not isinstance(strategies, list) or not strategies:
@@ -282,6 +301,10 @@ class ContentImportService:
             translated[option_name] = normalized_strategies
 
         extractor_options: dict[str, Any] = {}
+        if "capture_ocr_images" not in options:
+            extractor_options["ocr_capture_images"] = bool(
+                setting_value("ingestion_ocr_capture_images", False)
+            )
         for public_name, internal_name in (
             ("capture_ocr_images", "ocr_capture_images"),
             ("clean_html", "clean_html"),

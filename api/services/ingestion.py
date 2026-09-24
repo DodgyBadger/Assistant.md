@@ -5,8 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from core.constants import ASSISTANTMD_ROOT_DIR, IMPORT_DIR
-from core.identity import require_current_execution_authority
-from core.ingestion.import_service import ContentImportService, translate_ocr_options
+from core.identity import ExecutionAuthority, require_current_execution_authority
+from core.ingestion.import_service import (
+    ContentImportService,
+    supported_file_extensions,
+    translate_ocr_options,
+)
 from core.ingestion.jobs import (
     IngestionJob,
     cancel_queued_job,
@@ -17,7 +21,6 @@ from core.ingestion.jobs import (
     list_jobs,
 )
 from core.ingestion.models import JobStatus, SourceKind
-from core.ingestion.registry import importer_registry
 from core.ingestion.service import IngestionService
 from core.ingestion.task_execution import process_ingestion_job_now
 from core.runtime.context import RuntimeContext
@@ -70,6 +73,29 @@ def cancel_import_job(job_id: int) -> IngestionJob:
         },
     )
     return job
+
+
+def get_import_job(job_id: int) -> IngestionJob:
+    """Return one durable import job or raise a stable not-found error."""
+    job = get_runtime_context().ingestion.get_job(job_id)
+    if job is None:
+        raise ValueError(f"Import job {job_id} not found")
+    return job
+
+
+async def process_import_jobs_background(
+    job_ids: list[int], authority: ExecutionAuthority
+) -> None:
+    """Process accepted interactive import jobs after the response is sent."""
+    runtime = get_runtime_context()
+    for job_id in job_ids:
+        await process_ingestion_job_now(
+            ingestion=runtime.ingestion,
+            task_coordinator=runtime.task_coordinator,
+            job_id=job_id,
+            source=ExecutionTaskSource.API,
+            authority=authority,
+        )
 
 
 def trigger_import_queue_now() -> tuple[int, datetime]:
@@ -162,7 +188,7 @@ def _enqueue_import_scan_jobs(
     ingest_service = runtime.ingestion
     jobs_created: list[IngestionJob] = []
     skipped: list[str] = []
-    supported_exts = {key for key in importer_registry.keys() if key.startswith(".")}
+    supported_exts = set(supported_file_extensions())
 
     search_roots = [import_root]
     if legacy_import_root.exists():
@@ -286,7 +312,7 @@ async def import_sources_direct(
     pdf_mode: str | None = None,
     ocr_options: dict[str, Any] | None = None,
 ) -> list[IngestionJob]:
-    """Submit validated vault-file or URL sources and optionally process them."""
+    """Submit validated vault-file or URL sources to the ingestion queue."""
     runtime = get_runtime_context()
     vault_root = resolve_configured_vault_root(
         data_root=runtime.config.data_root,
@@ -313,19 +339,6 @@ async def import_sources_direct(
         if job is None:
             raise RuntimeError(f"Import job {item.job_id} was not created")
         jobs.append(job)
-
-    if not queue_only:
-        processed: list[IngestionJob] = []
-        for job in jobs:
-            await process_ingestion_job_now(
-                ingestion=runtime.ingestion,
-                task_coordinator=runtime.task_coordinator,
-                job_id=job.id,
-                source=ExecutionTaskSource.API,
-                authority=require_current_execution_authority(),
-            )
-            processed.append(runtime.ingestion.get_job(job.id) or job)
-        jobs = processed
 
     logger.info(
         "Direct content import submitted",

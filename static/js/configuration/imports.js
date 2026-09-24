@@ -10,6 +10,40 @@
         return setting ? setting.value : fallback;
     }
 
+    function normalizeOutputPaths(outputs) {
+        if (!Array.isArray(outputs)) return [];
+        return Array.from(new Set(outputs.map(value => String(value || '').trim()).filter(Boolean)));
+    }
+
+    function renderImportOutputLinks(outputs, vault, { compact = false } = {}) {
+        const paths = normalizeOutputPaths(outputs);
+        if (!paths.length) return '<span class="subtle">No output files</span>';
+        const listClass = compact ? 'space-y-1' : 'space-y-1 ml-4';
+        return `<ul class="${listClass}">${paths.map((path) => `
+            <li class="break-words">
+                <button type="button" class="vault-file-link vault-file-link-code text-left break-all"
+                    data-import-output-path="${helpers.escapeHtml(path)}"
+                    data-import-output-vault="${helpers.escapeHtml(vault || '')}"
+                    title="Open ${helpers.escapeHtml(path)} in the vault viewer">${helpers.escapeHtml(path)}</button>
+            </li>`).join('')}</ul>`;
+    }
+
+    function renderImportSource(source, vault = '') {
+        const value = String(source || 'unknown');
+        try {
+            const parsed = new URL(value);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                return `<a class="vault-file-link break-all" href="${helpers.escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${helpers.escapeHtml(value)}</a>`;
+            }
+        } catch (_error) {
+            // Vault-relative sources are rendered as Explorer links.
+        }
+        return `<button type="button" class="vault-file-link vault-file-link-code text-left break-all"
+            data-import-source-path="${helpers.escapeHtml(value)}"
+            data-import-source-vault="${helpers.escapeHtml(vault)}"
+            title="Show ${helpers.escapeHtml(value)} in the Vault Explorer">${helpers.escapeHtml(value)}</button>`;
+    }
+
     function updateImportOcrAvailability() {
         if (!elements.importPdfModeSelect || !elements.importPdfStrategySelect) return;
         const configuredStrategies = settingValue(
@@ -211,6 +245,8 @@
         loadImportVaults,
         openImportExplorer,
         renderImportVaults,
+        renderImportOutputLinks,
+        renderImportSource,
         saveImportDefaults,
         updateImportDefaultControls,
         updateImportOcrAvailability,

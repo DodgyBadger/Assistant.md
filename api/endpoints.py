@@ -5,7 +5,7 @@ API endpoint implementations for the AssistantMD system.
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Query, Request
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -21,6 +21,7 @@ from api.import_models import (
     ImportJobCancelResponse,
     ImportJobInfo,
     ImportJobListResponse,
+    ImportJobRequestOptions,
     ImportRunNowResponse,
     ImportScanRequest,
     ImportScanResponse,
@@ -40,6 +41,7 @@ from core.chat.task_execution import (
     start_queued_chat_stream_task,
     stream_chat_task_sse,
 )
+from core.identity import require_current_execution_authority
 from core.ingestion.models import JobStatus
 from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
@@ -202,6 +204,7 @@ from .services import (
     get_enabled_chat_tool_names,
     get_execution_task,
     get_general_settings_config,
+    get_import_job,
     get_metadata,
     get_system_activity_log,
     get_system_database_migration_status,
@@ -227,6 +230,7 @@ from .services import (
     list_workflow_tasks,
     move_vault_paths_batch,
     mutate_vault_path,
+    process_import_jobs_background,
     purge_chat_sessions,
     purge_expired_cache,
     refresh_system_authoring_templates,
@@ -984,6 +988,22 @@ async def update_general_setting(
 
 def _import_job_info(job: Any, *, fallback_vault: str = "") -> ImportJobInfo:
     """Project one durable ingestion job into the public import contract."""
+    options = job.options if isinstance(job.options, dict) else {}
+    extractor_options = options.get("extractor_options")
+    extractor_options = extractor_options if isinstance(extractor_options, dict) else {}
+    public_options = {
+        "destination": str(options.get("output_path_pattern") or ""),
+        "strategies": options.get("strategies"),
+        "pdf_strategies": options.get("pdf_strategies"),
+        "pdf_mode": options.get("pdf_mode"),
+        "capture_ocr_images": extractor_options.get("ocr_capture_images"),
+        "clean_html": extractor_options.get("clean_html"),
+        "include_ocr_blocks": extractor_options.get("ocr_include_blocks"),
+        "ocr_table_format": extractor_options.get("ocr_table_format"),
+        "extract_ocr_header": extractor_options.get("ocr_extract_header"),
+        "extract_ocr_footer": extractor_options.get("ocr_extract_footer"),
+        "ocr_confidence": extractor_options.get("ocr_confidence"),
+    }
     return ImportJobInfo(
         id=job.id,
         source_uri=job.source_uri,
@@ -997,6 +1017,10 @@ def _import_job_info(job: Any, *, fallback_vault: str = "") -> ImportJobInfo:
         selected_model=job.selected_model,
         strategy_attempts=job.strategy_attempts,
         fallback_reason=job.fallback_reason,
+        can_resubmit=(
+            job.source_type == "url" or options.get("consume_source") is False
+        ),
+        request_options=ImportJobRequestOptions.model_validate(public_options),
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
@@ -1043,6 +1067,24 @@ async def import_jobs(
                 status_code=400,
                 error_type="InvalidImportJobCursor",
                 message=str(e),
+            )
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get("/import/jobs/{job_id}", response_model=ImportJobInfo)
+async def import_job(job_id: int) -> ImportJobInfo | JSONResponse:
+    """Return current status for one durable import job."""
+    try:
+        return _import_job_info(get_import_job(job_id))
+    except ValueError as e:
+        return create_error_response(
+            APIException(
+                status_code=404,
+                error_type="IngestionJobNotFound",
+                message=str(e),
+                details={"job_id": job_id},
             )
         )
     except Exception as e:
@@ -1161,6 +1203,7 @@ async def import_url(
 @router.post("/import/sources", response_model=ImportSourcesResponse)
 async def import_sources(
     request: ImportSourcesRequest,
+    background_tasks: BackgroundTasks,
 ) -> ImportSourcesResponse | JSONResponse:
     """Submit vault-file or URL sources to the durable ingestion pipeline."""
     try:
@@ -1176,6 +1219,12 @@ async def import_sources(
             pdf_mode=request.pdf_mode,
             ocr_options=_ocr_options_from_request(request),
         )
+        if not request.queue_only:
+            background_tasks.add_task(
+                process_import_jobs_background,
+                [job.id for job in jobs],
+                require_current_execution_authority(),
+            )
         return ImportSourcesResponse(
             jobs_created=[
                 _import_job_info(job, fallback_vault=request.vault) for job in jobs

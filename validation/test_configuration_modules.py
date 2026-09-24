@@ -115,6 +115,12 @@ for (const name of [
 
 def test_dashboard_import_owns_defaults_and_job_observability_only() -> None:
     markup = (_STATIC_ROOT / "index.html").read_text(encoding="utf-8")
+    imports_source = (_STATIC_ROOT / "js/configuration/imports.js").read_text(
+        encoding="utf-8"
+    )
+    jobs_source = (_STATIC_ROOT / "js/configuration/import-jobs.js").read_text(
+        encoding="utf-8"
+    )
 
     assert 'id="import-defaults-save"' in markup
     assert 'id="import-open-explorer"' in markup
@@ -122,3 +128,8 @@ def test_dashboard_import_owns_defaults_and_job_observability_only() -> None:
     assert 'id="import-scan"' not in markup
     assert 'id="import-url-form"' not in markup
     assert 'id="import-url-input"' not in markup
+    assert "renderImportOutputLinks" in imports_source
+    assert "data-import-source-path" in imports_source
+    assert "job.can_resubmit" in jobs_source
+    assert "importOptions: job.request_options" in jobs_source
+    assert "request.importSources" in jobs_source

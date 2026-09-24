@@ -49,6 +49,28 @@ class VaultDirectImportScenario(BaseScenario):
                 "Queue-only direct import should return durable queued state",
             )
             queued_job_id = queued_jobs[0].get("id") if queued_jobs else None
+            self.soft_assert_equal(
+                queued_jobs[0].get("request_options") if queued_jobs else None,
+                {
+                    "destination": "Library",
+                    "strategies": ["pdf_text"],
+                    "pdf_strategies": None,
+                    "pdf_mode": "markdown",
+                    "capture_ocr_images": False,
+                    "clean_html": True,
+                    "include_ocr_blocks": None,
+                    "ocr_table_format": None,
+                    "extract_ocr_header": None,
+                    "extract_ocr_footer": None,
+                    "ocr_confidence": None,
+                },
+                "Job responses should expose the effective user-facing options",
+            )
+            self.soft_assert_equal(
+                queued_jobs[0].get("can_resubmit") if queued_jobs else None,
+                True,
+                "Direct vault-file jobs should support Explorer resubmission",
+            )
             queued_job = get_runtime_context().ingestion.get_job(queued_job_id)
             self.soft_assert_equal(
                 (
@@ -82,11 +104,18 @@ class VaultDirectImportScenario(BaseScenario):
             immediate_jobs = immediate.json().get("jobs_created") or []
             self.soft_assert_equal(
                 immediate_jobs[0].get("status") if immediate_jobs else None,
+                "queued",
+                "Immediate direct import should promptly acknowledge durable queued state",
+            )
+            immediate_job_id = immediate_jobs[0].get("id") if immediate_jobs else None
+            immediate_status = self.call_api(f"/api/import/jobs/{immediate_job_id}")
+            self.soft_assert_equal(
+                immediate_status.json().get("status"),
                 "completed",
-                "Immediate direct import should report terminal job state",
+                "Immediate direct import should continue processing after acknowledgement",
             )
             self.soft_assert_equal(
-                immediate_jobs[0].get("outputs") if immediate_jobs else None,
+                immediate_status.json().get("outputs"),
                 ["source.md"],
                 "An explicit root destination should write at the vault root",
             )
@@ -106,8 +135,10 @@ class VaultDirectImportScenario(BaseScenario):
                 },
             )
             collision_jobs = collision.json().get("jobs_created") or []
+            collision_job_id = collision_jobs[0].get("id") if collision_jobs else None
+            collision_status = self.call_api(f"/api/import/jobs/{collision_job_id}")
             self.soft_assert_equal(
-                collision_jobs[0].get("outputs") if collision_jobs else None,
+                collision_status.json().get("outputs"),
                 ["source_1.md"],
                 "Direct import collisions should use the existing numbered-copy policy",
             )
@@ -132,9 +163,9 @@ class VaultDirectImportScenario(BaseScenario):
                 },
             )
             defaulted_jobs = defaulted.json().get("jobs_created") or []
-            defaulted_outputs = (
-                defaulted_jobs[0].get("outputs") if defaulted_jobs else []
-            )
+            defaulted_job_id = defaulted_jobs[0].get("id") if defaulted_jobs else None
+            defaulted_status = self.call_api(f"/api/import/jobs/{defaulted_job_id}")
+            defaulted_outputs = defaulted_status.json().get("outputs") or []
             self.soft_assert(
                 "PageDefault/source.md" in defaulted_outputs
                 and any(
@@ -163,4 +194,14 @@ class VaultDirectImportScenario(BaseScenario):
                 count_jobs(),
                 jobs_before_invalid,
                 "A rejected direct-import batch should enqueue no jobs",
+            )
+
+            metadata = self.call_api("/api/metadata")
+            file_import = (
+                metadata.json().get("ingestion_capabilities", {}).get("file_import", {})
+            )
+            self.soft_assert_equal(
+                file_import.get("features"),
+                [".jpeg", ".jpg", ".pdf", ".png", ".tif", ".tiff", ".webp"],
+                "Metadata should publish registry-owned file import extensions",
             )

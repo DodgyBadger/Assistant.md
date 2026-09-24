@@ -44,6 +44,8 @@
         }
 
         function openExplorer({
+            importOptions = {},
+            importSources = [],
             importUrl = '',
             revealPath = '',
             vaultName = '',
@@ -73,6 +75,8 @@
                 workspaceRecovery,
                 workspaceSelectionMode,
                 explorer: true,
+                importOptions,
+                importSources,
                 importUrl,
                 showPath: true,
                 expandDirectoriesOnSelect: true,
@@ -92,6 +96,7 @@
                 onBatchMove: (payload) => movePathsBatch(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),
                 onImportSources: (payload) => importSources(payload, vault),
+                onGetImportJob: (jobId) => getImportJob(jobId),
                 onClose: () => {
                     pickerOpen = false;
                 },
@@ -104,6 +109,17 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...payload, vault }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function getImportJob(jobId) {
+            const response = await fetch(`api/import/jobs/${encodeURIComponent(jobId)}`, {
+                cache: 'no-store',
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));

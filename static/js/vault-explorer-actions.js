@@ -3,6 +3,7 @@
         const { escapeHtml } = utils;
         let activeUploadFiles = [];
         let activeUploadDestination = '';
+        let activeImportDestination = '';
         let uploadInProgress = false;
         const destinationMode = window.VaultExplorerDestination.create();
 
@@ -21,6 +22,7 @@
         function reset() {
             activeUploadFiles = [];
             activeUploadDestination = '';
+            activeImportDestination = '';
             uploadInProgress = false;
             destinationMode.cancel();
         }
@@ -44,6 +46,7 @@
             if (wasUpload) {
                 activeUploadFiles = [];
                 activeUploadDestination = '';
+                activeImportDestination = '';
             }
             if (restoreFocus) {
                 overlay.querySelector(
@@ -55,6 +58,7 @@
         function setUploadFiles(overlay, files, destination = '') {
             activeUploadFiles = Array.from(files || []);
             activeUploadDestination = String(destination || '');
+            activeImportDestination = activeUploadDestination;
             if (activeUploadFiles.length) showUploadForm(overlay);
         }
 
@@ -63,9 +67,18 @@
             if (!(panel instanceof HTMLElement) || !activeUploadFiles.length) return;
             const selectedFiles = activeUploadFiles;
             const selectedDestination = activeUploadDestination;
+            const selectedImportDestination = activeImportDestination;
             closeActionPanel(overlay, { restoreFocus: false });
             activeUploadFiles = selectedFiles;
             activeUploadDestination = selectedDestination;
+            activeImportDestination = selectedImportDestination;
+            const importDestinationMarkup = `
+                <input type="hidden" name="import_destination" value="${escapeHtml(activeImportDestination)}" />
+                <div class="vault-explorer-move-destination">
+                    <span>Markdown destination</span>
+                    <strong class="cell-mono" data-vault-explorer-import-destination>${escapeHtml(activeImportDestination || 'Vault root')}</strong>
+                    <button type="button" class="ui-button-secondary" data-vault-explorer-upload-change-import-destination>Change</button>
+                </div>`;
             panel.innerHTML = `
                 <div class="vault-explorer-action-header">
                     <strong>Upload files</strong>
@@ -80,6 +93,7 @@
                     </div>
                     <div class="vault-explorer-upload-list" data-vault-explorer-upload-list></div>
                     <p class="text-xs text-txt-secondary">Upload the source files only, or upload supported PDFs/images and import them to Markdown in one operation.</p>
+                    ${window.VaultExplorerImportOptions.renderMarkup(importDestinationMarkup)}
                     <div class="vault-explorer-form-actions">
                         <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
                         <button type="submit" class="ui-button-primary">Upload</button>
@@ -93,11 +107,24 @@
             panel.classList.remove('hidden');
             overlay.classList.add('vault-explorer-preparing-upload');
             renderUploadPaths(panel);
+            const uploadForm = panel.querySelector('[data-vault-explorer-upload-form]');
+            if (uploadForm instanceof HTMLFormElement) {
+                window.VaultExplorerImportOptions.bind(uploadForm);
+            }
             panel.querySelector('[data-vault-explorer-upload-change-destination]')
                 ?.addEventListener('click', () => {
                     destinationMode.begin({
                         initialPath: activeUploadDestination,
                         purpose: 'upload',
+                    });
+                    overlay.classList.add('vault-explorer-choosing-destination');
+                    syncDestinationSelection(overlay);
+                });
+            panel.querySelector('[data-vault-explorer-upload-change-import-destination]')
+                ?.addEventListener('click', () => {
+                    destinationMode.begin({
+                        initialPath: activeImportDestination,
+                        purpose: 'upload_import',
                     });
                     overlay.classList.add('vault-explorer-choosing-destination');
                     syncDestinationSelection(overlay);
@@ -192,9 +219,9 @@
                     }
                     if (status) status.textContent = 'Upload complete. Importing to Markdown…';
                     await options.onImportSources({
+                        ...window.VaultExplorerImportOptions.read(form),
                         sources: uploadedPaths,
-                        destination,
-                        queue_only: false,
+                        destination: activeImportDestination,
                     });
                 } catch (error) {
                     importError = error;
@@ -521,13 +548,45 @@
                 const destination = destinationMode.select(path);
                 if (form) form.dataset.destination = destination.path;
                 if (destination.purpose === 'upload') {
+                    const previousUploadDestination = activeUploadDestination;
                     activeUploadDestination = destination.path;
+                    if (activeImportDestination === previousUploadDestination) {
+                        activeImportDestination = destination.path;
+                        const importInput = overlay.querySelector(
+                            '[data-vault-explorer-upload-form] input[name="import_destination"]'
+                        );
+                        if (importInput instanceof HTMLInputElement) {
+                            importInput.value = destination.path;
+                        }
+                        const importLabel = overlay.querySelector(
+                            '[data-vault-explorer-import-destination]'
+                        );
+                        if (importLabel) {
+                            importLabel.textContent = destination.path || 'Vault root';
+                        }
+                    }
                     const uploadForm = overlay.querySelector('[data-vault-explorer-upload-form]');
                     const input = uploadForm?.elements.namedItem('destination');
                     if (input instanceof HTMLInputElement) input.value = destination.path;
                     const label = overlay.querySelector('[data-vault-explorer-upload-destination]');
                     if (label) label.textContent = destination.path || 'Vault root';
                     if (uploadForm instanceof HTMLFormElement) renderUploadPaths(uploadForm);
+                }
+                if (destination.purpose === 'import') {
+                    callbacks.importDestinationSelected?.(overlay, destination.path);
+                }
+                if (destination.purpose === 'upload_import') {
+                    activeImportDestination = destination.path;
+                    const importInput = overlay.querySelector(
+                        '[data-vault-explorer-upload-form] input[name="import_destination"]'
+                    );
+                    if (importInput instanceof HTMLInputElement) {
+                        importInput.value = destination.path;
+                    }
+                    const importLabel = overlay.querySelector(
+                        '[data-vault-explorer-import-destination]'
+                    );
+                    if (importLabel) importLabel.textContent = destination.path || 'Vault root';
                 }
                 if (status) status.textContent = '';
                 const destinationLabel = form?.querySelector(

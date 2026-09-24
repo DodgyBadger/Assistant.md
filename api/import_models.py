@@ -22,6 +22,22 @@ class ImportScanRequest(BaseModel):
     ocr_confidence: str | None = None
 
 
+class ImportJobRequestOptions(BaseModel):
+    """User-facing options captured when an import job was submitted."""
+
+    destination: str = ""
+    strategies: list[str] | None = None
+    pdf_strategies: list[str] | None = None
+    pdf_mode: str | None = None
+    capture_ocr_images: bool | None = None
+    clean_html: bool | None = None
+    include_ocr_blocks: bool | None = None
+    ocr_table_format: str | None = None
+    extract_ocr_header: bool | None = None
+    extract_ocr_footer: bool | None = None
+    ocr_confidence: str | None = None
+
+
 class ImportJobInfo(BaseModel):
     id: int
     source_uri: str
@@ -35,6 +51,10 @@ class ImportJobInfo(BaseModel):
     selected_model: str | None = None
     strategy_attempts: list[str] | None = None
     fallback_reason: str | None = None
+    can_resubmit: bool = False
+    request_options: ImportJobRequestOptions = Field(
+        default_factory=ImportJobRequestOptions
+    )
     created_at: datetime
     updated_at: datetime
 
