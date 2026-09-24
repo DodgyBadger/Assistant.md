@@ -17,6 +17,7 @@ from core.ingestion.jobs import (
     IngestionJob,
     IngestionJobCreate,
     claim_queued_job,
+    complete_job,
     create_job,
     create_jobs,
     get_job,
@@ -34,10 +35,14 @@ from core.ingestion.models import (
     RenderOptions,
     SourceKind,
 )
-from core.ingestion.output_paths import resolve_import_output_paths
+from core.ingestion.output_paths import allocate_import_output_paths
 from core.ingestion.registry import extractor_registry, importer_registry
 from core.ingestion.renderers import default_renderer
-from core.ingestion.storage import default_storage
+from core.ingestion.storage import (
+    StoredArtifact,
+    remove_stored_artifacts,
+    store_rendered_artifacts,
+)
 from core.logger import UnifiedLogger
 from core.runtime.paths import get_data_root
 from core.settings.secrets_store import secret_has_value
@@ -295,7 +300,7 @@ class IngestionService:
                     strategy_attempts=["pdf_page_images"],
                     fallback_reason=None,
                 )
-                outputs = self._render_pdf_page_images(
+                stored_artifacts = self._render_pdf_page_images(
                     raw_doc=raw_doc,
                     vault=vault,
                     source_path=source_path,
@@ -303,13 +308,17 @@ class IngestionService:
                     base_output_dir=output_base_dir,
                     dpi=150,
                 )
-                update_job_outputs(job_id, outputs)
-                self._cleanup_source_file_if_requested(
+                outputs = [artifact.path for artifact in stored_artifacts]
+                self._finalize_written_outputs(
+                    job_id=job_id,
+                    vault_root=vault_root,
+                    artifacts=stored_artifacts,
+                )
+                self._cleanup_completed_source(
                     job=job,
                     source_path=source_path,
                     vault=vault,
                 )
-                self.mark_completed(job_id)
                 self.logger.info(
                     "ingestion_job_completed",
                     data={
@@ -396,33 +405,46 @@ class IngestionService:
                 ),
             )
 
-            render_options = RenderOptions(
-                mode=RenderMode.FULL,
-                store_original=False,
-                title=raw_doc.suggested_title,
-                vault=vault,
-                source_filename=str(source_path) if source_path else job.source_uri,
-                source_uri=job.source_uri,
-                effective_source_uri=(
-                    str(raw_doc.meta.get("effective_url"))
-                    if raw_doc.meta.get("effective_url")
-                    else None
-                ),
-                relative_dir=relative_dir,
-                path_pattern=output_base_dir,
-            )
             if warnings:
                 extracted.meta.setdefault("warnings", []).extend(warnings)
-            rendered = default_renderer(extracted, render_options)
-            outputs = default_storage(rendered, render_options)
+            source_filename = str(source_path) if source_path else job.source_uri
+            with allocate_import_output_paths(
+                vault_root=vault_root,
+                path_pattern=output_base_dir,
+                relative_dir=relative_dir,
+                source_filename=source_filename,
+                title=raw_doc.suggested_title,
+            ) as output_paths:
+                render_options = RenderOptions(
+                    mode=RenderMode.FULL,
+                    store_original=False,
+                    title=raw_doc.suggested_title,
+                    vault=vault,
+                    source_filename=source_filename,
+                    source_uri=job.source_uri,
+                    effective_source_uri=(
+                        str(raw_doc.meta.get("effective_url"))
+                        if raw_doc.meta.get("effective_url")
+                        else None
+                    ),
+                    relative_dir=relative_dir,
+                    path_pattern=output_base_dir,
+                    output_name=output_paths.base_name,
+                )
+                rendered = default_renderer(extracted, render_options)
+                stored_artifacts = store_rendered_artifacts(rendered, render_options)
 
-            update_job_outputs(job_id, outputs)
-            self._cleanup_source_file_if_requested(
+            outputs = [artifact.path for artifact in stored_artifacts]
+            self._finalize_written_outputs(
+                job_id=job_id,
+                vault_root=vault_root,
+                artifacts=stored_artifacts,
+            )
+            self._cleanup_completed_source(
                 job=job,
                 source_path=source_path,
                 vault=vault,
             )
-            self.mark_completed(job_id)
             self.logger.info(
                 "ingestion_job_completed",
                 data={
@@ -622,6 +644,53 @@ class IngestionService:
                 f"Imported content was written, but source cleanup failed: {exc}"
             ) from exc
 
+    def _cleanup_completed_source(
+        self,
+        *,
+        job: IngestionJob,
+        source_path: Path | None,
+        vault: str,
+    ) -> None:
+        """Best-effort source cleanup after durable import completion."""
+        try:
+            self._cleanup_source_file_if_requested(
+                job=job,
+                source_path=source_path,
+                vault=vault,
+            )
+        except RuntimeError:
+            # The cleanup helper already emitted a bounded warning. The imported
+            # outputs remain complete, so retaining the source is the safe state.
+            return
+
+    def _finalize_written_outputs(
+        self,
+        *,
+        job_id: int,
+        vault_root: Path,
+        artifacts: list[StoredArtifact],
+    ) -> None:
+        """Publish a completed output manifest or remove unchanged artifacts."""
+        outputs = [artifact.path for artifact in artifacts]
+        try:
+            complete_job(job_id, outputs)
+        except Exception:
+            remove_stored_artifacts(vault_root, artifacts)
+            try:
+                update_job_outputs(job_id, [])
+            except Exception as cleanup_exc:
+                self.logger.warning(
+                    "ingestion_output_manifest_cleanup_failed",
+                    data={
+                        "event": "ingestion_output_manifest_cleanup_failed",
+                        "status": "failed",
+                        "job_id": job_id,
+                        "error_type": type(cleanup_exc).__name__,
+                        "error": self._truncate_log_value(str(cleanup_exc)),
+                    },
+                )
+            raise
+
     def _render_pdf_page_images(
         self,
         *,
@@ -631,7 +700,7 @@ class IngestionService:
         relative_dir: str,
         base_output_dir: str,
         dpi: int,
-    ) -> list[str]:
+    ) -> list[StoredArtifact]:
         try:
             import fitz  # PyMuPDF
         except ImportError as exc:
@@ -640,17 +709,6 @@ class IngestionService:
             ) from exc
 
         source_filename = str(source_path) if source_path else raw_doc.source_uri
-        paths = resolve_import_output_paths(
-            path_pattern=base_output_dir,
-            relative_dir=relative_dir,
-            source_filename=source_filename,
-            title=raw_doc.suggested_title,
-        )
-
-        asset_dir_rel = Path(paths.asset_dir)
-        pages_dir_rel = asset_dir_rel / "pages"
-        markdown_rel = Path(paths.markdown_path)
-
         data_root = Path(get_data_root())
         vault_root = data_root / vault
 
@@ -659,22 +717,8 @@ class IngestionService:
             if isinstance(raw_doc.payload, bytes | bytearray)
             else raw_doc.payload.encode("utf-8")
         )
-        doc = fitz.open(stream=payload, filetype="pdf")
         zoom = max(1, int(dpi)) / 72.0
         matrix = fitz.Matrix(zoom, zoom)
-
-        page_paths: list[str] = []
-        for idx, page in enumerate(doc, start=1):
-            pix = page.get_pixmap(matrix=matrix, alpha=False)
-            filename = f"page_{idx:04d}.png"
-            page_path = (pages_dir_rel / filename).as_posix()
-            write_vault_file_bytes(
-                vault_path=vault_root,
-                path=page_path,
-                content=pix.tobytes("png"),
-                warn_without_task=False,
-            )
-            page_paths.append(page_path)
 
         source_hash = hashlib.sha256(payload).hexdigest()
         source_mtime = None
@@ -684,41 +728,88 @@ class IngestionService:
             except Exception:
                 source_mtime = None
 
-        source_name = (
-            source_path.name
-            if source_path
-            else (raw_doc.suggested_title or "import.pdf")
-        )
-        source_value = str(source_path) if source_path else raw_doc.source_uri
-        frontmatter: dict[str, object] = {
-            "source": source_value,
-            "source_name": source_name,
-            "mime": raw_doc.mime or "application/pdf",
-            "sha256": source_hash,
-            "import_mode": "page_images",
-            "render_format": "png",
-            "render_dpi": int(dpi),
-            "page_count": len(page_paths),
-        }
-        if source_mtime is not None:
-            frontmatter["source_mtime"] = source_mtime
-        frontmatter_text = yaml.safe_dump(
-            frontmatter,
-            allow_unicode=True,
-            sort_keys=False,
-        ).strip()
-        page_links = [
-            f"![Page {idx}]({Path(page_path).relative_to(markdown_rel.parent).as_posix()})"
-            for idx, page_path in enumerate(page_paths, start=1)
-        ]
-        write_vault_file(
-            vault_path=vault_root,
-            path=markdown_rel.as_posix(),
-            content="\n".join(["---", frontmatter_text, "---", "", *page_links, ""]),
-            warn_without_task=False,
-        )
+        with allocate_import_output_paths(
+            vault_root=vault_root,
+            path_pattern=base_output_dir,
+            relative_dir=relative_dir,
+            source_filename=source_filename,
+            title=raw_doc.suggested_title,
+        ) as paths:
+            pages_dir_rel = Path(paths.asset_dir) / "pages"
+            markdown_rel = Path(paths.markdown_path)
+            page_paths: list[str] = []
+            attempted: list[StoredArtifact] = []
+            doc = fitz.open(stream=payload, filetype="pdf")
+            try:
+                for idx, page in enumerate(doc, start=1):
+                    pix = page.get_pixmap(matrix=matrix, alpha=False)
+                    page_path = (pages_dir_rel / f"page_{idx:04d}.png").as_posix()
+                    page_content = pix.tobytes("png")
+                    attempted.append(
+                        StoredArtifact(
+                            path=page_path,
+                            sha256=hashlib.sha256(page_content).hexdigest(),
+                        )
+                    )
+                    write_vault_file_bytes(
+                        vault_path=vault_root,
+                        path=page_path,
+                        content=page_content,
+                        warn_without_task=False,
+                    )
+                    page_paths.append(page_path)
 
-        return [markdown_rel.as_posix(), *page_paths]
+                source_name = (
+                    source_path.name
+                    if source_path
+                    else (raw_doc.suggested_title or "import.pdf")
+                )
+                source_value = str(source_path) if source_path else raw_doc.source_uri
+                frontmatter: dict[str, object] = {
+                    "source": source_value,
+                    "source_name": source_name,
+                    "mime": raw_doc.mime or "application/pdf",
+                    "sha256": source_hash,
+                    "import_mode": "page_images",
+                    "render_format": "png",
+                    "render_dpi": int(dpi),
+                    "page_count": len(page_paths),
+                }
+                if source_mtime is not None:
+                    frontmatter["source_mtime"] = source_mtime
+                frontmatter_text = yaml.safe_dump(
+                    frontmatter,
+                    allow_unicode=True,
+                    sort_keys=False,
+                ).strip()
+                page_links = [
+                    f"![Page {idx}]({Path(page_path).relative_to(markdown_rel.parent).as_posix()})"
+                    for idx, page_path in enumerate(page_paths, start=1)
+                ]
+                markdown_path = markdown_rel.as_posix()
+                markdown_content = "\n".join(
+                    ["---", frontmatter_text, "---", "", *page_links, ""]
+                )
+                attempted.append(
+                    StoredArtifact(
+                        path=markdown_path,
+                        sha256=hashlib.sha256(
+                            markdown_content.encode("utf-8")
+                        ).hexdigest(),
+                    )
+                )
+                write_vault_file(
+                    vault_path=vault_root,
+                    path=markdown_path,
+                    content=markdown_content,
+                    warn_without_task=False,
+                )
+                return [attempted[-1], *attempted[:-1]]
+            except Exception:
+                remove_stored_artifacts(vault_root, attempted)
+                raise
+            finally:
+                doc.close()
 
     def _resolve_importer(
         self, source_path: Path, mime_hint: str | None

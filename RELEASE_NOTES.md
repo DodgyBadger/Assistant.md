@@ -9,7 +9,7 @@
 - The Vault Explorer now combines active-folder navigation, multi-selection, and a compact operation bar so creation, upload, prompt references, workspace selection, rename, move, and deletion use one consistent interaction model.
 - Import supported vault files, local uploads, or public HTTP/HTTPS URLs directly from the Explorer, with an explicit output folder and optional per-import overrides. Dashboard → Import now focuses on durable job status, queue controls, retries, and persistent defaults.
 - Search either file and folder names or bounded file contents from the same Explorer field. Content results identify matching files and lines while preserving file-level selection.
-- Batch moves are preflighted and compensated as one operation if a filesystem or refresh failure interrupts the batch. Explorer operations also preserve safer state across asynchronous completion, modal closure, and cross-vault entry points.
+- Batch moves are preflighted and compensated as one operation if a filesystem or refresh failure interrupts the batch. Multi-file import outputs use one collision-free namespace and remove unchanged partial artifacts after a failed write while preserving files changed outside Assistant.md. Explorer operations also preserve safer state across asynchronous completion, modal closure, active-response locking, and cross-vault entry points.
 - Keyboard dismissal now closes the active Explorer menu or action panel without also closing the Explorer itself.
 
 ## v0.8.1

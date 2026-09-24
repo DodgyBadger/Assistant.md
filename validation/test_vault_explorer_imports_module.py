@@ -32,6 +32,7 @@ const controller = VaultExplorerImports.create({
     utils: { escapeHtml(value) { return String(value); } },
     callbacks: {
         closeActionPanel() {},
+        isReadOnly() { return false; },
         refreshExplorer() {},
         syncInteractionLocks() {},
     },
@@ -77,6 +78,29 @@ assert.doesNotThrow(() => controller.showUrl(overlay, { destination: '' }, {
 }));
 assert.match(panel.innerHTML, /Document URL/);
 assert.match(panel.innerHTML, /Vault root/);
+
+let importRequests = 0;
+let lockSyncs = 0;
+const lockedStatus = { innerHTML: '' };
+const lockedForm = new HTMLFormElement();
+lockedForm.querySelector = (selector) => (
+    selector === '[data-vault-explorer-form-status]' ? lockedStatus : null
+);
+const lockedController = VaultExplorerImports.create({
+    utils: { escapeHtml(value) { return String(value); } },
+    callbacks: {
+        closeActionPanel() {},
+        isReadOnly() { return true; },
+        refreshExplorer() {},
+        syncInteractionLocks() { lockSyncs += 1; },
+    },
+});
+lockedController.submit(overlay, lockedForm, {
+    onImportSources() { importRequests += 1; },
+});
+assert.strictEqual(importRequests, 0);
+assert.strictEqual(lockSyncs, 1);
+assert.match(lockedStatus.innerHTML, /active response/);
 
 const roundTripForm = new HTMLFormElement();
 const controls = {
@@ -136,6 +160,7 @@ def test_vault_explorer_import_forms_use_compact_progressive_layout() -> None:
     assert "Reset to current defaults" in options_source
     assert "Overrides active" in options_source
     assert "options.onGetImportJob" in source
+    assert "callbacks.isReadOnly(options)" in source
     assert "Import is still processing" in source
     assert "VaultExplorerImportOptions" in source
     assert '<details class="vault-explorer-import-advanced">' in options_source

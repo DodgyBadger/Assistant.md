@@ -71,3 +71,4 @@ class RenderOptions:
     source_uri: str | None = None
     effective_source_uri: str | None = None
     relative_dir: str = ""
+    output_name: str | None = None

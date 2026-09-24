@@ -2227,7 +2227,8 @@ async def vault_file_references(
 ) -> VaultFileReferenceListResponse | JSONResponse:
     """Return file and folder candidates for chat reference insertion."""
     try:
-        return list_vault_file_references(
+        return await run_in_threadpool(
+            list_vault_file_references,
             vault_name=vault_name,
             path=path,
             workspace_path=workspace_path,
@@ -2276,6 +2277,7 @@ async def vault_content_search(
     except VaultContentSearchError as e:
         status_code = {
             "missing_query": 400,
+            "invalid_query": 400,
             "invalid_scope": 400,
             "timeout": 408,
             "ripgrep_not_found": 503,

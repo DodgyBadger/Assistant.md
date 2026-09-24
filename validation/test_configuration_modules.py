@@ -264,3 +264,60 @@ ConfigurationPanel.init({});
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_dashboard_sections_start_independently() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = { getElementById() { return null; }, addEventListener() {} };
+global.addEventListener = () => {};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+
+const started = [];
+const reportedErrors = [];
+let finishSecrets;
+ConfigurationPanelRuntime.actions.loadSecrets = () => {
+    started.push('loadSecrets');
+    return new Promise((resolve) => { finishSecrets = resolve; });
+};
+ConfigurationPanelRuntime.actions.loadImportVaults = () => {
+    started.push('loadImportVaults');
+    throw new Error('vault render failed');
+};
+ConfigurationPanelRuntime.actions.loadImportJobs = () => {
+    started.push('loadImportJobs');
+    return Promise.resolve();
+};
+ConfigurationPanelRuntime.actions.cancelAllOAuthPolls = () => {};
+console.error = (...args) => reportedErrors.push(args);
+
+vm.runInThisContext(fs.readFileSync(process.argv[2], 'utf8'), { filename: process.argv[2] });
+ConfigurationPanel.init({});
+
+(async () => {
+    const refresh = ConfigurationPanel.onDashboardActivated();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(started, ['loadSecrets', 'loadImportVaults', 'loadImportJobs']);
+    finishSecrets();
+    await refresh;
+    assert.strictEqual(reportedErrors.length, 1);
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_STATIC_ROOT / "js/configuration/runtime.js"),
+            str(_STATIC_ROOT / "js/configuration.js"),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

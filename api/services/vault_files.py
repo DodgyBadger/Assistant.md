@@ -1,6 +1,7 @@
 """Vault file, Explorer, revision, upload, and reference API services."""
 
 import mimetypes
+import os
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -59,6 +60,7 @@ from .workflows import (
 )
 
 _VAULT_FILE_REFERENCE_LIMIT = 100
+_VAULT_FILE_REFERENCE_SCAN_LIMIT = 50_000
 _VAULT_FILE_READ_MAX_BYTES = 2 * 1024 * 1024
 _NON_TEXT_MEDIA_TYPE_PREFIXES = (
     "application/vnd.ms-",
@@ -1291,22 +1293,39 @@ def _search_vault_file_references(
     workspace_path: str,
     query: str,
     limit: int,
+    scan_limit: int = _VAULT_FILE_REFERENCE_SCAN_LIMIT,
 ) -> tuple[list[VaultFileReferenceInfo], bool]:
     matches: list[VaultFileReferenceInfo] = []
-    for child in base_dir.rglob("*"):
-        if len(matches) > limit:
-            break
-        if not _is_file_reference_path(child):
-            continue
-        if query not in child.name.casefold():
-            continue
-        info = _vault_file_reference_info(
-            vault_root=vault_root,
-            path=child,
-            workspace_path=workspace_path,
+    visited = 0
+    scan_truncated = False
+    stop = False
+    for root, directory_names, file_names in os.walk(base_dir, followlinks=False):
+        directory_names[:] = sorted(
+            name for name in directory_names if not name.startswith(".")
         )
-        if info is not None:
-            matches.append(info)
+        for name in [*directory_names, *sorted(file_names)]:
+            if name.startswith("."):
+                continue
+            visited += 1
+            if visited > scan_limit:
+                scan_truncated = True
+                stop = True
+                break
+            child = Path(root) / name
+            if query not in name.casefold():
+                continue
+            info = _vault_file_reference_info(
+                vault_root=vault_root,
+                path=child,
+                workspace_path=workspace_path,
+            )
+            if info is not None:
+                matches.append(info)
+            if len(matches) > limit:
+                stop = True
+                break
+        if stop:
+            break
     ordered = sorted(
         matches,
         key=lambda item: (
@@ -1315,7 +1334,7 @@ def _search_vault_file_references(
             item.path.lower(),
         ),
     )
-    return ordered[:limit], len(ordered) > limit
+    return ordered[:limit], scan_truncated or len(ordered) > limit
 
 
 def _is_file_reference_path(path: Path) -> bool:

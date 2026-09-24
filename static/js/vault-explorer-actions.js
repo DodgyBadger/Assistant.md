@@ -151,7 +151,7 @@
             options,
             { importAfterUpload = false } = {}
         ) {
-            if (isReadOnly(options) || !activeUploadFiles.length) return;
+            if (uploadInProgress || isReadOnly(options) || !activeUploadFiles.length) return;
             const destinationInput = form.elements.namedItem('destination');
             const destination = destinationInput instanceof HTMLInputElement
                 ? destinationInput.value.trim().replace(/\/+$/, '')
@@ -424,6 +424,7 @@
             const value = valueInput instanceof HTMLInputElement ? valueInput.value.trim() : '';
             const status = form.querySelector('[data-vault-explorer-form-status]');
             const submit = form.querySelector('button[type="submit"]');
+            if (mutationInProgress) return;
             if (isReadOnly(options)) {
                 if (status) status.innerHTML = '<span class="state-error">Wait for the active response to finish.</span>';
                 return;
@@ -651,6 +652,25 @@
             });
         }
 
+        function syncSubmitState(overlay, readOnly) {
+            const locked = readOnly || isBusy();
+            overlay.querySelectorAll(
+                '[data-vault-explorer-mutation-form]:not([data-operation="batch_move"]) button[type="submit"]'
+            ).forEach((button) => {
+                if (button instanceof HTMLButtonElement) button.disabled = locked;
+            });
+            overlay.querySelectorAll(
+                '[data-vault-explorer-upload-form] button[type="submit"]'
+            ).forEach((button) => {
+                if (!(button instanceof HTMLButtonElement)) return;
+                const unsupportedImport = button.value === 'upload_import'
+                    && !activeUploadFiles.every((file) => (
+                        window.VaultExplorerImports.supportsPath(file.name)
+                    ));
+                button.disabled = locked || unsupportedImport;
+            });
+        }
+
         return Object.freeze({
             beginDestinationMode,
             closeActionPanel,
@@ -664,6 +684,7 @@
             submitMutation,
             submitUploads,
             syncDestinationSelection,
+            syncSubmitState,
             updateMovePreview,
         });
     }

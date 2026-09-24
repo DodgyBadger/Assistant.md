@@ -137,8 +137,13 @@
         }
 
         async function submit(overlay, form, options) {
-            if (busy || typeof options.onImportSources !== 'function') return;
             const status = form.querySelector('[data-vault-explorer-form-status]');
+            if (callbacks.isReadOnly(options)) {
+                if (status) status.innerHTML = '<span class="state-warning">Wait for the active response to finish.</span>';
+                callbacks.syncInteractionLocks();
+                return;
+            }
+            if (busy || typeof options.onImportSources !== 'function') return;
             const submitButton = form.querySelector('button[type="submit"]');
             let sources = JSON.parse(form.dataset.sources || '[]');
             const urlInput = form.elements.namedItem('url');

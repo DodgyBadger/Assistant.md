@@ -6,7 +6,7 @@ Reduce routine Vault Explorer and content-import friction across several co-equa
 
 ## Delivery Status
 
-The required delivery slices are implemented. Selection and operation-bar behavior, active-folder targeting, direct file/URL/upload imports, persistent defaults, Dashboard job handoff, atomic batch Move, bounded content search, pagination-safe reveal, and keyboard tree and menu behavior are present. Interactive Explorer imports now acknowledge durable jobs promptly and poll their status, while import eligibility is derived from the backend importer registry.
+The required delivery slices are implemented. Selection and operation-bar behavior, active-folder targeting, direct file/URL/upload imports, persistent defaults, Dashboard job handoff, atomic batch Move, bounded content search, pagination-safe reveal, and keyboard tree and menu behavior are present. Imports of existing vault files and URLs acknowledge durable jobs promptly and poll their status in the open panel; Upload & import hands completion monitoring to Dashboard → Import. Import eligibility is derived from the backend importer registry.
 
 Bulk Delete and external-file drag-and-drop remain deliberately excluded from this release under the plan's bounded-scope decisions. Duplicate was discussed later and separately deferred. Peer-review hardening added atomic multi-source job creation, post-move reconciliation, explicit search failure contracts, immutable import-default snapshots, stale-modal protection, cross-vault action isolation, menu keyboard navigation, and modal focus restoration. Hardening is complete; the branch is ready for commit and review preparation.
 
@@ -17,7 +17,7 @@ Bulk Delete and external-file drag-and-drop remain deliberately excluded from th
 - The browser pass found and resolved an Escape propagation defect that closed the Explorer after dismissing a nested menu or action panel. Focused regression tests now require consumed Escape events to stop before the app-wide modal handler.
 - Observability inspection confirmed compact, correlated import submission, start, source/strategy decision, completion, cancellation, and failure records with stable event/status fields and searchable job and vault identities. Direct-import and import-pipeline scenarios verify lifecycle visibility, content exclusion, bounded warning reason codes, and distinct warning identities under deduplication.
 
-## Current Behavior
+## Baseline Behavior
 
 - The Vault Explorer is a right-side modal shared by toolbar access, workspace selection, file and directory links, and activity/revision entry points.
 - The main surface is a lazy-loaded tree with workspace/vault scope and substring path search. Folder names expand or collapse the tree; file names open a separate preview/edit/history modal over the Explorer.

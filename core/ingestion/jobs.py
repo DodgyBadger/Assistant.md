@@ -159,6 +159,22 @@ def update_job_outputs(job_id: int, outputs: list[str]) -> None:
         raise RuntimeError(f"Failed to update outputs for job {job_id}: {exc}") from exc
 
 
+def complete_job(job_id: int, outputs: list[str]) -> None:
+    """Commit one job's output manifest and completed status atomically."""
+    session_factory = _get_session_factory()
+    try:
+        with session_factory() as session:
+            job: IngestionJob | None = session.get(IngestionJob, job_id)
+            if job is None:
+                raise ValueError(f"Job {job_id} not found")
+            job.outputs = outputs
+            job.status = JobStatus.COMPLETED.value
+            job.error = None
+            session.commit()
+    except SQLAlchemyError as exc:
+        raise RuntimeError(f"Failed to complete job {job_id}: {exc}") from exc
+
+
 def update_job_provenance(
     job_id: int,
     *,
