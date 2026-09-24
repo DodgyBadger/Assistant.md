@@ -167,18 +167,28 @@
 
 
     async function refreshAll() {
-        await actions.refreshActivityLog();
-        await actions.loadProviders();
-        await actions.loadGeneralSettings();
-        await actions.loadModels();
-        await actions.loadSecrets();
-        await actions.loadGoogleConnection();
-        await actions.loadMcpConnections();
-        await actions.loadSystemJobs();
-        await actions.loadSystemMigrations();
-        await actions.loadImportVaults();
-        await actions.loadPurgeSessionsVaults();
-        await actions.loadCleanupGoalsVaults();
+        const loaders = [
+            ['activity log', () => actions.refreshActivityLog()],
+            ['providers', () => actions.loadProviders()],
+            ['general settings', () => actions.loadGeneralSettings()],
+            ['models', () => actions.loadModels()],
+            ['secrets', () => actions.loadSecrets()],
+            ['Google connection', () => actions.loadGoogleConnection()],
+            ['MCP connections', () => actions.loadMcpConnections()],
+            ['system jobs', () => actions.loadSystemJobs()],
+            ['system migrations', () => actions.loadSystemMigrations()],
+            ['import vaults', () => actions.loadImportVaults()],
+            ['session-purge vaults', () => actions.loadPurgeSessionsVaults()],
+            ['goal-cleanup vaults', () => actions.loadCleanupGoalsVaults()],
+        ];
+        const results = await Promise.allSettled(
+            loaders.map(([, load]) => Promise.resolve().then(load))
+        );
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                console.error(`Failed to load System section: ${loaders[index][0]}`, result.reason);
+            }
+        });
         state.hasLoadedOnce = true;
     }
 
@@ -203,7 +213,7 @@
 
     function onTabActivated() {
         if (!state.initialized) return;
-        refreshAll();
+        return refreshAll();
     }
 
     function onTabDeactivated() {

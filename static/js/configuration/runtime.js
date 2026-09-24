@@ -10,6 +10,7 @@
         activityLogAbortController: null,
         isLoadingSettings: false,
         isLoadingModels: false,
+        modelsLoadFailed: false,
         isSavingModel: false,
         isSavingSetting: false,
         isLoadingProviders: false,

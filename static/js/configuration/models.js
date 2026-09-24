@@ -17,6 +17,7 @@
 
             const data = await response.json();
             state.models = Array.isArray(data) ? data : [];
+            state.modelsLoadFailed = false;
 
             if (state.modelEdit && state.modelEdit.mode === 'existing') {
                 const stillExists = state.models.some(m => m.name === state.modelEdit.key);
@@ -29,6 +30,7 @@
             renderModels();
             setStatus(elements.modelFeedback, '', 'info');
         } catch (error) {
+            state.modelsLoadFailed = true;
             renderModels(true);
             setStatus(elements.modelFeedback, `Failed to load models: ${error.message}`, 'error');
         } finally {
@@ -36,7 +38,7 @@
         }
     }
 
-    function renderModels(emptyOnError = false) {
+    function renderModels(emptyOnError = state.modelsLoadFailed) {
         if (!elements.modelList) return;
 
         const cards = [];

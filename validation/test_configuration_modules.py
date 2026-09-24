@@ -133,3 +133,134 @@ def test_dashboard_import_owns_defaults_and_job_observability_only() -> None:
     assert "job.can_resubmit" in jobs_source
     assert "importOptions: job.request_options" in jobs_source
     assert "request.importSources" in jobs_source
+
+
+def test_openai_provider_renders_with_shared_configuration_actions() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {};
+global.requestAnimationFrame = (callback) => callback();
+for (const path of process.argv.slice(1)) {
+    vm.runInThisContext(fs.readFileSync(path, 'utf8'), { filename: path });
+}
+
+const runtime = ConfigurationPanelRuntime;
+runtime.elements.providerList = {
+    innerHTML: '',
+    querySelector() { return null; },
+};
+runtime.elements.modelList = {
+    innerHTML: '',
+    querySelector() { return null; },
+};
+runtime.state.providers = [{
+    name: 'openai',
+    user_editable: false,
+    oauth_enabled: false,
+    oauth_status: 'disabled',
+    configured_auth_mode: 'api_key',
+    effective_auth_mode: 'api_key',
+}];
+runtime.state.models = [];
+runtime.state.modelsLoadFailed = true;
+
+runtime.actions.renderProviders();
+runtime.actions.renderModels();
+assert.match(runtime.elements.providerList.innerHTML, /OpenAI OAuth/);
+assert.match(runtime.elements.modelList.innerHTML, /Unable to load model mappings/);
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_STATIC_ROOT / "js/configuration/runtime.js"),
+            str(_STATIC_ROOT / "js/configuration/openai-oauth.js"),
+            str(_STATIC_ROOT / "js/configuration/models.js"),
+            str(_STATIC_ROOT / "js/configuration/providers.js"),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
+def test_system_sections_start_independently() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {
+    getElementById() { return null; },
+    addEventListener() {},
+};
+global.addEventListener = () => {};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const started = [];
+const reportedErrors = [];
+let finishActivityLog;
+const loaderNames = [
+    'refreshActivityLog',
+    'loadProviders',
+    'loadGeneralSettings',
+    'loadModels',
+    'loadSecrets',
+    'loadGoogleConnection',
+    'loadMcpConnections',
+    'loadSystemJobs',
+    'loadSystemMigrations',
+    'loadImportVaults',
+    'loadPurgeSessionsVaults',
+    'loadCleanupGoalsVaults',
+];
+for (const name of loaderNames) {
+    ConfigurationPanelRuntime.actions[name] = () => {
+        started.push(name);
+        if (name === 'refreshActivityLog') {
+            return new Promise((resolve) => { finishActivityLog = resolve; });
+        }
+        if (name === 'loadProviders') throw new Error('provider render failed');
+        if (name === 'loadModels') return Promise.reject(new Error('model request failed'));
+        return Promise.resolve();
+    };
+}
+ConfigurationPanelRuntime.actions.cancelAllOAuthPolls = () => {};
+console.error = (...args) => reportedErrors.push(args);
+
+vm.runInThisContext(fs.readFileSync(process.argv[2], 'utf8'), {
+    filename: process.argv[2],
+});
+ConfigurationPanel.init({});
+
+(async () => {
+    const refresh = ConfigurationPanel.onTabActivated();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepStrictEqual(started, loaderNames);
+    finishActivityLog();
+    await refresh;
+    assert.strictEqual(ConfigurationPanelRuntime.state.hasLoadedOnce, true);
+    assert.strictEqual(reportedErrors.length, 2);
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_STATIC_ROOT / "js/configuration/runtime.js"),
+            str(_STATIC_ROOT / "js/configuration.js"),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

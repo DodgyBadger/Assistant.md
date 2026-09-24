@@ -41,6 +41,7 @@ const state = {
     isChatFocusMode: false,
     chatComposerResize: null,
     workspaceExists: null,
+    modelSelectionTouched: false,
     pendingDeferredReview: null
 };
 const chatComposeState = {
@@ -570,10 +571,10 @@ async function init() {
         });
     }
     await fetchMetadata();
-    await fetchSystemStatus();
     renderChatEmptyState();
     renderPendingAttachments();
     updateCollapsibleArrows();
+    void fetchSystemStatus();
 }
 
 // Setup tab switching
@@ -660,7 +661,10 @@ function setupEventListeners() {
     }
 
     if (chatElements.modelSelector) {
-        chatElements.modelSelector.addEventListener('change', refreshChatEmptyState);
+        chatElements.modelSelector.addEventListener('change', () => {
+            state.modelSelectionTouched = true;
+            refreshChatEmptyState();
+        });
     }
 
     if (chatElements.thinkingSelector) {

@@ -41,7 +41,11 @@
                     const firstAvailableModel = availableModels.length ? availableModels[0].name : null;
                     const currentValue = chatElements.modelSelector.value;
                     const hasEnvDefault = availableModels.some(model => model.name === envDefaultModel);
-                    if (hasEnvDefault && (!currentValue || currentValue === firstAvailableModel)) {
+                    if (
+                        !state.modelSelectionTouched
+                        && hasEnvDefault
+                        && (!currentValue || currentValue === firstAvailableModel)
+                    ) {
                         chatElements.modelSelector.value = envDefaultModel;
                     }
                 }

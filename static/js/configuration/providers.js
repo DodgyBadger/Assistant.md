@@ -96,7 +96,7 @@
                     </div>`
                 : `<div class="flex items-center gap-2"><span class="text-sm text-txt-secondary">No base URL configured</span></div>`;
 
-            const actions = [
+            const actionButtons = [
                 editable
                     ? `<button data-action="edit" data-provider="${escapeHtml(provider.name)}" ${iconButton('edit', 'Edit provider', 'is-primary')}>${iconSvg('edit')}</button>`
                     : '',
@@ -119,7 +119,7 @@
                                 ${providerMeta}
                             </div>
                             <div class="flex gap-2 shrink-0">
-                                ${actions}
+                                ${actionButtons}
                             </div>
                         </div>
                         <div class="grid gap-6 md:grid-cols-2">
