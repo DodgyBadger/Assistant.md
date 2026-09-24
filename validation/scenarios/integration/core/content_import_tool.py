@@ -248,6 +248,16 @@ class ContentImportToolScenario(BaseScenario):
                 "queued",
                 "queue_only submission should return queued state",
             )
+            queued_job = get_runtime_context().ingestion.get_job(cancel_job_id)
+            queued_options = (queued_job.options or {}) if queued_job else {}
+            self.soft_assert(
+                "pdf_mode" in queued_options
+                and "pdf_strategies" in queued_options
+                and "output_path_pattern" in queued_options
+                and "ocr_capture_images"
+                in (queued_options.get("extractor_options") or {}),
+                "Queue-only tool submissions should snapshot effective import defaults",
+            )
             cancel_response = self.call_api(
                 f"/api/import/jobs/{cancel_job_id}/cancel",
                 method="POST",

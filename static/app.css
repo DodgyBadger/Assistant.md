@@ -292,20 +292,27 @@ body.chat-focus-mode {
     position: relative;
 }
 .chat-focus-explorer-button svg,
-#file-reference-btn svg {
+#file-reference-btn svg,
+.vault-explorer-workspace-toggle svg {
     transition: color 160ms ease, filter 160ms ease;
 }
 .chat-focus-explorer-button.has-workspace svg,
 #file-reference-btn.has-workspace svg,
-#workspace-picker-btn.has-workspace svg {
+#workspace-picker-btn.has-workspace svg,
+.vault-explorer-workspace-toggle.has-workspace.is-workspace-view svg {
     color: rgb(var(--accent-primary));
     filter:
         drop-shadow(0 0 0.16rem rgb(var(--accent-primary) / 0.9))
         drop-shadow(0 0 0.38rem rgb(var(--accent-primary) / 0.48));
 }
+.vault-explorer-workspace-toggle.has-workspace:not(.is-workspace-view) svg {
+    color: rgb(var(--accent-primary) / 0.62);
+    filter: drop-shadow(0 0 0.18rem rgb(var(--accent-primary) / 0.24));
+}
 .chat-focus-explorer-button.has-missing-workspace svg,
 #file-reference-btn.has-missing-workspace svg,
-#workspace-picker-btn.has-missing-workspace svg {
+#workspace-picker-btn.has-missing-workspace svg,
+.vault-explorer-workspace-toggle.has-missing-workspace svg {
     color: rgb(var(--state-error));
     filter:
         drop-shadow(0 0 0.16rem rgb(var(--state-error) / 0.9))
@@ -658,6 +665,13 @@ details summary::-webkit-details-marker {
     flex-wrap: nowrap;
     overflow-x: auto;
 }
+.vault-explorer-toolbar-segment {
+    min-width: 0;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
 .vault-explorer-toolbar-controls {
     display: contents;
 }
@@ -740,12 +754,21 @@ details summary::-webkit-details-marker {
 .vault-explorer-toolbar-separator {
     color: rgb(var(--text-secondary));
 }
-.vault-explorer-toolbar-action.is-danger {
-    color: rgb(var(--state-error));
-}
 .vault-explorer-toolbar-actions {
     flex: 0 1 auto;
     justify-content: flex-end;
+}
+.vault-explorer-toolbar-action-group {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.3rem;
+}
+.vault-explorer-toolbar-group-separator {
+    width: 1px;
+    height: 1.2rem;
+    margin: 0 0.1rem;
+    background-color: rgb(var(--border-secondary));
 }
 .vault-explorer-toolbar-selection {
     min-width: 1.65rem;
@@ -1695,18 +1718,8 @@ details summary::-webkit-details-marker {
     align-items: center;
     gap: 0.5rem;
 }
-.vault-explorer-namespace {
+.vault-explorer-workspace-toggle.ui-icon-button {
     flex: 0 0 auto;
-    color: rgb(var(--text-primary));
-    font-weight: 600;
-    white-space: nowrap;
-}
-.vault-explorer-location-shortcuts {
-    flex: 0 0 auto;
-    display: flex;
-    gap: 0.3rem;
-}
-.vault-explorer-location-shortcuts .ui-icon-button {
     width: 1.85rem;
     height: 1.85rem;
     min-width: 1.85rem;
@@ -1952,6 +1965,10 @@ details summary::-webkit-details-marker {
         align-items: center;
         flex-wrap: wrap;
     }
+    .vault-explorer-modal-header {
+        align-items: flex-start;
+        flex-wrap: nowrap;
+    }
     .vault-path-picker-header .app-modal-title-block {
         flex: 1 1 10rem;
     }
@@ -1961,6 +1978,23 @@ details summary::-webkit-details-marker {
     }
     .vault-explorer-header-location {
         flex: 1 1 12rem;
+        display: block;
+    }
+    .vault-explorer-toolbar-location {
+        flex-wrap: wrap;
+        overflow-x: visible;
+    }
+    .vault-explorer-toolbar-segment {
+        max-width: 100%;
+    }
+    .vault-explorer-toolbar-crumb {
+        flex: 1 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .vault-explorer-toolbar-group-separator {
+        display: none;
     }
     .vault-file-history {
         grid-template-columns: minmax(0, 1fr);

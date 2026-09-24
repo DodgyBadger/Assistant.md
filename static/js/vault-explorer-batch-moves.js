@@ -1,6 +1,7 @@
 (function vaultExplorerBatchMovesModule(window) {
     function createVaultExplorerBatchMovesController({ icons, utils, callbacks }) {
         const { escapeHtml } = utils;
+        let busy = false;
 
         function show(overlay, items, initialDestination = '') {
             const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
@@ -57,9 +58,11 @@
         async function submit(overlay, form, options) {
             const status = form.querySelector('[data-vault-explorer-form-status]');
             const submitButton = form.querySelector('button[type="submit"]');
-            if (callbacks.isReadOnly(options) || typeof options.onBatchMove !== 'function') {
+            if (busy || callbacks.isReadOnly(options) || typeof options.onBatchMove !== 'function') {
                 return;
             }
+            busy = true;
+            callbacks.syncInteractionLocks();
             if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
             if (status) status.textContent = 'Moving selected items…';
             try {
@@ -68,22 +71,43 @@
                     sources: items.map((item) => item.path),
                     destination: callbacks.destinationSnapshot().path,
                 });
+                if (!callbacks.isActiveOverlay(overlay)) return;
                 callbacks.batchMutationCompleted(result?.results || []);
                 callbacks.closeActionPanel(overlay, { restoreFocus: false });
-                await callbacks.refreshExplorer(
-                    overlay,
-                    options,
-                    result?.results?.[0]?.destination || ''
-                );
+                try {
+                    await callbacks.refreshExplorer(
+                        overlay,
+                        options,
+                        result?.results?.[0]?.destination || ''
+                    );
+                } catch (refreshError) {
+                    callbacks.setStatus(
+                        overlay,
+                        `The move succeeded, but the Explorer could not refresh: ${refreshError.message}`,
+                        true
+                    );
+                }
             } catch (error) {
+                if (!callbacks.isActiveOverlay(overlay)) return;
                 if (status) {
                     status.innerHTML = `<span class="state-error">${escapeHtml(error.message)}</span>`;
                 }
                 if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+            } finally {
+                busy = false;
+                if (callbacks.isActiveOverlay(overlay)) callbacks.syncInteractionLocks();
             }
         }
 
-        return Object.freeze({ show, submit });
+        function isBusy() {
+            return busy;
+        }
+
+        function reset() {
+            busy = false;
+        }
+
+        return Object.freeze({ isBusy, reset, show, submit });
     }
 
     window.VaultExplorerBatchMoves = Object.freeze({

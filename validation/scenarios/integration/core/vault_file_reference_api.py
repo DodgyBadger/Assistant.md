@@ -121,6 +121,14 @@ class VaultFileReferenceApiScenario(BaseScenario):
             "Spanish/lesson.md" not in basename_paths
         ), "Name search should match item basenames, not ancestor folder names"
 
+        stale_search = self.call_api(
+            f"/api/vaults/{vault.name}/file-refs",
+            params={"path": "Missing", "scope": "vault", "query": "readme"},
+        )
+        assert (
+            stale_search.status_code == 404
+        ), "A missing search folder should not silently widen to the vault root"
+
         resolved = self.call_api(
             f"/api/vaults/{vault.name}/file-refs/resolve",
             method="POST",

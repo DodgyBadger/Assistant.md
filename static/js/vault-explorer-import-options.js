@@ -58,6 +58,8 @@
     }
 
     function reset(form) {
+        form.dataset.importRequestOptions = '{}';
+        form.dataset.importTouchedOptions = '[]';
         form.querySelectorAll('select[name], input[type="checkbox"][name]')
             .forEach((control) => {
                 if (control instanceof HTMLSelectElement) control.value = '';
@@ -67,8 +69,17 @@
     }
 
     function bind(form) {
-        form.addEventListener('input', () => updateSummary(form));
-        form.addEventListener('change', () => updateSummary(form));
+        const handleChange = (event) => {
+            const name = event.target?.name;
+            if (name) {
+                const touched = new Set(JSON.parse(form.dataset.importTouchedOptions || '[]'));
+                touched.add(name);
+                form.dataset.importTouchedOptions = JSON.stringify(Array.from(touched));
+            }
+            updateSummary(form);
+        };
+        form.addEventListener('input', handleChange);
+        form.addEventListener('change', handleChange);
         form.querySelector('[data-vault-explorer-import-reset-options]')
             ?.addEventListener('click', () => reset(form));
         updateSummary(form);
@@ -76,29 +87,73 @@
 
     function read(form) {
         const value = (name) => form.elements.namedItem(name);
-        const payload = {};
+        const touched = new Set(JSON.parse(form.dataset.importTouchedOptions || '[]'));
+        let payload = {};
+        try {
+            const preserved = JSON.parse(form.dataset.importRequestOptions || '{}');
+            if (preserved && typeof preserved === 'object' && !Array.isArray(preserved)) {
+                payload = { ...preserved };
+            }
+        } catch (_) {
+            payload = {};
+        }
         const queue = value('queue_only');
         payload.queue_only = queue instanceof HTMLInputElement && queue.checked;
         const pdfMode = value('pdf_mode');
-        if (pdfMode instanceof HTMLSelectElement && pdfMode.value) payload.pdf_mode = pdfMode.value;
+        if (touched.has('pdf_mode')) {
+            delete payload.pdf_mode;
+            if (pdfMode instanceof HTMLSelectElement && pdfMode.value) payload.pdf_mode = pdfMode.value;
+        }
         const pdfStrategy = value('pdf_strategy');
-        if (pdfStrategy instanceof HTMLSelectElement && pdfStrategy.value) {
-            payload.pdf_strategies = pdfStrategy.value === 'ocr' ? ['pdf_ocr'] : ['pdf_text'];
+        if (touched.has('pdf_strategy')) {
+            delete payload.strategies;
+            delete payload.pdf_strategies;
+            if (pdfStrategy instanceof HTMLSelectElement && pdfStrategy.value) {
+                payload.pdf_strategies = pdfStrategy.value === 'ocr' ? ['pdf_ocr'] : ['pdf_text'];
+            }
         }
         const capture = value('capture_ocr_images');
-        if (capture instanceof HTMLSelectElement && capture.value) {
-            payload.capture_ocr_images = capture.value === 'true';
+        if (touched.has('capture_ocr_images')) {
+            delete payload.capture_ocr_images;
+            if (capture instanceof HTMLSelectElement && capture.value) {
+                payload.capture_ocr_images = capture.value === 'true';
+            }
         }
         for (const name of ['include_ocr_blocks', 'extract_ocr_header', 'extract_ocr_footer']) {
             const input = value(name);
-            if (input instanceof HTMLInputElement && input.checked) payload[name] = true;
+            if (touched.has(name) && input instanceof HTMLInputElement) {
+                payload[name] = input.checked;
+            }
         }
         for (const name of ['ocr_table_format', 'ocr_confidence']) {
             const input = value(name);
-            if (input instanceof HTMLSelectElement && input.value) payload[name] = input.value;
+            if (touched.has(name)) {
+                delete payload[name];
+                if (input instanceof HTMLSelectElement && input.value) payload[name] = input.value;
+            }
         }
         return payload;
     }
 
-    window.VaultExplorerImportOptions = Object.freeze({ bind, read, renderMarkup });
+    function preserve(form, requestOptions = {}) {
+        const preserved = {};
+        for (const name of [
+            'capture_ocr_images',
+            'clean_html',
+            'extract_ocr_footer',
+            'extract_ocr_header',
+            'include_ocr_blocks',
+            'ocr_confidence',
+            'ocr_table_format',
+            'pdf_mode',
+            'pdf_strategies',
+            'strategies',
+        ]) {
+            if (requestOptions[name] != null) preserved[name] = requestOptions[name];
+        }
+        form.dataset.importRequestOptions = JSON.stringify(preserved);
+        form.dataset.importTouchedOptions = '[]';
+    }
+
+    window.VaultExplorerImportOptions = Object.freeze({ bind, preserve, read, renderMarkup });
 })(window);

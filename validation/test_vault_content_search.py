@@ -42,6 +42,18 @@ def test_content_search_enforces_a_global_result_limit(tmp_path: Path) -> None:
     assert result.truncated is True
 
 
+def test_content_search_treats_leading_dash_query_as_literal(tmp_path: Path) -> None:
+    vault = tmp_path / "Vault"
+    vault.mkdir()
+    (vault / "visible.md").write_text(
+        "A literal --hidden option-like value\n", encoding="utf-8"
+    )
+
+    result = search_vault_content(vault_path=vault, query="--hidden")
+
+    assert [match.path for match in result.matches] == ["visible.md"]
+
+
 def test_content_search_rejects_a_scope_outside_the_vault(tmp_path: Path) -> None:
     vault = tmp_path / "Vault"
     vault.mkdir()

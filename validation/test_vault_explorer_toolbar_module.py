@@ -24,10 +24,22 @@ vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
 const handlers = {};
 const locationHandlers = {};
 const selectionHandlers = {};
+let focused = null;
+let escapePropagationStopped = false;
 const createOptions = { hidden: true, style: {} };
+const importMenuItems = [0, 1].map((index) => ({
+    disabled: false,
+    focus() { focused = `item-${index}`; },
+    closest(selector) {
+        return selector === '[data-vault-explorer-action-menu-options]' ? importOptions : null;
+    },
+}));
 const importOptions = {
     hidden: true,
     style: {},
+    querySelectorAll(selector) {
+        return selector === '[role="menuitem"]' ? importMenuItems : [];
+    },
     getBoundingClientRect() {
         return { left: -80, right: 88 };
     },
@@ -51,6 +63,7 @@ const importToggle = {
     getAttribute(name) {
         return name === 'data-vault-explorer-action-menu-toggle' ? 'import' : null;
     },
+    focus() { focused = 'toggle'; },
 };
 const container = {
     innerHTML: '',
@@ -97,7 +110,6 @@ const toolbar = VaultExplorerToolbar.create({
         FOLDER_ICON_SVG: '<svg data-test-icon="folder"></svg>',
         UPLOAD_ICON_SVG: '<svg data-test-icon="upload"></svg>',
         REFRESH_ICON_SVG: '<svg data-test-icon="refresh"></svg>',
-        EYE_ICON_SVG: '<svg data-test-icon="eye"></svg>',
         MESSAGE_SQUARE_PLUS_ICON_SVG: '<svg data-test-icon="message-square-plus"></svg>',
         CLIPBOARD_COPY_ICON_SVG: '<svg data-test-icon="clipboard-copy"></svg>',
         IMPORT_ICON_SVG: '<svg data-test-icon="import"></svg>',
@@ -154,12 +166,16 @@ toolbar.render(noSelection, {
     workspacePath: 'Workspace',
 });
 assert.strictEqual(selectionContainer.innerHTML, '');
-assert.match(locationContainer.innerHTML, /Personal:/);
+assert.doesNotMatch(locationContainer.innerHTML, /Personal:/);
 assert.match(locationContainer.innerHTML, /Projects &amp; Notes/);
 assert.match(locationContainer.innerHTML, /data-vault-explorer-location=""/);
 assert.match(locationContainer.innerHTML, /data-vault-explorer-location="Projects &amp; Notes"/);
-assert.match(locationContainer.innerHTML, /data-vault-explorer-location="Workspace"/);
-assert.match(locationContainer.innerHTML, /data-test-icon="slash"/);
+assert.match(
+    locationContainer.innerHTML,
+    /vault-explorer-workspace-toggle has-workspace[^>]*data-vault-explorer-location="Workspace"[^>]*aria-label="Workspace view"[^>]*title="Go to workspace"[^>]*aria-pressed="false"/,
+);
+assert.match(locationContainer.innerHTML, /data-test-icon="briefcase-business"/);
+assert.doesNotMatch(locationContainer.innerHTML, /data-test-icon="slash"/);
 assert.match(container.innerHTML, /New file/);
 assert.match(container.innerHTML, /New folder/);
 assert.match(container.innerHTML, /Upload/);
@@ -179,40 +195,101 @@ assert.doesNotMatch(container.innerHTML, /class="[^\"]*vault-explorer-toolbar-ac
 assert.doesNotMatch(container.innerHTML, /Rename/);
 assert.doesNotMatch(container.innerHTML, /Clear selection/);
 
+toolbar.render(
+    { ...noSelection, activeFolder: 'Workspace/Notes' },
+    {
+        supportedActions: ['refresh'],
+        workspacePath: 'Workspace',
+    },
+);
+assert.match(
+    locationContainer.innerHTML,
+    /vault-explorer-workspace-toggle has-workspace is-workspace-view[^>]*data-vault-explorer-location=""[^>]*aria-label="Workspace view"[^>]*title="Go to vault root"[^>]*aria-pressed="true"/,
+);
+
+toolbar.render(noSelection, {
+    supportedActions: ['refresh'],
+    workspaceMissing: true,
+    workspacePath: 'Missing Workspace',
+});
+assert.match(
+    locationContainer.innerHTML,
+    /vault-explorer-workspace-toggle has-missing-workspace[^>]*data-vault-explorer-location=""[^>]*aria-label="Workspace folder not found"[^>]*disabled/,
+);
+assert.doesNotMatch(locationContainer.innerHTML, /has-workspace/);
+const dispatchedBeforeMissingWorkspaceClick = dispatched.length;
+locationHandlers.click({
+    target: {
+        closest(selector) {
+            if (selector !== '[data-vault-explorer-location]') return null;
+            return {
+                disabled: true,
+                getAttribute() { return 'Missing Workspace'; },
+            };
+        },
+    },
+});
+assert.strictEqual(dispatched.length, dispatchedBeforeMissingWorkspaceClick);
+
 const selectedFile = {
     activeFolder: 'Projects',
     destinationPath: '',
     selectedCount: 1,
     selectedItems: [{ path: 'Projects/report.md', kind: 'file' }],
     operations: {
-        open: { enabled: true, reason: '' },
         reference: { enabled: true, reason: '' },
         copy: { enabled: true, reason: '' },
+        new_file: { enabled: true, reason: '' },
+        new_directory: { enabled: true, reason: '' },
+        upload: { enabled: true, reason: '' },
+        import_url: { enabled: true, reason: '' },
         import_file: { enabled: true, reason: '' },
         workspace: { enabled: true, reason: '' },
         rename: { enabled: true, reason: '' },
         move: { enabled: true, reason: '' },
         delete: { enabled: true, reason: '' },
+        refresh: { enabled: true, reason: '' },
         clear: { enabled: true, reason: '' },
     },
 };
 toolbar.render(selectedFile, {
     readOnly: true,
     lockMessage: 'Wait for the response.',
-    supportedActions: ['open', 'reference', 'copy', 'import_file', 'workspace', 'rename', 'move', 'delete'],
+    supportedActions: [
+        'reference', 'copy', 'new_file', 'new_directory', 'upload', 'rename', 'move',
+        'import_url', 'import_file', 'delete', 'refresh', 'workspace',
+    ],
 });
 assert.match(selectionContainer.innerHTML, /aria-label="1 selected"/);
 assert.match(selectionContainer.innerHTML, />1 selected<\/button>/);
-assert.match(container.innerHTML, /Open/);
 assert.match(container.innerHTML, /Add to prompt/);
 assert.match(selectionContainer.innerHTML, /Show selected/);
 assert.match(selectionContainer.innerHTML, /Deselect all/);
-assert.match(container.innerHTML, /data-test-icon="eye"/);
 assert.match(container.innerHTML, /data-test-icon="message-square-plus"/);
 assert.match(container.innerHTML, /data-test-icon="clipboard-copy"/);
 assert.match(container.innerHTML, /data-test-icon="import"/);
 assert.match(container.innerHTML, /data-test-icon="briefcase-business"/);
 assert.match(container.innerHTML, /data-test-icon="move"/);
+assert.doesNotMatch(container.innerHTML, /aria-label="Open"/);
+assert.match(
+    container.innerHTML,
+    /data-vault-explorer-action-group="use"[\s\S]*data-vault-explorer-toolbar-action="reference"[\s\S]*data-vault-explorer-toolbar-action="copy"/,
+);
+assert.match(
+    container.innerHTML,
+    /data-vault-explorer-action-group="manage"[\s\S]*data-vault-explorer-action-menu-toggle="create"[\s\S]*data-vault-explorer-toolbar-action="rename"[\s\S]*data-vault-explorer-toolbar-action="move"[\s\S]*data-vault-explorer-action-menu-toggle="import"[\s\S]*data-vault-explorer-toolbar-action="delete"/,
+);
+assert.match(
+    container.innerHTML,
+    /data-vault-explorer-action-group="utility"[\s\S]*data-vault-explorer-toolbar-action="refresh"[\s\S]*data-vault-explorer-toolbar-action="workspace"/,
+);
+assert.doesNotMatch(container.innerHTML, /is-danger/);
+assert.match(locationContainer.innerHTML, /vault-explorer-toolbar-segment/);
+assert.match(
+    locationContainer.innerHTML,
+    /<nav[^>]*>[\s\S]*vault-explorer-workspace-toggle/,
+);
+assert.match(locationContainer.innerHTML, /vault-explorer-workspace-toggle[^>]*disabled/);
 assert.match(container.innerHTML, /data-vault-explorer-toolbar-action="reference"[^>]*disabled/);
 assert.match(container.innerHTML, /data-vault-explorer-toolbar-action="copy"/);
 
@@ -226,19 +303,34 @@ handlers.click({
 assert.strictEqual(importOptions.hidden, false);
 assert.strictEqual(importToggle.expanded, 'true');
 assert.strictEqual(importOptions.style.transform, 'translateX(88px)');
+assert.strictEqual(focused, 'item-0');
 
-handlers.keydown({ key: 'Escape' });
+handlers.keydown({
+    key: 'ArrowDown',
+    target: importMenuItems[0],
+    preventDefault() {},
+});
+assert.strictEqual(focused, 'item-1');
+
+handlers.keydown({
+    key: 'Escape',
+    target: importMenuItems[1],
+    preventDefault() {},
+    stopPropagation() { escapePropagationStopped = true; },
+});
 assert.strictEqual(importOptions.hidden, true);
 assert.strictEqual(importToggle.expanded, 'false');
+assert.strictEqual(focused, 'toggle');
+assert.strictEqual(escapePropagationStopped, true);
 
-const openButton = {
+const copyButton = {
     disabled: false,
     getAttribute(name) {
-        return name === 'data-vault-explorer-toolbar-action' ? 'open' : null;
+        return name === 'data-vault-explorer-toolbar-action' ? 'copy' : null;
     },
 };
-handlers.click({ target: { closest() { return openButton; } } });
-assert.deepStrictEqual(dispatched, [{ action: 'open', count: 1 }]);
+handlers.click({ target: { closest() { return copyButton; } } });
+assert.deepStrictEqual(dispatched, [{ action: 'copy', count: 1 }]);
 
 const lockedButton = {
     disabled: true,

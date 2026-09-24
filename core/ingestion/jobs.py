@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
@@ -52,6 +53,17 @@ class IngestionJob(Base):
     )
 
 
+@dataclass(frozen=True)
+class IngestionJobCreate:
+    """Values required to create one durable ingestion job."""
+
+    source_uri: str
+    vault: str
+    source_type: str
+    mime_hint: str | None
+    options: dict[str, Any] | None
+
+
 def _get_engine() -> Engine:
     # Uses the centralized declared system DB registry.
     return create_engine_from_system_db("ingestion_jobs")
@@ -75,23 +87,46 @@ def create_job(
     mime_hint: str | None,
     options: dict[str, Any] | None,
 ) -> IngestionJob:
-    session_factory = _get_session_factory()
-    try:
-        with session_factory() as session:
-            job = IngestionJob(
+    return create_jobs(
+        [
+            IngestionJobCreate(
                 source_uri=source_uri,
                 vault=vault,
                 source_type=source_type,
                 mime_hint=mime_hint,
-                options=options or {},
-                status=JobStatus.QUEUED.value,
+                options=options,
             )
-            session.add(job)
+        ]
+    )[0]
+
+
+def create_jobs(requests: list[IngestionJobCreate]) -> list[IngestionJob]:
+    """Create a validated batch atomically in one database transaction."""
+    if not requests:
+        return []
+    session_factory = _get_session_factory()
+    try:
+        with session_factory() as session:
+            jobs = [
+                IngestionJob(
+                    source_uri=request.source_uri,
+                    vault=request.vault,
+                    source_type=request.source_type,
+                    mime_hint=request.mime_hint,
+                    options=request.options or {},
+                    status=JobStatus.QUEUED.value,
+                )
+                for request in requests
+            ]
+            session.add_all(jobs)
+            session.flush()
+            for job in jobs:
+                session.refresh(job)
+            session.expunge_all()
             session.commit()
-            session.refresh(job)
-            return job
+            return jobs
     except SQLAlchemyError as exc:
-        raise RuntimeError(f"Failed to create ingestion job: {exc}") from exc
+        raise RuntimeError(f"Failed to create ingestion job batch: {exc}") from exc
 
 
 def update_job_status(job_id: int, status: JobStatus, error: str | None = None) -> None:

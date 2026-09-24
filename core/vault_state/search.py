@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import select
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,6 +66,45 @@ def search_vault_content(
         raise VaultContentSearchError(
             "invalid_scope", "Search scope must be an existing vault folder."
         )
+    return search_content_roots(
+        root_path=vault_root,
+        search_roots=[search_root],
+        query=normalized_query,
+        limit=limit,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def search_content_roots(
+    *,
+    root_path: str | Path,
+    search_roots: list[Path],
+    query: str,
+    limit: int = 100,
+    timeout_seconds: float = 5.0,
+) -> VaultContentSearchResult:
+    """Return bounded structured matches from validated files or directories."""
+    normalized_query = query.strip()
+    if not normalized_query:
+        raise VaultContentSearchError("missing_query", "Search query is required.")
+    root = Path(root_path).resolve()
+    resolved_roots: list[Path] = []
+    for candidate in search_roots:
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise VaultContentSearchError(
+                "invalid_scope",
+                "Search roots must remain inside their configured root.",
+            ) from exc
+        if not resolved.exists() or not (resolved.is_file() or resolved.is_dir()):
+            raise VaultContentSearchError(
+                "invalid_scope", "Search roots must identify existing files or folders."
+            )
+        resolved_roots.append(resolved)
+    if not resolved_roots:
+        return VaultContentSearchResult(matches=(), truncated=False)
     bounded_limit = min(max(int(limit), 1), 200)
     command = [
         "rg",
@@ -75,23 +115,33 @@ def search_vault_content(
         "500",
         "--max-filesize",
         "2M",
+        "--",
         normalized_query,
-        str(search_root),
+        *(str(search_root) for search_root in resolved_roots),
     ]
+    diagnostic_file = tempfile.TemporaryFile(mode="w+", encoding="utf-8")
     try:
         process = subprocess.Popen(  # noqa: S603 - fixed executable and argv only
             command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=diagnostic_file,
             text=True,
         )
     except FileNotFoundError as exc:
+        diagnostic_file.close()
         raise VaultContentSearchError(
             "ripgrep_not_found", "ripgrep is unavailable on this host."
+        ) from exc
+    except OSError as exc:
+        diagnostic_file.close()
+        raise VaultContentSearchError(
+            "search_failed", f"Content search could not start: {exc}"
         ) from exc
 
     matches: list[VaultContentMatch] = []
     truncated = False
+    intentionally_terminated = False
+    diagnostics = ""
     deadline = time.monotonic() + max(float(timeout_seconds), 0.1)
     try:
         if process.stdout is None:
@@ -108,13 +158,26 @@ def search_vault_content(
             line = process.stdout.readline()
             if not line:
                 break
-            match = _parse_match(line=line, vault_root=vault_root)
+            match = _parse_match(line=line, vault_root=root)
             if match is None:
                 continue
             if len(matches) >= bounded_limit:
                 truncated = True
                 break
             matches.append(match)
+        if truncated and process.poll() is None:
+            process.terminate()
+            intentionally_terminated = True
+        elif process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise VaultContentSearchError("timeout", "Content search timed out.")
+            try:
+                process.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as exc:
+                raise VaultContentSearchError(
+                    "timeout", "Content search timed out."
+                ) from exc
     finally:
         if process.poll() is None:
             process.terminate()
@@ -123,11 +186,16 @@ def search_vault_content(
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=1)
+        diagnostic_file.seek(0)
+        diagnostics = diagnostic_file.read(2000).strip()
+        diagnostic_file.close()
 
-    if not truncated and process.returncode not in {0, 1, -15}:
-        stderr = process.stderr.read().strip() if process.stderr else ""
+    accepted_return_codes = {0, 1}
+    if intentionally_terminated:
+        accepted_return_codes.add(-15)
+    if process.returncode not in accepted_return_codes:
         raise VaultContentSearchError(
-            "search_failed", stderr or "Content search failed."
+            "search_failed", diagnostics or "Content search failed."
         )
     return VaultContentSearchResult(matches=tuple(matches), truncated=truncated)
 

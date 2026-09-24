@@ -124,6 +124,7 @@
             setValue('extract_ocr_footer', requestOptions.extract_ocr_footer);
             setValue('ocr_table_format', requestOptions.ocr_table_format);
             setValue('ocr_confidence', requestOptions.ocr_confidence);
+            importOptions.preserve(form, requestOptions);
         }
 
         function updateDestination(overlay, destination) {

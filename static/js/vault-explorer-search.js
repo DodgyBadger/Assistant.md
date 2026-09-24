@@ -20,7 +20,7 @@
             return response.json();
         }
 
-        function render(payload, { selectedPaths = [], supportsPath }) {
+        function render(payload, { selectable = true, selectedPaths = [], supportsPath }) {
             const selected = new Set(selectedPaths);
             const files = new Map();
             for (const match of payload.matches || []) {
@@ -30,10 +30,10 @@
             return Array.from(files.entries()).map(([path, matches]) => `
                 <div data-vault-path-picker-row="${escapeHtml(path)}" data-vault-path-picker-depth="0">
                     <div class="workspace-tree-row vault-content-search-row${selected.has(path) ? ' is-selected' : ''}" role="treeitem">
-                        <input type="checkbox" class="vault-explorer-row-selection"
+                        ${selectable ? `<input type="checkbox" class="vault-explorer-row-selection"
                             data-vault-explorer-select-item data-path="${escapeHtml(path)}"
                             data-kind="file" data-import-eligible="${supportsPath(path)}"
-                            aria-label="Select ${escapeHtml(path)}" ${selected.has(path) ? 'checked' : ''} />
+                            aria-label="Select ${escapeHtml(path)}" ${selected.has(path) ? 'checked' : ''} />` : ''}
                         <button type="button" class="workspace-tree-select"
                             data-vault-path-picker-select="${escapeHtml(path)}" data-vault-path-picker-kind="file">
                             <span class="workspace-tree-label min-w-0">
@@ -54,6 +54,7 @@
             vault,
             query,
             path = '',
+            selectable = false,
             selectedPaths = [],
             supportsPath,
             setStatus,
@@ -83,7 +84,7 @@
                     : 'No matching content.'
             );
             results.innerHTML = matches.length
-                ? render(payload, { selectedPaths, supportsPath })
+                ? render(payload, { selectable, selectedPaths, supportsPath })
                 : '<p class="text-sm text-txt-secondary">No matching content.</p>';
             onRendered?.();
         }

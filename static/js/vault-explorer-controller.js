@@ -117,15 +117,6 @@
                     }, options);
                     return;
                 }
-                if (action === 'open' && selectedItem) {
-                    if (selectedItem.kind === 'directory') {
-                        state.setActiveFolder(selectedItem.path);
-                        await callbacks.expandDirectory(overlay, selectedItem.path, options);
-                    } else {
-                        options.onSelect?.(selectedItem);
-                    }
-                    return;
-                }
                 if (action === 'reference') {
                     for (const item of currentSnapshot.selectedItems) {
                         options.onAddReference?.(item.path);
@@ -137,7 +128,12 @@
                     return;
                 }
                 if (action === 'workspace' && selectedItem) {
-                    await options.onSetWorkspace?.(selectedItem.path);
+                    const saved = await options.onSetWorkspace?.(selectedItem.path);
+                    if (saved === true && overlay && options) {
+                        options.workspacePath = selectedItem.path;
+                        options.workspaceRecovery = false;
+                        render();
+                    }
                     return;
                 }
                 if (action === 'move' && currentSnapshot.selectedCount > 1) {
@@ -201,7 +197,7 @@
                     ? 'Available after the upload finishes.'
                     : 'Available when the active response finishes.',
                 supportedActions: supportedToolbarActions(options),
-                vaultName: options.vaultName || '',
+                workspaceMissing: options.workspaceRecovery === true,
                 workspacePath: callbacks.workspacePath?.() || '',
             });
         }
@@ -215,7 +211,7 @@
             if (typeof currentOptions.onImportSources === 'function') {
                 actions.push('import_url');
             }
-            actions.push('refresh', 'open');
+            actions.push('refresh');
             if (typeof currentOptions.onAddReference === 'function') actions.push('reference');
             actions.push('copy');
             if (typeof currentOptions.onSetWorkspace === 'function') actions.push('workspace');

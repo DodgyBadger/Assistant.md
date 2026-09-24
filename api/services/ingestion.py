@@ -260,16 +260,14 @@ async def import_url_direct(
     runtime = get_runtime_context()
     ingest_service = runtime.ingestion
     import_service = ContentImportService(str(Path(runtime.config.data_root) / vault))
-    options: dict[str, Any] = {"clean_html": clean_html}
-    if strategies:
-        options["strategies"] = strategies
-    if pdf_strategies:
-        options["pdf_strategies"] = pdf_strategies
-    if capture_ocr_images is not None:
-        options["capture_ocr_images"] = capture_ocr_images
-    if pdf_mode:
-        options["pdf_mode"] = pdf_mode
-    options.update(ocr_options or {})
+    options = _direct_import_options(
+        clean_html=clean_html,
+        strategies=strategies,
+        pdf_strategies=pdf_strategies,
+        capture_ocr_images=capture_ocr_images,
+        pdf_mode=pdf_mode,
+        ocr_options=ocr_options,
+    )
     submitted = import_service.submit(sources=url, options=options)
     job = ingest_service.get_job(submitted[0].job_id)
     if job is None:
@@ -319,18 +317,15 @@ async def import_sources_direct(
         vault_name=vault,
     )
     import_service = ContentImportService(str(vault_root))
-    options: dict[str, Any] = {"clean_html": clean_html}
-    if destination is not None:
-        options["destination"] = destination
-    if strategies:
-        options["strategies"] = strategies
-    if pdf_strategies:
-        options["pdf_strategies"] = pdf_strategies
-    if capture_ocr_images is not None:
-        options["capture_ocr_images"] = capture_ocr_images
-    if pdf_mode:
-        options["pdf_mode"] = pdf_mode
-    options.update(ocr_options or {})
+    options = _direct_import_options(
+        destination=destination,
+        clean_html=clean_html,
+        strategies=strategies,
+        pdf_strategies=pdf_strategies,
+        capture_ocr_images=capture_ocr_images,
+        pdf_mode=pdf_mode,
+        ocr_options=ocr_options,
+    )
 
     submitted = import_service.submit(sources=sources, options=options)
     jobs: list[IngestionJob] = []
@@ -343,10 +338,44 @@ async def import_sources_direct(
     logger.info(
         "Direct content import submitted",
         data={
-            "vault": vault_root.name,
-            "jobs_created": len(jobs),
+            "event": "ingestion_jobs_submitted",
+            "status": "queued",
+            "vault_name": vault_root.name,
+            "source": "api",
+            "job_ids": [job.id for job in jobs],
+            "accepted_count": len(jobs),
+            "url_count": sum(job.source_type == SourceKind.URL.value for job in jobs),
+            "vault_file_count": sum(
+                job.source_type == SourceKind.FILE.value for job in jobs
+            ),
             "queue_only": queue_only,
             "destination": destination,
         },
     )
     return jobs
+
+
+def _direct_import_options(
+    *,
+    clean_html: bool,
+    destination: str | None = None,
+    strategies: list[str] | None = None,
+    pdf_strategies: list[str] | None = None,
+    capture_ocr_images: bool | None = None,
+    pdf_mode: str | None = None,
+    ocr_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the shared public option payload for direct imports."""
+    options: dict[str, Any] = {"clean_html": clean_html}
+    if destination is not None:
+        options["destination"] = destination
+    if strategies:
+        options["strategies"] = strategies
+    if pdf_strategies:
+        options["pdf_strategies"] = pdf_strategies
+    if capture_ocr_images is not None:
+        options["capture_ocr_images"] = capture_ocr_images
+    if pdf_mode:
+        options["pdf_mode"] = pdf_mode
+    options.update(ocr_options or {})
+    return options

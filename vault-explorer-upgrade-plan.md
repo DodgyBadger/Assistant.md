@@ -6,9 +6,16 @@ Reduce routine Vault Explorer and content-import friction across several co-equa
 
 ## Delivery Status
 
-The required delivery slices are implemented. Selection and operation-bar behavior, active-folder targeting, direct file/URL/upload imports, persistent defaults, Dashboard job handoff, atomic batch Move, bounded content search, pagination-safe reveal, and baseline keyboard tree behavior are present. Interactive Explorer imports now acknowledge durable jobs promptly and poll their status, while import eligibility is derived from the backend importer registry.
+The required delivery slices are implemented. Selection and operation-bar behavior, active-folder targeting, direct file/URL/upload imports, persistent defaults, Dashboard job handoff, atomic batch Move, bounded content search, pagination-safe reveal, and keyboard tree and menu behavior are present. Interactive Explorer imports now acknowledge durable jobs promptly and poll their status, while import eligibility is derived from the backend importer registry.
 
-Bulk Delete and external-file drag-and-drop remain deliberately excluded from this release under the plan's bounded-scope decisions. Duplicate was discussed later and separately deferred. Final hardening consists of the production quality gate, compiled CSS verification, the complete deterministic `integration/core` profile, and a manual responsive browser smoke pass.
+Bulk Delete and external-file drag-and-drop remain deliberately excluded from this release under the plan's bounded-scope decisions. Duplicate was discussed later and separately deferred. Peer-review hardening added atomic multi-source job creation, post-move reconciliation, explicit search failure contracts, immutable import-default snapshots, stale-modal protection, cross-vault action isolation, menu keyboard navigation, and modal focus restoration. Hardening is complete; the branch is ready for commit and review preparation.
+
+## Hardening Evidence
+
+- The production Python quality gate, focused frontend module checks, JavaScript syntax checks, CSS build, and the complete 114-scenario deterministic integration/core profile passed against the hardened feature diff.
+- An Obscura CDP browser pass covered 1440×900 desktop, 360×640 mobile, and constrained 360×420 mobile layouts in the light and dark themes. It verified bounded action and search menus, selection ancestry and reveal, tree expansion and collapse, content-result alignment, modal scrolling, import cancellation, and focus restoration.
+- The browser pass found and resolved an Escape propagation defect that closed the Explorer after dismissing a nested menu or action panel. Focused regression tests now require consumed Escape events to stop before the app-wide modal handler.
+- Observability inspection confirmed compact, correlated import submission, start, source/strategy decision, completion, cancellation, and failure records with stable event/status fields and searchable job and vault identities. Direct-import and import-pipeline scenarios verify lifecycle visibility, content exclusion, bounded warning reason codes, and distinct warning identities under deduplication.
 
 ## Current Behavior
 
@@ -269,4 +276,4 @@ The existing inbox-scan API can remain for compatibility and automation, but the
 
 ## Next Phase
 
-Feature Development begins with delivery slice 1 using frontend contract tests to establish selection, operation-applicability, active-folder, and destination invariants before modifying visible behavior.
+Implementation and hardening are complete. The remaining branch work is maintainer review and merge preparation. Bulk Delete, duplicate, and external-file drag-and-drop remain separate future decisions rather than unfinished requirements of this effort.
