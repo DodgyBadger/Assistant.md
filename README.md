@@ -24,7 +24,7 @@ Mount one or more Markdown vaults when you install Assistant.md, and they become
 - **Research and ingestion:** Search, extract, and crawl web content, then turn public pages and vault PDFs into Markdown.
 - **Composable automation:** Build sandboxed Python workflows and context assembly scripts for deep customization and repeatable work.
 - **Reviewable and recoverable changes:** Inspect proposed file edits before applying them, restore revisions, or roll back changes.
-- **Operational visibility:** Review workflow history, running work, tool details, and searchable System Activity.
+- **Operational visibility:** Review workflow history, running tasks, tool details, and searchable system logs.
 - **Flexible model support:** Use supported cloud or local models, including multimodal models and OpenAI OAuth.
 - **Explicit security controls:** Encrypt credentials at rest, authorize connections independently, and choose from several endpoint security modes.
 - **Focused interface:** Work in a clean, minimal UI with focus and dark modes.
