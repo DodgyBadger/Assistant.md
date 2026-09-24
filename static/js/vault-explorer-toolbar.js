@@ -280,8 +280,27 @@
             closeActionMenus();
             if (opening) {
                 options.hidden = false;
+                keepMenuInViewport(options);
                 toggle.setAttribute('aria-expanded', 'true');
             }
+        }
+
+        function keepMenuInViewport(options) {
+            if (!options.style || typeof options.getBoundingClientRect !== 'function') return;
+            options.style.transform = '';
+            const viewportWidth = window.innerWidth
+                || window.document?.documentElement?.clientWidth
+                || 0;
+            if (!viewportWidth) return;
+            const margin = 8;
+            const bounds = options.getBoundingClientRect();
+            let shift = 0;
+            if (bounds.left < margin) {
+                shift = margin - bounds.left;
+            } else if (bounds.right > viewportWidth - margin) {
+                shift = viewportWidth - margin - bounds.right;
+            }
+            if (shift) options.style.transform = `translateX(${Math.round(shift)}px)`;
         }
 
         function closeActionMenus() {

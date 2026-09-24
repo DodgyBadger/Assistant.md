@@ -798,6 +798,7 @@ details summary::-webkit-details-marker {
     right: 0;
     z-index: 5;
     width: max-content;
+    max-width: calc(100vw - 1rem);
     min-width: 10.5rem;
     padding: 0.3rem;
     border: 1px solid rgb(var(--border-primary));
@@ -996,7 +997,7 @@ details summary::-webkit-details-marker {
 }
 .vault-explorer-upload-item {
     display: grid;
-    grid-template-columns: minmax(7rem, 0.8fr) minmax(10rem, 1.5fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.6rem;
     padding: 0.4rem 0.5rem;
     border: 1px solid rgb(var(--border-primary));
@@ -1007,15 +1008,6 @@ details summary::-webkit-details-marker {
 .vault-explorer-upload-item > span {
     min-width: 0;
     overflow-wrap: anywhere;
-}
-@media (max-width: 640px) {
-    .vault-explorer-upload-item {
-        grid-template-columns: 1fr auto;
-    }
-    .vault-explorer-upload-item .cell-mono {
-        grid-column: 1 / -1;
-        grid-row: 2;
-    }
 }
 .vault-explorer-move-destination,
 .vault-explorer-move-preview {
@@ -1686,6 +1678,13 @@ details summary::-webkit-details-marker {
 }
 .vault-explorer-modal-header {
     grid-template-columns: minmax(0, 1fr) auto;
+}
+.vault-path-picker-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.vault-path-picker-body > [data-vault-path-picker-results] {
+    min-height: 10rem;
 }
 .vault-explorer-header-search {
     min-width: 0;
@@ -3060,6 +3059,12 @@ summary.connection-card-summary .summary-title {
 .vault-content-search-row .file-reference-path {
     white-space: normal;
     overflow-wrap: anywhere;
+}
+.vault-content-search-row {
+    align-items: flex-start;
+}
+.vault-content-search-row > .vault-explorer-row-selection {
+    margin-top: 0.3rem;
 }
 .vault-file-link {
     color: rgb(var(--accent-primary));

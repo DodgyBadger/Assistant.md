@@ -118,7 +118,7 @@
                             </div>
                             ${showSearch ? `<div class="file-reference-toolbar vault-explorer-header-search">
                                 <select data-vault-path-picker-search-mode class="file-reference-scope" aria-label="Search type">
-                                    <option value="name">Name / path</option>
+                                    <option value="name">Files</option>
                                     <option value="content">Contents</option>
                                 </select>
                                 <select data-vault-path-picker-scope class="file-reference-scope" aria-label="Search scope">
@@ -133,7 +133,7 @@
                             <button type="button" class="ui-icon-button is-compact" data-vault-path-picker-close aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                     </div>
-                    <div class="p-4 flex-1 min-h-0 flex flex-col gap-3">
+                    <div class="vault-path-picker-body p-4 flex-1 min-h-0 flex flex-col gap-3">
                         ${options.selectedLabel ? `
                             <div class="p-3 rounded border border-border-primary bg-app-elevated">
                                 <div class="text-xs uppercase text-txt-secondary">${escapeHtml(options.selectedLabel)}</div>
@@ -152,10 +152,10 @@
                                     <input data-vault-path-picker-search-mode type="hidden" value="name" />
                                     <button type="button" class="vault-explorer-search-mode-toggle"
                                         data-vault-explorer-search-mode-toggle aria-haspopup="menu" aria-expanded="false"
-                                        aria-label="Search mode" title="Search mode">Names</button>
+                                        aria-label="Search mode" title="Search mode">Files</button>
                                     <div class="vault-explorer-search-mode-menu" data-vault-explorer-search-mode-menu role="menu" hidden>
-                                        <button type="button" data-vault-explorer-search-mode-option="name" role="menuitemradio" aria-checked="true">Name and path</button>
-                                        <button type="button" data-vault-explorer-search-mode-option="content" role="menuitemradio" aria-checked="false">File contents</button>
+                                        <button type="button" data-vault-explorer-search-mode-option="name" role="menuitemradio" aria-checked="true">Files</button>
+                                        <button type="button" data-vault-explorer-search-mode-option="content" role="menuitemradio" aria-checked="false">Contents</button>
                                     </div>
                                 </div>
                                 <div class="vault-explorer-toolbar-controls" data-vault-explorer-toolbar></div>
@@ -224,7 +224,7 @@
                     : `Search names in ${scope}...`;
                 const modeToggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
                 if (modeToggle instanceof HTMLButtonElement) {
-                    modeToggle.textContent = content ? 'Contents' : 'Names';
+                    modeToggle.textContent = content ? 'Contents' : 'Files';
                 }
                 overlay.querySelectorAll('[data-vault-explorer-search-mode-option]').forEach((button) => {
                     button.setAttribute(
@@ -539,7 +539,7 @@
             }
             if (searchMode instanceof HTMLInputElement) searchMode.value = 'name';
             const modeToggle = overlay.querySelector('[data-vault-explorer-search-mode-toggle]');
-            if (modeToggle instanceof HTMLButtonElement) modeToggle.textContent = 'Names';
+            if (modeToggle instanceof HTMLButtonElement) modeToggle.textContent = 'Files';
             closeSearchModeMenu(overlay);
             overlay.querySelectorAll('[data-vault-explorer-search-mode-option]').forEach((button) => {
                 button.setAttribute(

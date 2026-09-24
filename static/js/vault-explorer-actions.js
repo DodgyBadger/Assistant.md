@@ -106,7 +106,7 @@
                 </form>`;
             panel.classList.remove('hidden');
             overlay.classList.add('vault-explorer-preparing-upload');
-            renderUploadPaths(panel);
+            renderUploadFiles(panel);
             const uploadForm = panel.querySelector('[data-vault-explorer-upload-form]');
             if (uploadForm instanceof HTMLFormElement) {
                 window.VaultExplorerImportOptions.bind(uploadForm);
@@ -132,17 +132,12 @@
             panel.querySelector('button[type="submit"]')?.focus();
         }
 
-        function renderUploadPaths(panel) {
+        function renderUploadFiles(panel) {
             const list = panel.querySelector('[data-vault-explorer-upload-list]');
-            const destinationInput = panel.querySelector('input[name="destination"]');
             if (!(list instanceof HTMLElement)) return;
-            const destination = destinationInput instanceof HTMLInputElement
-                ? destinationInput.value.trim().replace(/\/+$/, '')
-                : '';
             list.innerHTML = activeUploadFiles.map((file) => `
                 <div class="vault-explorer-upload-item">
                     <span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
-                    <span class="cell-mono text-txt-secondary">${escapeHtml(joinPath(destination, file.name))}</span>
                     <span class="text-txt-secondary">${formatFileSize(file.size)}</span>
                 </div>
             `).join('');
@@ -252,7 +247,7 @@
             }
 
             activeUploadFiles = failures.map(({ file }) => file);
-            renderUploadPaths(form);
+            renderUploadFiles(form);
             const importButton = form.querySelector('button[value="upload_import"]');
             if (importButton instanceof HTMLButtonElement) {
                 importButton.disabled = !activeUploadFiles.every((file) => (
@@ -570,7 +565,7 @@
                     if (input instanceof HTMLInputElement) input.value = destination.path;
                     const label = overlay.querySelector('[data-vault-explorer-upload-destination]');
                     if (label) label.textContent = destination.path || 'Vault root';
-                    if (uploadForm instanceof HTMLFormElement) renderUploadPaths(uploadForm);
+                    if (uploadForm instanceof HTMLFormElement) renderUploadFiles(uploadForm);
                 }
                 if (destination.purpose === 'import') {
                     callbacks.importDestinationSelected?.(overlay, destination.path);
