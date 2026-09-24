@@ -107,6 +107,9 @@
         }
 
         async function importSources(payload, vaultName = '') {
+            if (interactionLocked()) {
+                throw new Error('Wait for the active response to finish.');
+            }
             const vault = vaultName || selectedVault();
             const response = await fetch('api/import/sources', {
                 method: 'POST',

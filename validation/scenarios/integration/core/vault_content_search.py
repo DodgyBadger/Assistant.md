@@ -93,3 +93,15 @@ class VaultContentSearchScenario(BaseScenario):
             "missing_query",
             "Blank query rejection has a stable code",
         )
+        invalid_query = self.call_api(
+            f"/api/vaults/{vault.name}/content-search",
+            params={"query": "x" * 501},
+        )
+        self.soft_assert_equal(
+            invalid_query.status_code, 400, "Oversized content queries are rejected"
+        )
+        self.soft_assert_equal(
+            invalid_query.json().get("details", {}).get("code"),
+            "invalid_query",
+            "Invalid query rejection has a stable code",
+        )

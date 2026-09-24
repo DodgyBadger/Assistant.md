@@ -166,8 +166,19 @@
     }
 
 
+    async function runSectionLoaders(area, loaders) {
+        const results = await Promise.allSettled(
+            loaders.map(([, load]) => Promise.resolve().then(load))
+        );
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                console.error(`Failed to load ${area} section: ${loaders[index][0]}`, result.reason);
+            }
+        });
+    }
+
     async function refreshAll() {
-        const loaders = [
+        await runSectionLoaders('System', [
             ['activity log', () => actions.refreshActivityLog()],
             ['providers', () => actions.loadProviders()],
             ['general settings', () => actions.loadGeneralSettings()],
@@ -180,15 +191,7 @@
             ['import vaults', () => actions.loadImportVaults()],
             ['session-purge vaults', () => actions.loadPurgeSessionsVaults()],
             ['goal-cleanup vaults', () => actions.loadCleanupGoalsVaults()],
-        ];
-        const results = await Promise.allSettled(
-            loaders.map(([, load]) => Promise.resolve().then(load))
-        );
-        results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-                console.error(`Failed to load System section: ${loaders[index][0]}`, result.reason);
-            }
-        });
+        ]);
         state.hasLoadedOnce = true;
     }
 
@@ -222,9 +225,11 @@
 
     async function onDashboardActivated() {
         if (!state.initialized) return;
-        await actions.loadSecrets();
-        await actions.loadImportVaults();
-        await actions.loadImportJobs();
+        await runSectionLoaders('Dashboard', [
+            ['secrets', () => actions.loadSecrets()],
+            ['import vaults', () => actions.loadImportVaults()],
+            ['import jobs', () => actions.loadImportJobs()],
+        ]);
     }
 
 

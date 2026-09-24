@@ -12,6 +12,8 @@ from pathlib import Path
 
 from core.vault_state.pathing import resolve_vault_relative_path
 
+_MAX_QUERY_CHARACTERS = 500
+
 
 class VaultContentSearchError(Exception):
     """A stable content-search failure suitable for API translation."""
@@ -35,6 +37,22 @@ class VaultContentSearchResult:
     truncated: bool
 
 
+def _normalize_query(query: str) -> str:
+    normalized = query.strip()
+    if not normalized:
+        raise VaultContentSearchError("missing_query", "Search query is required.")
+    if len(normalized) > _MAX_QUERY_CHARACTERS:
+        raise VaultContentSearchError(
+            "invalid_query",
+            f"Search query must be {_MAX_QUERY_CHARACTERS} characters or fewer.",
+        )
+    if any(ord(character) < 32 or ord(character) == 127 for character in normalized):
+        raise VaultContentSearchError(
+            "invalid_query", "Search query cannot contain control characters."
+        )
+    return normalized
+
+
 def search_vault_content(
     *,
     vault_path: str | Path,
@@ -44,9 +62,7 @@ def search_vault_content(
     timeout_seconds: float = 5.0,
 ) -> VaultContentSearchResult:
     """Return structured case-insensitive literal matches from text files."""
-    normalized_query = query.strip()
-    if not normalized_query:
-        raise VaultContentSearchError("missing_query", "Search query is required.")
+    normalized_query = _normalize_query(query)
     vault_root = Path(vault_path).resolve()
     try:
         search_root = (
@@ -84,9 +100,7 @@ def search_content_roots(
     timeout_seconds: float = 5.0,
 ) -> VaultContentSearchResult:
     """Return bounded structured matches from validated files or directories."""
-    normalized_query = query.strip()
-    if not normalized_query:
-        raise VaultContentSearchError("missing_query", "Search query is required.")
+    normalized_query = _normalize_query(query)
     root = Path(root_path).resolve()
     resolved_roots: list[Path] = []
     for candidate in search_roots:
@@ -217,10 +231,13 @@ def _parse_match(*, line: str, vault_root: Path) -> VaultContentMatch | None:
         return None
     submatches = data.get("submatches") or []
     first = submatches[0] if submatches else {}
-    snippet = str((data.get("lines") or {}).get("text") or "").strip()
+    raw_line = str((data.get("lines") or {}).get("text") or "")
+    start_byte = max(int(first.get("start") or 0), 0)
+    prefix = raw_line.encode("utf-8")[:start_byte].decode("utf-8", errors="replace")
+    snippet = raw_line.strip()
     return VaultContentMatch(
         path=relative,
         line=max(int(data.get("line_number") or 1), 1),
-        column=max(int(first.get("start") or 0) + 1, 1),
+        column=len(prefix) + 1,
         snippet=snippet[:500],
     )

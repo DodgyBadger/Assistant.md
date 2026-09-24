@@ -66,6 +66,75 @@ for (const name of ['open', 'close', 'syncInteractionLocks']) {
     )
 
 
+def test_vault_explorer_actions_reject_repeated_mutation_submission() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.HTMLElement = class HTMLElement {};
+global.HTMLButtonElement = class HTMLButtonElement extends HTMLElement {
+    constructor() { super(); this.disabled = false; }
+};
+global.HTMLInputElement = class HTMLInputElement extends HTMLElement {};
+for (const path of process.argv.slice(1)) {
+    vm.runInThisContext(fs.readFileSync(path, 'utf8'), { filename: path });
+}
+
+let resolveMutation;
+let mutationCalls = 0;
+const pendingMutation = new Promise((resolve) => { resolveMutation = resolve; });
+const submit = new HTMLButtonElement();
+const status = { textContent: '', innerHTML: '' };
+const form = {
+    dataset: { operation: 'delete', path: 'Notes/a.md', parent: 'Notes', kind: 'file' },
+    elements: { namedItem() { return null; } },
+    querySelector(selector) {
+        if (selector === 'button[type="submit"]') return submit;
+        if (selector === '[data-vault-explorer-form-status]') return status;
+        return null;
+    },
+};
+const overlay = { querySelector() { return null; }, querySelectorAll() { return []; } };
+const controller = VaultExplorerActions.create({
+    icons: {},
+    utils: { escapeHtml(value) { return String(value); } },
+    callbacks: {
+        isReadOnly() { return false; },
+        isActiveOverlay() { return true; },
+        mutationCompleted() {},
+        refreshExplorer() { return Promise.resolve(); },
+        setStatus() {},
+        syncInteractionLocks() {},
+        workspacePath() { return ''; },
+    },
+});
+const options = {
+    onMutate() {
+        mutationCalls += 1;
+        return pendingMutation;
+    },
+};
+
+const first = controller.submitMutation(overlay, form, options);
+const second = controller.submitMutation(overlay, form, options);
+assert.strictEqual(mutationCalls, 1);
+resolveMutation({ path: 'Notes/a.md' });
+Promise.all([first, second]).then(() => {
+    assert.strictEqual(mutationCalls, 1);
+}).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_DESTINATION_MODULE), str(_ACTIONS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_vault_explorer_modules_load_before_path_picker() -> None:
     markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
 
@@ -129,6 +198,12 @@ def test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus() -> 
     assert "event.key === 'ArrowRight'" in source
     assert source.count("event.stopPropagation();") >= 2
     assert "await loadMoreResults(more, options)" in source
+    assert "treeLifecycleGeneration" in source
+    assert "expandAllGeneration" in source
+    assert "childLoadGenerations" in source
+    assert "explorerActions.syncSubmitState(overlay, readOnly)" in source
+    assert "details:not([open])" in source
+    assert "?.setAttribute('aria-expanded', 'false')" in source
     assert 'aria-level="${depth + 1}"' in source
     assert (
         source.index("data-vault-explorer-header-location")

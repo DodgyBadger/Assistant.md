@@ -8,7 +8,9 @@
         let rootLoadGeneration = 0;
         let rootAbortController = null;
         let cancelPendingSearch = () => {};
-        let treeExpansionGeneration = 0;
+        let treeLifecycleGeneration = 0;
+        let expandAllGeneration = 0;
+        const childLoadGenerations = new WeakMap();
         const explorerSearch = window.VaultExplorerSearch.create({ utils });
         const explorerActions = window.VaultExplorerActions.create({
             icons,
@@ -32,6 +34,7 @@
             callbacks: {
                 closeActionPanel: explorerActions.closeActionPanel,
                 beginDestinationMode: explorerActions.beginDestinationMode,
+                isReadOnly,
                 refreshExplorer,
                 syncInteractionLocks,
             },
@@ -415,7 +418,13 @@
                 if (event.key === 'Tab') {
                     const focusable = Array.from(overlay.querySelectorAll(
                         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
-                    )).filter((element) => !element.closest('[hidden], .hidden'));
+                    )).filter((element) => (
+                        !element.closest('[hidden], .hidden, details:not([open])')
+                        && (
+                            typeof element.getClientRects !== 'function'
+                            || element.getClientRects().length > 0
+                        )
+                    ));
                     if (focusable.length) {
                         const first = focusable[0];
                         const last = focusable[focusable.length - 1];
@@ -538,7 +547,8 @@
             activeOpener = null;
             cancelPendingSearch();
             cancelPendingSearch = () => {};
-            treeExpansionGeneration += 1;
+            treeLifecycleGeneration += 1;
+            expandAllGeneration += 1;
             rootAbortController?.abort();
             rootAbortController = null;
             explorerSearch.cancel();
@@ -651,12 +661,12 @@
         }
 
         async function expandAllFolders(overlay, options, button) {
-            const generation = ++treeExpansionGeneration;
+            const generation = ++expandAllGeneration;
             button.disabled = true;
             try {
                 while (true) {
                     if (
-                        generation !== treeExpansionGeneration
+                        generation !== expandAllGeneration
                         || !isActiveOverlay(overlay)
                     ) return;
                     const collapsed = Array.from(
@@ -664,14 +674,14 @@
                     );
                     if (!collapsed.length) return;
                     for (const toggle of collapsed) {
-                        if (generation !== treeExpansionGeneration) return;
+                        if (generation !== expandAllGeneration) return;
                         if (
                             toggle instanceof HTMLElement
                             && toggle.isConnected
                             && toggle.getAttribute('aria-expanded') === 'false'
                         ) {
                             await toggleNode(overlay, toggle, options);
-                            if (generation !== treeExpansionGeneration) return;
+                            if (generation !== expandAllGeneration) return;
                         }
                     }
                 }
@@ -681,9 +691,15 @@
         }
 
         function collapseAllFolders(overlay) {
-            treeExpansionGeneration += 1;
+            treeLifecycleGeneration += 1;
+            expandAllGeneration += 1;
             overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="true"]')
-                .forEach((toggle) => toggle.setAttribute('aria-expanded', 'false'));
+                .forEach((toggle) => {
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.closest('[data-vault-path-picker-row]')
+                        ?.querySelector(':scope > .workspace-tree-row')
+                        ?.setAttribute('aria-expanded', 'false');
+                });
             overlay.querySelectorAll('[data-vault-path-picker-children]')
                 .forEach((children) => children.classList.add('hidden'));
         }
@@ -693,8 +709,18 @@
             const overlay = document.getElementById(activePickerId);
             if (!(overlay instanceof HTMLElement)) return;
             const readOnly = isReadOnly(activeOptions);
-            overlay.querySelectorAll('[data-vault-explorer-mutation-form] button[type="submit"]').forEach((button) => {
-                if (button instanceof HTMLButtonElement) button.disabled = readOnly;
+            explorerActions.syncSubmitState(overlay, readOnly);
+            overlay.querySelectorAll('[data-vault-explorer-import-form] button[type="submit"]')
+                .forEach((button) => {
+                    if (button instanceof HTMLButtonElement) {
+                        button.disabled = readOnly || explorerImports.isBusy();
+                    }
+                });
+            overlay.querySelectorAll('form[data-operation="batch_move"] button[type="submit"]')
+                .forEach((button) => {
+                    if (button instanceof HTMLButtonElement) {
+                        button.disabled = readOnly || explorerBatchMoves.isBusy();
+                    }
             });
             explorer.render();
             if (readOnly) {
@@ -704,6 +730,8 @@
 
         async function loadResults(overlay, options, path = '') {
             const generation = ++rootLoadGeneration;
+            treeLifecycleGeneration += 1;
+            expandAllGeneration += 1;
             rootAbortController?.abort();
             const controller = new AbortController();
             rootAbortController = controller;
@@ -827,7 +855,11 @@
             const expanded = toggle.getAttribute('aria-expanded') === 'true';
             const treeItem = row.querySelector(':scope > .workspace-tree-row');
             if (expanded) {
-                treeExpansionGeneration += 1;
+                expandAllGeneration += 1;
+                childLoadGenerations.set(
+                    children,
+                    (childLoadGenerations.get(children) || 0) + 1
+                );
                 toggle.setAttribute('aria-expanded', 'false');
                 treeItem?.setAttribute('aria-expanded', 'false');
                 children.classList.add('hidden');
@@ -839,7 +871,9 @@
             if (children.dataset.loaded === 'true') return;
 
             const path = row.getAttribute('data-vault-path-picker-row') || '';
-            const generation = treeExpansionGeneration;
+            const generation = treeLifecycleGeneration;
+            const childGeneration = (childLoadGenerations.get(children) || 0) + 1;
+            childLoadGenerations.set(children, childGeneration);
             children.innerHTML = '<div class="py-1 text-xs text-txt-secondary">Loading...</div>';
             try {
                 const mode = options.mode === 'directories' ? 'directories' : 'files';
@@ -847,7 +881,8 @@
                 if (mode === 'directories') {
                     const payload = await fetchDirectories(path, undefined, options);
                     if (
-                        generation !== treeExpansionGeneration
+                        generation !== treeLifecycleGeneration
+                        || childGeneration !== childLoadGenerations.get(children)
                         || !isActiveOverlay(overlay)
                         || toggle.getAttribute('aria-expanded') !== 'true'
                     ) return;
@@ -860,7 +895,8 @@
                 } else {
                     const payload = await fetchFileRefs({ path, scope: 'vault', options });
                     if (
-                        generation !== treeExpansionGeneration
+                        generation !== treeLifecycleGeneration
+                        || childGeneration !== childLoadGenerations.get(children)
                         || !isActiveOverlay(overlay)
                         || toggle.getAttribute('aria-expanded') !== 'true'
                     ) return;
@@ -873,7 +909,11 @@
                 explorerActions.syncDestinationSelection(overlay);
                 explorer.render();
             } catch (error) {
-                if (generation !== treeExpansionGeneration || !isActiveOverlay(overlay)) return;
+                if (
+                    generation !== treeLifecycleGeneration
+                    || childGeneration !== childLoadGenerations.get(children)
+                    || !isActiveOverlay(overlay)
+                ) return;
                 children.innerHTML = `<div class="py-1 text-xs state-error">Unable to load paths: ${escapeHtml(error.message)}</div>`;
             }
         }

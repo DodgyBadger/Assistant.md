@@ -24,6 +24,7 @@ def default_renderer(doc: ExtractedDocument, options: RenderOptions) -> list[dic
         relative_dir=options.relative_dir,
         source_filename=options.source_filename,
         title=options.title,
+        output_name=options.output_name,
     )
     rel_path = paths.markdown_path
 

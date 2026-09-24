@@ -8,7 +8,7 @@ Open Vault Explorer and make the intended output folder active. Select one or mo
 
 The import panel uses the saved defaults unless you expand **Options for this import** and choose one-off overrides. The panel shows the destination explicitly, so normal Explorer imports do not depend on a typed vault-relative path or the global fallback output pattern.
 
-Interactive Explorer submissions acknowledge each durable job immediately, begin processing after that acknowledgement, and update the open import panel as jobs reach a terminal state. The `content_import` tool waits for terminal results by default, making imported Markdown available in the same agent turn. For a large multi-file submission, the caller can set `queue_only=true` and let the background worker process it. See the [`content_import` tool reference](../tools/content_import.md) for the complete invocation contract.
+Explorer imports of existing vault files and URLs acknowledge each durable job immediately, begin processing after that acknowledgement, and update the open import panel as jobs reach a terminal state. **Upload & import** acknowledges the submitted jobs after the upload finishes and directs you to Dashboard → Import for completion status. The `content_import` tool waits for terminal results by default, making imported Markdown available in the same agent turn. For a large multi-file submission, the caller can set `queue_only=true` and let the background worker process it. See the [`content_import` tool reference](../tools/content_import.md) for the complete invocation contract.
 
 ## Monitor and control imports
 

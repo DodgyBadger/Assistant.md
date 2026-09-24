@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.ingestion.jobs import IngestionJobCreate, count_jobs, create_jobs
 from core.runtime.state import get_runtime_context
+from core.web.models import WebFetchResult
 from validation.core.base_scenario import BaseScenario
 
 
@@ -223,6 +224,74 @@ class VaultDirectImportScenario(BaseScenario):
                     path.endswith("/pages/page_0001.png") for path in defaulted_outputs
                 ),
                 "An import without an override should use the persisted PDF mode default",
+            )
+            page_collision = self.call_api(
+                "/api/import/sources",
+                method="POST",
+                data={
+                    "vault": vault.name,
+                    "sources": ["Uploads/source.pdf"],
+                    "destination": "PageDefault",
+                },
+            )
+            page_collision_jobs = page_collision.json().get("jobs_created") or []
+            page_collision_id = (
+                page_collision_jobs[0].get("id") if page_collision_jobs else None
+            )
+            page_collision_status = self.call_api(
+                f"/api/import/jobs/{page_collision_id}"
+            )
+            page_collision_outputs = page_collision_status.json().get("outputs") or []
+            self.soft_assert(
+                "PageDefault/source_1.md" in page_collision_outputs
+                and any(
+                    path.startswith("PageDefault/assets/source_1/pages/")
+                    for path in page_collision_outputs
+                ),
+                "Page-image resubmission should allocate one numbered output namespace",
+            )
+
+            url = "https://example.test/reference"
+            with patch(
+                "core.ingestion.sources.web.fetch_url_with_curl",
+                return_value=WebFetchResult(
+                    source_url=url,
+                    effective_url=url,
+                    status_code=200,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                    body=(
+                        b"<!doctype html><html><head><title>URL Reference</title>"
+                        b"</head><body><p>Imported URL content.</p></body></html>"
+                    ),
+                    remote_ip="203.0.113.10",
+                ),
+            ):
+                url_import = self.call_api(
+                    "/api/import/sources",
+                    method="POST",
+                    data={
+                        "vault": vault.name,
+                        "sources": [url],
+                        "destination": "URLImport",
+                    },
+                )
+                url_jobs = url_import.json().get("jobs_created") or []
+                url_job_id = url_jobs[0].get("id") if url_jobs else None
+                url_status = self.call_api(f"/api/import/jobs/{url_job_id}")
+            self.soft_assert_equal(
+                url_import.status_code,
+                200,
+                "The direct source endpoint should accept a public URL",
+            )
+            self.soft_assert_equal(
+                url_status.json().get("status"),
+                "completed",
+                "A direct URL import should process through the shared pipeline",
+            )
+            self.soft_assert_equal(
+                url_status.json().get("outputs"),
+                ["URLImport/reference.md"],
+                "A direct URL import should honor its explicit destination",
             )
 
             jobs_before_invalid = count_jobs()
