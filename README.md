@@ -15,18 +15,18 @@ Mount one or more Markdown vaults when you install Assistant.md, and they become
 
 ## Features
 
-- **Agentic work sessions:** Run long-lived, tool-heavy work with reconnectable execution, context overflow protection, bounded delegation, goals, and durable session history.
+- **Agentic work sessions:** Run long-lived, tool-heavy work that continues after you disconnect, with context protection, subagent delegation, goal tracking, and automatic session compaction.
 - **Project-aware workspaces:** Scope a chat to any vault folder and provide project-specific guidance through familiar Markdown files such as `README.md` and `playbook.md`.
-- **Connected MCP tools:** Add remote Streamable HTTP or SSE servers with per-connection authentication, testing, tool allowlists, and on-demand tool discovery.
-- **Advanced execution:** Optionally give primary chat a persistent Linux workspace for CLIs, runtimes, bounded commands, and local stdio MCP providers without exposing the application host directly.
-- **Gmail connections:** Search and read mail, inspect threads, save bounded PDF attachments, and create unsent drafts across one or more explicitly connected accounts.
-- **Markdown knowledge base:** Browse, preview, edit, upload, move, organize, and search portable files in isolated vaults.
-- **Research and ingestion:** Search, extract, and crawl web content, then turn public pages and vault PDFs into durable Markdown.
-- **Composable automation:** Build sandboxed Python workflows and context assembly scripts, keep project workflows beside their content, and schedule reusable workflows.
-- **Reviewable and recoverable changes:** Inspect proposed file edits before applying them, restore revisions, or roll back changes from completed activity.
+- **Vault explorer:** Browse, preview, edit, upload, import, move, organize, and search files in your vault.
+- **MCP tools:** Connect to remote Streamable HTTP or SSE servers with lazy tool discovery that keeps the context window lean.
+- **Gmail connections:** Search and read mail, import PDF attachments to Markdown, and create unsent drafts across one or more connected accounts.
+- **Advanced shell:** Give the chat agent an optional sandboxed Linux shell for advanced tools, including local stdio MCP providers, without exposing the application host.
+- **Research and ingestion:** Search, extract, and crawl web content, then turn public pages and vault PDFs into Markdown.
+- **Composable automation:** Build sandboxed Python workflows and context assembly scripts for deep customization and repeatable work.
+- **Reviewable and recoverable changes:** Inspect proposed file edits before applying them, restore revisions, or roll back changes.
 - **Operational visibility:** Review workflow history, running work, tool details, and searchable System Activity.
-- **Flexible model support:** Use supported cloud or local models, including multimodal models and experimental OpenAI OAuth.
-- **Explicit security controls:** Store credentials encrypted, authorize connections independently, configure ingress authentication, and keep restricted execution as the default.
+- **Flexible model support:** Use supported cloud or local models, including multimodal models and OpenAI OAuth.
+- **Explicit security controls:** Encrypt credentials at rest, authorize connections independently, and choose from several endpoint security modes.
 - **Focused interface:** Work in a clean, minimal UI with focus and dark modes.
 
 Assistant.md is useful with its default setup, but its behavior is deliberately composable. Edit Markdown guidance for simple customization, or use sandboxed Python when you need custom context assembly and repeatable workflows. See [Getting the Most from Assistant.md](docs/use/getting-the-most.md) to get started.
