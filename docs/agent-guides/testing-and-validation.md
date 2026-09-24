@@ -37,8 +37,9 @@ Experimental scenarios are opt-in and are not part of that profile. During activ
 
 ## Integration Scenario Assertions
 - Never assert on non-deterministic LLM prose in integration scenarios.
-- Prefer deterministic artifacts: API responses, file contents, persisted state, validation events, tool calls, exact helper outputs, or stable contract fragments from static templates.
-- If a scenario needs to prove that an LLM-visible instruction exists, assert only the smallest stable contract terms rather than a full sentence that may be edited for tone.
+- Prefer deterministic artifacts: API responses, file contents, persisted state, validation events, tool calls, exact helper outputs, and structured fields.
+- Do not test prompt, flight-card, or documentation prose with exact-string or substring assertions. Test instruction-layer ordering, conditional inclusion, structured data, data boundaries, tool calls, or observable behavior instead.
+- Reserve exact-text assertions for text that is itself a machine-consumed protocol or an explicitly stable external contract, not editorial guidance. State that boundary in the test so future maintainers know why wording is fixed.
 - Avoid asserting frontend CSS classes, markup structure, or copy unless that is
   the explicit product contract under test. Prefer the stable data contract that
   drives the UI, and leave visual styling details to manual review or a
@@ -112,6 +113,7 @@ Only add events at decision boundaries; avoid noisy instrumentation.
 
 ## Common Mistakes
 - Relying on free-form model output instead of deterministic artifacts.
+- Freezing editable prompt, flight-card, or documentation prose in tests when only composition or behavior matters.
 - Adding noisy events instead of decision-boundary events.
 - Treating smoke tests as a substitute for scenario coverage.
 - Running the complete pre-merge profile after every development edit instead of reserving it for a stable hardening or merge-preparation pass.

@@ -12,7 +12,7 @@ List, inspect, wait for, and cancel accessible process-local asynchronous jobs t
 - the user asks to stop an asynchronous job
 - the agent needs a bounded delay before checking external state again
 
-Start independent work early and continue useful non-overlapping work while jobs run. `wait` is a dependency barrier, not an automatic follow-up to every launch. Prefer one useful longer wait over repeated short polling. A managed delegate may remain active after a successful launching chat turn; give the user its job ID so a later turn can inspect, wait for, or cancel it, and cancel work that is no longer needed.
+Start independent work early and continue useful non-overlapping work while jobs run. `wait` is a dependency barrier, not an automatic follow-up to every launch. When the current request depends on job results, wait on all relevant job IDs and integrate their terminal results before answering. Prefer one useful longer wait over repeated short polling; a wait timeout is not completion, so wait again while required work remains healthy and continues making progress. Leave required jobs active across turns only when the user requested background work or completion requires new user input. In either case, provide the job IDs and current status, and never present unfinished work as complete. Cancel work that is no longer needed.
 
 ## Arguments
 

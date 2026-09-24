@@ -26,7 +26,7 @@ from core.advanced_shell.stdio import (
     encode_structured_launch,
 )
 from core.chat.instructions import primary_chat_instruction_layers
-from core.constants import ADVANCED_SHELL_FLIGHT_CARD, REGULAR_CHAT_INSTRUCTIONS
+from core.constants import ADVANCED_SHELL_FLIGHT_CARD
 from core.identity import ExecutionAuthority
 from core.runtime.paths import set_bootstrap_roots
 from core.settings import AppSettings
@@ -204,33 +204,6 @@ def test_client_bootstrap_rejects_advanced_mode_without_advanced_profile(
     assert not identity_root.exists()
 
 
-def test_advanced_shell_flight_card_defines_tool_selection_without_secrets() -> None:
-    instruction = ADVANCED_SHELL_FLIGHT_CARD
-
-    for required in (
-        "base tool-selection rules still apply",
-        "Delegates do not receive shell",
-        "official AssistantMD MCP connection",
-        "inspect the working directory and exact target",
-        "unprivileged user in a separate constrained Linux container",
-        "/exchange/<vault-name>",
-        "Inspect /exchange before relying on it",
-        "Persistence applies to files",
-        "there is no supported systemd or cron/service supervisor",
-        "Continuously running services belong in their own managed Compose service",
-    ):
-        assert required in instruction
-    for prohibited in (
-        "owner token",
-        "private key",
-        "known_hosts",
-        "ASSISTANTMD_SHELL_HOST",
-    ):
-        assert prohibited not in instruction
-
-    assert Path("docs/tools/shell.md").is_file()
-
-
 def test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once() -> None:
     restricted = primary_chat_instruction_layers(
         base_instructions="base",
@@ -246,13 +219,6 @@ def test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once() -> N
     assert restricted == ("base", "tools")
     assert advanced == ("base", "tools", ADVANCED_SHELL_FLIGHT_CARD)
     assert advanced.count(ADVANCED_SHELL_FLIGHT_CARD) == 1
-
-
-def test_base_instructions_keep_inline_edit_guidance_conditional() -> None:
-    assert "If inline edit mode is enabled" in REGULAR_CHAT_INSTRUCTIONS
-    assert "You have access to the following capabilities" not in (
-        REGULAR_CHAT_INSTRUCTIONS
-    )
 
 
 class _RecordingLogger:

@@ -523,8 +523,9 @@ class AdvancedShell(BaseTool):
             shell,
             name="shell",
             description=(
-                "Execute a noninteractive shell command in AssistantMD's persistent "
-                "advanced-shell container. The destination and SSH transport are fixed."
+                "Run a noninteractive operating-system command in the separate "
+                "advanced-shell container. Use it for installed CLIs, runtimes, and "
+                "configured mounts, not ordinary vault operations."
             ),
             metadata={
                 ASSISTANTMD_TOOL_METADATA_KEY: tool_recovery_metadata(

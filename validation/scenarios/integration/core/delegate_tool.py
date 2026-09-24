@@ -1520,6 +1520,7 @@ async def _assert_repeated_failure_guard() -> None:
 
 
 def _assert_delegate_flight_card() -> None:
+    from core.constants import DELEGATE_FLIGHT_CARD
     from core.tools.delegate import _apply_delegate_instruction_layers
 
     class _InstructionRecorder:
@@ -1536,7 +1537,7 @@ def _assert_delegate_flight_card() -> None:
         caller_instructions=task_instructions,
     )
     assert len(recorder.layers) == 2
-    assert "DELEGATE FLIGHT CARD" in recorder.layers[0]
+    assert recorder.layers[0] == DELEGATE_FLIGHT_CARD.strip()
     assert recorder.layers[1] == task_instructions
 
 
