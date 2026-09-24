@@ -2,15 +2,10 @@
 
 ## v0.8.2
 
-- Refactored the frontend into focused modules to improve maintainability without changing user-facing behavior.
+This release significantly improves the Vault Explorer, making everyday file and import tasks faster and easier.
 
-### Work from the Vault Explorer
-
-- The Vault Explorer now combines active-folder navigation, multi-selection, and a compact operation bar so creation, upload, prompt references, workspace selection, rename, move, and deletion use one consistent interaction model.
-- Import supported vault files, local uploads, or public HTTP/HTTPS URLs directly from the Explorer, with an explicit output folder and optional per-import overrides. Dashboard → Import now focuses on durable job status, queue controls, retries, and persistent defaults.
-- Search either file and folder names or bounded file contents from the same Explorer field. Content results identify matching files and lines while preserving file-level selection.
-- Batch moves are preflighted and compensated as one operation if a filesystem or refresh failure interrupts the batch. Multi-file import outputs use one collision-free namespace and remove unchanged partial artifacts after a failed write while preserving files changed outside Assistant.md. Explorer operations also preserve safer state across asynchronous completion, modal closure, active-response locking, and cross-vault entry points.
-- Keyboard dismissal now closes the active Explorer menu or action panel without also closing the Explorer itself.
+- Navigate folders, select multiple items, search names or contents, and create, upload, move, import, or add files to prompts from a compact operation bar.
+- We split the frontend into focused modules and hardened asynchronous operations, batch moves, imports, and error recovery for a more reliable experience.
 
 ## v0.8.1
 
