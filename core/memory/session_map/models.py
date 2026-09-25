@@ -448,7 +448,7 @@ _ALLOWED_TRANSITIONS: dict[str, dict[str, frozenset[str]]] = {
         "paused": frozenset({"active", "cancelled"}),
     },
     "work_item.status": {
-        "planned": frozenset({"in_progress", "cancelled"}),
+        "planned": frozenset({"in_progress", "completed", "cancelled"}),
         "in_progress": frozenset({"blocked", "completed", "cancelled"}),
         "blocked": frozenset({"in_progress", "completed", "cancelled"}),
     },
