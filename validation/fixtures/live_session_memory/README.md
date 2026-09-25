@@ -14,6 +14,8 @@ The three output families must remain independently labelled:
 
 `failed_attempts` are not canonical messages. They let evaluation verify that an uncommitted failure does not independently become map evidence or advance a canonical source watermark.
 
+`change_detection_v2.json` is a separate frozen corpus for the broad reconciliation-gating experiment. Its two calibration cases and two untouched holdout cases each compare a compact current map with five canonical deltas, including true no-change batches. Each batch labels whether any reconciliation is needed and whether a miss would be consequential. Once a live holdout run occurs, its cases must not be relabelled or used to retune the v2 threshold.
+
 ## Predeclared Metrics
 
 ### Session Map

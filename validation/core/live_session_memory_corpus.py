@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic_ai.messages import (
     ModelRequest,
@@ -21,11 +21,25 @@ CORPUS_PATH = (
     / "live_session_memory"
     / "representative_sessions.json"
 )
+RECONCILIATION_CORPUS_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "live_session_memory"
+    / "change_detection_v2.json"
+)
 
 
 def load_live_session_memory_corpus() -> dict[str, Any]:
     """Load the frozen privacy-safe evaluation corpus."""
-    return json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(CORPUS_PATH.read_text(encoding="utf-8")))
+
+
+def load_session_reconciliation_corpus() -> dict[str, Any]:
+    """Load the frozen v2 reconciliation-gating corpus."""
+    return cast(
+        dict[str, Any],
+        json.loads(RECONCILIATION_CORPUS_PATH.read_text(encoding="utf-8")),
+    )
 
 
 def corpus_message_to_model_message(

@@ -1,0 +1,169 @@
+{
+  "corpus_version": "session-map-reconcile-v2-2026-09-25",
+  "cases": [
+    {
+      "id": "project_delivery",
+      "split": "calibration",
+      "batches": [
+        {
+          "current_map": "(empty)",
+          "canonical_delta": "user: Prepare the council briefing and deliver a reviewable draft by Friday.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "establish_goal_and_commitment"
+        },
+        {
+          "current_map": "goal g1 active: prepare council briefing; work w1 active: draft due Friday",
+          "canonical_delta": "assistant: Understood. I will prepare the council briefing draft for Friday.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "acknowledge_existing_state"
+        },
+        {
+          "current_map": "goal g1 active: prepare council briefing; work w1 active: draft due Friday",
+          "canonical_delta": "user: Keep the briefing under two pages and do not include resident names.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "add_constraints"
+        },
+        {
+          "current_map": "goal g1 active: prepare council briefing; constraint c1 active: under two pages; constraint c2 active: omit resident names",
+          "canonical_delta": "tool: Created artifacts/council-briefing-draft.md from the approved source notes.",
+          "expected_reconciliation_needed": true,
+          "consequential": false,
+          "phenomenon": "create_artifact"
+        },
+        {
+          "current_map": "goal g1 active: prepare council briefing; work w1 active: review draft; artifact a1 created: artifacts/council-briefing-draft.md",
+          "canonical_delta": "user: Before we continue, compact the chat so there is more context room.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "conversation_mechanics"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis",
+      "split": "calibration",
+      "batches": [
+        {
+          "current_map": "(empty)",
+          "canonical_delta": "user: Diagnose why the import preview duplicates rows, but do not modify production data.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "establish_goal_and_constraint"
+        },
+        {
+          "current_map": "goal g1 active: diagnose duplicate import preview rows; constraint c1 active: no production writes",
+          "canonical_delta": "tool: The preview query joins each source row to every matching legacy alias; source row 17 has three aliases.",
+          "expected_reconciliation_needed": true,
+          "consequential": false,
+          "phenomenon": "add_observation"
+        },
+        {
+          "current_map": "goal g1 active: diagnose duplicate import preview rows; observation o1 observed: preview join expands rows with multiple legacy aliases; constraint c1 active: no production writes",
+          "canonical_delta": "assistant: The preview join expands source rows that have multiple matching legacy aliases.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "repeat_mapped_observation"
+        },
+        {
+          "current_map": "goal g1 active: diagnose duplicate import preview rows; observation o1 observed: preview join expands rows with multiple legacy aliases; constraint c1 active: no production writes",
+          "canonical_delta": "user: You may add a regression test, but keep all database access read-only.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "revise_scope_and_constraint"
+        },
+        {
+          "current_map": "goal g1 active: diagnose duplicate import preview rows; work w1 active: add regression test; constraint c1 active: database access read-only",
+          "canonical_delta": "user: What are you working on right now? assistant: I am adding the read-only regression test for the duplicate preview diagnosis.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "status_query_and_restated_work"
+        }
+      ]
+    },
+    {
+      "id": "editorial_pivot",
+      "split": "holdout",
+      "batches": [
+        {
+          "current_map": "(empty)",
+          "canonical_delta": "user: Turn the interview notes into a public project update for neighborhood residents.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "establish_goal"
+        },
+        {
+          "current_map": "goal g1 active: write public project update; audience: neighborhood residents",
+          "canonical_delta": "assistant: I will turn the interview notes into a public update for neighborhood residents.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "acknowledge_existing_state"
+        },
+        {
+          "current_map": "goal g1 active: write public project update; audience: neighborhood residents",
+          "canonical_delta": "user: Actually make it an internal decision memo for the steering group, with a recommendation in the first paragraph.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "supersede_goal_and_add_constraint"
+        },
+        {
+          "current_map": "goal g1 superseded: public project update; goal g2 active: internal decision memo; constraint c1 active: recommendation first; audience: steering group",
+          "canonical_delta": "tool: Wrote artifacts/steering-decision-memo.md; validation reports all required headings present.",
+          "expected_reconciliation_needed": true,
+          "consequential": false,
+          "phenomenon": "create_and_verify_artifact"
+        },
+        {
+          "current_map": "goal g2 active: internal decision memo; artifact a1 verified: artifacts/steering-decision-memo.md; open question q1: approve recommendation",
+          "canonical_delta": "user: That reads clearly. assistant: Glad the memo is clear.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "noncommittal_acceptance"
+        }
+      ]
+    },
+    {
+      "id": "release_investigation",
+      "split": "holdout",
+      "batches": [
+        {
+          "current_map": "(empty)",
+          "canonical_delta": "user: Find the cause of yesterday's failed release and recommend whether to retry it.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "establish_goal_and_open_question"
+        },
+        {
+          "current_map": "goal g1 active: diagnose failed release; open question q1: whether to retry",
+          "canonical_delta": "tool: Deployment logs show migration 42 timed out after the application instances had already switched to the new image.",
+          "expected_reconciliation_needed": true,
+          "consequential": false,
+          "phenomenon": "add_observation"
+        },
+        {
+          "current_map": "goal g1 active: diagnose failed release; observation o1 observed: migration 42 timed out after image switch; open question q1: whether to retry",
+          "canonical_delta": "assistant: The logs show migration 42 timed out after the instances switched to the new image.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "repeat_mapped_observation"
+        },
+        {
+          "current_map": "goal g1 active: diagnose failed release; observation o1 observed: migration 42 timed out after image switch; open question q1: whether to retry",
+          "canonical_delta": "user: Pause the retry decision. First determine whether the migration is safe to resume from its checkpoint.",
+          "expected_reconciliation_needed": true,
+          "consequential": true,
+          "phenomenon": "change_attention_and_pause_question"
+        },
+        {
+          "current_map": "goal g1 active: diagnose failed release; attention: assess checkpoint safety; open question q1 paused: whether to retry; open question q2: migration safe to resume",
+          "canonical_delta": "user: Summarize the conversation so we can continue in a smaller context window.",
+          "expected_reconciliation_needed": false,
+          "consequential": false,
+          "phenomenon": "conversation_mechanics"
+        }
+      ]
+    }
+  ]
+}
