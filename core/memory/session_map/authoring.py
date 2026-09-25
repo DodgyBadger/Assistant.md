@@ -13,6 +13,7 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.usage import RunUsage
 
+from core.llm.thinking import ThinkingValue, thinking_value_to_label
 from core.memory.session_map.models import (
     ENTRY_ID_PATTERN,
     AddPatch,
@@ -52,7 +53,9 @@ from core.memory.session_map.models import (
 )
 
 SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v7"
-MAX_AUTHORING_DELTA_MESSAGES = 64
+MAX_AUTHORING_DELTA_MESSAGES = 1024
+MAX_AUTHORING_DELTA_CHARACTERS = 1_500_000
+MAX_CANONICAL_MESSAGE_CHARACTERS = 100_000
 
 _AUTHORING_INSTRUCTIONS = """
 Maintain a compact map of durable current-session state by returning one typed
@@ -251,7 +254,10 @@ class CanonicalMapMessage(BaseModel):
 
     sequence_index: int = Field(ge=0)
     role: Literal["user", "assistant", "tool"]
-    content: str = Field(min_length=1, max_length=20_000)
+    content: str = Field(
+        min_length=1,
+        max_length=MAX_CANONICAL_MESSAGE_CHARACTERS,
+    )
 
 
 @dataclass(frozen=True)
@@ -268,6 +274,12 @@ class SessionMapAuthoringRequest:
         if len(self.delta) > MAX_AUTHORING_DELTA_MESSAGES:
             raise ValueError(
                 f"session-map authoring delta exceeds {MAX_AUTHORING_DELTA_MESSAGES} messages"
+            )
+        delta_characters = sum(len(message.content) for message in self.delta)
+        if delta_characters > MAX_AUTHORING_DELTA_CHARACTERS:
+            raise ValueError(
+                "session-map authoring delta exceeds "
+                f"{MAX_AUTHORING_DELTA_CHARACTERS} characters"
             )
         indexes = tuple(message.sequence_index for message in self.delta)
         expected_start = self.current_map.updated_through_sequence_index + 1
@@ -295,6 +307,7 @@ class SessionMapAuthoringResult:
     patch_set: MapPatchSet
     session_map: SessionMap
     requested_model_alias: str
+    requested_thinking: str
     resolved_model_name: str
     provider_name: str
     latency_seconds: float
@@ -479,13 +492,14 @@ async def author_session_map_patch(
     model_alias: str,
     request: SessionMapAuthoringRequest,
     created_at: datetime,
+    thinking: ThinkingValue = None,
 ) -> SessionMapAuthoringResult:
     """Run one generative author and accept only a fully validated patch set."""
     from core.llm.agents import collect_response
     from core.llm.model_factory import build_model_instance
     from core.llm.model_selection import ModelExecutionSpec
 
-    model = build_model_instance(model_alias)
+    model = build_model_instance(model_alias, thinking=thinking)
     if isinstance(model, ModelExecutionSpec):
         raise ValueError("session-map authoring requires a generative text model")
     agent: Agent[None, SessionMapPatchProposal] = Agent(
@@ -526,6 +540,7 @@ async def author_session_map_patch(
         patch_set=patch_set,
         session_map=session_map,
         requested_model_alias=model_alias,
+        requested_thinking=thinking_value_to_label(thinking),
         resolved_model_name=resolved_model_name,
         provider_name=provider_name,
         latency_seconds=latency,

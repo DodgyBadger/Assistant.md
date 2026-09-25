@@ -7,6 +7,8 @@ import pytest
 from pydantic import ValidationError
 
 from core.memory.session_map.authoring import (
+    MAX_AUTHORING_DELTA_CHARACTERS,
+    MAX_AUTHORING_DELTA_MESSAGES,
     CanonicalMapMessage,
     GoalProposal,
     PutProposal,
@@ -56,6 +58,39 @@ def test_authoring_request_requires_exact_contiguous_delta() -> None:
             delta=(
                 CanonicalMapMessage(sequence_index=0, role="user", content="Start"),
                 CanonicalMapMessage(sequence_index=2, role="assistant", content="Done"),
+            ),
+            observed_source_content_revision=1,
+        )
+
+
+def test_authoring_request_bounds_large_reconciliation_spans() -> None:
+    empty = SessionMap.empty(session_id="bounded-authoring", created_at=NOW)
+    with pytest.raises(ValueError, match="exceeds .* messages"):
+        SessionMapAuthoringRequest(
+            current_map=empty,
+            delta=tuple(
+                CanonicalMapMessage(
+                    sequence_index=index,
+                    role="user",
+                    content="evidence",
+                )
+                for index in range(MAX_AUTHORING_DELTA_MESSAGES + 1)
+            ),
+            observed_source_content_revision=1,
+        )
+
+    message_count = 16
+    oversized_content = "x" * (MAX_AUTHORING_DELTA_CHARACTERS // message_count + 1)
+    with pytest.raises(ValueError, match="exceeds .* characters"):
+        SessionMapAuthoringRequest(
+            current_map=empty,
+            delta=tuple(
+                CanonicalMapMessage(
+                    sequence_index=index,
+                    role="user",
+                    content=oversized_content,
+                )
+                for index in range(message_count)
             ),
             observed_source_content_revision=1,
         )
