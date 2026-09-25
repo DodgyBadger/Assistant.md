@@ -109,9 +109,14 @@ jobs:
         run: |
           ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python validation/run_validation.py run integration/core
 
+      - name: Package validation artifacts
+        if: ${{ always() }}
+        run: tar -czf validation-runs.tar.gz validation/runs
+
       - name: Upload validation artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: validation-runs
-          path: validation/runs
+          path: validation-runs.tar.gz
+          if-no-files-found: error
