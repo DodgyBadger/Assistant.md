@@ -11,6 +11,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
+from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority  # noqa: E402
 from core.memory.session_map.authoring import (  # noqa: E402
     SESSION_MAP_AUTHORING_PROMPT_VERSION,
     CanonicalMapMessage,
@@ -42,8 +43,9 @@ class SessionMapAuthoringProbeScenario(BaseScenario):
         corpus = load_live_session_memory_corpus()
         await self.start_system()
         cases: list[dict[str, Any]] = []
-        for case in corpus["cases"]:
-            cases.append(await _run_case(case))
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            for case in corpus["cases"]:
+                cases.append(await _run_case(case))
 
         successful_records = [
             record
