@@ -2,13 +2,23 @@
 
 ## Status
 
-Draft for design review. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
+Approved for incremental implementation. Slice 0 is complete, and Slice 1 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
 
 ## Problem
 
 Compaction currently preserves the canonical raw transcript but constructs each new effective-history recovery card from the previous generated card plus recent messages. Repeated compaction therefore passes durable session state through a chain of lossy prose rewrites. Omissions, reinterpretations, and stale details can compound even though the original evidence remains in SQLite.
 
 The first slice must make durable current-session state independent of compaction. Compaction should manage model context and immediate resumption; it should not be the sole author of long-horizon session memory.
+
+## Slice 0 Findings
+
+The deterministic corpus and repeated-compaction contract are now frozen, and a model-generated proxy baseline plus private, ignored production-history stress replays have exercised the rubric. The production-derived artifacts and database remain under ignored validation data and are evidence for design decisions, not repository fixtures.
+
+The evidence supports the architectural concern without establishing a production prevalence or long-horizon drift rate. Five-round proxy replays of two shorter sessions showed two distinct failures: inherited workflow policy displaced the newest handoff state, and assistant-proposed implementation details gradually acquired the status of completed or verified facts. A separate naturally compacted long session showed the related pattern of salience, lifecycle, and interpretation drift rather than wholesale factual corruption. Later rounds were not uniformly worse, so the plan must not assume monotonic degradation or tune to a single session's score trajectory.
+
+The retained canonical message tail materially compensated for weak cards. Effective continuation could remain acceptable even when the card omitted the current task or misstated claim status because recent raw messages restored enough local context. This is useful runtime redundancy, but it masks card defects if evaluation measures only end-to-end continuation. Every later experiment must therefore score the derived artifact alone, the retained tail alone where practical, and the effective artifact-plus-tail history. Tail width and checkpoint placement are experimental variables, not hidden constants.
+
+These findings justify moving forward with the safe foundation. They do not justify freezing map budgets, authoring prompts, classifier thresholds, or maintenance cadence. Those remain hypotheses behind later evidence gates.
 
 ## User-Visible Outcome
 
@@ -41,6 +51,8 @@ The first slice must make durable current-session state independent of compactio
 18. No live-memory compaction, checkpoint, sliding window, adaptive window, or future context reducer may remove a canonical message range that is not covered by the committed map. If synchronous catch-up cannot produce an admissible revision, the operation exits the live-memory path and the current recovery-card contract remains responsible for continuity.
 19. Pending maintenance is recoverable from canonical history and durable watermarks after restart. An in-memory task or queue is never the sole record of outstanding work.
 20. The first slice is deterministic session state, not RAG memory. It maintains and admits exactly one current map by session identity and sequence watermark; embeddings, vector storage, similarity search, ranking, top-k retrieval, graph traversal, and cross-session recall remain outside its runtime path.
+21. Lifecycle, adoption, epistemic, and verification status must be supported by canonical source references independently of an entry's descriptive text. Repetition in a prior map or recovery card is never evidence that a proposal was adopted, an action completed, or an artifact verified.
+22. Evaluation reports artifact-only fidelity separately from effective-history continuation. A retained raw tail may improve runtime safety, but it cannot make a stale or unsupported map/card pass its own quality gate.
 
 ## Proposed First-Slice Map
 
@@ -70,6 +82,7 @@ observed_source_content_revision: 219
 attention:
   active_goal_ids: [goal_01]
   active_work_item_id: work_02
+  changed_at_sequence_index: 842
 
 goals:
   - id: goal_01
@@ -85,7 +98,11 @@ work_items:
     text: Define and validate the anti-drift map schema.
     status: in_progress
     next_action: Compare the proposed fields with representative sessions.
+    next_action_owner: assistant
     blocker_ids: []
+    state_source_refs:
+      - sequence_index: 842
+        role: user
     source_refs:
       - sequence_index: 842
         role: user
@@ -94,7 +111,11 @@ decisions:
   - id: decision_03
     text: Compaction is context management, not the source of session memory.
     status: active
+    adoption_status: user_directed
     scope: session
+    state_source_refs:
+      - sequence_index: 806
+        role: user
     source_refs:
       - sequence_index: 806
         role: user
@@ -135,7 +156,11 @@ artifacts:
     ref: LIVE_SESSION_MEMORY_IMPLEMENTATION_PLAN.md
     kind: implementation_plan
     status: active
-    status_detail: Draft updated with schema research.
+    verification_status: observed
+    status_detail: Approved plan updated with Slice 0 evidence.
+    state_source_refs:
+      - sequence_index: 842
+        role: assistant
     source_refs:
       - sequence_index: 842
         role: assistant
@@ -161,7 +186,9 @@ The collections have distinct jobs:
 - `artifacts` identify files, goals, jobs, external references, or other work products and their current status.
 - `observations` hold only confirmed, assumed, or disputed working knowledge that materially affects the active goal, such as a tool outcome or environmental fact. This is not a general facts collection.
 
-Each entry has a stable ID, concise text or reference, a type-specific lifecycle state, and role-bearing canonical source references. Entries that can change over time support `active_from_sequence_index`, `active_until_sequence_index`, and `superseded_by` on the conversational transaction timeline. An optional `effective_time` interval records real-world validity only when the source states or deterministically implies it. Revision timestamps describe when AssistantMD recorded a change and must not be conflated with either timeline.
+Each entry has a stable ID, concise text or reference, a type-specific lifecycle state, and role-bearing canonical source references. Mutable entries also carry `state_source_refs` for the evidence supporting their current lifecycle, adoption, or verification state; descriptive evidence alone cannot prove that a proposed action occurred. Decisions distinguish proposed, user-directed, accepted, rejected, and superseded states as applicable. Artifacts distinguish proposed, created, observed, verified, and failed states without implying that file creation proves operational correctness. Entries that can change over time support `active_from_sequence_index`, `active_until_sequence_index`, `last_state_change_sequence_index`, and `superseded_by` on the conversational transaction timeline. An optional `effective_time` interval records real-world validity only when the source states or deterministically implies it. Revision timestamps describe when AssistantMD recorded a change and must not be conflated with either timeline.
+
+Rendering and authoring use an explicit priority order rather than an opaque importance score: the active work item and its next action, the newest lifecycle transition, blockers and unanswered questions, active constraints and decisions required for that work, then other bounded durable context. The renderer must not silently drop the current handoff while preserving lower-priority background. Exact per-section budgets remain an experiment, but overflow is deterministic and observable.
 
 The stored revision envelope should also include an observed source-content revision, creation and update timestamps, authoring status, prompt-contract version, decision and authoring model identities, and optional error metadata. `updated_through_sequence_index` describes content coverage; the source-content revision is a concurrency token for the frozen source view. AssistantMD's current broad `history_revision` also advances for compaction checkpoints and failure metadata, so implementation must either add a content-specific revision or accept safe but unnecessary retries when using the broader value. These operational fields do not need to enter normal model context.
 
@@ -184,7 +211,7 @@ completed persisted turn
 
 The generative component should propose typed `ADD`, `REVISE`, `SUPERSEDE`, `RESOLVE`, `CHANGE_ATTENTION`, or `NOOP` operations, not rewrite the whole map. Ordinary code validates identifiers, source ranges, lifecycle transitions, size limits, enum values, referential integrity, and optimistic-concurrency preconditions before constructing the next revision. `SUPERSEDE` and `RESOLVE` preserve the prior entry and its evidence rather than physically deleting history. This is the main protection against accumulated paraphrase drift.
 
-The initial implementation should support a forced full audit from canonical raw history for validation and repair. Routine updates may consume deltas, but correctness must not depend on an unbroken chain of prior generated prose.
+The initial implementation should support a forced full audit from canonical raw history for validation and repair. Routine updates may consume deltas, but correctness must not depend on an unbroken chain of prior generated prose. An update that changes lifecycle, adoption, or verification status must cite delta evidence for that transition; carrying the prior assertion forward cannot promote its status.
 
 ## Persistence Boundary
 
@@ -333,13 +360,17 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ### Slice 0: Baseline and Evaluation Corpus
 
+**Status:** Complete. The deterministic corpus, replay validator, live-service probe, proxy baseline, and private ignored stress-replay evidence are in place. The stress evidence validates the rubric's sensitivity to salience, lifecycle, and epistemic drift while remaining explicitly unsuitable for estimating production rates.
+
 **Build:** Lock down the current recovery-card contract with the existing repeated-compaction scenario and assemble privacy-safe representative session fixtures containing goal changes, corrections, constraints, tool observations, artifacts, open questions, failed turns, and at least three compactions. Record separate expected outputs for map state, classifier field changes, and immediate recovery-card state so one representation is not used to grade another.
 
-**Verify:** Run the existing deterministic compaction scenario unchanged; prove the fixtures can be replayed without a live service; capture baseline continuation quality, unsupported-claim rate, historical leakage, prompt size, and repeated-card drift.
+**Verify:** Run the existing deterministic compaction scenario unchanged; prove the fixtures can be replayed without a live service; capture baseline continuation quality, unsupported-claim rate, historical leakage, prompt size, and repeated-card drift. For model-generated stress probes, report artifact-only fidelity separately from effective-history continuation and record retained-tail width at every checkpoint.
 
-**Exit gate:** The corpus and rubric are reviewed before any prompt or threshold is tuned against them. This slice changes no product behavior.
+**Exit gate:** Met. The corpus and rubric were reviewed before any session-map prompt or threshold tuning, and the slice changed no product behavior. Production-derived data remains ignored and is not a distributable fixture.
 
 ### Slice 1: Reusable Decision-Model Configuration
+
+**Status:** Next. This slice may begin without resolving the later experimental map and compaction questions.
 
 **Build:** Add `decision` as a first-class model capability, preserve it without implicitly adding `text`, and make chat selection require explicit `text`. Seed the built-in `typesafe` provider, reusable `jev` model alias, and `TYPESAFE_API_KEY` pointer. Treat `typesafe` as a native provider shape that does not require the generic OpenAI-compatible `base_url`. Reuse the existing encrypted principal-owned secret store and configuration status surfaces; do not add session-memory hooks or make an external model call.
 
@@ -359,7 +390,7 @@ The reusable decision-model platform is intentionally separate from session memo
 
 **Build:** Create `core/memory/session_map/models.py` for the provisional typed map schema, stable entry IDs, source references, lifecycle states, bounded patch operations, validation, deterministic application, and bounded rendering. Create `core/memory/session_map/store.py` for append-only revisions, maintenance state, and compare-and-swap persistence in `chat_sessions.db`; its atomic mutation accepts the existing `ChatStore` transaction connection. Register the physical schema through the chat database migration boundary and add only the narrow canonical range-read method needed to `ChatStore`. Atomically advance durable pending watermarks and counters with the successful assistant/tool commit. Implement restart reconstruction and frozen attempt ranges, but do not call a model, schedule background authoring, inject a map, or alter compaction.
 
-**Verify:** Apply hand-authored patches over Slice 0 fixtures. Test illegal transitions, invalid source ranges, stale writers, messages arriving after a frozen range, restart recovery, fork policy selected for the slice, size bounds, deterministic rendering, and session purge. Decide whether a content-specific source revision is necessary based on tests against the current broader `history_revision`.
+**Verify:** Apply hand-authored patches over Slice 0 fixtures. Test illegal transitions, invalid source ranges, unsupported lifecycle/adoption/verification promotion, stale writers, messages arriving after a frozen range, restart recovery, fork policy selected for the slice, size bounds, deterministic priority overflow, and session purge. Assert that current handoff state survives when lower-priority durable background exceeds the render budget. Decide whether a content-specific source revision is necessary based on tests against the current broader `history_revision`.
 
 **Exit gate:** All state transitions and persistence invariants are deterministic and model-independent. The feature remains inert and disabled.
 
@@ -379,7 +410,7 @@ The reusable decision-model platform is intentionally separate from session memo
 
 **Build:** Add `core/memory/session_map/authoring.py` to author patches from a prior structured map plus a bounded canonical delta, then validate and apply them through the domain layer. Add forced full-history audit/rebase support for experiments. Keep authoring in a harness with no post-turn hook, prompt injection, or compaction effect.
 
-**Verify:** Compare authored maps with the separately labelled expected maps across repeated updates and supersessions. Measure unsupported sources, missed changes, accidental mutation of unchanged entries, entry growth, full-audit disagreement, and stability across multiple runs. Test the schema and prompt independently so a poor prompt does not force premature schema expansion.
+**Verify:** Compare authored maps with the separately labelled expected maps across repeated updates and supersessions. Measure unsupported sources, missed changes, accidental mutation of unchanged entries, entry growth, full-audit disagreement, lifecycle/adoption/verification promotion without new evidence, and stability across multiple runs. Test the schema and prompt independently so a poor prompt does not force premature schema expansion.
 
 **Exit gate:** The authoring path must outperform the recovery-card baseline on durable-state preservation without unacceptable unsupported claims or map growth. Otherwise revise the schema/prompt or stop before runtime integration.
 
@@ -399,7 +430,7 @@ The reusable decision-model platform is intentionally separate from session memo
 
 **Build:** Add a `context` mode that admits the latest completed map on ordinary turns while retaining every canonical message newer than its watermark exactly once. Expose bounded freshness metadata. Continue using the current recovery-card implementation for every compaction.
 
-**Verify:** Run paired continuation scenarios with and without map admission, including terse references, corrections, multiple active artifacts, stale maps, missing decision-model readiness, and disabling after a map exists. Measure task success, unsupported assumptions, prompt tokens, map/tail duplication, and latency. Assert that ordinary turns never wait for maintenance.
+**Verify:** Run paired continuation scenarios with and without map admission, including terse references, corrections, multiple active artifacts, stale maps, missing decision-model readiness, and disabling after a map exists. Measure task success, unsupported assumptions, prompt tokens, map/tail duplication, and latency. Add a tail-width ablation that separately scores map-only, retained-tail-only where practical, and combined effective history so compensation is visible. Assert that ordinary turns never wait for maintenance.
 
 **Exit gate:** Context admission must improve predefined continuity measures without exceeding the map budget or increasing unsupported claims. Failure returns the mode to `observe` or `off`; compaction remains untouched.
 
@@ -409,7 +440,7 @@ The reusable decision-model platform is intentionally separate from session memo
 
 **Build:** In the experimental harness, generate both the current recovery card and the proposed map-backed current-goal card from identical checkpoints. Persist both as evaluation artifacts, but continue selecting the current recovery card for runtime history. Test prompt variants without changing checkpoint or canonical transcript contracts.
 
-**Verify:** Across at least three compactions, score active goal, focus, blocker, next action, volatile artifact state, historical leakage, stale-state retention, and unsupported claims. Inject a deliberately wrong prior recovery-card detail and confirm it cannot enter the map-backed candidate because previous cards are excluded as evidence.
+**Verify:** Across at least three compactions, score active goal, focus, blocker, next action, newest lifecycle transition, volatile artifact and verification state, historical leakage, stale-state retention, unsupported claims, and active-state share. Score each generated card by itself before scoring it with the retained raw tail. Inject a deliberately wrong prior recovery-card detail and confirm it cannot enter the map-backed candidate because previous cards are excluded as evidence.
 
 **Exit gate:** Select and freeze a prompt only if it beats the baseline on the predeclared repeated-compaction rubric. Otherwise retain current compaction and continue using the map, at most, for ordinary context.
 
@@ -439,6 +470,10 @@ The reusable decision-model platform is intentionally separate from session memo
 - Prompt tokens added per ordinary turn and authoring tokens spent per completed turn.
 - Forced-audit disagreement rate with the incremental map.
 - Continuation quality on terse or referential turns before and after map admission.
+- Artifact-only fidelity compared with retained-tail-only and combined effective-history continuation.
+- Active-state share and preservation of the newest lifecycle transition under bounded rendering.
+- Proposal-to-adoption and created-to-verified promotion rates when no new supporting evidence exists.
+- Card and map size evolution across recursive rounds; growth is reported as a diagnostic rather than assumed to imply either accuracy or drift.
 
 ## Open Design Decisions
 
@@ -466,4 +501,4 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ## Next Phase
 
-After design review approves the slice boundaries, move to Feature Development. Execute Slice 0 first to freeze the baseline and evaluation corpus, then Slice 1 as the first product implementation. Map-schema, classifier-threshold, authoring, and compaction questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.
+Move to Feature Development and execute Slice 1, reusable decision-model configuration. Slice 0 has frozen the baseline and evaluation contract, including the requirement to expose retained-tail compensation. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.
