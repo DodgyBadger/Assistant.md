@@ -9,23 +9,12 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    ToolCallPart,
-    ToolReturnPart,
-    UserPromptPart,
-)
-
 from validation.core.base_scenario import BaseScenario
-
-CORPUS_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "fixtures"
-    / "live_session_memory"
-    / "representative_sessions.json"
+from validation.core.live_session_memory_corpus import (
+    corpus_message_to_model_message,
+    load_live_session_memory_corpus,
 )
+
 EXPECTED_DIMENSIONS = {
     "attention",
     "goals",
@@ -54,7 +43,7 @@ class LiveSessionMemoryBaselineCorpusScenario(BaseScenario):
     """Validate corpus labels and replay canonical messages without a model."""
 
     async def test_scenario(self):
-        corpus = json.loads(CORPUS_PATH.read_text(encoding="utf-8"))
+        corpus = load_live_session_memory_corpus()
         _validate_corpus(corpus)
 
         vault = self.create_vault("LiveSessionMemoryBaselineCorpusVault")
@@ -75,7 +64,9 @@ class LiveSessionMemoryBaselineCorpusScenario(BaseScenario):
                 vault.name,
                 owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
             )
-            messages = [_to_model_message(item) for item in case["messages"]]
+            messages = [
+                corpus_message_to_model_message(item) for item in case["messages"]
+            ]
             store.add_messages(session_id, vault.name, messages)
 
             stored = store.get_stored_messages(
@@ -247,32 +238,3 @@ def _validate_tool_pairs(case: dict[str, Any]) -> None:
         assert (
             call["sequence_index"] < results[tool_call_id]["sequence_index"]
         ), f"Tool result {tool_call_id} in {case['id']} must follow its call"
-
-
-def _to_model_message(item: dict[str, Any]) -> ModelRequest | ModelResponse:
-    kind = item["kind"]
-    if kind == "user":
-        return ModelRequest(parts=[UserPromptPart(content=item["content"])])
-    if kind == "assistant":
-        return ModelResponse(parts=[TextPart(content=item["content"])])
-    if kind == "assistant_tool_call":
-        return ModelResponse(
-            parts=[
-                ToolCallPart(
-                    tool_name=item["tool_name"],
-                    tool_call_id=item["tool_call_id"],
-                    args={"task": item["content"]},
-                )
-            ]
-        )
-    if kind == "tool":
-        return ModelRequest(
-            parts=[
-                ToolReturnPart(
-                    tool_name=item["tool_name"],
-                    tool_call_id=item["tool_call_id"],
-                    content=item["content"],
-                )
-            ]
-        )
-    raise AssertionError(f"Unsupported corpus message kind: {kind}")
