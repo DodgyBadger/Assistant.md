@@ -1,0 +1,229 @@
+{
+  "corpus_version": 1,
+  "rubric_version": "live-session-memory-v1",
+  "dimensions": [
+    "attention",
+    "goals",
+    "work_items",
+    "decisions",
+    "constraints",
+    "commitments",
+    "open_questions",
+    "artifacts",
+    "observations"
+  ],
+  "cases": [
+    {
+      "id": "research_memo_corrections",
+      "description": "A research memo accumulates constraints, changes citation style, creates an artifact, and resolves a blocker.",
+      "phenomena": [
+        "goal",
+        "correction",
+        "constraint",
+        "commitment",
+        "tool_observation",
+        "artifact",
+        "open_question",
+        "resolved_blocker"
+      ],
+      "messages": [
+        {"sequence_index": 0, "kind": "user", "content": "Prepare the Northstar client research memo."},
+        {"sequence_index": 1, "kind": "assistant", "content": "I created an outline and will collect source notes next."},
+        {"sequence_index": 2, "kind": "user", "content": "Keep it under 1,200 words and cite sources in APA style."},
+        {"sequence_index": 3, "kind": "assistant", "content": "I will preserve the word limit and APA citation requirement."},
+        {"sequence_index": 4, "kind": "user", "content": "Correction: use Chicago notes, not APA."},
+        {"sequence_index": 5, "kind": "assistant", "content": "Understood. Chicago notes supersedes APA."},
+        {"sequence_index": 6, "kind": "assistant_tool_call", "tool_name": "write_file", "tool_call_id": "northstar-notes", "content": "Write source notes to Research/northstar-notes.md"},
+        {"sequence_index": 7, "kind": "tool", "tool_name": "write_file", "tool_call_id": "northstar-notes", "content": "Created Research/northstar-notes.md with six cited sources."},
+        {"sequence_index": 8, "kind": "assistant", "content": "The source-notes artifact is complete; the next step is drafting the synthesis."},
+        {"sequence_index": 9, "kind": "user", "content": "The audience is the board. The finance appendix is still unavailable."},
+        {"sequence_index": 10, "kind": "assistant", "content": "The synthesis is drafted for the board, but the missing finance appendix blocks final review."},
+        {"sequence_index": 11, "kind": "user", "content": "Proceed without the appendix and mark that limitation explicitly."},
+        {"sequence_index": 12, "kind": "assistant", "content": "The memo draft is complete with the finance limitation noted. Next action: perform final editorial review."}
+      ],
+      "failed_attempts": [],
+      "classifier_batches": [
+        {"from_sequence_index": 0, "through_sequence_index": 3, "changed_dimensions": ["attention", "goals", "work_items", "constraints", "commitments"]},
+        {"from_sequence_index": 4, "through_sequence_index": 8, "changed_dimensions": ["work_items", "decisions", "constraints", "artifacts", "observations"]},
+        {"from_sequence_index": 9, "through_sequence_index": 12, "changed_dimensions": ["attention", "work_items", "decisions", "constraints", "artifacts", "observations"]}
+      ],
+      "compaction_checkpoints": [
+        {
+          "after_sequence_index": 3,
+          "expected_recovery_card": {
+            "required_concepts": ["draft Northstar memo", "collect source notes", "1,200 words", "APA"],
+            "forbidden_concepts": ["Chicago notes", "finance appendix", "final editorial review"]
+          }
+        },
+        {
+          "after_sequence_index": 8,
+          "expected_recovery_card": {
+            "required_concepts": ["draft Northstar memo", "source notes complete", "draft synthesis", "Chicago notes"],
+            "forbidden_concepts": ["APA is active", "finance appendix blocks review", "final editorial review"]
+          }
+        },
+        {
+          "after_sequence_index": 12,
+          "expected_recovery_card": {
+            "required_concepts": ["memo draft complete", "finance limitation noted", "final editorial review"],
+            "forbidden_concepts": ["collect source notes", "APA is active", "waiting for finance appendix"]
+          }
+        }
+      ],
+      "expected_final_map": {
+        "attention": {"active_goal_ids": ["goal_northstar"], "active_work_item_id": "work_editorial_review"},
+        "entries": [
+          {"id": "goal_northstar", "dimension": "goals", "status": "active", "meaning": "Prepare the Northstar client research memo.", "source_sequence_indexes": [0]},
+          {"id": "work_source_notes", "dimension": "work_items", "status": "completed", "meaning": "Collect source notes.", "source_sequence_indexes": [1, 7, 8]},
+          {"id": "work_editorial_review", "dimension": "work_items", "status": "in_progress", "meaning": "Perform final editorial review.", "source_sequence_indexes": [12]},
+          {"id": "decision_chicago", "dimension": "decisions", "status": "active", "meaning": "Use Chicago notes instead of APA.", "source_sequence_indexes": [4, 5]},
+          {"id": "constraint_word_limit", "dimension": "constraints", "status": "active", "meaning": "Keep the memo under 1,200 words.", "source_sequence_indexes": [2]},
+          {"id": "constraint_apa", "dimension": "constraints", "status": "superseded", "meaning": "Use APA citations.", "source_sequence_indexes": [2, 4]},
+          {"id": "constraint_finance_limit", "dimension": "constraints", "status": "active", "meaning": "State that the finance appendix was unavailable.", "source_sequence_indexes": [9, 11]},
+          {"id": "commitment_preserve_constraints", "dimension": "commitments", "status": "fulfilled", "meaning": "Preserve the stated length and citation constraints.", "source_sequence_indexes": [3, 12]},
+          {"id": "artifact_source_notes", "dimension": "artifacts", "status": "active", "meaning": "Research/northstar-notes.md contains six cited sources.", "source_sequence_indexes": [7]},
+          {"id": "artifact_memo", "dimension": "artifacts", "status": "active", "meaning": "The board memo draft is complete and awaits editorial review.", "source_sequence_indexes": [9, 12]},
+          {"id": "observation_appendix", "dimension": "observations", "status": "resolved", "meaning": "The finance appendix is unavailable and no longer blocks completion.", "source_sequence_indexes": [9, 10, 11]}
+        ]
+      }
+    },
+    {
+      "id": "read_only_migration_diagnosis",
+      "description": "A read-only diagnosis includes a failed tool attempt, an explicit retry boundary, and a source-supported conclusion.",
+      "phenomena": [
+        "goal",
+        "constraint",
+        "tool_observation",
+        "failed_turn",
+        "open_question",
+        "artifact",
+        "decision"
+      ],
+      "messages": [
+        {"sequence_index": 0, "kind": "user", "content": "Diagnose why the settings migration fails on startup."},
+        {"sequence_index": 1, "kind": "assistant", "content": "I will inspect configuration and migration evidence before proposing a cause."},
+        {"sequence_index": 2, "kind": "assistant_tool_call", "tool_name": "read_file", "tool_call_id": "read-settings", "content": "Read system/settings.yaml"},
+        {"sequence_index": 3, "kind": "tool", "tool_name": "read_file", "tool_call_id": "read-settings", "content": "settings.yaml contains schema_version: 4 and provider legacy_host."},
+        {"sequence_index": 4, "kind": "assistant", "content": "The legacy_host provider is a candidate cause; migration execution still needs verification."},
+        {"sequence_index": 5, "kind": "user", "content": "Do not modify any files. Diagnosis only."},
+        {"sequence_index": 6, "kind": "assistant", "content": "I will remain read-only and run the isolated migration fixture."},
+        {"sequence_index": 7, "kind": "user", "content": "Use the checked-in fixture instead of the unavailable production snapshot."},
+        {"sequence_index": 8, "kind": "assistant_tool_call", "tool_name": "run_validation", "tool_call_id": "migration-fixture", "content": "Run the isolated settings migration fixture"},
+        {"sequence_index": 9, "kind": "tool", "tool_name": "run_validation", "tool_call_id": "migration-fixture", "content": "Fixture failed at provider normalization: legacy_host has no base_url."},
+        {"sequence_index": 10, "kind": "assistant", "content": "Root cause confirmed: legacy_host lacks the required base_url. I recorded the diagnosis in Reports/settings-migration-diagnosis.md without modifying settings."}
+      ],
+      "failed_attempts": [
+        {"after_sequence_index": 6, "phase": "tool_execution", "failure_kind": "source_unavailable", "committed": false, "detail": "The production snapshot was unavailable."}
+      ],
+      "classifier_batches": [
+        {"from_sequence_index": 0, "through_sequence_index": 4, "changed_dimensions": ["attention", "goals", "work_items", "commitments", "observations"]},
+        {"from_sequence_index": 5, "through_sequence_index": 7, "changed_dimensions": ["work_items", "constraints", "commitments", "open_questions"]},
+        {"from_sequence_index": 8, "through_sequence_index": 10, "changed_dimensions": ["work_items", "decisions", "open_questions", "artifacts", "observations"]}
+      ],
+      "compaction_checkpoints": [
+        {
+          "after_sequence_index": 4,
+          "expected_recovery_card": {
+            "required_concepts": ["diagnose startup migration", "legacy_host candidate", "verify migration execution"],
+            "forbidden_concepts": ["root cause confirmed", "modify settings"]
+          }
+        },
+        {
+          "after_sequence_index": 7,
+          "expected_recovery_card": {
+            "required_concepts": ["read-only diagnosis", "checked-in fixture", "production snapshot unavailable"],
+            "forbidden_concepts": ["root cause confirmed", "settings were changed"]
+          }
+        },
+        {
+          "after_sequence_index": 10,
+          "expected_recovery_card": {
+            "required_concepts": ["legacy_host lacks base_url", "diagnosis recorded", "no settings modification"],
+            "forbidden_concepts": ["production snapshot required", "apply the migration fix"]
+          }
+        }
+      ],
+      "expected_final_map": {
+        "attention": {"active_goal_ids": [], "active_work_item_id": null},
+        "entries": [
+          {"id": "goal_migration_diagnosis", "dimension": "goals", "status": "completed", "meaning": "Diagnose the startup settings migration failure.", "source_sequence_indexes": [0, 10]},
+          {"id": "work_verify_migration", "dimension": "work_items", "status": "completed", "meaning": "Verify the failure with the checked-in migration fixture.", "source_sequence_indexes": [4, 7, 9]},
+          {"id": "decision_root_cause", "dimension": "decisions", "status": "active", "meaning": "The missing legacy_host base_url is the diagnosed root cause.", "source_sequence_indexes": [9, 10]},
+          {"id": "constraint_read_only", "dimension": "constraints", "status": "active", "meaning": "Do not modify files or settings during diagnosis.", "source_sequence_indexes": [5, 6]},
+          {"id": "commitment_read_only", "dimension": "commitments", "status": "fulfilled", "meaning": "Remain read-only while diagnosing.", "source_sequence_indexes": [6, 10]},
+          {"id": "question_execution_evidence", "dimension": "open_questions", "status": "resolved", "meaning": "Does migration execution confirm the suspected provider-normalization failure?", "source_sequence_indexes": [4, 9]},
+          {"id": "artifact_diagnosis", "dimension": "artifacts", "status": "active", "meaning": "Reports/settings-migration-diagnosis.md records the conclusion.", "source_sequence_indexes": [10]},
+          {"id": "observation_fixture_failure", "dimension": "observations", "status": "active", "meaning": "The isolated fixture fails because legacy_host has no base_url.", "source_sequence_indexes": [9]}
+        ]
+      }
+    },
+    {
+      "id": "goal_switch_and_cancellation",
+      "description": "The user cancels an event-planning goal and replaces it with a retrospective that reuses only relevant lessons.",
+      "phenomena": [
+        "goal_change",
+        "cancelled_work",
+        "constraint_supersession",
+        "decision",
+        "artifact",
+        "tool_observation"
+      ],
+      "messages": [
+        {"sequence_index": 0, "kind": "user", "content": "Plan the October partner event."},
+        {"sequence_index": 1, "kind": "assistant", "content": "I will compare venues and draft a schedule."},
+        {"sequence_index": 2, "kind": "user", "content": "The event budget must stay below $5,000."},
+        {"sequence_index": 3, "kind": "assistant", "content": "Open question: should the venue prioritize capacity or transit access?"},
+        {"sequence_index": 4, "kind": "user", "content": "Cancel the event plan. Instead, prepare a retrospective on partner onboarding."},
+        {"sequence_index": 5, "kind": "assistant", "content": "The event work is cancelled. I will focus on the onboarding retrospective."},
+        {"sequence_index": 6, "kind": "user", "content": "Focus the retrospective on handoff delays and keep the useful venue-vetting checklist as a general lesson."},
+        {"sequence_index": 7, "kind": "assistant", "content": "I will draft the retrospective and retain only the reusable vetting checklist."},
+        {"sequence_index": 8, "kind": "user", "content": "The $5,000 budget no longer applies."},
+        {"sequence_index": 9, "kind": "assistant_tool_call", "tool_name": "write_file", "tool_call_id": "write-retro", "content": "Write Retrospectives/partner-onboarding.md"},
+        {"sequence_index": 10, "kind": "tool", "tool_name": "write_file", "tool_call_id": "write-retro", "content": "Created Retrospectives/partner-onboarding.md with handoff-delay findings and a reusable vetting checklist."},
+        {"sequence_index": 11, "kind": "assistant", "content": "The retrospective is complete. Next action: present the handoff recommendations to the partner team."}
+      ],
+      "failed_attempts": [],
+      "classifier_batches": [
+        {"from_sequence_index": 0, "through_sequence_index": 3, "changed_dimensions": ["attention", "goals", "work_items", "constraints", "open_questions"]},
+        {"from_sequence_index": 4, "through_sequence_index": 7, "changed_dimensions": ["attention", "goals", "work_items", "decisions", "commitments", "open_questions", "observations"]},
+        {"from_sequence_index": 8, "through_sequence_index": 11, "changed_dimensions": ["work_items", "constraints", "artifacts", "observations"]}
+      ],
+      "compaction_checkpoints": [
+        {
+          "after_sequence_index": 3,
+          "expected_recovery_card": {
+            "required_concepts": ["plan October event", "$5,000 budget", "capacity or transit access"],
+            "forbidden_concepts": ["onboarding retrospective", "event cancelled"]
+          }
+        },
+        {
+          "after_sequence_index": 7,
+          "expected_recovery_card": {
+            "required_concepts": ["onboarding retrospective", "handoff delays", "reusable vetting checklist"],
+            "forbidden_concepts": ["continue event planning", "choose a venue"]
+          }
+        },
+        {
+          "after_sequence_index": 11,
+          "expected_recovery_card": {
+            "required_concepts": ["retrospective complete", "present handoff recommendations", "partner team"],
+            "forbidden_concepts": ["$5,000 budget is active", "venue selection pending", "draft retrospective"]
+          }
+        }
+      ],
+      "expected_final_map": {
+        "attention": {"active_goal_ids": ["goal_onboarding_retro"], "active_work_item_id": "work_present_recommendations"},
+        "entries": [
+          {"id": "goal_partner_event", "dimension": "goals", "status": "cancelled", "meaning": "Plan the October partner event.", "source_sequence_indexes": [0, 4]},
+          {"id": "goal_onboarding_retro", "dimension": "goals", "status": "active", "meaning": "Prepare and present a retrospective on partner onboarding.", "source_sequence_indexes": [4, 10, 11]},
+          {"id": "work_present_recommendations", "dimension": "work_items", "status": "in_progress", "meaning": "Present handoff recommendations to the partner team.", "source_sequence_indexes": [11]},
+          {"id": "decision_retain_checklist", "dimension": "decisions", "status": "active", "meaning": "Retain the venue-vetting checklist only as a reusable general lesson.", "source_sequence_indexes": [6, 7, 10]},
+          {"id": "constraint_event_budget", "dimension": "constraints", "status": "superseded", "meaning": "Keep event spending below $5,000.", "source_sequence_indexes": [2, 8]},
+          {"id": "question_venue_priority", "dimension": "open_questions", "status": "cancelled", "meaning": "Should venue selection prioritize capacity or transit access?", "source_sequence_indexes": [3, 4]},
+          {"id": "artifact_onboarding_retro", "dimension": "artifacts", "status": "active", "meaning": "Retrospectives/partner-onboarding.md contains the findings and reusable checklist.", "source_sequence_indexes": [10]},
+          {"id": "observation_handoff_focus", "dimension": "observations", "status": "active", "meaning": "Handoff delays are the retrospective's selected focus.", "source_sequence_indexes": [6, 10]}
+        ]
+      }
+    }
+  ]
+}
