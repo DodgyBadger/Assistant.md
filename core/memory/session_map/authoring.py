@@ -51,7 +51,7 @@ from core.memory.session_map.models import (
     session_map_entries,
 )
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v5"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v6"
 MAX_AUTHORING_DELTA_MESSAGES = 64
 
 _AUTHORING_INSTRUCTIONS = """
@@ -61,12 +61,22 @@ process. Record only goals, current work, adopted decisions, active constraints,
 concrete commitments, material open questions, significant artifacts, and
 material observations that help continue the session.
 
-Use put for a genuinely new stable entry. Set replaces_entry_id on put when the
-identity-bearing meaning of an existing entry is replaced; never rewrite
+Use the current map as the authoritative identity index. Use put only for a
+genuinely new stable entry whose subject is not already represented, and never put
+an ID already present in the current map. Reuse the exact existing ID for state
+changes. Set replaces_entry_id on put when the identity-bearing meaning of an
+existing entry is replaced, and give the replacement a new unique ID; never rewrite
 identity-bearing text through update. Use update only for mutable state fields. Use
 resolve only for a supported terminal lifecycle transition. Use change_attention
 when foreground goals or work changed. Return an empty operations list only when
-the delta adds no durable state. Preserve existing entry IDs whenever identity is unchanged.
+the delta adds no durable state.
+
+Propose the minimum sufficient working-set change. Do not add a second entry merely
+to paraphrase an existing subject, and do not retain a transient completed step
+unless it materially explains the current handoff, an outcome, or unresolved work.
+An explicit unresolved dependency or needed verification is an open question. A
+user requirement about the required content or form of an output is a constraint,
+including when it accompanies a decision to proceed despite missing input.
 
 For update, the only permitted changes keys are: goal status; work-item status,
 next_action, next_action_owner, and blocker_ids; decision status and
@@ -79,9 +89,10 @@ Use resolve rather than update for a terminal status. The deterministic applier
 adds state evidence and state-change indexes itself.
 
 Attention may name only goals whose resulting status is active and at most one
-work item whose resulting status is in_progress or blocked. A planned work item
-cannot be active attention. Add or transition referenced entries before the
-change_attention operation, or use null when no qualifying work item exists.
+work item whose resulting status is in_progress or blocked. Treat an explicitly
+declared immediate next action as in_progress working-set focus; otherwise a planned
+work item cannot be active attention. Add or transition referenced entries before
+the change_attention operation, or use null when no qualifying work item exists.
 
 Every evidence sequence index must point to a supplied delta message. Source roles
 and revision bookkeeping are added by deterministic code. User direction can establish adoption. Assistant plans are commitments or
