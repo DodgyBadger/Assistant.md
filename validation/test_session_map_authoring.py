@@ -7,8 +7,12 @@ import pytest
 
 from core.memory.session_map.authoring import (
     CanonicalMapMessage,
+    GoalProposal,
+    PutProposal,
     SessionMapAuthoringRequest,
+    SessionMapPatchProposal,
     build_session_map_authoring_prompt,
+    compile_patch_proposal,
     validate_authored_patch,
 )
 from core.memory.session_map.models import (
@@ -68,7 +72,7 @@ def test_authoring_prompt_carries_machine_readable_controls_and_sources() -> Non
         "role": "user",
         "content": "Prepare the release note.",
     }
-    assert payload["current_session_map"]["goals"] == []
+    assert payload["current_session_map"]["entries"] == []
 
 
 def test_validated_authoring_patch_applies_without_rewriting_controls() -> None:
@@ -93,6 +97,31 @@ def test_validated_authoring_patch_applies_without_rewriting_controls() -> None:
     assert result.revision == 1
     assert result.updated_through_sequence_index == 1
     assert result.goals[0].id == "goal_release_note"
+
+
+def test_compact_proposal_derives_envelope_roles_and_bookkeeping() -> None:
+    request = _request()
+    proposal = SessionMapPatchProposal(
+        operations=(
+            PutProposal(
+                entry=GoalProposal(
+                    id="goal_release_note",
+                    text="Prepare the release note.",
+                    status=GoalStatus.ACTIVE,
+                    evidence_sequence_indexes=(0,),
+                )
+            ),
+        )
+    )
+    patch_set = compile_patch_proposal(request, proposal)
+    assert patch_set.expected_revision == 0
+    assert patch_set.through_sequence_index == 1
+    assert patch_set.observed_source_content_revision == 1
+    operation = patch_set.operations[0]
+    assert isinstance(operation, AddPatch)
+    assert operation.entry.source_refs == (SourceRef(sequence_index=0, role="user"),)
+    assert operation.entry.active_from_sequence_index == 0
+    assert operation.entry.last_state_change_sequence_index == 0
 
 
 def test_authoring_rejects_wrong_source_role_and_envelope_values() -> None:
