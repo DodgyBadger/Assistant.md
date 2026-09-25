@@ -1,0 +1,469 @@
+# Live Session Memory Implementation Plan
+
+## Status
+
+Draft for design review. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
+
+## Problem
+
+Compaction currently preserves the canonical raw transcript but constructs each new effective-history recovery card from the previous generated card plus recent messages. Repeated compaction therefore passes durable session state through a chain of lossy prose rewrites. Omissions, reinterpretations, and stale details can compound even though the original evidence remains in SQLite.
+
+The first slice must make durable current-session state independent of compaction. Compaction should manage model context and immediate resumption; it should not be the sole author of long-horizon session memory.
+
+## User-Visible Outcome
+
+- Live session memory is disabled by default. With it disabled, or without a compatible and ready decision model, chat and compaction use the current recovery-card behavior unchanged.
+- When live session memory is explicitly enabled and its configured decision model is ready, a long-running session retains its objective, current focus, decisions, constraints, significant artifacts, completed milestones, and open work across repeated compactions.
+- While the feature is active, the agent receives a small live session map on ordinary turns, including after compaction.
+- The map exposes how current it is and which canonical messages support its entries.
+- A failed or delayed map update does not fail the completed chat turn; the map remains visibly stale and can be retried.
+- Raw chat messages remain canonical and independently retrievable. The map and recovery card remain derived artifacts.
+
+## Core Invariants
+
+1. Canonical `chat_messages` rows are the evidence boundary. A prior recovery card is never treated as canonical evidence for session-map facts.
+2. Every map revision records a canonical raw-message high-water mark as `updated_through_sequence_index`.
+3. Every durable map entry carries one or more source message sequence indexes. Assistant assertions, user statements, and tool outcomes retain distinguishable provenance.
+4. An unchanged entry is copied forward deterministically rather than paraphrased by another generative pass.
+5. A changed entry is patched only from canonical messages after the entry or map high-water mark, with explicit replacement or supersession metadata where applicable.
+6. Map persistence and revision selection are atomic per session. A slower background update cannot overwrite a newer revision.
+7. Map maintenance is off the response-critical path. Failure degrades to a stale prior revision and produces an observable retryable state.
+8. The routine prompt receives one bounded current map, not the revision history or full supporting transcript.
+9. Compaction and the session map have separate contracts: the map preserves durable session state; the recovery card preserves immediate operational resumption details.
+10. Purging a chat session removes its map revisions and pending maintenance records through the session ownership boundary.
+11. Attention fields reference canonical map entry IDs instead of duplicating their prose, and every referenced ID must exist in an admissible lifecycle state.
+12. Unknown, unanswered, assumed, disputed, and superseded state remains distinguishable; absence of an entry is not evidence that a question was answered or a fact is false.
+13. The feature is opt-in. In `off` mode, no map is maintained or injected and compaction follows the existing recovery-card path without depending on a decision service. `observe` may maintain an unused map, `context` may additionally admit it on ordinary turns, and only `compaction` may select the map-backed recovery-card path.
+14. The live-memory compaction path is admissible only when the configured model alias declares decision capability, its provider and credentials are ready, and a sufficiently fresh map revision is available. If any condition fails, compaction uses the existing recovery-card path.
+15. Session-memory orchestration depends on a provider-neutral decision-classifier contract. Jev is the first adapter, not a permanent dependency of the map, scheduling, persistence, or compaction contracts.
+16. Every completed turn durably advances pending turn and token accounting before maintenance is dispatched. Classifier invocation and generative reconciliation may be gated, but a negative classifier result never resets the cumulative hard counters.
+17. An ordinary next turn never waits for background reconciliation. Its effective history contains the last committed map and retains the exact canonical message range newer than that map's coverage watermark once, without duplicating that range in a second prompt block.
+18. No live-memory compaction, checkpoint, sliding window, adaptive window, or future context reducer may remove a canonical message range that is not covered by the committed map. If synchronous catch-up cannot produce an admissible revision, the operation exits the live-memory path and the current recovery-card contract remains responsible for continuity.
+19. Pending maintenance is recoverable from canonical history and durable watermarks after restart. An in-memory task or queue is never the sole record of outstanding work.
+20. The first slice is deterministic session state, not RAG memory. It maintains and admits exactly one current map by session identity and sequence watermark; embeddings, vector storage, similarity search, ranking, top-k retrieval, graph traversal, and cross-session recall remain outside its runtime path.
+
+## Proposed First-Slice Map
+
+Use a compact dialogue information state rather than a free-form summary. The proposed fields are grounded in several established lines of work:
+
+| Research result | Schema consequence |
+| --- | --- |
+| Schema-Guided Dialogue Tracking represents active intent, accumulated user-goal constraints, and requested slots separately, and predicts turn-level state deltas rather than regenerating the whole state. | Separate active attention, goals, constraints, and unanswered information; make patches the update primitive. |
+| CoALA distinguishes persistent working memory from episodic, semantic, and procedural long-term memory; its working memory contains active goals, active knowledge, perceptual input, and intermediate reasoning results. | Keep this map session-local and action-oriented; do not turn it into transcript history or general long-term memory. |
+| MemGPT separates a writable working context from a rolling message queue and durable recall storage, and uses working context for current objectives, responsibilities, key facts, and preferences. | Admit the map routinely while keeping raw messages canonical and separately retrievable. |
+| Generative Agents stores observations, reflections, and plans separately, and finds that explicit plans and replanning improve longer-horizon coherence. | Represent active work and next actions explicitly instead of inferring them repeatedly from facts. |
+| LongMemEval evaluates information extraction, multi-session reasoning, temporal reasoning, knowledge updates, and abstention; it also finds that fact-only compression can lose useful context. | Preserve source references, update and temporal state, and explicit unknowns; never treat the map as a substitute for raw evidence. |
+| Zep/Graphiti links derived facts back to source episodes and distinguishes ingestion time from the interval in which a fact is valid. | Record source sequence provenance and support optional effective validity separately from revision history. |
+| Mem0 uses bounded `ADD`, `UPDATE`, `DELETE`, and `NOOP` operations after comparing new candidates with existing memory. | Use a small patch vocabulary, but represent contradiction through supersession or invalidation rather than destructive deletion. |
+
+These studies address different problems, and several focus on cross-session personal memory or simulated agents rather than tool-heavy knowledge work. The first slice should borrow their recurring state distinctions and update invariants without importing a knowledge graph, reflection tree, retrieval score, vector index, memory-search step, or general persona store. Map admission is deterministic whenever the feature is active; it is never the result of a retrieval query.
+
+The map should have a non-duplicative attention layer that points to stable entries. `active_goal_ids` and `active_work_item_id` identify what is foregrounded without maintaining another paraphrase of the same objective.
+
+```yaml
+schema_version: 1
+session_id: session_abc
+revision: 7
+updated_through_sequence_index: 842
+observed_source_content_revision: 219
+
+attention:
+  active_goal_ids: [goal_01]
+  active_work_item_id: work_02
+
+goals:
+  - id: goal_01
+    text: Design the first live session-memory slice.
+    status: active
+    source_refs:
+      - sequence_index: 801
+        role: user
+
+work_items:
+  - id: work_02
+    goal_ids: [goal_01]
+    text: Define and validate the anti-drift map schema.
+    status: in_progress
+    next_action: Compare the proposed fields with representative sessions.
+    blocker_ids: []
+    source_refs:
+      - sequence_index: 842
+        role: user
+
+decisions:
+  - id: decision_03
+    text: Compaction is context management, not the source of session memory.
+    status: active
+    scope: session
+    source_refs:
+      - sequence_index: 806
+        role: user
+
+constraints:
+  - id: constraint_04
+    text: Do not implement cross-session recall in this slice.
+    status: active
+    scope: goal_01
+    active_from_sequence_index: 819
+    active_until_sequence_index: null
+    effective_time: null
+    superseded_by: null
+    source_refs:
+      - sequence_index: 819
+        role: user
+
+commitments:
+  - id: commitment_05
+    actor: assistant
+    text: Produce a research-grounded schema before implementation.
+    status: open
+    source_refs:
+      - sequence_index: 842
+        role: assistant
+
+open_questions:
+  - id: question_06
+    text: What entry and token limits preserve utility without recreating context bloat?
+    status: open
+    owner: assistant
+    source_refs:
+      - sequence_index: 842
+        role: assistant
+
+artifacts:
+  - id: artifact_07
+    ref: LIVE_SESSION_MEMORY_IMPLEMENTATION_PLAN.md
+    kind: implementation_plan
+    status: active
+    status_detail: Draft updated with schema research.
+    source_refs:
+      - sequence_index: 842
+        role: assistant
+
+observations:
+  - id: observation_08
+    text: Current compaction consumes the prior generated recovery card.
+    epistemic_status: observed
+    relevance: required_for_active_work
+    source_refs:
+      - sequence_index: 810
+        role: tool
+```
+
+The collections have distinct jobs:
+
+- `goals` describe desired outcomes, not methods or session-hygiene operations.
+- `work_items` describe the active plan, progress, blockers, and next action. Completed or cancelled items remain only while they explain current state, then age out of the routine map while remaining recoverable from revisions and canonical messages.
+- `decisions` record choices that govern later work.
+- `constraints` record boundaries on acceptable outcomes or methods, including their scope and optional period of validity.
+- `commitments` record who promised to do what, preventing an assistant plan from being misrepresented as a user requirement.
+- `open_questions` represent requested or missing information explicitly, supporting correct abstention instead of invented closure.
+- `artifacts` identify files, goals, jobs, external references, or other work products and their current status.
+- `observations` hold only confirmed, assumed, or disputed working knowledge that materially affects the active goal, such as a tool outcome or environmental fact. This is not a general facts collection.
+
+Each entry has a stable ID, concise text or reference, a type-specific lifecycle state, and role-bearing canonical source references. Entries that can change over time support `active_from_sequence_index`, `active_until_sequence_index`, and `superseded_by` on the conversational transaction timeline. An optional `effective_time` interval records real-world validity only when the source states or deterministically implies it. Revision timestamps describe when AssistantMD recorded a change and must not be conflated with either timeline.
+
+The stored revision envelope should also include an observed source-content revision, creation and update timestamps, authoring status, prompt-contract version, decision and authoring model identities, and optional error metadata. `updated_through_sequence_index` describes content coverage; the source-content revision is a concurrency token for the frozen source view. AssistantMD's current broad `history_revision` also advances for compaction checkpoints and failure metadata, so implementation must either add a content-specific revision or accept safe but unnecessary retries when using the broader value. These operational fields do not need to enter normal model context.
+
+Do not add retrieval-oriented `importance`, `recency`, or `last_accessed` scores to the first-slice map. Those are useful for selecting among large memory collections, while this artifact is already the bounded working set admitted on every turn. Do not add graph entities and relations until a demonstrated session-continuity case requires relationship traversal.
+
+## Anti-Drift Update Model
+
+The maintenance pipeline should process only canonical raw messages newer than the selected map revision's high-water mark.
+
+```text
+completed persisted turn
+  -> read latest map revision and canonical raw delta
+  -> classify atomic changes against stable map entry IDs
+  -> produce bounded add/update/supersede/resolve operations
+  -> validate every operation against delta source references
+  -> apply operations deterministically to unchanged prior entries
+  -> optionally audit the proposed map for missed or conflicting changes
+  -> compare-and-swap a new revision at the observed high-water mark
+```
+
+The generative component should propose typed `ADD`, `REVISE`, `SUPERSEDE`, `RESOLVE`, `CHANGE_ATTENTION`, or `NOOP` operations, not rewrite the whole map. Ordinary code validates identifiers, source ranges, lifecycle transitions, size limits, enum values, referential integrity, and optimistic-concurrency preconditions before constructing the next revision. `SUPERSEDE` and `RESOLVE` preserve the prior entry and its evidence rather than physically deleting history. This is the main protection against accumulated paraphrase drift.
+
+The initial implementation should support a forced full audit from canonical raw history for validation and repair. Routine updates may consume deltas, but correctness must not depend on an unbroken chain of prior generated prose.
+
+## Persistence Boundary
+
+The memory subsystem should own the live session map as the working-memory layer of the broader architecture described in the exploratory sketch. The map is related to session synopses, future candidate indexes, consolidated memory, vault recall, and context admission, even though the first slice performs no retrieval. Keeping these representations under `core/memory` gives the family one conceptual home without forcing them into one schema, lifecycle, or selection algorithm.
+
+Physical persistence follows the artifact's transactional requirements. Append-only map revisions and the maintenance-state record belong in `chat_sessions.db` because they are keyed to canonical chat sequence indexes, must advance atomically with a completed turn, and must cascade with session deletion. This colocated storage does not make the map a `core/chat` domain object: `core/chat` owns the canonical source and transaction boundary, while `core/memory/session_map` owns the derived representation and its rules.
+
+The current revision may be selected as the highest completed revision for the session. A maintenance record should track the observed source high-water mark, observed source-content revision, pending turn and token counts, frozen attempt range, processing status, attempt metadata, and last error without making process-local execution tasks durable domain state. Canonical history plus this record must be sufficient to reconstruct pending work after restart; the task runner is only a dispatch mechanism.
+
+This slice changes persistent system state under the configured system root. Local validation must use isolated temporary system roots and must not reuse repository `system/` runtime data.
+
+## Runtime Flow
+
+1. When the assistant/tool side of a turn completes successfully, append those canonical messages and advance the session-memory pending watermark and turn/token counters in the same `ChatStore` transaction. The accepted user request remains durably written before model execution under the existing failure and retry contract.
+2. Deliver response completion to the UI without waiting for classification or authoring.
+3. Schedule or coalesce a session-scoped maintenance eligibility check adjacent to the existing post-turn automatic-compaction hook.
+4. Apply deterministic hard triggers and optional semantic triggers. A negative semantic judgment does not clear cumulative hard-trigger state.
+5. When reconciliation is selected, serialize it for the session and freeze the predecessor revision, raw-message high-water mark, and source-content revision. Messages arriving after that frozen range remain pending.
+6. Persist a new revision only if its predecessor and frozen source view still match; otherwise discard or retry against the newer state.
+7. During preparation of the next ordinary chat turn, load the latest completed map and render it before effective conversation history while retaining the exact canonical raw-message range newer than its coverage watermark once in that history. Do not wait for background maintenance or inject a duplicate delta block.
+8. Before any context-reduction policy removes messages from effective history, require a map revision covering that range or use the current recovery-card path that preserves continuity without live memory.
+
+## Relationship to Compaction
+
+The first integration must retain the existing compaction implementation as the default path. Only when live session memory is explicitly enabled, its configured decision model is compatible and ready, and the selected map revision is fresh enough may compaction receive the session map as durable-state context and use the narrower current-goal card. That card contains the active goal, exact current focus, immediate progress, unresolved blocker, next action, and volatile execution details needed to resume work. It does not preserve a session throughline, historical facts, old decisions, general preferences, or completed work merely because they once mattered; those belong in the source-linked map when they remain relevant.
+
+The authoring source for a new recovery card should be the selected map revision plus bounded canonical raw messages newer than the relevant map or compaction high-water mark. It should not include the previous recovery card as evidence. This removes recursive card-to-card summarization rather than relying only on prompt wording to resist it.
+
+The card may identify the map revision it assumes. Repeated compaction must never update the live map from a recovery card, and a recovery card must never treat another recovery card as canonical evidence. If enablement, model readiness, or required map freshness is absent at the compaction boundary, the operation must run the current recovery-card implementation rather than a partially initialized live-memory variant.
+
+Prompt development is a separate, lightweight experimental track. Compare the current prompt with a current-goal prompt over representative fixtures and repeated live compactions. Score active-goal, current-focus, blocker, next-action, and volatile-artifact retention alongside historical-fact leakage, stale-state retention, and unsupported claims. Keep this live-model probe under `validation/scenarios/experiments`; deterministic integration tests should assert source selection and artifact boundaries rather than exact generated prose.
+
+## Jev Boundary
+
+Use Pydantic AI's native TypeSafe integration rather than building a parallel Jev wire client. Place that integration behind a narrow provider-neutral decision-classifier contract consumed by session memory. Upgrade the pinned Pydantic AI dependency from `2.19.0` to a tagged release that contains `TypeSafeModel`, enable the `typesafe` extra, and construct a normal `Agent` with a typed Pydantic `output_type`. As of this plan update, `2.49.0` is the latest tagged release and the first available target in this repository's upgrade path; recheck the tagged API immediately before implementation because upstream `main` already contains post-release `DecisionModel` changes.
+
+Represent map-change detection as one output model with independent fields for attention, goals, work items, decisions, constraints, commitments, open questions, artifacts, and observations. Put the shared task framing in agent instructions, put one atomic question in each field description, and pass only the bounded canonical delta and necessary current-map entries as the state being judged. Do not put questions in the run prompt or a system-prompt history item because Pydantic AI sends those as state, not as Jev questions.
+
+Prefer bounded `float` fields from `0` to `1` for the change signals. Pydantic AI maps each such field to Jev's unrounded probability of yes, allowing AssistantMD to retain the evidence and apply separately calibrated policy thresholds for each map dimension. A `bool` output would round through one model-level boolean threshold and is less suitable for offline tuning or asymmetric update costs.
+
+Persist each bounded-float output as the raw yes-probability. Read confidence and option distributions from response metadata only for output kinds that provide them, and capture resolved model identity, token usage, and latency through the ordinary Pydantic AI result. Use `jev-latest` only while gathering labelled experimental data; pin the versioned Jev model before adopting calibrated thresholds because the alias moves between releases.
+
+The configured decision classifier decides which fields are dirty and whether accumulated changes justify reconciliation. It does not write map prose, validate authority, apply patches, or select canonical sources. A generative Pydantic AI agent remains responsible for proposing typed map patch operations after policy chooses to reconcile, and ordinary code validates and applies those operations. The application-facing result contains named typed decisions or scores, resolved model identity, latency, usage when available, and optional confidence metadata; adapters normalize provider-specific results without claiming that scores from different models are calibrated equivalently.
+
+Jev is the first adapter because Pydantic AI supplies its native question and probability mapping. Future adapters may use another hosted classifier, a local model, or a structured-output generative model, provided they satisfy the same bounded-input and typed-result contract. Threshold and calibration profiles are keyed by adapter and resolved model version rather than treated as universal Jev constants.
+
+The TypeSafe credential and any base-URL override must enter through AssistantMD's existing principal-owned secret and settings boundaries. Never persist the credential in map metadata, model traces, validation artifacts, or `system/secrets.yaml`. Remote disclosure policy must be explicit because the bounded canonical delta is sent to TypeSafe's API.
+
+## Provider, Model, and Secret Configuration
+
+Seed TypeSafe as a built-in provider and `jev` as a reusable decision-model alias in `core/settings/settings.template.yaml`. Session memory selects that alias through its own setting, while other bounded classification features may use the same decision capability and runtime. The initial configuration contract is:
+
+```yaml
+settings:
+  live_session_memory_mode:
+    value: off
+    description: "Live session-memory rollout mode: off, observe, context, or compaction."
+    category: "Chat"
+    restart_required: false
+  live_session_memory_decision_model:
+    value: jev
+    description: "Decision-capable model alias used for live session-memory classification."
+    category: "Models"
+    restart_required: false
+
+models:
+  jev:
+    provider: typesafe
+    model_string: jev-latest
+    capabilities: ["decision"]
+    description: "Default Jev decision model for classification workloads"
+    user_editable: false
+
+providers:
+  typesafe:
+    api_key: TYPESAFE_API_KEY
+    base_url: null
+    user_editable: false
+```
+
+`TYPESAFE_API_KEY` is a secret-name pointer, not a credential embedded in settings. Its value must be written and read through the existing principal-owned encrypted secrets store and current Secrets API/UI. Provider and model status may expose the pointer name and a boolean indicating whether it has a value, but must never return, log, trace, or write the value to validation artifacts. A custom TypeSafe endpoint should be represented by the existing `base_url` field only if the tagged Pydantic AI integration actually supports one; otherwise omit that unsupported surface.
+
+Use `jev-latest` only during labelled calibration, then change `model_string` to the selected versioned Jev identity before thresholds become a supported policy. Runtime code must resolve the reusable `jev` alias through the normal model/provider configuration and secret readiness mechanisms, while constructing it through a dedicated Pydantic AI decision-model path rather than the generative chat-model factory.
+
+The session-memory service reads `live_session_memory_decision_model`; it must not hard-code the Jev alias. Any non-`off` mode requires the selected alias to exist, declare `decision`, and pass adapter-specific provider and credential readiness. This alias indirection is the extension point for future hosted or local classifier adapters.
+
+The existing capability normalization and chat selector currently treat every non-embedding model as text-capable. Extend the configuration contract so `decision` remains a decision-only capability, and make chat selection require an explicit `text` capability. This keeps the Jev model visible to configuration and readiness reporting without offering it as a conversational model.
+
+If the feature is disabled, do not schedule map maintenance or inject a persisted map. If the selected provider, alias, adapter, dependency, or secret is unavailable, mark live memory unavailable, keep any last successful map as inactive derived state, and retry only under bounded policy. Missing decision-model configuration must not fail or hide ordinary chat, and compaction must use the current recovery-card path. Deleting or clearing `TYPESAFE_API_KEY` must invalidate provider and model readiness on reload without requiring process access to the plaintext value.
+
+## Affected Areas
+
+### Ownership and Reuse Boundaries
+
+The boundaries are sufficiently clear to implement the safe foundation without inventing a parallel architecture. `core/llm` owns reusable decision-model execution, `core/memory` owns the family of derived memory representations, and `core/chat` owns the canonical transcript plus the lifecycle seams that must be atomic with it. The live map is the session-working-memory member of that family; existing session summaries are discovery-oriented synopses, and future candidate, consolidated, and vault-memory layers may build on common provenance and context-admission concepts without sharing the live map's update path.
+
+This placement deliberately distinguishes conceptual cohesion from premature abstraction. The first slice should not introduce a generic memory base class, universal memory record, common retrieval pipeline, or shared database merely to anticipate later layers. Shared contracts should be extracted only when a second implemented memory layer needs the same semantics. Canonical source references and authority vocabulary are the likely first candidates; map patches, freshness policy, and deterministic admission remain specific to the session-map subdomain.
+
+| Concern | Owning boundary | Existing seam to reuse | Boundary to preserve |
+| --- | --- | --- | --- |
+| Provider, model alias, capability, and readiness | `core/settings` and `core/llm/model_utils.py` | Existing provider/model registry, capability lookup, configuration status, and secret-name resolution | Do not add Jev-specific settings stores, endpoints, or plaintext secret handling. |
+| Decision-model construction and invocation | A new, initially single `core/llm/decision.py` module | Pydantic AI model integration, resolved aliases, existing provider policy, and ordinary result/usage handling | Keep `core/llm/model_factory.py` generative-chat-only so decision-only models cannot leak into chat selection. Split provider adapters into a package only when a second real adapter or module size demonstrates the need. |
+| Secret values | Existing `core/secrets` service through the current settings/configuration facade | Principal-owned encrypted SQLite, current Secrets API/UI, and readiness redaction | Do not add another secret manager, persist credentials in session-memory rows, or populate `system/secrets.yaml`. |
+| Memory-family architecture | `core/memory` | Existing session-summary/synopsis code and the sketch's source-authority model | Treat live maps, synopses, candidates, consolidation, and recall as related but distinct subdomains. Do not retrofit retrieval behavior into the live map or force the existing summary schema to serve working memory. |
+| Map domain | `core/memory/session_map/models.py` | Pydantic models and canonical chat sequence identities | Own schema, lifecycle rules, patch validation, deterministic application, and bounded rendering here; do not mix SQL, task dispatch, retrieval, or provider calls into the domain model. |
+| Map persistence | `core/memory/session_map/store.py` with its physical migration registered against `chat_sessions.db` | Session foreign keys, `ChatStore.transaction()`, and append-only canonical messages | Keep map SQL out of the already broad `ChatStore`; accept an existing SQLite connection for mutations that must join the successful-turn transaction. Do not create a second database, duplicate session deletion logic, or move unrelated summary/retrieval tables into the chat database. |
+| Raw source reads | `ChatStore` | Stored-message metadata and ordered sequence indexes | Add only a narrow canonical range/read API if the current methods are insufficient. Session-memory code must not issue private `chat_messages` queries or use `ChatHistoryService`'s normalized public representation when exact source identity is required. |
+| Authoring and classification policy | `core/memory/session_map/authoring.py`, introduced only with the offline experiments | Provider-neutral decision runtime, typed Pydantic outputs, and canonical range reads | Own prompts, change-signal schema, patch proposal, and authoring diagnostics here. The decision adapter classifies; it does not mutate the map or choose evidence. |
+| Runtime orchestration | `core/memory/session_map/service.py`, introduced with shadow maintenance | `RuntimeContext` composition, `ExecutionTaskRunner`, per-session gates, and durable maintenance rows | The service owns coalescing, freshness, compare-and-swap, and failure isolation. Do not add a worker framework, process-local queue as durable state, or memory policy to `RuntimeContext`. |
+| Successful-turn hook | `core/chat/task_execution.py` | The existing transaction that commits the successful assistant/tool result and clears turn failure | In that transaction, call the store's narrow `record_completed_turn(...)` mutation. Keep classification and authoring outside the transaction and off the response-critical path. The earlier accepted-user write remains unchanged. |
+| Prompt admission | `core/chat/executor.py` with composition in `core/chat/instructions.py` | Primary chat preparation, instruction layers, effective history, and canonical history APIs | The session-memory service returns a bounded rendered block and the required uncovered range; executor owns assembling each exactly once. Do not implement map admission as a selectable LLM capability or generic history tool. |
+| Compaction strategy | `core/chat/compaction.py` | Existing thresholds, task-runner execution, checkpoint writes, and recovery-card fallback | Factor source selection behind an explicit strategy inside the existing compaction boundary. Do not create a second compactor or weaken the legacy tool-result preservation contract. |
+| API/UI | Existing configuration surfaces; a thin status projection only when runtime modes need it | Generic provider/model/secret editors and status serializers | Do not add session-memory CRUD or a Jev-specific API in the first slices. |
+| Validation | Existing focused tests and `validation/scenarios/integration/core` or `experiments` | Current compaction, persistence, secrets, runtime-task, and configuration scenarios | Put deterministic contracts in integration/core and live-model probes in experiments; do not make network evidence a merge gate. |
+
+The `core/memory/session_map` package should be created incrementally rather than scaffolded in full. Slice 3 adds `models.py` and `store.py`; Slice 5 adds `authoring.py` only when the prompt experiment exists; Slice 6 adds `service.py` only when runtime orchestration exists. Its `__init__.py` should expose the small public surface used by chat execution and, later, by explicitly designed promotion or recall flows. This gives each uncertain layer a replaceable boundary without producing placeholder modules.
+
+The atomic seam does not require rewriting current message persistence. The accepted user request is already committed before model execution. On successful completion, `core/chat/task_execution.py` opens a `ChatStore.transaction()` and appends the remaining assistant/tool messages. The same connection can be passed to `SessionMapStore.record_completed_turn(...)` so pending counters and the completed source range advance atomically with that successful commit. The post-commit hook then schedules maintenance through the existing runtime task runner.
+
+The exact prompt representation remains an experimental decision, but its module ownership does not: the session-memory service renders data, `core/chat/instructions.py` composes any system-owned map layer, and `core/chat/executor.py` selects the canonical uncovered history exactly once. Changing from an instruction layer to another provider-stable context representation therefore does not move domain or persistence responsibilities.
+
+### Concrete Files Affected
+
+- `core/chat/schema.py`: register the physical map revision and maintenance-state migrations in `chat_sessions.db` so foreign keys and transactional initialization remain coherent.
+- `core/chat/chat_store.py`: only narrow canonical range reads and the existing shared transaction boundary; map CRUD belongs to `core/memory/session_map/store.py`.
+- Existing `core/memory/` and a new incremental `core/memory/session_map/` package: establish the broader memory-family boundary, with deterministic map models and storage first and authoring and service modules only in their later slices. Existing `session_summary` behavior is not rewritten in the first slice.
+- `core/chat/task_execution.py`, `core/chat/executor.py`, and `core/chat/instructions.py`: successful-turn recording, post-commit scheduling, and per-turn context admission.
+- `core/chat/compaction.py`: select a map-backed source strategy only after the standalone path works, retaining the current strategy as default and fallback.
+- `core/runtime/context.py` and `core/runtime/bootstrap.py`: compose one session-memory service and reuse `ExecutionTaskRunner`; no new task subsystem.
+- `pyproject.toml` and `uv.lock`: upgrade the exact Pydantic AI pin and enable its `typesafe` extra.
+- `core/settings/settings.template.yaml`, `core/settings/store.py`, `core/settings/config_editor.py`, `core/llm/provider_policy.py`, and configuration API/UI surfaces: built-in `typesafe` provider, reusable `jev` alias, decision-only capability, safe readiness reporting, and exclusion from chat selection.
+- Existing `core/secrets` and settings/configuration facades: store the value named by `providers.typesafe.api_key` (`TYPESAFE_API_KEY`) without introducing a second credential path.
+- `core/llm/model_utils.py` and new `core/llm/decision.py`: resolve the configured alias, validate decision capability and adapter readiness, and use Pydantic AI's native TypeSafe integration without treating TypeSafe as a generic OpenAI-compatible endpoint.
+- `docs/development/architecture.md` and a new ADR: the related memory-layer topology, source-linked patch semantics, physical colocation with canonical chat state, task-runner reuse, and separation of live-map, synopsis, retrieval, consolidation, and compaction responsibilities.
+- Validation scenarios and focused unit tests for configuration, decision-runtime contracts, persistence, update races, prompt admission, failure degradation, purge behavior, and repeated compaction.
+
+The memory subsystem owns map semantics, durable maintenance state, reconciliation, freshness, and rendering. The chat subsystem owns the completion hook, canonical message authority, the enclosing transaction, and the no-unmapped-eviction enforcement point. Existing access services retain authority checks, while runtime owns only service composition and shared task-execution primitives. Model prompts and schemas may later be exposed through a narrow `session_memory` authoring type, but a generic post-turn script is not allowed to own these lifecycle guarantees.
+
+## Slice Strategy
+
+Each slice must be independently testable, leave the current recovery-card behavior intact unless its own explicit experimental mode is selected, and avoid assuming that a later hypothesis will succeed. Deterministic platform and persistence work lands before live-model experiments. Experimental slices first produce retained evidence without affecting prompts, then affect prompts without affecting compaction, and only finally become eligible to replace compaction. A failed evidence gate sends the design back to that slice; it does not get compensated for by adding complexity downstream.
+
+The reusable decision-model platform is intentionally separate from session memory. Provider configuration, the `decision` capability, model resolution, and Pydantic AI adapters may support future classification features even if the session-map experiment is stopped.
+
+## Testable Delivery Slices
+
+### Slice 0: Baseline and Evaluation Corpus
+
+**Build:** Lock down the current recovery-card contract with the existing repeated-compaction scenario and assemble privacy-safe representative session fixtures containing goal changes, corrections, constraints, tool observations, artifacts, open questions, failed turns, and at least three compactions. Record separate expected outputs for map state, classifier field changes, and immediate recovery-card state so one representation is not used to grade another.
+
+**Verify:** Run the existing deterministic compaction scenario unchanged; prove the fixtures can be replayed without a live service; capture baseline continuation quality, unsupported-claim rate, historical leakage, prompt size, and repeated-card drift.
+
+**Exit gate:** The corpus and rubric are reviewed before any prompt or threshold is tuned against them. This slice changes no product behavior.
+
+### Slice 1: Reusable Decision-Model Configuration
+
+**Build:** Add `decision` as a first-class model capability, preserve it without implicitly adding `text`, and make chat selection require explicit `text`. Seed the built-in `typesafe` provider, reusable `jev` model alias, and `TYPESAFE_API_KEY` pointer. Treat `typesafe` as a native provider shape that does not require the generic OpenAI-compatible `base_url`. Reuse the existing encrypted principal-owned secret store and configuration status surfaces; do not add session-memory hooks or make an external model call.
+
+**Verify:** Add focused settings, API, and UI tests for capability normalization, chat exclusion, provider/model readiness with populated and missing secrets, secret clearing, safe status serialization, template upgrade behavior, and absence of plaintext in settings or logs.
+
+**Exit gate:** `jev` is safely configurable and visible in readiness reporting, cannot be selected for chat, and has no effect on existing sessions or compaction. This is the first implementation slice and is useful independently of live memory.
+
+### Slice 2: Provider-Neutral Pydantic AI Decision Runtime
+
+**Build:** Upgrade to a tagged Pydantic AI release with native TypeSafe support and enable the `typesafe` extra. Add the narrow provider-neutral classifier interface and TypeSafe/Jev construction in `core/llm/decision.py`; keep the in-process fake in test support unless production configuration later needs it. Resolve aliases, capability, credentials, timeout, model identity, usage, latency, and provider errors through normal configuration boundaries. Keep `core/llm/model_factory.py` limited to generative chat models, and do not add a generic user-facing classification tool or session-memory lifecycle hook yet.
+
+**Verify:** Contract-test both adapters with the same typed fixtures; mock the TypeSafe transport for deterministic construction, request-shape, result, timeout, and redaction tests; add regression coverage for every existing Pydantic AI provider and test model affected by the dependency upgrade; add one opt-in live-service smoke scenario that proves the configured `jev` alias can return typed bounded values. Verify that another adapter can satisfy the interface without TypeSafe imports or credentials, and run the full deterministic core profile before considering the dependency-upgrade slice stable.
+
+**Exit gate:** Application code can invoke a configured decision-capable alias through one stable interface, and every deterministic test passes without network access. The live smoke is evidence, not a merge gate.
+
+### Slice 3: Deterministic Session-Map Domain and Storage
+
+**Build:** Create `core/memory/session_map/models.py` for the provisional typed map schema, stable entry IDs, source references, lifecycle states, bounded patch operations, validation, deterministic application, and bounded rendering. Create `core/memory/session_map/store.py` for append-only revisions, maintenance state, and compare-and-swap persistence in `chat_sessions.db`; its atomic mutation accepts the existing `ChatStore` transaction connection. Register the physical schema through the chat database migration boundary and add only the narrow canonical range-read method needed to `ChatStore`. Atomically advance durable pending watermarks and counters with the successful assistant/tool commit. Implement restart reconstruction and frozen attempt ranges, but do not call a model, schedule background authoring, inject a map, or alter compaction.
+
+**Verify:** Apply hand-authored patches over Slice 0 fixtures. Test illegal transitions, invalid source ranges, stale writers, messages arriving after a frozen range, restart recovery, fork policy selected for the slice, size bounds, deterministic rendering, and session purge. Decide whether a content-specific source revision is necessary based on tests against the current broader `history_revision`.
+
+**Exit gate:** All state transitions and persistence invariants are deterministic and model-independent. The feature remains inert and disabled.
+
+### Slice 4: Offline Change-Detection Experiment
+
+**Hypothesis:** A decision classifier can identify which map dimensions materially changed with enough recall to reduce unnecessary generative reconciliation without hiding important corrections or open work.
+
+**Build:** Define the typed session-delta signal schema and run the configured decision runtime over labelled Slice 0 deltas. Persist raw per-field probabilities, model version, latency, usage, expected labels, and prompt-contract version. Compare per-turn classification with deterministic batching and hard triggers; do not connect results to runtime maintenance.
+
+**Verify:** Measure field-level precision and recall, especially false negatives for corrections, decisions, constraints, commitments, and open questions. Recalculate thresholds offline from retained probabilities. Confirm that negative judgments cannot reset hard turn/token counters. Repeat against a pinned Jev version and the fake adapter.
+
+**Exit gate:** Predeclare acceptable miss rates and cost/latency bounds before the labelled run. If no useful operating point exists, simplify the questions, change the adapter/model, or proceed with deterministic cadence rather than building more gating logic.
+
+### Slice 5: Offline Map-Authoring Experiment
+
+**Hypothesis:** A generative model can propose source-supported typed patches that preserve unchanged entries and drift less than repeated prose summarization.
+
+**Build:** Add `core/memory/session_map/authoring.py` to author patches from a prior structured map plus a bounded canonical delta, then validate and apply them through the domain layer. Add forced full-history audit/rebase support for experiments. Keep authoring in a harness with no post-turn hook, prompt injection, or compaction effect.
+
+**Verify:** Compare authored maps with the separately labelled expected maps across repeated updates and supersessions. Measure unsupported sources, missed changes, accidental mutation of unchanged entries, entry growth, full-audit disagreement, and stability across multiple runs. Test the schema and prompt independently so a poor prompt does not force premature schema expansion.
+
+**Exit gate:** The authoring path must outperform the recovery-card baseline on durable-state preservation without unacceptable unsupported claims or map growth. Otherwise revise the schema/prompt or stop before runtime integration.
+
+### Slice 6: Opt-In Shadow Maintenance
+
+**Hypothesis:** The classifier, scheduler, author, and persistence pipeline can maintain a timely map after real completed turns without affecting chat reliability.
+
+**Build:** Add disabled-by-default `live_session_memory_mode` with `off` and `observe` initially, plus configurable `live_session_memory_decision_model`. Add `core/memory/session_map/service.py`, compose one instance in `RuntimeContext`, and use the existing `ExecutionTaskRunner` and per-session gate to schedule or coalesce post-commit maintenance. In `observe`, atomically record pending work, deliver UI completion, and persist map revisions and diagnostics. Never inject the map or change compaction. Keep core lifecycle ownership outside generic scripts.
+
+**Verify:** Exercise successful updates, coalescing, hard and semantic triggers, negative classifier results, background failures, retry/catch-up, process restart, concurrent turns, stale-task rejection, and missing or incompatible model fallback. Compare shadow maps with forced audits and labelled samples while users continue to see existing behavior.
+
+**Exit gate:** Shadow operation meets declared freshness, failure, cost, and audit-disagreement bounds over representative sessions. Turning the mode back to `off` stops work and leaves existing chat behavior unchanged.
+
+### Slice 7: Opt-In Context Admission
+
+**Hypothesis:** A bounded map plus the exact unmapped raw tail improves continuation on long and referential sessions enough to justify its prompt cost.
+
+**Build:** Add a `context` mode that admits the latest completed map on ordinary turns while retaining every canonical message newer than its watermark exactly once. Expose bounded freshness metadata. Continue using the current recovery-card implementation for every compaction.
+
+**Verify:** Run paired continuation scenarios with and without map admission, including terse references, corrections, multiple active artifacts, stale maps, missing decision-model readiness, and disabling after a map exists. Measure task success, unsupported assumptions, prompt tokens, map/tail duplication, and latency. Assert that ordinary turns never wait for maintenance.
+
+**Exit gate:** Context admission must improve predefined continuity measures without exceeding the map budget or increasing unsupported claims. Failure returns the mode to `observe` or `off`; compaction remains untouched.
+
+### Slice 8: Dual-Run Compaction Experiment
+
+**Hypothesis:** Given a fresh map, a current-goal recovery card sourced from the map plus canonical tail resists repeated-compaction drift better than the current recursive recovery card.
+
+**Build:** In the experimental harness, generate both the current recovery card and the proposed map-backed current-goal card from identical checkpoints. Persist both as evaluation artifacts, but continue selecting the current recovery card for runtime history. Test prompt variants without changing checkpoint or canonical transcript contracts.
+
+**Verify:** Across at least three compactions, score active goal, focus, blocker, next action, volatile artifact state, historical leakage, stale-state retention, and unsupported claims. Inject a deliberately wrong prior recovery-card detail and confirm it cannot enter the map-backed candidate because previous cards are excluded as evidence.
+
+**Exit gate:** Select and freeze a prompt only if it beats the baseline on the predeclared repeated-compaction rubric. Otherwise retain current compaction and continue using the map, at most, for ordinary context.
+
+### Slice 9: Opt-In Live-Memory Compaction and Hardening
+
+**Build:** Add a `compaction` mode that selects the map-backed card only when the feature is explicitly configured, the decision alias is compatible and ready, and a map revision covers the range about to leave effective history. Force or await bounded catch-up at that boundary. On any readiness, freshness, timeout, or authoring failure, exit the live-memory path and run the existing recovery-card implementation. Preserve raw transcripts and checkpoint ownership.
+
+**Verify:** Extend `validation/scenarios/integration/core/repeated_chat_history_compaction.py` or add a sibling scenario covering three or more compactions, correction and supersession, failure fallback, no-unmapped eviction, model readiness changes, disabling the feature, restart recovery, and contamination attempts from prior cards. Run focused checks during development and the required pre-merge profile once stable: `python validation/run_validation.py run integration/core`.
+
+**Exit gate:** Only this slice changes which recovery card enters effective history, and only in explicit `compaction` mode. Default `off` behavior and all fallback branches remain covered by the original deterministic scenario.
+
+## Evidence and Promotion Rules
+
+- Deterministic unit and integration checks are merge gates for every slice that changes code.
+- Live TypeSafe and generative-model scenarios remain opt-in experiments; retain their structured inputs and outputs so results can be audited and thresholds recomputed.
+- Define acceptance rubrics before running labelled experiments and keep calibration cases separate from final evaluation cases where the corpus size permits.
+- Do not promote a shadow artifact into prompt context or a prompt artifact into compaction merely because it appears plausible in spot checks.
+- Record resolved provider/model versions, prompt-contract versions, thresholds, usage, latency, and failure categories with every experimental artifact.
+
+## Measurements
+
+- Field-level precision and recall against hand-authored expected maps across representative sessions.
+- Preservation of constraints, decisions, commitments, artifacts, and open work after repeated compactions.
+- Accuracy of active-goal, active-work-item, update, temporal-validity, and unanswered-question state.
+- Rate of unsupported source references and stale-writer retries.
+- Map freshness lag in turns and wall-clock time.
+- Prompt tokens added per ordinary turn and authoring tokens spent per completed turn.
+- Forced-audit disagreement rate with the incremental map.
+- Continuation quality on terse or referential turns before and after map admission.
+
+## Open Design Decisions
+
+- Whether more than one goal may be active concurrently, and whether work items need parent-child relationships in the first slice.
+- The maximum entry count and token budget for each field, including deterministic eviction or archival policy.
+- Which assistant and tool statements qualify as evidence without user confirmation.
+- Whether Jev runs after every completed turn or on a short deterministic cadence, while generative reconciliation remains gated by accumulated signals.
+- Whether map context is injected as a system prompt part, agent instruction, or another provider-stable context layer.
+- Whether compaction waits for a forced refresh inline or runs map refresh as an explicit prerequisite task.
+- How forks inherit, clone, or rebuild source-linked map state when message sequence identity changes.
+- Whether revision history is retained indefinitely for debugging or pruned under a bounded policy.
+- Whether to add a raw-content-specific session revision or use the existing broader `history_revision` and tolerate conservative stale-attempt retries.
+- Which exact tagged Pydantic AI version to adopt if the post-`2.49.0` generic `DecisionModel` API ships before implementation starts.
+
+## Research Sources
+
+- [Towards Scalable Multi-domain Conversational Agents: The Schema-Guided Dialogue Dataset](https://arxiv.org/abs/1909.05855)
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427)
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560)
+- [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442)
+- [LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory](https://arxiv.org/abs/2410.10813)
+- [Evaluating Very Long-Term Conversational Memory of LLM Agents](https://arxiv.org/abs/2402.17753)
+- [Zep: A Temporal Knowledge Graph Architecture for Agent Memory](https://arxiv.org/abs/2501.13956)
+- [Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory](https://arxiv.org/abs/2504.19413)
+
+## Next Phase
+
+After design review approves the slice boundaries, move to Feature Development. Execute Slice 0 first to freeze the baseline and evaluation corpus, then Slice 1 as the first product implementation. Map-schema, classifier-threshold, authoring, and compaction questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.
