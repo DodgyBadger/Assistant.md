@@ -422,6 +422,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert [row[0] for row in migration_rows] == [
             1,
             2,
+            3,
         ], "Chat migrations are recorded in schema_migrations"
 
         assert (

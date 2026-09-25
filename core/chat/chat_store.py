@@ -193,6 +193,38 @@ class ChatStore:
             mode=mode,
         )
 
+    def get_stored_messages_range(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        after_sequence_index: int,
+        through_sequence_index: int,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[StoredChatMessage]:
+        """Return one canonical raw-message interval ``(after, through]``."""
+        if through_sequence_index <= after_sequence_index:
+            return []
+        if connection is None:
+            conn = self._connect()
+            try:
+                return self._fetch_raw_messages_from_conn(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    after_sequence_index=after_sequence_index,
+                    through_sequence_index=through_sequence_index,
+                )
+            finally:
+                conn.close()
+        return self._fetch_raw_messages_from_conn(
+            connection,
+            session_id=session_id,
+            vault_name=vault_name,
+            after_sequence_index=after_sequence_index,
+            through_sequence_index=through_sequence_index,
+        )
+
     def add_messages(
         self,
         session_id: str,
@@ -1275,12 +1307,16 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
         after_sequence_index: int | None = None,
+        through_sequence_index: int | None = None,
     ) -> list[StoredChatMessage]:
         sequence_filter = ""
         params: list[Any] = [session_id, vault_name]
         if after_sequence_index is not None:
             sequence_filter = "AND sequence_index > ?"
             params.append(after_sequence_index)
+        if through_sequence_index is not None:
+            sequence_filter += " AND sequence_index <= ?"
+            params.append(through_sequence_index)
 
         if limit is None:
             rows = conn.execute(

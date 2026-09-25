@@ -144,8 +144,16 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2],
+                [1, 2, 3],
                 "Chat migration version should be recorded",
+            )
+            self.soft_assert(
+                self._table_exists(conn, "chat_session_map_revisions"),
+                "Session-map revision storage should exist after migration",
+            )
+            self.soft_assert(
+                self._table_exists(conn, "chat_session_map_maintenance"),
+                "Session-map maintenance storage should exist after migration",
             )
             owner = conn.execute(
                 "SELECT owner_principal_id FROM chat_sessions WHERE session_id = 'legacy'"

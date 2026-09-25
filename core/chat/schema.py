@@ -22,6 +22,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="add_session_owner_principal",
         apply=lambda conn: _migrate_session_owners(conn),
     ),
+    SQLiteMigration(
+        version=3,
+        name="add_live_session_map_storage",
+        apply=lambda conn: _migrate_live_session_map_storage(conn),
+    ),
 )
 
 
@@ -183,6 +188,7 @@ def ensure_chat_sessions_schema(
         )
         _migrate_compaction_checkpoints(conn)
         _migrate_session_owners(conn)
+        _migrate_live_session_map_storage(conn)
         conn.commit()
         if apply_migrations:
             apply_sqlite_migrations(
@@ -263,6 +269,62 @@ def _migrate_session_owners(conn: sqlite3.Connection) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_chat_sessions_owner_activity
         ON chat_sessions(owner_principal_id, last_activity_at)
+        """
+    )
+
+
+def _migrate_live_session_map_storage(conn: sqlite3.Connection) -> None:
+    """Add source-linked session-map revisions and maintenance state."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_session_map_revisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            vault_name TEXT NOT NULL,
+            revision INTEGER NOT NULL,
+            predecessor_revision INTEGER NOT NULL,
+            updated_through_sequence_index INTEGER NOT NULL,
+            observed_source_content_revision INTEGER NOT NULL,
+            map_json TEXT NOT NULL,
+            operations_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (session_id, vault_name, revision),
+            FOREIGN KEY (session_id, vault_name)
+                REFERENCES chat_sessions(session_id, vault_name)
+                ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_chat_session_map_latest
+        ON chat_session_map_revisions(session_id, vault_name, revision DESC)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_session_map_maintenance (
+            session_id TEXT NOT NULL,
+            vault_name TEXT NOT NULL,
+            observed_through_sequence_index INTEGER NOT NULL DEFAULT -1,
+            observed_source_content_revision INTEGER NOT NULL DEFAULT 0,
+            pending_turn_count INTEGER NOT NULL DEFAULT 0,
+            pending_token_count INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'idle',
+            frozen_from_sequence_index INTEGER,
+            frozen_through_sequence_index INTEGER,
+            frozen_predecessor_revision INTEGER,
+            frozen_source_content_revision INTEGER,
+            frozen_pending_turn_count INTEGER,
+            frozen_pending_token_count INTEGER,
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            last_error_json TEXT,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (session_id, vault_name),
+            FOREIGN KEY (session_id, vault_name)
+                REFERENCES chat_sessions(session_id, vault_name)
+                ON DELETE CASCADE
+        )
         """
     )
 

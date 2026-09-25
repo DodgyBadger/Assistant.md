@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for incremental implementation. Slices 0 through 2 are complete, and Slice 3 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
+Approved for incremental implementation. Slices 0 through 3 are complete, and Slice 4 is the next experimental slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
 
 ## Problem
 
@@ -209,7 +209,7 @@ completed persisted turn
   -> compare-and-swap a new revision at the observed high-water mark
 ```
 
-The generative component should propose typed `ADD`, `REVISE`, `SUPERSEDE`, `RESOLVE`, `CHANGE_ATTENTION`, or `NOOP` operations, not rewrite the whole map. Ordinary code validates identifiers, source ranges, lifecycle transitions, size limits, enum values, referential integrity, and optimistic-concurrency preconditions before constructing the next revision. `SUPERSEDE` and `RESOLVE` preserve the prior entry and its evidence rather than physically deleting history. This is the main protection against accumulated paraphrase drift.
+The generative component should propose typed `ADD`, `UPDATE`, `SUPERSEDE`, `RESOLVE`, `CHANGE_ATTENTION`, or `NOOP` operations, not rewrite the whole map. `UPDATE` is restricted by per-entry mutable-field allowlists to lifecycle, attention, ownership, blocker, next-action, relevance, and verification state; it cannot change identity-bearing text, scope, actor, goal linkage, artifact reference, or original source evidence. A substantive identity change must use `SUPERSEDE`, which creates a new stable entry and records the replaced ID in the append-only patch audit. Ordinary code validates identifiers, source ranges, lifecycle transitions, size limits, enum values, referential integrity, and optimistic-concurrency preconditions before constructing the next revision. The current working set may omit the replaced entry because prior revisions and the patch audit preserve it; supersession chains are never injected into routine context. `RESOLVE` closes an entry without a replacement. This is the main protection against accumulated paraphrase drift.
 
 The initial implementation should support a forced full audit from canonical raw history for validation and repair. Routine updates may consume deltas, but correctness must not depend on an unbroken chain of prior generated prose. An update that changes lifecycle, adoption, or verification status must cite delta evidence for that transition; carrying the prior assertion forward cannot promote its status.
 
@@ -218,6 +218,8 @@ The initial implementation should support a forced full audit from canonical raw
 The memory subsystem should own the live session map as the working-memory layer of the broader architecture described in the exploratory sketch. The map is related to session synopses, future candidate indexes, consolidated memory, vault recall, and context admission, even though the first slice performs no retrieval. Keeping these representations under `core/memory` gives the family one conceptual home without forcing them into one schema, lifecycle, or selection algorithm.
 
 Physical persistence follows the artifact's transactional requirements. Append-only map revisions and the maintenance-state record belong in `chat_sessions.db` because they are keyed to canonical chat sequence indexes, must advance atomically with a completed turn, and must cascade with session deletion. This colocated storage does not make the map a `core/chat` domain object: `core/chat` owns the canonical source and transaction boundary, while `core/memory/session_map` owns the derived representation and its rules.
+
+The first-slice fork policy is rebuild: a fork does not copy a source session's map or maintenance state because `ChatStore` rewrites the fork's message sequence indexes. The fork can author its own source-linked map later from its canonical copied transcript.
 
 The current revision may be selected as the highest completed revision for the session. A maintenance record should track the observed source high-water mark, observed source-content revision, pending turn and token counts, frozen attempt range, processing status, attempt metadata, and last error without making process-local execution tasks durable domain state. Canonical history plus this record must be sufficient to reconstruct pending work after restart; the task runner is only a dispatch mechanism.
 
@@ -392,6 +394,8 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 
 ### Slice 3: Deterministic Session-Map Domain and Storage
 
+**Status:** Complete. `core/memory/session_map` now owns a strict source-linked working-set schema, stable typed entries, bounded `ADD`, `UPDATE`, `SUPERSEDE`, `RESOLVE`, `CHANGE_ATTENTION`, and `NOOP` patches, per-entry mutable-field allowlists, lifecycle transition validation, deterministic application, and bounded priority rendering. Identity-bearing changes require supersession; replaced entries remain recoverable from append-only revisions and patch audits rather than accumulating in routine context. The chat database migration adds revision and maintenance tables with cascade ownership, compare-and-swap commits, canonical source-role validation, pending counters, frozen source ranges, arrivals-during-processing preservation, sanitized failure state, and restart recovery. Forks intentionally rebuild because chat sequence indexes are rewritten. `ChatStore` exposes only the narrow canonical raw range read required by later authoring. No model, scheduling, prompt-admission, or compaction hook is active.
+
 **Build:** Create `core/memory/session_map/models.py` for the provisional typed map schema, stable entry IDs, source references, lifecycle states, bounded patch operations, validation, deterministic application, and bounded rendering. Create `core/memory/session_map/store.py` for append-only revisions, maintenance state, and compare-and-swap persistence in `chat_sessions.db`; its atomic mutation accepts the existing `ChatStore` transaction connection. Register the physical schema through the chat database migration boundary and add only the narrow canonical range-read method needed to `ChatStore`. Atomically advance durable pending watermarks and counters with the successful assistant/tool commit. Implement restart reconstruction and frozen attempt ranges, but do not call a model, schedule background authoring, inject a map, or alter compaction.
 
 **Verify:** Apply hand-authored patches over Slice 0 fixtures. Test illegal transitions, invalid source ranges, unsupported lifecycle/adoption/verification promotion, stale writers, messages arriving after a frozen range, restart recovery, fork policy selected for the slice, size bounds, deterministic priority overflow, and session purge. Assert that current handoff state survives when lower-priority durable background exceeds the render budget. Decide whether a content-specific source revision is necessary based on tests against the current broader `history_revision`.
@@ -487,7 +491,6 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 - Whether Jev runs after every completed turn or on a short deterministic cadence, while generative reconciliation remains gated by accumulated signals.
 - Whether map context is injected as a system prompt part, agent instruction, or another provider-stable context layer.
 - Whether map-backed pruning waits for a forced refresh inline or runs map refresh as an explicit prerequisite task.
-- How forks inherit, clone, or rebuild source-linked map state when message sequence identity changes.
 - Whether revision history is retained indefinitely for debugging or pruned under a bounded policy.
 - Whether to add a raw-content-specific session revision or use the existing broader `history_revision` and tolerate conservative stale-attempt retries.
 - Which exact tagged Pydantic AI version to adopt if the post-`2.49.0` generic `DecisionModel` API ships before implementation starts.
@@ -505,4 +508,4 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 
 ## Next Phase
 
-Continue Feature Development with Slice 3, the deterministic session-map domain and storage boundary. Slices 0 through 2 have frozen the evaluation contract, established decision-model configuration, and added a reusable typed classifier runtime without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, rendering-budget, and retained-tail questions remain attached to their later evidence gates rather than blocking the model-independent map foundation.
+Continue with Slice 4, the offline change-detection experiment. Slices 0 through 3 have frozen the evaluation contract, established decision-model configuration, added a reusable typed classifier runtime, and implemented the deterministic map and persistence foundation without changing chat prompts or compaction behavior. Classifier thresholds and cadence must now be evaluated against labelled deltas before any runtime maintenance hook is added; authoring prompts, rendering budgets, and retained-tail policy remain attached to their later evidence gates.

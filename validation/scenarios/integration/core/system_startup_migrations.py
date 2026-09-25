@@ -60,8 +60,16 @@ class SystemStartupMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2],
+                [1, 2, 3],
                 "Startup should record chat migration versions",
+            )
+            self.soft_assert(
+                self._table_exists(conn, "chat_session_map_revisions"),
+                "Startup should migrate append-only session-map revisions",
+            )
+            self.soft_assert(
+                self._table_exists(conn, "chat_session_map_maintenance"),
+                "Startup should migrate durable session-map maintenance state",
             )
 
         with sqlite3.connect(system_root / "session_summaries.db") as conn:
