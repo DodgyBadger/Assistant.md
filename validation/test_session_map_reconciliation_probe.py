@@ -1,9 +1,18 @@
 """Deterministic checks for the frozen reconciliation-gating experiment."""
 
-from validation.core.live_session_memory_corpus import (
+import tempfile
+from pathlib import Path
+
+from core.runtime.paths import set_bootstrap_roots
+
+_TEST_ROOT = tempfile.TemporaryDirectory(prefix="assistantmd-reconcile-probe-")
+_TEST_ROOT_PATH = Path(_TEST_ROOT.name)
+set_bootstrap_roots(_TEST_ROOT_PATH / "data", _TEST_ROOT_PATH / "system")
+
+from validation.core.live_session_memory_corpus import (  # noqa: E402
     load_session_reconciliation_corpus,
 )
-from validation.scenarios.experiments.session_map_reconciliation_probe import (
+from validation.scenarios.experiments.session_map_reconciliation_probe import (  # noqa: E402
     _scheduling_comparison,
     _score,
     _select_threshold,

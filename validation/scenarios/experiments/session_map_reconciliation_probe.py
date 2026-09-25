@@ -88,6 +88,16 @@ class SessionMapReconciliationProbeScenario(BaseScenario):
             int(item["usage"]["input_tokens"] or 0) for item in records
         )
         scheduling = _scheduling_comparison(records, threshold)
+        acceptance_gate_results = {
+            "holdout_consequential_recall": consequential_recall == 1.0,
+            "holdout_recall": holdout_metrics["recall"] >= 0.90,
+            "holdout_precision": holdout_metrics["precision"] >= 0.80,
+            "median_latency_seconds": statistics.median(latencies) <= 1.0,
+            "p95_latency_seconds": (
+                sorted(latencies)[math.ceil(0.95 * len(latencies)) - 1] <= 2.0
+            ),
+            "total_input_tokens": total_input_tokens <= 8_000,
+        }
         summary = {
             "prompt_contract_version": (SESSION_RECONCILIATION_PROMPT_CONTRACT_VERSION),
             "corpus_version": corpus["corpus_version"],
@@ -103,6 +113,15 @@ class SessionMapReconciliationProbeScenario(BaseScenario):
             ],
             "total_input_tokens": total_input_tokens,
             "scheduling_comparison": scheduling,
+            "acceptance_gate_results": acceptance_gate_results,
+            "gate_outcome": {
+                "passed": all(acceptance_gate_results.values()),
+                "failed_gates": [
+                    name
+                    for name, passed in acceptance_gate_results.items()
+                    if not passed
+                ],
+            },
             "records": records,
         }
         (self.artifacts_dir / "session_map_reconciliation.json").write_text(
