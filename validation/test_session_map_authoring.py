@@ -135,6 +135,13 @@ def test_compact_proposal_exposes_domain_entry_id_constraint() -> None:
         )
 
 
+def test_empty_compact_proposal_compiles_to_domain_noop() -> None:
+    patch_set = compile_patch_proposal(
+        _request(), SessionMapPatchProposal(operations=())
+    )
+    assert patch_set.operations == (NoopPatch(reason="No durable session-map change"),)
+
+
 def test_authoring_rejects_wrong_source_role_and_envelope_values() -> None:
     request = _request()
     wrong_role = MapPatchSet(

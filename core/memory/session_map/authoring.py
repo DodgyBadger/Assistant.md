@@ -51,7 +51,7 @@ from core.memory.session_map.models import (
     session_map_entries,
 )
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v4"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v5"
 MAX_AUTHORING_DELTA_MESSAGES = 64
 
 _AUTHORING_INSTRUCTIONS = """
@@ -65,8 +65,8 @@ Use put for a genuinely new stable entry. Set replaces_entry_id on put when the
 identity-bearing meaning of an existing entry is replaced; never rewrite
 identity-bearing text through update. Use update only for mutable state fields. Use
 resolve only for a supported terminal lifecycle transition. Use change_attention
-when foreground goals or work changed. Use a single noop only when the delta adds
-no durable state. Preserve existing entry IDs whenever identity is unchanged.
+when foreground goals or work changed. Return an empty operations list only when
+the delta adds no durable state. Preserve existing entry IDs whenever identity is unchanged.
 
 For update, the only permitted changes keys are: goal status; work-item status,
 next_action, next_action_owner, and blocker_ids; decision status and
@@ -218,19 +218,14 @@ class AttentionProposal(_ProposalModel):
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
 
 
-class NoopProposal(_ProposalModel):
-    operation: Literal["noop"] = "noop"
-    reason: str | None = None
-
-
 AuthoringOperation = Annotated[
-    PutProposal | UpdateProposal | ResolveProposal | AttentionProposal | NoopProposal,
+    PutProposal | UpdateProposal | ResolveProposal | AttentionProposal,
     Field(discriminator="operation"),
 ]
 
 
 class SessionMapPatchProposal(_ProposalModel):
-    operations: tuple[AuthoringOperation, ...] = Field(min_length=1, max_length=64)
+    operations: tuple[AuthoringOperation, ...] = Field(max_length=64)
 
 
 class CanonicalMapMessage(BaseModel):
@@ -314,6 +309,8 @@ def compile_patch_proposal(
 ) -> MapPatchSet:
     """Compile a compact model proposal into the strict domain patch contract."""
     operations: list[PatchOperation] = []
+    if not proposal.operations:
+        operations.append(NoopPatch(reason="No durable session-map change"))
     for operation in proposal.operations:
         if isinstance(operation, PutProposal):
             entry = _materialize_entry(request, operation.entry)
@@ -357,8 +354,6 @@ def compile_patch_proposal(
                     ),
                 )
             )
-        else:
-            operations.append(NoopPatch(reason=operation.reason))
     return MapPatchSet(
         expected_revision=request.current_map.revision,
         through_sequence_index=request.through_sequence_index,
