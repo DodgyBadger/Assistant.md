@@ -49,6 +49,7 @@ PartKind = Literal[
     "tool-return",
     "thinking",
 ]
+MapUpdateMode = Literal["incremental", "rebase"]
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,14 @@ class SpanBoundary:
     message_count: int
     estimated_source_tokens: int
     source_characters: int
+
+
+@dataclass(frozen=True)
+class SpanRegime:
+    """Source boundaries plus the map-state policy used for every batch."""
+
+    boundaries: tuple[SpanBoundary, ...]
+    update_mode: MapUpdateMode
 
 
 def load_projected_messages(
@@ -183,20 +192,54 @@ def natural_boundaries(
     return tuple(boundaries)
 
 
+def cumulative_checkpoint_boundaries(
+    messages: tuple[ProjectedSnapshotMessage, ...],
+    checkpoints: tuple[SnapshotCheckpoint, ...],
+) -> tuple[SpanBoundary, ...]:
+    """Build a complete source prefix ending at every selected checkpoint."""
+    by_index = {item.message.sequence_index: item for item in messages}
+    boundaries: list[SpanBoundary] = []
+    for checkpoint in checkpoints:
+        end = checkpoint.coverage_through_sequence_index
+        batch = [by_index[index] for index in range(0, end + 1)]
+        boundaries.append(_span_boundary(batch))
+    if not boundaries or boundaries[-1].through_sequence_index != (
+        messages[-1].message.sequence_index
+    ):
+        raise ValueError("checkpoint prefixes do not cover the selected source")
+    return tuple(boundaries)
+
+
 def build_regime_boundaries(
     messages: tuple[ProjectedSnapshotMessage, ...],
     checkpoints: tuple[SnapshotCheckpoint, ...],
-) -> dict[str, tuple[SpanBoundary, ...]]:
+) -> dict[str, SpanRegime]:
     """Build the predeclared span regimes over one identical source prefix."""
     return {
-        "small_15k": partition_by_target_tokens(
-            messages, target_tokens=SMALL_TARGET_TOKENS
+        "small_15k": SpanRegime(
+            boundaries=partition_by_target_tokens(
+                messages, target_tokens=SMALL_TARGET_TOKENS
+            ),
+            update_mode="incremental",
         ),
-        "medium_40k": partition_by_target_tokens(
-            messages, target_tokens=MEDIUM_TARGET_TOKENS
+        "medium_40k": SpanRegime(
+            boundaries=partition_by_target_tokens(
+                messages, target_tokens=MEDIUM_TARGET_TOKENS
+            ),
+            update_mode="incremental",
         ),
-        "natural_compaction": natural_boundaries(messages, checkpoints),
-        "full_prefix": (_span_boundary(list(messages)),),
+        "natural_compaction": SpanRegime(
+            boundaries=natural_boundaries(messages, checkpoints),
+            update_mode="incremental",
+        ),
+        "full_prefix_rebase": SpanRegime(
+            boundaries=cumulative_checkpoint_boundaries(messages, checkpoints),
+            update_mode="rebase",
+        ),
+        "full_prefix": SpanRegime(
+            boundaries=(_span_boundary(list(messages)),),
+            update_mode="rebase",
+        ),
     }
 
 
@@ -204,12 +247,13 @@ async def run_span_regime(
     *,
     regime_name: str,
     boundaries: tuple[SpanBoundary, ...],
+    update_mode: MapUpdateMode,
     projected_messages: tuple[ProjectedSnapshotMessage, ...],
     session_id: str,
     model_alias: str,
     thinking: ThinkingValue,
 ) -> dict[str, Any]:
-    """Author sequential maps for one span regime and retain private artifacts."""
+    """Author maps under an explicit incremental or from-empty rebase policy."""
     by_index = {
         item.message.sequence_index: item.message for item in projected_messages
     }
@@ -219,6 +263,11 @@ async def run_span_regime(
     )
     records: list[dict[str, Any]] = []
     for batch_index, boundary in enumerate(boundaries):
+        if update_mode == "rebase":
+            current = SessionMap.empty(
+                session_id=f"span-probe-{session_id}-{regime_name}",
+                created_at=datetime(2026, 9, 25, tzinfo=UTC),
+            )
         delta = tuple(
             by_index[index]
             for index in range(
@@ -278,6 +327,7 @@ async def run_span_regime(
         )
     return {
         "regime": regime_name,
+        "update_mode": update_mode,
         "records": records,
         "completed": len(records) == len(boundaries)
         and all(record["status"] == "applied" for record in records),
@@ -394,6 +444,7 @@ def _parse_arguments() -> argparse.Namespace:
             "small_15k",
             "medium_40k",
             "natural_compaction",
+            "full_prefix_rebase",
             "full_prefix",
             "all",
         ),
@@ -455,8 +506,11 @@ async def _main() -> None:
             for checkpoint in private_checkpoints
         ],
         "regimes": {
-            name: [asdict(boundary) for boundary in boundaries]
-            for name, boundaries in regimes.items()
+            name: {
+                "update_mode": regime.update_mode,
+                "boundaries": [asdict(boundary) for boundary in regime.boundaries],
+            }
+            for name, regime in regimes.items()
         },
     }
     print(json.dumps(manifest, indent=2, sort_keys=True))
@@ -489,10 +543,11 @@ async def _main() -> None:
     selected = regimes if args.regime == "all" else {args.regime: regimes[args.regime]}
     results = []
     with use_execution_authority(LOCAL_USER_AUTHORITY):
-        for name, boundaries in selected.items():
+        for name, regime in selected.items():
             result = await run_span_regime(
                 regime_name=name,
-                boundaries=boundaries,
+                boundaries=regime.boundaries,
+                update_mode=regime.update_mode,
                 projected_messages=messages,
                 session_id=args.session_id,
                 model_alias=args.model_alias,
@@ -503,6 +558,7 @@ async def _main() -> None:
                 json.dumps(
                     {
                         "regime": name,
+                        "update_mode": regime.update_mode,
                         "completed": result["completed"],
                         "batches": [
                             {
