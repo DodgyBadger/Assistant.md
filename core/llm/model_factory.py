@@ -30,7 +30,12 @@ from pydantic_ai.settings import ModelSettings
 from tenacity import RetryCallState, retry_if_exception, stop_after_attempt
 
 from core.llm.model_selection import ModelExecutionSpec, resolve_model_execution_spec
-from core.llm.model_utils import get_provider_config, resolve_model, validate_api_keys
+from core.llm.model_utils import (
+    get_provider_config,
+    model_supports_capability,
+    resolve_model,
+    validate_api_keys,
+)
 from core.llm.openai_auth import OPENAI_AUTH_MODE_OAUTH
 from core.llm.openai_client import build_openai_sdk_client
 from core.llm.openai_runtime import build_openai_provider_with_resolution
@@ -227,6 +232,12 @@ def build_model_instance(
 
     if normalized_model == "test":
         return TestModel()
+
+    if not model_supports_capability(normalized_model, "text"):
+        raise ValueError(
+            f"Model '{normalized_model}' does not declare the 'text' capability and "
+            "cannot be used for generative model execution."
+        )
 
     validate_api_keys(normalized_model)
     provider, model_string = resolve_model(normalized_model)

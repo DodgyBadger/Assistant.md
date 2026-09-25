@@ -917,7 +917,7 @@ class ModelInfo(BaseModel):
     model_string: str = Field(..., description="Actual model identifier")
     capabilities: list[str] = Field(
         default_factory=lambda: ["text"],
-        description="Declared model capabilities (e.g. text, vision)",
+        description="Declared model capabilities (e.g. text, vision, decision)",
     )
     dimensions: int | None = Field(
         None,
@@ -925,6 +925,9 @@ class ModelInfo(BaseModel):
     )
     available: bool = Field(
         True, description="Whether required credentials are configured"
+    )
+    chat_selectable: bool = Field(
+        True, description="Whether the alias declares generative text capability"
     )
     user_editable: bool = Field(
         True, description="If the model mapping is user-editable via UI"
@@ -1507,7 +1510,7 @@ class ModelConfigRequest(BaseModel):
     model_string: str = Field(..., description="Provider-specific model identifier")
     capabilities: list[str] | None = Field(
         None,
-        description='Optional model capabilities list (e.g. ["text", "vision"] or ["embedding"])',
+        description='Optional model capabilities list (e.g. ["text", "vision"], ["embedding"], or ["decision"])',
     )
     dimensions: int | None = Field(
         None,

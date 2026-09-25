@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 NATIVE_PROVIDER_NAMES = frozenset(
-    {"google", "anthropic", "openai", "grok", "mistral", "openrouter"}
+    {"google", "anthropic", "openai", "grok", "mistral", "openrouter", "typesafe"}
 )
 
 

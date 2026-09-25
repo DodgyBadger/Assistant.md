@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for incremental implementation. Slice 0 is complete, and Slice 1 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
+Approved for incremental implementation. Slices 0 and 1 are complete, and Slice 2 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
 
 ## Problem
 
@@ -370,7 +370,7 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ### Slice 1: Reusable Decision-Model Configuration
 
-**Status:** Next. This slice may begin without resolving the later experimental map and compaction questions.
+**Status:** Complete. The decision-only capability, built-in TypeSafe provider, Jev alias, encrypted-secret readiness, settings repair, configuration API/UI metadata, and generative-chat exclusion are implemented without session-memory hooks or external model calls.
 
 **Build:** Add `decision` as a first-class model capability, preserve it without implicitly adding `text`, and make chat selection require explicit `text`. Seed the built-in `typesafe` provider, reusable `jev` model alias, and `TYPESAFE_API_KEY` pointer. Treat `typesafe` as a native provider shape that does not require the generic OpenAI-compatible `base_url`. Reuse the existing encrypted principal-owned secret store and configuration status surfaces; do not add session-memory hooks or make an external model call.
 
@@ -379,6 +379,8 @@ The reusable decision-model platform is intentionally separate from session memo
 **Exit gate:** `jev` is safely configurable and visible in readiness reporting, cannot be selected for chat, and has no effect on existing sessions or compaction. This is the first implementation slice and is useful independently of live memory.
 
 ### Slice 2: Provider-Neutral Pydantic AI Decision Runtime
+
+**Status:** Next. This slice introduces the first callable decision adapter while remaining independent of session-memory lifecycle integration.
 
 **Build:** Upgrade to a tagged Pydantic AI release with native TypeSafe support and enable the `typesafe` extra. Add the narrow provider-neutral classifier interface and TypeSafe/Jev construction in `core/llm/decision.py`; keep the in-process fake in test support unless production configuration later needs it. Resolve aliases, capability, credentials, timeout, model identity, usage, latency, and provider errors through normal configuration boundaries. Keep `core/llm/model_factory.py` limited to generative chat models, and do not add a generic user-facing classification tool or session-memory lifecycle hook yet.
 
@@ -501,4 +503,4 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ## Next Phase
 
-Move to Feature Development and execute Slice 1, reusable decision-model configuration. Slice 0 has frozen the baseline and evaluation contract, including the requirement to expose retained-tail compensation. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.
+Continue Feature Development with Slice 2, the provider-neutral Pydantic AI decision runtime. Slices 0 and 1 have frozen the evaluation contract and established decision-model configuration without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.

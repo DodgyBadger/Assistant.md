@@ -203,7 +203,7 @@
                     <div>
                         <label class="block text-xs font-medium text-txt-primary mb-1.5">Capabilities</label>
                         <input data-field="capabilities" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
-                        <p class="text-xs text-txt-secondary mt-1">Comma-separated values. Example: <code>text, vision</code>.</p>
+                        <p class="text-xs text-txt-secondary mt-1">Comma-separated values. Examples: <code>text, vision</code>, <code>embedding</code>, or <code>decision</code>.</p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <button data-action="cancel-model" ${iconButton('circleX', 'Cancel model edit')}>${iconSvg('circleX')}</button>

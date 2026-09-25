@@ -441,6 +441,12 @@ models:
     dimensions: 1536
     description: "Default embedding model for vector search"
     user_editable: true
+  jev:
+    provider: typesafe
+    model_string: jev-latest
+    capabilities: ["decision"]
+    description: "Default Jev decision model for classification workloads"
+    user_editable: false
 
 providers:
   google:
@@ -470,6 +476,10 @@ providers:
     base_url: null
     provider:
       require_parameters: true
+    user_editable: false
+  typesafe:
+    api_key: TYPESAFE_API_KEY
+    base_url: null
     user_editable: false
   lm_studio:
     api_key: LM_STUDIO_API_KEY

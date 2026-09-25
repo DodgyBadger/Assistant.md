@@ -133,6 +133,7 @@ class AppSettings(BaseSettings):
         "GROK_API_KEY",
         "MISTRAL_API_KEY",
         "DEEPSEEK_API_KEY",
+        "TYPESAFE_API_KEY",
     ]
 
     @field_validator("vaults_root_path", mode="before")

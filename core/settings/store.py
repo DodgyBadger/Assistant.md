@@ -82,7 +82,7 @@ class ModelConfig(BaseModel):
     @field_validator("capabilities", mode="before")
     @classmethod
     def _normalize_capabilities(cls, value: Any) -> list[str]:
-        """Normalize capabilities while preserving embedding-only aliases."""
+        """Normalize capabilities while preserving non-generative aliases."""
         if value is None:
             return ["text"]
 
@@ -102,7 +102,7 @@ class ModelConfig(BaseModel):
             seen.add(cap)
             normalized.append(cap)
 
-        if "text" not in seen and "embedding" not in seen:
+        if "text" not in seen and not seen.intersection({"embedding", "decision"}):
             normalized.insert(0, "text")
         return normalized
 

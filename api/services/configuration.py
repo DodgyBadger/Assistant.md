@@ -360,14 +360,16 @@ def _build_model_info(
     status_message = None
     if issue_messages:
         status_message = issue_messages.get(name)
+    capabilities = list(config.capabilities or ["text"])
 
     return ModelInfo(
         name=name,
         provider=config.provider,
         model_string=config.model_string,
-        capabilities=list(config.capabilities or ["text"]),
+        capabilities=capabilities,
         dimensions=config.dimensions,
         available=availability.get(name, True),
+        chat_selectable="text" in capabilities,
         user_editable=config.user_editable,
         description=config.description,
         status_message=status_message,
