@@ -51,7 +51,7 @@ from core.memory.session_map.models import (
     session_map_entries,
 )
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v6"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v7"
 MAX_AUTHORING_DELTA_MESSAGES = 64
 
 _AUTHORING_INSTRUCTIONS = """
@@ -77,6 +77,11 @@ unless it materially explains the current handoff, an outcome, or unresolved wor
 An explicit unresolved dependency or needed verification is an open question. A
 user requirement about the required content or form of an output is a constraint,
 including when it accompanies a decision to proceed despite missing input.
+Retain a concrete artifact path named in canonical evidence when it matters to the
+handoff, using unverified status when only an assistant report supports it. Do not
+duplicate a goal, work item, or constraint as a commitment unless separate actor
+accountability is material. When a retained commitment is fulfilled or cancelled
+by the delta, resolve it in the same patch rather than leaving stale open state.
 
 For update, the only permitted changes keys are: goal status; work-item status,
 next_action, next_action_owner, and blocker_ids; decision status and
