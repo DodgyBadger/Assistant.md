@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from typing import Any, cast
 
 import httpx
+import httpx2
 from pydantic_ai.models import Model
 from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
 from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
@@ -25,7 +27,12 @@ from pydantic_ai.providers.mistral import MistralProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.providers.xai import XaiProvider
-from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
+from pydantic_ai.retries import (
+    AsyncHTTPX2TenacityTransport,
+    AsyncTenacityTransport,
+    RetryConfig,
+    wait_retry_after,
+)
 from pydantic_ai.settings import ModelSettings
 from tenacity import RetryCallState, retry_if_exception, stop_after_attempt
 
@@ -140,6 +147,22 @@ def _raise_retryable_model_status(response: httpx.Response) -> None:
         response.raise_for_status()
 
 
+def _is_retryable_model_httpx2_exception(exc: BaseException) -> bool:
+    """Return whether an httpx2-backed provider should retry the exception."""
+    if isinstance(exc, httpx2.UnsupportedProtocol | httpx2.InvalidURL):
+        return False
+    if isinstance(exc, httpx2.HTTPStatusError):
+        status_code = int(exc.response.status_code)
+        return status_code == 429 or 500 <= status_code <= 599
+    return isinstance(exc, httpx2.RequestError)
+
+
+def _raise_retryable_model_httpx2_status(response: httpx2.Response) -> None:
+    """Raise only retryable HTTP statuses inside the httpx2 retry layer."""
+    if response.status_code == 429 or 500 <= response.status_code <= 599:
+        response.raise_for_status()
+
+
 def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
     """Emit one lifecycle event before Pydantic AI retry transport sleeps."""
     exc = retry_state.outcome.exception() if retry_state.outcome else None
@@ -158,7 +181,7 @@ def _log_model_retry_before_sleep(retry_state: RetryCallState) -> None:
             "error_type": None if exc is None else type(exc).__name__,
             "http_status": (
                 exc.response.status_code
-                if isinstance(exc, httpx.HTTPStatusError)
+                if isinstance(exc, httpx.HTTPStatusError | httpx2.HTTPStatusError)
                 else None
             ),
             "issue": (
@@ -188,13 +211,35 @@ def _build_retrying_model_http_client() -> httpx.AsyncClient:
     )
 
 
+def _build_retrying_model_httpx2_client() -> httpx2.AsyncClient:
+    """Build the equivalent bounded retry client for httpx2-backed providers."""
+    retry_config = RetryConfig(
+        retry=retry_if_exception(_is_retryable_model_httpx2_exception),
+        wait=wait_retry_after(max_wait=_MODEL_HTTP_RETRY_MAX_WAIT_SECONDS),
+        stop=stop_after_attempt(_MODEL_HTTP_RETRY_ATTEMPTS),
+        before_sleep=_log_model_retry_before_sleep,
+        reraise=True,
+    )
+    transport = AsyncHTTPX2TenacityTransport(
+        retry_config,
+        validate_response=_raise_retryable_model_httpx2_status,
+    )
+    return httpx2.AsyncClient(
+        transport=transport,
+        timeout=float(get_default_api_timeout()),
+    )
+
+
 def _mark_provider_owns_http_client[ProviderT](
-    provider: ProviderT, http_client: httpx.AsyncClient
+    provider: ProviderT,
+    http_client: httpx.AsyncClient | httpx2.AsyncClient,
+    *,
+    http_client_factory: Callable[[], object] = _build_retrying_model_http_client,
 ) -> ProviderT:
     """Mark a custom retry client as provider-owned for Pydantic AI lifecycle hooks."""
     untyped_provider: Any = provider
     untyped_provider._own_http_client = http_client
-    untyped_provider._http_client_factory = _build_retrying_model_http_client
+    untyped_provider._http_client_factory = http_client_factory
     return provider
 
 
@@ -260,12 +305,16 @@ def build_model_instance(
     elif provider == "anthropic":
         settings_kwargs = _base_settings_kwargs(thinking)
         api_key = get_secret_value("ANTHROPIC_API_KEY")
-        http_client = _build_retrying_model_http_client()
+        anthropic_http_client = _build_retrying_model_httpx2_client()
         return AnthropicModel(
             model_string,
             provider=_mark_provider_owns_http_client(
-                AnthropicProvider(api_key=api_key, http_client=http_client),
-                http_client,
+                AnthropicProvider(
+                    api_key=api_key,
+                    http_client=anthropic_http_client,
+                ),
+                anthropic_http_client,
+                http_client_factory=_build_retrying_model_httpx2_client,
             ),
             settings=cast(AnthropicModelSettings, settings_kwargs),
         )

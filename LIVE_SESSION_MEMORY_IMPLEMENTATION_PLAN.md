@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for incremental implementation. Slices 0 and 1 are complete, and Slice 2 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
+Approved for incremental implementation. Slices 0 through 2 are complete, and Slice 3 is the next product implementation slice. This plan defines the first session-memory slice and intentionally leaves cross-session recall, vault recall, capability scouting, and research-artifact evaluation out of scope.
 
 ## Problem
 
@@ -380,7 +380,9 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ### Slice 2: Provider-Neutral Pydantic AI Decision Runtime
 
-**Status:** Next. This slice introduces the first callable decision adapter while remaining independent of session-memory lifecycle integration.
+**Status:** Complete. Pydantic AI is pinned to `2.49.0` with the `typesafe` extra, and `core/llm/decision.py` provides one typed provider-neutral request/result contract with a TypeSafe adapter, alias and capability validation, encrypted-secret resolution, timeout propagation, resolved model identity, usage, latency, supported confidence metadata, sanitized errors, and lifecycle logging. The deterministic transport contract proves Jev question placement, response normalization, timeout classification, and credential redaction; the in-process fake proves another adapter can satisfy the contract without TypeSafe configuration. The dependency upgrade's `httpx2` transition is covered for Anthropic retry construction, and deferred-tool visibility regression coverage now follows Pydantic AI's separate authored-intent and current-visibility fields.
+
+An opt-in live smoke against the configured `jev` alias succeeded with a synthetic conversation delta. The moving alias resolved to `jev-1.13.0` for that run and returned two bounded probabilities plus token usage in one request. This is connectivity evidence only; it does not establish classifier thresholds or session-memory quality, which remain Slice 4 questions.
 
 **Build:** Upgrade to a tagged Pydantic AI release with native TypeSafe support and enable the `typesafe` extra. Add the narrow provider-neutral classifier interface and TypeSafe/Jev construction in `core/llm/decision.py`; keep the in-process fake in test support unless production configuration later needs it. Resolve aliases, capability, credentials, timeout, model identity, usage, latency, and provider errors through normal configuration boundaries. Keep `core/llm/model_factory.py` limited to generative chat models, and do not add a generic user-facing classification tool or session-memory lifecycle hook yet.
 
@@ -503,4 +505,4 @@ The reusable decision-model platform is intentionally separate from session memo
 
 ## Next Phase
 
-Continue Feature Development with Slice 2, the provider-neutral Pydantic AI decision runtime. Slices 0 and 1 have frozen the evaluation contract and established decision-model configuration without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the reusable decision-model foundation.
+Continue Feature Development with Slice 3, the deterministic session-map domain and storage boundary. Slices 0 through 2 have frozen the evaluation contract, established decision-model configuration, and added a reusable typed classifier runtime without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the model-independent map foundation.
