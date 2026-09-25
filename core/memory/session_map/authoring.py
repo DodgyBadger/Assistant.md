@@ -21,7 +21,7 @@ from core.memory.session_map.models import (
     patch_source_refs,
 )
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v1"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v2"
 MAX_AUTHORING_DELTA_MESSAGES = 64
 
 _AUTHORING_INSTRUCTIONS = """
@@ -37,6 +37,21 @@ an entry is replaced; never rewrite identity-bearing text through update. Use
 resolve only for a supported terminal lifecycle transition. Use change_attention
 when foreground goals or work changed. Use a single noop only when the delta adds
 no durable state. Preserve existing entry IDs whenever identity is unchanged.
+
+For update, the only permitted changes keys are: goal status; work-item status,
+next_action, next_action_owner, and blocker_ids; decision status and
+adoption_status; constraint status and active_until_sequence_index; commitment
+status; open-question status, owner, and answer_ref; artifact status,
+verification_status, and status_detail; observation epistemic_status and
+relevance. Never put text, IDs, source references, active_from_sequence_index,
+last_state_change_sequence_index, or any other bookkeeping field in changes.
+Use resolve rather than update for a terminal status. The deterministic applier
+adds state evidence and state-change indexes itself.
+
+Attention may name only goals whose resulting status is active and at most one
+work item whose resulting status is in_progress or blocked. A planned work item
+cannot be active attention. Add or transition referenced entries before the
+change_attention operation, or use null when no qualifying work item exists.
 
 Every evidence reference must point to a supplied delta message and use its exact
 role. User direction can establish adoption. Assistant plans are commitments or
