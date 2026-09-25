@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 
 from core.memory.session_map.authoring import (
     CanonicalMapMessage,
@@ -122,6 +123,16 @@ def test_compact_proposal_derives_envelope_roles_and_bookkeeping() -> None:
     assert operation.entry.source_refs == (SourceRef(sequence_index=0, role="user"),)
     assert operation.entry.active_from_sequence_index == 0
     assert operation.entry.last_state_change_sequence_index == 0
+
+
+def test_compact_proposal_exposes_domain_entry_id_constraint() -> None:
+    with pytest.raises(ValidationError, match="string_pattern_mismatch"):
+        GoalProposal(
+            id="goal-with-hyphens",
+            text="Prepare the release note.",
+            status=GoalStatus.ACTIVE,
+            evidence_sequence_indexes=(0,),
+        )
 
 
 def test_authoring_rejects_wrong_source_role_and_envelope_values() -> None:

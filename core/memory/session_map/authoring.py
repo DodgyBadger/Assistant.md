@@ -14,6 +14,7 @@ from pydantic_ai.messages import ModelResponse
 from pydantic_ai.usage import RunUsage
 
 from core.memory.session_map.models import (
+    ENTRY_ID_PATTERN,
     AddPatch,
     AdoptionStatus,
     ArtifactEntry,
@@ -50,7 +51,7 @@ from core.memory.session_map.models import (
     session_map_entries,
 )
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v3"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "session-map-author-v4"
 MAX_AUTHORING_DELTA_MESSAGES = 64
 
 _AUTHORING_INSTRUCTIONS = """
@@ -96,9 +97,12 @@ class _ProposalModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+EntryId = Annotated[str, Field(pattern=ENTRY_ID_PATTERN)]
+
+
 class GoalProposal(_ProposalModel):
     kind: Literal["goal"] = "goal"
-    id: str
+    id: EntryId
     text: str
     status: GoalStatus
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
@@ -106,19 +110,19 @@ class GoalProposal(_ProposalModel):
 
 class WorkItemProposal(_ProposalModel):
     kind: Literal["work_item"] = "work_item"
-    id: str
-    goal_ids: tuple[str, ...] = Field(min_length=1, max_length=8)
+    id: EntryId
+    goal_ids: tuple[EntryId, ...] = Field(min_length=1, max_length=8)
     text: str
     status: WorkItemStatus
     next_action: str | None = None
     next_action_owner: Literal["user", "assistant", "external"] | None = None
-    blocker_ids: tuple[str, ...] = ()
+    blocker_ids: tuple[EntryId, ...] = ()
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
 
 
 class DecisionProposal(_ProposalModel):
     kind: Literal["decision"] = "decision"
-    id: str
+    id: EntryId
     text: str
     status: DecisionStatus
     adoption_status: AdoptionStatus
@@ -128,7 +132,7 @@ class DecisionProposal(_ProposalModel):
 
 class ConstraintProposal(_ProposalModel):
     kind: Literal["constraint"] = "constraint"
-    id: str
+    id: EntryId
     text: str
     status: ConstraintStatus
     scope: str
@@ -137,7 +141,7 @@ class ConstraintProposal(_ProposalModel):
 
 class CommitmentProposal(_ProposalModel):
     kind: Literal["commitment"] = "commitment"
-    id: str
+    id: EntryId
     actor: Literal["user", "assistant", "external"]
     text: str
     status: CommitmentStatus
@@ -146,7 +150,7 @@ class CommitmentProposal(_ProposalModel):
 
 class OpenQuestionProposal(_ProposalModel):
     kind: Literal["open_question"] = "open_question"
-    id: str
+    id: EntryId
     text: str
     status: QuestionStatus
     owner: Literal["user", "assistant", "external"] | None = None
@@ -156,7 +160,7 @@ class OpenQuestionProposal(_ProposalModel):
 
 class ArtifactProposal(_ProposalModel):
     kind: Literal["artifact"] = "artifact"
-    id: str
+    id: EntryId
     ref: str
     artifact_kind: str
     status: ArtifactStatus
@@ -167,7 +171,7 @@ class ArtifactProposal(_ProposalModel):
 
 class ObservationProposal(_ProposalModel):
     kind: Literal["observation"] = "observation"
-    id: str
+    id: EntryId
     text: str
     epistemic_status: EpistemicStatus
     relevance: Relevance
@@ -190,27 +194,27 @@ SessionMapEntryProposal = Annotated[
 class PutProposal(_ProposalModel):
     operation: Literal["put"] = "put"
     entry: SessionMapEntryProposal
-    replaces_entry_id: str | None = None
+    replaces_entry_id: EntryId | None = None
 
 
 class UpdateProposal(_ProposalModel):
     operation: Literal["update"] = "update"
-    entry_id: str
+    entry_id: EntryId
     changes: dict[str, Any] = Field(min_length=1, max_length=8)
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
 
 
 class ResolveProposal(_ProposalModel):
     operation: Literal["resolve"] = "resolve"
-    entry_id: str
+    entry_id: EntryId
     terminal_status: str
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
 
 
 class AttentionProposal(_ProposalModel):
     operation: Literal["change_attention"] = "change_attention"
-    active_goal_ids: tuple[str, ...] = ()
-    active_work_item_id: str | None = None
+    active_goal_ids: tuple[EntryId, ...] = ()
+    active_work_item_id: EntryId | None = None
     evidence_sequence_indexes: tuple[int, ...] = Field(min_length=1, max_length=16)
 
 
