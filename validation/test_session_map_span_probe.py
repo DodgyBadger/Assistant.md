@@ -221,3 +221,18 @@ async def test_span_regime_uses_declared_map_update_mode(
     assert result["completed"] is True
     assert result["update_mode"] == update_mode
     assert tuple(predecessors) == expected_predecessors
+    assert result["summary"] == {
+        "attempted_batches": 2,
+        "applied_batches": 2,
+        "failed_batches": 0,
+        "total_requests": 2,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_latency_seconds": 0.0,
+        "final_entry_count": 0,
+        "final_rendered_characters": 58,
+    }
+    assert [record["predecessor"] for record in result["records"]] == [
+        {"revision": revision, "through_sequence_index": coverage}
+        for revision, coverage in expected_predecessors
+    ]

@@ -26,7 +26,11 @@ from core.memory.session_map.authoring import (
     author_session_map_patch,
     build_session_map_authoring_prompt,
 )
-from core.memory.session_map.models import SessionMap, render_session_map
+from core.memory.session_map.models import (
+    SessionMap,
+    render_session_map,
+    session_map_entries,
+)
 from core.runtime.paths import set_bootstrap_roots
 from core.secrets import initialize_secrets_bootstrap
 from core.tools.utils import estimate_token_count
@@ -261,6 +265,7 @@ async def run_span_regime(
         session_id=f"span-probe-{session_id}-{regime_name}",
         created_at=datetime(2026, 9, 25, tzinfo=UTC),
     )
+    previous_output = current
     records: list[dict[str, Any]] = []
     for batch_index, boundary in enumerate(boundaries):
         if update_mode == "rebase":
@@ -283,6 +288,10 @@ async def run_span_regime(
         prompt_tokens = estimate_token_count(
             build_session_map_authoring_prompt(request)
         )
+        predecessor = {
+            "revision": current.revision,
+            "through_sequence_index": current.updated_through_sequence_index,
+        }
         try:
             result = await author_session_map_patch(
                 model_alias=model_alias,
@@ -296,6 +305,7 @@ async def run_span_regime(
                 {
                     "batch_index": batch_index,
                     "boundary": asdict(boundary),
+                    "predecessor": predecessor,
                     "prompt_token_estimate": prompt_tokens,
                     "status": "failed",
                     "error_type": type(exc).__name__,
@@ -305,16 +315,22 @@ async def run_span_regime(
             break
         current = result.session_map
         rendered = render_session_map(current, max_chars=20_000)
+        shape = _map_shape(current)
         records.append(
             {
                 "batch_index": batch_index,
                 "boundary": asdict(boundary),
+                "predecessor": predecessor,
                 "prompt_token_estimate": prompt_tokens,
                 "status": "applied",
                 "patch_set": result.patch_set.model_dump(mode="json"),
                 "session_map": current.model_dump(mode="json"),
-                "entry_count": len(rendered.included_entry_ids),
+                **shape,
                 "rendered_characters": len(rendered.text),
+                "rendered_omitted_entry_count": len(rendered.omitted_entry_ids),
+                "structural_churn_from_previous_output": _structural_churn(
+                    previous_output, current
+                ),
                 "requested_model_alias": result.requested_model_alias,
                 "requested_thinking": result.requested_thinking,
                 "resolved_model_name": result.resolved_model_name,
@@ -325,12 +341,72 @@ async def run_span_regime(
                 "output_tokens": result.output_tokens,
             }
         )
+        previous_output = current
+    summary = _regime_summary(records)
     return {
         "regime": regime_name,
         "update_mode": update_mode,
         "records": records,
+        "summary": summary,
         "completed": len(records) == len(boundaries)
         and all(record["status"] == "applied" for record in records),
+    }
+
+
+def _map_shape(session_map: SessionMap) -> dict[str, Any]:
+    entries = session_map_entries(session_map)
+    by_kind: dict[str, int] = {}
+    source_ref_count = 0
+    unique_source_refs: set[tuple[int, str]] = set()
+    for entry in entries:
+        by_kind[entry.kind] = by_kind.get(entry.kind, 0) + 1
+        refs = (*entry.source_refs, *entry.state_source_refs)
+        source_ref_count += len(refs)
+        unique_source_refs.update((ref.sequence_index, ref.role) for ref in refs)
+    return {
+        "entry_count": len(entries),
+        "entry_count_by_kind": dict(sorted(by_kind.items())),
+        "source_reference_count": source_ref_count,
+        "unique_source_reference_count": len(unique_source_refs),
+    }
+
+
+def _structural_churn(previous: SessionMap, current: SessionMap) -> dict[str, Any]:
+    """Describe ID-level output churn without claiming semantic equivalence."""
+    previous_entries = {entry.id: entry for entry in session_map_entries(previous)}
+    current_entries = {entry.id: entry for entry in session_map_entries(current)}
+    previous_ids = set(previous_entries)
+    current_ids = set(current_entries)
+    common_ids = previous_ids & current_ids
+    changed_ids = sorted(
+        entry_id
+        for entry_id in common_ids
+        if previous_entries[entry_id] != current_entries[entry_id]
+    )
+    return {
+        "added_entry_ids": sorted(current_ids - previous_ids),
+        "removed_entry_ids": sorted(previous_ids - current_ids),
+        "changed_entry_ids": changed_ids,
+        "unchanged_entry_count": len(common_ids) - len(changed_ids),
+        "attention_changed": previous.attention != current.attention,
+    }
+
+
+def _regime_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    applied = [record for record in records if record["status"] == "applied"]
+    final = applied[-1] if applied else None
+    return {
+        "attempted_batches": len(records),
+        "applied_batches": len(applied),
+        "failed_batches": len(records) - len(applied),
+        "total_requests": sum(int(record["requests"]) for record in applied),
+        "total_input_tokens": sum(int(record["input_tokens"]) for record in applied),
+        "total_output_tokens": sum(int(record["output_tokens"]) for record in applied),
+        "total_latency_seconds": sum(
+            float(record["latency_seconds"]) for record in applied
+        ),
+        "final_entry_count": final["entry_count"] if final else None,
+        "final_rendered_characters": (final["rendered_characters"] if final else None),
     }
 
 
@@ -560,6 +636,7 @@ async def _main() -> None:
                         "regime": name,
                         "update_mode": regime.update_mode,
                         "completed": result["completed"],
+                        "summary": result["summary"],
                         "batches": [
                             {
                                 "status": record["status"],
@@ -572,8 +649,14 @@ async def _main() -> None:
                                 "input_tokens": record.get("input_tokens"),
                                 "output_tokens": record.get("output_tokens"),
                                 "entry_count": record.get("entry_count"),
+                                "entry_count_by_kind": record.get(
+                                    "entry_count_by_kind"
+                                ),
                                 "rendered_characters": record.get(
                                     "rendered_characters"
+                                ),
+                                "structural_churn_from_previous_output": record.get(
+                                    "structural_churn_from_previous_output"
                                 ),
                                 "latency_seconds": record.get("latency_seconds"),
                                 "error_type": record.get("error_type"),
