@@ -239,6 +239,45 @@ def test_planned_work_can_complete_when_evidence_skips_intermediate_state() -> N
     assert completed.work_items[0].status == WorkItemStatus.COMPLETED
 
 
+def test_multiple_updates_do_not_duplicate_entry_state_evidence() -> None:
+    current = _map_with_goal().model_copy(
+        update={
+            "work_items": (
+                WorkItemEntry(
+                    id="work_planned",
+                    goal_ids=("goal_1",),
+                    text="Collect source notes.",
+                    status=WorkItemStatus.PLANNED,
+                    source_refs=(SourceRef(sequence_index=2, role="assistant"),),
+                ),
+            )
+        }
+    )
+    evidence = (SourceRef(sequence_index=3, role="tool"),)
+    completed = apply_patch_set(
+        current,
+        MapPatchSet(
+            expected_revision=1,
+            through_sequence_index=3,
+            observed_source_content_revision=2,
+            operations=(
+                UpdatePatch(
+                    entry_id="work_planned",
+                    changes={"next_action": "Review the collected notes."},
+                    evidence_refs=evidence,
+                ),
+                UpdatePatch(
+                    entry_id="work_planned",
+                    changes={"status": "completed"},
+                    evidence_refs=evidence,
+                ),
+            ),
+        ),
+        created_at=NOW,
+    )
+    assert completed.work_items[0].state_source_refs == evidence
+
+
 def test_map_validation_and_rendering_keep_current_handoff() -> None:
     current = _map_with_goal()
     with pytest.raises(ValidationError, match="active_goal_ids"):

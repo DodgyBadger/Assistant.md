@@ -678,11 +678,22 @@ def _updated_entry(
         _validate_transition(entry, field_name, changes[field_name])
     values = entry.model_dump(mode="python")
     values.update(changes)
-    values["state_source_refs"] = (*entry.state_source_refs, *evidence_refs)[-16:]
+    values["state_source_refs"] = _merge_source_refs(
+        entry.state_source_refs, evidence_refs
+    )
     values["last_state_change_sequence_index"] = max(
         ref.sequence_index for ref in evidence_refs
     )
     return type(entry).model_validate(values)
+
+
+def _merge_source_refs(
+    existing: tuple[SourceRef, ...], added: tuple[SourceRef, ...]
+) -> tuple[SourceRef, ...]:
+    unique: dict[tuple[int, str], SourceRef] = {}
+    for ref in (*existing, *added):
+        unique.setdefault((ref.sequence_index, ref.role), ref)
+    return tuple(unique.values())[-16:]
 
 
 def _validate_transition(
