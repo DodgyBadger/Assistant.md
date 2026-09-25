@@ -27,7 +27,7 @@ These findings justify moving forward with the safe foundation. They do not just
 - While the feature is active, the agent receives a small live session map on ordinary turns, including after compaction.
 - The map exposes how current it is and which canonical messages support its entries.
 - A failed or delayed map update does not fail the completed chat turn; the map remains visibly stale and can be retried.
-- Raw chat messages remain canonical and independently retrievable. The map and recovery card remain derived artifacts.
+- Raw chat messages remain canonical and independently retrievable. The map and any legacy recovery card remain derived artifacts.
 
 ## Core Invariants
 
@@ -39,20 +39,20 @@ These findings justify moving forward with the safe foundation. They do not just
 6. Map persistence and revision selection are atomic per session. A slower background update cannot overwrite a newer revision.
 7. Map maintenance is off the response-critical path. Failure degrades to a stale prior revision and produces an observable retryable state.
 8. The routine prompt receives one bounded current map, not the revision history or full supporting transcript.
-9. Compaction and the session map have separate contracts: the map preserves durable session state; the recovery card preserves immediate operational resumption details.
+9. In the live-memory path, the bounded map projection preserves durable session state and the retained canonical tail preserves immediate conversational continuity. Compaction only removes covered messages from effective context; it does not generate a second summary artifact.
 10. Purging a chat session removes its map revisions and pending maintenance records through the session ownership boundary.
 11. Attention fields reference canonical map entry IDs instead of duplicating their prose, and every referenced ID must exist in an admissible lifecycle state.
 12. Unknown, unanswered, assumed, disputed, and superseded state remains distinguishable; absence of an entry is not evidence that a question was answered or a fact is false.
-13. The feature is opt-in. In `off` mode, no map is maintained or injected and compaction follows the existing recovery-card path without depending on a decision service. `observe` may maintain an unused map, `context` may additionally admit it on ordinary turns, and only `compaction` may select the map-backed recovery-card path.
-14. The live-memory compaction path is admissible only when the configured model alias declares decision capability, its provider and credentials are ready, and a sufficiently fresh map revision is available. If any condition fails, compaction uses the existing recovery-card path.
+13. The feature is opt-in. In `off` mode, no map is maintained or injected and compaction follows the existing recovery-card path without depending on a decision service. `observe` may maintain an unused map, `context` may additionally admit it on ordinary turns, and only `compaction` may replace recovery-card generation with coverage-gated pruning backed by the admitted map and retained canonical tail.
+14. The live-memory compaction path is admissible only when the configured model alias declares decision capability, its provider and credentials are ready, and a committed map revision covers every canonical message to be removed from effective context. If any condition fails, compaction uses the existing recovery-card path wholesale.
 15. Session-memory orchestration depends on a provider-neutral decision-classifier contract. Jev is the first adapter, not a permanent dependency of the map, scheduling, persistence, or compaction contracts.
 16. Every completed turn durably advances pending turn and token accounting before maintenance is dispatched. Classifier invocation and generative reconciliation may be gated, but a negative classifier result never resets the cumulative hard counters.
 17. An ordinary next turn never waits for background reconciliation. Its effective history contains the last committed map and retains the exact canonical message range newer than that map's coverage watermark once, without duplicating that range in a second prompt block.
-18. No live-memory compaction, checkpoint, sliding window, adaptive window, or future context reducer may remove a canonical message range that is not covered by the committed map. If synchronous catch-up cannot produce an admissible revision, the operation exits the live-memory path and the current recovery-card contract remains responsible for continuity.
+18. No live-memory compaction, checkpoint, sliding window, adaptive window, or future context reducer may remove a canonical message range that is not covered by the committed map. If synchronous catch-up cannot produce an admissible revision, the operation exits the live-memory path and the current recovery-card contract remains responsible for continuity. A successful live-memory reduction renders the committed map directly and does not create a generated recovery card.
 19. Pending maintenance is recoverable from canonical history and durable watermarks after restart. An in-memory task or queue is never the sole record of outstanding work.
 20. The first slice is deterministic session state, not RAG memory. It maintains and admits exactly one current map by session identity and sequence watermark; embeddings, vector storage, similarity search, ranking, top-k retrieval, graph traversal, and cross-session recall remain outside its runtime path.
 21. Lifecycle, adoption, epistemic, and verification status must be supported by canonical source references independently of an entry's descriptive text. Repetition in a prior map or recovery card is never evidence that a proposal was adopted, an action completed, or an artifact verified.
-22. Evaluation reports artifact-only fidelity separately from effective-history continuation. A retained raw tail may improve runtime safety, but it cannot make a stale or unsupported map/card pass its own quality gate.
+22. Evaluation reports map-only fidelity separately from retained-tail-only and combined effective-history continuation. A retained raw tail may improve runtime safety, but it cannot make a stale or unsupported map pass its own quality gate.
 
 ## Proposed First-Slice Map
 
@@ -236,13 +236,13 @@ This slice changes persistent system state under the configured system root. Loc
 
 ## Relationship to Compaction
 
-The first integration must retain the existing compaction implementation as the default path. Only when live session memory is explicitly enabled, its configured decision model is compatible and ready, and the selected map revision is fresh enough may compaction receive the session map as durable-state context and use the narrower current-goal card. That card contains the active goal, exact current focus, immediate progress, unresolved blocker, next action, and volatile execution details needed to resume work. It does not preserve a session throughline, historical facts, old decisions, general preferences, or completed work merely because they once mattered; those belong in the source-linked map when they remain relevant.
+The first integration must retain the existing compaction implementation as the default and fallback path. When live session memory is explicitly enabled, its configured decision model is compatible and ready, and a committed map revision covers every canonical message about to leave effective context, the live-memory path does not generate a recovery card. It renders the bounded current map and keeps a recent canonical message tail; together these provide durable state and immediate conversational continuity without a second lossy representation.
 
-The authoring source for a new recovery card should be the selected map revision plus bounded canonical raw messages newer than the relevant map or compaction high-water mark. It should not include the previous recovery card as evidence. This removes recursive card-to-card summarization rather than relying only on prompt wording to resist it.
+Live-memory compaction is therefore a context-pruning operation over derived effective history, not a memory-authoring operation. Before pruning, it must force or await bounded map catch-up through the proposed removal boundary. It may then replace the covered prefix with a deterministic map projection or update checkpoint metadata so the already-admitted projection remains singular. It must never duplicate the map, duplicate the unmapped tail, mutate canonical messages, or derive map state from a prior recovery card.
 
-The card may identify the map revision it assumes. Repeated compaction must never update the live map from a recovery card, and a recovery card must never treat another recovery card as canonical evidence. If enablement, model readiness, or required map freshness is absent at the compaction boundary, the operation must run the current recovery-card implementation rather than a partially initialized live-memory variant.
+If enablement, model readiness, required map freshness, rendering, or catch-up fails at the compaction boundary, the operation must run the current recovery-card implementation wholesale rather than producing a partially initialized live-memory history. Recovery cards remain supported for `off`, fallback, and rollback behavior; they are not generated on a successful live-memory path.
 
-Prompt development is a separate, lightweight experimental track. Compare the current prompt with a current-goal prompt over representative fixtures and repeated live compactions. Score active-goal, current-focus, blocker, next-action, and volatile-artifact retention alongside historical-fact leakage, stale-state retention, and unsupported claims. Keep this live-model probe under `validation/scenarios/experiments`; deterministic integration tests should assert source selection and artifact boundaries rather than exact generated prose.
+The experimental track should compare the current recovery-card history with map projection plus retained canonical tail at identical checkpoints. Score the map alone, tail alone where practical, and combined effective history for active goal, focus, blocker, next action, newest lifecycle transition, volatile artifact and verification state, historical leakage, stale-state retention, unsupported claims, prompt size, and continuation quality. Deterministic integration tests should assert coverage, source selection, singular admission, pruning boundaries, and fallback rather than exact generated prose.
 
 ## Jev Boundary
 
@@ -432,29 +432,29 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 
 **Hypothesis:** A bounded map plus the exact unmapped raw tail improves continuation on long and referential sessions enough to justify its prompt cost.
 
-**Build:** Add a `context` mode that admits the latest completed map on ordinary turns while retaining every canonical message newer than its watermark exactly once. Expose bounded freshness metadata. Continue using the current recovery-card implementation for every compaction.
+**Build:** Add a `context` mode that admits the latest completed map on ordinary turns while retaining every canonical message newer than its watermark exactly once. Expose bounded freshness metadata. Continue using the current recovery-card implementation for every compaction while gathering evidence for map-backed pruning.
 
 **Verify:** Run paired continuation scenarios with and without map admission, including terse references, corrections, multiple active artifacts, stale maps, missing decision-model readiness, and disabling after a map exists. Measure task success, unsupported assumptions, prompt tokens, map/tail duplication, and latency. Add a tail-width ablation that separately scores map-only, retained-tail-only where practical, and combined effective history so compensation is visible. Assert that ordinary turns never wait for maintenance.
 
 **Exit gate:** Context admission must improve predefined continuity measures without exceeding the map budget or increasing unsupported claims. Failure returns the mode to `observe` or `off`; compaction remains untouched.
 
-### Slice 8: Dual-Run Compaction Experiment
+### Slice 8: Map-Backed Pruning Experiment
 
-**Hypothesis:** Given a fresh map, a current-goal recovery card sourced from the map plus canonical tail resists repeated-compaction drift better than the current recursive recovery card.
+**Hypothesis:** Given a fresh map, its bounded deterministic projection plus a retained canonical tail preserves continuation at least as well as the current recovery card while using less context and eliminating recursive summary drift.
 
-**Build:** In the experimental harness, generate both the current recovery card and the proposed map-backed current-goal card from identical checkpoints. Persist both as evaluation artifacts, but continue selecting the current recovery card for runtime history. Test prompt variants without changing checkpoint or canonical transcript contracts.
+**Build:** In the experimental harness, construct the current recovery-card history and the proposed map-projection-plus-tail history from identical checkpoints. Persist both as evaluation artifacts, but continue selecting the current recovery card for runtime history. Vary deterministic rendering budgets and retained-tail width without changing checkpoint or canonical transcript contracts.
 
-**Verify:** Across at least three compactions, score active goal, focus, blocker, next action, newest lifecycle transition, volatile artifact and verification state, historical leakage, stale-state retention, unsupported claims, and active-state share. Score each generated card by itself before scoring it with the retained raw tail. Inject a deliberately wrong prior recovery-card detail and confirm it cannot enter the map-backed candidate because previous cards are excluded as evidence.
+**Verify:** Across at least three compactions, score active goal, focus, blocker, next action, newest lifecycle transition, volatile artifact and verification state, historical leakage, stale-state retention, unsupported claims, active-state share, and prompt size. Score the map projection by itself, retained tail by itself where practical, and their combined effective history. Inject a deliberately wrong prior recovery-card detail and confirm it cannot enter the map-backed candidate because previous cards are excluded as evidence.
 
-**Exit gate:** Select and freeze a prompt only if it beats the baseline on the predeclared repeated-compaction rubric. Otherwise retain current compaction and continue using the map, at most, for ordinary context.
+**Exit gate:** Adopt map-backed pruning only if the combined projection and tail meets or beats the baseline continuation rubric, respects its context budget, and introduces no unsupported-claim regression. Otherwise retain current compaction and continue using the map, at most, for ordinary context.
 
 ### Slice 9: Opt-In Live-Memory Compaction and Hardening
 
-**Build:** Add a `compaction` mode that selects the map-backed card only when the feature is explicitly configured, the decision alias is compatible and ready, and a map revision covers the range about to leave effective history. Force or await bounded catch-up at that boundary. On any readiness, freshness, timeout, or authoring failure, exit the live-memory path and run the existing recovery-card implementation. Preserve raw transcripts and checkpoint ownership.
+**Build:** Add a `compaction` mode that prunes the covered effective-history prefix without generating a recovery card only when the feature is explicitly configured, the decision alias is compatible and ready, and a committed map revision covers the range about to leave effective history. Force or await bounded catch-up at that boundary. Render one bounded map projection and retain the configured canonical tail exactly once. On any readiness, freshness, timeout, authoring, rendering, or coverage failure, exit the live-memory path and run the existing recovery-card implementation. Preserve raw transcripts and checkpoint ownership.
 
 **Verify:** Extend `validation/scenarios/integration/core/repeated_chat_history_compaction.py` or add a sibling scenario covering three or more compactions, correction and supersession, failure fallback, no-unmapped eviction, model readiness changes, disabling the feature, restart recovery, and contamination attempts from prior cards. Run focused checks during development and the required pre-merge profile once stable: `python validation/run_validation.py run integration/core`.
 
-**Exit gate:** Only this slice changes which recovery card enters effective history, and only in explicit `compaction` mode. Default `off` behavior and all fallback branches remain covered by the original deterministic scenario.
+**Exit gate:** Only this slice allows map-backed pruning to replace recovery-card generation, and only in explicit `compaction` mode. Default `off` behavior and all fallback branches remain covered by the original deterministic scenario.
 
 ## Evidence and Promotion Rules
 
@@ -477,7 +477,7 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 - Artifact-only fidelity compared with retained-tail-only and combined effective-history continuation.
 - Active-state share and preservation of the newest lifecycle transition under bounded rendering.
 - Proposal-to-adoption and created-to-verified promotion rates when no new supporting evidence exists.
-- Card and map size evolution across recursive rounds; growth is reported as a diagnostic rather than assumed to imply either accuracy or drift.
+- Recovery-card, map-projection, tail, and combined effective-history size across recursive rounds; growth is reported as a diagnostic rather than assumed to imply either accuracy or drift.
 
 ## Open Design Decisions
 
@@ -486,7 +486,7 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 - Which assistant and tool statements qualify as evidence without user confirmation.
 - Whether Jev runs after every completed turn or on a short deterministic cadence, while generative reconciliation remains gated by accumulated signals.
 - Whether map context is injected as a system prompt part, agent instruction, or another provider-stable context layer.
-- Whether compaction waits for a forced refresh inline or runs map refresh as an explicit prerequisite task.
+- Whether map-backed pruning waits for a forced refresh inline or runs map refresh as an explicit prerequisite task.
 - How forks inherit, clone, or rebuild source-linked map state when message sequence identity changes.
 - Whether revision history is retained indefinitely for debugging or pruned under a bounded policy.
 - Whether to add a raw-content-specific session revision or use the existing broader `history_revision` and tolerate conservative stale-attempt retries.
@@ -505,4 +505,4 @@ An opt-in live smoke against the configured `jev` alias succeeded with a synthet
 
 ## Next Phase
 
-Continue Feature Development with Slice 3, the deterministic session-map domain and storage boundary. Slices 0 through 2 have frozen the evaluation contract, established decision-model configuration, and added a reusable typed classifier runtime without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, and compaction-prompt questions remain attached to their later evidence gates rather than blocking the model-independent map foundation.
+Continue Feature Development with Slice 3, the deterministic session-map domain and storage boundary. Slices 0 through 2 have frozen the evaluation contract, established decision-model configuration, and added a reusable typed classifier runtime without changing chat or compaction behavior. Map-budget, classifier-threshold, authoring-prompt, maintenance-cadence, rendering-budget, and retained-tail questions remain attached to their later evidence gates rather than blocking the model-independent map foundation.
