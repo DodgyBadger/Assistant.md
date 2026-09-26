@@ -14,6 +14,7 @@ from core.memory.session_map.change_detection import (  # noqa: E402
 )
 from validation.core.live_session_memory_corpus import (  # noqa: E402
     load_cumulative_session_map_adequacy_corpus,
+    load_cumulative_session_map_change_holdout,
 )
 from validation.scenarios.experiments.session_map_cumulative_adequacy_probe import (  # noqa: E402
     _score_fields,
@@ -23,6 +24,9 @@ from validation.scenarios.experiments.session_map_cumulative_adequacy_probe impo
 )
 from validation.scenarios.experiments.session_map_cumulative_change_calibration import (  # noqa: E402
     _select_threshold as _select_change_threshold,
+)
+from validation.scenarios.experiments.session_map_cumulative_change_holdout import (  # noqa: E402
+    _validate_holdout,
 )
 
 
@@ -207,3 +211,10 @@ def test_direct_change_threshold_uses_high_probability_as_trigger() -> None:
             "false_negative": 0,
         },
     }
+
+
+def test_direct_change_holdout_is_frozen_before_live_run() -> None:
+    corpus = load_cumulative_session_map_change_holdout()
+    _validate_holdout(corpus)
+    assert len(corpus["cases"]) == 4
+    assert sum(len(case["turns"]) for case in corpus["cases"]) == 20

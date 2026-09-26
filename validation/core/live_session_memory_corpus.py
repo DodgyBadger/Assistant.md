@@ -33,6 +33,12 @@ CUMULATIVE_ADEQUACY_CORPUS_PATH = (
     / "live_session_memory"
     / "cumulative_adequacy_v3.json"
 )
+CUMULATIVE_CHANGE_HOLDOUT_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "live_session_memory"
+    / "cumulative_change_v4_holdout.json"
+)
 
 
 def load_live_session_memory_corpus() -> dict[str, Any]:
@@ -53,6 +59,14 @@ def load_cumulative_session_map_adequacy_corpus() -> dict[str, Any]:
     return cast(
         dict[str, Any],
         json.loads(CUMULATIVE_ADEQUACY_CORPUS_PATH.read_text(encoding="utf-8")),
+    )
+
+
+def load_cumulative_session_map_change_holdout() -> dict[str, Any]:
+    """Load the frozen fresh holdout for direct cumulative change signals."""
+    return cast(
+        dict[str, Any],
+        json.loads(CUMULATIVE_CHANGE_HOLDOUT_PATH.read_text(encoding="utf-8")),
     )
 
 

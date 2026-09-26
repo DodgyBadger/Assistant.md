@@ -1,0 +1,49 @@
+{
+  "corpus_version": "session-map-cumulative-change-v4-holdout-2026-09-26",
+  "cases": [
+    {
+      "id": "audit_scope_narrowing",
+      "current_map": "goal g1 active: audit all service departments; work w1 in progress: assemble department records; attention: w1; constraints: none recorded",
+      "turns": [
+        ["user: Would a smaller pilot be easier to complete first?", false, false],
+        ["assistant: A pilot would be faster, but it would not cover the whole organization.", false, false],
+        ["user: Limit this audit to Transit and Facilities for now; leave every other department out of scope.", true, true],
+        ["assistant: I will limit the audit to Transit and Facilities.", true, true],
+        ["user: Start with the Transit records.", true, true]
+      ]
+    },
+    {
+      "id": "incorrect_vendor_fact_corrected",
+      "current_map": "goal g1 active: assess vendor authentication; observation o1 observed: vendor supports SAML SSO; open question q1: whether SCIM provisioning is available; attention: q1",
+      "turns": [
+        ["user: Please double-check the authentication notes before relying on them.", false, false],
+        ["tool: The signed vendor specification says SAML SSO is not supported; authentication is OIDC only.", true, true],
+        ["assistant: The earlier SAML statement was incorrect; the signed specification supports OIDC only.", true, true],
+        ["user: Keep SCIM provisioning as a separate open question.", true, true],
+        ["assistant: Understood.", true, true]
+      ]
+    },
+    {
+      "id": "verification_requires_multiple_checks",
+      "current_map": "goal g1 active: deliver the permit package; work w1 in progress: verify the package; artifact a1 active and unverified: artifacts/permit-package.pdf; attention: w1",
+      "turns": [
+        ["tool: The PDF opens successfully and contains 42 pages.", false, false],
+        ["tool: The page count matches the source manifest.", false, false],
+        ["tool: Every manifest checksum matches its embedded document.", false, false],
+        ["tool: Required-signature validation passed for all four forms; the complete package is verified.", true, true],
+        ["user: Mark the permit package ready for delivery.", true, true]
+      ]
+    },
+    {
+      "id": "blocked_review_handoff",
+      "current_map": "goal g1 active: publish the policy revision; work w1 in progress: legal review; attention: w1; open question q1: whether legal approves publication",
+      "turns": [
+        ["assistant: I am still waiting for the legal review response.", false, false],
+        ["user: Has legal replied yet?", false, false],
+        ["tool: Legal rejected the current liability clause and requires revised indemnity language before publication.", true, true],
+        ["user: Pause publication and draft the revised indemnity language for legal.", true, true],
+        ["assistant: I will revise the indemnity language before publication resumes.", true, true]
+      ]
+    }
+  ]
+}
