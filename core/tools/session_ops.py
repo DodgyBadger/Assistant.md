@@ -33,9 +33,9 @@ from core.memory.session_summary import (
     VECTOR_FIELD_TYPES,
     SessionSummaryArtifact,
     SessionSummaryStore,
-    build_fts_query,
 )
 from core.memory.session_summary_status import session_summary_status
+from core.utils.fts import build_fts_query
 from core.vault_state.service import VaultStateService
 from core.vector import VectorService
 

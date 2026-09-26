@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1A is implemented and validated; Slice 1B is next. Slice 1 is divided into four independently testable checkpoints so cleanup, storage, tool behavior, and broad-search integration do not fail as one undifferentiated change.
+Planning complete. Slices 1A and 1B are implemented and validated; Slice 1C is next. Slice 1 is divided into four independently testable checkpoints so cleanup, storage, tool behavior, and broad-search integration do not fail as one undifferentiated change.
 
 ## Decision Summary
 
@@ -86,7 +86,7 @@ Each checkpoint should be reviewable and testable on its own. Do not begin the n
 
 This is required branch cleanup, not a soft deprecation. It lands first so new retrieval work is not built around abandoned runtime or persistence assumptions.
 
-**Status:** Complete. The live-map runtime, task kind, settings, inspection API/UI, package, scenarios, fixtures, probes, and obsolete implementation plan are removed. Chat database migration 5 removes the three derived map tables from existing installations; settings repair removes retired keys, and the general-settings API no longer exposes settings absent from the supported template. Generic TypeSafe/Jev provider, secret, alias, decision capability, and decision-model validation remain. The canonical raw range-read primitive remains for Slice 1B. The full deterministic core profile passed all 115 scenarios after the removal.
+**Status:** Complete. The live-map runtime, task kind, settings, inspection API/UI, package, scenarios, fixtures, probes, and obsolete implementation plan are removed. Chat database migration 5 removes the three derived map tables from existing installations; settings repair removes retired keys, and the general-settings API no longer exposes those retired settings. Generic TypeSafe/Jev provider, secret, alias, decision capability, and decision-model validation remain. The canonical raw range-read primitive remains for Slice 1B. The full deterministic core profile passed all 115 scenarios after the removal.
 
 ### Remove product runtime
 
@@ -123,6 +123,8 @@ This is required branch cleanup, not a soft deprecation. It lands first so new r
 Run focused settings-upgrade, system-database migration, startup-migration, chat-execution, API session-list, and browser/static-module checks affected by removal. Verify both a clean system root and a copied database containing map tables. Slice 1A exits only when the application starts normally, canonical messages and checkpoints remain intact, retired settings and tables are removed, existing recovery-card behavior still passes, generic Jev configuration remains available, and the cleanup `rg` finds no unexplained live-map code paths.
 
 ## Slice 1B: Canonical Transcript Index and Retrieval Service
+
+**Status:** Complete. Chat database migration 6 creates and backfills an external-content FTS5 index over canonical message text. Transactional insert, relevant-update, and delete triggers keep it synchronized, including foreign-key cascade deletion, and an explicit rebuild operation reconstructs it from `chat_messages`. `TranscriptRetrievalService` authorizes through the existing session-access boundary, returns bounded excerpts and strategy-neutral canonical anchors, and exposes exact raw-message interval reads. Shared FTS query normalization was factored out of session-summary code for reuse. The dedicated storage scenario and all 116 deterministic core scenarios pass.
 
 ### Storage and indexing
 
@@ -304,9 +306,9 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 
 ## Immediate Next Steps
 
-Continue Feature Development with Slice 1B only. Before defining its storage and service contracts, follow `docs/agent-guides/feature-development.md` and `docs/agent-guides/testing-and-validation.md`.
+Continue Feature Development with Slice 1C only. Before defining its tool and continuation contracts, follow `docs/agent-guides/feature-development.md` and `docs/agent-guides/testing-and-validation.md`.
 
-The completed first checkpoint leaves the application bootable with all live-map behavior absent and generic Jev configuration intact. Slice 1B now adds the migrated and backfilled canonical FTS index and retrieval service; Slice 1C exposes the two focused tool operations; Slice 1D integrates deep search and closes with the full core profile.
+The completed first two checkpoints leave the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index behind an authorized retrieval service. Slice 1C exposes the two focused tool operations; Slice 1D integrates deep search and closes with the full core profile.
 
 ## Evidence and Design Sources
 

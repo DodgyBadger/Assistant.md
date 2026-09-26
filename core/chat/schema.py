@@ -37,6 +37,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="remove_live_session_map_storage",
         apply=lambda conn: _remove_live_session_map_storage(conn),
     ),
+    SQLiteMigration(
+        version=6,
+        name="add_chat_message_fts",
+        apply=lambda conn: _migrate_chat_message_fts(conn),
+    ),
 )
 
 
@@ -404,6 +409,55 @@ def _remove_live_session_map_storage(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE IF EXISTS chat_session_map_attempts")
     conn.execute("DROP TABLE IF EXISTS chat_session_map_maintenance")
     conn.execute("DROP TABLE IF EXISTS chat_session_map_revisions")
+
+
+def _migrate_chat_message_fts(conn: sqlite3.Connection) -> None:
+    """Add a rebuildable full-text index over canonical chat-message text."""
+    conn.execute(
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
+            content_text,
+            content = 'chat_messages',
+            content_rowid = 'id',
+            tokenize = 'unicode61'
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_insert
+        AFTER INSERT ON chat_messages BEGIN
+            INSERT INTO chat_messages_fts(rowid, content_text)
+            VALUES (new.id, COALESCE(new.content_text, ''));
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_delete
+        AFTER DELETE ON chat_messages BEGIN
+            INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content_text)
+            VALUES ('delete', old.id, COALESCE(old.content_text, ''));
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_update
+        AFTER UPDATE OF content_text ON chat_messages BEGIN
+            INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content_text)
+            VALUES ('delete', old.id, COALESCE(old.content_text, ''));
+            INSERT INTO chat_messages_fts(rowid, content_text)
+            VALUES (new.id, COALESCE(new.content_text, ''));
+        END
+        """
+    )
+    rebuild_chat_message_fts(conn)
+
+
+def rebuild_chat_message_fts(conn: sqlite3.Connection) -> None:
+    """Rebuild the derived chat-message full-text index from canonical rows."""
+    conn.execute("INSERT INTO chat_messages_fts(chat_messages_fts) VALUES ('rebuild')")
 
 
 def _deduplicate_session_ids(conn: sqlite3.Connection) -> None:

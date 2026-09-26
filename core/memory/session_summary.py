@@ -11,6 +11,7 @@ from typing import Any
 
 from core.database import connect_sqlite_from_system_db
 from core.memory.schema import DB_NAME, ensure_session_summary_schema
+from core.utils.fts import build_fts_query, fts_query_terms
 from core.vector import SQLitePythonVectorStore, VectorService, VectorStore
 
 SESSION_SUMMARY_TEXT_FIELDS = (
@@ -834,35 +835,8 @@ def normalize_field_value(value: str) -> str:
     return re.sub(r"\s+", " ", normalized)
 
 
-def build_fts_query(value: str, *, max_terms: int = 12) -> str:
-    """Build a tolerant FTS5 query from LLM-shaped search text."""
-    terms = _fts_query_terms(value, max_terms=max_terms)
-    return " OR ".join(_quote_fts_phrase(term) for term in terms)
-
-
-def _fts_query_terms(value: str, *, max_terms: int = 12) -> list[str]:
-    phrases = [
-        phrase.strip().lower()
-        for phrase in re.findall(r'"([^"]+)"', value)
-        if phrase.strip()
-    ]
-    without_phrases = re.sub(r'"[^"]+"', " ", value)
-    tokens = [
-        token.lower()
-        for token in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9-]{1,}", without_phrases)
-    ]
-    parts = [*phrases, *tokens]
-    deduped: list[str] = []
-    for part in parts:
-        if part not in deduped:
-            deduped.append(part)
-        if len(deduped) >= max_terms:
-            break
-    return deduped
-
-
 def _fts_query_coverage(query: str, session_summary: SessionSummary) -> float:
-    terms = _fts_query_terms(query)
+    terms = fts_query_terms(query)
     if not terms:
         return 0.0
     haystack = " ".join(
@@ -879,11 +853,6 @@ def _fts_query_coverage(query: str, session_summary: SessionSummary) -> float:
     )
     matched = sum(1 for term in terms if term in haystack)
     return round(matched / len(terms), 6)
-
-
-def _quote_fts_phrase(value: str) -> str:
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"'
 
 
 def _bm25_score(rank: float) -> float:

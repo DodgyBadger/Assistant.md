@@ -145,7 +145,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5],
+                [1, 2, 3, 4, 5, 6],
                 "Chat migration version should be recorded",
             )
             self.soft_assert(
@@ -238,8 +238,8 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         with sqlite3.connect(retired_map_db) as conn:
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5],
-                "A database already at map migration 4 should apply the teardown migration",
+                [1, 2, 3, 4, 5, 6],
+                "A database already at map migration 4 should apply current migrations",
             )
             self.soft_assert(
                 all(
