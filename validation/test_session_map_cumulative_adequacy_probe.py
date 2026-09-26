@@ -21,6 +21,9 @@ from validation.scenarios.experiments.session_map_cumulative_adequacy_probe impo
     _simulate_eligibility_policy,
     _validate_corpus,
 )
+from validation.scenarios.experiments.session_map_cumulative_change_calibration import (  # noqa: E402
+    _select_threshold as _select_change_threshold,
+)
 
 
 def _record(
@@ -182,4 +185,25 @@ def test_hard_ceiling_forces_authoring_after_false_stable_checks() -> None:
         "hard_ceiling_triggers": 1,
         "false_early_triggers": 0,
         "maximum_detection_lag_turns": 1,
+    }
+
+
+def test_direct_change_threshold_uses_high_probability_as_trigger() -> None:
+    records = [
+        {"expected_reconciliation_needed": False, "broad_probability": 0.20},
+        {"expected_reconciliation_needed": False, "broad_probability": 0.30},
+        {"expected_reconciliation_needed": True, "broad_probability": 0.35},
+        {"expected_reconciliation_needed": True, "broad_probability": 0.80},
+    ]
+    result = _select_change_threshold(records, probability_key="broad_probability")
+    assert result == {
+        "threshold": 0.35,
+        "metrics": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "true_positive": 2,
+            "false_positive": 0,
+            "true_negative": 2,
+            "false_negative": 0,
+        },
     }

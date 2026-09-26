@@ -11,11 +11,14 @@ set_bootstrap_roots(_TEST_ROOT_PATH / "data", _TEST_ROOT_PATH / "system")
 
 from core.memory.session_map.change_detection import (  # noqa: E402
     SESSION_MAP_ADEQUACY_FIELDS,
+    SESSION_MAP_CUMULATIVE_CHANGE_FIELDS,
     SESSION_MAP_DIMENSIONS,
     SessionDeltaSignals,
     SessionMapAdequacySignals,
+    SessionMapCumulativeChangeSignals,
     SessionReconciliationSignal,
     build_cumulative_session_map_adequacy_request,
+    build_cumulative_session_map_change_request,
     build_session_delta_request,
     build_session_reconciliation_request,
 )
@@ -102,3 +105,20 @@ def test_cumulative_adequacy_request_rejects_missing_inputs() -> None:
         except ValueError:
             continue
         raise AssertionError("empty cumulative adequacy input must fail fast")
+
+
+def test_cumulative_change_schema_uses_direct_reconciliation_polarity() -> None:
+    schema = SessionMapCumulativeChangeSignals.model_json_schema()
+    assert tuple(schema["properties"]) == SESSION_MAP_CUMULATIVE_CHANGE_FIELDS
+    for field_name in SESSION_MAP_CUMULATIVE_CHANGE_FIELDS:
+        field_schema = schema["properties"][field_name]
+        assert field_schema["minimum"] == 0
+        assert field_schema["maximum"] == 1
+        assert field_schema["description"].endswith("?")
+
+    request = build_cumulative_session_map_change_request(
+        "goal:g1 active", "user: Change the active goal."
+    )
+    assert request.output_type is SessionMapCumulativeChangeSignals
+    assert "yes means reconciliation is required" in request.instructions
+    assert "<cumulative_canonical_delta>" in request.state

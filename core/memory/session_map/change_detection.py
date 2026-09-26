@@ -11,6 +11,7 @@ SESSION_RECONCILIATION_PROMPT_CONTRACT_VERSION = "session-map-reconcile-v2"
 SESSION_CUMULATIVE_ADEQUACY_PROMPT_CONTRACT_VERSION = (
     "session-map-cumulative-adequacy-v3"
 )
+SESSION_CUMULATIVE_CHANGE_PROMPT_CONTRACT_VERSION = "session-map-cumulative-change-v4"
 SESSION_MAP_DIMENSIONS = (
     "attention",
     "goals",
@@ -25,6 +26,9 @@ SESSION_MAP_DIMENSIONS = (
 SESSION_MAP_ADEQUACY_FIELDS = tuple(
     f"{dimension}_adequate" for dimension in SESSION_MAP_DIMENSIONS
 ) + ("coverage_adequate",)
+SESSION_MAP_CUMULATIVE_CHANGE_FIELDS = tuple(
+    f"{dimension}_needs_reconciliation" for dimension in SESSION_MAP_DIMENSIONS
+) + ("reconciliation_needed",)
 
 _SHARED_INSTRUCTIONS = """
 Judge only durable session-state changes explicitly established by the supplied
@@ -58,6 +62,18 @@ acknowledgements, repetitions, status queries, and conversation mechanics as sta
 unless the cumulative evidence establishes changed durable state. Do not infer
 adoption, completion, or verification. Return independent raw yes-probabilities:
 yes means the named field remains adequate without generative reconciliation.
+""".strip()
+
+_CUMULATIVE_CHANGE_INSTRUCTIONS = """
+Judge whether every canonical message accumulated since the accepted session map
+was authored establishes durable state that requires reconciling each named map
+field. Answer yes only for an addition, material revision, lifecycle change,
+resolution, supersession, omission, or foreground-attention change not already
+represented by the accepted map. Minor changes may become material in combination.
+Do not count tentative suggestions, acknowledgements, repetitions, status queries,
+or conversation mechanics unless the cumulative evidence establishes changed
+durable state. Do not infer adoption, completion, or verification. Return
+independent raw yes-probabilities; yes means reconciliation is required.
 """.strip()
 
 
@@ -234,6 +250,91 @@ class SessionMapAdequacySignals(BaseModel):
     )
 
 
+class SessionMapCumulativeChangeSignals(BaseModel):
+    """Probabilities that cumulative evidence requires map reconciliation."""
+
+    attention_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does foreground attention require reconciliation because the active "
+            "goal or active work focus materially changed?"
+        ),
+    )
+    goals_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the goals collection require reconciliation for a desired outcome "
+            "or lifecycle change?"
+        ),
+    )
+    work_items_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the work-items collection require reconciliation for changed work, "
+            "progress, ownership, blockers, or next actions?"
+        ),
+    )
+    decisions_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the decisions collection require reconciliation for a proposed, "
+            "adopted, rejected, superseded, or retired choice?"
+        ),
+    )
+    constraints_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the constraints collection require reconciliation for a material "
+            "requirement, preference, scope boundary, or waiver?"
+        ),
+    )
+    commitments_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the commitments collection require reconciliation for a concrete "
+            "obligation being made, fulfilled, or cancelled?"
+        ),
+    )
+    open_questions_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the open-questions collection require reconciliation for a material "
+            "question being opened, answered, reassigned, or withdrawn?"
+        ),
+    )
+    artifacts_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the artifacts collection require reconciliation for a work product, "
+            "reference, or verification-state change?"
+        ),
+    )
+    observations_needs_reconciliation: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Does the observations collection require reconciliation for material "
+            "working knowledge or an epistemic-state change?"
+        ),
+    )
+    reconciliation_needed: float = Field(
+        ge=0,
+        le=1,
+        description=(
+            "Taken as a whole, does the cumulative delta require any reconciliation "
+            "of the accepted session map or its foreground attention?"
+        ),
+    )
+
+
 def build_session_delta_request(delta: str) -> DecisionRequest[SessionDeltaSignals]:
     """Build the provider-neutral request used by the labelled offline probe."""
     normalized = delta.strip()
@@ -293,4 +394,29 @@ def build_cumulative_session_map_adequacy_request(
         state=state,
         output_type=SessionMapAdequacySignals,
         instructions=_CUMULATIVE_ADEQUACY_INSTRUCTIONS,
+    )
+
+
+def build_cumulative_session_map_change_request(
+    current_map: str, cumulative_delta: str
+) -> DecisionRequest[SessionMapCumulativeChangeSignals]:
+    """Ask direct cumulative change questions against one accepted map."""
+    normalized_map = current_map.strip()
+    normalized_delta = cumulative_delta.strip()
+    if not normalized_map:
+        raise ValueError("current session map must not be empty")
+    if not normalized_delta:
+        raise ValueError("cumulative session delta must not be empty")
+    state = (
+        "<accepted_session_map>\n"
+        f"{normalized_map}\n"
+        "</accepted_session_map>\n"
+        "<cumulative_canonical_delta>\n"
+        f"{normalized_delta}\n"
+        "</cumulative_canonical_delta>"
+    )
+    return DecisionRequest(
+        state=state,
+        output_type=SessionMapCumulativeChangeSignals,
+        instructions=_CUMULATIVE_CHANGE_INSTRUCTIONS,
     )
