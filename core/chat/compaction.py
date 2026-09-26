@@ -41,7 +41,7 @@ from core.settings import (
     get_compaction_token_threshold,
     get_compaction_type,
 )
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 
 from .chat_store import ChatStore
 

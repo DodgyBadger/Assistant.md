@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.constants import SUPPORTED_READ_FILE_TYPES
-from core.tools.utils import estimate_token_count
 from core.utils.image_inputs import (
     format_image_ref_marker,
     format_missing_image_marker,
     format_remote_image_ref_marker,
 )
+from core.utils.tokens import estimate_token_count
 
 from .markdown import MarkdownChunk
 from .policy import ChunkingPolicy

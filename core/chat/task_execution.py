@@ -70,7 +70,7 @@ from core.tools.failures import (
     classify_exception,
     classify_tool_result_state,
 )
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 from core.vault_state.rollback import rollback_task_file_mutations
 
 _CHAT_STORE = ChatStore()

@@ -35,7 +35,7 @@ from core.settings.store import (
     get_enabled_tools_config,
 )
 from core.tools.failures import classify_tool_result_state
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 from core.vault_state.pathing import (
     resolve_configured_vault_root,
     resolve_vault_relative_path,

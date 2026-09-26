@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slices 1A and 1B are implemented and validated; Slice 1C is next. Slice 1 is divided into four independently testable checkpoints so cleanup, storage, tool behavior, and broad-search integration do not fail as one undifferentiated change.
+Planning complete. Slices 1A through 1C are implemented and validated; Slice 1D is next. Slice 1 is divided into four independently testable checkpoints so cleanup, storage, tool behavior, and broad-search integration do not fail as one undifferentiated change.
 
 ## Decision Summary
 
@@ -146,6 +146,8 @@ Prefer an external-content FTS table linked to `chat_messages` if focused migrat
 Add focused storage and service tests proving migration backfill, immediate indexing of new messages, relevant update behavior, cascade purge, deterministic rebuild, vault/session authorization, canonical ordering, exact range reads, bounded lexical excerpts, and safe handling of malformed FTS queries. Slice 1B exits only when these behaviors work without invoking a model or tool and the service returns strategy-neutral canonical anchors suitable for both lexical and later hybrid ranking.
 
 ## Slice 1C: Focused `session_ops` Retrieval
+
+**Status:** Complete. The existing `session_ops` tool now exposes authorized `search_transcript` and `get_transcript_window` operations with current-session defaults, explicit same-vault lookup, stable canonical anchors, compaction-boundary metadata, chronological exact-source windows, conservative token budgets, and integrity-protected continuation cursors for oversized messages. Tool output and documentation mark recovered messages as untrusted historical evidence. Shared token estimation moved to `core/utils` so retrieval does not depend on the tool layer. The real-tool scenario covers pre-compaction recall, same-vault lookup, hostile historical content, lossless oversized-message continuation, and forged, mismatched, and stale cursor rejection. Ruff, Black, MyPy, diff checks, focused scenarios, and all 117 deterministic core scenarios pass.
 
 ### Tool contract
 
@@ -306,9 +308,9 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 
 ## Immediate Next Steps
 
-Continue Feature Development with Slice 1C only. Before defining its tool and continuation contracts, follow `docs/agent-guides/feature-development.md` and `docs/agent-guides/testing-and-validation.md`.
+Continue Feature Development with Slice 1D only. Follow `docs/agent-guides/feature-development.md` and `docs/agent-guides/testing-and-validation.md`, preserve the bounded retrieval contract established in Slice 1C, and stop at the overall Slice 1 exit gate.
 
-The completed first two checkpoints leave the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index behind an authorized retrieval service. Slice 1C exposes the two focused tool operations; Slice 1D integrates deep search and closes with the full core profile.
+The completed first three checkpoints leave the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through two bounded, authorized `session_ops` operations. Slice 1D reuses that backend for deep session discovery and closes with the full core profile.
 
 ## Evidence and Design Sources
 
