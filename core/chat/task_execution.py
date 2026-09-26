@@ -872,6 +872,7 @@ async def _run_prepared_chat_stream_task_inner(
     final_result = None
     messages_for_canonical_commit: list[ModelMessage] | None = None
     deferred_review = None
+    session_memory_recorded = False
     tool_activity: dict[str, dict[str, Any]] = {}
     session_buffer_store = get_session_buffer_store(session_id)
     async with task_context as task:
@@ -1141,6 +1142,36 @@ async def _run_prepared_chat_stream_task_inner(
                             vault_name=vault_name,
                             connection=connection,
                         )
+                        if not isinstance(deferred_requests, DeferredToolRequests):
+                            connection.execute("SAVEPOINT session_memory_pending")
+                            try:
+                                session_memory_recorded = (
+                                    runtime.session_memory.record_completed_turn(
+                                        connection,
+                                        session_id=session_id,
+                                        vault_name=vault_name,
+                                    )
+                                    is not None
+                                )
+                            except Exception as exc:  # noqa: BLE001
+                                connection.execute(
+                                    "ROLLBACK TO SAVEPOINT session_memory_pending"
+                                )
+                                chat_executor.logger.warning(
+                                    "Session-memory turn accounting failed",
+                                    data={
+                                        "event": "session_map_turn_accounting_failed",
+                                        "status": "failed",
+                                        "session_id": session_id,
+                                        "vault_name": vault_name,
+                                        "error_type": type(exc).__name__,
+                                        "issue": "session_map_turn_accounting",
+                                    },
+                                )
+                            finally:
+                                connection.execute(
+                                    "RELEASE SAVEPOINT session_memory_pending"
+                                )
                         if isinstance(deferred_requests, DeferredToolRequests):
                             deferred_review = create_deferred_review(
                                 vault_name=vault_name,
@@ -1216,6 +1247,12 @@ async def _run_prepared_chat_stream_task_inner(
                     "tool_summary": tool_activity,
                 },
             )
+            if final_result and deferred_review is None and session_memory_recorded:
+                await _try_session_memory_after_turn(
+                    task=task,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                )
 
         except asyncio.CancelledError as exc:
             chat_executor._log_chat_failure(
@@ -1446,6 +1483,35 @@ async def _run_prepared_chat_stream_task_inner(
             session_id=session_id,
             vault_name=vault_name,
             vault_path=vault_path,
+        )
+
+
+async def _try_session_memory_after_turn(
+    *,
+    task: ExecutionTaskSnapshot,
+    session_id: str,
+    vault_name: str,
+) -> None:
+    """Dispatch shadow maintenance without failing the completed chat turn."""
+    runtime = get_runtime_context()
+    try:
+        await runtime.session_memory.maybe_schedule_after_turn(
+            session_id=session_id,
+            vault_name=vault_name,
+            authority=ExecutionAuthority(principal_id=task.principal_id),
+            parent_task_id=task.task_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        chat_executor.logger.warning(
+            "Session-memory dispatch failed after completed chat turn",
+            data={
+                "event": "session_map_dispatch_failed",
+                "status": "failed",
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "error_type": type(exc).__name__,
+                "issue": "session_map_dispatch",
+            },
         )
 
 

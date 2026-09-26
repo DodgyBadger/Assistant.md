@@ -350,6 +350,28 @@ async def bootstrap_runtime(
         authorization = AuthorizationService()
         chat_store = ChatStore(str(config.system_root))
         chat_session_access = ChatSessionAccessService(chat_store, authorization)
+        from core.memory.session_map.service import SessionMapService
+        from core.memory.session_map.store import SessionMapStore
+
+        session_map_store = SessionMapStore(str(config.system_root))
+        recovered_session_map_attempts = (
+            session_map_store.recover_interrupted_attempts()
+        )
+        if recovered_session_map_attempts:
+            logger.warning(
+                "Interrupted session-map attempts reconciled",
+                data={
+                    "event": "session_map_attempts_reconciled",
+                    "status": "completed",
+                    "attempt_count": recovered_session_map_attempts,
+                    "reason": "application_restart",
+                },
+            )
+        session_memory = SessionMapService(
+            chat_store=chat_store,
+            map_store=session_map_store,
+            task_runner=task_runner,
+        )
         execution_task_access = ExecutionTaskAccessService(
             task_coordinator,
             authorization,
@@ -372,6 +394,7 @@ async def bootstrap_runtime(
             execution_task_access=execution_task_access,
             chat_store=chat_store,
             chat_session_access=chat_session_access,
+            session_memory=session_memory,
             task_runner=task_runner,
             workflow_governor=workflow_governor,
             workflow_run_store=workflow_run_store,

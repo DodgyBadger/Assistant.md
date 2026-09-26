@@ -67,6 +67,38 @@ def _validate_general_setting_value(
     name: str, value: Any, settings_file: SettingsFile
 ) -> None:
     """Validate safety-sensitive general settings before persistence."""
+    if name == "live_session_memory_mode" and value not in {"off", "observe"}:
+        raise SettingsError("Live session memory mode must be 'off' or 'observe'.")
+    if name in {
+        "live_session_memory_author_model",
+        "live_session_memory_decision_model",
+    } and (not isinstance(value, str) or not value.strip()):
+        raise SettingsError("Live session memory model aliases must not be empty.")
+    probability_names = {
+        "live_session_memory_broad_change_threshold",
+        "live_session_memory_field_change_threshold",
+    }
+    if name in probability_names and not (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and 0 <= value <= 1
+    ):
+        raise SettingsError("Session memory probability thresholds must be 0 to 1.")
+    positive_limits = {
+        "live_session_memory_eligibility_turns": 1_000,
+        "live_session_memory_max_pending_turns": 10_000,
+        "live_session_memory_max_pending_tokens": 10_000_000,
+        "live_session_memory_task_timeout_seconds": 3_600,
+        "live_session_memory_max_concurrent_tasks": 32,
+    }
+    if name in positive_limits and not (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and 1 <= value <= positive_limits[name]
+    ):
+        raise SettingsError(
+            f"Setting '{name}' must be between 1 and {positive_limits[name]}."
+        )
     if name == "model_stream_retries" and not 0 <= value <= 5:
         raise SettingsError("Model stream retries must be between 0 and 5.")
     if name == "mcp_max_concurrent_advanced_shell_stdio_launches" and not (
@@ -86,6 +118,26 @@ def _validate_general_setting_value(
             "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
         )
 
+    settings = _merged_general_settings(settings_file)
+    if name in {
+        "live_session_memory_eligibility_turns",
+        "live_session_memory_max_pending_turns",
+    }:
+        eligibility = (
+            int(value)
+            if name == "live_session_memory_eligibility_turns"
+            else int(settings["live_session_memory_eligibility_turns"].value)
+        )
+        maximum = (
+            int(value)
+            if name == "live_session_memory_max_pending_turns"
+            else int(settings["live_session_memory_max_pending_turns"].value)
+        )
+        if maximum < eligibility:
+            raise SettingsError(
+                "Session memory maximum pending turns must be at least the eligibility interval."
+            )
+
     delay_names = {
         "model_stream_retry_base_delay_seconds",
         "model_stream_retry_max_delay_seconds",
@@ -97,7 +149,6 @@ def _validate_general_setting_value(
             "Model stream retry delays must be between 0 and 300 seconds."
         )
 
-    settings = _merged_general_settings(settings_file)
     other_name = next(iter(delay_names - {name}))
     other_entry = settings.get(other_name)
     other_value = getattr(other_entry, "value", None)

@@ -9,10 +9,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from pydantic import JsonValue, TypeAdapter
-from pydantic_ai.messages import ModelMessage, NativeToolReturnPart, ToolReturnPart
 
 from core.chat.schema import DB_NAME, ensure_chat_sessions_schema
 from core.database import connect_sqlite_from_system_db
+from core.tools.utils import estimate_token_count
 
 from .models import (
     PatchOperation,
@@ -23,8 +23,7 @@ from .models import (
 )
 
 _PATCHES_ADAPTER = TypeAdapter(tuple[PatchOperation, ...])
-_MESSAGE_ADAPTER: TypeAdapter[ModelMessage] = TypeAdapter(ModelMessage)
-_ERROR_ADAPTER = TypeAdapter(dict[str, JsonValue])
+_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 
 
 @dataclass(frozen=True)
@@ -45,6 +44,10 @@ class SessionMapMaintenanceState:
     frozen_pending_turn_count: int | None
     frozen_pending_token_count: int | None
     attempt_count: int
+    decision_checked_through_sequence_index: int
+    decision_checked_pending_turn_count: int
+    last_decision: dict[str, JsonValue] | None
+    last_authoring: dict[str, JsonValue] | None
     last_error: dict[str, JsonValue] | None
 
 
@@ -82,6 +85,16 @@ class SessionMapStore:
             raise ValueError(
                 "pending high-water mark must equal the canonical message high-water mark"
             )
+        existing = connection.execute(
+            """
+            SELECT observed_through_sequence_index
+            FROM chat_session_map_maintenance
+            WHERE session_id = ? AND vault_name = ?
+            """,
+            (session_id, vault_name),
+        ).fetchone()
+        if existing is not None and through_sequence_index <= int(existing[0]):
+            return
         connection.execute(
             """
             INSERT INTO chat_session_map_maintenance (
@@ -107,8 +120,54 @@ class SessionMapStore:
             (session_id, vault_name, through_sequence_index, token_count),
         )
 
+    def record_completed_turn(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        session_id: str,
+        vault_name: str,
+    ) -> int:
+        """Account for one completed turn and every newly observed raw message."""
+        row = connection.execute(
+            """
+            SELECT observed_through_sequence_index
+            FROM chat_session_map_maintenance
+            WHERE session_id = ? AND vault_name = ?
+            """,
+            (session_id, vault_name),
+        ).fetchone()
+        after_sequence_index = int(row[0]) if row is not None else -1
+        message_rows = connection.execute(
+            """
+            SELECT sequence_index, message_json
+            FROM chat_messages
+            WHERE session_id = ? AND vault_name = ? AND sequence_index > ?
+            ORDER BY sequence_index ASC
+            """,
+            (session_id, vault_name, after_sequence_index),
+        ).fetchall()
+        if not message_rows:
+            raise ValueError("completed turn has no newly persisted canonical messages")
+        through_sequence_index = int(message_rows[-1][0])
+        token_count = sum(
+            estimate_token_count(str(message_row[1] or ""))
+            for message_row in message_rows
+        )
+        self.record_pending(
+            connection,
+            session_id=session_id,
+            vault_name=vault_name,
+            through_sequence_index=through_sequence_index,
+            token_count=token_count,
+        )
+        return through_sequence_index
+
     def freeze_attempt(
-        self, session_id: str, vault_name: str
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        task_id: str | None = None,
     ) -> SessionMapMaintenanceState:
         """Freeze one canonical source range for deterministic reconciliation."""
         with self._transaction() as conn:
@@ -146,7 +205,82 @@ class SessionMapStore:
             frozen = self._get_maintenance_state(conn, session_id, vault_name)
             if frozen is None:  # pragma: no cover - transaction consistency guard
                 raise RuntimeError("failed to freeze session-map attempt")
+            assert frozen.frozen_from_sequence_index is not None
+            assert frozen.frozen_through_sequence_index is not None
+            assert frozen.frozen_predecessor_revision is not None
+            assert frozen.frozen_source_content_revision is not None
+            assert frozen.frozen_pending_turn_count is not None
+            assert frozen.frozen_pending_token_count is not None
+            conn.execute(
+                """
+                INSERT INTO chat_session_map_attempts (
+                    session_id, vault_name, attempt_number, task_id, status,
+                    from_sequence_index, through_sequence_index,
+                    predecessor_revision, source_content_revision,
+                    pending_turn_count, pending_token_count
+                ) VALUES (?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    vault_name,
+                    frozen.attempt_count,
+                    task_id,
+                    frozen.frozen_from_sequence_index,
+                    frozen.frozen_through_sequence_index,
+                    frozen.frozen_predecessor_revision,
+                    frozen.frozen_source_content_revision,
+                    frozen.frozen_pending_turn_count,
+                    frozen.frozen_pending_token_count,
+                ),
+            )
             return frozen
+
+    def skip_attempt(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        decision: dict[str, JsonValue],
+    ) -> None:
+        """Record a confident stable judgment without consuming pending evidence."""
+        decision_json = _dump_json_object(decision)
+        with self._transaction() as conn:
+            state = self._get_maintenance_state(conn, session_id, vault_name)
+            if (
+                state is None
+                or state.status != "processing"
+                or state.frozen_through_sequence_index is None
+            ):
+                raise SessionMapConflictError("no frozen session-map attempt")
+            conn.execute(
+                """
+                UPDATE chat_session_map_maintenance
+                SET status = 'pending',
+                    decision_checked_through_sequence_index = MAX(
+                        decision_checked_through_sequence_index,
+                        frozen_through_sequence_index
+                    ),
+                    decision_checked_pending_turn_count =
+                        frozen_pending_turn_count,
+                    last_decision_json = ?,
+                    frozen_from_sequence_index = NULL,
+                    frozen_through_sequence_index = NULL,
+                    frozen_predecessor_revision = NULL,
+                    frozen_source_content_revision = NULL,
+                    frozen_pending_turn_count = NULL,
+                    frozen_pending_token_count = NULL,
+                    last_error_json = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = ? AND vault_name = ? AND status = 'processing'
+                """,
+                (decision_json, session_id, vault_name),
+            )
+            self._complete_attempt_row(
+                conn,
+                state=state,
+                status="skipped",
+                decision_json=decision_json,
+            )
 
     def commit_revision(
         self,
@@ -156,6 +290,8 @@ class SessionMapStore:
         expected_revision: int,
         session_map: SessionMap,
         operations: tuple[PatchOperation, ...],
+        decision: dict[str, JsonValue] | None = None,
+        authoring: dict[str, JsonValue] | None = None,
     ) -> None:
         """Append a map revision only when its frozen predecessor still matches."""
         with self._transaction() as conn:
@@ -191,6 +327,8 @@ class SessionMapStore:
                 session_map=session_map,
                 operations=operations,
             )
+            decision_json = _dump_optional_json_object(decision)
+            authoring_json = _dump_optional_json_object(authoring)
             conn.execute(
                 """
                 INSERT INTO chat_session_map_revisions (
@@ -231,11 +369,31 @@ class SessionMapStore:
                     frozen_source_content_revision = NULL,
                     frozen_pending_turn_count = NULL,
                     frozen_pending_token_count = NULL,
+                    decision_checked_through_sequence_index = MAX(
+                        decision_checked_through_sequence_index,
+                        ?
+                    ),
+                    decision_checked_pending_turn_count = 0,
+                    last_decision_json = ?,
+                    last_authoring_json = ?,
                     last_error_json = NULL,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE session_id = ? AND vault_name = ?
                 """,
-                (session_id, vault_name),
+                (
+                    session_map.updated_through_sequence_index,
+                    decision_json,
+                    authoring_json,
+                    session_id,
+                    vault_name,
+                ),
+            )
+            self._complete_attempt_row(
+                conn,
+                state=state,
+                status="committed",
+                decision_json=decision_json,
+                authoring_json=authoring_json,
             )
 
     def fail_attempt(
@@ -245,12 +403,19 @@ class SessionMapStore:
         *,
         error_type: str,
         retryable: bool,
+        decision: dict[str, JsonValue] | None = None,
+        authoring: dict[str, JsonValue] | None = None,
     ) -> None:
         """Return a frozen attempt to pending state with sanitized diagnostics."""
         error_json = json.dumps(
             {"error_type": error_type, "retryable": retryable}, sort_keys=True
         )
+        decision_json = _dump_optional_json_object(decision)
+        authoring_json = _dump_optional_json_object(authoring)
         with self._transaction() as conn:
+            state = self._get_maintenance_state(conn, session_id, vault_name)
+            if state is None or state.status != "processing":
+                raise SessionMapConflictError("no frozen session-map attempt")
             cursor = conn.execute(
                 """
                 UPDATE chat_session_map_maintenance
@@ -261,14 +426,30 @@ class SessionMapStore:
                     frozen_source_content_revision = NULL,
                     frozen_pending_turn_count = NULL,
                     frozen_pending_token_count = NULL,
+                    last_decision_json = COALESCE(?, last_decision_json),
+                    last_authoring_json = COALESCE(?, last_authoring_json),
                     last_error_json = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE session_id = ? AND vault_name = ? AND status = 'processing'
                 """,
-                (error_json, session_id, vault_name),
+                (
+                    decision_json,
+                    authoring_json,
+                    error_json,
+                    session_id,
+                    vault_name,
+                ),
             )
             if cursor.rowcount != 1:
                 raise SessionMapConflictError("no frozen session-map attempt")
+            self._complete_attempt_row(
+                conn,
+                state=state,
+                status="failed",
+                decision_json=decision_json,
+                authoring_json=authoring_json,
+                error_json=error_json,
+            )
 
     def get_latest_revision(
         self, session_id: str, vault_name: str
@@ -316,7 +497,19 @@ class SessionMapStore:
 
     def recover_interrupted_attempts(self) -> int:
         """Return process-interrupted frozen attempts to pending state."""
+        error_json = json.dumps(
+            {"error_type": "process_restart", "retryable": True}, sort_keys=True
+        )
         with self._transaction() as conn:
+            conn.execute(
+                """
+                UPDATE chat_session_map_attempts
+                SET status = 'failed', error_json = ?,
+                    completed_at = CURRENT_TIMESTAMP
+                WHERE status = 'processing'
+                """,
+                (error_json,),
+            )
             cursor = conn.execute(
                 """
                 UPDATE chat_session_map_maintenance
@@ -327,9 +520,11 @@ class SessionMapStore:
                     frozen_source_content_revision = NULL,
                     frozen_pending_turn_count = NULL,
                     frozen_pending_token_count = NULL,
+                    last_error_json = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE status = 'processing'
-                """
+                """,
+                (error_json,),
             )
             return cursor.rowcount
 
@@ -391,7 +586,10 @@ class SessionMapStore:
                    pending_token_count, status, frozen_from_sequence_index,
                    frozen_through_sequence_index, frozen_predecessor_revision,
                    frozen_source_content_revision, frozen_pending_turn_count,
-                   frozen_pending_token_count, attempt_count, last_error_json
+                   frozen_pending_token_count, attempt_count,
+                   decision_checked_through_sequence_index,
+                   decision_checked_pending_turn_count, last_decision_json,
+                   last_authoring_json, last_error_json
             FROM chat_session_map_maintenance
             WHERE session_id = ? AND vault_name = ?
             """,
@@ -399,7 +597,11 @@ class SessionMapStore:
         ).fetchone()
         if row is None:
             return None
-        error = _ERROR_ADAPTER.validate_json(str(row[14])) if row[14] else None
+        decision = _JSON_OBJECT_ADAPTER.validate_json(str(row[16])) if row[16] else None
+        authoring = (
+            _JSON_OBJECT_ADAPTER.validate_json(str(row[17])) if row[17] else None
+        )
+        error = _JSON_OBJECT_ADAPTER.validate_json(str(row[18])) if row[18] else None
         return SessionMapMaintenanceState(
             session_id=str(row[0]),
             vault_name=str(row[1]),
@@ -415,8 +617,43 @@ class SessionMapStore:
             frozen_pending_turn_count=_optional_int(row[11]),
             frozen_pending_token_count=_optional_int(row[12]),
             attempt_count=int(row[13]),
+            decision_checked_through_sequence_index=int(row[14]),
+            decision_checked_pending_turn_count=int(row[15]),
+            last_decision=decision,
+            last_authoring=authoring,
             last_error=error,
         )
+
+    @staticmethod
+    def _complete_attempt_row(
+        conn: sqlite3.Connection,
+        *,
+        state: SessionMapMaintenanceState,
+        status: str,
+        decision_json: str | None = None,
+        authoring_json: str | None = None,
+        error_json: str | None = None,
+    ) -> None:
+        cursor = conn.execute(
+            """
+            UPDATE chat_session_map_attempts
+            SET status = ?, decision_json = ?, authoring_json = ?,
+                error_json = ?, completed_at = CURRENT_TIMESTAMP
+            WHERE session_id = ? AND vault_name = ? AND attempt_number = ?
+              AND status = 'processing'
+            """,
+            (
+                status,
+                decision_json,
+                authoring_json,
+                error_json,
+                state.session_id,
+                state.vault_name,
+                state.attempt_count,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise SessionMapConflictError("frozen session-map attempt audit is missing")
 
     @staticmethod
     def _validate_canonical_sources(
@@ -472,13 +709,32 @@ def _optional_int(value: object) -> int | None:
     return None if value is None else int(str(value))
 
 
+def _dump_json_object(value: dict[str, JsonValue]) -> str:
+    return _JSON_OBJECT_ADAPTER.dump_json(value).decode("utf-8")
+
+
+def _dump_optional_json_object(value: dict[str, JsonValue] | None) -> str | None:
+    return None if value is None else _dump_json_object(value)
+
+
 def _canonical_source_role(stored_role: str, message_json: str) -> str:
-    message = _MESSAGE_ADAPTER.validate_json(message_json)
-    if any(
-        isinstance(part, ToolReturnPart | NativeToolReturnPart)
-        for part in getattr(message, "parts", ()) or ()
+    payload = json.loads(message_json)
+    parts = payload.get("parts") if isinstance(payload, dict) else None
+    if isinstance(parts, list) and any(
+        isinstance(part, dict)
+        and part.get("part_kind") in {"tool-return", "builtin-tool-return"}
+        for part in parts
     ):
         return "tool"
+    if (
+        stored_role == "system"
+        and isinstance(parts, list)
+        and all(
+            isinstance(part, dict) and part.get("part_kind") == "system-prompt"
+            for part in parts
+        )
+    ):
+        return "user"
     if stored_role not in {"user", "assistant"}:
         raise ValueError(f"unsupported canonical source role '{stored_role}'")
     return stored_role

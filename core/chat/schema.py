@@ -27,6 +27,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="add_live_session_map_storage",
         apply=lambda conn: _migrate_live_session_map_storage(conn),
     ),
+    SQLiteMigration(
+        version=4,
+        name="add_live_session_map_attempt_audit",
+        apply=lambda conn: _migrate_live_session_map_attempt_audit(conn),
+    ),
 )
 
 
@@ -189,6 +194,7 @@ def ensure_chat_sessions_schema(
         _migrate_compaction_checkpoints(conn)
         _migrate_session_owners(conn)
         _migrate_live_session_map_storage(conn)
+        _migrate_live_session_map_attempt_audit(conn)
         conn.commit()
         if apply_migrations:
             apply_sqlite_migrations(
@@ -325,6 +331,67 @@ def _migrate_live_session_map_storage(conn: sqlite3.Connection) -> None:
                 REFERENCES chat_sessions(session_id, vault_name)
                 ON DELETE CASCADE
         )
+        """
+    )
+
+
+def _migrate_live_session_map_attempt_audit(conn: sqlite3.Connection) -> None:
+    """Add durable classifier and author diagnostics for shadow maintenance."""
+    _ensure_column(
+        conn,
+        "chat_session_map_maintenance",
+        "decision_checked_through_sequence_index",
+        "INTEGER NOT NULL DEFAULT -1",
+    )
+    _ensure_column(
+        conn,
+        "chat_session_map_maintenance",
+        "decision_checked_pending_turn_count",
+        "INTEGER NOT NULL DEFAULT 0",
+    )
+    _ensure_column(
+        conn,
+        "chat_session_map_maintenance",
+        "last_decision_json",
+        "TEXT",
+    )
+    _ensure_column(
+        conn,
+        "chat_session_map_maintenance",
+        "last_authoring_json",
+        "TEXT",
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS chat_session_map_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            vault_name TEXT NOT NULL,
+            attempt_number INTEGER NOT NULL,
+            task_id TEXT,
+            status TEXT NOT NULL,
+            from_sequence_index INTEGER NOT NULL,
+            through_sequence_index INTEGER NOT NULL,
+            predecessor_revision INTEGER NOT NULL,
+            source_content_revision INTEGER NOT NULL,
+            pending_turn_count INTEGER NOT NULL,
+            pending_token_count INTEGER NOT NULL,
+            decision_json TEXT,
+            authoring_json TEXT,
+            error_json TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            UNIQUE (session_id, vault_name, attempt_number),
+            FOREIGN KEY (session_id, vault_name)
+                REFERENCES chat_sessions(session_id, vault_name)
+                ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_chat_session_map_attempts_session
+        ON chat_session_map_attempts(session_id, vault_name, attempt_number DESC)
         """
     )
 

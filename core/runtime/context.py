@@ -5,10 +5,12 @@ Provides centralized access to core services and manages lifecycle
 for scheduler, workflow loader, and related components.
 """
 
+from __future__ import annotations
+
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -41,6 +43,9 @@ from core.workflow_runs import WorkflowRunStore
 
 from . import state as runtime_state
 from .config import RuntimeConfig
+
+if TYPE_CHECKING:
+    from core.memory.session_map.service import SessionMapService
 
 
 @dataclass
@@ -79,6 +84,7 @@ class RuntimeContext:
     execution_task_access: ExecutionTaskAccessService
     chat_store: ChatStore
     chat_session_access: ChatSessionAccessService
+    session_memory: SessionMapService
     task_runner: ExecutionTaskRunner
     workflow_governor: WorkflowGovernor
     workflow_run_store: WorkflowRunStore

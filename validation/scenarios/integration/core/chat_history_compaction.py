@@ -423,6 +423,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
             1,
             2,
             3,
+            4,
         ], "Chat migrations are recorded in schema_migrations"
 
         assert (

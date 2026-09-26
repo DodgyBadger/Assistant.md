@@ -185,6 +185,56 @@ settings:
     description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
     category: "Chat"
     restart_required: false
+  live_session_memory_mode:
+    value: off
+    description: "Live session-memory policy. Off leaves chat unchanged; observe maintains a shadow session map without admitting it to model context or compaction."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_decision_model:
+    value: jev
+    description: "Decision-capable model alias used by the cumulative session-map salience gate."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_author_model:
+    value: gpt-mini
+    description: "Generative text model alias used to author session-map patches after the salience gate triggers."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_eligibility_turns:
+    value: 3
+    description: "Completed turns accumulated between cumulative session-map salience checks."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_broad_change_threshold:
+    value: 0.25
+    description: "Broad Jev reconciliation probability that triggers session-map authoring."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_field_change_threshold:
+    value: 0.5
+    description: "Any field-level Jev reconciliation probability at or above this value triggers session-map authoring."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_pending_turns:
+    value: 30
+    description: "Maximum completed turns retained after the accepted map watermark before authoring is forced without a Jev skip."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_pending_tokens:
+    value: 80000
+    description: "Maximum estimated canonical tokens retained after the accepted map watermark before authoring is forced without a Jev skip."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_task_timeout_seconds:
+    value: 180
+    description: "Timeout for one tracked session-memory gate and authoring attempt."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_concurrent_tasks:
+    value: 2
+    description: "Maximum session-memory model tasks running concurrently across sessions."
+    category: "Session Memory"
+    restart_required: false
   file_search_timeout_seconds:
     value: 10
     description: "Timeout in seconds for file_read search operations."

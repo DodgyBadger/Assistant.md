@@ -942,6 +942,106 @@ def get_compaction_token_threshold() -> int:
     return parsed if parsed > 0 else template_default
 
 
+def get_live_session_memory_mode() -> str:
+    """Return the disabled-by-default live session-memory policy."""
+    entry = get_general_settings().get("live_session_memory_mode")
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or "off").strip().lower()
+    return normalized if normalized in {"off", "observe"} else "off"
+
+
+def get_live_session_memory_decision_model() -> str:
+    """Return the model alias used for session-memory salience decisions."""
+    return _get_nonempty_setting_string("live_session_memory_decision_model", "jev")
+
+
+def get_live_session_memory_author_model() -> str:
+    """Return the model alias used to author session-map patches."""
+    return _get_nonempty_setting_string("live_session_memory_author_model", "gpt-mini")
+
+
+def get_live_session_memory_eligibility_turns() -> int:
+    """Return the completed-turn interval between salience checks."""
+    return _get_bounded_positive_int_setting(
+        "live_session_memory_eligibility_turns", default=3, maximum=1_000
+    )
+
+
+def get_live_session_memory_broad_change_threshold() -> float:
+    """Return the broad reconciliation probability that triggers authoring."""
+    return _get_probability_setting(
+        "live_session_memory_broad_change_threshold", default=0.25
+    )
+
+
+def get_live_session_memory_field_change_threshold() -> float:
+    """Return the field reconciliation probability that triggers authoring."""
+    return _get_probability_setting(
+        "live_session_memory_field_change_threshold", default=0.5
+    )
+
+
+def get_live_session_memory_max_pending_turns() -> int:
+    """Return the cumulative turn ceiling that forces map authoring."""
+    return _get_bounded_positive_int_setting(
+        "live_session_memory_max_pending_turns", default=30, maximum=10_000
+    )
+
+
+def get_live_session_memory_max_pending_tokens() -> int:
+    """Return the cumulative token ceiling that forces map authoring."""
+    return _get_bounded_positive_int_setting(
+        "live_session_memory_max_pending_tokens", default=80_000, maximum=10_000_000
+    )
+
+
+def get_live_session_memory_task_timeout_seconds() -> float:
+    """Return the timeout for one tracked session-memory attempt."""
+    entry = get_general_settings().get("live_session_memory_task_timeout_seconds")
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_float(value)
+    except (TypeError, ValueError):
+        return 180.0
+    return min(max(parsed, 1.0), 3_600.0)
+
+
+def get_live_session_memory_max_concurrent_tasks() -> int:
+    """Return the global concurrency limit for session-memory model work."""
+    return _get_bounded_positive_int_setting(
+        "live_session_memory_max_concurrent_tasks", default=2, maximum=32
+    )
+
+
+def _get_nonempty_setting_string(setting_key: str, default: str) -> str:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or default).strip()
+    return normalized or default
+
+
+def _get_bounded_positive_int_setting(
+    setting_key: str, *, default: int, maximum: int
+) -> int:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if 0 < parsed <= maximum else default
+
+
+def _get_probability_setting(setting_key: str, *, default: float) -> float:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if 0.0 <= parsed <= 1.0 else default
+
+
 def get_file_search_timeout_seconds() -> float:
     """Return file search timeout seconds, falling back to 10 seconds."""
     entry = get_general_settings().get("file_search_timeout_seconds")

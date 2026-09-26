@@ -280,13 +280,46 @@ Seed TypeSafe as a built-in provider and `jev` as a reusable decision-model alia
 settings:
   live_session_memory_mode:
     value: off
-    description: "Live session-memory rollout mode: off, observe, context, or compaction."
-    category: "Chat"
+    description: "Live session-memory policy. The initial runtime supports off and observe."
+    category: "Session Memory"
     restart_required: false
   live_session_memory_decision_model:
     value: jev
     description: "Decision-capable model alias used for live session-memory classification."
-    category: "Models"
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_author_model:
+    value: gpt-mini
+    description: "Generative text model alias used to author session-map patches."
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_eligibility_turns:
+    value: 3
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_broad_change_threshold:
+    value: 0.25
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_field_change_threshold:
+    value: 0.50
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_pending_turns:
+    value: 30
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_pending_tokens:
+    value: 80000
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_task_timeout_seconds:
+    value: 180
+    category: "Session Memory"
+    restart_required: false
+  live_session_memory_max_concurrent_tasks:
+    value: 2
+    category: "Session Memory"
     restart_required: false
 
 models:
@@ -516,6 +549,8 @@ Follow-up full-prefix calls for Terra at medium thinking and Sol at low thinking
 
 ### Slice 6: Opt-In Shadow Maintenance
 
+**Status:** The first observe-mode implementation is in place. Successful completed turns account for new canonical messages inside the chat persistence transaction, then dispatch eligible maintenance from the still-active chat task. Maintenance runs as a detached `session_memory` child through `ExecutionTaskRunner`, with a session-specific gate, global bounded-concurrency lane, timeout/cancellation cleanup, cumulative direct-change Jev classification, optional authoring, deterministic patch validation, and compare-and-swap commit. Stable decisions retain the full pending range while recording a separate decision-turn watermark so another check waits for `X` new completed turns. Append-only attempt audits retain classifier, author, usage, latency, threshold, force, outcome, and sanitized failure data. `off` remains the default, `observe` does not inject maps or alter compaction, and there is no post-author model judge or regeneration loop.
+
 **Hypothesis:** Frequent cumulative decision checks can keep the map timely while avoiding most generative author calls, while deterministic author-output validation and observe-only operation preserve chat reliability.
 
 **Build:** Add disabled-by-default `live_session_memory_mode` with `off` and `observe` initially, plus configurable `live_session_memory_author_model`, `live_session_memory_decision_model`, eligibility interval, direct-change thresholds, and maximum pending-turn/token ceiling. Validate generative text capability for the author and decision capability for the classifier with independent provider, credential, and resolved-model diagnostics. Add `core/memory/session_map/service.py`, compose one instance in `RuntimeContext`, and submit work through `ExecutionTaskRunner.start_background(...)` with an explicit session-memory task spec, inherited execution authority, timeout and lifecycle hooks, a keyed per-session execution gate, and the shared bounded-concurrency policy. The service freezes one cumulative source range and runs its Jev salience gate, optional author, deterministic validator, and compare-and-swap inside that tracked task. The successful-turn hook only durably advances pending counters and dispatches or coalesces work; it never calls a memory model inline and never uses a parallel background-task path. In `observe`, persist classifier decisions, validated map revisions, retry outcomes, and diagnostics without injecting the map or changing compaction output. Keep core lifecycle ownership outside generic scripts.
@@ -606,4 +641,4 @@ Follow-up full-prefix calls for Terra at medium thinking and Sol at low thinking
 
 ## Next Phase
 
-Continue with Slice 6 by implementing disabled-by-default `off` and `observe` modes around the selected cumulative Jev gate and existing author. Persist scheduling, decision, validation, and map-revision diagnostics; route the entire maintenance attempt through `ExecutionTaskRunner`; and expose eligibility, trigger, and hard-ceiling knobs for live tuning. Do not add a post-author model judge, regeneration loop, prompt injection, or compaction behavior in this slice.
+Complete Slice 6 validation by running `observe` through normal application chat paths with the configured Jev and author models, then inspect the durable attempt audit for trigger precision, cumulative-input growth, author-call rate, latency, cost, failures, and map quality. Define the shadow exit bounds before tuning eligibility, thresholds, or hard ceilings, and add deterministic coverage for the remaining failure, timeout, cancellation, restart, hard-ceiling, and stale-writer contracts exposed by those runs. Do not begin context admission, add a post-author model judge or regeneration loop, or change compaction behavior until shadow operation meets the declared bounds.

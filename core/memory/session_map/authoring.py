@@ -260,6 +260,109 @@ class CanonicalMapMessage(BaseModel):
     )
 
 
+def project_canonical_map_message(
+    *, sequence_index: int, stored_role: str, message_json: str
+) -> CanonicalMapMessage:
+    """Project one persisted provider message into bounded authoring evidence."""
+    payload = json.loads(message_json)
+    parts = payload.get("parts")
+    if not isinstance(parts, list) or not parts:
+        raise ValueError(f"message {sequence_index} has no canonical parts")
+    rendered: list[str] = []
+    visible_kinds: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            raise ValueError(f"message {sequence_index} contains a non-object part")
+        kind = str(part.get("part_kind") or "unknown")
+        if kind == "thinking":
+            continue
+        if kind in {"system-prompt", "instruction", "compaction"}:
+            rendered.append("[system-maintained derived context omitted]")
+            visible_kinds.append(kind)
+            continue
+        if kind in {"user-prompt", "text"}:
+            rendered.append(_render_canonical_value(part.get("content")))
+        elif kind in {"tool-call", "builtin-tool-call"}:
+            name = str(part.get("tool_name") or part.get("name") or "tool")
+            rendered.append(
+                f"[tool call: {name}] {_render_canonical_value(part.get('args'))}"
+            )
+        elif kind in {"tool-return", "builtin-tool-return"}:
+            name = str(part.get("tool_name") or part.get("name") or "tool")
+            rendered.append(
+                f"[tool result: {name}] "
+                f"{_render_canonical_value(part.get('content'))}"
+            )
+        elif kind == "retry-prompt":
+            name = str(part.get("tool_name") or "model output")
+            rendered.append(
+                f"[retry requested for: {name}] "
+                f"{_render_canonical_value(part.get('content'))}"
+            )
+        elif kind == "speech":
+            transcript = part.get("transcript")
+            rendered.append(
+                str(transcript)
+                if isinstance(transcript, str) and transcript.strip()
+                else "[speech audio omitted]"
+            )
+        elif kind == "file":
+            rendered.append(_render_file_placeholder(part.get("content")))
+        elif kind == "tool-availability-delta":
+            rendered.append("[tool availability metadata omitted]")
+        else:
+            raise ValueError(
+                f"message {sequence_index} has unsupported part kind '{kind}'"
+            )
+        visible_kinds.append(kind)
+    if not rendered:
+        rendered.append("[no durable visible content]")
+    role: Literal["user", "assistant", "tool"]
+    return_kinds = {"tool-return", "builtin-tool-return"}
+    if visible_kinds and set(visible_kinds) <= return_kinds:
+        role = "tool"
+    elif stored_role == "assistant":
+        role = "assistant"
+    else:
+        role = "user"
+    return CanonicalMapMessage(
+        sequence_index=sequence_index,
+        role=role,
+        content="\n\n".join(rendered),
+    )
+
+
+def _render_canonical_value(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    return json.dumps(
+        _redact_binary_values(value),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _redact_binary_values(value: Any) -> Any:
+    if isinstance(value, dict):
+        if value.get("kind") == "binary":
+            media_type = str(value.get("media_type") or "binary")
+            identifier = str(value.get("identifier") or "unknown")
+            return f"[binary attachment omitted: {media_type}, id={identifier}]"
+        return {key: _redact_binary_values(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_binary_values(item) for item in value]
+    return value
+
+
+def _render_file_placeholder(value: Any) -> str:
+    if isinstance(value, dict):
+        media_type = str(value.get("media_type") or "file")
+        identifier = str(value.get("identifier") or "unknown")
+        return f"[file content omitted: {media_type}, id={identifier}]"
+    return "[file content omitted]"
+
+
 @dataclass(frozen=True)
 class SessionMapAuthoringRequest:
     """Validated prior map, canonical delta, and source revision controls."""

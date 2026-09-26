@@ -16,6 +16,7 @@ from core.memory.session_map.authoring import (
     SessionMapPatchProposal,
     build_session_map_authoring_prompt,
     compile_patch_proposal,
+    project_canonical_map_message,
     validate_authored_patch,
 )
 from core.memory.session_map.models import (
@@ -109,6 +110,79 @@ def test_authoring_prompt_carries_machine_readable_controls_and_sources() -> Non
         "content": "Prepare the release note.",
     }
     assert payload["current_session_map"]["entries"] == []
+
+
+def test_canonical_projection_keeps_semantics_without_binary_or_derived_context() -> (
+    None
+):
+    projected = project_canonical_map_message(
+        sequence_index=3,
+        stored_role="user",
+        message_json=json.dumps(
+            {
+                "parts": [
+                    {"part_kind": "system-prompt", "content": "private context"},
+                    {
+                        "part_kind": "user-prompt",
+                        "content": [
+                            "Review this image.",
+                            {
+                                "kind": "binary",
+                                "data": "secret-base64-payload",
+                                "media_type": "image/png",
+                                "identifier": "image-1",
+                            },
+                        ],
+                    },
+                    {
+                        "part_kind": "retry-prompt",
+                        "tool_name": "file_read",
+                        "content": "Correct the arguments.",
+                    },
+                ]
+            }
+        ),
+    )
+    assert projected.role == "user"
+    assert "Review this image." in projected.content
+    assert "retry requested for: file_read" in projected.content
+    assert "image/png" in projected.content
+    assert "secret-base64-payload" not in projected.content
+    assert "private context" not in projected.content
+
+
+def test_canonical_projection_accepts_non_text_response_parts() -> None:
+    projected = project_canonical_map_message(
+        sequence_index=4,
+        stored_role="assistant",
+        message_json=json.dumps(
+            {
+                "parts": [
+                    {"part_kind": "thinking", "content": "hidden reasoning"},
+                    {
+                        "part_kind": "speech",
+                        "transcript": "The spoken result.",
+                    },
+                    {
+                        "part_kind": "file",
+                        "content": {
+                            "kind": "binary",
+                            "data": "secret-file-payload",
+                            "media_type": "application/pdf",
+                            "identifier": "report-1",
+                        },
+                    },
+                    {"part_kind": "compaction", "content": "derived summary"},
+                ]
+            }
+        ),
+    )
+    assert projected.role == "assistant"
+    assert "The spoken result." in projected.content
+    assert "application/pdf" in projected.content
+    assert "secret-file-payload" not in projected.content
+    assert "hidden reasoning" not in projected.content
+    assert "derived summary" not in projected.content
 
 
 def test_validated_authoring_patch_applies_without_rewriting_controls() -> None:
