@@ -10,9 +10,12 @@ _TEST_ROOT_PATH = Path(_TEST_ROOT.name)
 set_bootstrap_roots(_TEST_ROOT_PATH / "data", _TEST_ROOT_PATH / "system")
 
 from core.memory.session_map.change_detection import (  # noqa: E402
+    SESSION_MAP_ADEQUACY_FIELDS,
     SESSION_MAP_DIMENSIONS,
     SessionDeltaSignals,
+    SessionMapAdequacySignals,
     SessionReconciliationSignal,
+    build_cumulative_session_map_adequacy_request,
     build_session_delta_request,
     build_session_reconciliation_request,
 )
@@ -62,3 +65,40 @@ def test_reconciliation_request_rejects_missing_inputs() -> None:
         except ValueError:
             continue
         raise AssertionError("empty reconciliation input must fail fast")
+
+
+def test_cumulative_adequacy_schema_asks_one_stability_question_per_field() -> None:
+    schema = SessionMapAdequacySignals.model_json_schema()
+    assert tuple(schema["properties"]) == SESSION_MAP_ADEQUACY_FIELDS
+    for field_name in SESSION_MAP_ADEQUACY_FIELDS:
+        field_schema = schema["properties"][field_name]
+        assert field_schema["minimum"] == 0
+        assert field_schema["maximum"] == 1
+        assert field_schema["description"].endswith("?")
+
+
+def test_cumulative_adequacy_request_preserves_the_complete_pending_prefix() -> None:
+    request = build_cumulative_session_map_adequacy_request(
+        "  goal:g1 active | constraint:c1 read-only  ",
+        "  user: Keep it read-only.\nassistant: Understood.\nuser: Add a test.  ",
+    )
+    assert request.output_type is SessionMapAdequacySignals
+    assert request.state == (
+        "<accepted_session_map>\n"
+        "goal:g1 active | constraint:c1 read-only\n"
+        "</accepted_session_map>\n"
+        "<cumulative_canonical_delta>\n"
+        "user: Keep it read-only.\nassistant: Understood.\nuser: Add a test.\n"
+        "</cumulative_canonical_delta>"
+    )
+    assert "every canonical message accumulated" in request.instructions
+    assert "yes means the named field remains adequate" in request.instructions
+
+
+def test_cumulative_adequacy_request_rejects_missing_inputs() -> None:
+    for current_map, delta in (("", "new fact"), ("existing map", "  ")):
+        try:
+            build_cumulative_session_map_adequacy_request(current_map, delta)
+        except ValueError:
+            continue
+        raise AssertionError("empty cumulative adequacy input must fail fast")

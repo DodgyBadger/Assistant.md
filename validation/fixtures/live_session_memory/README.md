@@ -16,6 +16,8 @@ The three output families must remain independently labelled:
 
 `change_detection_v2.json` is a separate frozen corpus for the broad reconciliation-gating experiment. Its two calibration cases and two untouched holdout cases each compare a compact current map with five canonical deltas, including true no-change batches. Each batch labels whether any reconciliation is needed and whether a miss would be consequential. Once a live holdout run occurs, its cases must not be relabelled or used to retune the v2 threshold.
 
+`cumulative_adequacy_v3.json` freezes the Jev-led cumulative-gating experiment. Each case is one accepted-map epoch with five ordered turn groups. A checkpoint always contains every turn group from the start of the epoch through that point; earlier stable checks never remove text. `expected_inadequate_fields` is empty while the map remains adequate and persists after a material change until the epoch would be reconciled. The corpus includes accumulated minor constraints, accumulated observations, proposal-versus-adoption, lifecycle changes, new concepts, and changes that occur at different positions so eligibility intervals can be compared offline. Calibration and holdout cases are immutable after the first live v3 run.
+
 ## Predeclared Metrics
 
 ### Session Map

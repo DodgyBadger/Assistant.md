@@ -27,6 +27,12 @@ RECONCILIATION_CORPUS_PATH = (
     / "live_session_memory"
     / "change_detection_v2.json"
 )
+CUMULATIVE_ADEQUACY_CORPUS_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "live_session_memory"
+    / "cumulative_adequacy_v3.json"
+)
 
 
 def load_live_session_memory_corpus() -> dict[str, Any]:
@@ -39,6 +45,14 @@ def load_session_reconciliation_corpus() -> dict[str, Any]:
     return cast(
         dict[str, Any],
         json.loads(RECONCILIATION_CORPUS_PATH.read_text(encoding="utf-8")),
+    )
+
+
+def load_cumulative_session_map_adequacy_corpus() -> dict[str, Any]:
+    """Load the frozen v3 cumulative field-adequacy corpus."""
+    return cast(
+        dict[str, Any],
+        json.loads(CUMULATIVE_ADEQUACY_CORPUS_PATH.read_text(encoding="utf-8")),
     )
 
 

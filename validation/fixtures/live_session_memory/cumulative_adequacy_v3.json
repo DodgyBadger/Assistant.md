@@ -1,0 +1,303 @@
+{
+  "corpus_version": "session-map-cumulative-adequacy-v3-2026-09-26",
+  "candidate_eligibility_intervals": [1, 2, 3],
+  "hard_ceiling_turns": 5,
+  "cases": [
+    {
+      "id": "formatting_preferences_accumulate",
+      "split": "calibration",
+      "current_map": "goal g1 active: prepare the quarterly program update; work w1 in progress: draft the update; attention: w1; constraints: none recorded",
+      "turns": [
+        {
+          "canonical_delta_append": "user: Use a somewhat more formal tone than last quarter.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "minor_preference_below_reconciliation_threshold"
+        },
+        {
+          "canonical_delta_append": "user: Put the schedule discussion before the budget discussion.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "second_minor_preference_still_below_threshold"
+        },
+        {
+          "canonical_delta_append": "user: Use a separate heading for each department as well.",
+          "expected_inadequate_fields": ["constraints_adequate"],
+          "consequential": false,
+          "phenomenon": "combined_preferences_require_constraint_reconciliation"
+        },
+        {
+          "canonical_delta_append": "assistant: Understood; I will apply those presentation requirements.",
+          "expected_inadequate_fields": ["constraints_adequate"],
+          "consequential": false,
+          "phenomenon": "acknowledgement_does_not_consume_pending_change"
+        },
+        {
+          "canonical_delta_append": "user: How is the quarterly update going?",
+          "expected_inadequate_fields": ["constraints_adequate"],
+          "consequential": false,
+          "phenomenon": "status_query_preserves_pending_change"
+        }
+      ]
+    },
+    {
+      "id": "regional_latency_pattern",
+      "split": "calibration",
+      "current_map": "goal g1 active: assess API latency; work w1 in progress: review regional telemetry; attention: w1; observation o1 observed: baseline latency is within target",
+      "turns": [
+        {
+          "canonical_delta_append": "tool: One east-region sample shows p95 latency eight percent above baseline.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "isolated_observation_below_reconciliation_threshold"
+        },
+        {
+          "canonical_delta_append": "tool: One central-region sample shows p95 latency seven percent above baseline.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "second_isolated_observation_still_inconclusive"
+        },
+        {
+          "canonical_delta_append": "assistant: The two samples are not yet enough to establish a broad regression.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "explicit_uncertainty"
+        },
+        {
+          "canonical_delta_append": "tool: A west-region sample is nine percent above baseline, making all three sampled regions consistently slower.",
+          "expected_inadequate_fields": ["observations_adequate"],
+          "consequential": true,
+          "phenomenon": "cumulative_samples_establish_material_pattern"
+        },
+        {
+          "canonical_delta_append": "user: Determine what is causing the cross-region slowdown.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "observations_adequate"],
+          "consequential": true,
+          "phenomenon": "new_focus_joins_unreconciled_observation"
+        }
+      ]
+    },
+    {
+      "id": "export_option_adoption",
+      "split": "calibration",
+      "current_map": "goal g1 active: choose the partner export format; open question q1: CSV or JSON; attention: evaluate export format; decisions: none",
+      "turns": [
+        {
+          "canonical_delta_append": "assistant: CSV would be easier for the partner to inspect manually.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "assistant_proposal_not_adopted"
+        },
+        {
+          "canonical_delta_append": "user: What would we lose by choosing CSV?",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "request_for_comparison"
+        },
+        {
+          "canonical_delta_append": "assistant: CSV loses nested structure, but this export has only flat records.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "analysis_without_adoption"
+        },
+        {
+          "canonical_delta_append": "user: Use CSV for the partner export.",
+          "expected_inadequate_fields": ["decisions_adequate", "open_questions_adequate"],
+          "consequential": true,
+          "phenomenon": "explicit_decision_answers_question"
+        },
+        {
+          "canonical_delta_append": "assistant: I will proceed with CSV.",
+          "expected_inadequate_fields": ["decisions_adequate", "open_questions_adequate"],
+          "consequential": true,
+          "phenomenon": "acknowledgement_preserves_pending_decision"
+        }
+      ]
+    },
+    {
+      "id": "draft_artifact_created",
+      "split": "calibration",
+      "current_map": "goal g1 active: prepare the inspection report; work w1 in progress: draft the report; attention: w1; artifact a1 proposed and unverified: artifacts/inspection-report.md",
+      "turns": [
+        {
+          "canonical_delta_append": "tool: Created artifacts/inspection-report.md from the approved inspection notes.",
+          "expected_inadequate_fields": ["work_items_adequate", "artifacts_adequate"],
+          "consequential": false,
+          "phenomenon": "artifact_creation_advances_work"
+        },
+        {
+          "canonical_delta_append": "assistant: The draft file now exists, but I have not verified its contents.",
+          "expected_inadequate_fields": ["work_items_adequate", "artifacts_adequate"],
+          "consequential": false,
+          "phenomenon": "honest_unverified_status"
+        },
+        {
+          "canonical_delta_append": "user: Keep it unverified until the source citations are checked.",
+          "expected_inadequate_fields": ["work_items_adequate", "constraints_adequate", "artifacts_adequate"],
+          "consequential": true,
+          "phenomenon": "verification_constraint_joins_pending_artifact_change"
+        },
+        {
+          "canonical_delta_append": "assistant: Understood; creation is not verification.",
+          "expected_inadequate_fields": ["work_items_adequate", "constraints_adequate", "artifacts_adequate"],
+          "consequential": true,
+          "phenomenon": "acknowledgement_preserves_pending_artifact_change"
+        },
+        {
+          "canonical_delta_append": "user: Continue when the citation check is available.",
+          "expected_inadequate_fields": ["work_items_adequate", "constraints_adequate", "artifacts_adequate"],
+          "consequential": true,
+          "phenomenon": "pending_change_reaches_hard_ceiling"
+        }
+      ]
+    },
+    {
+      "id": "editorial_goal_pivot",
+      "split": "holdout",
+      "current_map": "goal g1 active: write a public neighborhood update; work w1 in progress: draft the public update; attention: w1; constraints: audience is neighborhood residents",
+      "turns": [
+        {
+          "canonical_delta_append": "user: Would an internal memo be more useful than a public update?",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "question_does_not_supersede_goal"
+        },
+        {
+          "canonical_delta_append": "assistant: An internal memo would support a decision, while a public update would explain the project externally.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "comparison_without_adoption"
+        },
+        {
+          "canonical_delta_append": "user: Switch to an internal decision memo for the steering group and put the recommendation first.",
+          "expected_inadequate_fields": ["attention_adequate", "goals_adequate", "work_items_adequate", "constraints_adequate"],
+          "consequential": true,
+          "phenomenon": "explicit_goal_pivot_and_constraint"
+        },
+        {
+          "canonical_delta_append": "assistant: I will prepare the steering-group decision memo with the recommendation first.",
+          "expected_inadequate_fields": ["attention_adequate", "goals_adequate", "work_items_adequate", "constraints_adequate"],
+          "consequential": true,
+          "phenomenon": "acknowledgement_preserves_goal_pivot"
+        },
+        {
+          "canonical_delta_append": "user: What source notes are available for the memo?",
+          "expected_inadequate_fields": ["attention_adequate", "goals_adequate", "work_items_adequate", "constraints_adequate"],
+          "consequential": true,
+          "phenomenon": "followup_does_not_consume_goal_pivot"
+        }
+      ]
+    },
+    {
+      "id": "vendor_date_resolution",
+      "split": "holdout",
+      "current_map": "goal g1 active: finalize the launch schedule; open question q1: vendor delivery date; attention: await confirmed vendor date",
+      "turns": [
+        {
+          "canonical_delta_append": "assistant: I sent the vendor a request for the confirmed delivery date.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "request_sent_without_answer"
+        },
+        {
+          "canonical_delta_append": "tool: The vendor says October 12 is likely but not yet approved.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "tentative_answer_does_not_resolve_question"
+        },
+        {
+          "canonical_delta_append": "user: Keep the question open until we receive written confirmation.",
+          "expected_inadequate_fields": ["constraints_adequate"],
+          "consequential": true,
+          "phenomenon": "new_evidence_standard"
+        },
+        {
+          "canonical_delta_append": "tool: Written vendor confirmation received: delivery is approved for October 12.",
+          "expected_inadequate_fields": ["attention_adequate", "constraints_adequate", "open_questions_adequate"],
+          "consequential": true,
+          "phenomenon": "confirmed_answer_resolves_question"
+        },
+        {
+          "canonical_delta_append": "assistant: The confirmed vendor delivery date is October 12.",
+          "expected_inadequate_fields": ["attention_adequate", "constraints_adequate", "open_questions_adequate"],
+          "consequential": true,
+          "phenomenon": "restatement_preserves_pending_resolution"
+        }
+      ]
+    },
+    {
+      "id": "faq_commitment",
+      "split": "holdout",
+      "current_map": "goal g1 active: prepare the service-change notice; work w1 blocked: await approval of notice; attention: w1; commitments: none",
+      "turns": [
+        {
+          "canonical_delta_append": "assistant: I could also draft a short FAQ after the notice is approved.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "assistant_offer_not_commitment"
+        },
+        {
+          "canonical_delta_append": "user: Yes, draft the FAQ now and send it to me for review by noon.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "commitments_adequate"],
+          "consequential": true,
+          "phenomenon": "directed_work_and_deadline_commitment"
+        },
+        {
+          "canonical_delta_append": "assistant: I will draft the FAQ and have it ready for your review by noon.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "commitments_adequate"],
+          "consequential": true,
+          "phenomenon": "accepted_commitment_remains_pending"
+        },
+        {
+          "canonical_delta_append": "user: Keep the FAQ concise.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "constraints_adequate", "commitments_adequate"],
+          "consequential": true,
+          "phenomenon": "constraint_joins_pending_commitment"
+        },
+        {
+          "canonical_delta_append": "assistant: Understood.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "constraints_adequate", "commitments_adequate"],
+          "consequential": true,
+          "phenomenon": "acknowledgement_does_not_consume_commitment"
+        }
+      ]
+    },
+    {
+      "id": "migration_blocker_accumulates",
+      "split": "holdout",
+      "current_map": "goal g1 active: migrate archived records; work w1 planned: run the migration; attention: w1; observations: dry-run validation has not found a blocker",
+      "turns": [
+        {
+          "canonical_delta_append": "tool: Dry-run sample A reports one foreign-key warning on an archived record.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "isolated_warning_below_reconciliation_threshold"
+        },
+        {
+          "canonical_delta_append": "tool: Dry-run sample B reports the same foreign-key warning.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "repeated_warning_not_yet_confirmed_blocker"
+        },
+        {
+          "canonical_delta_append": "assistant: Two samples share the warning; I am checking whether it prevents a safe migration.",
+          "expected_inadequate_fields": [],
+          "consequential": false,
+          "phenomenon": "investigation_without_conclusion"
+        },
+        {
+          "canonical_delta_append": "tool: Sample C fails the same foreign key, and the validator reports the migration cannot safely proceed until archived parent rows are restored.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "open_questions_adequate", "observations_adequate"],
+          "consequential": true,
+          "phenomenon": "cumulative_warnings_establish_blocker"
+        },
+        {
+          "canonical_delta_append": "user: Determine how to restore the missing parent rows before any migration write.",
+          "expected_inadequate_fields": ["attention_adequate", "work_items_adequate", "constraints_adequate", "open_questions_adequate", "observations_adequate"],
+          "consequential": true,
+          "phenomenon": "new_safe_recovery_focus_joins_blocker"
+        }
+      ]
+    }
+  ]
+}
