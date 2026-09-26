@@ -13,6 +13,12 @@ from typing import Any
 
 from core.database import connect_sqlite_from_system_db
 from core.utils.fts import build_fts_query
+from core.utils.messages import (
+    MessageProjection,
+    MessageSourceKind,
+    project_message,
+    project_message_json,
+)
 from core.utils.tokens import estimate_token_count
 
 from .chat_store import ChatStore, StoredChatMessage
@@ -53,6 +59,8 @@ class TranscriptSearchHit:
     message_type: str
     created_at: str
     excerpt: str
+    source_kind: MessageSourceKind
+    tool_names: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -64,6 +72,8 @@ class TranscriptWindowMessage:
     message_type: str
     created_at: str
     content: str
+    source_kind: MessageSourceKind
+    tool_names: tuple[str, ...]
     content_start: int = 0
     content_end: int | None = None
     content_complete: bool = True
@@ -76,6 +86,8 @@ class TranscriptWindowMessage:
             "message_type": self.message_type,
             "created_at": self.created_at,
             "content": self.content,
+            "source_kind": self.source_kind,
+            "tool_names": list(self.tool_names),
             "content_start": self.content_start,
             "content_end": self.content_end,
             "content_complete": self.content_complete,
@@ -200,6 +212,21 @@ class TranscriptRetrievalService:
             )
 
         session_placeholders = ", ".join("?" for _ in session_ids)
+        retrieval_envelope_filter = """
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM json_each(
+                              CASE WHEN json_valid(messages.message_json)
+                                   THEN messages.message_json
+                                   ELSE '{"parts":[]}' END,
+                              '$.parts'
+                          ) AS part
+                          WHERE json_extract(part.value, '$.tool_name') = 'session_ops'
+                            AND json_extract(part.value, '$.part_kind') IN (
+                                'tool-return', 'builtin-tool-return'
+                            )
+                      )
+        """
         if one_hit_per_session:
             query_sql = f"""
                 WITH message_matches AS (
@@ -209,6 +236,7 @@ class TranscriptRetrievalService:
                            messages.role,
                            messages.message_type,
                            messages.created_at,
+                           messages.message_json,
                            snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
                            bm25(chat_messages_fts) AS lexical_rank
                     FROM chat_messages_fts
@@ -217,6 +245,7 @@ class TranscriptRetrievalService:
                     WHERE chat_messages_fts MATCH ?
                       AND messages.vault_name = ?
                       AND messages.session_id IN ({session_placeholders})
+                      {retrieval_envelope_filter}
                 ),
                 ranked_matches AS (
                     SELECT *,
@@ -232,6 +261,7 @@ class TranscriptRetrievalService:
                        role,
                        message_type,
                        created_at,
+                       message_json,
                        excerpt,
                        lexical_rank
                 FROM ranked_matches
@@ -247,6 +277,7 @@ class TranscriptRetrievalService:
                        messages.role,
                        messages.message_type,
                        messages.created_at,
+                       messages.message_json,
                        snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
                        bm25(chat_messages_fts) AS lexical_rank
                 FROM chat_messages_fts
@@ -255,6 +286,7 @@ class TranscriptRetrievalService:
                 WHERE chat_messages_fts MATCH ?
                   AND messages.vault_name = ?
                   AND messages.session_id IN ({session_placeholders})
+                  {retrieval_envelope_filter}
                 ORDER BY lexical_rank ASC, messages.sequence_index ASC
                 LIMIT ?
             """
@@ -271,23 +303,36 @@ class TranscriptRetrievalService:
         finally:
             conn.close()
 
-        return [
-            TranscriptSearchHit(
-                anchor=TranscriptAnchor(
-                    session_id=str(row["session_id"]),
-                    sequence_index=int(row["sequence_index"]),
-                ),
-                vault_name=str(row["vault_name"]),
-                rank=rank,
-                role=str(row["role"]),
-                message_type=str(row["message_type"]),
-                created_at=str(row["created_at"] or ""),
-                excerpt=_bounded_excerpt(
-                    str(row["excerpt"] or ""), self._excerpt_chars
-                ),
+        hits: list[TranscriptSearchHit] = []
+        for rank, row in enumerate(rows, start=1):
+            try:
+                projection = project_message_json(str(row["message_json"]))
+            except (TypeError, ValueError):
+                projection = MessageProjection(
+                    role=str(row["role"]),
+                    content_text="",
+                    source_kind="unknown",
+                    tool_names=(),
+                )
+            hits.append(
+                TranscriptSearchHit(
+                    anchor=TranscriptAnchor(
+                        session_id=str(row["session_id"]),
+                        sequence_index=int(row["sequence_index"]),
+                    ),
+                    vault_name=str(row["vault_name"]),
+                    rank=rank,
+                    role=str(row["role"]),
+                    message_type=str(row["message_type"]),
+                    created_at=str(row["created_at"] or ""),
+                    excerpt=_bounded_excerpt(
+                        str(row["excerpt"] or ""), self._excerpt_chars
+                    ),
+                    source_kind=projection.source_kind,
+                    tool_names=projection.tool_names,
+                )
             )
-            for rank, row in enumerate(rows, start=1)
-        ]
+        return hits
 
     def get_range(
         self,
@@ -665,12 +710,15 @@ def _window_message(
     content_end: int | None = None,
     content_complete: bool = True,
 ) -> TranscriptWindowMessage:
+    projection = project_message(message.message)
     return TranscriptWindowMessage(
         sequence_index=message.sequence_index,
         role=message.role,
         message_type=message.message_type,
         created_at=message.created_at,
         content=message.content_text if content is None else content,
+        source_kind=projection.source_kind,
+        tool_names=projection.tool_names,
         content_start=content_start,
         content_end=(len(message.content_text) if content_end is None else content_end),
         content_complete=content_complete,

@@ -43,7 +43,7 @@ Returns pretty-printed JSON text. Successful operations include a stable `status
 
 Operational failures return a structured failed tool envelope to chat agents. The same failure raises `RuntimeError` when `session_ops` is called directly from Monty, so a required summarization failure cannot be mistaken for a successful script result.
 
-Transcript evidence returned by either focused transcript search or deep session search includes a stable `session_id` and `sequence_index` anchor, canonical role/type/timestamp provenance, a bounded excerpt, ordinal search rank, and whether the hit is in the prefix replaced by the latest compaction checkpoint. A transcript window returns canonical messages in chronological order, truncation metadata, the source history revision, and an opaque continuation cursor when an individual message is too large for one response.
+Transcript evidence returned by either focused transcript search or deep session search includes a stable `session_id` and `sequence_index` anchor, canonical role/type/timestamp provenance, `source_kind`, `tool_names`, a bounded excerpt, ordinal search rank, and whether the hit is in the prefix replaced by the latest compaction checkpoint. `source_kind` distinguishes user, assistant, system, direct tool-result, tool-call, and mixed records; prior `session_ops` retrieval envelopes are not returned as source candidates. A transcript window returns canonical messages in chronological order with the same source provenance, truncation metadata, the source history revision, and an opaque continuation cursor when an individual message is too large for one response.
 
 ## Filtering
 

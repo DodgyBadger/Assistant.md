@@ -60,7 +60,7 @@ class SystemStartupMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5, 6],
+                [1, 2, 3, 4, 5, 6, 7],
                 "Startup should record chat migration versions",
             )
             self.soft_assert(

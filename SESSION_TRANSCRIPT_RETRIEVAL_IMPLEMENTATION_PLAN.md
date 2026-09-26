@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1 and all four of its checkpoints are implemented and validated; Slice 2 is next. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, and reuses the same backend for broad deep-session discovery.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated; Slice 2 is next. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
 
 ## Decision Summary
 
@@ -79,6 +79,7 @@ The transcript-search service should expose a strategy-neutral result shape keye
 | Slice 1B | Add the canonical transcript index and strategy-neutral retrieval service | Storage lifecycle, backfill, rebuild, authorization, purge, and bounded range tests |
 | Slice 1C | Expose focused transcript search and window retrieval through `session_ops` | Real tool invocation, bounds, continuation, provenance, and hostile-content tests |
 | Slice 1D | Move deep session search onto the shared canonical backend | Existing search compatibility, pre-compaction recall, ranking, and full core integration profile |
+| Slice 1E | Harden source projection and provenance after live-path inspection | Structured tool evidence, retrieval-envelope exclusion, source metadata, migration backfill, and focused real-tool coverage |
 
 Each checkpoint should be reviewable and testable on its own. Do not begin the next checkpoint while the current checkpoint has known failures in its declared validation boundary.
 
@@ -226,7 +227,19 @@ The focused unit coverage for query normalization, cursor signing or integrity, 
 
 ### Slice 1D and overall Slice 1 exit gate
 
-Slice 1D exits when deep search uses the shared canonical backend, finds content hidden by compaction, returns only bounded anchors and excerpts, and preserves ordinary summary-backed search behavior. Overall Slice 1 is complete only when canonical pre-compaction evidence can be found and retrieved through the normal tool path with bounded output, vault isolation, purge correctness, all four checkpoint gates passing, the full deterministic core profile green, and no live session-map runtime remaining. The retrieval implementation must be entirely local and deterministic aside from the chat model choosing whether and how to call it.
+Slice 1D exits when deep search uses the shared canonical backend, finds content hidden by compaction, returns only bounded anchors and excerpts, and preserves ordinary summary-backed search behavior. Overall Slice 1 is complete only when canonical pre-compaction evidence can be found and retrieved through the normal tool path with bounded output, vault isolation, purge correctness, all five checkpoint gates passing, the full deterministic core profile green, and no live session-map runtime remaining. The retrieval implementation must be entirely local and deterministic aside from the chat model choosing whether and how to call it.
+
+## Slice 1E: Provenance Hardening
+
+**Status:** Complete. Live-path inspection showed that the retrieval flow found the intended pre-compaction anchors, but also exposed two derived-index defects that would distort Slice 2 measurements: structured tool returns had empty searchable text, while prior `session_ops` retrieval results were indexed as ordinary user messages and could be returned as newer echoes of the evidence they quoted. The shared projection, migration backfill, provenance fields, and candidate exclusion are now implemented through the normal storage and `session_ops` paths.
+
+Define one shared, deterministic message projection used by canonical writes, effective-history rendering, migration backfill, and retrieval metadata. Preserve provider-native `message_json` as canonical truth. Render mapping and sequence tool returns as readable JSON while omitting binary payload bytes from the derived text. Classify the projected source as user, assistant, system, tool result, retrieval result, tool call, or mixed, and include that provenance plus tool names in search hits and transcript windows.
+
+Exclude `session_ops` tool-return envelopes from transcript candidate generation inside the authorized SQL query before ranking and limiting. This exclusion applies only to derived retrieval/search output, not to direct evidence returned by other tools. Direct structured tool output must remain searchable and recoverable at its stable canonical sequence anchor. A later hybrid candidate generator must preserve the same exclusion and result metadata.
+
+Add chat database migration 7 to recompute derived `content_text` from every valid canonical `message_json` row and rebuild the FTS index. Malformed legacy rows retain their prior projection rather than blocking startup; normal deserialization diagnostics remain responsible for surfacing them. The migration does not rewrite canonical message JSON.
+
+Extend the storage and real-tool scenarios before implementation. Prove that a structured tool error is searchable, a later `session_ops` payload quoting the same terms is not a candidate, results identify tool provenance, windows return readable structured content and provenance, migration backfills existing structured rows, and ordinary user/assistant retrieval remains compatible. Slice 1E exits when those focused scenarios, production quality gates, and the full deterministic core profile pass.
 
 ## Slice 2: Retrieval-Trigger Evaluation
 
@@ -339,11 +352,12 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 2. Slice 1B: add the transcript FTS migration, lifecycle triggers, rebuild operation, bounded vault-scoped retrieval service, and focused storage/service tests; stop and verify the storage gate.
 3. Slice 1C: add `search_transcript` and `get_transcript_window` to `session_ops`, including operation-specific validation, cursor integrity, documentation, and real-tool coverage; stop and verify the tool gate.
 4. Slice 1D: rebuild `search_sessions(mode="deep")` on the shared canonical index, add the cross-layer integration scenario, and run the full deterministic core profile; stop and verify the overall Slice 1 gate.
-5. Begin Slice 2 through normal chat paths, record the frozen evaluation contract before tuning prompts, and compare lexical versus hybrid candidate generation once the lexical baseline is measured.
+5. Slice 1E: harden derived source projection and provenance, exclude retrieval-generated envelopes from candidate generation, backfill the canonical index, and rerun the Slice 1 validation gate.
+6. Begin Slice 2 through normal chat paths, record the frozen evaluation contract before tuning prompts, and compare lexical versus hybrid candidate generation once the lexical baseline is measured.
 
 ## Immediate Next Steps
 
-Continue Feature Development with Slice 2A only. Add the opt-in live scenario and structured artifact contract without changing production retrieval prompts, ranking, or automation; run a small harness smoke before spending quota on the frozen Slice 2B baseline.
+Continue Feature Development with Slice 2A. Add the opt-in live scenario and structured artifact contract without changing production retrieval prompts, ranking, or automation; run a small harness smoke before spending quota on the frozen Slice 2B baseline.
 
 The completed Slice 1 leaves the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through focused retrieval and deep session discovery. The next work is experimental rather than foundational: measure whether models reliably recognize when compacted source evidence is needed and reach the correct anchor at bounded context cost.
 

@@ -394,6 +394,8 @@ class SessionOps(BaseTool):
                                 "rank": hit.rank,
                                 "role": hit.role,
                                 "message_type": hit.message_type,
+                                "source_kind": hit.source_kind,
+                                "tool_names": list(hit.tool_names),
                                 "created_at": hit.created_at,
                                 "excerpt": hit.excerpt,
                                 "is_in_compacted_prefix": (
@@ -1218,6 +1220,8 @@ def _merge_transcript_matches(
                 "sequence_index": hit.anchor.sequence_index,
                 "role": hit.role,
                 "message_type": hit.message_type,
+                "source_kind": hit.source_kind,
+                "tool_names": list(hit.tool_names),
                 "created_at": hit.created_at,
                 "excerpt": hit.excerpt,
                 "is_in_compacted_prefix": (

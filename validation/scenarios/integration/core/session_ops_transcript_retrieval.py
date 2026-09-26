@@ -8,7 +8,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from pydantic_ai.messages import ModelRequest, UserPromptPart  # noqa: E402
+from pydantic_ai.messages import (  # noqa: E402
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.test import TestModel  # noqa: E402
 
 from core.authoring.shared.tool_binding import resolve_tool_binding  # noqa: E402
@@ -40,6 +44,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         window_session_id = "session_ops_transcript_window"
         controller_session_id = "session_ops_transcript_controller"
         deep_controller_session_id = "session_ops_transcript_deep_controller"
+        structured_session_id = "session_ops_transcript_structured"
         source_session_id = "session_ops_transcript_source"
         chat_store.ensure_session(
             session_id,
@@ -66,6 +71,27 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             last_message_sequence_index=2,
             summary_message=_message("A compact recovery summary."),
             replacement_history=[_message("A compact recovery summary.")],
+        )
+        chat_store.ensure_session(
+            structured_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.add_messages(
+            structured_session_id,
+            vault.name,
+            [
+                _tool_result(
+                    "mail_probe",
+                    {"status": "failed", "error": "granite-signal primary failure"},
+                    "primary-tool-result",
+                ),
+                _tool_result(
+                    "session_ops",
+                    '{"operation":"search_transcript","matches":[{"excerpt":"granite-signal primary failure"}]}',
+                    "retrieval-echo",
+                ),
+            ],
         )
         chat_store.ensure_session(
             window_session_id,
@@ -144,6 +170,12 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "after": 1,
                         "max_tokens": 1000,
                     }
+                if current_case["name"] == "structured":
+                    return {
+                        "operation": "search_transcript",
+                        "query": "granite signal primary failure",
+                        "limit": 5,
+                    }
                 if current_case["name"] == "explicit":
                     return {
                         "operation": "search_transcript",
@@ -201,6 +233,42 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 ),
                 True,
                 "Search results should identify evidence hidden behind compaction",
+            )
+
+            current_case["name"] = "structured"
+            structured_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=structured_session_id,
+                prompt="Find the direct tool failure evidence.",
+                chat_store=chat_store,
+            )
+            structured_matches = structured_result.get("matches", [])
+            self.soft_assert_equal(
+                (
+                    structured_matches[0].get("sequence_index")
+                    if structured_matches
+                    else None
+                ),
+                0,
+                "The real tool path should rank structured primary evidence first",
+            )
+            self.soft_assert(
+                all(match.get("sequence_index") != 1 for match in structured_matches),
+                "The real tool path should exclude its own earlier retrieval envelope",
+            )
+            self.soft_assert_equal(
+                (
+                    structured_matches[0].get("source_kind")
+                    if structured_matches
+                    else None
+                ),
+                "tool_result",
+                "The real tool path should expose direct tool-result provenance",
+            )
+            self.soft_assert_equal(
+                structured_matches[0].get("tool_names") if structured_matches else None,
+                ["mail_probe"],
+                "The real tool path should expose the producing tool name",
             )
 
             current_case["name"] = "window"
@@ -504,3 +572,15 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
 
 def _message(content: str) -> ModelRequest:
     return ModelRequest(parts=[UserPromptPart(content=content)])
+
+
+def _tool_result(tool_name: str, content: object, tool_call_id: str) -> ModelRequest:
+    return ModelRequest(
+        parts=[
+            ToolReturnPart(
+                tool_name=tool_name,
+                content=content,
+                tool_call_id=tool_call_id,
+            )
+        ]
+    )

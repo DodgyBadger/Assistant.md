@@ -7,6 +7,7 @@ import sqlite3
 from core.database import connect_sqlite_from_system_db
 from core.database_migrations import SQLiteMigration, apply_sqlite_migrations
 from core.identity import LOCAL_USER_PRINCIPAL_ID
+from core.utils.messages import project_message_json
 
 DB_NAME = "chat_sessions"
 MIGRATION_NAMESPACE = "chat_sessions"
@@ -41,6 +42,11 @@ CHAT_SESSION_MIGRATIONS = (
         version=6,
         name="add_chat_message_fts",
         apply=lambda conn: _migrate_chat_message_fts(conn),
+    ),
+    SQLiteMigration(
+        version=7,
+        name="backfill_structured_chat_message_text",
+        apply=lambda conn: _backfill_structured_chat_message_text(conn),
     ),
 )
 
@@ -458,6 +464,25 @@ def _migrate_chat_message_fts(conn: sqlite3.Connection) -> None:
 def rebuild_chat_message_fts(conn: sqlite3.Connection) -> None:
     """Rebuild the derived chat-message full-text index from canonical rows."""
     conn.execute("INSERT INTO chat_messages_fts(chat_messages_fts) VALUES ('rebuild')")
+
+
+def _backfill_structured_chat_message_text(conn: sqlite3.Connection) -> None:
+    """Recompute derived text while preserving canonical provider-native JSON."""
+    rows = conn.execute(
+        "SELECT id, message_json, content_text FROM chat_messages"
+    ).fetchall()
+    for message_id, message_json, content_text in rows:
+        try:
+            projection = project_message_json(str(message_json))
+        except (TypeError, ValueError):
+            continue
+        if projection.content_text == str(content_text or ""):
+            continue
+        conn.execute(
+            "UPDATE chat_messages SET content_text = ? WHERE id = ?",
+            (projection.content_text, message_id),
+        )
+    rebuild_chat_message_fts(conn)
 
 
 def _deduplicate_session_ids(conn: sqlite3.Connection) -> None:

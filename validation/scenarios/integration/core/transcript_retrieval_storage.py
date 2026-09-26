@@ -9,7 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from pydantic_ai.messages import ModelRequest, UserPromptPart  # noqa: E402
+from pydantic_ai.messages import (  # noqa: E402
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from core.chat.chat_store import ChatStore  # noqa: E402
 from core.chat.schema import ensure_chat_sessions_schema  # noqa: E402
@@ -53,6 +57,16 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
                 _message("Opening context without the target phrase."),
                 _message("The cobalt-lantern decision belongs to the primary vault."),
                 _message("Closing context after the target phrase."),
+                _tool_result(
+                    "source_probe",
+                    {"status": "failed", "error": "granite-signal primary failure"},
+                    "source-probe-call",
+                ),
+                _tool_result(
+                    "session_ops",
+                    '{"operation":"search_transcript","matches":[{"excerpt":"granite-signal primary failure"}]}',
+                    "retrieval-call",
+                ),
             ],
         )
         store.ensure_session(
@@ -93,6 +107,48 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
                 "Search excerpts should stay inside the configured character bound",
             )
 
+            structured = retrieval.search(
+                vault_name=vault_name,
+                session_id=session_id,
+                query="granite signal primary failure",
+            )
+            self.soft_assert_equal(
+                structured[0].anchor.sequence_index if structured else None,
+                3,
+                "Structured primary tool evidence should be the highest-ranked source",
+            )
+            self.soft_assert(
+                all(hit.anchor.sequence_index != 4 for hit in structured),
+                "A later retrieval envelope quoting the evidence should not be a search candidate",
+            )
+            self.soft_assert_equal(
+                structured[0].source_kind if structured else None,
+                "tool_result",
+                "Search hits should distinguish direct tool evidence from user-authored text",
+            )
+            self.soft_assert_equal(
+                structured[0].tool_names if structured else None,
+                ("source_probe",),
+                "Search hits should identify the tool that produced direct evidence",
+            )
+            structured_window = retrieval.get_window(
+                vault_name=vault_name,
+                session_id=session_id,
+                sequence_index=3,
+                before=0,
+                after=0,
+            )
+            self.soft_assert(
+                "granite-signal primary failure"
+                in structured_window.messages[0].content,
+                "Transcript windows should render structured tool evidence readably",
+            )
+            self.soft_assert_equal(
+                structured_window.messages[0].source_kind,
+                "tool_result",
+                "Transcript windows should retain source provenance",
+            )
+
             store.add_messages(
                 session_id,
                 vault_name,
@@ -105,7 +161,7 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 [hit.anchor.sequence_index for hit in immediate],
-                [3],
+                [5],
                 "New canonical writes should become searchable in the same transaction",
             )
             self.soft_assert(
@@ -273,3 +329,15 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
 
 def _message(content: str) -> ModelRequest:
     return ModelRequest(parts=[UserPromptPart(content=content)])
+
+
+def _tool_result(tool_name: str, content: object, tool_call_id: str) -> ModelRequest:
+    return ModelRequest(
+        parts=[
+            ToolReturnPart(
+                tool_name=tool_name,
+                content=content,
+                tool_call_id=tool_call_id,
+            )
+        ]
+    )

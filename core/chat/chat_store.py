@@ -12,15 +12,11 @@ from typing import Any, Literal, cast
 from pydantic import TypeAdapter
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelRequest,
     ModelResponse,
     NativeToolReturnPart,
-    SystemPromptPart,
-    TextPart,
     ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
-    UserPromptPart,
 )
 from pydantic_core import to_jsonable_python
 
@@ -28,6 +24,7 @@ from core.database import connect_sqlite_from_system_db
 from core.identity import normalize_principal_id
 from core.logger import UnifiedLogger
 from core.settings import get_persist_model_reasoning_parts
+from core.utils.messages import extract_role_and_text
 
 from .schema import DB_NAME, ensure_chat_sessions_schema
 
@@ -255,7 +252,7 @@ class ChatStore:
                 message,
                 persist_reasoning_parts=persist_reasoning,
             )
-            role, content_text = _extract_role_and_text(message)
+            role, content_text = extract_role_and_text(message)
             direction = (
                 "response" if type(message).__name__ == "ModelResponse" else "request"
             )
@@ -347,7 +344,7 @@ class ChatStore:
                     message,
                     persist_reasoning_parts=persist_reasoning,
                 )
-                role, content_text = _extract_role_and_text(message)
+                role, content_text = extract_role_and_text(message)
                 direction = (
                     "response"
                     if type(message).__name__ == "ModelResponse"
@@ -1378,7 +1375,7 @@ class ChatStore:
 
         stored_messages: list[StoredChatMessage] = []
         for sequence_index, message in enumerate(messages):
-            role, content_text = _extract_role_and_text(message)
+            role, content_text = extract_role_and_text(message)
             direction = (
                 "response" if type(message).__name__ == "ModelResponse" else "request"
             )
@@ -1728,56 +1725,6 @@ def _strip_response_part_provider_item_id(part: Any) -> Any:
     # `is_dataclass` is the runtime guard, but typeshed cannot narrow `Any` to
     # its private dataclass protocol for `replace`.
     return replace(untyped_part, **updates)  # type: ignore[type-var]
-
-
-def _extract_role_and_text(msg: ModelMessage) -> tuple[str, str]:
-    if isinstance(msg, ModelRequest):
-        role = "user"
-    elif isinstance(msg, ModelResponse):
-        role = "assistant"
-    else:
-        role = getattr(msg, "role", None) or msg.__class__.__name__.lower()
-
-    parts = getattr(msg, "parts", None)
-    if parts:
-        has_system_part = False
-        rendered_parts: list[str] = []
-        for part in parts:
-            if isinstance(part, UserPromptPart | TextPart):
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(part_content)
-            elif isinstance(part, SystemPromptPart):
-                has_system_part = True
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(part_content)
-            elif isinstance(part, ToolReturnPart | NativeToolReturnPart):
-                tool_name = (
-                    getattr(part, "tool_name", None)
-                    or getattr(part, "tool_call_id", None)
-                    or "tool"
-                )
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(f"[{tool_name}] {part_content}")
-            elif isinstance(part, ToolCallPart):
-                tool_name = (
-                    getattr(part, "tool_name", None)
-                    or getattr(part, "tool_call_id", None)
-                    or "tool"
-                )
-                rendered_parts.append(f"[{tool_name}] (tool call)")
-        if rendered_parts:
-            if has_system_part and role == "user":
-                return "system", "\n".join(rendered_parts)
-            return role, "\n".join(rendered_parts)
-
-    content = getattr(msg, "content", None)
-    if isinstance(content, str) and content:
-        return role, content
-
-    return role, ""
 
 
 def _fork_prefix_messages(
