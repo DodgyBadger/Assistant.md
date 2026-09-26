@@ -232,6 +232,39 @@ Slice 1D exits when deep search uses the shared canonical backend, finds content
 
 Once the deterministic retrieval surface works, test the uncertain part: whether the chat model notices when source recovery is needed and reaches the right evidence without consuming excessive context.
 
+### Slice 2 checkpoints
+
+| Checkpoint | Deliverable | Primary validation boundary |
+| --- | --- | --- |
+| Slice 2A | Opt-in live evaluation scenario with a small privacy-safe labelled corpus and structured measurements | Every case runs through the chat-task API and task executor; artifacts distinguish trigger, query, anchor, window, answer, and cost outcomes |
+| Slice 2B | Frozen Terra lexical baseline over development and holdout cases | Repeated runs establish observed rates and concrete promotion thresholds before any prompt or ranking tuning |
+| Slice 2C | Retrieval-guidance tuning and long-session/repeated-compaction holdout | Compare one variable at a time and verify gains survive conversations with accumulating recovery cards |
+| Slice 2D | Optional lexical-versus-hybrid candidate comparison | Same queries, authorization scope, limits, anchors, and window contract; hybrid remains optional unless it materially improves difficult-query recall |
+
+#### Slice 2A: Measurement foundation
+
+Add `validation/scenarios/experiments/session_transcript_retrieval_live_probe.py`. It is an opt-in live-service experiment, not part of `integration/core`, and must use the normal chat-task API with `session_ops` enabled so model execution, tool calls, persistence, context management, and task governance match production. The controlled setup may seed canonical messages and explicit compaction checkpoints directly to isolate the trigger question; the tested user turn itself must not call the retrieval service or model adapter out of band.
+
+Start with fixed privacy-safe cases for exact wording, exact draft recovery, decision rationale expressed with different vocabulary, corrected or superseded facts, evidence split across neighboring messages, instruction-shaped historical content, a visible-tail control where retrieval is unnecessary, and a no-support negative control. Give every positive case expected session and sequence anchors plus an answer rubric. Keep development and holdout cases separate from the first run so tuning cannot silently overfit the whole corpus.
+
+Persist one JSON record per case and an aggregate report. Record model alias and resolved model identity where available, repetition, case class, whether hidden evidence was required, tool operations and arguments, search queries, returned anchors and ranks, window anchors and token estimates, calls to first useful evidence, final answer, deterministic exact-answer checks, grader result when used, latency, and model/tool usage exposed by the normal task path. Do not make the scenario fail because a live model misses a retrieval; fail only on harness or product-path breakage and report behavioral misses as measured outcomes.
+
+#### Slice 2B: Frozen lexical baseline
+
+Use the configured Terra alias with one documented thinking level and at least three repetitions per controlled case. Run the unchanged Slice 1 lexical implementation first. Separately report trigger recall on hidden-positive cases, unnecessary-retrieval rate on controls, correct-session rate, expected-anchor recall at the search and window stages, answer faithfulness, searches and windows per case, returned transcript tokens, latency, and failure taxonomy. A miss must be assigned to the earliest failed stage: no trigger, unusable query, ranking miss, wrong window, or answer synthesis.
+
+Freeze numerical advancement thresholds only after inspecting this first baseline, but record them in this plan before tuning. The development subset may inform tool-description or lightweight system-guidance changes; the holdout subset may only confirm or reject those changes. Do not change model, thinking level, guidance, query formulation, and ranking strategy in one comparison.
+
+#### Slice 2C: Guidance and long-session holdout
+
+If trigger recall is the dominant failure, compare the current tool description against one narrowly revised retrieval cue while holding model, cases, and lexical ranking fixed. If query or ranking failure dominates, do not attribute that to trigger guidance. After a controlled improvement survives holdout, replay selected long conversations—including the ignored private 1065 redevelopment source when locally available—through normal chat execution and preserve their real sequence of compactions. Production-derived inputs and verbatim outputs remain ignored local artifacts and must never be committed.
+
+Measure results by compaction depth as well as overall. Preserve the recovery-card condition as the baseline and record how often the recent retained tail makes retrieval unnecessary, because that tail can mask both recovery-card loss and retrieval-trigger weakness.
+
+#### Slice 2D: Optional hybrid comparison
+
+Run the ranking comparison only if lexical query or anchor recall, rather than triggering, is the material bottleneck. Reuse the existing vector service behind `TranscriptRetrievalService`; do not alter the `session_ops` result or window contract. Keep exact lexical hits in the fusion path, make embeddings optional and rebuildable, and compare against the frozen lexical condition on the same difficult paraphrase queries. Do not add transcript-vector persistence until measured recall gain justifies its lifecycle and storage cost.
+
 Use normal chat execution with compaction and tool availability, not a standalone retrieval harness. Build privacy-safe cases and optional ignored production replays covering exact draft recovery, decision rationale, corrected facts, superseded plans, vague references, information spread across neighboring messages, and a negative case where no supporting message exists.
 
 Measure:
@@ -310,7 +343,7 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 
 ## Immediate Next Steps
 
-Continue Planning with Slice 2 only. Define a privacy-safe evaluation corpus, retrieval-trigger cases, measurable success thresholds, and the smallest normal-chat scenario set before changing prompts or adding automation. Preserve Slice 1's bounded lexical contract as the baseline.
+Continue Feature Development with Slice 2A only. Add the opt-in live scenario and structured artifact contract without changing production retrieval prompts, ranking, or automation; run a small harness smoke before spending quota on the frozen Slice 2B baseline.
 
 The completed Slice 1 leaves the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through focused retrieval and deep session discovery. The next work is experimental rather than foundational: measure whether models reliably recognize when compacted source evidence is needed and reach the correct anchor at bounded context cost.
 
