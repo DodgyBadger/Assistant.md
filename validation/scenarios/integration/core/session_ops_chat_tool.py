@@ -12,12 +12,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
 
 class SessionOpsChatToolScenario(BaseScenario):
     """Validate session_ops can write and read session summary from chat."""
 
+    @with_local_user_authority
     async def test_scenario(self):
         vault = self.create_vault("SessionOpsChatToolVault")
         session_id = "session_ops_chat_tool_session"

@@ -21,6 +21,7 @@ from .session_access import ChatSessionAccessService
 
 DEFAULT_SEARCH_LIMIT = 5
 MAX_SEARCH_LIMIT = 20
+MAX_VAULT_SEARCH_LIMIT = 200
 DEFAULT_EXCERPT_CHARS = 600
 DEFAULT_WINDOW_BEFORE = 2
 DEFAULT_WINDOW_AFTER = 2
@@ -145,19 +146,101 @@ class TranscriptRetrievalService:
     ) -> list[TranscriptSearchHit]:
         """Return bounded lexical matches from one authorized session."""
         self._require_session(vault_name=vault_name, session_id=session_id)
+        return self._search_authorized_sessions(
+            vault_name=vault_name,
+            session_ids=(session_id,),
+            query=query,
+            limit=limit,
+            max_limit=MAX_SEARCH_LIMIT,
+            one_hit_per_session=False,
+        )
+
+    def search_vault(
+        self,
+        *,
+        vault_name: str,
+        query: str,
+        limit: int = DEFAULT_SEARCH_LIMIT,
+        session_ids: set[str] | None = None,
+    ) -> list[TranscriptSearchHit]:
+        """Return each authorized session's best bounded lexical match."""
+        authorized_ids = {
+            session.session_id
+            for session in self._session_access.list_sessions(vault_name)
+        }
+        if session_ids is not None:
+            authorized_ids.intersection_update(session_ids)
+        if not authorized_ids:
+            return []
+        return self._search_authorized_sessions(
+            vault_name=vault_name,
+            session_ids=tuple(sorted(authorized_ids)),
+            query=query,
+            limit=limit,
+            max_limit=MAX_VAULT_SEARCH_LIMIT,
+            one_hit_per_session=True,
+        )
+
+    def _search_authorized_sessions(
+        self,
+        *,
+        vault_name: str,
+        session_ids: tuple[str, ...],
+        query: str,
+        limit: int,
+        max_limit: int,
+        one_hit_per_session: bool,
+    ) -> list[TranscriptSearchHit]:
         normalized_query = build_fts_query(query)
         if not normalized_query:
             raise ValueError("Transcript search query must contain searchable text.")
-        if not 1 <= limit <= MAX_SEARCH_LIMIT:
+        if not 1 <= limit <= max_limit:
             raise ValueError(
-                f"Transcript search limit must be between 1 and {MAX_SEARCH_LIMIT}."
+                f"Transcript search limit must be between 1 and {max_limit}."
             )
 
-        conn = self._connect()
-        conn.row_factory = sqlite3.Row
-        try:
-            rows = conn.execute(
-                """
+        session_placeholders = ", ".join("?" for _ in session_ids)
+        if one_hit_per_session:
+            query_sql = f"""
+                WITH message_matches AS (
+                    SELECT messages.session_id,
+                           messages.vault_name,
+                           messages.sequence_index,
+                           messages.role,
+                           messages.message_type,
+                           messages.created_at,
+                           snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
+                           bm25(chat_messages_fts) AS lexical_rank
+                    FROM chat_messages_fts
+                    JOIN chat_messages AS messages
+                      ON messages.id = chat_messages_fts.rowid
+                    WHERE chat_messages_fts MATCH ?
+                      AND messages.vault_name = ?
+                      AND messages.session_id IN ({session_placeholders})
+                ),
+                ranked_matches AS (
+                    SELECT *,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY session_id
+                               ORDER BY lexical_rank ASC, sequence_index ASC
+                           ) AS session_rank
+                    FROM message_matches
+                )
+                SELECT session_id,
+                       vault_name,
+                       sequence_index,
+                       role,
+                       message_type,
+                       created_at,
+                       excerpt,
+                       lexical_rank
+                FROM ranked_matches
+                WHERE session_rank = 1
+                ORDER BY lexical_rank ASC, session_id ASC, sequence_index ASC
+                LIMIT ?
+            """
+        else:
+            query_sql = f"""
                 SELECT messages.session_id,
                        messages.vault_name,
                        messages.sequence_index,
@@ -171,11 +254,17 @@ class TranscriptRetrievalService:
                   ON messages.id = chat_messages_fts.rowid
                 WHERE chat_messages_fts MATCH ?
                   AND messages.vault_name = ?
-                  AND messages.session_id = ?
+                  AND messages.session_id IN ({session_placeholders})
                 ORDER BY lexical_rank ASC, messages.sequence_index ASC
                 LIMIT ?
-                """,
-                (normalized_query, vault_name, session_id, limit),
+            """
+
+        conn = self._connect()
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                query_sql,
+                (normalized_query, vault_name, *session_ids, limit),
             ).fetchall()
         except sqlite3.OperationalError as exc:
             raise ValueError("Transcript search query could not be evaluated.") from exc
@@ -272,6 +361,12 @@ class TranscriptRetrievalService:
         compacted_through = (
             checkpoint.last_message_sequence_index if checkpoint is not None else None
         )
+        has_before = any(
+            item.sequence_index < anchor.sequence_index for item in stored_messages
+        )
+        has_after = any(
+            item.sequence_index > anchor.sequence_index for item in stored_messages
+        )
         if continuation_offset is not None:
             return _build_fragment_window(
                 anchor=anchor,
@@ -283,6 +378,8 @@ class TranscriptRetrievalService:
                 max_tokens=max_tokens,
                 content_offset=continuation_offset,
                 compacted_through_sequence_index=compacted_through,
+                truncated_before=has_before,
+                truncated_after=has_after,
             )
         return _build_initial_window(
             anchor=anchor,
@@ -351,6 +448,12 @@ def _build_initial_window(
     compacted_through_sequence_index: int | None,
 ) -> TranscriptWindow:
     anchor_message = _window_message(anchor)
+    has_before = any(
+        item.sequence_index < anchor.sequence_index for item in stored_messages
+    )
+    has_after = any(
+        item.sequence_index > anchor.sequence_index for item in stored_messages
+    )
     base = _window_payload(
         session_id=session_id,
         vault_name=vault_name,
@@ -361,12 +464,8 @@ def _build_initial_window(
         max_tokens=max_tokens,
         compacted_through_sequence_index=compacted_through_sequence_index,
         messages=[anchor_message],
-        truncated_before=any(
-            item.sequence_index < anchor.sequence_index for item in stored_messages
-        ),
-        truncated_after=any(
-            item.sequence_index > anchor.sequence_index for item in stored_messages
-        ),
+        truncated_before=has_before,
+        truncated_after=has_after,
         next_cursor=None,
     )
     if _payload_tokens(base) > max_tokens:
@@ -380,6 +479,8 @@ def _build_initial_window(
             max_tokens=max_tokens,
             content_offset=0,
             compacted_through_sequence_index=compacted_through_sequence_index,
+            truncated_before=has_before,
+            truncated_after=has_after,
         )
 
     selected = {anchor.sequence_index: anchor_message}
@@ -475,6 +576,8 @@ def _build_fragment_window(
     max_tokens: int,
     content_offset: int,
     compacted_through_sequence_index: int | None,
+    truncated_before: bool,
+    truncated_after: bool,
 ) -> TranscriptWindow:
     if not 0 <= content_offset < len(anchor.content_text):
         raise ValueError("Transcript continuation cursor is stale or exhausted.")
@@ -517,8 +620,8 @@ def _build_fragment_window(
             max_tokens=max_tokens,
             compacted_through_sequence_index=compacted_through_sequence_index,
             messages=[fragment],
-            truncated_before=before > 0,
-            truncated_after=after > 0,
+            truncated_before=truncated_before,
+            truncated_after=truncated_after,
             next_cursor=next_cursor,
         )
         if _payload_tokens(payload) <= max_tokens:
@@ -548,8 +651,8 @@ def _build_fragment_window(
         estimated_tokens=_payload_tokens(best_payload),
         compacted_through_sequence_index=compacted_through_sequence_index,
         messages=(message,),
-        truncated_before=before > 0,
-        truncated_after=after > 0,
+        truncated_before=truncated_before,
+        truncated_after=truncated_after,
         next_cursor=best_cursor,
     )
 

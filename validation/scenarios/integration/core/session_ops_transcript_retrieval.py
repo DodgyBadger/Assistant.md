@@ -13,6 +13,10 @@ from pydantic_ai.models.test import TestModel  # noqa: E402
 
 from core.authoring.shared.tool_binding import resolve_tool_binding  # noqa: E402
 from core.chat.transcript_retrieval import TranscriptRetrievalService  # noqa: E402
+from core.memory.session_summary import (  # noqa: E402
+    SessionSummarySearchResult,
+    SessionSummaryStore,
+)
 from core.runtime.state import get_runtime_context  # noqa: E402
 from validation.core.base_scenario import (  # noqa: E402
     BaseScenario,
@@ -35,6 +39,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         session_id = "session_ops_transcript_active"
         window_session_id = "session_ops_transcript_window"
         controller_session_id = "session_ops_transcript_controller"
+        deep_controller_session_id = "session_ops_transcript_deep_controller"
         source_session_id = "session_ops_transcript_source"
         chat_store.ensure_session(
             session_id,
@@ -84,6 +89,11 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             owner_principal_id="local-user",
         )
         chat_store.ensure_session(
+            deep_controller_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.ensure_session(
             source_session_id,
             vault.name,
             owner_principal_id="local-user",
@@ -92,6 +102,23 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             source_session_id,
             vault.name,
             [_message("The solstice-archive code is SA-2049.")],
+        )
+        inaccessible_session_id = "session_ops_transcript_inaccessible"
+        chat_store.ensure_session(
+            inaccessible_session_id,
+            vault.name,
+            owner_principal_id="another-user",
+        )
+        chat_store.add_messages(
+            inaccessible_session_id,
+            vault.name,
+            [_message("The aurora-covenant private record must remain inaccessible.")],
+        )
+        SessionSummaryStore().upsert_session_summary(
+            vault_name=vault.name,
+            session_id=inaccessible_session_id,
+            summary="The aurora covenant is recorded in this private summary.",
+            domain="private validation",
         )
 
         current_case = {"name": "search"}
@@ -122,6 +149,13 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "operation": "search_transcript",
                         "session_id": source_session_id,
                         "query": "solstice archive",
+                    }
+                if current_case["name"] == "deep":
+                    return {
+                        "operation": "search_sessions",
+                        "mode": "deep",
+                        "query": "aurora covenant",
+                        "limit": 5,
                     }
                 raise AssertionError(
                     f"Unexpected transcript retrieval case: {current_case['name']}"
@@ -209,6 +243,84 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 "An explicit same-vault session should be searchable through the real tool",
             )
 
+            original_vector_search = (
+                SessionSummaryStore.search_session_summaries_by_field
+            )
+
+            async def _inaccessible_vector_match(self, **kwargs):
+                private_summary = self.get_session_summary(
+                    vault_name=kwargs["vault_name"],
+                    session_id=inaccessible_session_id,
+                )
+                if private_summary is None:
+                    return ()
+                return (
+                    SessionSummarySearchResult(
+                        session_summary=private_summary,
+                        match_type="semantic",
+                        matched_fields=(),
+                        score=1.0,
+                    ),
+                )
+
+            SessionSummaryStore.search_session_summaries_by_field = (
+                _inaccessible_vector_match
+            )
+            try:
+                current_case["name"] = "deep"
+                deep_result = await self._run_case(
+                    vault_name=vault.name,
+                    session_id=deep_controller_session_id,
+                    prompt="Find the compacted design decision in prior sessions.",
+                    chat_store=chat_store,
+                )
+            finally:
+                SessionSummaryStore.search_session_summaries_by_field = (
+                    original_vector_search
+                )
+            deep_matches = deep_result.get("matches", [])
+            deep_match = next(
+                (
+                    match
+                    for match in deep_matches
+                    if match.get("session_id") == session_id
+                ),
+                None,
+            )
+            self.soft_assert(
+                deep_match is not None,
+                "Deep session search should find canonical evidence hidden behind compaction",
+            )
+            transcript_evidence = [
+                evidence
+                for evidence in (deep_match or {}).get("evidence", [])
+                if evidence.get("source") == "chat_transcript"
+            ]
+            self.soft_assert_equal(
+                [evidence.get("sequence_index") for evidence in transcript_evidence],
+                [1],
+                "Deep search should return the canonical message anchor",
+            )
+            self.soft_assert(
+                all(
+                    len(str(evidence.get("excerpt") or "")) <= 600
+                    for evidence in transcript_evidence
+                ),
+                "Deep search evidence should remain excerpt-bounded",
+            )
+            self.soft_assert(
+                all(
+                    match.get("session_id") != inaccessible_session_id
+                    for match in deep_matches
+                ),
+                "Deep search should exclude same-vault sessions owned by another principal",
+            )
+            self.soft_assert_equal(
+                deep_result.get("historical_content_is_untrusted"),
+                True,
+                "Deep search should mark transcript excerpts as untrusted history",
+            )
+
             long_text = "oversized-evidence " + ("granite detail " * 1500)
             chat_store.add_messages(
                 source_session_id,
@@ -236,6 +348,24 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             self.soft_assert(
                 page.estimated_tokens <= page.max_tokens,
                 "Each continuation page should stay within its conservative token budget",
+            )
+            neighboring_page = retrieval.get_window(
+                vault_name=vault.name,
+                session_id=source_session_id,
+                sequence_index=1,
+                before=2,
+                after=2,
+                max_tokens=600,
+            )
+            self.soft_assert_equal(
+                neighboring_page.truncated_before,
+                True,
+                "An oversized anchor should report an existing omitted predecessor",
+            )
+            self.soft_assert_equal(
+                neighboring_page.truncated_after,
+                False,
+                "An oversized anchor should not invent omitted successor messages",
             )
             while page.next_cursor:
                 page = retrieval.get_window(

@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slices 1A through 1C are implemented and validated; Slice 1D is next. Slice 1 is divided into four independently testable checkpoints so cleanup, storage, tool behavior, and broad-search integration do not fail as one undifferentiated change.
+Planning complete. Slice 1 and all four of its checkpoints are implemented and validated; Slice 2 is next. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, and reuses the same backend for broad deep-session discovery.
 
 ## Decision Summary
 
@@ -199,6 +199,8 @@ Add deterministic real-tool coverage for default-current-session lookup, explici
 
 ## Slice 1D: Deep Session Search Integration
 
+**Status:** Complete. `search_sessions(mode="deep")` now combines existing summary evidence with the best bounded canonical raw-message hit per authorized session. It searches the persistent transcript index without loading effective histories or building a temporary database, returns stable sequence anchors and compaction-boundary metadata, applies workspace and principal eligibility before transcript ranking, and marks transcript excerpts as untrusted historical evidence. The integration scenario proves real-tool recovery of pre-compaction content, bounded anchors, and exclusion of same-vault transcript and summary evidence owned by another principal. Hardening also corrected oversized-window truncation flags to reflect actual neighboring messages. Ruff, Black, MyPy, diff checks, focused compatibility scenarios, and all 117 deterministic core scenarios pass.
+
 ### Deep session search
 
 Replace the current per-call in-memory FTS built from effective histories. `search_sessions(mode="deep")` should query the new canonical index, group bounded hits by authorized session, combine them with existing session metadata/ranking, and return only compact excerpts plus sequence anchors. It must surface content hidden behind compaction without loading complete histories.
@@ -308,9 +310,9 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 
 ## Immediate Next Steps
 
-Continue Feature Development with Slice 1D only. Follow `docs/agent-guides/feature-development.md` and `docs/agent-guides/testing-and-validation.md`, preserve the bounded retrieval contract established in Slice 1C, and stop at the overall Slice 1 exit gate.
+Continue Planning with Slice 2 only. Define a privacy-safe evaluation corpus, retrieval-trigger cases, measurable success thresholds, and the smallest normal-chat scenario set before changing prompts or adding automation. Preserve Slice 1's bounded lexical contract as the baseline.
 
-The completed first three checkpoints leave the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through two bounded, authorized `session_ops` operations. Slice 1D reuses that backend for deep session discovery and closes with the full core profile.
+The completed Slice 1 leaves the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through focused retrieval and deep session discovery. The next work is experimental rather than foundational: measure whether models reliably recognize when compacted source evidence is needed and reach the correct anchor at bounded context cost.
 
 ## Evidence and Design Sources
 

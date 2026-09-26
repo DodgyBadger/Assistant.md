@@ -43,7 +43,7 @@ Returns pretty-printed JSON text. Successful operations include a stable `status
 
 Operational failures return a structured failed tool envelope to chat agents. The same failure raises `RuntimeError` when `session_ops` is called directly from Monty, so a required summarization failure cannot be mistaken for a successful script result.
 
-Transcript search results return stable `session_id` and `sequence_index` anchors, canonical role/type/timestamp provenance, a bounded excerpt, ordinal search rank, and whether the hit is in the prefix replaced by the latest compaction checkpoint. A transcript window returns canonical messages in chronological order, truncation metadata, the source history revision, and an opaque continuation cursor when an individual message is too large for one response.
+Transcript evidence returned by either focused transcript search or deep session search includes a stable `session_id` and `sequence_index` anchor, canonical role/type/timestamp provenance, a bounded excerpt, ordinal search rank, and whether the hit is in the prefix replaced by the latest compaction checkpoint. A transcript window returns canonical messages in chronological order, truncation metadata, the source history revision, and an opaque continuation cursor when an individual message is too large for one response.
 
 ## Filtering
 
@@ -80,7 +80,7 @@ Do not use general glob patterns such as `"*/wetland_grant"`. Do not use `filter
 - `upsert_session_summary` manually stores the `data` values supplied by the caller for the current or specified session. It does not read the transcript or infer missing fields. When updating an existing summary, omitted fields are preserved; pass `null` or an empty string to explicitly clear a field.
 - `search_sessions` finds candidate prior sessions.
   - `mode: "search"` is the default. It searches the supplied `query` across session-summary fields using lexical FTS/BM25 evidence plus semantic vector evidence.
-  - `mode: "deep"` searches session-summary fields plus raw chat transcripts.
+  - `mode: "deep"` searches session-summary fields plus the canonical raw-message index, including messages no longer present in effective history after compaction. Transcript evidence is bounded to the best source anchor per matching session; call `search_transcript` and `get_transcript_window` for closer inspection.
 - Without `filter`, `search_sessions` searches broadly across the vault. If the current chat session has a workspace, exact same-workspace matches may be boosted, but other workspaces remain eligible.
 - With `filter.workspace`, `search_sessions` searches only matching workspace sessions, then ranks by relevance. Use workspace filtering when the workspace is a hard boundary; rely on workspace boost when the workspace is only a preference.
 - Use `search` for normal live-chat lookup when the current session does not yet have a stored summary, or when the user names a specific word, phrase, topic, or concept.
