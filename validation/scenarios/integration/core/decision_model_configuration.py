@@ -40,48 +40,12 @@ class DecisionModelConfigurationScenario(BaseScenario):
 
         await self.start_system()
         general_settings = self.call_api("/api/system/settings/general")
-        session_memory_mode = next(
-            setting
-            for setting in general_settings.json()
-            if setting["key"] == "live_session_memory_mode"
-        )
-        self.soft_assert_equal(
-            session_memory_mode["value"],
-            "off",
-            "The session-memory mode default must remain a string enum",
-        )
-        active_settings_response = self.call_api("/api/system/settings")
-        active_settings = yaml.safe_load(active_settings_response.json()["content"])
-        active_settings["settings"]["live_session_memory_mode"]["value"] = False
-        legacy_boolean = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(active_settings, sort_keys=False)},
-        )
-        self.soft_assert_equal(
-            legacy_boolean.status_code,
-            200,
-            "A legacy boolean session-memory mode should remain loadable",
-        )
-        observe_mode = self.call_api(
-            "/api/system/settings/general/live_session_memory_mode",
-            method="PUT",
-            data={"value": "observe"},
-        )
-        self.soft_assert_equal(
-            (observe_mode.status_code, observe_mode.json().get("value")),
-            (200, "observe"),
-            "The settings API should repair a legacy boolean mode while enabling observe",
-        )
-        off_mode = self.call_api(
-            "/api/system/settings/general/live_session_memory_mode",
-            method="PUT",
-            data={"value": "off"},
-        )
-        self.soft_assert_equal(
-            (off_mode.status_code, off_mode.json().get("value")),
-            (200, "off"),
-            "The settings API should persist the disabled enum value as a string",
+        self.soft_assert(
+            all(
+                not setting["key"].startswith("live_session_memory_")
+                for setting in general_settings.json()
+            ),
+            "Retired live-session-memory settings should not appear in general settings",
         )
         from core.llm.model_factory import build_model_instance
         from core.llm.model_utils import (
@@ -236,6 +200,12 @@ class DecisionModelConfigurationScenario(BaseScenario):
         settings = yaml.safe_load(settings_response.json()["content"])
         settings["models"].pop("jev")
         settings["providers"].pop("typesafe")
+        settings["settings"]["live_session_memory_mode"] = {
+            "value": "observe",
+            "description": "Retired validation setting",
+            "category": "Session Memory",
+            "restart_required": False,
+        }
         removed_builtins = self.call_api(
             "/api/system/settings",
             method="PUT",
@@ -245,6 +215,13 @@ class DecisionModelConfigurationScenario(BaseScenario):
             removed_builtins.status_code,
             200,
             "An older settings file without decision configuration should remain readable",
+        )
+        self.soft_assert(
+            all(
+                setting["key"] != "live_session_memory_mode"
+                for setting in self.call_api("/api/system/settings/general").json()
+            ),
+            "Retired settings persisted by an older version should stay out of the settings API",
         )
         repair = self.call_api("/api/system/settings/repair", method="POST")
         repaired = yaml.safe_load(repair.json()["content"])
@@ -257,6 +234,10 @@ class DecisionModelConfigurationScenario(BaseScenario):
             repaired["providers"]["typesafe"]["api_key"],
             "TYPESAFE_API_KEY",
             "Settings repair should add the TypeSafe secret pointer",
+        )
+        self.soft_assert(
+            "live_session_memory_mode" not in repaired["settings"],
+            "Settings repair should remove retired live-session-memory settings",
         )
 
         clear_secret = self.call_api(

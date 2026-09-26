@@ -77,7 +77,6 @@ from .models import (
     ChatSessionForkRequest,
     ChatSessionForkResponse,
     ChatSessionInfo,
-    ChatSessionMapResponse,
     ChatSessionModeRequest,
     ChatSessionModeResponse,
     ChatSessionRetryRequest,
@@ -200,7 +199,6 @@ from .services import (
     get_chat_edit_proposal,
     get_chat_history_compaction_status,
     get_chat_session_detail,
-    get_chat_session_map,
     get_chat_session_summary,
     get_chat_tool_call_detail,
     get_configurable_models,
@@ -2565,19 +2563,6 @@ async def cancel_chat_session(
     """Request cancellation for the active process-local task in a chat session."""
     try:
         return await cancel_chat_session_task(session_id)
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.get("/chat/sessions/{session_id}/map", response_model=ChatSessionMapResponse)
-async def chat_session_map(
-    session_id: str,
-    vault_name: str,
-    revision: int | None = Query(default=None, ge=1),
-) -> ChatSessionMapResponse | JSONResponse:
-    """Return a committed session-map revision for product inspection."""
-    try:
-        return get_chat_session_map(vault_name, session_id, revision=revision)
     except Exception as e:
         return create_error_response(e)
 

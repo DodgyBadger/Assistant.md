@@ -37,7 +37,6 @@ class ExecutionTaskKind(StrEnum):
     DELEGATE = "delegate"
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
-    SESSION_MEMORY = "session_memory"
     INGESTION = "ingestion"
 
 

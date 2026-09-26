@@ -25,6 +25,7 @@ if __name__ == "__main__":
     set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
 
 from core.chat import ChatStore  # noqa: E402
+from core.chat.schema import ensure_chat_sessions_schema  # noqa: E402
 from core.ingestion.service import IngestionService  # noqa: E402
 from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
 from core.runtime.paths import set_bootstrap_roots  # noqa: E402
@@ -144,20 +145,20 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4],
+                [1, 2, 3, 4, 5],
                 "Chat migration version should be recorded",
             )
             self.soft_assert(
-                self._table_exists(conn, "chat_session_map_revisions"),
-                "Session-map revision storage should exist after migration",
+                not self._table_exists(conn, "chat_session_map_revisions"),
+                "Retired session-map revision storage should be absent after migration",
             )
             self.soft_assert(
-                self._table_exists(conn, "chat_session_map_maintenance"),
-                "Session-map maintenance storage should exist after migration",
+                not self._table_exists(conn, "chat_session_map_maintenance"),
+                "Retired session-map maintenance storage should be absent after migration",
             )
             self.soft_assert(
-                self._table_exists(conn, "chat_session_map_attempts"),
-                "Session-map attempt audit storage should exist after migration",
+                not self._table_exists(conn, "chat_session_map_attempts"),
+                "Retired session-map attempt storage should be absent after migration",
             )
             owner = conn.execute(
                 "SELECT owner_principal_id FROM chat_sessions WHERE session_id = 'legacy'"
@@ -228,6 +229,29 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         self.soft_assert_equal(
             second.pending_count, 0, "Second run should remain fully applied"
         )
+
+        retired_map_root = self.artifacts_dir / "retired-map-system"
+        retired_map_root.mkdir()
+        retired_map_db = retired_map_root / "chat_sessions.db"
+        self._create_pre_retirement_chat_sessions_db(retired_map_db)
+        ensure_chat_sessions_schema(str(retired_map_root), apply_migrations=True)
+        with sqlite3.connect(retired_map_db) as conn:
+            self.soft_assert_equal(
+                self._migration_versions(conn, "chat_sessions"),
+                [1, 2, 3, 4, 5],
+                "A database already at map migration 4 should apply the teardown migration",
+            )
+            self.soft_assert(
+                all(
+                    not self._table_exists(conn, table_name)
+                    for table_name in (
+                        "chat_session_map_revisions",
+                        "chat_session_map_maintenance",
+                        "chat_session_map_attempts",
+                    )
+                ),
+                "The teardown migration should remove every retired map table",
+            )
         self.soft_assert(
             all(target.backup_path is None for target in second.targets),
             "Second run should not create backups when no migrations are pending",
@@ -257,6 +281,39 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                 VALUES ('legacy', 'MigrationVault')
                 """
             )
+
+    @staticmethod
+    def _create_pre_retirement_chat_sessions_db(db_path: Path) -> None:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE schema_migrations (
+                    namespace TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (namespace, version)
+                )
+                """
+            )
+            conn.executemany(
+                """
+                INSERT INTO schema_migrations (namespace, version, name)
+                VALUES ('chat_sessions', ?, ?)
+                """,
+                (
+                    (1, "add_compaction_checkpoints"),
+                    (2, "add_session_owner_principal"),
+                    (3, "add_live_session_map_storage"),
+                    (4, "add_live_session_map_attempt_audit"),
+                ),
+            )
+            for table_name in (
+                "chat_session_map_revisions",
+                "chat_session_map_maintenance",
+                "chat_session_map_attempts",
+            ):
+                conn.execute(f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY)")
 
     @staticmethod
     def _create_legacy_ingestion_jobs_db(db_path: Path) -> None:

@@ -12,6 +12,21 @@ _WEB_TOOL_RENAMES = {
     "tavily_crawl": "web_crawl",
 }
 
+RETIRED_SETTINGS = frozenset(
+    {
+        "live_session_memory_mode",
+        "live_session_memory_decision_model",
+        "live_session_memory_author_model",
+        "live_session_memory_eligibility_turns",
+        "live_session_memory_broad_change_threshold",
+        "live_session_memory_field_change_threshold",
+        "live_session_memory_max_pending_turns",
+        "live_session_memory_max_pending_tokens",
+        "live_session_memory_task_timeout_seconds",
+        "live_session_memory_max_concurrent_tasks",
+    }
+)
+
 
 def upgrade_settings_mapping(
     active: dict[str, Any], template: dict[str, Any]
@@ -22,6 +37,9 @@ def upgrade_settings_mapping(
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):
         return upgraded
+
+    for retired_setting in RETIRED_SETTINGS:
+        settings.pop(retired_setting, None)
 
     enabled_entry = settings.get("enabled_tools") or settings.get("default_chat_tools")
     enabled_values = _entry_list(enabled_entry)

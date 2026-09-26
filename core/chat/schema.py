@@ -32,6 +32,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="add_live_session_map_attempt_audit",
         apply=lambda conn: _migrate_live_session_map_attempt_audit(conn),
     ),
+    SQLiteMigration(
+        version=5,
+        name="remove_live_session_map_storage",
+        apply=lambda conn: _remove_live_session_map_storage(conn),
+    ),
 )
 
 
@@ -193,8 +198,6 @@ def ensure_chat_sessions_schema(
         )
         _migrate_compaction_checkpoints(conn)
         _migrate_session_owners(conn)
-        _migrate_live_session_map_storage(conn)
-        _migrate_live_session_map_attempt_audit(conn)
         conn.commit()
         if apply_migrations:
             apply_sqlite_migrations(
@@ -394,6 +397,13 @@ def _migrate_live_session_map_attempt_audit(conn: sqlite3.Connection) -> None:
         ON chat_session_map_attempts(session_id, vault_name, attempt_number DESC)
         """
     )
+
+
+def _remove_live_session_map_storage(conn: sqlite3.Connection) -> None:
+    """Remove retired live session-map derived state."""
+    conn.execute("DROP TABLE IF EXISTS chat_session_map_attempts")
+    conn.execute("DROP TABLE IF EXISTS chat_session_map_maintenance")
+    conn.execute("DROP TABLE IF EXISTS chat_session_map_revisions")
 
 
 def _deduplicate_session_ids(conn: sqlite3.Connection) -> None:
