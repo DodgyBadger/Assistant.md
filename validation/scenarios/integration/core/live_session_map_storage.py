@@ -24,8 +24,11 @@ class LiveSessionMapStorageScenario(BaseScenario):
             AddPatch,
             Attention,
             ChangeAttentionPatch,
+            EpistemicStatus,
             GoalEntry,
             GoalStatus,
+            ObservationEntry,
+            Relevance,
             SessionMap,
             SourceRef,
         )
@@ -105,6 +108,127 @@ class LiveSessionMapStorageScenario(BaseScenario):
             map_store.get_revision_operations(session_id, vault.name, revision=1),
             operations,
             "The append-only revision retains its exact patch audit",
+        )
+
+        with chat_store.transaction() as conn:
+            chat_store.add_messages(
+                session_id,
+                vault.name,
+                [ModelRequest(parts=[UserPromptPart(content="Inspect map history")])],
+                connection=conn,
+            )
+            map_store.record_pending(
+                conn,
+                session_id=session_id,
+                vault_name=vault.name,
+                through_sequence_index=1,
+                token_count=3,
+            )
+
+        map_store.freeze_attempt(session_id, vault.name)
+        observation = ObservationEntry(
+            id="observation_1",
+            text="The durable map can be inspected independently of telemetry.",
+            epistemic_status=EpistemicStatus.OBSERVED,
+            relevance=Relevance.SUPPORTING,
+            source_refs=(SourceRef(sequence_index=1, role="user"),),
+        )
+        second_operations = (AddPatch(entry=observation),)
+        second_map = session_map.model_copy(
+            update={
+                "revision": 2,
+                "updated_through_sequence_index": 1,
+                "observed_source_content_revision": 2,
+                "updated_at": datetime.now(UTC),
+                "observations": (observation,),
+            }
+        )
+        map_store.commit_revision(
+            session_id=session_id,
+            vault_name=vault.name,
+            expected_revision=1,
+            session_map=second_map,
+            operations=second_operations,
+            decision={"outcome": "author"},
+            authoring={"model": "test"},
+        )
+
+        sessions_response = self.call_api(f"/api/chat/sessions?vault_name={vault.name}")
+        self.soft_assert_equal(
+            sessions_response.status_code,
+            200,
+            "Session listing succeeds for map inspection",
+        )
+        listed_session = next(
+            item
+            for item in sessions_response.json()
+            if item["session_id"] == session_id
+        )
+        self.soft_assert_equal(
+            listed_session.get("has_session_map"),
+            True,
+            "Session listing advertises committed session maps",
+        )
+
+        latest_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
+        )
+        self.soft_assert_equal(
+            latest_response.status_code,
+            200,
+            "Session-map inspection endpoint succeeds",
+        )
+        latest_payload = latest_response.json()
+        self.soft_assert_equal(
+            latest_payload.get("selected_revision"),
+            2,
+            "Session-map inspection defaults to the latest revision",
+        )
+        self.soft_assert_equal(
+            [item["revision"] for item in latest_payload.get("revisions", [])],
+            [2, 1],
+            "Session-map revision history is newest first",
+        )
+        self.soft_assert_equal(
+            latest_payload.get("maintenance", {}).get("status"),
+            "idle",
+            "Session-map inspection exposes durable maintenance state",
+        )
+
+        historical_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}&revision=1"
+        )
+        self.soft_assert_equal(
+            historical_response.status_code,
+            200,
+            "A historical session-map revision can be selected",
+        )
+        historical_payload = historical_response.json()
+        self.soft_assert_equal(
+            historical_payload.get("session_map", {}).get("revision"),
+            1,
+            "Historical inspection returns the requested immutable map",
+        )
+        self.soft_assert_equal(
+            len(historical_payload.get("operations", [])),
+            2,
+            "Historical inspection includes its patch audit",
+        )
+        missing_revision_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}&revision=99"
+        )
+        self.soft_assert_equal(
+            missing_revision_response.status_code,
+            404,
+            "An unknown session-map revision is not silently substituted",
+        )
+        wrong_vault_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name=AnotherVault"
+        )
+        self.soft_assert_equal(
+            wrong_vault_response.status_code,
+            409,
+            "Session-map inspection enforces the canonical session vault",
         )
 
         fork_id = "live-session-map-storage-fork"

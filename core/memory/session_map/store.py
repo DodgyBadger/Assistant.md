@@ -51,6 +51,18 @@ class SessionMapMaintenanceState:
     last_error: dict[str, JsonValue] | None
 
 
+@dataclass(frozen=True)
+class SessionMapRevisionInfo:
+    """Compact metadata for one immutable session-map revision."""
+
+    revision: int
+    predecessor_revision: int
+    updated_through_sequence_index: int
+    observed_source_content_revision: int
+    created_at: str
+    operation_count: int
+
+
 class SessionMapStore:
     """Own session-map revisions inside the canonical chat database."""
 
@@ -458,6 +470,76 @@ class SessionMapStore:
         conn = self._connect()
         try:
             return self._latest_revision(conn, session_id, vault_name)
+        finally:
+            conn.close()
+
+    def get_revision(
+        self, session_id: str, vault_name: str, *, revision: int
+    ) -> SessionMap | None:
+        """Return one immutable committed map revision."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT map_json
+                FROM chat_session_map_revisions
+                WHERE session_id = ? AND vault_name = ? AND revision = ?
+                """,
+                (session_id, vault_name, revision),
+            ).fetchone()
+            return None if row is None else SessionMap.model_validate_json(str(row[0]))
+        finally:
+            conn.close()
+
+    def list_revisions(
+        self, session_id: str, vault_name: str
+    ) -> tuple[SessionMapRevisionInfo, ...]:
+        """Return compact revision metadata newest first."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT revision, predecessor_revision,
+                       updated_through_sequence_index,
+                       observed_source_content_revision, created_at,
+                       operations_json
+                FROM chat_session_map_revisions
+                WHERE session_id = ? AND vault_name = ?
+                ORDER BY revision DESC
+                """,
+                (session_id, vault_name),
+            ).fetchall()
+            return tuple(
+                SessionMapRevisionInfo(
+                    revision=int(row[0]),
+                    predecessor_revision=int(row[1]),
+                    updated_through_sequence_index=int(row[2]),
+                    observed_source_content_revision=int(row[3]),
+                    created_at=str(row[4]),
+                    operation_count=len(_PATCHES_ADAPTER.validate_json(str(row[5]))),
+                )
+                for row in rows
+            )
+        finally:
+            conn.close()
+
+    def get_mapped_session_ids(
+        self, vault_name: str, session_ids: set[str]
+    ) -> frozenset[str]:
+        """Return the requested session IDs that have a committed revision."""
+        if not session_ids:
+            return frozenset()
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT session_id
+                FROM chat_session_map_revisions
+                WHERE vault_name = ?
+                """,
+                (vault_name,),
+            ).fetchall()
+            return frozenset(str(row[0]) for row in rows if str(row[0]) in session_ids)
         finally:
             conn.close()
 

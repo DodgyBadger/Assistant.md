@@ -354,14 +354,14 @@
                     <div class="app-modal-header sticky top-0">
                         <div class="app-modal-title-block">
                             <h2 id="session-summary-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
-                                <span class="session-summary-title-icon" aria-hidden="true">${SESSION_SUMMARY_ICON_SVG}</span>
+                                <span class="app-modal-title-icon" aria-hidden="true">${SESSION_SUMMARY_ICON_SVG}</span>
                                 <span>Session Summary</span>
                             </h2>
                             <p class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(session.session_id)}</p>
                         </div>
                         <div class="app-modal-actions">
                             ${hasBackAction ? `
-                                <button type="button" class="session-summary-back-button" data-session-summary-back="true" aria-label="Back to ${escapeHtml(backLabel)}" title="Back to ${escapeHtml(backLabel)}">
+                                <button type="button" class="app-modal-back-button" data-session-summary-back="true" aria-label="Back to ${escapeHtml(backLabel)}" title="Back to ${escapeHtml(backLabel)}">
                                     ${ARROW_LEFT_ICON_SVG}
                                 </button>
                             ` : ''}

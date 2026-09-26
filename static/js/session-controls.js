@@ -1,5 +1,5 @@
 (function sessionControlsModule(window) {
-    function createSessionControlsController({ state, elements, icons, utils, sessionSummary, callbacks }) {
+    function createSessionControlsController({ state, elements, icons, utils, sessionSummary, sessionMap, callbacks }) {
         const { escapeHtml } = utils;
         let editingSessionId = '';
         let sessionBrowserFilter = '';
@@ -233,6 +233,7 @@
                         <span class="session-dropdown-title-wrap">
                             <span class="session-dropdown-title">${escapeHtml(title(session))}</span>
                             ${renderSessionBrowserSummaryAction(session)}
+                            ${renderSessionBrowserMapAction(session)}
                         </span>
                         ${meta ? `<span class="session-browser-row-meta">${escapeHtml(meta)}</span>` : ''}
                     </div>
@@ -245,6 +246,12 @@
             const sessionId = session?.session_id || '';
             if (!session?.has_summary || !sessionId) return '';
             return renderRowActionButton('summary', sessionId, 'Open summary', icons.SESSION_SUMMARY_ICON_SVG, 'is-summary');
+        }
+
+        function renderSessionBrowserMapAction(session) {
+            const sessionId = session?.session_id || '';
+            if (!session?.has_session_map || !sessionId) return '';
+            return renderRowActionButton('map', sessionId, 'Open session map', icons.MAP_ICON_SVG, 'is-map');
         }
 
         function renderSessionBrowserEditingRow(session, isActive) {
@@ -279,7 +286,7 @@
                     <div class="app-modal-header flex-none">
                         <div class="app-modal-title-block">
                             <h2 id="session-browser-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
-                                <span class="session-summary-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
+                                <span class="app-modal-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
                                 <span>Chat Settings</span>
                             </h2>
                             <p id="session-browser-count" class="mt-1 text-xs text-txt-secondary"></p>
@@ -455,6 +462,16 @@
                 if (!session) return;
                 closeSessionBrowserModal();
                 sessionSummary.openModalForSession(session, {
+                    backLabel: 'Sessions',
+                    onBack: openSessionBrowserModal,
+                });
+                return;
+            }
+            if (action === 'map') {
+                const session = state.sessions.find((item) => item.session_id === sessionId);
+                if (!session) return;
+                closeSessionBrowserModal();
+                sessionMap.openModalForSession(session, {
                     backLabel: 'Sessions',
                     onBack: openSessionBrowserModal,
                 });

@@ -21,6 +21,7 @@ from core.chat.deferred_reviews import (
 )
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
+from core.memory.session_map.store import SessionMapStore
 from core.memory.session_summary import SessionSummary, SessionSummaryStore
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
@@ -51,6 +52,9 @@ from ..models import (
     ChatSessionFailureInfo,
     ChatSessionForkResponse,
     ChatSessionInfo,
+    ChatSessionMapMaintenanceInfo,
+    ChatSessionMapResponse,
+    ChatSessionMapRevisionInfo,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
     ChatSessionToolCallInfo,
@@ -272,6 +276,10 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
     summary_store = SessionSummaryStore()
+    map_store = SessionMapStore()
+    mapped_session_ids = map_store.get_mapped_session_ids(
+        vault_name, {session.session_id for session in sessions}
+    )
     return [
         ChatSessionInfo(
             session_id=session.session_id,
@@ -288,6 +296,7 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
                 session_id=session.session_id,
             )
             is not None,
+            has_session_map=session.session_id in mapped_session_ids,
         )
         for session in sessions
     ]
@@ -381,6 +390,7 @@ def fork_chat_session(
                 new_session.session_id, vault_name
             ),
             has_summary=False,
+            has_session_map=False,
         ),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
@@ -403,6 +413,78 @@ def _forked_session_title(source_session: StoredChatSession) -> str:
     if title:
         return f"{title} (fork)"
     return f"Fork of {source_session.session_id}"
+
+
+def get_chat_session_map(
+    vault_name: str,
+    session_id: str,
+    *,
+    revision: int | None = None,
+) -> ChatSessionMapResponse:
+    """Return one committed map revision plus its durable inspection metadata."""
+    _require_chat_session_access(vault_name, session_id)
+    store = SessionMapStore()
+    revision_records = store.list_revisions(session_id, vault_name)
+    latest_revision = revision_records[0].revision if revision_records else None
+    selected_revision = revision if revision is not None else latest_revision
+    session_map = (
+        store.get_revision(session_id, vault_name, revision=selected_revision)
+        if selected_revision is not None
+        else None
+    )
+    if revision is not None and session_map is None:
+        raise APIException(
+            status_code=404,
+            error_type="SessionMapRevisionNotFound",
+            message=f"Session map revision not found: {session_id}@{revision}",
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "revision": revision,
+            },
+        )
+    operations = (
+        store.get_revision_operations(
+            session_id, vault_name, revision=selected_revision
+        )
+        if selected_revision is not None
+        else None
+    )
+    maintenance = store.get_maintenance_state(session_id, vault_name)
+    maintenance_info = (
+        ChatSessionMapMaintenanceInfo(
+            observed_through_sequence_index=maintenance.observed_through_sequence_index,
+            observed_source_content_revision=maintenance.observed_source_content_revision,
+            pending_turn_count=maintenance.pending_turn_count,
+            pending_token_count=maintenance.pending_token_count,
+            status=maintenance.status,
+            attempt_count=maintenance.attempt_count,
+            decision_checked_through_sequence_index=(
+                maintenance.decision_checked_through_sequence_index
+            ),
+            decision_checked_pending_turn_count=(
+                maintenance.decision_checked_pending_turn_count
+            ),
+            last_decision=maintenance.last_decision,
+            last_authoring=maintenance.last_authoring,
+            last_error=maintenance.last_error,
+        )
+        if maintenance is not None
+        else None
+    )
+    return ChatSessionMapResponse(
+        session_id=session_id,
+        vault_name=vault_name,
+        selected_revision=selected_revision,
+        latest_revision=latest_revision,
+        revisions=[
+            ChatSessionMapRevisionInfo.model_validate(asdict(item))
+            for item in revision_records
+        ],
+        session_map=session_map,
+        operations=list(operations or ()),
+        maintenance=maintenance_info,
+    )
 
 
 def get_chat_session_summary(vault_name: str, session_id: str) -> dict:

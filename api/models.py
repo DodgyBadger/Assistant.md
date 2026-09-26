@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
+from core.memory.session_map.models import PatchOperation, SessionMap
 
 #######################################################################
 ## Request Models
@@ -1112,6 +1113,49 @@ class ChatSessionInfo(BaseModel):
     has_summary: bool = Field(
         False, description="Whether a session summary record exists"
     )
+    has_session_map: bool = Field(
+        False, description="Whether a committed session-map revision exists"
+    )
+
+
+class ChatSessionMapRevisionInfo(BaseModel):
+    """Compact metadata for one immutable session-map revision."""
+
+    revision: int = Field(..., ge=1)
+    predecessor_revision: int = Field(..., ge=0)
+    updated_through_sequence_index: int = Field(..., ge=0)
+    observed_source_content_revision: int = Field(..., ge=1)
+    created_at: str
+    operation_count: int = Field(..., ge=1)
+
+
+class ChatSessionMapMaintenanceInfo(BaseModel):
+    """Durable map-maintenance state used for product-level inspection."""
+
+    observed_through_sequence_index: int
+    observed_source_content_revision: int = Field(..., ge=0)
+    pending_turn_count: int = Field(..., ge=0)
+    pending_token_count: int = Field(..., ge=0)
+    status: str
+    attempt_count: int = Field(..., ge=0)
+    decision_checked_through_sequence_index: int
+    decision_checked_pending_turn_count: int = Field(..., ge=0)
+    last_decision: dict[str, Any] | None = None
+    last_authoring: dict[str, Any] | None = None
+    last_error: dict[str, Any] | None = None
+
+
+class ChatSessionMapResponse(BaseModel):
+    """Read-only session-map inspection payload."""
+
+    session_id: str
+    vault_name: str
+    selected_revision: int | None = None
+    latest_revision: int | None = None
+    revisions: list[ChatSessionMapRevisionInfo] = Field(default_factory=list)
+    session_map: SessionMap | None = None
+    operations: list[PatchOperation] = Field(default_factory=list)
+    maintenance: ChatSessionMapMaintenanceInfo | None = None
 
 
 class ChatSessionWorkspaceRequest(BaseModel):

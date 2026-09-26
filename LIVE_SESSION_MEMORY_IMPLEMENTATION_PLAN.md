@@ -559,6 +559,14 @@ Follow-up full-prefix calls for Terra at medium thinking and Sol at low thinking
 
 **Exit gate:** Shadow operation meets declared freshness, failure, cost, and audit-disagreement bounds over representative sessions. Turning the mode back to `off` stops work and leaves existing chat behavior unchanged.
 
+#### Durable Session-Map Inspection
+
+**Status:** Implemented as a read-only Slice 6 observability surface.
+
+Expose the shadow artifact through the existing session browser so product-level observability does not depend on external telemetry. Sessions with at least one committed map revision receive a Lucide map action alongside the existing summary action. The action opens a read-only modal using the established application modal shell, defaults to the latest committed revision as the active map, and permits navigation across immutable earlier revisions. The view includes map sections, source references, revision provenance, and current durable maintenance state so pending work and failures remain distinguishable from committed content. Legacy session summaries, their twinkle action, and their edit/delete behavior remain unchanged while the map is experimental.
+
+The API must authorize the canonical chat session before reading map state, return only application-owned durable records, and expose a compact revision catalog rather than loading every historical map at once. The session-list contract includes only a `has_session_map` availability flag; a separate revision-selecting endpoint returns the latest revision by default and an explicitly requested revision when supplied. Deterministic integration coverage protects vault isolation, latest-versus-historical selection, revision ordering, operations, and maintenance metadata. The first UI increment is read-only: map mutation, revision deletion, evidence navigation, summary replacement, and nightly-summary retirement remain outside this slice.
+
 ### Slice 7: Opt-In Context Admission
 
 **Hypothesis:** A bounded map plus the exact unmapped raw tail improves continuation on long and referential sessions enough to justify its prompt cost.
