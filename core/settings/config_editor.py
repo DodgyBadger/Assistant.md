@@ -50,7 +50,11 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     if entry is None:
         raise SettingsError(f"Setting '{name}' does not exist.")
 
-    coerced_value = _coerce_setting_value(raw_value, entry.value)
+    coerced_value = (
+        raw_value.strip().lower()
+        if name == "live_session_memory_mode"
+        else _coerce_setting_value(raw_value, entry.value)
+    )
     _validate_general_setting_value(name, coerced_value, settings_file)
     settings_file.settings[name] = SettingsEntry(
         value=coerced_value,

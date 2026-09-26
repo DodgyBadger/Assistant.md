@@ -279,7 +279,7 @@ Seed TypeSafe as a built-in provider and `jev` as a reusable decision-model alia
 ```yaml
 settings:
   live_session_memory_mode:
-    value: off
+    value: "off"
     description: "Live session-memory policy. The initial runtime supports off and observe."
     category: "Session Memory"
     restart_required: false

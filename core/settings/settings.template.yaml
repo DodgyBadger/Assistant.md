@@ -186,7 +186,7 @@ settings:
     category: "Chat"
     restart_required: false
   live_session_memory_mode:
-    value: off
+    value: "off"
     description: "Live session-memory policy. Off leaves chat unchanged; observe maintains a shadow session map without admitting it to model context or compaction."
     category: "Session Memory"
     restart_required: false

@@ -39,6 +39,50 @@ class DecisionModelConfigurationScenario(BaseScenario):
         )
 
         await self.start_system()
+        general_settings = self.call_api("/api/system/settings/general")
+        session_memory_mode = next(
+            setting
+            for setting in general_settings.json()
+            if setting["key"] == "live_session_memory_mode"
+        )
+        self.soft_assert_equal(
+            session_memory_mode["value"],
+            "off",
+            "The session-memory mode default must remain a string enum",
+        )
+        active_settings_response = self.call_api("/api/system/settings")
+        active_settings = yaml.safe_load(active_settings_response.json()["content"])
+        active_settings["settings"]["live_session_memory_mode"]["value"] = False
+        legacy_boolean = self.call_api(
+            "/api/system/settings",
+            method="PUT",
+            data={"content": yaml.safe_dump(active_settings, sort_keys=False)},
+        )
+        self.soft_assert_equal(
+            legacy_boolean.status_code,
+            200,
+            "A legacy boolean session-memory mode should remain loadable",
+        )
+        observe_mode = self.call_api(
+            "/api/system/settings/general/live_session_memory_mode",
+            method="PUT",
+            data={"value": "observe"},
+        )
+        self.soft_assert_equal(
+            (observe_mode.status_code, observe_mode.json().get("value")),
+            (200, "observe"),
+            "The settings API should repair a legacy boolean mode while enabling observe",
+        )
+        off_mode = self.call_api(
+            "/api/system/settings/general/live_session_memory_mode",
+            method="PUT",
+            data={"value": "off"},
+        )
+        self.soft_assert_equal(
+            (off_mode.status_code, off_mode.json().get("value")),
+            (200, "off"),
+            "The settings API should persist the disabled enum value as a string",
+        )
         from core.llm.model_factory import build_model_instance
         from core.llm.model_utils import (
             get_model_capabilities,
