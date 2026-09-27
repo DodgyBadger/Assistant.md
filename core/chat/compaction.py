@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
     SystemPromptPart,
     ToolCallPart,
     ToolReturnPart,
+    UserPromptPart,
 )
 
 from core.chat.tool_history import analyze_tool_history
@@ -93,6 +94,33 @@ class ChatHistoryCompactionResult:
     def as_tool_dict(self) -> dict[str, Any]:
         """Return chat-agent-safe result fields."""
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class SteppedHistoryEvictionPlan:
+    """Pure high/low-watermark plan over complete provider-history groups."""
+
+    status: str
+    reason: str
+    high_watermark_tokens: int
+    low_watermark_tokens: int
+    estimated_tokens_before: int
+    estimated_tokens_after: int
+    message_count_before: int
+    evicted_message_count: int
+    retained_message_count: int
+    group_count: int
+    evicted_group_count: int
+    eviction_end_index: int
+
+
+@dataclass(frozen=True)
+class _HistoryMessageGroup:
+    """One complete or incomplete conversational group in effective history."""
+
+    start_index: int
+    end_index: int
+    complete: bool
 
 
 @asynccontextmanager
@@ -311,6 +339,180 @@ def estimate_history_tokens(messages: list[ModelMessage]) -> int:
         for message in messages
     ]
     return estimate_token_count("\n".join(parts))
+
+
+def plan_stepped_history_eviction(
+    messages: list[ModelMessage],
+    *,
+    high_watermark_tokens: int,
+    low_watermark_tokens: int,
+) -> SteppedHistoryEvictionPlan:
+    """Plan a safe oldest-prefix eviction without mutating history or storage."""
+    _validate_eviction_watermarks(
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+    )
+    estimated_before = estimate_history_tokens(messages)
+    groups = _group_history_messages(messages)
+    if estimated_before <= high_watermark_tokens:
+        return _no_op_eviction_plan(
+            reason="below_high_watermark",
+            messages=messages,
+            groups=groups,
+            estimated_tokens=estimated_before,
+            high_watermark_tokens=high_watermark_tokens,
+            low_watermark_tokens=low_watermark_tokens,
+        )
+
+    integrity = analyze_tool_history(messages)
+    if not integrity.ok:
+        return _no_op_eviction_plan(
+            reason="invalid_tool_history",
+            messages=messages,
+            groups=groups,
+            estimated_tokens=estimated_before,
+            high_watermark_tokens=high_watermark_tokens,
+            low_watermark_tokens=low_watermark_tokens,
+        )
+    if len(groups) <= 1:
+        return _no_op_eviction_plan(
+            reason="insufficient_evictable_history",
+            messages=messages,
+            groups=groups,
+            estimated_tokens=estimated_before,
+            high_watermark_tokens=high_watermark_tokens,
+            low_watermark_tokens=low_watermark_tokens,
+        )
+
+    eviction_end_index = 0
+    evicted_group_count = 0
+    estimated_after = estimated_before
+    for group in groups[:-1]:
+        if not group.complete:
+            return _no_op_eviction_plan(
+                reason="incomplete_eviction_prefix",
+                messages=messages,
+                groups=groups,
+                estimated_tokens=estimated_before,
+                high_watermark_tokens=high_watermark_tokens,
+                low_watermark_tokens=low_watermark_tokens,
+            )
+        eviction_end_index = group.end_index
+        evicted_group_count += 1
+        estimated_after = estimate_history_tokens(messages[eviction_end_index:])
+        if estimated_after <= low_watermark_tokens:
+            break
+
+    target_reached = estimated_after <= low_watermark_tokens
+    return SteppedHistoryEvictionPlan(
+        status="planned",
+        reason=(
+            "low_watermark_reached"
+            if target_reached
+            else "newest_group_exceeds_low_watermark"
+        ),
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+        estimated_tokens_before=estimated_before,
+        estimated_tokens_after=estimated_after,
+        message_count_before=len(messages),
+        evicted_message_count=eviction_end_index,
+        retained_message_count=len(messages) - eviction_end_index,
+        group_count=len(groups),
+        evicted_group_count=evicted_group_count,
+        eviction_end_index=eviction_end_index,
+    )
+
+
+def _validate_eviction_watermarks(
+    *, high_watermark_tokens: int, low_watermark_tokens: int
+) -> None:
+    if high_watermark_tokens <= 0:
+        raise ValueError("High watermark must be greater than zero.")
+    if low_watermark_tokens < 0:
+        raise ValueError("Low watermark cannot be negative.")
+    if low_watermark_tokens >= high_watermark_tokens:
+        raise ValueError("Low watermark must be less than high watermark.")
+
+
+def _group_history_messages(
+    messages: list[ModelMessage],
+) -> list[_HistoryMessageGroup]:
+    if not messages:
+        return []
+    groups: list[_HistoryMessageGroup] = []
+    start_index = 0
+    for index in range(1, len(messages)):
+        if not _starts_history_group(messages[index]):
+            continue
+        groups.append(
+            _HistoryMessageGroup(
+                start_index=start_index,
+                end_index=index,
+                complete=_history_group_is_complete(messages[start_index:index]),
+            )
+        )
+        start_index = index
+    groups.append(
+        _HistoryMessageGroup(
+            start_index=start_index,
+            end_index=len(messages),
+            complete=_history_group_is_complete(messages[start_index:]),
+        )
+    )
+    return groups
+
+
+def _starts_history_group(message: ModelMessage) -> bool:
+    if not isinstance(message, ModelRequest):
+        return False
+    return any(
+        isinstance(part, UserPromptPart | SystemPromptPart)
+        for part in (getattr(message, "parts", ()) or ())
+    )
+
+
+def _history_group_is_complete(messages: list[ModelMessage]) -> bool:
+    if not messages:
+        return False
+    if len(messages) == 1 and _is_system_only_message(messages[0]):
+        return True
+    final_message = messages[-1]
+    return isinstance(final_message, ModelResponse) and not _tool_call_ids(
+        final_message
+    )
+
+
+def _is_system_only_message(message: ModelMessage) -> bool:
+    if not isinstance(message, ModelRequest):
+        return False
+    parts = getattr(message, "parts", ()) or ()
+    return bool(parts) and all(isinstance(part, SystemPromptPart) for part in parts)
+
+
+def _no_op_eviction_plan(
+    *,
+    reason: str,
+    messages: list[ModelMessage],
+    groups: list[_HistoryMessageGroup],
+    estimated_tokens: int,
+    high_watermark_tokens: int,
+    low_watermark_tokens: int,
+) -> SteppedHistoryEvictionPlan:
+    return SteppedHistoryEvictionPlan(
+        status="no_op",
+        reason=reason,
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+        estimated_tokens_before=estimated_tokens,
+        estimated_tokens_after=estimated_tokens,
+        message_count_before=len(messages),
+        evicted_message_count=0,
+        retained_message_count=len(messages),
+        group_count=len(groups),
+        evicted_group_count=0,
+        eviction_end_index=0,
+    )
 
 
 def split_history_for_compaction(

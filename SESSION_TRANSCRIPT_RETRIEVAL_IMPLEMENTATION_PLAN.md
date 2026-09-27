@@ -273,20 +273,20 @@ The candidate design is stepped eviction, not naive FIFO truncation:
 
 1. Keep complete recent messages until a high token watermark is crossed.
 2. Select a coherent oldest prefix of complete turn/tool groups to remove until the low watermark is restored.
-3. Before removal, classify the outgoing groups along bounded dimensions such as semantic type, state transition, priority, and relationship to existing state.
-4. Use a generative model only when the classified material requires a prose/state update; preserve stable source sequence references.
+3. Before removal, append the outgoing groups to a cumulative pending-evidence buffer with mechanically derived source ranges.
+4. Use a cheap decision model to detect whether the cumulative evidence materially moves the current map, and invoke a generative whole-map update only when the scalar probability crosses a tunable threshold.
 5. Commit the derived update and eviction checkpoint atomically enough that no canonical message leaves effective context without either retained recent context or a durable pointer/state representation.
 6. Keep every raw message in canonical SQLite and make it retrievable through Slice 1.
 
-Jev's plausible role shifts from repeatedly judging the entire live conversation to cheaply classifying content at the moment it leaves the active window. The classifier may route affected dimensions and change types; it does not author prose or become a required dependency. A provider-neutral interface must continue to admit another hosted or local decision model.
+Jev's plausible role shifts from repeatedly judging the entire live conversation to cheaply detecting material movement in cumulative evidence leaving the active window. The classifier does not author prose, decide which map fields may change, or become a required dependency. A provider-neutral interface must continue to admit another hosted or local decision model.
 
 The state representation for this experiment must be designed from eviction evidence rather than copied from the retired live map. It should remain bounded, favor active state and provenance over narrative history, and compact or archive superseded entries deterministically. If classification or authoring is unavailable, the system must fall back to existing recovery-card compaction without losing the chat turn.
 
 ### Slice 4A: Deterministic eviction planner
 
-Add a pure planning boundary that accepts provider-native effective history plus high and low token watermarks and returns an eviction prefix and retained suffix without mutating storage. It must plan only after the high watermark is crossed, restore the retained history to the low watermark when a removable prefix exists, preserve chronological order, and never split an atomic tool-call/result exchange or another complete protocol group. The planner reports explicit no-op reasons when the history is below the high watermark or one indivisible group prevents the requested reduction.
+**Status:** Complete. A pure planning boundary accepts provider-native effective history plus high and low token watermarks and returns an oldest-prefix boundary with token and grouping audit metadata without mutating storage. It plans only after the high watermark is crossed, preserves chronological order, retains the newest group, and never splits a complete user/assistant turn or tool-call/result exchange. It reports stable no-op reasons for history below the high watermark, invalid tool history, an incomplete evictable prefix, or a history with no older group to evict. When the newest indivisible group alone exceeds the low watermark, it safely evicts older complete groups and reports that the target remains exceeded.
 
-Validate the planner with deterministic examples covering ordinary turns, tool calls and returns, multiple calls in one model response, oversized indivisible groups, an existing recovery-card message, and stable token accounting. Slice 4A does not invoke Jev, author a map, change effective history, add settings, or persist state.
+The deterministic scenario covers ordinary turns, multiple tool calls and returns in one exchange, oversized indivisible groups, an existing recovery-card message, incomplete turns, malformed tool history, watermark validation, and stable token accounting. Slice 4A does not invoke Jev, author a map, change effective history, add settings, or persist state.
 
 ### Slice 4B: Provenance-bearing eviction envelopes
 
@@ -294,11 +294,11 @@ Resolve every planned outgoing group to canonical raw sequence ranges before it 
 
 ### Slice 4C: Optional classification through task execution
 
-Route eviction classification through the normal task executor using the provider-neutral `decision` capability. Jev receives only newly outgoing envelopes plus the bounded current map state and classifies semantic type, state transition, priority, and affected map dimensions. Runs may execute concurrently where task policy permits, but they remain visible and governed like other tasks. Failure, missing configuration, timeout, or low-confidence output leaves effective history untouched and routes the session to existing recovery-card compaction.
+Route eviction classification through the normal task executor using the provider-neutral `decision` capability. Jev receives the bounded current map plus all cumulative unincorporated eviction envelopes and returns one `material_map_update_probability`. It does not classify dimensions or constrain the later author. Runs remain visible and governed like other tasks. Failure, missing configuration, timeout, or an excessive pending-evidence buffer leaves effective history untouched and routes the session to existing recovery-card compaction.
 
-An ephemeral Jev probe over six transitions from the private 1065 redevelopment transcript supports using the classifier as a conservative authoring gate, but not as an authority that discards evidence. Bundled six-field decisions were fast and repeatable: calls completed in roughly 0.25–0.43 seconds, and identical reruns generally moved scores by only a few hundredths. Clear artifact creation and major legal-state changes separated from an already-represented negative control, while subtler active-draft and narrative changes clustered in the ambiguous middle. Cumulative evidence correctly kept major courtyard and compensation changes elevated, but scores were not monotonic as more assistant analysis arrived. Independent field calls strengthened artifact detection but also produced a likely false decision update, showing that removing neighboring map context can trade one kind of interference for another.
+An ephemeral Jev probe over six transitions from the private 1065 redevelopment transcript supports using the classifier as a conservative authoring gate, but not as an authority that discards evidence. Bundled six-field decisions were fast and repeatable: calls completed in roughly 0.25–0.43 seconds, and identical reruns generally moved scores by only a few hundredths. Clear artifact creation and major legal-state changes separated from an already-represented negative control, while subtler active-draft and narrative changes clustered in the ambiguous middle. Cumulative evidence correctly kept major courtyard and compensation changes elevated, but scores were not monotonic as more assistant analysis arrived. Independent field calls strengthened artifact detection but also produced a likely false decision update, showing that removing neighboring map context can trade one kind of interference for another. These results justify testing a movement gate; they do not establish a benefit from retaining dimensional classification.
 
-Begin Slice 4C with one bounded, multi-field decision over the current map plus cumulative unincorporated evidence. Preserve per-field probabilities and make thresholds configurable by field; do not assume one global cutoff from this small labelled sample. Keep pending evidence until a successful map update incorporates its canonical source ranges. Before runtime activation, build a larger labelled eviction corpus that distinguishes persistent state changes from transient completed actions, assistant proposals, and ordinary draft refinement, then compare bundled classification with field-isolated variants against that corpus.
+Begin Slice 4C with one scalar movement decision over the current map plus cumulative unincorporated evidence. Use one tunable threshold and keep pending evidence until a successful whole-map update incorporates its canonical source ranges. Before runtime activation, build a larger labelled eviction corpus that distinguishes persistent state changes from transient completed actions, assistant proposals, and ordinary draft refinement. Reconsider dimensional classification only if the scalar gate exhibits a repeatable class-specific miss that decomposition could plausibly correct.
 
 ### Slice 4D: Bounded eviction-derived map
 
@@ -347,7 +347,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Implement Slice 4A validation first, then add the pure deterministic eviction planner under the existing `core/chat` ownership boundary. Do not add Jev calls, persistence, settings, or runtime routing until the planner's group-integrity and watermark contracts are proven.
+Begin Slice 4B by resolving a planned effective-history prefix to immutable canonical raw sequence ranges without changing runtime history. Do not add Jev calls, map persistence, settings, or runtime routing until envelope identity, revision, and idempotency contracts are proven.
 
 ## Evidence and Design Sources
 
