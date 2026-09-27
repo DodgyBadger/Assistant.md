@@ -290,7 +290,9 @@ The deterministic scenario covers ordinary turns, multiple tool calls and return
 
 ### Slice 4B: Provenance-bearing eviction envelopes
 
-Resolve every planned outgoing group to canonical raw sequence ranges before it can leave effective context. Persist or expose an immutable experiment envelope containing the source ranges, projected text, protocol grouping, token estimate, and history revision. A range is mechanically derived from storage identity; neither Jev nor a generative model may invent it. Repeated planning must not classify or map the same canonical range twice.
+**Status:** Complete for uncompacted canonical sessions. Every planned outgoing group can be resolved to an immutable experiment envelope containing its canonical raw sequence range, shared stored-text projection, token estimate, source digest, and captured history revision. Deterministic envelope identity depends on session, range, and source content rather than the mutable revision, so replanning after later appends yields the same identity for the same evidence. Resolution rejects a stale revision, changed message snapshot, non-contiguous canonical range, or changed eviction boundary.
+
+Neither Jev nor a generative model invents source identity. Sessions with an existing recovery-card checkpoint are explicitly ineligible because checkpoint replacement history contains a synthetic summary and currently exposes effective indexes that are not canonical raw identities. Those sessions remain on recovery-card compaction during the experiment; stepped eviction begins only while effective history is still canonical. Supporting an intentional recovery-card-to-map transition is deferred until evidence justifies designing a provenance-preserving migration.
 
 ### Slice 4C: Optional classification through task execution
 
@@ -347,7 +349,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Begin Slice 4B by resolving a planned effective-history prefix to immutable canonical raw sequence ranges without changing runtime history. Do not add Jev calls, map persistence, settings, or runtime routing until envelope identity, revision, and idempotency contracts are proven.
+Begin Slice 4C with a scalar movement classifier over the current bounded map plus cumulative canonical envelopes. Keep the first implementation outside runtime routing and persistence, execute live probes through the provider-neutral decision adapter, and compare scalar decisions against the labelled 1065 transitions before defining a threshold or task-executor integration.
 
 ## Evidence and Design Sources
 

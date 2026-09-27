@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -45,7 +46,7 @@ from core.settings import (
 )
 from core.utils.tokens import estimate_token_count
 
-from .chat_store import ChatStore
+from .chat_store import ChatStore, StoredChatMessage
 
 logger = UnifiedLogger(tag="chat-compaction")
 
@@ -102,6 +103,7 @@ class SteppedHistoryEvictionPlan:
 
     status: str
     reason: str
+    history_revision: int | None
     high_watermark_tokens: int
     low_watermark_tokens: int
     estimated_tokens_before: int
@@ -112,6 +114,32 @@ class SteppedHistoryEvictionPlan:
     group_count: int
     evicted_group_count: int
     eviction_end_index: int
+
+
+@dataclass(frozen=True)
+class CanonicalEvictionEnvelope:
+    """Immutable projected evidence for one canonical evicted history group."""
+
+    envelope_id: str
+    session_id: str
+    vault_name: str
+    history_revision: int
+    source_start_sequence_index: int
+    source_end_sequence_index: int
+    message_count: int
+    estimated_tokens: int
+    projected_text: str
+    source_digest: str
+
+
+@dataclass(frozen=True)
+class CanonicalEvictionEnvelopeResult:
+    """Result of resolving a plan against one canonical persisted snapshot."""
+
+    status: str
+    reason: str
+    history_revision: int
+    envelopes: tuple[CanonicalEvictionEnvelope, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -346,6 +374,7 @@ def plan_stepped_history_eviction(
     *,
     high_watermark_tokens: int,
     low_watermark_tokens: int,
+    history_revision: int | None = None,
 ) -> SteppedHistoryEvictionPlan:
     """Plan a safe oldest-prefix eviction without mutating history or storage."""
     _validate_eviction_watermarks(
@@ -360,6 +389,7 @@ def plan_stepped_history_eviction(
             messages=messages,
             groups=groups,
             estimated_tokens=estimated_before,
+            history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
         )
@@ -371,6 +401,7 @@ def plan_stepped_history_eviction(
             messages=messages,
             groups=groups,
             estimated_tokens=estimated_before,
+            history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
         )
@@ -380,6 +411,7 @@ def plan_stepped_history_eviction(
             messages=messages,
             groups=groups,
             estimated_tokens=estimated_before,
+            history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
         )
@@ -394,6 +426,7 @@ def plan_stepped_history_eviction(
                 messages=messages,
                 groups=groups,
                 estimated_tokens=estimated_before,
+                history_revision=history_revision,
                 high_watermark_tokens=high_watermark_tokens,
                 low_watermark_tokens=low_watermark_tokens,
             )
@@ -411,6 +444,7 @@ def plan_stepped_history_eviction(
             if target_reached
             else "newest_group_exceeds_low_watermark"
         ),
+        history_revision=history_revision,
         high_watermark_tokens=high_watermark_tokens,
         low_watermark_tokens=low_watermark_tokens,
         estimated_tokens_before=estimated_before,
@@ -421,6 +455,145 @@ def plan_stepped_history_eviction(
         group_count=len(groups),
         evicted_group_count=evicted_group_count,
         eviction_end_index=eviction_end_index,
+    )
+
+
+def build_canonical_eviction_envelopes(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+    plan: SteppedHistoryEvictionPlan,
+) -> CanonicalEvictionEnvelopeResult:
+    """Resolve one plan to canonical ranges without accepting synthetic history."""
+    history_revision = store.get_session_history_revision(session_id, vault_name)
+    if plan.status != "planned" or plan.eviction_end_index <= 0:
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="eviction_not_planned",
+            history_revision=history_revision,
+        )
+    if store.get_latest_compaction_checkpoint(session_id, vault_name) is not None:
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="synthetic_compaction_history",
+            history_revision=history_revision,
+        )
+    if plan.history_revision is None or plan.history_revision != history_revision:
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="stale_history_revision",
+            history_revision=history_revision,
+        )
+
+    stored_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
+    model_messages = store.get_history(session_id, vault_name, mode="raw") or []
+    if (
+        len(stored_messages) != plan.message_count_before
+        or len(model_messages) != plan.message_count_before
+        or estimate_history_tokens(model_messages) != plan.estimated_tokens_before
+    ):
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="stale_history_snapshot",
+            history_revision=history_revision,
+        )
+
+    groups = _group_history_messages(model_messages)
+    evicted_groups = [
+        group for group in groups if group.end_index <= plan.eviction_end_index
+    ]
+    if (
+        not evicted_groups
+        or evicted_groups[-1].end_index != plan.eviction_end_index
+        or len(evicted_groups) != plan.evicted_group_count
+    ):
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="stale_eviction_boundary",
+            history_revision=history_revision,
+        )
+
+    envelopes: list[CanonicalEvictionEnvelope] = []
+    for group in evicted_groups:
+        group_stored = stored_messages[group.start_index : group.end_index]
+        group_models = model_messages[group.start_index : group.end_index]
+        if not _has_contiguous_canonical_sequences(group_stored):
+            return CanonicalEvictionEnvelopeResult(
+                status="unavailable",
+                reason="non_contiguous_canonical_history",
+                history_revision=history_revision,
+            )
+        envelopes.append(
+            _build_canonical_eviction_envelope(
+                session_id=session_id,
+                vault_name=vault_name,
+                history_revision=history_revision,
+                stored_messages=group_stored,
+                model_messages=group_models,
+            )
+        )
+
+    return CanonicalEvictionEnvelopeResult(
+        status="resolved",
+        reason="canonical_ranges_resolved",
+        history_revision=history_revision,
+        envelopes=tuple(envelopes),
+    )
+
+
+def _has_contiguous_canonical_sequences(
+    messages: list[StoredChatMessage],
+) -> bool:
+    if not messages:
+        return False
+    expected = range(
+        messages[0].sequence_index,
+        messages[0].sequence_index + len(messages),
+    )
+    return all(
+        message.sequence_index == sequence_index
+        for message, sequence_index in zip(messages, expected, strict=True)
+    )
+
+
+def _build_canonical_eviction_envelope(
+    *,
+    session_id: str,
+    vault_name: str,
+    history_revision: int,
+    stored_messages: list[StoredChatMessage],
+    model_messages: list[ModelMessage],
+) -> CanonicalEvictionEnvelope:
+    source_digest = hashlib.sha256(
+        "\n".join(message.message_json for message in stored_messages).encode()
+    ).hexdigest()
+    source_start = stored_messages[0].sequence_index
+    source_end = stored_messages[-1].sequence_index
+    envelope_id = hashlib.sha256(
+        (
+            f"{vault_name}\0{session_id}\0{source_start}\0{source_end}\0"
+            f"{source_digest}"
+        ).encode()
+    ).hexdigest()
+    projected_text = "\n\n".join(
+        (
+            f"[source:{message.sequence_index}] {message.role.upper()}:\n"
+            f"{message.content_text}"
+        )
+        for message in stored_messages
+    )
+    return CanonicalEvictionEnvelope(
+        envelope_id=envelope_id,
+        session_id=session_id,
+        vault_name=vault_name,
+        history_revision=history_revision,
+        source_start_sequence_index=source_start,
+        source_end_sequence_index=source_end,
+        message_count=len(stored_messages),
+        estimated_tokens=estimate_history_tokens(model_messages),
+        projected_text=projected_text,
+        source_digest=source_digest,
     )
 
 
@@ -496,12 +669,14 @@ def _no_op_eviction_plan(
     messages: list[ModelMessage],
     groups: list[_HistoryMessageGroup],
     estimated_tokens: int,
+    history_revision: int | None,
     high_watermark_tokens: int,
     low_watermark_tokens: int,
 ) -> SteppedHistoryEvictionPlan:
     return SteppedHistoryEvictionPlan(
         status="no_op",
         reason=reason,
+        history_revision=history_revision,
         high_watermark_tokens=high_watermark_tokens,
         low_watermark_tokens=low_watermark_tokens,
         estimated_tokens_before=estimated_tokens,
