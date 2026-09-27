@@ -330,7 +330,7 @@ The first exact-evidence chat attempt selected cross-session `search_sessions(mo
 
 ### Slice 4E: Optional Jev movement gate
 
-**Status:** Deterministic runtime integration complete; live Jev validation pending.
+**Status:** Complete for the initial opt-in runtime and live Jev baseline. Threshold calibration remains part of Slice 4F rather than a blocker to the provider-neutral gate.
 
 Only after unconditional stepped eviction works, route an optional movement decision through the normal task executor using the provider-neutral `decision` capability. Jev receives the bounded current map plus all cumulative unincorporated eviction envelopes and returns one `material_map_update_probability`. It does not classify dimensions or constrain the later author. A score below the threshold retains the envelopes in the pending buffer; a score at or above the threshold invokes the same whole-map author proven in Slice 4C. Provider failure, missing configuration, timeout, or an excessive pending-evidence buffer bypasses the optimization and forces authoring or recovery-card fallback rather than blocking context reduction.
 
@@ -345,6 +345,8 @@ An ephemeral Jev probe over six transitions from the private 1065 redevelopment 
 When Slice 4E begins, use one scalar movement decision over the current map plus cumulative unincorporated evidence. Use one tunable threshold and keep pending evidence until a successful whole-map update incorporates its canonical source ranges. Give the classifier input an explicit hard budget derived from the selected decision model; if cumulative evidence reaches that budget, force authoring rather than exceeding it. Before runtime activation, build a larger labelled eviction corpus that distinguishes persistent state changes from transient completed actions, assistant proposals, and ordinary draft refinement. Reconsider dimensional classification only if the scalar gate exhibits a repeatable class-specific miss that decomposition could plausibly correct.
 
 A follow-up scalar probe over the same 1065 transitions produced repeatable separation without dimensional outputs. Major branch changes scored approximately 0.67–0.80, already-represented evidence scored 0.38–0.39, and cumulative email refinement plus the later City-coordination branch scored 0.81–0.82. The initial scalar prompt underweighted a newly created project folder and memo at 0.32–0.37; explicitly defining creation, material revision, rename, or relocation of a durable artifact as a material map change raised that case to 0.79–0.80 while the negative control remained 0.41–0.43. An unaccepted lawyer-email revision remained low at 0.13–0.15, which is acceptable while it remains in the recent tail and has not become durable state. This supports the scalar contract and an initial threshold region near 0.5 for further evaluation, but the sample is too small to adopt a production default.
+
+The first live integrated gate replay used the 1065 transcript with the threshold fixed at 0.5. After the initial Terra-authored map, Jev scored the next real legal-status evidence at 0.44 and deferred authoring while persisting canonical messages 20–21 as pending. A later explicit no-change pair expanded the cumulative range through message 23 and scored 0.18, again without a Terra call. Adding the real courtyard/compensation branch produced a cumulative score of 0.80, invoked one whole-map author over all three envelopes, added the courtyard entries, and cleared pending state. The three Jev calls completed in 0.30–0.38 seconds with 1,496–2,630 provider-reported input tokens and 23 output tokens each. Both Terra tasks and all classifier tasks completed, all 30 raw messages remained, and effective history ended as the map plus one raw pair. The 0.44 legal-status result is a useful near-threshold calibration case, not enough evidence by itself to lower the threshold; cumulative retention prevented information loss and allowed the later branch to trigger correctly.
 
 ### Slice 4F: Comparative live validation
 
@@ -385,7 +387,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Run the completed optional gate against live Jev over repeated eviction boundaries and inspect scores, latency, cumulative pending behavior, authored-map frequency, and task telemetry. Keep the threshold at the evidence-supported initial value of 0.5 for the first run; tune only after observing false deferrals or unnecessary rewrites. Then begin Slice 4F comparison against unconditional maps and recovery cards.
+Begin Slice 4F with a small controlled comparison of recovery cards, unconditional maps, and gated maps over the same long-session boundaries. Measure map/recovery fidelity, exact-evidence recovery, effective-context size, generative author calls, classifier calls, latency, and the retained-tail contribution. Keep 0.5 as the provisional gate threshold until multiple labelled boundaries show a repeatable false-deferral or unnecessary-authoring pattern.
 
 ## Evidence and Design Sources
 
