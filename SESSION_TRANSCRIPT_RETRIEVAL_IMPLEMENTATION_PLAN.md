@@ -424,6 +424,12 @@ The two map conditions were rerun without changing the corpus, five boundaries, 
 
 Slice 4F now provides two-domain evidence that the map representation is substantially smaller, preserves raw evidence, supports exact retrieval, and can carry source-linked current state without relying on non-citable lookahead. It also provides one defensible cumulative Jev deferral. This is sufficient to continue the experiment, not to declare the strategy generally superior: the next decision boundary is a labelled steady-state gate probe with repetition, transient analysis, completion, and durable changes, followed by UI wording for observed versus evicted boundaries if the classifier behavior remains credible.
 
+#### Slice 4F4 labelled steady-state gate result
+
+A Jev-only probe exercised the production `session_map_classification` task and unchanged `session-map-gate-v1` question at the provisional 0.5 threshold. Eight preregistered cases ran three times each. Repetition scored 0.03–0.04; cumulative repetition plus minor clarification scored 0.06; transient brainstorming scored 0.15–0.17; and cumulative brainstorming plus an unaccepted assistant proposal scored 0.18–0.22. Cumulative evidence ending in explicit completion scored 0.79–0.81; cumulative evidence ending in user adoption of the proposal scored 0.80–0.82; an explicit constraint reversal scored 0.91 in all trials; and a durable artifact relocation scored 0.91 in all trials. All 24 governed tasks completed, and every score fell on the preregistered side of 0.5 with substantial separation.
+
+Together with the natural replay’s 0.43 deferral followed by a 0.56/0.61 cumulative trigger, this is sufficient evidence to keep the simple movement-only classifier and the 0.5 default for opt-in live tuning. It does not establish universal classifier accuracy or justify using Jev to assign map dimensions. Retain the knobs for threshold and input budget, observe real-session decisions, and add labelled cases when live false deferrals or unnecessary rewrites appear rather than optimizing against synthetic scores now.
+
 ## Contract-Sensitive Areas
 
 - `session_ops` input schema, descriptions, error messages, and operation-specific parameter validation.
@@ -451,7 +457,7 @@ Slice 4F now provides two-domain evidence that the map representation is substan
 
 ## Immediate Next Steps
 
-Run the labelled steady-state gate probe whose initial map is followed by small one-turn evictions containing repetition, transient analysis, completion, and durable state changes. Keep 0.5 as the provisional gate threshold until those labelled boundaries show a repeatable false deferral or unnecessary authoring pattern. If the gate remains credible, update the map UI to show both the map’s authored-observation boundary and the eviction boundary, then decide whether Slice 4 has enough evidence for opt-in live tuning or needs another adversarial corpus.
+Update the map API and modal to distinguish the map’s authored-observation boundary from the eviction boundary, including historical checkpoints and deferred revisions. Then review Slice 4 against its exit gate and decide whether the existing opt-in strategy is ready for live tuning or needs another adversarial corpus. Keep 0.5 as the provisional threshold and add labelled cases only when live false deferrals or unnecessary rewrites provide concrete evidence.
 
 ## Evidence and Design Sources
 
