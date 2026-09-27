@@ -208,10 +208,10 @@ CONTEXT_TEMPLATE_ERROR_HANDOFF_INSTRUCTION = (
 CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v5"
 
 SESSION_MAP_AUTHORING_PROMPT_VERSION = "eviction-map-v1"
-SESSION_MAP_CONTEXT_PROMPT_VERSION = "session-map-context-v1"
+SESSION_MAP_CONTEXT_PROMPT_VERSION = "session-map-context-v2"
 
 SESSION_MAP_CONTEXT_PREAMBLE = """
-This map carries current state from canonical session messages that are no longer in active context. Treat it as a compact continuity aid, not as a complete transcript. Each entry cites inclusive canonical message ranges. When exact wording, omitted detail, rationale, correction, supersession, or provenance matters, inspect the cited range with the active session's transcript retrieval operations before relying on the map.
+This map carries current state from canonical session messages that are no longer in active context. Treat it as a compact continuity aid, not as a complete transcript. Each entry cites inclusive canonical message ranges. When exact wording, omitted detail, rationale, correction, supersession, or provenance matters, use `session_ops(operation="search_transcript")` on the active session and `session_ops(operation="get_transcript_window")` around a returned sequence index before relying on the map. Do not use `search_sessions` for evidence inside the active session; that operation finds other sessions.
 """.strip()
 
 SESSION_MAP_AUTHORING_INSTRUCTION = """

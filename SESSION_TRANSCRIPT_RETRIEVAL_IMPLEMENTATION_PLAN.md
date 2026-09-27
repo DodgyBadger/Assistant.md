@@ -324,6 +324,10 @@ The first live runtime baseline replayed the 38-message 1065 redevelopment trans
 
 The initial live attempt also exposed a transport bug before any checkpoint committed: the map author used `run_stream()`, which cannot exercise Pydantic AI's structured-output retry graph. The author now uses the existing OAuth-compatible `Agent.run(...)` path with an event-stream consumer, preserving streamed transport and validation retries. A focused deterministic regression forces one invalid structured result followed by a valid result and proves that the retry completes inside the map-author boundary. Recovery-card fallback also completed successfully during the failed live attempt.
 
+A second live baseline used the materially different 54-message AI-consulting session, including collaborative positioning decisions, repeated durable file updates, and a large web-research tool exchange. The first checkpoint reduced 35,576 estimated tokens to 3,497 and the second reduced 60,714 to 5,488. Stable IDs and accepted decisions survived both replacements; the second map added the getting-started artifact and Vancouver market context while the competitive-research deliverable remained verbatim in the retained tail. A third natural boundary after a chat turn reduced 8,720 tokens to 4,403 and incorporated the competitive-research document. These observations remain qualitative, but the second domain did not expose a schema, provenance, or whole-map lifecycle defect.
+
+The first exact-evidence chat attempt selected cross-session `search_sessions(mode="deep")` despite an explicit request for active-transcript search, then correctly refused to claim verification after the isolated fixture's embedding credential failed. The tool contract and map preamble now state the boundary directly: use `search_transcript` and `get_transcript_window` for evidence inside the active session, and use `search_sessions` only to find other sessions. On immediate live retry, Terra called both correct operations, retrieved compacted message 27, quoted the credibility sentence exactly, and completed the normal chat task. This confirms the end-to-end retrieval path with explicit prompting; it does not establish prompt-free retrieval recall.
+
 ### Slice 4E: Optional Jev movement gate
 
 Only after unconditional stepped eviction works, route an optional movement decision through the normal task executor using the provider-neutral `decision` capability. Jev receives the bounded current map plus all cumulative unincorporated eviction envelopes and returns one `material_map_update_probability`. It does not classify dimensions or constrain the later author. A score below the threshold retains the envelopes in the pending buffer; a score at or above the threshold invokes the same whole-map author proven in Slice 4C. Provider failure, missing configuration, timeout, or an excessive pending-evidence buffer bypasses the optimization and forces authoring or recovery-card fallback rather than blocking context reduction.
@@ -373,7 +377,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Run one additional unconditional-author baseline in a materially different long session and one post-eviction exact-evidence question through the normal chat path. If those checks do not reveal a map-contract or transcript-retrieval defect, begin Slice 4E with the provider-neutral scalar movement gate, cumulative pending evidence, forced authoring at the decision-model input limit, and recovery-card fallback on any unsafe failure.
+Begin Slice 4E with the provider-neutral scalar movement gate, cumulative pending evidence, forced authoring at the decision-model input limit, and recovery-card fallback on any unsafe failure. Keep unconditional authoring as an explicit mode so the classifier optimization can be disabled and compared independently.
 
 ## Evidence and Design Sources
 

@@ -74,7 +74,7 @@ class SessionSummaryEmbeddingPreflightError(RuntimeError):
 
 
 class SessionOps(BaseTool):
-    """Search and summarize chat sessions."""
+    """Retrieve active-session evidence and manage cross-session summaries."""
 
     @classmethod
     def get_recovery_policy(cls) -> ToolRecoveryPolicy:
@@ -102,9 +102,9 @@ class SessionOps(BaseTool):
             data: dict[str, Any] | None = None,
             summarization_model: str = "gpt-mini",
         ) -> str | ToolReturn:
-            """Search and summarize chat sessions.
+            """Retrieve active-session evidence and manage cross-session summaries.
 
-            :param operation: Operation name.
+            :param operation: Use search_transcript for evidence in the active session, get_transcript_window to expand a transcript hit, and search_sessions only to find other sessions. Other operations manage session summaries and metadata.
             :param session_id: Optional explicit session id. Defaults to the active session when available.
             :param mode: Search mode for search_sessions: search or deep. Defaults to search.
             :param query: User-provided search phrase for session or transcript search.
@@ -523,8 +523,9 @@ class SessionOps(BaseTool):
             session_ops,
             name="session_ops",
             description=(
-                "Search and summarize chat sessions, and retrieve bounded source-linked "
-                "evidence from canonical transcripts."
+                "Retrieve bounded evidence from the active canonical transcript with "
+                "search_transcript and get_transcript_window. Use search_sessions only "
+                "to find other sessions. Also manages session summaries and metadata."
             ),
         )
 
