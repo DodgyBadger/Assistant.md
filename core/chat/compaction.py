@@ -29,13 +29,23 @@ from core.constants import (
     CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
     CHAT_HISTORY_RECOVERY_CARD_PREAMBLE,
     SESSION_MAP_CONTEXT_PROMPT_VERSION,
+    SESSION_MAP_GATE_PROMPT_VERSION,
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
 from core.memory.session_map.checkpoints import (
+    SessionMapCheckpointDecision,
     SessionMapCheckpointResult,
+    SessionMapPendingEvidence,
     commit_session_map_checkpoint,
     load_session_map_checkpoint,
+    load_session_map_pending_evidence,
+)
+from core.memory.session_map.gate import (
+    SessionMapGateRequest,
+    SessionMapGateResult,
+    estimate_session_map_gate_tokens,
+    run_session_map_gate,
 )
 from core.memory.session_map.models import SessionMapDraft
 from core.memory.session_map.readiness import (
@@ -58,6 +68,9 @@ from core.settings import (
     get_compaction_keep_recent,
     get_compaction_token_threshold,
     get_compaction_type,
+    get_session_map_gate_max_input_tokens,
+    get_session_map_gate_model,
+    get_session_map_gate_threshold,
 )
 from core.utils.tokens import estimate_token_count
 
@@ -166,7 +179,10 @@ class SessionMapContextReductionResult:
     session_id: str
     vault_name: str
     checkpoint_id: str
-    authoring_task_id: str
+    action: str
+    authoring_task_id: str | None
+    classification_task_id: str | None
+    classification_score: float | None
     consumed_through_sequence_index: int
     messages_before: int
     messages_after: int
@@ -961,9 +977,11 @@ async def _run_stepped_session_map_reduction(
         if checkpoint is None:
             previous_map = SessionMapDraft()
             retained_prefix_count = 0
+            pending_evidence = None
         elif checkpoint.checkpoint_kind == "session_map":
             previous_map = load_session_map_checkpoint(checkpoint)
             retained_prefix_count = 1
+            pending_evidence = load_session_map_pending_evidence(checkpoint)
         else:
             raise ValueError("Recovery-card history is not eligible for stepped maps")
 
@@ -990,6 +1008,102 @@ async def _run_stepped_session_map_reduction(
                 f"Canonical eviction evidence unavailable: {evidence.reason}"
             )
 
+        cumulative_envelopes = evidence.envelopes
+        if pending_evidence is not None:
+            rehydrated = build_canonical_evidence_range(
+                store=store,
+                session_id=session_id,
+                vault_name=vault_name,
+                source_start_sequence_index=(pending_evidence.start_sequence_index),
+                source_end_sequence_index=pending_evidence.end_sequence_index,
+                history_revision=history_revision,
+                expected_source_digest=pending_evidence.source_digest,
+            )
+            if rehydrated.status != "resolved" or len(rehydrated.envelopes) != 1:
+                raise ValueError(
+                    f"Pending session-map evidence unavailable: {rehydrated.reason}"
+                )
+            if (
+                rehydrated.envelopes[0].source_end_sequence_index + 1
+                != evidence.envelopes[0].source_start_sequence_index
+            ):
+                raise ValueError(
+                    "Pending and new session-map evidence are not contiguous"
+                )
+            cumulative_envelopes = (*rehydrated.envelopes, *evidence.envelopes)
+
+        gate_result: SessionMapGateResult | None = None
+        classification: SessionMapCheckpointDecision | None = None
+        gate_model = get_session_map_gate_model()
+        gate_threshold = get_session_map_gate_threshold()
+        if checkpoint is not None and gate_model is not None:
+            gate_input_tokens = estimate_session_map_gate_tokens(
+                current_map=previous_map,
+                envelopes=cumulative_envelopes,
+            )
+            gate_max_input_tokens = get_session_map_gate_max_input_tokens()
+            if gate_input_tokens > gate_max_input_tokens:
+                logger.info(
+                    "session_map_classification_bypassed",
+                    data={
+                        "event": "session_map_classification_bypassed",
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "model_alias": gate_model,
+                        "reason": "input_budget_exceeded",
+                        "input_token_estimate": gate_input_tokens,
+                        "max_input_tokens": gate_max_input_tokens,
+                    },
+                )
+            else:
+                try:
+                    gate_result = await run_session_map_gate(
+                        SessionMapGateRequest(
+                            session_id=session_id,
+                            vault_name=vault_name,
+                            model_alias=gate_model,
+                            current_map=previous_map,
+                            envelopes=cumulative_envelopes,
+                        ),
+                        authority=authority,
+                        source=ExecutionTaskSource.SYSTEM,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "session_map_classification_bypassed",
+                        data={
+                            "event": "session_map_classification_bypassed",
+                            "session_id": session_id,
+                            "vault_name": vault_name,
+                            "model_alias": gate_model,
+                            "reason": "classification_failed",
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        },
+                    )
+                else:
+                    should_author = gate_result.score >= gate_threshold
+                    classification = SessionMapCheckpointDecision(
+                        task_id=gate_result.task_id,
+                        model_alias=gate_result.model_alias,
+                        score=gate_result.score,
+                        threshold=gate_threshold,
+                        prompt_contract_version=SESSION_MAP_GATE_PROMPT_VERSION,
+                        action="authored" if should_author else "deferred",
+                    )
+                    if not should_author:
+                        return _commit_deferred_session_map(
+                            store=store,
+                            session_id=session_id,
+                            vault_name=vault_name,
+                            previous_map=previous_map,
+                            cumulative_envelopes=cumulative_envelopes,
+                            history_revision=history_revision,
+                            plan=plan,
+                            classification=classification,
+                            gate_result=gate_result,
+                        )
+
         authored = await run_session_map_authoring(
             SessionMapAuthoringRequest(
                 session_id=session_id,
@@ -997,7 +1111,7 @@ async def _run_stepped_session_map_reduction(
                 model_alias=readiness.author_model,
                 thinking=readiness.author_thinking,
                 previous_map=previous_map,
-                envelopes=evidence.envelopes,
+                envelopes=cumulative_envelopes,
             ),
             authority=authority,
             source=ExecutionTaskSource.SYSTEM,
@@ -1013,11 +1127,12 @@ async def _run_stepped_session_map_reduction(
             vault_name=vault_name,
             draft=authored.draft,
             previous_map=previous_map,
-            envelopes=evidence.envelopes,
+            envelopes=cumulative_envelopes,
             expected_history_revision=history_revision,
             message_count_before=plan.message_count_before,
             source=ExecutionTaskSource.SYSTEM.value,
             authoring_task_id=authored.task_id,
+            classification=classification,
         )
         messages_after = (
             store.get_history(session_id, vault_name, mode="effective") or []
@@ -1027,7 +1142,14 @@ async def _run_stepped_session_map_reduction(
             session_id=session_id,
             vault_name=vault_name,
             checkpoint_id=committed.checkpoint.checkpoint_id,
+            action="authored",
             authoring_task_id=authored.task_id,
+            classification_task_id=(
+                gate_result.task_id if gate_result is not None else None
+            ),
+            classification_score=(
+                gate_result.score if gate_result is not None else None
+            ),
             consumed_through_sequence_index=(
                 committed.checkpoint.last_message_sequence_index
             ),
@@ -1047,6 +1169,84 @@ async def _run_stepped_session_map_reduction(
             },
         )
         return result
+
+
+def _commit_deferred_session_map(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+    previous_map: SessionMapDraft,
+    cumulative_envelopes: tuple[CanonicalEvictionEnvelope, ...],
+    history_revision: int,
+    plan: SteppedHistoryEvictionPlan,
+    classification: SessionMapCheckpointDecision,
+    gate_result: SessionMapGateResult,
+) -> SessionMapContextReductionResult:
+    """Advance the boundary with an unchanged map and cumulative raw reference."""
+    cumulative = build_canonical_evidence_range(
+        store=store,
+        session_id=session_id,
+        vault_name=vault_name,
+        source_start_sequence_index=(
+            cumulative_envelopes[0].source_start_sequence_index
+        ),
+        source_end_sequence_index=(cumulative_envelopes[-1].source_end_sequence_index),
+        history_revision=history_revision,
+    )
+    if cumulative.status != "resolved" or len(cumulative.envelopes) != 1:
+        raise ValueError(
+            f"Cumulative session-map evidence unavailable: {cumulative.reason}"
+        )
+    cumulative_range = cumulative.envelopes[0]
+    pending = SessionMapPendingEvidence(
+        start_sequence_index=cumulative_range.source_start_sequence_index,
+        end_sequence_index=cumulative_range.source_end_sequence_index,
+        source_digest=cumulative_range.source_digest,
+        estimated_tokens=cumulative_range.estimated_tokens,
+    )
+    committed = commit_session_map_checkpoint(
+        store=store,
+        session_id=session_id,
+        vault_name=vault_name,
+        draft=previous_map,
+        previous_map=previous_map,
+        envelopes=cumulative_envelopes,
+        expected_history_revision=history_revision,
+        message_count_before=plan.message_count_before,
+        source=ExecutionTaskSource.SYSTEM.value,
+        pending_evidence=pending,
+        classification=classification,
+    )
+    messages_after = store.get_history(session_id, vault_name, mode="effective") or []
+    result = SessionMapContextReductionResult(
+        session_id=session_id,
+        vault_name=vault_name,
+        checkpoint_id=committed.checkpoint.checkpoint_id,
+        action="deferred",
+        authoring_task_id=None,
+        classification_task_id=gate_result.task_id,
+        classification_score=gate_result.score,
+        consumed_through_sequence_index=(
+            committed.checkpoint.last_message_sequence_index
+        ),
+        messages_before=plan.message_count_before,
+        messages_after=len(messages_after),
+        estimated_tokens_before=plan.estimated_tokens_before,
+        estimated_tokens_after=estimate_history_tokens(messages_after),
+    )
+    logger.info(
+        "session_map_context_reduction_completed",
+        data={
+            "event": "session_map_context_reduction_completed",
+            **asdict(result),
+            "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
+            "entry_count": len(previous_map.entries),
+            "pending_evidence_tokens": pending.estimated_tokens,
+            "raw_messages_preserved": True,
+        },
+    )
+    return result
 
 
 async def _run_automatic_recovery_card_compaction(
