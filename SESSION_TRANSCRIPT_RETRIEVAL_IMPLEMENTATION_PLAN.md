@@ -296,7 +296,11 @@ Neither Jev nor a generative model invents source identity. Sessions with an exi
 
 ### Slice 4C: Bounded eviction-derived map with unconditional authoring
 
-Design the smallest state schema from labelled eviction evidence, then invoke a generative whole-map author for every eviction batch. Entries carry canonical source ranges and explicit active, superseded, or closed state only where those distinctions are useful. The map favors current goals, decisions, constraints, unresolved questions, and live artifacts over narrative history. It must remain bounded through deterministic limits or archival rules and must not reintroduce the retired map schema by default.
+**Status:** Schema and sequential authoring probe complete; task-executor integration remains. The bounded replacement-map schema covers orientation, goals, next actions, decisions, constraints, open questions, and artifacts. Every entry has a stable semantic ID, explicit evidence basis, lifecycle state, bounded text, and one or more canonical source ranges. Deterministic validation rejects unsupported provenance, duplicate or generic IDs, multiple orientations, and maps outside fixed entry and text budgets.
+
+A six-batch Terra probe over the private 1065 redevelopment transcript kept every authored revision within the provenance contract, used stable subject-specific IDs, distinguished user-established, assistant-proposed, and tool-observed state, removed or revised stale entries, and pruned the map from eleven entries to ten when earlier communications ceased to matter. The probe exposed one remaining prompt ambiguity: records of sent communications could remain active. The contract now directs the author to close a retained completed communication and omit it once it no longer supports active work. This is evidence that the representation is viable, not a quality benchmark; the sample remains too small and domain-specific to establish general map fidelity.
+
+Next, invoke a generative whole-map author for every eviction batch through the normal task executor. The execution service must accept the prior map plus canonical evidence envelopes, produce the typed draft, validate provenance before returning it, and expose ordinary task lifecycle and model-call observability. This integration remains independent of runtime history replacement.
 
 The first authoring experiments receive the current map plus the complete outgoing canonical envelopes. They do not call Jev. Once integrated with application execution, every map-author run must flow through the normal task executor and remain visible and governed like other model-backed work. An authoring failure leaves effective history untouched and routes the session to existing recovery-card compaction.
 
@@ -357,7 +361,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Begin Slice 4C by deriving the smallest bounded map schema from the labelled 1065 eviction evidence and testing unconditional whole-map authoring across repeated batches. Do not add Jev, a movement threshold, or runtime history replacement until the map representation itself preserves continuity and provenance.
+Complete Slice 4C by routing unconditional whole-map authoring through the normal task executor and validating the typed, provenance-checked result at that boundary. Do not add Jev, a movement threshold, persistence, or runtime history replacement until the governed authoring path works independently.
 
 ## Evidence and Design Sources
 
