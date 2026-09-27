@@ -35,6 +35,7 @@ _MODEL_MESSAGE_LIST_ADAPTER: TypeAdapter[list[ModelMessage]] = TypeAdapter(
     list[ModelMessage]
 )
 HistoryMode = Literal["effective", "raw"]
+ContextCheckpointKind = Literal["recovery_card", "session_map"]
 
 
 def _json_dumps(value: Any) -> str:
@@ -72,8 +73,8 @@ class StoredChatMessage:
 
 
 @dataclass(frozen=True)
-class StoredCompactionCheckpoint:
-    """One stored chat compaction checkpoint."""
+class StoredContextCheckpoint:
+    """One append-only effective-history checkpoint."""
 
     id: int
     checkpoint_id: str
@@ -81,11 +82,15 @@ class StoredCompactionCheckpoint:
     vault_name: str
     created_at: str
     source: str
+    checkpoint_kind: ContextCheckpointKind
     message_count_before: int
     last_message_sequence_index: int
     summary_message_json: str
     replacement_history_json: str
     metadata_json: str | None = None
+
+
+StoredCompactionCheckpoint = StoredContextCheckpoint
 
 
 @dataclass(frozen=True)
@@ -1132,11 +1137,19 @@ class ChatStore:
         self,
         session_id: str,
         vault_name: str,
-    ) -> StoredCompactionCheckpoint | None:
-        """Return the latest compaction checkpoint for one session."""
+    ) -> StoredContextCheckpoint | None:
+        """Return the latest effective-history checkpoint for one session."""
+        return self.get_latest_context_checkpoint(session_id, vault_name)
+
+    def get_latest_context_checkpoint(
+        self,
+        session_id: str,
+        vault_name: str,
+    ) -> StoredContextCheckpoint | None:
+        """Return the latest effective-history checkpoint for one session."""
         conn = self._connect()
         try:
-            checkpoint = self._latest_compaction_checkpoint(
+            checkpoint = self._latest_context_checkpoint(
                 conn,
                 session_id=session_id,
                 vault_name=vault_name,
@@ -1144,6 +1157,38 @@ class ChatStore:
         finally:
             conn.close()
         return checkpoint
+
+    def list_context_checkpoints(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        checkpoint_kind: ContextCheckpointKind | None = None,
+    ) -> list[StoredContextCheckpoint]:
+        """Return append-only context checkpoints in creation order."""
+        conn = self._connect()
+        try:
+            kind_filter = ""
+            params: list[Any] = [session_id, vault_name]
+            if checkpoint_kind is not None:
+                kind_filter = "AND checkpoint_kind = ?"
+                params.append(checkpoint_kind)
+            rows = conn.execute(
+                f"""
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ?
+                {kind_filter}
+                ORDER BY id ASC
+                """,
+                params,
+            ).fetchall()
+        finally:
+            conn.close()
+        return [self._context_checkpoint_from_row(row) for row in rows]
 
     def get_highest_message_sequence_index(
         self, session_id: str, vault_name: str
@@ -1174,10 +1219,56 @@ class ChatStore:
         metadata_update: dict[str, Any] | None = None,
     ) -> None:
         """Record a compaction checkpoint without mutating raw chat messages."""
-        conn = self._connect()
-        try:
-            conn.execute("PRAGMA foreign_keys = ON")
+        self.add_context_checkpoint(
+            session_id=session_id,
+            vault_name=vault_name,
+            checkpoint_id=checkpoint_id,
+            checkpoint_kind="recovery_card",
+            source=source,
+            message_count_before=message_count_before,
+            last_message_sequence_index=last_message_sequence_index,
+            summary_message=summary_message,
+            replacement_history=replacement_history,
+            metadata=metadata,
+            metadata_update=metadata_update,
+        )
+
+    def add_context_checkpoint(
+        self,
+        *,
+        session_id: str,
+        vault_name: str,
+        checkpoint_id: str,
+        checkpoint_kind: ContextCheckpointKind,
+        source: str,
+        message_count_before: int,
+        last_message_sequence_index: int,
+        summary_message: ModelMessage,
+        replacement_history: list[ModelMessage],
+        metadata: dict[str, Any] | None = None,
+        metadata_update: dict[str, Any] | None = None,
+        expected_history_revision: int | None = None,
+    ) -> None:
+        """Atomically record one typed effective-history checkpoint."""
+        if checkpoint_kind not in {"recovery_card", "session_map"}:
+            raise ValueError(f"Unsupported context checkpoint kind: {checkpoint_kind}")
+        with self.transaction() as conn:
             self._upsert_session(conn, session_id=session_id, vault_name=vault_name)
+            current_revision = _metadata_history_revision(
+                self._session_metadata(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                )
+            )
+            if (
+                expected_history_revision is not None
+                and current_revision != expected_history_revision
+            ):
+                raise ValueError(
+                    "Context checkpoint history revision changed: "
+                    f"expected {expected_history_revision}, found {current_revision}"
+                )
             persist_reasoning = get_persist_model_reasoning_parts()
             summary_message = _message_for_persistence(
                 summary_message,
@@ -1197,18 +1288,20 @@ class ChatStore:
                     session_id,
                     vault_name,
                     source,
+                    checkpoint_kind,
                     message_count_before,
                     last_message_sequence_index,
                     summary_message_json,
                     replacement_history_json,
                     metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     checkpoint_id,
                     session_id,
                     vault_name,
                     source,
+                    checkpoint_kind,
                     message_count_before,
                     last_message_sequence_index,
                     _MODEL_MESSAGE_ADAPTER.dump_json(summary_message).decode("utf-8"),
@@ -1229,9 +1322,6 @@ class ChatStore:
                 metadata_update=metadata_update,
                 advance_history_revision=True,
             )
-            conn.commit()
-        finally:
-            conn.close()
 
     def _fetch_messages(
         self,
@@ -1268,7 +1358,7 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
     ) -> list[StoredChatMessage]:
-        checkpoint = self._latest_compaction_checkpoint(
+        checkpoint = self._latest_context_checkpoint(
             conn,
             session_id=session_id,
             vault_name=vault_name,
@@ -1351,7 +1441,7 @@ class ChatStore:
 
     def _checkpoint_replacement_messages(
         self,
-        checkpoint: StoredCompactionCheckpoint,
+        checkpoint: StoredContextCheckpoint,
         *,
         session_id: str,
         vault_name: str,
@@ -1444,17 +1534,18 @@ class ChatStore:
         return messages
 
     @staticmethod
-    def _latest_compaction_checkpoint(
+    def _latest_context_checkpoint(
         conn: sqlite3.Connection,
         *,
         session_id: str,
         vault_name: str,
-    ) -> StoredCompactionCheckpoint | None:
+    ) -> StoredContextCheckpoint | None:
         row = conn.execute(
             """
-            SELECT id, checkpoint_id, session_id, vault_name, created_at, source,
-                   message_count_before, last_message_sequence_index,
-                   summary_message_json, replacement_history_json, metadata_json
+            SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                   source, checkpoint_kind, message_count_before,
+                   last_message_sequence_index, summary_message_json,
+                   replacement_history_json, metadata_json
             FROM chat_compaction_checkpoints
             WHERE session_id = ? AND vault_name = ?
             ORDER BY id DESC
@@ -1464,6 +1555,11 @@ class ChatStore:
         ).fetchone()
         if row is None:
             return None
+        return ChatStore._context_checkpoint_from_row(row)
+
+    @staticmethod
+    def _context_checkpoint_from_row(row: Sequence[Any]) -> StoredContextCheckpoint:
+        """Convert one context-checkpoint query row through a stable mapping."""
         (
             row_id,
             checkpoint_id,
@@ -1471,19 +1567,24 @@ class ChatStore:
             row_vault_name,
             created_at,
             source,
+            checkpoint_kind,
             message_count_before,
             last_message_sequence_index,
             summary_message_json,
             replacement_history_json,
             metadata_json,
         ) = row
-        return StoredCompactionCheckpoint(
+        kind = str(checkpoint_kind)
+        if kind not in {"recovery_card", "session_map"}:
+            raise ValueError(f"Unsupported stored context checkpoint kind: {kind}")
+        return StoredContextCheckpoint(
             id=int(row_id),
             checkpoint_id=str(checkpoint_id),
             session_id=str(row_session_id),
             vault_name=str(row_vault_name),
             created_at=str(created_at or ""),
             source=str(source),
+            checkpoint_kind=cast(ContextCheckpointKind, kind),
             message_count_before=int(message_count_before),
             last_message_sequence_index=int(last_message_sequence_index),
             summary_message_json=str(summary_message_json),

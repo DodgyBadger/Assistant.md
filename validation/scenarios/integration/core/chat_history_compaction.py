@@ -400,6 +400,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
         checkpoint = store.get_latest_compaction_checkpoint(session_id, vault.name)
         assert checkpoint is not None, "Compaction records a replay checkpoint"
         assert (
+            checkpoint.checkpoint_kind == "recovery_card"
+        ), "Legacy compaction checkpoints retain their explicit strategy kind"
+        assert (
             checkpoint.last_message_sequence_index == 5
         ), "Checkpoint records the raw message high-water mark"
         checkpoint_metadata = json.loads(checkpoint.metadata_json or "{}")
@@ -435,6 +438,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
             5,
             6,
             7,
+            8,
         ], "Chat migrations are recorded in schema_migrations"
 
         assert (

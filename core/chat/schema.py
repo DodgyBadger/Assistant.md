@@ -48,6 +48,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="backfill_structured_chat_message_text",
         apply=lambda conn: _backfill_structured_chat_message_text(conn),
     ),
+    SQLiteMigration(
+        version=8,
+        name="classify_context_checkpoints",
+        apply=lambda conn: _migrate_context_checkpoint_kinds(conn),
+    ),
 )
 
 
@@ -230,6 +235,7 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
             vault_name TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             source TEXT NOT NULL,
+            checkpoint_kind TEXT NOT NULL DEFAULT 'recovery_card',
             message_count_before INTEGER NOT NULL,
             last_message_sequence_index INTEGER NOT NULL,
             summary_message_json TEXT NOT NULL,
@@ -242,6 +248,7 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    _migrate_context_checkpoint_kinds(conn)
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_chat_compaction_checkpoints_session_id
@@ -252,6 +259,27 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_chat_compaction_checkpoints_session_sequence
         ON chat_compaction_checkpoints(session_id, vault_name, last_message_sequence_index)
+        """
+    )
+
+
+def _migrate_context_checkpoint_kinds(conn: sqlite3.Connection) -> None:
+    """Classify legacy recovery cards and admit stepped-map checkpoints."""
+    _ensure_column(
+        conn,
+        "chat_compaction_checkpoints",
+        "checkpoint_kind",
+        "TEXT NOT NULL DEFAULT 'recovery_card'",
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_chat_context_checkpoints_kind
+        ON chat_compaction_checkpoints(
+            session_id,
+            vault_name,
+            checkpoint_kind,
+            id
+        )
         """
     )
 
