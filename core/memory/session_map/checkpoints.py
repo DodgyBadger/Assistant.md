@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import asdict, dataclass
-from typing import Any, Literal
+from dataclasses import dataclass
+from typing import Any
 
 from pydantic_ai.messages import ModelRequest, SystemPromptPart
 
@@ -31,7 +31,7 @@ class SessionMapCheckpointResult:
 
 @dataclass(frozen=True)
 class SessionMapPendingEvidence:
-    """Canonical raw interval carried across a deferred map rewrite."""
+    """Legacy canonical interval awaiting one unconditional map rewrite."""
 
     start_sequence_index: int
     end_sequence_index: int
@@ -49,30 +49,6 @@ class SessionMapPendingEvidence:
             raise ValueError("Pending evidence requires a SHA-256 source digest")
         if self.estimated_tokens <= 0:
             raise ValueError("Pending evidence token estimate must be positive")
-
-
-@dataclass(frozen=True)
-class SessionMapCheckpointDecision:
-    """Bounded classification audit attached to one map checkpoint."""
-
-    task_id: str
-    model_alias: str
-    score: float
-    threshold: float
-    prompt_contract_version: str
-    action: Literal["deferred", "authored", "forced"]
-
-    def __post_init__(self) -> None:
-        if not self.task_id.strip() or not self.model_alias.strip():
-            raise ValueError("Checkpoint decision requires task and model identities")
-        if not 0.0 <= self.score <= 1.0:
-            raise ValueError("Checkpoint decision score must be between zero and one")
-        if not 0.0 <= self.threshold <= 1.0:
-            raise ValueError(
-                "Checkpoint decision threshold must be between zero and one"
-            )
-        if not self.prompt_contract_version.strip():
-            raise ValueError("Checkpoint decision requires a prompt contract version")
 
 
 def build_session_map_context_message(draft: SessionMapDraft) -> ModelRequest:
@@ -101,8 +77,6 @@ def commit_session_map_checkpoint(
     message_count_before: int,
     source: str,
     authoring_task_id: str | None = None,
-    pending_evidence: SessionMapPendingEvidence | None = None,
-    classification: SessionMapCheckpointDecision | None = None,
     checkpoint_id: str | None = None,
     retained_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
     map_observed_through_sequence_index: int | None = None,
@@ -136,20 +110,6 @@ def commit_session_map_checkpoint(
     )
     if observed_through < 0:
         raise ValueError("Session-map observed boundary cannot be negative")
-    if pending_evidence is not None:
-        if (
-            pending_evidence.start_sequence_index
-            != envelopes[0].source_start_sequence_index
-            or pending_evidence.end_sequence_index != consumed_through
-        ):
-            raise ValueError(
-                "Pending evidence must cover the complete cumulative evidence range"
-            )
-        prior_end = pending_evidence.start_sequence_index - 1
-        for envelope in envelopes:
-            if envelope.source_start_sequence_index != prior_end + 1:
-                raise ValueError("Pending evidence envelopes must be contiguous")
-            prior_end = envelope.source_end_sequence_index
     latest = store.get_latest_context_checkpoint(session_id, vault_name)
     if latest is not None:
         if latest.checkpoint_kind != "session_map":
@@ -172,10 +132,6 @@ def commit_session_map_checkpoint(
     }
     if authoring_task_id:
         metadata["authoring_task_id"] = authoring_task_id
-    if pending_evidence is not None:
-        metadata["pending_evidence"] = asdict(pending_evidence)
-    if classification is not None:
-        metadata["classification"] = asdict(classification)
     store.add_context_checkpoint(
         session_id=session_id,
         vault_name=vault_name,

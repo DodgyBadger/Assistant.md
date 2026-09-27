@@ -206,6 +206,17 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "category": "Session Memory",
             "restart_required": False,
         }
+        for key, value in (
+            ("session_map_gate_model", "jev"),
+            ("session_map_gate_threshold", 0.5),
+            ("session_map_gate_max_input_tokens", 24000),
+        ):
+            settings["settings"][key] = {
+                "value": value,
+                "description": "Retired session-map gate setting",
+                "category": "Chat",
+                "restart_required": False,
+            }
         removed_builtins = self.call_api(
             "/api/system/settings",
             method="PUT",
@@ -218,10 +229,16 @@ class DecisionModelConfigurationScenario(BaseScenario):
         )
         self.soft_assert(
             all(
-                setting["key"] != "live_session_memory_mode"
+                setting["key"]
+                not in {
+                    "live_session_memory_mode",
+                    "session_map_gate_model",
+                    "session_map_gate_threshold",
+                    "session_map_gate_max_input_tokens",
+                }
                 for setting in self.call_api("/api/system/settings/general").json()
             ),
-            "Retired settings persisted by an older version should stay out of the settings API",
+            "Retired memory settings should stay out of the settings API",
         )
         repair = self.call_api("/api/system/settings/repair", method="POST")
         repaired = yaml.safe_load(repair.json()["content"])
@@ -238,6 +255,17 @@ class DecisionModelConfigurationScenario(BaseScenario):
         self.soft_assert(
             "live_session_memory_mode" not in repaired["settings"],
             "Settings repair should remove retired live-session-memory settings",
+        )
+        self.soft_assert(
+            all(
+                key not in repaired["settings"]
+                for key in (
+                    "session_map_gate_model",
+                    "session_map_gate_threshold",
+                    "session_map_gate_max_input_tokens",
+                )
+            ),
+            "Settings repair should remove retired session-map gate settings",
         )
 
         clear_secret = self.call_api(

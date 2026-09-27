@@ -24,6 +24,9 @@ RETIRED_SETTINGS = frozenset(
         "live_session_memory_max_pending_tokens",
         "live_session_memory_task_timeout_seconds",
         "live_session_memory_max_concurrent_tasks",
+        "session_map_gate_model",
+        "session_map_gate_threshold",
+        "session_map_gate_max_input_tokens",
     }
 )
 

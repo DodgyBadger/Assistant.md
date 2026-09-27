@@ -367,7 +367,6 @@ def _session_map_checkpoint_info(
         "deferred" if classification_payload.get("action") == "deferred" else "authored"
     )
     draft = load_session_map_checkpoint(checkpoint)
-    score = classification_payload.get("score")
     return ChatSessionMapCheckpointInfo(
         revision=revision,
         checkpoint_id=checkpoint.checkpoint_id,
@@ -378,7 +377,6 @@ def _session_map_checkpoint_info(
         ),
         entry_count=len(draft.entries),
         action=action,
-        classification_score=float(score) if isinstance(score, int | float) else None,
         prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
     )
 

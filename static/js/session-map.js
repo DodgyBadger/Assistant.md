@@ -127,9 +127,6 @@
                 <div class="session-map-provenance">
                     <span>${escapeHtml(formatDate(selected?.created_at))}</span>
                     <span>${escapeHtml(humanize(selected?.action))}</span>
-                    ${selected?.classification_score !== null && selected?.classification_score !== undefined
-                        ? `<span>Gate score: ${escapeHtml(String(selected.classification_score))}</span>`
-                        : ''}
                     <span>Contract: ${escapeHtml(selected?.prompt_contract_version || 'unknown')}</span>
                 </div>
                 <div class="session-map-sections">

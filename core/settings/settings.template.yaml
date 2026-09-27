@@ -205,21 +205,6 @@ settings:
     description: "Target effective-history size after an experimental stepped-map eviction. Must be lower than compaction_token_threshold."
     category: "Chat"
     restart_required: false
-  session_map_gate_model:
-    value: none
-    description: "Optional decision-capable model alias used to avoid unnecessary stepped-map rewrites. Keep none for unconditional authoring."
-    category: "Chat"
-    restart_required: false
-  session_map_gate_threshold:
-    value: 0.5
-    description: "Material-map-update probability at or above which the optional session-map gate invokes whole-map authoring."
-    category: "Chat"
-    restart_required: false
-  session_map_gate_max_input_tokens:
-    value: 24000
-    description: "Maximum estimated tokens sent to the optional session-map decision model. Larger cumulative evidence forces authoring without classification."
-    category: "Chat"
-    restart_required: false
   file_search_timeout_seconds:
     value: 10
     description: "Timeout in seconds for file_read search operations."

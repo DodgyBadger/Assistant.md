@@ -46,7 +46,6 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             ("session_map_author_model", "test"),
             ("session_map_author_thinking", "low"),
             ("session_map_low_watermark_tokens", "1"),
-            ("session_map_gate_model", "none"),
             ("compaction_token_threshold", "2"),
             ("compaction_type", "auto"),
         ):

@@ -7,7 +7,6 @@ from .authoring import (
 )
 from .checkpoints import (
     SESSION_MAP_CONTEXT_MARKER,
-    SessionMapCheckpointDecision,
     SessionMapCheckpointResult,
     SessionMapPendingEvidence,
     build_session_map_context_message,
@@ -15,14 +14,6 @@ from .checkpoints import (
     load_session_map_checkpoint,
     load_session_map_observed_through,
     load_session_map_pending_evidence,
-)
-from .gate import (
-    SessionMapGateRequest,
-    SessionMapGateResult,
-    SessionMapMovementDecision,
-    build_session_map_gate_state,
-    estimate_session_map_gate_tokens,
-    run_session_map_gate,
 )
 from .models import (
     MAX_SESSION_MAP_ENTRIES,
@@ -48,15 +39,11 @@ __all__ = [
     "SessionMapAuthoringRequest",
     "SessionMapAuthoringResult",
     "SessionMapCheckpointResult",
-    "SessionMapCheckpointDecision",
     "SessionMapDraft",
     "SessionMapEntry",
     "SessionMapEntryBasis",
     "SessionMapEntryKind",
     "SessionMapEntryState",
-    "SessionMapGateRequest",
-    "SessionMapGateResult",
-    "SessionMapMovementDecision",
     "SessionMapPendingEvidence",
     "SessionMapEvidenceEnvelope",
     "SessionMapRetainedEvidence",
@@ -65,14 +52,11 @@ __all__ = [
     "SourceRange",
     "build_session_map_authoring_prompt",
     "build_session_map_context_message",
-    "build_session_map_gate_state",
     "commit_session_map_checkpoint",
-    "estimate_session_map_gate_tokens",
     "evaluate_session_map_readiness",
     "load_session_map_checkpoint",
     "load_session_map_observed_through",
     "load_session_map_pending_evidence",
     "run_session_map_authoring",
-    "run_session_map_gate",
     "validate_session_map_provenance",
 ]

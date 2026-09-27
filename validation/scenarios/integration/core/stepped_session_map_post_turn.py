@@ -217,6 +217,11 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
             "completed",
             "The fallback recovery-card task should complete normally",
         )
+        all_tasks = await runtime.task_coordinator.list_tasks()
+        self.soft_assert(
+            all(task.kind != "session_map_classification" for task in all_tasks),
+            "Stepped reduction should never dispatch the retired map classifier",
+        )
 
         self.assert_no_failures()
 

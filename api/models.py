@@ -1128,7 +1128,6 @@ class ChatSessionMapCheckpointInfo(BaseModel):
     map_observed_through_sequence_index: int = Field(..., ge=0)
     entry_count: int = Field(..., ge=0)
     action: Literal["authored", "deferred"]
-    classification_score: float | None = Field(None, ge=0.0, le=1.0)
     prompt_contract_version: str
 
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 implements a stepped-eviction map experiment behind the existing compaction boundary. The map-author gate has now been evaluated and rejected as unnecessary runtime complexity; cleanup is the next implementation checkpoint. The completed foundation indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 implements a stepped-eviction map experiment behind the existing compaction boundary. The map-author gate was evaluated, rejected as unnecessary runtime complexity, and removed. The completed foundation indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
 
 ## Decision Summary
 
@@ -438,9 +438,11 @@ Targeted deterministic validation proves that the session-list capability flag f
 
 ### Slice 4G: Retire the map-author gate
 
+**Status:** Complete. Stepped eviction now authors unconditionally at every planned watermark crossing. Gate prompts, runtime dispatch, settings, task types, API scores, and executable gate experiments are removed. Settings repair strips persisted gate keys, while generic TypeSafe/Jev configuration and the provider-neutral decision runtime remain. A narrow compatibility reader rehydrates a pending canonical range from an already-deferred checkpoint into the next author pass; new checkpoints cannot write pending or classification state. Focused map, settings, API/UI, and generic decision-model validation passes, as do Ruff, Black, and mypy.
+
 **Decision:** Remove the gate-specific production path. The experiment established that Jev can classify obvious movement reliably in the tested cases, but the gate changes only the timing of an inevitable map rewrite. Large or change-dense eviction batches trigger authoring consistently, while smaller quiet batches can be handled more simply by tuning the existing high-watermark and low-watermark interval. The single natural deferral and clean labelled probe do not demonstrate enough avoided generative work to justify permanent classifier settings, task orchestration, checkpoint state, failure handling, and UI concepts.
 
-Retain the generic TypeSafe/Jev provider, encrypted secret integration, `decision` capability, provider-neutral decision adapter, and generic live decision probe. They are reusable infrastructure and are not coupled to map maintenance. Retain the unconditional stepped-map author, provenance contract, eviction planner, checkpoint history, retrieval tools, and map inspection surface.
+Retain the generic TypeSafe/Jev provider, encrypted secret integration, `decision` capability, provider-neutral decision adapter, and generic live decision probe. They are reusable infrastructure for retrieval experiments and a future general-purpose decision tool, and are not coupled to map maintenance. Retain the unconditional stepped-map author, provenance contract, eviction planner, checkpoint history, retrieval tools, and map inspection surface.
 
 Remove the map-gate prompt and module, gate settings and accessors, classification task kind and label, compaction dispatch and deferral branch, classification result fields from new reduction results, gate scores from the map API and modal, and gate-specific deterministic and live experiment scenarios. Historical results remain in this plan, the experiment findings document, and Git history; executable experimental code is not the archive.
 
@@ -477,7 +479,7 @@ Persisted-state cleanup must be one-way and lossless. Remove the three gate sett
 
 ## Immediate Next Steps
 
-Implement Slice 4G by removing the map-author gate while preserving unconditional stepped authoring and one-way reconciliation of any existing deferred evidence. Then begin bounded live tuning of the configurable stepped-eviction watermarks and use the checkpoint modal to inspect provenance failures, misleading stale state, semantic omissions, and retrieval behavior. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts. Evaluate the separate retrieval context-admission hypothesis only through the disposable comparison defined in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
+Begin bounded live tuning of the configurable stepped-eviction watermarks and use the checkpoint modal to inspect provenance failures, misleading stale state, semantic omissions, and retrieval behavior. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts. Evaluate the separate retrieval context-admission hypothesis only through the disposable comparison defined in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## Evidence and Design Sources
 

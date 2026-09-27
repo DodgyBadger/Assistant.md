@@ -983,30 +983,6 @@ def get_session_map_low_watermark_tokens() -> int:
     return parsed if parsed > 0 else template_default
 
 
-def get_session_map_gate_model() -> str | None:
-    """Return the optional session-map decision alias, if configured."""
-    entry = get_general_settings().get("session_map_gate_model")
-    value = getattr(entry, "value", None) if entry is not None else None
-    normalized = str(value or "").strip()
-    if not normalized or normalized.lower() == "none":
-        return None
-    return normalized
-
-
-def get_session_map_gate_threshold() -> float:
-    """Return the material-update probability that triggers map authoring."""
-    return _get_probability_setting("session_map_gate_threshold", default=0.5)
-
-
-def get_session_map_gate_max_input_tokens() -> int:
-    """Return the decision-input budget before map authoring is forced."""
-    return _get_bounded_positive_int_setting(
-        "session_map_gate_max_input_tokens",
-        default=24_000,
-        maximum=1_000_000,
-    )
-
-
 def _get_nonempty_setting_string(setting_key: str, default: str) -> str:
     entry = get_general_settings().get(setting_key)
     value = getattr(entry, "value", None) if entry is not None else None
