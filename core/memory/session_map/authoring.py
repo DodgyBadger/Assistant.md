@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from core.constants import (
@@ -39,10 +40,26 @@ class SessionMapEvidenceEnvelope(Protocol):
     def projected_text(self) -> str: ...
 
 
+@dataclass(frozen=True)
+class SessionMapRetainedMessage:
+    """One newer canonical message available only as supersession lookahead."""
+
+    sequence_index: int
+    role: str
+    content_text: str
+
+    def __post_init__(self) -> None:
+        if self.sequence_index < 0:
+            raise ValueError("Retained lookahead sequence index cannot be negative")
+        if not self.role.strip():
+            raise ValueError("Retained lookahead requires a message role")
+
+
 def build_session_map_authoring_prompt(
     *,
     previous_map: SessionMapDraft,
     envelopes: Sequence[SessionMapEvidenceEnvelope],
+    retained_lookahead: Sequence[SessionMapRetainedMessage] = (),
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not envelopes:
@@ -63,6 +80,14 @@ def build_session_map_authoring_prompt(
                 "projected_text": envelope.projected_text,
             }
             for envelope in envelopes
+        ],
+        "retained_recent_lookahead": [
+            {
+                "sequence_index": message.sequence_index,
+                "role": message.role,
+                "content": message.content_text,
+            }
+            for message in retained_lookahead
         ],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

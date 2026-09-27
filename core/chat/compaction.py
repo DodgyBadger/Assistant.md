@@ -33,6 +33,7 @@ from core.constants import (
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
+from core.memory.session_map.authoring import SessionMapRetainedMessage
 from core.memory.session_map.checkpoints import (
     SessionMapCheckpointDecision,
     SessionMapCheckpointResult,
@@ -1112,6 +1113,12 @@ async def _run_stepped_session_map_reduction(
                 thinking=readiness.author_thinking,
                 previous_map=previous_map,
                 envelopes=cumulative_envelopes,
+                retained_lookahead=_build_retained_session_map_lookahead(
+                    store=store,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    plan=plan,
+                ),
             ),
             authority=authority,
             source=ExecutionTaskSource.SYSTEM,
@@ -1247,6 +1254,32 @@ def _commit_deferred_session_map(
         },
     )
     return result
+
+
+def _build_retained_session_map_lookahead(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+    plan: SteppedHistoryEvictionPlan,
+) -> tuple[SessionMapRetainedMessage, ...]:
+    """Project the canonical retained suffix without making it map evidence."""
+    stored_messages = store.get_stored_messages(
+        session_id,
+        vault_name,
+        mode="effective",
+    )
+    retained = stored_messages[plan.eviction_end_index :]
+    if not retained or not _has_contiguous_canonical_sequences(retained):
+        raise ValueError("Retained session-map lookahead is not canonical")
+    return tuple(
+        SessionMapRetainedMessage(
+            sequence_index=message.sequence_index,
+            role=message.role,
+            content_text=message.content_text,
+        )
+        for message in retained
+    )
 
 
 async def _run_automatic_recovery_card_compaction(

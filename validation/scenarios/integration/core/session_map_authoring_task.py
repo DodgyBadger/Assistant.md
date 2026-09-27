@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.chat.compaction import CanonicalEvictionEnvelope  # noqa: E402
 from core.identity import LOCAL_USER_AUTHORITY  # noqa: E402
+from core.memory.session_map.authoring import SessionMapRetainedMessage  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
@@ -46,6 +47,13 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             model_alias="gpt-mini",
             previous_map=SessionMapDraft(),
             envelopes=envelopes,
+            retained_lookahead=(
+                SessionMapRetainedMessage(
+                    sequence_index=12,
+                    role="user",
+                    content_text="The legal review is complete.",
+                ),
+            ),
         )
         authored = SessionMapDraft(
             entries=(
@@ -120,8 +128,8 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                     kind="decision",
                     state="active",
                     basis="user_established",
-                    text="An invented decision.",
-                    sources=(SourceRange(start=99, end=99),),
+                    text="A lookahead-only decision.",
+                    sources=(SourceRange(start=12, end=12),),
                 ),
             )
         )
@@ -152,7 +160,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         self.soft_assert_equal(
             failed_task.status,
             "failed",
-            "Rejected provenance should fail the owning execution task",
+            "Lookahead-only provenance should fail the owning execution task",
         )
         self.soft_assert_equal(
             failed_task.terminal_error_type,

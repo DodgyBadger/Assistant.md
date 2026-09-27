@@ -41,6 +41,8 @@ from validation.core.base_scenario import (  # noqa: E402
 SOURCE_SESSION_ID = "Ashley_Personal_20260501_101403"
 SOURCE_DB_ENV = "SESSION_CONTEXT_COMPARISON_DB"
 SOURCE_DB_DEFAULT = Path("system/chat_sessions.db")
+CONDITIONS_ENV = "SESSION_CONTEXT_COMPARISON_CONDITIONS"
+ALL_CONDITIONS = ("recovery_card", "unconditional_map", "gated_map")
 BATCH_ENDS = (15, 31, 47, 63, 71)
 MODEL_ALIAS = "gpt-mini"
 MODEL_THINKING = "low"
@@ -64,7 +66,8 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
 
         try:
             results: dict[str, Any] = {}
-            for condition in ("recovery_card", "unconditional_map", "gated_map"):
+            conditions = _selected_conditions()
+            for condition in conditions:
                 self._log_timeline(f"Starting comparison condition: {condition}")
                 results[condition] = await self._run_condition(
                     condition=condition,
@@ -72,7 +75,7 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
                     vault_name=vault.name,
                     vault_path=str(vault),
                 )
-            _assert_expected_task_paths(results)
+            _assert_expected_task_paths(results, conditions=conditions)
             artifact = {
                 "source_session_id": SOURCE_SESSION_ID,
                 "source_message_count": len(source_messages),
@@ -81,6 +84,7 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
                 "author_thinking": MODEL_THINKING,
                 "gate_model": GATE_MODEL_ALIAS,
                 "gate_threshold": 0.5,
+                "selected_conditions": list(conditions),
                 "conditions": results,
             }
             (self.artifacts_dir / "comparison.json").write_text(
@@ -389,7 +393,26 @@ def _render_summary(artifact: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _assert_expected_task_paths(results: dict[str, Any]) -> None:
+def _selected_conditions() -> tuple[str, ...]:
+    configured = os.environ.get(CONDITIONS_ENV, "").strip()
+    if not configured:
+        return ALL_CONDITIONS
+    selected = tuple(
+        condition.strip() for condition in configured.split(",") if condition.strip()
+    )
+    unknown = sorted(set(selected) - set(ALL_CONDITIONS))
+    if unknown:
+        raise ValueError(f"Unknown comparison conditions: {', '.join(unknown)}")
+    if not selected:
+        raise ValueError("At least one comparison condition is required")
+    return selected
+
+
+def _assert_expected_task_paths(
+    results: dict[str, Any],
+    *,
+    conditions: tuple[str, ...] = ALL_CONDITIONS,
+) -> None:
     expected = {
         "recovery_card": {ExecutionTaskKind.HISTORY_COMPACTION.value: 5},
         "unconditional_map": {ExecutionTaskKind.SESSION_MAP_AUTHORING.value: 5},
@@ -398,7 +421,8 @@ def _assert_expected_task_paths(results: dict[str, Any]) -> None:
             ExecutionTaskKind.SESSION_MAP_CLASSIFICATION.value: 4,
         },
     }
-    for condition, expected_counts in expected.items():
+    for condition in conditions:
+        expected_counts = expected[condition]
         actual: dict[str, int] = {}
         for task in results[condition]["tasks"]:
             kind = str(task["kind"])

@@ -115,7 +115,7 @@ class SessionMapSchemaScenario(BaseScenario):
                 envelopes=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v1"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v2"
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
             item["source_range"] for item in prompt_payload["new_evidence_envelopes"]
