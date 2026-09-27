@@ -1,0 +1,183 @@
+"""Validate governed session-map authoring and provenance failure handling."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+
+from core.chat.compaction import CanonicalEvictionEnvelope  # noqa: E402
+from core.identity import LOCAL_USER_AUTHORITY  # noqa: E402
+from core.memory.session_map.models import (  # noqa: E402
+    SessionMapDraft,
+    SessionMapEntry,
+    SessionMapProvenanceError,
+    SourceRange,
+)
+from core.memory.session_map.service import (  # noqa: E402
+    SessionMapAuthoringRequest,
+    run_session_map_authoring,
+)
+from core.runtime.execution_tasks import (  # noqa: E402
+    ExecutionTaskKind,
+    ExecutionTaskSource,
+    get_current_execution_task,
+)
+from core.runtime.state import get_runtime_context  # noqa: E402
+from validation.core.base_scenario import BaseScenario  # noqa: E402
+
+
+class SessionMapAuthoringTaskScenario(BaseScenario):
+    """Keep model-backed map updates inside observable execution tasks."""
+
+    async def test_scenario(self) -> None:
+        await self.start_system()
+        runtime = get_runtime_context()
+        envelopes = (_envelope(),)
+        request = SessionMapAuthoringRequest(
+            session_id="session-map-task",
+            vault_name="SessionMapTaskVault",
+            model_alias="gpt-mini",
+            previous_map=SessionMapDraft(),
+            envelopes=envelopes,
+        )
+        authored = SessionMapDraft(
+            entries=(
+                SessionMapEntry(
+                    id="legal_review_goal",
+                    kind="goal",
+                    state="active",
+                    basis="user_established",
+                    text="Review the redevelopment proposal with counsel.",
+                    sources=(SourceRange(start=10, end=11),),
+                ),
+            )
+        )
+        observed_tasks: list[tuple[str, str]] = []
+
+        async def return_grounded_map(**_kwargs: object) -> SessionMapDraft:
+            task = get_current_execution_task()
+            assert task is not None
+            observed_tasks.append((task.task_id, task.kind))
+            return authored
+
+        checkpoint = self.event_checkpoint()
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            new=return_grounded_map,
+        ):
+            result = await run_session_map_authoring(
+                request,
+                authority=LOCAL_USER_AUTHORITY,
+                source=ExecutionTaskSource.SYSTEM,
+            )
+
+        self.soft_assert_equal(
+            result.draft,
+            authored,
+            "The governed author should return the validated replacement map",
+        )
+        self.soft_assert_equal(
+            observed_tasks,
+            [(result.task_id, ExecutionTaskKind.SESSION_MAP_AUTHORING.value)],
+            "The model boundary should execute inside its owning map task",
+        )
+        completed_task = await runtime.task_coordinator.get_task(result.task_id)
+        self.soft_assert_equal(
+            completed_task.status if completed_task else None,
+            "completed",
+            "Valid map authoring should complete its execution task",
+        )
+        self.soft_assert_equal(
+            completed_task.scope if completed_task else None,
+            "chat_session:session-map-task",
+            "Map authoring should share the chat session task scope",
+        )
+        authoring_events = [
+            event.get("name")
+            for event in self.events_since(checkpoint)
+            if event.get("data", {}).get("task_id") == result.task_id
+        ]
+        self.soft_assert(
+            "session_map_authoring_started" in authoring_events,
+            "Map authoring should log its model boundary start",
+        )
+        self.soft_assert(
+            "session_map_authoring_completed" in authoring_events,
+            "Map authoring should log its validated completion",
+        )
+
+        unsupported = SessionMapDraft(
+            entries=(
+                SessionMapEntry(
+                    id="unsupported_decision",
+                    kind="decision",
+                    state="active",
+                    basis="user_established",
+                    text="An invented decision.",
+                    sources=(SourceRange(start=99, end=99),),
+                ),
+            )
+        )
+
+        async def return_unsupported_map(**_kwargs: object) -> SessionMapDraft:
+            return unsupported
+
+        failure_checkpoint = self.event_checkpoint()
+        try:
+            with patch(
+                "core.memory.session_map.service._invoke_session_map_model",
+                new=return_unsupported_map,
+            ):
+                await run_session_map_authoring(
+                    request,
+                    authority=LOCAL_USER_AUTHORITY,
+                    source=ExecutionTaskSource.SYSTEM,
+                )
+        except SessionMapProvenanceError:
+            pass
+        else:
+            raise AssertionError("Unsupported model provenance should fail authoring")
+
+        tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.SESSION_MAP_AUTHORING.value
+        )
+        failed_task = tasks[-1]
+        self.soft_assert_equal(
+            failed_task.status,
+            "failed",
+            "Rejected provenance should fail the owning execution task",
+        )
+        self.soft_assert_equal(
+            failed_task.terminal_error_type,
+            "SessionMapProvenanceError",
+            "The task should retain the provenance failure category",
+        )
+        failure_events = [
+            event.get("name")
+            for event in self.events_since(failure_checkpoint)
+            if event.get("data", {}).get("task_id") == failed_task.task_id
+        ]
+        self.soft_assert(
+            "session_map_authoring_failed" in failure_events,
+            "Rejected provenance should emit a domain failure event",
+        )
+
+        self.assert_no_failures()
+
+
+def _envelope() -> CanonicalEvictionEnvelope:
+    return CanonicalEvictionEnvelope(
+        envelope_id="session-map-task-envelope",
+        session_id="session-map-task",
+        vault_name="SessionMapTaskVault",
+        history_revision=2,
+        source_start_sequence_index=10,
+        source_end_sequence_index=11,
+        message_count=2,
+        estimated_tokens=100,
+        projected_text="[source:10] USER:\nPlease review this with counsel.",
+        source_digest="session-map-task-digest",
+    )

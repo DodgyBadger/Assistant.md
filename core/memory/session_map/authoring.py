@@ -14,8 +14,13 @@ from core.constants import (
 from .models import SessionMapDraft
 
 
-class _CanonicalEnvelope(Protocol):
+class SessionMapEvidenceEnvelope(Protocol):
+    """Structural evidence contract accepted by the map author."""
+
     envelope_id: str
+    session_id: str
+    vault_name: str
+    history_revision: int
     source_start_sequence_index: int
     source_end_sequence_index: int
     projected_text: str
@@ -24,7 +29,7 @@ class _CanonicalEnvelope(Protocol):
 def build_session_map_authoring_prompt(
     *,
     previous_map: SessionMapDraft,
-    envelopes: Sequence[_CanonicalEnvelope],
+    envelopes: Sequence[SessionMapEvidenceEnvelope],
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not envelopes:

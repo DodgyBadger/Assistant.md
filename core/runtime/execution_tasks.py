@@ -37,6 +37,7 @@ class ExecutionTaskKind(StrEnum):
     DELEGATE = "delegate"
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
+    SESSION_MAP_AUTHORING = "session_map_authoring"
     INGESTION = "ingestion"
 
 
@@ -98,6 +99,11 @@ def ingestion_task_label(job_id: int) -> str:
 def compaction_task_label(session_id: str) -> str:
     """Return the stable label for chat history compaction tasks."""
     return f"compact:{session_id}"
+
+
+def session_map_task_label(session_id: str) -> str:
+    """Return the stable label for session-map authoring tasks."""
+    return f"session-map:{session_id}"
 
 
 def get_current_execution_task() -> ExecutionTaskSnapshot | None:
