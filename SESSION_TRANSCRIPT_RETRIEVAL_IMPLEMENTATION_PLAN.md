@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark; Slice 3 now makes recovery cards the conditional routing surface for transcript retrieval. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 begins a stepped-eviction map experiment behind the existing compaction boundary. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
 
 ## Decision Summary
 
@@ -32,13 +32,13 @@ The live session-map implementation will be removed rather than left dormant. Th
 - Rework `search_sessions(mode="deep")` to use the same raw-message index instead of building a temporary index over effective histories.
 - Add bounded result contracts, stable message anchors, vault authorization, truncation/continuation behavior, and prompt-injection-safe tool guidance.
 - Add concise system-owned retrieval guidance only after compaction by placing it in every recovery card.
-- Add stable transcript references to consequential recovery-card claims when they can be generated and validated without materially expanding the card.
 - Remove the live session-map product experiment and its obsolete plan, while retaining generic decision-model infrastructure.
 
 ### Deferred
 
 - Hybrid lexical/semantic transcript ranking, evaluated behind the same bounded retrieval interface using the existing session-search vector infrastructure where practical.
 - Automatic retrieval on every turn.
+- Generated source references inside recovery cards; transcript search is the recovery-card routing mechanism while source ranges are tested as mechanical map metadata.
 - Sliding or stepped context eviction.
 - A replacement session-state map derived only from evicted messages.
 - Cross-session or vault memory consolidation.
@@ -253,21 +253,21 @@ Use the recovery card as a compact routing aid rather than a complete memory rep
 
 ### Slice 3A: Fixed recovery-card preamble
 
-**Status:** Complete. Every recovery card now begins with a concise system-owned preamble that explains why the card exists, identifies the canonical transcript as the source of truth, states when the summary is sufficient, and distinguishes `search_transcript` from `get_transcript_window`. The text lives in `core/constants.py` so prompt tuning has one obvious owner. It is composed outside generated summary prose so repeated compaction cannot omit, paraphrase, or amplify it, and the compaction author treats a prior preamble as operational guidance rather than summary material.
+**Status:** Complete. Every recovery card now begins with a concise system-owned preamble that explains why the card exists, identifies the canonical transcript as the source of truth, states when the summary is sufficient, and queues `search_transcript` when canonical evidence is needed. The text lives in `core/constants.py` so prompt tuning has one obvious owner. It is composed outside generated summary prose so repeated compaction cannot omit, paraphrase, or amplify it, and the compaction author treats a prior preamble as operational guidance rather than summary material.
 
 Validate deterministically that the preamble appears only in compacted effective history, precedes generated summary content, survives repeated compaction exactly once, and remains visible through session detail and forks. No live trigger benchmark is required; one ordinary chat smoke is sufficient after deterministic coverage passes.
 
-### Slice 3B: Stable source references
+### Slice 3B: Generated source references deferred
 
-Experiment with attaching stable sequence references to the most consequential active goals, decisions, artifacts, unresolved questions, and corrections. The card may paraphrase for continuity, but the pointer lets the agent inspect canonical evidence. Keep the card focused on current state and do not expand it into a transcript-derived knowledge base.
+Do not add generated sequence references to recovery-card claims before the stepped-map experiment. Search already supplies a bounded path back to canonical evidence, while reference generation would add another probabilistic behavior to tune on a continuity representation that the experiment may replace.
 
-Compare the existing prompt with source-linked variants for continuation quality, card size, unsupported claims, retrieval frequency, anchor accuracy, and repeated-compaction drift. Recovery cards continue to be generated through the existing compaction task path.
+Recovery cards remain the durable fallback when the optional classifier or map author is unavailable. Their fixed preamble queues transcript search without exposing lower-level window mechanics. If recovery cards remain the primary continuity representation after Slice 4, direct references can be reconsidered with an explicit anchor-accuracy evaluation.
 
-**Exit gate:** Adopt source links only if they increase successful evidence recovery or reduce semantic drift without materially growing the card or creating misleading provenance.
+**Decision:** Deferred. Source ranges belong first on deterministic eviction envelopes and derived map entries, where the ranges are mechanically known rather than generated by the recovery-card author.
 
 ## Slice 4: Stepped Eviction Experiment
 
-Only after bounded retrieval and trigger behavior are dependable, compare checkpoint compaction with a sliding high-watermark/low-watermark strategy.
+Compare checkpoint compaction with a sliding high-watermark/low-watermark strategy through independently testable checkpoints. The experiment remains opt-in until the final comparison proves it safe and useful; ordinary sessions continue to use recovery-card compaction.
 
 The candidate design is stepped eviction, not naive FIFO truncation:
 
@@ -282,15 +282,44 @@ Jev's plausible role shifts from repeatedly judging the entire live conversation
 
 The state representation for this experiment must be designed from eviction evidence rather than copied from the retired live map. It should remain bounded, favor active state and provenance over narrative history, and compact or archive superseded entries deterministically. If classification or authoring is unavailable, the system must fall back to existing recovery-card compaction without losing the chat turn.
 
-Compare at least three conditions over long, multi-compaction conversations:
+### Slice 4A: Deterministic eviction planner
+
+Add a pure planning boundary that accepts provider-native effective history plus high and low token watermarks and returns an eviction prefix and retained suffix without mutating storage. It must plan only after the high watermark is crossed, restore the retained history to the low watermark when a removable prefix exists, preserve chronological order, and never split an atomic tool-call/result exchange or another complete protocol group. The planner reports explicit no-op reasons when the history is below the high watermark or one indivisible group prevents the requested reduction.
+
+Validate the planner with deterministic examples covering ordinary turns, tool calls and returns, multiple calls in one model response, oversized indivisible groups, an existing recovery-card message, and stable token accounting. Slice 4A does not invoke Jev, author a map, change effective history, add settings, or persist state.
+
+### Slice 4B: Provenance-bearing eviction envelopes
+
+Resolve every planned outgoing group to canonical raw sequence ranges before it can leave effective context. Persist or expose an immutable experiment envelope containing the source ranges, projected text, protocol grouping, token estimate, and history revision. A range is mechanically derived from storage identity; neither Jev nor a generative model may invent it. Repeated planning must not classify or map the same canonical range twice.
+
+### Slice 4C: Optional classification through task execution
+
+Route eviction classification through the normal task executor using the provider-neutral `decision` capability. Jev receives only newly outgoing envelopes plus the bounded current map state and classifies semantic type, state transition, priority, and affected map dimensions. Runs may execute concurrently where task policy permits, but they remain visible and governed like other tasks. Failure, missing configuration, timeout, or low-confidence output leaves effective history untouched and routes the session to existing recovery-card compaction.
+
+An ephemeral Jev probe over six transitions from the private 1065 redevelopment transcript supports using the classifier as a conservative authoring gate, but not as an authority that discards evidence. Bundled six-field decisions were fast and repeatable: calls completed in roughly 0.25–0.43 seconds, and identical reruns generally moved scores by only a few hundredths. Clear artifact creation and major legal-state changes separated from an already-represented negative control, while subtler active-draft and narrative changes clustered in the ambiguous middle. Cumulative evidence correctly kept major courtyard and compensation changes elevated, but scores were not monotonic as more assistant analysis arrived. Independent field calls strengthened artifact detection but also produced a likely false decision update, showing that removing neighboring map context can trade one kind of interference for another.
+
+Begin Slice 4C with one bounded, multi-field decision over the current map plus cumulative unincorporated evidence. Preserve per-field probabilities and make thresholds configurable by field; do not assume one global cutoff from this small labelled sample. Keep pending evidence until a successful map update incorporates its canonical source ranges. Before runtime activation, build a larger labelled eviction corpus that distinguishes persistent state changes from transient completed actions, assistant proposals, and ordinary draft refinement, then compare bundled classification with field-isolated variants against that corpus.
+
+### Slice 4D: Bounded eviction-derived map
+
+Design the smallest state schema from labelled eviction evidence, then author updates only for dimensions the classifier marked as changed. Entries carry canonical source ranges, explicit active/superseded/closed state where applicable, and deterministic size limits or archival rules. The map favors current goals, decisions, constraints, unresolved questions, and live artifacts over narrative history. This slice must not reintroduce the retired map schema by default.
+
+### Slice 4E: Opt-in effective-history strategy
+
+Compose the bounded map with the recent retained suffix and activate stepped eviction only under an explicit setting with a ready classification model. Commit the map update and eviction checkpoint so a source group cannot disappear from effective context before its durable envelope and any required state update exist. Preserve raw canonical SQLite messages and all Slice 1 retrieval operations. On any pre-commit failure, keep the old effective history and use recovery-card compaction.
+
+### Slice 4F: Comparative live validation
+
+Compare two primary conditions over long, multi-compaction conversations:
 
 - Current recovery-card compaction plus bounded transcript retrieval.
-- Source-linked recovery cards plus bounded transcript retrieval.
 - Stepped eviction plus an eviction-derived state representation and bounded transcript retrieval.
 
 Score current-task continuity, exact-evidence recovery, semantic and salience drift, unsupported claims, effective-context size, model calls, latency, cost, and prompt-cache behavior. Include the retained recent tail as a separately measured contributor because earlier testing showed that it can mask weaknesses in the compact representation.
 
-**Exit gate:** Stepped eviction advances only if it meets or exceeds the best recovery-card condition on continuity and evidence fidelity, maintains strict context bounds, and has a simpler or clearly more valuable operating profile. Otherwise retain checkpoint compaction and retrieval.
+Keep recovery-card reference generation outside the comparison unless the first two conditions expose a specific evidence-recovery failure that search cannot address. Score current-task continuity, exact-evidence recovery, semantic and salience drift, unsupported claims, effective-context size, model calls, latency, cost, and prompt-cache behavior. Include the retained recent tail as a separately measured contributor because earlier testing showed that it can mask weaknesses in the compact representation.
+
+**Exit gate:** Stepped eviction advances only if it meets or exceeds recovery-card compaction on continuity and evidence fidelity, maintains strict context bounds, and has a simpler or clearly more valuable operating profile. Otherwise retain checkpoint compaction and retrieval and remove experimental runtime code.
 
 ## Contract-Sensitive Areas
 
@@ -313,11 +342,12 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 4. Slice 1D: rebuild `search_sessions(mode="deep")` on the shared canonical index, add the cross-layer integration scenario, and run the full deterministic core profile; stop and verify the overall Slice 1 gate.
 5. Slice 1E: harden derived source projection and provenance, exclude retrieval-generated envelopes from candidate generation, backfill the canonical index, and rerun the Slice 1 validation gate.
 6. Close Slice 2 after live-path feasibility, remove its disposable probe, and defer hybrid ranking until an observed lexical recall failure justifies it.
-7. Add the fixed recovery-card retrieval preamble, then evaluate stable source references for consequential claims before beginning stepped eviction work.
+7. Add the fixed recovery-card transcript-search preamble and defer generated card references while stepped eviction is evaluated.
+8. Implement Slice 4A as a pure deterministic planner with no runtime activation, then stop at each subsequent Slice 4 checkpoint for evidence-driven review.
 
 ## Immediate Next Steps
 
-Begin Slice 3B with the smallest source-reference format that can be validated against canonical session sequence indexes without materially increasing card size. The completed Slice 3A preamble remains the stable routing layer whether or not a particular card contains direct anchors.
+Implement Slice 4A validation first, then add the pure deterministic eviction planner under the existing `core/chat` ownership boundary. Do not add Jev calls, persistence, settings, or runtime routing until the planner's group-integrity and watermark contracts are proven.
 
 ## Evidence and Design Sources
 

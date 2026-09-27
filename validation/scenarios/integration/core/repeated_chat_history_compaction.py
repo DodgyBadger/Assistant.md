@@ -210,7 +210,7 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             metadata["last_compaction"]["compaction_id"] == third.compaction_id
         ), "Session metadata should point at the newest compaction checkpoint"
         assert (
-            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v4"
+            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v5"
         ), "Newest compaction metadata should retain the recovery-card contract"
 
         conn = sqlite3.connect(runtime.config.system_root / "chat_sessions.db")

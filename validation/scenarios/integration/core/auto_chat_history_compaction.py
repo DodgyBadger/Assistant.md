@@ -113,7 +113,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             last_compaction["reason"] == "token_threshold"
         ), "Auto compaction should record threshold reason"
         assert (
-            last_compaction["prompt_contract_version"] == "recovery-card-v4"
+            last_compaction["prompt_contract_version"] == "recovery-card-v5"
         ), "Auto compaction should record prompt contract version"
         assert (
             last_compaction["compaction_type"] == "auto"

@@ -205,14 +205,14 @@ CONTEXT_TEMPLATE_ERROR_HANDOFF_INSTRUCTION = (
     "without script management (for example by switching to the default script). "
 )
 
-CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v4"
+CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v5"
 
 CHAT_HISTORY_RECOVERY_CARD_PREAMBLE = """
 ## Recovery card guidance
 
 This card exists because older messages were compressed out of active context. It is a continuity summary; the canonical session transcript remains the source of truth.
 
-Rely on the card alone when it contains enough detail for the current task and exact wording, provenance, or verification is not important. When the task depends on omitted or ambiguous details, exact facts or wording, decision rationale, corrections, supersession, or source provenance, use `session_ops(operation="search_transcript")` on the active session. When a canonical sequence reference is available, use `session_ops(operation="get_transcript_window")` to inspect a bounded window around that anchor.
+Rely on the card alone when it contains enough detail for the current task and exact wording, provenance, or verification is not important. When the task depends on omitted or ambiguous details, exact facts or wording, decision rationale, corrections, supersession, or source provenance, use `session_ops(operation="search_transcript")` on the active session.
 
 ## Recovery summary
 """.strip()

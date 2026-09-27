@@ -84,7 +84,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         )
         prompt_payload = json.loads(prompt)
         assert (
-            prompt_payload["prompt_contract_version"] == "recovery-card-v4"
+            prompt_payload["prompt_contract_version"] == "recovery-card-v5"
         ), "Compaction prompt declares the summary contract version"
         assert (
             "context checkpoint compaction" in prompt
@@ -385,7 +385,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         metadata = store.get_session_metadata(session_id, vault.name)
         assert "last_compaction" in metadata, "Compaction audit metadata is recorded"
         assert (
-            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v4"
+            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v5"
         ), "Session metadata records the compaction prompt contract"
         assert (
             metadata["last_compaction"]["trigger"] == "manual"
@@ -404,7 +404,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         ), "Checkpoint records the raw message high-water mark"
         checkpoint_metadata = json.loads(checkpoint.metadata_json or "{}")
         assert (
-            checkpoint_metadata["prompt_contract_version"] == "recovery-card-v4"
+            checkpoint_metadata["prompt_contract_version"] == "recovery-card-v5"
         ), "Checkpoint metadata records the prompt contract version"
         assert (
             checkpoint_metadata["trigger"] == "manual"
