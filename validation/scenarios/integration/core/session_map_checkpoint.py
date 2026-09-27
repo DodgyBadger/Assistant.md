@@ -169,13 +169,42 @@ class SessionMapCheckpointScenario(BaseScenario):
         )
 
         second_revision = store.get_session_history_revision(session_id, vault.name)
-        second_envelope = _envelope(
+        import core.chat.compaction as compaction
+
+        second_plan = compaction.plan_stepped_history_eviction(
+            effective_after_first,
+            high_watermark_tokens=(
+                compaction.estimate_history_tokens(effective_after_first) - 1
+            ),
+            low_watermark_tokens=compaction.estimate_history_tokens(
+                [effective_after_first[0], *effective_after_first[-2:]]
+            ),
+            history_revision=second_revision,
+            retained_prefix_count=1,
+        )
+        second_evidence = compaction.build_canonical_eviction_envelopes(
+            store=store,
             session_id=session_id,
             vault_name=vault.name,
-            history_revision=second_revision,
-            start=2,
-            end=3,
+            plan=second_plan,
         )
+        self.soft_assert_equal(
+            second_evidence.status,
+            "resolved",
+            "A pinned map should still resolve later evictions to canonical evidence",
+        )
+        self.soft_assert_equal(
+            [
+                (
+                    envelope.source_start_sequence_index,
+                    envelope.source_end_sequence_index,
+                )
+                for envelope in second_evidence.envelopes
+            ],
+            [(2, 3)],
+            "The pinned map must never be included in new evidence ranges",
+        )
+        second_envelope = second_evidence.envelopes[0]
         second_map = SessionMapDraft(
             entries=(
                 first_map.entries[0],

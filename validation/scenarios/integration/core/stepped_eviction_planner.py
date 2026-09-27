@@ -53,6 +53,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
         assert ordinary_plan.reason == "low_watermark_reached"
         assert ordinary_plan.eviction_end_index == 4
         assert ordinary_plan.evicted_group_count == 2
+        assert ordinary_plan.eviction_start_index == 0
         assert ordinary_plan.retained_message_count == 2
         assert ordinary_plan.estimated_tokens_after <= latest_turn_tokens
 
@@ -111,6 +112,26 @@ class SteppedEvictionPlannerScenario(BaseScenario):
         assert recovery_plan.status == "planned"
         assert recovery_plan.eviction_end_index == 1
         assert recovery_plan.evicted_group_count == 1
+
+        pinned_map = ModelRequest(
+            parts=[SystemPromptPart(content="AssistantMD session map")]
+        )
+        map_history = [pinned_map, *ordinary]
+        map_total = compaction.estimate_history_tokens(map_history)
+        map_target = compaction.estimate_history_tokens([pinned_map, *ordinary[-2:]])
+        map_plan = compaction.plan_stepped_history_eviction(
+            map_history,
+            high_watermark_tokens=map_total - 1,
+            low_watermark_tokens=map_target,
+            retained_prefix_count=1,
+        )
+        assert map_plan.status == "planned"
+        assert map_plan.retained_prefix_count == 1
+        assert map_plan.eviction_start_index == 1
+        assert map_plan.eviction_end_index == 5
+        assert map_plan.evicted_message_count == 4
+        assert map_plan.retained_message_count == 3
+        assert map_plan.estimated_tokens_after <= map_target
 
         oversized_latest = [
             _user("old question"),

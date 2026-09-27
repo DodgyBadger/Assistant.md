@@ -113,6 +113,8 @@ class SteppedHistoryEvictionPlan:
     retained_message_count: int
     group_count: int
     evicted_group_count: int
+    retained_prefix_count: int
+    eviction_start_index: int
     eviction_end_index: int
 
 
@@ -375,14 +377,19 @@ def plan_stepped_history_eviction(
     high_watermark_tokens: int,
     low_watermark_tokens: int,
     history_revision: int | None = None,
+    retained_prefix_count: int = 0,
 ) -> SteppedHistoryEvictionPlan:
-    """Plan a safe oldest-prefix eviction without mutating history or storage."""
+    """Plan safe oldest-group eviction after an optional pinned prefix."""
     _validate_eviction_watermarks(
         high_watermark_tokens=high_watermark_tokens,
         low_watermark_tokens=low_watermark_tokens,
     )
+    if retained_prefix_count < 0 or retained_prefix_count >= len(messages):
+        if retained_prefix_count != 0 or messages:
+            raise ValueError("Retained prefix must leave evictable history")
     estimated_before = estimate_history_tokens(messages)
-    groups = _group_history_messages(messages)
+    evictable_messages = messages[retained_prefix_count:]
+    groups = _group_history_messages(evictable_messages)
     if estimated_before <= high_watermark_tokens:
         return _no_op_eviction_plan(
             reason="below_high_watermark",
@@ -392,9 +399,10 @@ def plan_stepped_history_eviction(
             history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
+            retained_prefix_count=retained_prefix_count,
         )
 
-    integrity = analyze_tool_history(messages)
+    integrity = analyze_tool_history(evictable_messages)
     if not integrity.ok:
         return _no_op_eviction_plan(
             reason="invalid_tool_history",
@@ -404,6 +412,7 @@ def plan_stepped_history_eviction(
             history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
+            retained_prefix_count=retained_prefix_count,
         )
     if len(groups) <= 1:
         return _no_op_eviction_plan(
@@ -414,6 +423,7 @@ def plan_stepped_history_eviction(
             history_revision=history_revision,
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
+            retained_prefix_count=retained_prefix_count,
         )
 
     eviction_end_index = 0
@@ -429,10 +439,16 @@ def plan_stepped_history_eviction(
                 history_revision=history_revision,
                 high_watermark_tokens=high_watermark_tokens,
                 low_watermark_tokens=low_watermark_tokens,
+                retained_prefix_count=retained_prefix_count,
             )
-        eviction_end_index = group.end_index
+        eviction_end_index = retained_prefix_count + group.end_index
         evicted_group_count += 1
-        estimated_after = estimate_history_tokens(messages[eviction_end_index:])
+        estimated_after = estimate_history_tokens(
+            [
+                *messages[:retained_prefix_count],
+                *messages[eviction_end_index:],
+            ]
+        )
         if estimated_after <= low_watermark_tokens:
             break
 
@@ -450,10 +466,14 @@ def plan_stepped_history_eviction(
         estimated_tokens_before=estimated_before,
         estimated_tokens_after=estimated_after,
         message_count_before=len(messages),
-        evicted_message_count=eviction_end_index,
-        retained_message_count=len(messages) - eviction_end_index,
+        evicted_message_count=eviction_end_index - retained_prefix_count,
+        retained_message_count=(
+            retained_prefix_count + len(messages) - eviction_end_index
+        ),
         group_count=len(groups),
         evicted_group_count=evicted_group_count,
+        retained_prefix_count=retained_prefix_count,
+        eviction_start_index=retained_prefix_count,
         eviction_end_index=eviction_end_index,
     )
 
@@ -473,10 +493,18 @@ def build_canonical_eviction_envelopes(
             reason="eviction_not_planned",
             history_revision=history_revision,
         )
-    if store.get_latest_compaction_checkpoint(session_id, vault_name) is not None:
+    checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+    if checkpoint is not None and checkpoint.checkpoint_kind != "session_map":
         return CanonicalEvictionEnvelopeResult(
             status="unavailable",
             reason="synthetic_compaction_history",
+            history_revision=history_revision,
+        )
+    expected_prefix_count = 1 if checkpoint is not None else 0
+    if plan.retained_prefix_count != expected_prefix_count:
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="invalid_retained_prefix",
             history_revision=history_revision,
         )
     if plan.history_revision is None or plan.history_revision != history_revision:
@@ -486,8 +514,10 @@ def build_canonical_eviction_envelopes(
             history_revision=history_revision,
         )
 
-    stored_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
-    model_messages = store.get_history(session_id, vault_name, mode="raw") or []
+    stored_messages = store.get_stored_messages(
+        session_id, vault_name, mode="effective"
+    )
+    model_messages = store.get_history(session_id, vault_name, mode="effective") or []
     if (
         len(stored_messages) != plan.message_count_before
         or len(model_messages) != plan.message_count_before
@@ -499,13 +529,16 @@ def build_canonical_eviction_envelopes(
             history_revision=history_revision,
         )
 
-    groups = _group_history_messages(model_messages)
+    groups = _group_history_messages(model_messages[plan.retained_prefix_count :])
     evicted_groups = [
-        group for group in groups if group.end_index <= plan.eviction_end_index
+        group
+        for group in groups
+        if plan.retained_prefix_count + group.end_index <= plan.eviction_end_index
     ]
     if (
         not evicted_groups
-        or evicted_groups[-1].end_index != plan.eviction_end_index
+        or plan.retained_prefix_count + evicted_groups[-1].end_index
+        != plan.eviction_end_index
         or len(evicted_groups) != plan.evicted_group_count
     ):
         return CanonicalEvictionEnvelopeResult(
@@ -516,8 +549,10 @@ def build_canonical_eviction_envelopes(
 
     envelopes: list[CanonicalEvictionEnvelope] = []
     for group in evicted_groups:
-        group_stored = stored_messages[group.start_index : group.end_index]
-        group_models = model_messages[group.start_index : group.end_index]
+        group_start = plan.retained_prefix_count + group.start_index
+        group_end = plan.retained_prefix_count + group.end_index
+        group_stored = stored_messages[group_start:group_end]
+        group_models = model_messages[group_start:group_end]
         if not _has_contiguous_canonical_sequences(group_stored):
             return CanonicalEvictionEnvelopeResult(
                 status="unavailable",
@@ -672,6 +707,7 @@ def _no_op_eviction_plan(
     history_revision: int | None,
     high_watermark_tokens: int,
     low_watermark_tokens: int,
+    retained_prefix_count: int,
 ) -> SteppedHistoryEvictionPlan:
     return SteppedHistoryEvictionPlan(
         status="no_op",
@@ -686,7 +722,9 @@ def _no_op_eviction_plan(
         retained_message_count=len(messages),
         group_count=len(groups),
         evicted_group_count=0,
-        eviction_end_index=0,
+        retained_prefix_count=retained_prefix_count,
+        eviction_start_index=retained_prefix_count,
+        eviction_end_index=retained_prefix_count,
     )
 
 
