@@ -8,6 +8,14 @@ from .checkpoints import (
     commit_session_map_checkpoint,
     load_session_map_checkpoint,
 )
+from .gate import (
+    SessionMapGateRequest,
+    SessionMapGateResult,
+    SessionMapMovementDecision,
+    build_session_map_gate_state,
+    estimate_session_map_gate_tokens,
+    run_session_map_gate,
+)
 from .models import (
     MAX_SESSION_MAP_ENTRIES,
     SessionMapDraft,
@@ -37,15 +45,21 @@ __all__ = [
     "SessionMapEntryBasis",
     "SessionMapEntryKind",
     "SessionMapEntryState",
+    "SessionMapGateRequest",
+    "SessionMapGateResult",
+    "SessionMapMovementDecision",
     "SessionMapEvidenceEnvelope",
     "SessionMapProvenanceError",
     "SessionMapReadiness",
     "SourceRange",
     "build_session_map_authoring_prompt",
     "build_session_map_context_message",
+    "build_session_map_gate_state",
     "commit_session_map_checkpoint",
+    "estimate_session_map_gate_tokens",
     "evaluate_session_map_readiness",
     "load_session_map_checkpoint",
     "run_session_map_authoring",
+    "run_session_map_gate",
     "validate_session_map_provenance",
 ]
