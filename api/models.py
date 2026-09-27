@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
+from core.memory.session_map.models import SessionMapDraft
 
 #######################################################################
 ## Request Models
@@ -1112,6 +1113,34 @@ class ChatSessionInfo(BaseModel):
     has_summary: bool = Field(
         False, description="Whether a session summary record exists"
     )
+    has_session_map: bool = Field(
+        False, description="Whether the session has a stepped-map checkpoint"
+    )
+
+
+class ChatSessionMapCheckpointInfo(BaseModel):
+    """Read-only metadata for one append-only stepped-map checkpoint."""
+
+    revision: int = Field(..., ge=1)
+    checkpoint_id: str
+    created_at: str
+    consumed_through_sequence_index: int = Field(..., ge=0)
+    map_observed_through_sequence_index: int = Field(..., ge=0)
+    entry_count: int = Field(..., ge=0)
+    action: Literal["authored", "deferred"]
+    classification_score: float | None = Field(None, ge=0.0, le=1.0)
+    prompt_contract_version: str
+
+
+class ChatSessionMapResponse(BaseModel):
+    """Current or historical stepped-map checkpoint for inspection."""
+
+    session_id: str
+    vault_name: str
+    selected_checkpoint_id: str | None = None
+    latest_checkpoint_id: str | None = None
+    revisions: list[ChatSessionMapCheckpointInfo] = Field(default_factory=list)
+    session_map: SessionMapDraft | None = None
 
 
 class ChatSessionWorkspaceRequest(BaseModel):

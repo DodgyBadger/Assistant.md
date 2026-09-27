@@ -77,6 +77,7 @@ from .models import (
     ChatSessionForkRequest,
     ChatSessionForkResponse,
     ChatSessionInfo,
+    ChatSessionMapResponse,
     ChatSessionModeRequest,
     ChatSessionModeResponse,
     ChatSessionRetryRequest,
@@ -199,6 +200,7 @@ from .services import (
     get_chat_edit_proposal,
     get_chat_history_compaction_status,
     get_chat_session_detail,
+    get_chat_session_map,
     get_chat_session_summary,
     get_chat_tool_call_detail,
     get_configurable_models,
@@ -2550,6 +2552,23 @@ async def chat_session_active_task(session_id: str) -> ExecutionTaskInfo | JSONR
     """Return the active process-local execution task for a chat session."""
     try:
         return await get_active_chat_task(session_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get("/chat/sessions/{session_id}/map", response_model=ChatSessionMapResponse)
+async def chat_session_map(
+    session_id: str,
+    vault_name: str,
+    checkpoint_id: str | None = None,
+) -> ChatSessionMapResponse | JSONResponse:
+    """Return the current or selected historical stepped-map checkpoint."""
+    try:
+        return get_chat_session_map(
+            vault_name,
+            session_id,
+            checkpoint_id=checkpoint_id,
+        )
     except Exception as e:
         return create_error_response(e)
 

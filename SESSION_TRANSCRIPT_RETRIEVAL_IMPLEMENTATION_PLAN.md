@@ -430,6 +430,12 @@ A Jev-only probe exercised the production `session_map_classification` task and 
 
 Together with the natural replay’s 0.43 deferral followed by a 0.56/0.61 cumulative trigger, this is sufficient evidence to keep the simple movement-only classifier and the 0.5 default for opt-in live tuning. It does not establish universal classifier accuracy or justify using Jev to assign map dimensions. Retain the knobs for threshold and input budget, observe real-session decisions, and add labelled cases when live false deferrals or unnecessary rewrites appear rather than optimizing against synthetic scores now.
 
+#### Slice 4F5 checkpoint inspection result
+
+The session list now exposes a map action only when a session has at least one persisted session-map checkpoint. The action opens a read-only modal backed directly by the append-only context-checkpoint store rather than restoring the retired live-map database or patch-operation surfaces. The modal defaults to the latest checkpoint, permits inspection of every historical revision, groups typed entries by map dimension, shows evidence basis and canonical source ranges, and distinguishes the authored-observation boundary from the raw-history eviction boundary. Deferred revisions are labelled so an unchanged authored map is not mistaken for a newly generated one. The API enforces the same vault/session authorization as the existing session surfaces and returns `404` for a checkpoint that does not belong to the selected session.
+
+Targeted deterministic validation proves that the session-list capability flag follows checkpoint presence, the endpoint defaults to the latest immutable revision, historical selection returns the original typed map, and both boundaries survive serialization. Frontend smoke coverage verifies controller availability and script ordering. The checkpoint, retained-evidence, and post-turn gate scenarios pass together, as do Ruff, Black, and mypy.
+
 ## Contract-Sensitive Areas
 
 - `session_ops` input schema, descriptions, error messages, and operation-specific parameter validation.
@@ -457,7 +463,7 @@ Together with the natural replay’s 0.43 deferral followed by a 0.56/0.61 cumul
 
 ## Immediate Next Steps
 
-Update the map API and modal to distinguish the map’s authored-observation boundary from the eviction boundary, including historical checkpoints and deferred revisions. Then review Slice 4 against its exit gate and decide whether the existing opt-in strategy is ready for live tuning or needs another adversarial corpus. Keep 0.5 as the provisional threshold and add labelled cases only when live false deferrals or unnecessary rewrites provide concrete evidence.
+Review Slice 4 against its exit gate and begin bounded live tuning through the existing opt-in strategy. Use the checkpoint modal as the primary inspection surface, keep 0.5 as the provisional threshold, and record concrete false deferrals, unnecessary rewrites, provenance failures, or misleading stale state before changing prompts or adding labelled cases. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts and labelled classifier probe.
 
 ## Evidence and Design Sources
 

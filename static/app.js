@@ -175,6 +175,12 @@ const sessionSummary = window.SessionSummary.create({
     },
 });
 
+const sessionMap = window.SessionMap.create({
+    elements: chatElements,
+    icons: window.AssistantMDIcons,
+    utils: window.AssistantMDUtils,
+});
+
 const vaultPathPicker = window.VaultPathPicker.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
@@ -250,6 +256,7 @@ sessionControls = window.SessionControls.create({
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
     sessionSummary,
+    sessionMap,
     callbacks: {
         loadSession,
         clearSession,

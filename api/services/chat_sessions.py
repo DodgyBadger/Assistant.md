@@ -13,6 +13,7 @@ from core.chat.chat_store import (
     StoredChatMessage,
     StoredChatSession,
     StoredChatToolEvent,
+    StoredContextCheckpoint,
 )
 from core.chat.compaction import compact_chat_history, get_compaction_status
 from core.chat.deferred_reviews import (
@@ -21,6 +22,10 @@ from core.chat.deferred_reviews import (
 )
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
+from core.memory.session_map.checkpoints import (
+    load_session_map_checkpoint,
+    load_session_map_observed_through,
+)
 from core.memory.session_summary import SessionSummary, SessionSummaryStore
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
@@ -51,6 +56,8 @@ from ..models import (
     ChatSessionFailureInfo,
     ChatSessionForkResponse,
     ChatSessionInfo,
+    ChatSessionMapCheckpointInfo,
+    ChatSessionMapResponse,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
     ChatSessionToolCallInfo,
@@ -288,9 +295,92 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
                 session_id=session.session_id,
             )
             is not None,
+            has_session_map=bool(
+                _chat_store.list_context_checkpoints(
+                    session.session_id,
+                    vault_name,
+                    checkpoint_kind="session_map",
+                )
+            ),
         )
         for session in sessions
     ]
+
+
+def get_chat_session_map(
+    vault_name: str,
+    session_id: str,
+    *,
+    checkpoint_id: str | None = None,
+) -> ChatSessionMapResponse:
+    """Return one append-only stepped-map checkpoint and its boundary history."""
+    _require_chat_session_access(vault_name, session_id)
+    checkpoints = _chat_store.list_context_checkpoints(
+        session_id,
+        vault_name,
+        checkpoint_kind="session_map",
+    )
+    latest = checkpoints[-1] if checkpoints else None
+    selected = latest
+    if checkpoint_id is not None:
+        selected = next(
+            (
+                checkpoint
+                for checkpoint in checkpoints
+                if checkpoint.checkpoint_id == checkpoint_id
+            ),
+            None,
+        )
+        if selected is None:
+            raise APIException(
+                status_code=404,
+                error_type="SessionMapCheckpointNotFound",
+                message=f"Session map checkpoint not found: {session_id}@{checkpoint_id}",
+                details={
+                    "session_id": session_id,
+                    "vault_name": vault_name,
+                    "checkpoint_id": checkpoint_id,
+                },
+            )
+    revisions = [
+        _session_map_checkpoint_info(revision, checkpoint)
+        for revision, checkpoint in enumerate(checkpoints, start=1)
+    ]
+    return ChatSessionMapResponse(
+        session_id=session_id,
+        vault_name=vault_name,
+        selected_checkpoint_id=(selected.checkpoint_id if selected else None),
+        latest_checkpoint_id=(latest.checkpoint_id if latest else None),
+        revisions=revisions,
+        session_map=load_session_map_checkpoint(selected) if selected else None,
+    )
+
+
+def _session_map_checkpoint_info(
+    revision: int,
+    checkpoint: StoredContextCheckpoint,
+) -> ChatSessionMapCheckpointInfo:
+    metadata = json.loads(checkpoint.metadata_json or "{}")
+    classification = metadata.get("classification")
+    classification_payload = classification if isinstance(classification, dict) else {}
+    action: Literal["authored", "deferred"] = (
+        "deferred" if classification_payload.get("action") == "deferred" else "authored"
+    )
+    draft = load_session_map_checkpoint(checkpoint)
+    score = classification_payload.get("score")
+    return ChatSessionMapCheckpointInfo(
+        revision=revision,
+        checkpoint_id=checkpoint.checkpoint_id,
+        created_at=checkpoint.created_at,
+        consumed_through_sequence_index=checkpoint.last_message_sequence_index,
+        map_observed_through_sequence_index=load_session_map_observed_through(
+            checkpoint
+        ),
+        entry_count=len(draft.entries),
+        action=action,
+        classification_score=float(score) if isinstance(score, int | float) else None,
+        prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
+    )
 
 
 def fork_chat_session(
@@ -381,6 +471,7 @@ def fork_chat_session(
                 new_session.session_id, vault_name
             ),
             has_summary=False,
+            has_session_map=False,
         ),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,

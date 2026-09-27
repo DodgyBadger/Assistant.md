@@ -267,6 +267,49 @@ class SessionMapCheckpointScenario(BaseScenario):
             "Repeated map checkpoints must preserve the complete raw transcript",
         )
 
+        sessions_response = self.call_api(f"/api/chat/sessions?vault_name={vault.name}")
+        assert sessions_response.status_code == 200
+        listed_session = next(
+            item
+            for item in sessions_response.json()
+            if item["session_id"] == session_id
+        )
+        self.soft_assert_equal(
+            listed_session["has_session_map"],
+            True,
+            "Session discovery should expose the map inspection affordance",
+        )
+        current_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
+        )
+        assert current_response.status_code == 200
+        current_payload = current_response.json()
+        self.soft_assert_equal(
+            current_payload["selected_checkpoint_id"],
+            "second-map-checkpoint",
+            "Map inspection should default to the latest checkpoint",
+        )
+        self.soft_assert_equal(
+            [item["checkpoint_id"] for item in current_payload["revisions"]],
+            ["first-map-checkpoint", "second-map-checkpoint"],
+            "Map inspection should expose append-only checkpoint history",
+        )
+        self.soft_assert_equal(
+            current_payload["revisions"][-1]["map_observed_through_sequence_index"],
+            3,
+            "The inspection payload should distinguish the authored observation boundary",
+        )
+        historical_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
+            "&checkpoint_id=first-map-checkpoint"
+        )
+        assert historical_response.status_code == 200
+        self.soft_assert_equal(
+            historical_response.json()["session_map"],
+            first_map.model_dump(mode="json"),
+            "A historical checkpoint should return its original typed map",
+        )
+
         self.assert_no_failures()
 
 

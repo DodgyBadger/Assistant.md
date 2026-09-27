@@ -235,6 +235,7 @@ from .chat_sessions import (
     fork_chat_session,
     get_chat_history_compaction_status,
     get_chat_session_detail,
+    get_chat_session_map,
     get_chat_session_summary,
     get_chat_tool_call_detail,
     get_enabled_chat_tool_names,
