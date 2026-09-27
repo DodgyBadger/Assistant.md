@@ -33,13 +33,14 @@ from core.constants import (
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
-from core.memory.session_map.authoring import SessionMapRetainedMessage
+from core.memory.session_map.authoring import SessionMapRetainedEvidence
 from core.memory.session_map.checkpoints import (
     SessionMapCheckpointDecision,
     SessionMapCheckpointResult,
     SessionMapPendingEvidence,
     commit_session_map_checkpoint,
     load_session_map_checkpoint,
+    load_session_map_observed_through,
     load_session_map_pending_evidence,
 )
 from core.memory.session_map.gate import (
@@ -977,10 +978,14 @@ async def _run_stepped_session_map_reduction(
         checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
         if checkpoint is None:
             previous_map = SessionMapDraft()
+            previous_map_observed_through = None
             retained_prefix_count = 0
             pending_evidence = None
         elif checkpoint.checkpoint_kind == "session_map":
             previous_map = load_session_map_checkpoint(checkpoint)
+            previous_map_observed_through = load_session_map_observed_through(
+                checkpoint
+            )
             retained_prefix_count = 1
             pending_evidence = load_session_map_pending_evidence(checkpoint)
         else:
@@ -1098,6 +1103,9 @@ async def _run_stepped_session_map_reduction(
                             session_id=session_id,
                             vault_name=vault_name,
                             previous_map=previous_map,
+                            previous_map_observed_through=(
+                                previous_map_observed_through
+                            ),
                             cumulative_envelopes=cumulative_envelopes,
                             history_revision=history_revision,
                             plan=plan,
@@ -1105,6 +1113,12 @@ async def _run_stepped_session_map_reduction(
                             gate_result=gate_result,
                         )
 
+        retained_evidence = _build_retained_session_map_evidence(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            plan=plan,
+        )
         authored = await run_session_map_authoring(
             SessionMapAuthoringRequest(
                 session_id=session_id,
@@ -1113,12 +1127,7 @@ async def _run_stepped_session_map_reduction(
                 thinking=readiness.author_thinking,
                 previous_map=previous_map,
                 envelopes=cumulative_envelopes,
-                retained_lookahead=_build_retained_session_map_lookahead(
-                    store=store,
-                    session_id=session_id,
-                    vault_name=vault_name,
-                    plan=plan,
-                ),
+                retained_evidence=retained_evidence,
             ),
             authority=authority,
             source=ExecutionTaskSource.SYSTEM,
@@ -1140,6 +1149,7 @@ async def _run_stepped_session_map_reduction(
             source=ExecutionTaskSource.SYSTEM.value,
             authoring_task_id=authored.task_id,
             classification=classification,
+            retained_evidence=retained_evidence,
         )
         messages_after = (
             store.get_history(session_id, vault_name, mode="effective") or []
@@ -1184,6 +1194,7 @@ def _commit_deferred_session_map(
     session_id: str,
     vault_name: str,
     previous_map: SessionMapDraft,
+    previous_map_observed_through: int | None,
     cumulative_envelopes: tuple[CanonicalEvictionEnvelope, ...],
     history_revision: int,
     plan: SteppedHistoryEvictionPlan,
@@ -1224,6 +1235,7 @@ def _commit_deferred_session_map(
         source=ExecutionTaskSource.SYSTEM.value,
         pending_evidence=pending,
         classification=classification,
+        map_observed_through_sequence_index=(previous_map_observed_through),
     )
     messages_after = store.get_history(session_id, vault_name, mode="effective") or []
     result = SessionMapContextReductionResult(
@@ -1256,14 +1268,14 @@ def _commit_deferred_session_map(
     return result
 
 
-def _build_retained_session_map_lookahead(
+def _build_retained_session_map_evidence(
     *,
     store: ChatStore,
     session_id: str,
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
-) -> tuple[SessionMapRetainedMessage, ...]:
-    """Project the canonical retained suffix without making it map evidence."""
+) -> tuple[SessionMapRetainedEvidence, ...]:
+    """Project the canonical retained suffix as citable authoring evidence."""
     stored_messages = store.get_stored_messages(
         session_id,
         vault_name,
@@ -1271,9 +1283,9 @@ def _build_retained_session_map_lookahead(
     )
     retained = stored_messages[plan.eviction_end_index :]
     if not retained or not _has_contiguous_canonical_sequences(retained):
-        raise ValueError("Retained session-map lookahead is not canonical")
+        raise ValueError("Retained session-map evidence is not canonical")
     return tuple(
-        SessionMapRetainedMessage(
+        SessionMapRetainedEvidence(
             sequence_index=message.sequence_index,
             role=message.role,
             content_text=message.content_text,

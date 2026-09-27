@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.chat.compaction import CanonicalEvictionEnvelope  # noqa: E402
 from core.identity import LOCAL_USER_AUTHORITY  # noqa: E402
-from core.memory.session_map.authoring import SessionMapRetainedMessage  # noqa: E402
+from core.memory.session_map.authoring import SessionMapRetainedEvidence  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
@@ -47,8 +47,8 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             model_alias="gpt-mini",
             previous_map=SessionMapDraft(),
             envelopes=envelopes,
-            retained_lookahead=(
-                SessionMapRetainedMessage(
+            retained_evidence=(
+                SessionMapRetainedEvidence(
                     sequence_index=12,
                     role="user",
                     content_text="The legal review is complete.",
@@ -58,12 +58,12 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         authored = SessionMapDraft(
             entries=(
                 SessionMapEntry(
-                    id="legal_review_goal",
-                    kind="goal",
-                    state="active",
+                    id="legal_review_completed",
+                    kind="decision",
+                    state="closed",
                     basis="user_established",
-                    text="Review the redevelopment proposal with counsel.",
-                    sources=(SourceRange(start=10, end=11),),
+                    text="The legal review is complete.",
+                    sources=(SourceRange(start=12, end=12),),
                 ),
             )
         )
@@ -128,8 +128,8 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                     kind="decision",
                     state="active",
                     basis="user_established",
-                    text="A lookahead-only decision.",
-                    sources=(SourceRange(start=12, end=12),),
+                    text="An unavailable decision.",
+                    sources=(SourceRange(start=99, end=99),),
                 ),
             )
         )
@@ -160,7 +160,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         self.soft_assert_equal(
             failed_task.status,
             "failed",
-            "Lookahead-only provenance should fail the owning execution task",
+            "Unavailable provenance should fail the owning execution task",
         )
         self.soft_assert_equal(
             failed_task.terminal_error_type,

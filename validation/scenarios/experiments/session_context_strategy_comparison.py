@@ -38,12 +38,21 @@ from validation.core.base_scenario import (  # noqa: E402
     with_local_user_authority,
 )
 
-SOURCE_SESSION_ID = "Ashley_Personal_20260501_101403"
+SOURCE_SESSION_ENV = "SESSION_CONTEXT_COMPARISON_SOURCE_SESSION"
+SOURCE_SESSION_ID = os.environ.get(
+    SOURCE_SESSION_ENV,
+    "Ashley_Personal_20260501_101403",
+).strip()
 SOURCE_DB_ENV = "SESSION_CONTEXT_COMPARISON_DB"
 SOURCE_DB_DEFAULT = Path("system/chat_sessions.db")
 CONDITIONS_ENV = "SESSION_CONTEXT_COMPARISON_CONDITIONS"
 ALL_CONDITIONS = ("recovery_card", "unconditional_map", "gated_map")
-BATCH_ENDS = (15, 31, 47, 63, 71)
+BATCH_ENDS_ENV = "SESSION_CONTEXT_COMPARISON_BATCH_ENDS"
+BATCH_ENDS = tuple(
+    int(value.strip())
+    for value in os.environ.get(BATCH_ENDS_ENV, "15,31,47,63,71").split(",")
+    if value.strip()
+)
 MODEL_ALIAS = "gpt-mini"
 MODEL_THINKING = "low"
 GATE_MODEL_ALIAS = "jev"
@@ -75,7 +84,11 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
                     vault_name=vault.name,
                     vault_path=str(vault),
                 )
-            _assert_expected_task_paths(results, conditions=conditions)
+            _assert_expected_task_paths(
+                results,
+                conditions=conditions,
+                reduction_count=len(BATCH_ENDS),
+            )
             artifact = {
                 "source_session_id": SOURCE_SESSION_ID,
                 "source_message_count": len(source_messages),
@@ -197,6 +210,7 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
             effective_after = store.get_history(session_id, vault_name) or []
             checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
             assert checkpoint is not None
+            checkpoint_metadata = json.loads(checkpoint.metadata_json or "{}")
             record: dict[str, Any] = {
                 "batch": batch_number,
                 "source_end": batch_end,
@@ -209,6 +223,9 @@ class SessionContextStrategyComparisonScenario(BaseScenario):
                 "tail_messages": max(0, len(effective_after) - 1),
                 "checkpoint_kind": checkpoint.checkpoint_kind,
                 "checkpoint_boundary": checkpoint.last_message_sequence_index,
+                "map_observed_through": checkpoint_metadata.get(
+                    "map_observed_through_sequence_index"
+                ),
                 "result": asdict(result),
                 "artifact_text": _message_text(effective_after[0]),
                 "tail_text": [
@@ -412,21 +429,33 @@ def _assert_expected_task_paths(
     results: dict[str, Any],
     *,
     conditions: tuple[str, ...] = ALL_CONDITIONS,
+    reduction_count: int = len(BATCH_ENDS),
 ) -> None:
     expected = {
-        "recovery_card": {ExecutionTaskKind.HISTORY_COMPACTION.value: 5},
-        "unconditional_map": {ExecutionTaskKind.SESSION_MAP_AUTHORING.value: 5},
-        "gated_map": {
-            ExecutionTaskKind.SESSION_MAP_AUTHORING.value: 5,
-            ExecutionTaskKind.SESSION_MAP_CLASSIFICATION.value: 4,
+        "recovery_card": {ExecutionTaskKind.HISTORY_COMPACTION.value: reduction_count},
+        "unconditional_map": {
+            ExecutionTaskKind.SESSION_MAP_AUTHORING.value: reduction_count
         },
     }
     for condition in conditions:
-        expected_counts = expected[condition]
         actual: dict[str, int] = {}
         for task in results[condition]["tasks"]:
             kind = str(task["kind"])
             actual[kind] = actual.get(kind, 0) + 1
+        if condition != "gated_map":
+            assert (
+                actual == expected[condition]
+            ), f"{condition} used unexpected governed task paths: {actual}"
+            continue
+        expected_classifications = max(0, reduction_count - 1)
+        assert actual.get(ExecutionTaskKind.SESSION_MAP_CLASSIFICATION.value, 0) == (
+            expected_classifications
+        ), f"gated_map used an unexpected classifier path: {actual}"
+        author_count = actual.get(ExecutionTaskKind.SESSION_MAP_AUTHORING.value, 0)
         assert (
-            actual == expected_counts
-        ), f"{condition} used unexpected governed task paths: {actual}"
+            1 <= author_count <= reduction_count
+        ), f"gated_map used an unexpected author path: {actual}"
+        assert set(actual) <= {
+            ExecutionTaskKind.SESSION_MAP_AUTHORING.value,
+            ExecutionTaskKind.SESSION_MAP_CLASSIFICATION.value,
+        }, f"gated_map used an unexpected governed task kind: {actual}"

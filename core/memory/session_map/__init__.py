@@ -1,6 +1,10 @@
 """Bounded, source-linked session state derived from evicted chat evidence."""
 
-from .authoring import SessionMapEvidenceEnvelope, build_session_map_authoring_prompt
+from .authoring import (
+    SessionMapEvidenceEnvelope,
+    SessionMapRetainedEvidence,
+    build_session_map_authoring_prompt,
+)
 from .checkpoints import (
     SESSION_MAP_CONTEXT_MARKER,
     SessionMapCheckpointDecision,
@@ -9,6 +13,7 @@ from .checkpoints import (
     build_session_map_context_message,
     commit_session_map_checkpoint,
     load_session_map_checkpoint,
+    load_session_map_observed_through,
     load_session_map_pending_evidence,
 )
 from .gate import (
@@ -54,6 +59,7 @@ __all__ = [
     "SessionMapMovementDecision",
     "SessionMapPendingEvidence",
     "SessionMapEvidenceEnvelope",
+    "SessionMapRetainedEvidence",
     "SessionMapProvenanceError",
     "SessionMapReadiness",
     "SourceRange",
@@ -64,6 +70,7 @@ __all__ = [
     "estimate_session_map_gate_tokens",
     "evaluate_session_map_readiness",
     "load_session_map_checkpoint",
+    "load_session_map_observed_through",
     "load_session_map_pending_evidence",
     "run_session_map_authoring",
     "run_session_map_gate",

@@ -15,7 +15,7 @@ from core.constants import (
     SESSION_MAP_CONTEXT_PROMPT_VERSION,
 )
 
-from .authoring import SessionMapEvidenceEnvelope
+from .authoring import SessionMapEvidenceEnvelope, SessionMapRetainedEvidence
 from .models import SessionMapDraft, validate_session_map_provenance
 
 SESSION_MAP_CONTEXT_MARKER = "AssistantMD session map"
@@ -104,6 +104,8 @@ def commit_session_map_checkpoint(
     pending_evidence: SessionMapPendingEvidence | None = None,
     classification: SessionMapCheckpointDecision | None = None,
     checkpoint_id: str | None = None,
+    retained_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
+    map_observed_through_sequence_index: int | None = None,
 ) -> SessionMapCheckpointResult:
     """Atomically commit one map revision without changing canonical messages."""
     _validate_checkpoint_evidence(
@@ -114,10 +116,26 @@ def commit_session_map_checkpoint(
     )
     validate_session_map_provenance(
         draft,
-        envelopes=envelopes,
+        envelopes=(*envelopes, *retained_evidence),
         previous_map=previous_map,
     )
     consumed_through = envelopes[-1].source_end_sequence_index
+    retained_prior = consumed_through
+    for message in retained_evidence:
+        if message.sequence_index <= retained_prior:
+            raise ValueError("Retained evidence must follow the eviction boundary")
+        retained_prior = message.sequence_index
+    observed_through = (
+        map_observed_through_sequence_index
+        if map_observed_through_sequence_index is not None
+        else (
+            retained_evidence[-1].sequence_index
+            if retained_evidence
+            else consumed_through
+        )
+    )
+    if observed_through < 0:
+        raise ValueError("Session-map observed boundary cannot be negative")
     if pending_evidence is not None:
         if (
             pending_evidence.start_sequence_index
@@ -148,6 +166,7 @@ def commit_session_map_checkpoint(
         "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
         "source_history_revision": expected_history_revision,
         "consumed_through_sequence_index": consumed_through,
+        "map_observed_through_sequence_index": observed_through,
         "evidence_envelope_ids": [envelope.envelope_id for envelope in envelopes],
         "map": draft.model_dump(mode="json"),
     }
@@ -173,6 +192,7 @@ def commit_session_map_checkpoint(
                 "checkpoint_id": resolved_checkpoint_id,
                 "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
                 "consumed_through_sequence_index": consumed_through,
+                "map_observed_through_sequence_index": observed_through,
                 "source_history_revision": expected_history_revision,
             }
         },
@@ -210,6 +230,20 @@ def load_session_map_pending_evidence(
         return SessionMapPendingEvidence(**payload)
     except (TypeError, ValueError) as exc:
         raise ValueError("Session-map pending evidence metadata is invalid") from exc
+
+
+def load_session_map_observed_through(
+    checkpoint: StoredContextCheckpoint,
+) -> int:
+    """Load the newest canonical message seen by the persisted map author."""
+    metadata = _load_session_map_metadata(checkpoint)
+    value = metadata.get(
+        "map_observed_through_sequence_index",
+        checkpoint.last_message_sequence_index,
+    )
+    if not isinstance(value, int) or value < 0:
+        raise ValueError("Session-map observed boundary metadata is invalid")
+    return value
 
 
 def _load_session_map_metadata(

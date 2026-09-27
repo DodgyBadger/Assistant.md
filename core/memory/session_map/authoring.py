@@ -41,8 +41,8 @@ class SessionMapEvidenceEnvelope(Protocol):
 
 
 @dataclass(frozen=True)
-class SessionMapRetainedMessage:
-    """One newer canonical message available only as supersession lookahead."""
+class SessionMapRetainedEvidence:
+    """One newer canonical message retained verbatim and available as evidence."""
 
     sequence_index: int
     role: str
@@ -50,16 +50,24 @@ class SessionMapRetainedMessage:
 
     def __post_init__(self) -> None:
         if self.sequence_index < 0:
-            raise ValueError("Retained lookahead sequence index cannot be negative")
+            raise ValueError("Retained evidence sequence index cannot be negative")
         if not self.role.strip():
-            raise ValueError("Retained lookahead requires a message role")
+            raise ValueError("Retained evidence requires a message role")
+
+    @property
+    def source_start_sequence_index(self) -> int:
+        return self.sequence_index
+
+    @property
+    def source_end_sequence_index(self) -> int:
+        return self.sequence_index
 
 
 def build_session_map_authoring_prompt(
     *,
     previous_map: SessionMapDraft,
     envelopes: Sequence[SessionMapEvidenceEnvelope],
-    retained_lookahead: Sequence[SessionMapRetainedMessage] = (),
+    retained_evidence: Sequence[SessionMapRetainedEvidence] = (),
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not envelopes:
@@ -81,13 +89,17 @@ def build_session_map_authoring_prompt(
             }
             for envelope in envelopes
         ],
-        "retained_recent_lookahead": [
+        "retained_recent_evidence": [
             {
+                "source_range": {
+                    "start": message.sequence_index,
+                    "end": message.sequence_index,
+                },
                 "sequence_index": message.sequence_index,
                 "role": message.role,
                 "content": message.content_text,
             }
-            for message in retained_lookahead
+            for message in retained_evidence
         ],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

@@ -23,7 +23,7 @@ from core.runtime.task_runner import ExecutionTaskSpec
 
 from .authoring import (
     SessionMapEvidenceEnvelope,
-    SessionMapRetainedMessage,
+    SessionMapRetainedEvidence,
     build_session_map_authoring_prompt,
 )
 from .models import SessionMapDraft, validate_session_map_provenance
@@ -43,7 +43,7 @@ class SessionMapAuthoringRequest:
     model_alias: str
     previous_map: SessionMapDraft
     envelopes: tuple[SessionMapEvidenceEnvelope, ...]
-    retained_lookahead: tuple[SessionMapRetainedMessage, ...] = ()
+    retained_evidence: tuple[SessionMapRetainedEvidence, ...] = ()
     thinking: ThinkingValue = None
 
     def __post_init__(self) -> None:
@@ -74,11 +74,11 @@ class SessionMapAuthoringRequest:
             ):
                 raise ValueError("Session-map evidence range is reversed")
             prior_end = envelope.source_end_sequence_index
-        lookahead_prior = prior_end
-        for message in self.retained_lookahead:
-            if message.sequence_index <= lookahead_prior:
-                raise ValueError("Retained lookahead must follow session-map evidence")
-            lookahead_prior = message.sequence_index
+        retained_prior = prior_end
+        for message in self.retained_evidence:
+            if message.sequence_index <= retained_prior:
+                raise ValueError("Retained evidence must follow evicted evidence")
+            retained_prior = message.sequence_index
 
 
 @dataclass(frozen=True)
@@ -113,7 +113,7 @@ async def run_session_map_authoring(
                 "model_alias": request.model_alias,
                 "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
                 "evidence_envelope_count": len(request.envelopes),
-                "retained_lookahead_message_count": len(request.retained_lookahead),
+                "retained_evidence_message_count": len(request.retained_evidence),
             },
         ),
         lambda task: _execute_session_map_authoring(request, task_id=task.task_id),
@@ -149,15 +149,15 @@ async def _execute_session_map_authoring(
             "evidence_source_start": first_source,
             "evidence_source_end": last_source,
             "previous_entry_count": len(request.previous_map.entries),
-            "retained_lookahead_message_count": len(request.retained_lookahead),
-            "retained_lookahead_source_start": (
-                request.retained_lookahead[0].sequence_index
-                if request.retained_lookahead
+            "retained_evidence_message_count": len(request.retained_evidence),
+            "retained_evidence_source_start": (
+                request.retained_evidence[0].sequence_index
+                if request.retained_evidence
                 else None
             ),
-            "retained_lookahead_source_end": (
-                request.retained_lookahead[-1].sequence_index
-                if request.retained_lookahead
+            "retained_evidence_source_end": (
+                request.retained_evidence[-1].sequence_index
+                if request.retained_evidence
                 else None
             ),
         },
@@ -166,7 +166,7 @@ async def _execute_session_map_authoring(
         prompt = build_session_map_authoring_prompt(
             previous_map=request.previous_map,
             envelopes=request.envelopes,
-            retained_lookahead=request.retained_lookahead,
+            retained_evidence=request.retained_evidence,
         )
         draft = await _invoke_session_map_model(
             model_alias=request.model_alias,
@@ -175,7 +175,7 @@ async def _execute_session_map_authoring(
         )
         validate_session_map_provenance(
             draft,
-            envelopes=request.envelopes,
+            envelopes=(*request.envelopes, *request.retained_evidence),
             previous_map=request.previous_map,
         )
     except Exception as exc:
@@ -204,7 +204,7 @@ async def _execute_session_map_authoring(
             "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
             "entry_count": len(draft.entries),
             "evidence_envelope_count": len(request.envelopes),
-            "retained_lookahead_message_count": len(request.retained_lookahead),
+            "retained_evidence_message_count": len(request.retained_evidence),
         },
     )
     return SessionMapAuthoringResult(
