@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator
 from pathlib import Path
 from unittest.mock import patch
+
+from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -18,6 +21,7 @@ from core.memory.session_map.models import (  # noqa: E402
 )
 from core.memory.session_map.service import (  # noqa: E402
     SessionMapAuthoringRequest,
+    _invoke_session_map_model,
     run_session_map_authoring,
 )
 from core.runtime.execution_tasks import (  # noqa: E402
@@ -163,6 +167,46 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         self.soft_assert(
             "session_map_authoring_failed" in failure_events,
             "Rejected provenance should emit a domain failure event",
+        )
+
+        structured_calls = 0
+
+        async def structured_stream(
+            _messages: object,
+            info: AgentInfo,
+        ) -> AsyncIterator[dict[int, DeltaToolCall]]:
+            nonlocal structured_calls
+            structured_calls += 1
+            output_tool = info.model_request_parameters.output_tools[0]
+            arguments = (
+                '{"entries":[{}]}' if structured_calls == 1 else '{"entries":[]}'
+            )
+            yield {
+                0: DeltaToolCall(
+                    name=output_tool.name,
+                    json_args=arguments,
+                    tool_call_id=f"session-map-output-{structured_calls}",
+                )
+            }
+
+        with patch(
+            "core.memory.session_map.service.build_model_instance",
+            return_value=FunctionModel(stream_function=structured_stream),
+        ):
+            retried = await _invoke_session_map_model(
+                model_alias="gpt-mini",
+                thinking="low",
+                prompt="Return a session map.",
+            )
+        self.soft_assert_equal(
+            retried,
+            SessionMapDraft(),
+            "Map authoring should return corrected structured output",
+        )
+        self.soft_assert_equal(
+            structured_calls,
+            2,
+            "Map authoring should retain structured-output retries over streaming transport",
         )
 
         self.assert_no_failures()

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from core.constants import SESSION_MAP_AUTHORING_PROMPT_VERSION
 from core.identity import ExecutionAuthority
-from core.llm.agents import collect_response, create_agent
+from core.llm.agents import create_agent, generate_response
 from core.llm.model_factory import build_model_instance
 from core.llm.model_selection import ModelExecutionSpec
 from core.llm.thinking import ThinkingValue
@@ -202,7 +202,7 @@ async def _invoke_session_map_model(
     if isinstance(model, ModelExecutionSpec):
         raise ValueError("Session-map authoring requires a generative model")
     agent = await create_agent(model=model, output_type=SessionMapDraft)
-    result = await collect_response(agent, prompt)
-    if not isinstance(result.output, SessionMapDraft):
+    output = await generate_response(agent, prompt)
+    if not isinstance(output, SessionMapDraft):
         raise TypeError("Session-map model returned an invalid structured output")
-    return result.output
+    return output
