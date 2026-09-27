@@ -607,6 +607,74 @@ def build_canonical_eviction_envelopes(
     )
 
 
+def build_canonical_evidence_range(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+    source_start_sequence_index: int,
+    source_end_sequence_index: int,
+    history_revision: int,
+    expected_source_digest: str | None = None,
+) -> CanonicalEvictionEnvelopeResult:
+    """Rehydrate one canonical raw interval for cumulative classification."""
+    current_revision = store.get_session_history_revision(session_id, vault_name)
+    if current_revision != history_revision:
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="stale_history_revision",
+            history_revision=current_revision,
+        )
+    if (
+        source_start_sequence_index < 0
+        or source_end_sequence_index < source_start_sequence_index
+    ):
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="invalid_source_range",
+            history_revision=current_revision,
+        )
+    stored_messages = store.get_stored_messages_range(
+        session_id,
+        vault_name,
+        after_sequence_index=source_start_sequence_index - 1,
+        through_sequence_index=source_end_sequence_index,
+    )
+    if (
+        not stored_messages
+        or stored_messages[0].sequence_index != source_start_sequence_index
+        or stored_messages[-1].sequence_index != source_end_sequence_index
+        or not _has_contiguous_canonical_sequences(stored_messages)
+    ):
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="canonical_range_unavailable",
+            history_revision=current_revision,
+        )
+    envelope = _build_canonical_eviction_envelope(
+        session_id=session_id,
+        vault_name=vault_name,
+        history_revision=current_revision,
+        stored_messages=stored_messages,
+        model_messages=[message.message for message in stored_messages],
+    )
+    if (
+        expected_source_digest is not None
+        and envelope.source_digest != expected_source_digest
+    ):
+        return CanonicalEvictionEnvelopeResult(
+            status="unavailable",
+            reason="source_digest_mismatch",
+            history_revision=current_revision,
+        )
+    return CanonicalEvictionEnvelopeResult(
+        status="resolved",
+        reason="canonical_range_resolved",
+        history_revision=current_revision,
+        envelopes=(envelope,),
+    )
+
+
 def _has_contiguous_canonical_sequences(
     messages: list[StoredChatMessage],
 ) -> bool:

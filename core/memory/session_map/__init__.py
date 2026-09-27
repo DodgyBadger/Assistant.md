@@ -3,10 +3,13 @@
 from .authoring import SessionMapEvidenceEnvelope, build_session_map_authoring_prompt
 from .checkpoints import (
     SESSION_MAP_CONTEXT_MARKER,
+    SessionMapCheckpointDecision,
     SessionMapCheckpointResult,
+    SessionMapPendingEvidence,
     build_session_map_context_message,
     commit_session_map_checkpoint,
     load_session_map_checkpoint,
+    load_session_map_pending_evidence,
 )
 from .gate import (
     SessionMapGateRequest,
@@ -40,6 +43,7 @@ __all__ = [
     "SessionMapAuthoringRequest",
     "SessionMapAuthoringResult",
     "SessionMapCheckpointResult",
+    "SessionMapCheckpointDecision",
     "SessionMapDraft",
     "SessionMapEntry",
     "SessionMapEntryBasis",
@@ -48,6 +52,7 @@ __all__ = [
     "SessionMapGateRequest",
     "SessionMapGateResult",
     "SessionMapMovementDecision",
+    "SessionMapPendingEvidence",
     "SessionMapEvidenceEnvelope",
     "SessionMapProvenanceError",
     "SessionMapReadiness",
@@ -59,6 +64,7 @@ __all__ = [
     "estimate_session_map_gate_tokens",
     "evaluate_session_map_readiness",
     "load_session_map_checkpoint",
+    "load_session_map_pending_evidence",
     "run_session_map_authoring",
     "run_session_map_gate",
     "validate_session_map_provenance",
