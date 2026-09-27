@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 begins a stepped-eviction map experiment behind the existing compaction boundary. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 implements a stepped-eviction map experiment behind the existing compaction boundary. The map-author gate has now been evaluated and rejected as unnecessary runtime complexity; cleanup is the next implementation checkpoint. The completed foundation indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
 
 ## Decision Summary
 
@@ -10,9 +10,11 @@ AssistantMD's immediate long-session problem is not attention while relevant mes
 
 The first product slice will therefore add sparse, bounded access to the canonical raw transcript through the existing `session_ops` tool. Lexical FTS is the initial ranking baseline, not a permanent restriction: the retrieval boundary must allow a later hybrid lexical/semantic strategy to reuse AssistantMD's existing session-search vector machinery without changing the tool contract. Slice 1 will not add embeddings, an autonomous memory author, or a second context representation. The current recovery-card compaction path remains unchanged while retrieval reliability is measured.
 
-A later experiment may replace checkpoint compaction with stepped eviction: keep a bounded recent transcript window, classify only the message groups leaving that window, preserve source-linked state derived from those groups, and retrieve raw evidence on demand. That direction becomes credible only after the retrieval primitive works reliably. It is not part of Slice 1.
+A later experiment may replace checkpoint compaction with stepped eviction: keep a bounded recent transcript window, derive source-linked state from the message groups leaving that window, and retrieve raw evidence on demand. That direction becomes credible only after the retrieval primitive works reliably. It is not part of Slice 1.
 
-The live session-map implementation will be removed rather than left dormant. The generic TypeSafe/Jev provider, `decision` model capability, secret integration, and provider-neutral decision runtime will remain because they are reusable platform capabilities and are not session-map code.
+The earlier live session-map implementation was removed rather than left dormant. The later stepped-eviction experiment rebuilt a smaller provenance-aware map on the context-reduction boundary. The generic TypeSafe/Jev provider, `decision` model capability, secret integration, and provider-neutral decision runtime remain reusable platform capabilities rather than session-map dependencies.
+
+The Jev map-author gate is now abandoned. It can defer a rewrite but cannot eliminate the eventual need to incorporate cumulative evidence, and the controlled replays did not demonstrate savings sufficient to justify another production mode, settings surface, task kind, and failure path. Stepped eviction should author unconditionally whenever its configurable high-watermark and low-watermark policy selects an outgoing prefix. Gate-specific runtime code will be removed while generic decision-model infrastructure remains. The leading future decision-model hypothesis is retrieval context admission, documented in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## User Outcomes
 
@@ -261,7 +263,7 @@ Validate deterministically that the preamble appears only in compacted effective
 
 Do not add generated sequence references to recovery-card claims before the stepped-map experiment. Search already supplies a bounded path back to canonical evidence, while reference generation would add another probabilistic behavior to tune on a continuity representation that the experiment may replace.
 
-Recovery cards remain the durable fallback when the optional classifier or map author is unavailable. Their fixed preamble queues transcript search without exposing lower-level window mechanics. If recovery cards remain the primary continuity representation after Slice 4, direct references can be reconsidered with an explicit anchor-accuracy evaluation.
+Recovery cards remain the durable fallback when the map author is unavailable. Their fixed preamble queues transcript search without exposing lower-level window mechanics. If recovery cards remain the primary continuity representation after Slice 4, direct references can be reconsidered with an explicit anchor-accuracy evaluation.
 
 **Decision:** Deferred. Source ranges belong first on deterministic eviction envelopes and derived map entries, where the ranges are mechanically known rather than generated by the recovery-card author.
 
@@ -273,14 +275,12 @@ The candidate design is stepped eviction, not naive FIFO truncation:
 
 1. Keep complete recent messages until a high token watermark is crossed.
 2. Select a coherent oldest prefix of complete turn/tool groups to remove until the low watermark is restored.
-3. Before removal, append the outgoing groups to a cumulative pending-evidence buffer with mechanically derived source ranges.
-4. In the baseline experiment, invoke a generative whole-map update for every eviction batch. After that path is proven, optionally use a cheap decision model to skip authoring when cumulative evidence does not materially move the map.
+3. Before removal, project the outgoing groups into authoring evidence with mechanically derived source ranges.
+4. Invoke a generative whole-map update for every eviction batch selected by the configurable watermarks.
 5. Commit the derived update and eviction checkpoint atomically enough that no canonical message leaves effective context without either retained recent context or a durable pointer/state representation.
 6. Keep every raw message in canonical SQLite and make it retrievable through Slice 1.
 
-Jev's plausible role shifts from repeatedly judging the entire live conversation to cheaply detecting material movement in cumulative evidence leaving the active window. The classifier does not author prose, decide which map fields may change, or become a required dependency. A provider-neutral interface must continue to admit another hosted or local decision model.
-
-The state representation for this experiment must be designed from eviction evidence rather than copied from the retired live map. It should remain bounded, favor active state and provenance over narrative history, and compact or archive superseded entries deterministically. If authoring is unavailable, the system must fall back to existing recovery-card compaction without losing the chat turn. Once the optional classifier is introduced, classifier unavailability bypasses the optimization rather than disabling the baseline authoring path.
+The state representation for this experiment must be designed from eviction evidence rather than copied from the retired live map. It should remain bounded, favor active state and provenance over narrative history, and compact or archive superseded entries deterministically. If authoring is unavailable, the system must fall back to existing recovery-card compaction without losing the chat turn.
 
 ### Slice 4A: Deterministic eviction planner
 
@@ -428,13 +428,25 @@ Slice 4F now provides two-domain evidence that the map representation is substan
 
 A Jev-only probe exercised the production `session_map_classification` task and unchanged `session-map-gate-v1` question at the provisional 0.5 threshold. Eight preregistered cases ran three times each. Repetition scored 0.03–0.04; cumulative repetition plus minor clarification scored 0.06; transient brainstorming scored 0.15–0.17; and cumulative brainstorming plus an unaccepted assistant proposal scored 0.18–0.22. Cumulative evidence ending in explicit completion scored 0.79–0.81; cumulative evidence ending in user adoption of the proposal scored 0.80–0.82; an explicit constraint reversal scored 0.91 in all trials; and a durable artifact relocation scored 0.91 in all trials. All 24 governed tasks completed, and every score fell on the preregistered side of 0.5 with substantial separation.
 
-Together with the natural replay’s 0.43 deferral followed by a 0.56/0.61 cumulative trigger, this is sufficient evidence to keep the simple movement-only classifier and the 0.5 default for opt-in live tuning. It does not establish universal classifier accuracy or justify using Jev to assign map dimensions. Retain the knobs for threshold and input budget, observe real-session decisions, and add labelled cases when live false deferrals or unnecessary rewrites appear rather than optimizing against synthetic scores now.
+Together with the natural replay’s 0.43 deferral followed by a 0.56/0.61 cumulative trigger, this established that the simple movement-only classifier could separate the tested cases at 0.5. It did not establish universal classifier accuracy, justify using Jev to assign map dimensions, or demonstrate enough avoided authoring to support permanent runtime adoption. The later Slice 4G decision therefore retires this gate after recording the result.
 
 #### Slice 4F5 checkpoint inspection result
 
 The session list now exposes a map action only when a session has at least one persisted session-map checkpoint. The action opens a read-only modal backed directly by the append-only context-checkpoint store rather than restoring the retired live-map database or patch-operation surfaces. The modal defaults to the latest checkpoint, permits inspection of every historical revision, groups typed entries by map dimension, shows evidence basis and canonical source ranges, and distinguishes the authored-observation boundary from the raw-history eviction boundary. Deferred revisions are labelled so an unchanged authored map is not mistaken for a newly generated one. The API enforces the same vault/session authorization as the existing session surfaces and returns `404` for a checkpoint that does not belong to the selected session.
 
 Targeted deterministic validation proves that the session-list capability flag follows checkpoint presence, the endpoint defaults to the latest immutable revision, historical selection returns the original typed map, and both boundaries survive serialization. Frontend smoke coverage verifies controller availability and script ordering. The checkpoint, retained-evidence, and post-turn gate scenarios pass together, as do Ruff, Black, and mypy.
+
+### Slice 4G: Retire the map-author gate
+
+**Decision:** Remove the gate-specific production path. The experiment established that Jev can classify obvious movement reliably in the tested cases, but the gate changes only the timing of an inevitable map rewrite. Large or change-dense eviction batches trigger authoring consistently, while smaller quiet batches can be handled more simply by tuning the existing high-watermark and low-watermark interval. The single natural deferral and clean labelled probe do not demonstrate enough avoided generative work to justify permanent classifier settings, task orchestration, checkpoint state, failure handling, and UI concepts.
+
+Retain the generic TypeSafe/Jev provider, encrypted secret integration, `decision` capability, provider-neutral decision adapter, and generic live decision probe. They are reusable infrastructure and are not coupled to map maintenance. Retain the unconditional stepped-map author, provenance contract, eviction planner, checkpoint history, retrieval tools, and map inspection surface.
+
+Remove the map-gate prompt and module, gate settings and accessors, classification task kind and label, compaction dispatch and deferral branch, classification result fields from new reduction results, gate scores from the map API and modal, and gate-specific deterministic and live experiment scenarios. Historical results remain in this plan, the experiment findings document, and Git history; executable experimental code is not the archive.
+
+Persisted-state cleanup must be one-way and lossless. Remove the three gate settings through the normal settings-upgrade path. Existing append-only checkpoints may retain inert historical classification metadata. If the latest checkpoint contains a deferred pending-evidence range, the next stepped reduction must rehydrate that canonical range and include it in one unconditional authoring pass before writing a checkpoint without pending state. This narrow compatibility reader may remain until a later data-version boundary can prove no active checkpoint requires it; no new deferral or pending range may be written.
+
+**Validation target:** Extend the unconditional post-turn scenario to prove that every planned eviction invokes one governed author task and no classification task. Add a focused legacy-checkpoint case proving that pending canonical evidence from a prior deferral is incorporated exactly once and then cleared. Cover removal of persisted gate settings, historical checkpoint readability, current modal rendering without gate fields, and generic Jev decision configuration. Run the focused map, settings-upgrade, API/UI, and decision-model scenarios plus the production Python quality gate.
 
 ## Contract-Sensitive Areas
 
@@ -447,6 +459,7 @@ Targeted deterministic validation proves that the session-list capability flag f
 - Separation between raw canonical transcript access and effective provider-safe history.
 - Prompt-injection treatment of retrieved content.
 - Removal of persisted live-map settings and tables from already-used development databases.
+- Removal of persisted map-gate settings without stranding deferred canonical evidence.
 - Compatibility of existing session summary and deep-search consumers.
 
 ## Implementation Sequence
@@ -459,11 +472,12 @@ Targeted deterministic validation proves that the session-list capability flag f
 6. Close Slice 2 after live-path feasibility, remove its disposable probe, and defer hybrid ranking until an observed lexical recall failure justifies it.
 7. Add the fixed recovery-card transcript-search preamble and defer generated card references while stepped eviction is evaluated.
 8. Implement Slices 4A and 4B as deterministic planning and provenance foundations with no runtime activation.
-9. Prove the bounded map and unconditional authoring path before adding opt-in runtime eviction, then evaluate Jev only as an optimization over that working baseline.
+9. Prove the bounded map and unconditional authoring path before adding opt-in runtime eviction, then evaluate Jev as an optimization over that working baseline.
+10. Retire the map-author gate after the controlled evaluation, preserve one-way pending-evidence reconciliation, and keep the generic decision runtime for separately justified uses.
 
 ## Immediate Next Steps
 
-Review Slice 4 against its exit gate and begin bounded live tuning through the existing opt-in strategy. Use the checkpoint modal as the primary inspection surface, keep 0.5 as the provisional threshold, and record concrete false deferrals, unnecessary rewrites, provenance failures, or misleading stale state before changing prompts or adding labelled cases. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts and labelled classifier probe.
+Implement Slice 4G by removing the map-author gate while preserving unconditional stepped authoring and one-way reconciliation of any existing deferred evidence. Then begin bounded live tuning of the configurable stepped-eviction watermarks and use the checkpoint modal to inspect provenance failures, misleading stale state, semantic omissions, and retrieval behavior. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts. Evaluate the separate retrieval context-admission hypothesis only through the disposable comparison defined in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## Evidence and Design Sources
 

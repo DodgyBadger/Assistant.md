@@ -131,7 +131,9 @@ First, bounded in-session transcript retrieval and an explicit cue to use it are
 
 Second, rolling eviction backed by a provenance-aware session map is promising enough for continued opt-in use. It produced leaner compact state, represented supersession clearly, preserved raw evidence, and supported accurate retrieval. It has not yet earned replacement of recovery-card compaction as the default.
 
-Third, Jev is a credible optimization layer but not yet a demonstrated source of large savings. Its labelled behavior was encouraging, and cumulative deferral worked correctly in a controlled replay. Its actual value will depend on real-session cadence: how often classification occurs, how commonly intervals contain no durable movement, and how costly false deferrals prove to be.
+Third, Jev demonstrated credible movement classification but not enough value as a map-author gate. The gate changes when an inevitable rewrite occurs rather than eliminating the underlying work, and its savings depend on slice cadence while adding another runtime mode and failure path. The map should therefore use its configurable eviction watermarks directly and author unconditionally at each selected boundary. Gate-specific code should be removed while the generic decision-model capability remains available for better-supported uses.
+
+A more promising hypothesis is retrieval context admission: after the agent explicitly requests search, a cheap classifier may rerank a high-recall candidate pool before a deterministic token budget admits raw evidence into frontier-model context. This targets the observed tension between broad retrieval and bounded context without inserting a classifier into the agent’s reasoning loop. The proposal and its evaluation gate are documented in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## Open Questions
 
@@ -139,7 +141,7 @@ Third, Jev is a credible optimization layer but not yet a demonstrated source of
 - How much narrative texture can be removed before orientation degrades or retrieval becomes excessively frequent?
 - What is the total cost of smaller maps once additional retrieval calls are included?
 - How reliably does the agent recognize when compact memory is insufficient and transcript verification is warranted?
-- Which real-session changes produce false Jev deferrals or unnecessary rewrites at the provisional threshold?
+- Can cheap reranking improve canonical-evidence recall per admitted token over lexical or hybrid ranking?
 - Can citation entailment be evaluated cheaply enough to complement mechanical provenance validation?
 - When, if ever, is the evidence strong enough to replace recovery-card compaction rather than retaining both strategies?
 
