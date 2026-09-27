@@ -25,6 +25,7 @@ from core.chat.tool_history import analyze_tool_history
 from core.constants import (
     CHAT_HISTORY_COMPACTION_INSTRUCTION,
     CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
+    CHAT_HISTORY_RECOVERY_CARD_PREAMBLE,
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
@@ -327,7 +328,11 @@ def split_history_for_compaction(
 
 def build_compaction_summary_message(summary: str) -> ModelRequest:
     """Build the system-maintained summary message stored after compaction."""
-    content = f"{_SUMMARY_MARKER}\n\n{summary.strip()}"
+    content = (
+        f"{_SUMMARY_MARKER}\n\n"
+        f"{CHAT_HISTORY_RECOVERY_CARD_PREAMBLE}\n\n"
+        f"{summary.strip()}"
+    )
     return ModelRequest(parts=[SystemPromptPart(content=content)])
 
 

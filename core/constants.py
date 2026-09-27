@@ -205,7 +205,17 @@ CONTEXT_TEMPLATE_ERROR_HANDOFF_INSTRUCTION = (
     "without script management (for example by switching to the default script). "
 )
 
-CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v3"
+CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v4"
+
+CHAT_HISTORY_RECOVERY_CARD_PREAMBLE = """
+## Recovery card guidance
+
+This card exists because older messages were compressed out of active context. It is a continuity summary; the canonical session transcript remains the source of truth.
+
+Rely on the card alone when it contains enough detail for the current task and exact wording, provenance, or verification is not important. When the task depends on omitted or ambiguous details, exact facts or wording, decision rationale, corrections, supersession, or source provenance, use `session_ops(operation="search_transcript")` on the active session. When a canonical sequence reference is available, use `session_ops(operation="get_transcript_window")` to inspect a bounded window around that anchor.
+
+## Recovery summary
+""".strip()
 
 CHAT_HISTORY_COMPACTION_INSTRUCTION = """
 You are performing an AssistantMD context checkpoint compaction. Create a
@@ -218,7 +228,9 @@ the newer source history into one updated summary. Preserve still-relevant facts
 decisions, preferences, constraints, open tasks, file paths, and validation
 outcomes from the prior summary. Remove duplication, resolve obvious
 supersession from newer turns, and do not describe the prior summary as an
-artifact of the conversation.
+artifact of the conversation. A prior card may include standard recovery-card
+guidance about transcript retrieval. Treat that preamble as operational guidance
+and do not copy or paraphrase it into the generated recovery summary.
 
 The prompt payload may include `user_focus`. Treat it as additional emphasis for
 what to preserve, not as permission to discard recovery-critical state such as

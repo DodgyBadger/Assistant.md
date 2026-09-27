@@ -32,6 +32,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         import core.tools.session_ops as session_ops
         from core.chat.chat_store import ChatStore
         from core.chat.history_service import ChatHistoryContext, ChatHistoryService
+        from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
         from core.identity import LOCAL_USER_PRINCIPAL_ID
         from core.runtime.state import get_runtime_context
 
@@ -83,7 +84,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         )
         prompt_payload = json.loads(prompt)
         assert (
-            prompt_payload["prompt_contract_version"] == "recovery-card-v3"
+            prompt_payload["prompt_contract_version"] == "recovery-card-v4"
         ), "Compaction prompt declares the summary contract version"
         assert (
             "context checkpoint compaction" in prompt
@@ -292,6 +293,10 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert (
             "AssistantMD compacted chat history" in effective_messages[0].content_text
         ), "Effective summary marker is reconstructed from checkpoint"
+        assert effective_messages[0].content_text.startswith(
+            "AssistantMD compacted chat history\n\n"
+            f"{CHAT_HISTORY_RECOVERY_CARD_PREAMBLE}\n\n"
+        ), "Effective recovery card places fixed retrieval guidance before generated summary"
         assert effective_messages[1].content_text.startswith(
             "[probe] (tool call)"
         ), "Effective history preserves recent tool call"
@@ -364,6 +369,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
             "AssistantMD compacted chat history" in fork_messages[0]["content"]
         ), "Forked session keeps the compaction card as its starting context"
         assert (
+            CHAT_HISTORY_RECOVERY_CARD_PREAMBLE in fork_messages[0]["content"]
+        ), "Forked session preserves recovery-card retrieval guidance"
+        assert (
             fork_messages[-1]["content"] == "Probe result handled."
         ), "Forked session includes the retained assistant message without restoring archival history"
         fork_metadata = store.get_session_metadata(fork_session_id, vault.name)
@@ -377,7 +385,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         metadata = store.get_session_metadata(session_id, vault.name)
         assert "last_compaction" in metadata, "Compaction audit metadata is recorded"
         assert (
-            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v3"
+            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v4"
         ), "Session metadata records the compaction prompt contract"
         assert (
             metadata["last_compaction"]["trigger"] == "manual"
@@ -396,7 +404,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         ), "Checkpoint records the raw message high-water mark"
         checkpoint_metadata = json.loads(checkpoint.metadata_json or "{}")
         assert (
-            checkpoint_metadata["prompt_contract_version"] == "recovery-card-v3"
+            checkpoint_metadata["prompt_contract_version"] == "recovery-card-v4"
         ), "Checkpoint metadata records the prompt contract version"
         assert (
             checkpoint_metadata["trigger"] == "manual"

@@ -22,6 +22,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         import core.chat.compaction as compaction
         import core.chat.executor as chat_executor
         from core.chat.chat_store import ChatStore
+        from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
         from core.runtime.state import get_runtime_context
 
         settings_response = self.call_api("/api/system/settings/general")
@@ -112,7 +113,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             last_compaction["reason"] == "token_threshold"
         ), "Auto compaction should record threshold reason"
         assert (
-            last_compaction["prompt_contract_version"] == "recovery-card-v3"
+            last_compaction["prompt_contract_version"] == "recovery-card-v4"
         ), "Auto compaction should record prompt contract version"
         assert (
             last_compaction["compaction_type"] == "auto"
@@ -144,6 +145,9 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         assert (
             "AssistantMD compacted chat history" in effective_messages[0].content_text
         ), "Automatic compaction card should use the standard marker"
+        assert (
+            CHAT_HISTORY_RECOVERY_CARD_PREAMBLE in effective_messages[0].content_text
+        ), "Automatic compaction card should include retrieval guidance"
         assert (
             store.get_message_count(session_id, vault.name, mode="raw") == 2
         ), "Automatic compaction should preserve raw archival messages"

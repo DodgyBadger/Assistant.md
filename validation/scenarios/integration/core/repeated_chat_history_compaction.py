@@ -21,6 +21,7 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
 
         import core.chat.compaction as compaction
         from core.chat.chat_store import ChatStore
+        from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
         from core.identity import LOCAL_USER_PRINCIPAL_ID
         from core.runtime.state import get_runtime_context
 
@@ -155,6 +156,12 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
         assert "Round 1 card" in str(
             captured_inputs[1]["older_text"]
         ), "Second compaction should be able to merge prior card content"
+        assert (
+            str(captured_inputs[1]["older_text"]).count(
+                CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
+            )
+            == 1
+        ), "Repeated compaction should receive one fixed recovery-card preamble"
         assert "Update: source notes are collected." in str(
             captured_inputs[1]["older_text"]
         ), "Second compaction should receive newer raw turns after the first checkpoint"
@@ -179,6 +186,12 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             "Round 1 card" not in effective_messages[0].content_text
         ), "Latest recovery card should not be an accumulation of prior cards"
         assert (
+            effective_messages[0].content_text.count(
+                CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
+            )
+            == 1
+        ), "Latest recovery card should contain exactly one fixed preamble"
+        assert (
             effective_messages[1].content_text
             == "Blocker: waiting for finance appendix."
         ), "Latest effective history should preserve the configured recent message"
@@ -197,7 +210,7 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             metadata["last_compaction"]["compaction_id"] == third.compaction_id
         ), "Session metadata should point at the newest compaction checkpoint"
         assert (
-            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v3"
+            metadata["last_compaction"]["prompt_contract_version"] == "recovery-card-v4"
         ), "Newest compaction metadata should retain the recovery-card contract"
 
         conn = sqlite3.connect(runtime.config.system_root / "chat_sessions.db")

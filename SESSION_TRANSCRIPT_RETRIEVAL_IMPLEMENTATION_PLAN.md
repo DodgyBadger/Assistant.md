@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning complete. Slice 1 and all five of its checkpoints are implemented and validated; Slice 2 is next. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark; Slice 3 now makes recovery cards the conditional routing surface for transcript retrieval. The completed foundation removes the abandoned live-map runtime, indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
 
 ## Decision Summary
 
@@ -31,14 +31,14 @@ The live session-map implementation will be removed rather than left dormant. Th
 - Add a persistent lexical index over canonical raw chat messages in `chat_sessions.db`.
 - Rework `search_sessions(mode="deep")` to use the same raw-message index instead of building a temporary index over effective histories.
 - Add bounded result contracts, stable message anchors, vault authorization, truncation/continuation behavior, and prompt-injection-safe tool guidance.
-- Validate direct tool use through normal chat paths and measure whether the model retrieves the right evidence when compacted information is needed.
+- Add concise system-owned retrieval guidance only after compaction by placing it in every recovery card.
+- Add stable transcript references to consequential recovery-card claims when they can be generated and validated without materially expanding the card.
 - Remove the live session-map product experiment and its obsolete plan, while retaining generic decision-model infrastructure.
 
 ### Deferred
 
 - Hybrid lexical/semantic transcript ranking, evaluated behind the same bounded retrieval interface using the existing session-search vector infrastructure where practical.
 - Automatic retrieval on every turn.
-- A provenance-linked recovery-card format.
 - Sliding or stepped context eviction.
 - A replacement session-state map derived only from evicted messages.
 - Cross-session or vault memory consolidation.
@@ -241,66 +241,23 @@ Add chat database migration 7 to recompute derived `content_text` from every val
 
 Extend the storage and real-tool scenarios before implementation. Prove that a structured tool error is searchable, a later `session_ops` payload quoting the same terms is not a candidate, results identify tool provenance, windows return readable structured content and provenance, migration backfills existing structured rows, and ordinary user/assistant retrieval remains compatible. Slice 1E exits when those focused scenarios, production quality gates, and the full deterministic core profile pass.
 
-## Slice 2: Retrieval-Trigger Evaluation
+## Slice 2: Live-Path Feasibility
 
-Once the deterministic retrieval surface works, test the uncertain part: whether the chat model notices when source recovery is needed and reaches the right evidence without consuming excessive context.
+**Status:** Complete and intentionally closed. A small Terra probe established that canonical pre-compaction evidence can be recovered through the normal chat-task API, task executor, context manager, and `session_ops` path. With no dedicated retrieval-routing prompt, the model sometimes inferred the need to search and successfully reached the correct canonical evidence. The probe also confirmed that tool selection is the dominant tunable boundary, not a defect in transcript indexing or window retrieval.
 
-### Slice 2 checkpoints
-
-| Checkpoint | Deliverable | Primary validation boundary |
-| --- | --- | --- |
-| Slice 2A | Opt-in live evaluation scenario with a small privacy-safe labelled corpus and structured measurements | Every case runs through the chat-task API and task executor; artifacts distinguish trigger, query, anchor, window, answer, and cost outcomes |
-| Slice 2B | Frozen Terra lexical baseline over development and holdout cases | Repeated runs establish observed rates and concrete promotion thresholds before any prompt or ranking tuning |
-| Slice 2C | Retrieval-guidance tuning and long-session/repeated-compaction holdout | Compare one variable at a time and verify gains survive conversations with accumulating recovery cards |
-| Slice 2D | Optional lexical-versus-hybrid candidate comparison | Same queries, authorization scope, limits, anchors, and window contract; hybrid remains optional unless it materially improves difficult-query recall |
-
-#### Slice 2A: Measurement foundation
-
-**Status:** In progress. The opt-in live scenario now defines a privacy-safe development corpus and records trigger, query, returned-anchor, window-anchor, exact-answer, latency, tool-call, and returned-tool-token outcomes through the chat-task API and task executor. Its first Terra smoke reached normal task preflight but the isolated validation system root had no connected OpenAI OAuth account. Do not add one-off OAuth copying or secret bootstrap to this scenario; run it in a connection-capable validation environment or after authenticated validation bootstrap is solved generically.
-
-Add `validation/scenarios/experiments/session_transcript_retrieval_live_probe.py`. It is an opt-in live-service experiment, not part of `integration/core`, and must use the normal chat-task API with `session_ops` enabled so model execution, tool calls, persistence, context management, and task governance match production. The controlled setup may seed canonical messages and explicit compaction checkpoints directly to isolate the trigger question; the tested user turn itself must not call the retrieval service or model adapter out of band.
-
-Start with fixed privacy-safe cases for exact wording, exact draft recovery, decision rationale expressed with different vocabulary, corrected or superseded facts, evidence split across neighboring messages, instruction-shaped historical content, a visible-tail control where retrieval is unnecessary, and a no-support negative control. Give every positive case expected session and sequence anchors plus an answer rubric. Keep development and holdout cases separate from the first run so tuning cannot silently overfit the whole corpus.
-
-Persist one JSON record per case and an aggregate report. Record model alias and resolved model identity where available, repetition, case class, whether hidden evidence was required, tool operations and arguments, search queries, returned anchors and ranks, window anchors and token estimates, calls to first useful evidence, final answer, deterministic exact-answer checks, grader result when used, latency, and model/tool usage exposed by the normal task path. Do not make the scenario fail because a live model misses a retrieval; fail only on harness or product-path breakage and report behavioral misses as measured outcomes.
-
-#### Slice 2B: Frozen lexical baseline
-
-Use the configured Terra alias with one documented thinking level and at least three repetitions per controlled case. Run the unchanged Slice 1 lexical implementation first. Separately report trigger recall on hidden-positive cases, unnecessary-retrieval rate on controls, correct-session rate, expected-anchor recall at the search and window stages, answer faithfulness, searches and windows per case, returned transcript tokens, latency, and failure taxonomy. A miss must be assigned to the earliest failed stage: no trigger, unusable query, ranking miss, wrong window, or answer synthesis.
-
-Freeze numerical advancement thresholds only after inspecting this first baseline, but record them in this plan before tuning. The development subset may inform tool-description or lightweight system-guidance changes; the holdout subset may only confirm or reject those changes. Do not change model, thinking level, guidance, query formulation, and ranking strategy in one comparison.
-
-#### Slice 2C: Guidance and long-session holdout
-
-If trigger recall is the dominant failure, compare the current tool description against one narrowly revised retrieval cue while holding model, cases, and lexical ranking fixed. If query or ranking failure dominates, do not attribute that to trigger guidance. After a controlled improvement survives holdout, replay selected long conversations—including the ignored private 1065 redevelopment source when locally available—through normal chat execution and preserve their real sequence of compactions. Production-derived inputs and verbatim outputs remain ignored local artifacts and must never be committed.
-
-Measure results by compaction depth as well as overall. Preserve the recovery-card condition as the baseline and record how often the recent retained tail makes retrieval unnecessary, because that tail can mask both recovery-card loss and retrieval-trigger weakness.
-
-#### Slice 2D: Optional hybrid comparison
-
-Run the ranking comparison only if lexical query or anchor recall, rather than triggering, is the material bottleneck. Reuse the existing vector service behind `TranscriptRetrievalService`; do not alter the `session_ops` result or window contract. Keep exact lexical hits in the fusion path, make embeddings optional and rebuildable, and compare against the frozen lexical condition on the same difficult paraphrase queries. Do not add transcript-vector persistence until measured recall gain justifies its lifecycle and storage cost.
-
-Use normal chat execution with compaction and tool availability, not a standalone retrieval harness. Build privacy-safe cases and optional ignored production replays covering exact draft recovery, decision rationale, corrected facts, superseded plans, vague references, information spread across neighboring messages, and a negative case where no supporting message exists.
-
-Measure:
-
-- Whether retrieval was invoked when hidden evidence was necessary and avoided when visible context was sufficient.
-- Query quality, correct-session selection, correct-anchor recall, and answer faithfulness to the source.
-- Searches and windows per task, tokens returned, time to useful evidence, and whether a second search was immediately required.
-- Resistance to instructions embedded in retrieved historical messages.
-- Performance before and after several compactions, because repeated compression is the motivating failure mode.
-
-Compare tool descriptions and lightweight system guidance before adding automation. If triggering is unreliable, first improve explicit retrieval cues and provenance pointers; do not jump directly to ambient semantic injection.
-
-After establishing the lexical baseline, run a bounded ranking comparison for queries whose wording differs from the source. Compare lexical and hybrid candidate generation using the same corpus, limits, vault scope, returned excerpts, and window-retrieval contract. Prefer reusing the existing vector service, embedding readiness, and weighted-ranking machinery from broad session search; add transcript-specific embedding persistence only if the experiment demonstrates enough recall gain to justify its lifecycle and storage cost.
-
-The comparison must report anchor recall, reciprocal rank or equivalent ordering quality, false candidates, latency, embedding/model cost, and index maintenance overhead. A hybrid path should fuse lexical and semantic evidence rather than replace exact-term retrieval, because exact names, paths, quoted drafts, and identifiers are important archive queries.
-
-**Exit gate:** Retrieval should materially improve answers that require compacted evidence, with high source faithfulness and bounded context cost, without producing a high rate of unnecessary searches. Freeze concrete thresholds with the scenario corpus before calling this supported behavior. Promote hybrid ranking only if it materially improves difficult-query recall over lexical FTS without weakening exact-match behavior or making the local retrieval feature depend unconditionally on a remote embedding service.
+Do not continue with a large trigger benchmark, promotion thresholds, prompt tournament, or repeated production replay. Tool selection is ordinary prompt-policy work, and the recovery card provides a narrower place for that policy than the global flight card. The disposable live probe is removed. Hybrid lexical/semantic transcript ranking remains deferred until a real lexical candidate-recall failure justifies testing it.
 
 ## Slice 3: Source-Linked Recovery Cards
 
-If Slice 2 shows that vague prompts do not reliably lead the agent to the right search terms, refine the recovery card as a compact routing aid rather than a complete memory representation.
+Use the recovery card as a compact routing aid rather than a complete memory representation. Retrieval guidance belongs here because the card exists only after compaction; the global flight card should not carry transcript-recovery policy before any history has left active context.
+
+### Slice 3A: Fixed recovery-card preamble
+
+**Status:** Complete. Every recovery card now begins with a concise system-owned preamble that explains why the card exists, identifies the canonical transcript as the source of truth, states when the summary is sufficient, and distinguishes `search_transcript` from `get_transcript_window`. The text lives in `core/constants.py` so prompt tuning has one obvious owner. It is composed outside generated summary prose so repeated compaction cannot omit, paraphrase, or amplify it, and the compaction author treats a prior preamble as operational guidance rather than summary material.
+
+Validate deterministically that the preamble appears only in compacted effective history, precedes generated summary content, survives repeated compaction exactly once, and remains visible through session detail and forks. No live trigger benchmark is required; one ordinary chat smoke is sufficient after deterministic coverage passes.
+
+### Slice 3B: Stable source references
 
 Experiment with attaching stable sequence references to the most consequential active goals, decisions, artifacts, unresolved questions, and corrections. The card may paraphrase for continuity, but the pointer lets the agent inspect canonical evidence. Keep the card focused on current state and do not expand it into a transcript-derived knowledge base.
 
@@ -355,13 +312,12 @@ Score current-task continuity, exact-evidence recovery, semantic and salience dr
 3. Slice 1C: add `search_transcript` and `get_transcript_window` to `session_ops`, including operation-specific validation, cursor integrity, documentation, and real-tool coverage; stop and verify the tool gate.
 4. Slice 1D: rebuild `search_sessions(mode="deep")` on the shared canonical index, add the cross-layer integration scenario, and run the full deterministic core profile; stop and verify the overall Slice 1 gate.
 5. Slice 1E: harden derived source projection and provenance, exclude retrieval-generated envelopes from candidate generation, backfill the canonical index, and rerun the Slice 1 validation gate.
-6. Begin Slice 2 through normal chat paths, record the frozen evaluation contract before tuning prompts, and compare lexical versus hybrid candidate generation once the lexical baseline is measured.
+6. Close Slice 2 after live-path feasibility, remove its disposable probe, and defer hybrid ranking until an observed lexical recall failure justifies it.
+7. Add the fixed recovery-card retrieval preamble, then evaluate stable source references for consequential claims before beginning stepped eviction work.
 
 ## Immediate Next Steps
 
-Continue Feature Development with Slice 2A. Add the opt-in live scenario and structured artifact contract without changing production retrieval prompts, ranking, or automation; run a small harness smoke before spending quota on the frozen Slice 2B baseline.
-
-The completed Slice 1 leaves the application bootable with all live-map behavior absent, generic Jev configuration intact, and a migrated, backfilled canonical transcript index available through focused retrieval and deep session discovery. The next work is experimental rather than foundational: measure whether models reliably recognize when compacted source evidence is needed and reach the correct anchor at bounded context cost.
+Begin Slice 3B with the smallest source-reference format that can be validated against canonical session sequence indexes without materially increasing card size. The completed Slice 3A preamble remains the stable routing layer whether or not a particular card contains direct anchors.
 
 ## Evidence and Design Sources
 
