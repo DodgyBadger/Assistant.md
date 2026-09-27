@@ -28,9 +28,24 @@ from core.constants import (
     CHAT_HISTORY_COMPACTION_INSTRUCTION,
     CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
     CHAT_HISTORY_RECOVERY_CARD_PREAMBLE,
+    SESSION_MAP_CONTEXT_PROMPT_VERSION,
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
+from core.memory.session_map.checkpoints import (
+    SessionMapCheckpointResult,
+    commit_session_map_checkpoint,
+    load_session_map_checkpoint,
+)
+from core.memory.session_map.models import SessionMapDraft
+from core.memory.session_map.readiness import (
+    SessionMapReadiness,
+    evaluate_session_map_readiness,
+)
+from core.memory.session_map.service import (
+    SessionMapAuthoringRequest,
+    run_session_map_authoring,
+)
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
     ExecutionTaskSource,
@@ -142,6 +157,21 @@ class CanonicalEvictionEnvelopeResult:
     reason: str
     history_revision: int
     envelopes: tuple[CanonicalEvictionEnvelope, ...] = ()
+
+
+@dataclass(frozen=True)
+class SessionMapContextReductionResult:
+    """One completed stepped-map context reduction."""
+
+    session_id: str
+    vault_name: str
+    checkpoint_id: str
+    authoring_task_id: str
+    consumed_through_sequence_index: int
+    messages_before: int
+    messages_after: int
+    estimated_tokens_before: int
+    estimated_tokens_after: int
 
 
 @dataclass(frozen=True)
@@ -767,8 +797,8 @@ async def maybe_auto_compact_after_turn(
     session_id: str,
     vault_name: str,
     vault_path: str,
-) -> ChatHistoryCompactionResult | None:
-    """Run automatic compaction after a completed chat turn when configured."""
+) -> ChatHistoryCompactionResult | SessionMapContextReductionResult | None:
+    """Run the configured automatic context reduction after a completed turn."""
     status = await get_compaction_status(session_id=session_id, vault_name=vault_name)
     if status.compaction_type != "auto" or not status.recommended:
         return None
@@ -783,6 +813,183 @@ async def maybe_auto_compact_after_turn(
     session = runtime.chat_store.get_session_by_id(session_id)
     if session is None or session.vault_name != vault_name:
         raise LookupError(f"Chat session not found: {session_id}")
+    readiness = evaluate_session_map_readiness(
+        store=runtime.chat_store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    if readiness.enabled:
+        logger.info(
+            "context_reduction_strategy_selected",
+            data={
+                "event": "context_reduction_strategy_selected",
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "strategy": readiness.strategy,
+                "reason": readiness.reason,
+                "high_watermark_tokens": readiness.high_watermark_tokens,
+                "low_watermark_tokens": readiness.low_watermark_tokens,
+                "author_model": readiness.author_model,
+            },
+        )
+        try:
+            return await _run_stepped_session_map_reduction(
+                session_id=session_id,
+                vault_name=vault_name,
+                readiness=readiness,
+                authority=ExecutionAuthority(session.owner_principal_id),
+                store=runtime.chat_store,
+            )
+        except Exception as exc:
+            logger.warning(
+                "session_map_context_reduction_fallback",
+                data={
+                    "event": "session_map_context_reduction_fallback",
+                    "session_id": session_id,
+                    "vault_name": vault_name,
+                    "strategy": readiness.strategy,
+                    "reason": "session_map_reduction_failed",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            )
+    elif readiness.strategy == "stepped_session_map":
+        logger.info(
+            "context_reduction_strategy_selected",
+            data={
+                "event": "context_reduction_strategy_selected",
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "strategy": "recovery_card",
+                "reason": readiness.reason,
+                "configured_strategy": readiness.strategy,
+            },
+        )
+    return await _run_automatic_recovery_card_compaction(
+        session_id=session_id,
+        vault_name=vault_name,
+        vault_path=vault_path,
+        authority=ExecutionAuthority(session.owner_principal_id),
+    )
+
+
+async def _run_stepped_session_map_reduction(
+    *,
+    session_id: str,
+    vault_name: str,
+    readiness: SessionMapReadiness,
+    authority: ExecutionAuthority,
+    store: ChatStore,
+) -> SessionMapContextReductionResult | None:
+    """Author and commit one map checkpoint while holding the session lock."""
+    if not readiness.enabled or readiness.author_model is None:
+        raise ValueError("Session-map reduction requires a ready author model")
+    async with chat_session_history_lock(
+        session_id=session_id,
+        vault_name=vault_name,
+    ):
+        history_revision = store.get_session_history_revision(session_id, vault_name)
+        checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+        if checkpoint is None:
+            previous_map = SessionMapDraft()
+            retained_prefix_count = 0
+        elif checkpoint.checkpoint_kind == "session_map":
+            previous_map = load_session_map_checkpoint(checkpoint)
+            retained_prefix_count = 1
+        else:
+            raise ValueError("Recovery-card history is not eligible for stepped maps")
+
+        messages = store.get_history(session_id, vault_name, mode="effective") or []
+        plan = plan_stepped_history_eviction(
+            messages,
+            high_watermark_tokens=readiness.high_watermark_tokens,
+            low_watermark_tokens=readiness.low_watermark_tokens,
+            history_revision=history_revision,
+            retained_prefix_count=retained_prefix_count,
+        )
+        if plan.status != "planned":
+            if plan.reason == "below_high_watermark":
+                return None
+            raise ValueError(f"Stepped eviction unavailable: {plan.reason}")
+        evidence = build_canonical_eviction_envelopes(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            plan=plan,
+        )
+        if evidence.status != "resolved" or not evidence.envelopes:
+            raise ValueError(
+                f"Canonical eviction evidence unavailable: {evidence.reason}"
+            )
+
+        authored = await run_session_map_authoring(
+            SessionMapAuthoringRequest(
+                session_id=session_id,
+                vault_name=vault_name,
+                model_alias=readiness.author_model,
+                thinking=readiness.author_thinking,
+                previous_map=previous_map,
+                envelopes=evidence.envelopes,
+            ),
+            authority=authority,
+            source=ExecutionTaskSource.SYSTEM,
+        )
+        if (
+            store.get_session_history_revision(session_id, vault_name)
+            != history_revision
+        ):
+            raise ValueError("Session history changed during map authoring")
+        committed: SessionMapCheckpointResult = commit_session_map_checkpoint(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            draft=authored.draft,
+            previous_map=previous_map,
+            envelopes=evidence.envelopes,
+            expected_history_revision=history_revision,
+            message_count_before=plan.message_count_before,
+            source=ExecutionTaskSource.SYSTEM.value,
+            authoring_task_id=authored.task_id,
+        )
+        messages_after = (
+            store.get_history(session_id, vault_name, mode="effective") or []
+        )
+        estimated_after = estimate_history_tokens(messages_after)
+        result = SessionMapContextReductionResult(
+            session_id=session_id,
+            vault_name=vault_name,
+            checkpoint_id=committed.checkpoint.checkpoint_id,
+            authoring_task_id=authored.task_id,
+            consumed_through_sequence_index=(
+                committed.checkpoint.last_message_sequence_index
+            ),
+            messages_before=plan.message_count_before,
+            messages_after=len(messages_after),
+            estimated_tokens_before=plan.estimated_tokens_before,
+            estimated_tokens_after=estimated_after,
+        )
+        logger.info(
+            "session_map_context_reduction_completed",
+            data={
+                "event": "session_map_context_reduction_completed",
+                **asdict(result),
+                "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
+                "entry_count": len(authored.draft.entries),
+                "raw_messages_preserved": True,
+            },
+        )
+        return result
+
+
+async def _run_automatic_recovery_card_compaction(
+    *,
+    session_id: str,
+    vault_name: str,
+    vault_path: str,
+    authority: ExecutionAuthority,
+) -> ChatHistoryCompactionResult:
+    """Run the existing recovery-card path through its execution task."""
+    runtime = get_runtime_context()
     return cast(
         ChatHistoryCompactionResult,
         await runtime.task_runner.run_inline(
@@ -791,7 +998,7 @@ async def maybe_auto_compact_after_turn(
                 scope=chat_session_scope(session_id),
                 source=ExecutionTaskSource.SYSTEM,
                 label=compaction_task_label(session_id),
-                authority=ExecutionAuthority(session.owner_principal_id),
+                authority=authority,
                 metadata={
                     "vault": vault_name,
                     "session_id": session_id,

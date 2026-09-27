@@ -17,13 +17,26 @@ from .models import SessionMapDraft
 class SessionMapEvidenceEnvelope(Protocol):
     """Structural evidence contract accepted by the map author."""
 
-    envelope_id: str
-    session_id: str
-    vault_name: str
-    history_revision: int
-    source_start_sequence_index: int
-    source_end_sequence_index: int
-    projected_text: str
+    @property
+    def envelope_id(self) -> str: ...
+
+    @property
+    def session_id(self) -> str: ...
+
+    @property
+    def vault_name(self) -> str: ...
+
+    @property
+    def history_revision(self) -> int: ...
+
+    @property
+    def source_start_sequence_index(self) -> int: ...
+
+    @property
+    def source_end_sequence_index(self) -> int: ...
+
+    @property
+    def projected_text(self) -> str: ...
 
 
 def build_session_map_authoring_prompt(

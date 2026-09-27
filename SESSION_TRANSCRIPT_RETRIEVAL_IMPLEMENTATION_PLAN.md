@@ -308,6 +308,8 @@ The first authoring experiments receive the current map plus the complete outgoi
 
 ### Slice 4D: Opt-in stepped effective-history strategy
 
+**Status:** Complete for the unconditional-author baseline. The strategy remains disabled by default and has deterministic coverage through the real post-turn chat path.
+
 Compose the bounded map with the recent retained suffix and activate stepped eviction only under an explicit experimental setting with a ready generative author model. Commit the map update and eviction checkpoint so a source group cannot disappear from effective context before its durable envelope and state update exist. Preserve raw canonical SQLite messages and all Slice 1 retrieval operations. On any pre-commit failure, keep the old effective history and use recovery-card compaction.
 
 The initial runtime strategy authors the map at every eviction boundary. This deliberately measures the value and cost of the map representation without Jev. Sessions already carrying a recovery-card checkpoint remain on recovery-card compaction during the experiment.
@@ -316,7 +318,7 @@ Implement this slice through three separately validated boundaries:
 
 1. **4D1 — Durable map checkpoint and composition — Complete:** The existing append-only context-checkpoint ledger now has an explicit checkpoint kind rather than a competing effective-history store. A session-map checkpoint stores the typed map payload and a single rendered map context message, sets its consumed-through boundary to the last evicted canonical message, and lets effective-history assembly append canonical raw messages after that boundary. The write compares the expected history revision and atomically records the map payload, evidence metadata, replacement context, consumed boundary, and revision advance. Older checkpoints remain queryable for audit. Deterministic validation proves repeated composition, typed historical reload, complete raw-transcript preservation, and rejection of a stale revision without a partial checkpoint or effective-history change. No setting or post-turn hook exists in this sub-slice.
 2. **4D2 — Explicit opt-in and readiness — Complete:** The experimental strategy defaults to `recovery_card`; stepped maps require `stepped_session_map`, automatic context reduction, an explicitly selected available text-capable author model, a valid configurable thinking policy, and a low watermark below the shared compaction threshold. Canonical sessions and sessions already carrying a valid map checkpoint are eligible. Missing or decision-only models, unavailable credentials, invalid settings, absent sessions, invalid map checkpoints, and any existing recovery-card checkpoint fail closed with stable reasons. The settings use the normal general-settings API and save without bespoke UI wiring.
-3. **4D3 — Post-turn orchestration:** Under the existing per-session history lock, plan eviction, resolve canonical envelopes, author through the `session_map_authoring` task, recheck the history revision, and commit the checkpoint. Only a successfully committed checkpoint changes effective history. Planning, model, validation, staleness, or commit failure leaves the prior effective history intact and invokes or preserves the recovery-card path according to its existing threshold behavior.
+3. **4D3 — Post-turn orchestration — Complete:** Under the existing per-session history lock, the post-turn hook plans eviction while preserving any pinned prior map, resolves only evicted raw messages to canonical envelopes, authors through the `session_map_authoring` task, rechecks the history revision, and atomically commits the checkpoint. Deterministic full-path validation proves successful map reduction and an injected author failure: the success case commits a source-linked map and reduces effective history, while the failure case records a failed author task and completes recovery-card compaction instead. Both cases preserve the full raw transcript and leave the completed chat turn successful.
 
 ### Slice 4E: Optional Jev movement gate
 
@@ -367,7 +369,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Complete Slice 4D3 by composing readiness, planning, canonical envelope resolution, task-governed authoring, revision recheck, and atomic checkpoint commit in the post-turn context-reduction path. Preserve recovery-card behavior on every disabled, ineligible, or failed branch. Do not add Jev or a movement threshold to this baseline.
+Run the opt-in unconditional-author baseline through live-model conversations and inspect successive stored maps, effective-context size, task telemetry, and transcript retrieval behavior before introducing Jev. Use the results to decide whether the baseline is strong enough to begin Slice 4E or needs map-contract tuning first.
 
 ## Evidence and Design Sources
 

@@ -122,8 +122,11 @@ class SessionMapDraft(_StrictFrozenModel):
 
 
 class _CanonicalEnvelope(Protocol):
-    source_start_sequence_index: int
-    source_end_sequence_index: int
+    @property
+    def source_start_sequence_index(self) -> int: ...
+
+    @property
+    def source_end_sequence_index(self) -> int: ...
 
 
 def validate_session_map_provenance(
