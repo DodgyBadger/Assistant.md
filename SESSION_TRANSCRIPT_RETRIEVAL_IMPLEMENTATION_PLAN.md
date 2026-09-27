@@ -315,7 +315,7 @@ The initial runtime strategy authors the map at every eviction boundary. This de
 Implement this slice through three separately validated boundaries:
 
 1. **4D1 — Durable map checkpoint and composition — Complete:** The existing append-only context-checkpoint ledger now has an explicit checkpoint kind rather than a competing effective-history store. A session-map checkpoint stores the typed map payload and a single rendered map context message, sets its consumed-through boundary to the last evicted canonical message, and lets effective-history assembly append canonical raw messages after that boundary. The write compares the expected history revision and atomically records the map payload, evidence metadata, replacement context, consumed boundary, and revision advance. Older checkpoints remain queryable for audit. Deterministic validation proves repeated composition, typed historical reload, complete raw-transcript preservation, and rejection of a stale revision without a partial checkpoint or effective-history change. No setting or post-turn hook exists in this sub-slice.
-2. **4D2 — Explicit opt-in and readiness:** Add the experimental strategy setting and generative author-model selection. Enablement requires the explicit strategy, a configured text-capable model, uncompacted canonical starting history, and valid high/low watermarks. Any failed readiness check keeps recovery-card compaction as the active strategy.
+2. **4D2 — Explicit opt-in and readiness — Complete:** The experimental strategy defaults to `recovery_card`; stepped maps require `stepped_session_map`, automatic context reduction, an explicitly selected available text-capable author model, a valid configurable thinking policy, and a low watermark below the shared compaction threshold. Canonical sessions and sessions already carrying a valid map checkpoint are eligible. Missing or decision-only models, unavailable credentials, invalid settings, absent sessions, invalid map checkpoints, and any existing recovery-card checkpoint fail closed with stable reasons. The settings use the normal general-settings API and save without bespoke UI wiring.
 3. **4D3 — Post-turn orchestration:** Under the existing per-session history lock, plan eviction, resolve canonical envelopes, author through the `session_map_authoring` task, recheck the history revision, and commit the checkpoint. Only a successfully committed checkpoint changes effective history. Planning, model, validation, staleness, or commit failure leaves the prior effective history intact and invokes or preserves the recovery-card path according to its existing threshold behavior.
 
 ### Slice 4E: Optional Jev movement gate
@@ -367,7 +367,7 @@ Keep recovery-card reference generation outside the comparison unless the first 
 
 ## Immediate Next Steps
 
-Begin Slice 4D with the durable checkpoint and effective-history composition contract. Define and validate how a source-linked map revision, its consumed canonical evidence boundary, and the retained recent suffix commit together before enabling the opt-in runtime strategy. Do not add Jev or a movement threshold to this baseline.
+Complete Slice 4D3 by composing readiness, planning, canonical envelope resolution, task-governed authoring, revision recheck, and atomic checkpoint commit in the post-turn context-reduction path. Preserve recovery-card behavior on every disabled, ineligible, or failed branch. Do not add Jev or a movement threshold to this baseline.
 
 ## Evidence and Design Sources
 

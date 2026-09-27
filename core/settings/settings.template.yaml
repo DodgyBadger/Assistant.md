@@ -185,6 +185,26 @@ settings:
     description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
     category: "Chat"
     restart_required: false
+  context_reduction_strategy:
+    value: recovery_card
+    description: "Effective-history reduction strategy. Keep recovery_card unless intentionally testing the experimental stepped_session_map strategy; unavailable or ineligible map sessions continue using recovery-card compaction."
+    category: "Chat"
+    restart_required: false
+  session_map_author_model:
+    value: none
+    description: "Generative text-model alias used by the experimental stepped session map. Keep none unless context_reduction_strategy is stepped_session_map."
+    category: "Chat"
+    restart_required: false
+  session_map_author_thinking:
+    value: low
+    description: "Thinking effort for experimental session-map authoring. Use default, on, off, minimal, low, medium, high, or xhigh."
+    category: "Chat"
+    restart_required: false
+  session_map_low_watermark_tokens:
+    value: 60000
+    description: "Target effective-history size after an experimental stepped-map eviction. Must be lower than compaction_token_threshold."
+    category: "Chat"
+    restart_required: false
   file_search_timeout_seconds:
     value: 10
     description: "Timeout in seconds for file_read search operations."

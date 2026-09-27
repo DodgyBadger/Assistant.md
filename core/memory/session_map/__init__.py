@@ -19,6 +19,7 @@ from .models import (
     SourceRange,
     validate_session_map_provenance,
 )
+from .readiness import SessionMapReadiness, evaluate_session_map_readiness
 from .service import (
     SessionMapAuthoringRequest,
     SessionMapAuthoringResult,
@@ -38,10 +39,12 @@ __all__ = [
     "SessionMapEntryState",
     "SessionMapEvidenceEnvelope",
     "SessionMapProvenanceError",
+    "SessionMapReadiness",
     "SourceRange",
     "build_session_map_authoring_prompt",
     "build_session_map_context_message",
     "commit_session_map_checkpoint",
+    "evaluate_session_map_readiness",
     "load_session_map_checkpoint",
     "run_session_map_authoring",
     "validate_session_map_provenance",

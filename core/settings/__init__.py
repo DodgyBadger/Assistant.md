@@ -942,6 +942,47 @@ def get_compaction_token_threshold() -> int:
     return parsed if parsed > 0 else template_default
 
 
+def get_context_reduction_strategy() -> str:
+    """Return the configured effective-history reduction strategy."""
+    entry = get_general_settings().get("context_reduction_strategy")
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or "recovery_card").strip().lower()
+    if normalized == "stepped_session_map":
+        return normalized
+    return "recovery_card"
+
+
+def get_session_map_author_model() -> str | None:
+    """Return the experimental session-map author alias, if configured."""
+    entry = get_general_settings().get("session_map_author_model")
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or "").strip()
+    if not normalized or normalized.lower() == "none":
+        return None
+    return normalized
+
+
+def get_session_map_author_thinking() -> ThinkingValue:
+    """Return the thinking policy for experimental session-map authoring."""
+    entry = get_general_settings().get("session_map_author_thinking")
+    value = getattr(entry, "value", None) if entry is not None else None
+    return normalize_thinking_value(value, source_name="session_map_author_thinking")
+
+
+def get_session_map_low_watermark_tokens() -> int:
+    """Return the target token size after one stepped-map eviction."""
+    entry = get_general_settings().get("session_map_low_watermark_tokens")
+    value = getattr(entry, "value", None) if entry is not None else None
+    template_default = _get_template_setting_positive_int(
+        "session_map_low_watermark_tokens", 60_000
+    )
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return template_default
+    return parsed if parsed > 0 else template_default
+
+
 def _get_nonempty_setting_string(setting_key: str, default: str) -> str:
     entry = get_general_settings().get(setting_key)
     value = getattr(entry, "value", None) if entry is not None else None
