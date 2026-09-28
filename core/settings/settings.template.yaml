@@ -192,7 +192,7 @@ settings:
     restart_required: false
   session_map_author_model:
     value: none
-    description: "Generative text-model alias used by the experimental stepped session map. Keep none unless context_reduction_strategy is stepped_session_map."
+    description: "Optional model alias for authoring Compaction v2 session maps. When unset or set to none, it uses default_model."
     category: "Chat"
     restart_required: false
   session_map_author_thinking:

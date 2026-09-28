@@ -953,13 +953,22 @@ def get_context_reduction_strategy() -> str:
 
 
 def get_session_map_author_model() -> str | None:
-    """Return the experimental session-map author alias, if configured."""
-    entry = get_general_settings().get("session_map_author_model")
+    """Return the session-map author alias, inheriting the default model."""
+    settings = get_general_settings()
+    entry = settings.get("session_map_author_model")
     value = getattr(entry, "value", None) if entry is not None else None
     normalized = str(value or "").strip()
-    if not normalized or normalized.lower() == "none":
+    if normalized and normalized.lower() != "none":
+        return normalized
+
+    default_entry = settings.get("default_model")
+    default_value = (
+        getattr(default_entry, "value", None) if default_entry is not None else None
+    )
+    normalized_default = str(default_value or "").strip()
+    if not normalized_default or normalized_default.lower() == "none":
         return None
-    return normalized
+    return normalized_default
 
 
 def get_session_map_author_thinking() -> ThinkingValue:

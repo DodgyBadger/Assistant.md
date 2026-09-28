@@ -54,7 +54,12 @@ class SessionMapReadinessScenario(BaseScenario):
         self.soft_assert_equal(
             settings["session_map_author_model"]["value"],
             "none",
-            "The experimental map author should default to disabled",
+            "The session-map-specific author override should default to none",
+        )
+        self.soft_assert(
+            "uses default_model"
+            in (settings["session_map_author_model"].get("description") or ""),
+            "The author-model setting should explain its default-model fallback",
         )
         initial = evaluate_session_map_readiness(
             store=store,
@@ -69,7 +74,7 @@ class SessionMapReadinessScenario(BaseScenario):
 
         for key, value in (
             ("context_reduction_strategy", "stepped_session_map"),
-            ("session_map_author_model", "test"),
+            ("default_model", "test"),
             ("session_map_author_thinking", "low"),
             ("session_map_low_watermark_tokens", "50"),
             ("compaction_token_threshold", "100"),
@@ -101,7 +106,7 @@ class SessionMapReadinessScenario(BaseScenario):
                 ready.low_watermark_tokens,
             ),
             (True, "ready_canonical_history", "test", "low", 100, 50),
-            "Explicit valid settings should make canonical history eligible",
+            "The default model should make canonical history eligible when no author override is set",
         )
 
         self._set_setting("session_map_author_model", "jev")

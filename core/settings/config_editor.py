@@ -34,10 +34,21 @@ def _persist_changes(settings_file: SettingsFile) -> None:
 
 
 def list_general_settings() -> dict[str, SettingsEntry]:
-    """Return general settings entries."""
+    """Return configured values with current product-owned metadata."""
     settings_file = load_settings()
-    merged = dict(_template_general_settings())
-    merged.update(settings_file.settings)
+    template_settings = _template_general_settings()
+    merged = dict(settings_file.settings)
+    for name, template_entry in template_settings.items():
+        configured_entry = settings_file.settings.get(name)
+        merged[name] = template_entry.model_copy(
+            update={
+                "value": (
+                    configured_entry.value
+                    if configured_entry is not None
+                    else template_entry.value
+                )
+            }
+        )
     return {
         name: entry for name, entry in merged.items() if name not in RETIRED_SETTINGS
     }
@@ -49,19 +60,20 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     if name in RETIRED_SETTINGS:
         raise SettingsError(f"Setting '{name}' does not exist.")
     entry = settings_file.settings.get(name)
-
+    template_entry = _template_general_settings().get(name)
     if entry is None:
-        entry = _template_general_settings().get(name)
+        entry = template_entry
     if entry is None:
         raise SettingsError(f"Setting '{name}' does not exist.")
 
     coerced_value = _coerce_setting_value(raw_value, entry.value)
     _validate_general_setting_value(name, coerced_value, settings_file)
+    metadata_entry = template_entry or entry
     settings_file.settings[name] = SettingsEntry(
         value=coerced_value,
-        description=entry.description,
-        category=entry.category,
-        restart_required=entry.restart_required,
+        description=metadata_entry.description,
+        category=metadata_entry.category,
+        restart_required=metadata_entry.restart_required,
     )
 
     _persist_changes(settings_file)

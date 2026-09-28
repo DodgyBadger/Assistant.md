@@ -494,6 +494,10 @@ Schema version 2 requires the narrative bridge whenever a newly authored checkpo
 
 The live Terra rerun produced twelve consecutive hybrid checkpoints across fifteen turns, with all twelve author tasks completing through the normal executor. Every trajectory stayed between 369 and 551 characters. Inspection showed that they preserved causal transitions—the budget reduction, Riverside becoming infeasible, the legal pause and conditional reopening, and the delayed temperature dataset—without merely restating every structured entry. Retrieval-heavy retrospective work remained on the Compaction v2 path, all three final answers were accurate, all 42 canonical messages remained available, and final effective context was approximately 2,050 tokens across five messages. This supports the hybrid contract and shows negligible practical prompt growth in this sample, but the independently generated conversation and different checkpoint count prevent a controlled cost comparison with the earlier map-only run.
 
+### Slice 4K: Inherit the default author model
+
+**Status:** Complete. `session_map_author_model` is an optional override: a blank or `none` value inherits `default_model`, while an explicit alias continues to take precedence. If neither setting resolves to a concrete model, Compaction v2 remains ineligible and falls back through the existing readiness boundary. The deterministic readiness scenario covers the inherited-model path and explicit decision-only override rejection.
+
 ## Contract-Sensitive Areas
 
 - `session_ops` input schema, descriptions, error messages, and operation-specific parameter validation.
@@ -523,6 +527,7 @@ The live Terra rerun produced twelve consecutive hybrid checkpoints across fifte
 11. Tune Compaction v2 to a 20,000-token low-watermark default, harden abandoned historical turns, and continue direct live comparison against Compaction v1 before considering default promotion.
 12. Validate repeated Compaction v2 checkpoints through a normal multi-turn chat, including retrospective transcript retrieval whose mechanically resolved canonical messages remain valid map provenance.
 13. Add one bounded source-linked narrative bridge to the typed checkpoint and validate that it preserves trajectory without creating a second independently authored summary.
+14. Make the session-map author model inherit the default chat model unless an explicit override is configured.
 
 ## Immediate Next Steps
 
