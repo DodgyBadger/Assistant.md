@@ -1056,6 +1056,11 @@ async def _run_stepped_session_map_reduction(
                 **asdict(result),
                 "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
                 "entry_count": len(authored.draft.entries),
+                "trajectory_char_count": (
+                    len(authored.draft.trajectory.text)
+                    if authored.draft.trajectory is not None
+                    else 0
+                ),
                 "raw_messages_preserved": True,
             },
         )

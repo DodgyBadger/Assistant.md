@@ -187,6 +187,14 @@ class CompactionV2LiveConversationScenario(BaseScenario):
                 "latest_entry_count": len(
                     (final_map.get("session_map") or {}).get("entries") or []
                 ),
+                "latest_trajectory_chars": len(
+                    str(
+                        (
+                            (final_map.get("session_map") or {}).get("trajectory") or {}
+                        ).get("text")
+                        or ""
+                    )
+                ),
             }
             _write_json(self.artifacts_dir / "final_session_map.json", final_map)
             _write_json(self.artifacts_dir / "session_map_authoring_tasks.json", tasks)
@@ -204,6 +212,10 @@ class CompactionV2LiveConversationScenario(BaseScenario):
             self.soft_assert(
                 bool(final_map.get("session_map")),
                 "The latest Compaction v2 map should remain inspectable",
+            )
+            self.soft_assert(
+                summary["latest_trajectory_chars"] > 0,
+                "The latest Compaction v2 checkpoint should include a narrative trajectory",
             )
             self.soft_assert(
                 summary["raw_message_count"] >= len(transcript) * 2,

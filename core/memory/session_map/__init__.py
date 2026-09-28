@@ -17,12 +17,14 @@ from .checkpoints import (
 )
 from .models import (
     MAX_SESSION_MAP_ENTRIES,
+    MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS,
     SessionMapDraft,
     SessionMapEntry,
     SessionMapEntryBasis,
     SessionMapEntryKind,
     SessionMapEntryState,
     SessionMapProvenanceError,
+    SessionMapTrajectory,
     SourceRange,
     validate_session_map_provenance,
 )
@@ -35,6 +37,7 @@ from .service import (
 
 __all__ = [
     "MAX_SESSION_MAP_ENTRIES",
+    "MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS",
     "SESSION_MAP_CONTEXT_MARKER",
     "SessionMapAuthoringRequest",
     "SessionMapAuthoringResult",
@@ -48,6 +51,7 @@ __all__ = [
     "SessionMapEvidenceEnvelope",
     "SessionMapRetainedEvidence",
     "SessionMapProvenanceError",
+    "SessionMapTrajectory",
     "SessionMapReadiness",
     "SourceRange",
     "build_session_map_authoring_prompt",

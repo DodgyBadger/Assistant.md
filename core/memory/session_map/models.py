@@ -11,7 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 SESSION_MAP_ENTRY_ID_PATTERN = r"^[a-z][a-z0-9_]{0,63}$"
 MAX_SESSION_MAP_ENTRIES = 32
 MAX_SESSION_MAP_ENTRY_TEXT_CHARS = 600
-MAX_SESSION_MAP_TEXT_CHARS = 12_000
+MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS = 4_000
+MAX_SESSION_MAP_TEXT_CHARS = 16_000
 MAX_SESSION_MAP_SOURCE_RANGES = 8
 
 
@@ -82,20 +83,30 @@ class SessionMapEntry(_StrictFrozenModel):
     def validate_source_order(self) -> SessionMapEntry:
         if self.id in {kind.value for kind in SessionMapEntryKind}:
             raise ValueError("entry ID must identify its semantic subject")
-        prior_end = -1
-        for source in self.sources:
-            if source.start <= prior_end:
-                raise ValueError(
-                    "entry source ranges must be ordered and non-overlapping"
-                )
-            prior_end = source.end
+        _validate_ordered_source_ranges(self.sources, subject="entry")
+        return self
+
+
+class SessionMapTrajectory(_StrictFrozenModel):
+    """Bounded source-linked narrative connecting the session's current state."""
+
+    text: str = Field(min_length=1, max_length=MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS)
+    sources: tuple[SourceRange, ...] = Field(
+        min_length=1,
+        max_length=MAX_SESSION_MAP_SOURCE_RANGES,
+    )
+
+    @model_validator(mode="after")
+    def validate_source_order(self) -> SessionMapTrajectory:
+        _validate_ordered_source_ranges(self.sources, subject="trajectory")
         return self
 
 
 class SessionMapDraft(_StrictFrozenModel):
     """Complete bounded state authored from the prior map and new evidence."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 2
+    trajectory: SessionMapTrajectory | None = None
     entries: tuple[SessionMapEntry, ...] = Field(
         default=(),
         max_length=MAX_SESSION_MAP_ENTRIES,
@@ -103,6 +114,10 @@ class SessionMapDraft(_StrictFrozenModel):
 
     @model_validator(mode="after")
     def validate_map_bounds(self) -> SessionMapDraft:
+        if self.schema_version == 1 and self.trajectory is not None:
+            raise ValueError("session-map schema version 1 cannot contain a trajectory")
+        if self.schema_version == 2 and self.entries and self.trajectory is None:
+            raise ValueError("session-map schema version 2 requires a trajectory")
         entry_ids = [entry.id for entry in self.entries]
         if len(entry_ids) != len(set(entry_ids)):
             raise ValueError("session-map entry IDs must be globally unique")
@@ -113,7 +128,9 @@ class SessionMapDraft(_StrictFrozenModel):
         ]
         if len(orientations) > 1:
             raise ValueError("session map may contain at most one orientation entry")
-        total_text_chars = sum(len(entry.text) for entry in self.entries)
+        total_text_chars = sum(len(entry.text) for entry in self.entries) + (
+            len(self.trajectory.text) if self.trajectory is not None else 0
+        )
         if total_text_chars > MAX_SESSION_MAP_TEXT_CHARS:
             raise ValueError(
                 f"session map text exceeds {MAX_SESSION_MAP_TEXT_CHARS} characters"
@@ -147,7 +164,16 @@ def validate_session_map_provenance(
         available.extend(
             source for entry in previous_map.entries for source in entry.sources
         )
+        if previous_map.trajectory is not None:
+            available.extend(previous_map.trajectory.sources)
     merged_available = _merge_source_ranges(available)
+    if draft.trajectory is not None:
+        for source in draft.trajectory.sources:
+            if not _source_range_is_covered(source, merged_available):
+                raise SessionMapProvenanceError(
+                    "trajectory cites unavailable source range "
+                    f"{source.start}-{source.end}"
+                )
     for entry in draft.entries:
         for source in entry.sources:
             if not _source_range_is_covered(source, merged_available):
@@ -156,6 +182,18 @@ def validate_session_map_provenance(
                     f"{source.start}-{source.end}"
                 )
     return draft
+
+
+def _validate_ordered_source_ranges(
+    sources: Sequence[SourceRange], *, subject: str
+) -> None:
+    prior_end = -1
+    for source in sources:
+        if source.start <= prior_end:
+            raise ValueError(
+                f"{subject} source ranges must be ordered and non-overlapping"
+            )
+        prior_end = source.end
 
 
 def _merge_source_ranges(ranges: Sequence[SourceRange]) -> tuple[SourceRange, ...]:

@@ -70,6 +70,17 @@
             `;
         }
 
+        function renderTrajectory(trajectory) {
+            if (!trajectory?.text) return '';
+            return `
+                <section class="session-map-trajectory">
+                    <h3>How We Got Here</h3>
+                    <p>${escapeHtml(trajectory.text)}</p>
+                    ${renderSources(trajectory)}
+                </section>
+            `;
+        }
+
         function renderSection(kind, entries) {
             if (!entries.length) return '';
             return `
@@ -129,6 +140,7 @@
                     <span>${escapeHtml(humanize(selected?.action))}</span>
                     <span>Contract: ${escapeHtml(selected?.prompt_contract_version || 'unknown')}</span>
                 </div>
+                ${renderTrajectory(sessionMap.trajectory)}
                 <div class="session-map-sections">
                     ${sections || '<p class="text-sm text-txt-secondary">This checkpoint contains no map entries.</p>'}
                 </div>

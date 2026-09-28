@@ -44,3 +44,10 @@ def test_session_map_loads_before_application() -> None:
     application_position = markup.index('<script src="static/app.js"></script>')
 
     assert map_position < application_position
+
+
+def test_session_map_renders_narrative_trajectory() -> None:
+    source = _MODULE.read_text(encoding="utf-8")
+
+    assert "How We Got Here" in source
+    assert "renderSources(trajectory)" in source

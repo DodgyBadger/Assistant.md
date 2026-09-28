@@ -23,6 +23,7 @@ from core.memory.session_map.checkpoints import (  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
+    SessionMapTrajectory,
     SourceRange,
 )
 from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
@@ -97,6 +98,10 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
                 for item in payload["new_evidence_envelopes"]
             )
             return SessionMapDraft(
+                trajectory=SessionMapTrajectory(
+                    text="The redevelopment work moved into active legal review.",
+                    sources=sources,
+                ),
                 entries=(
                     SessionMapEntry(
                         id="redevelopment_legal_review",
@@ -106,7 +111,7 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
                         text="Continue legal review of the redevelopment proposal.",
                         sources=sources,
                     ),
-                )
+                ),
             )
 
         async def recovery_summary(**_kwargs: object) -> str:

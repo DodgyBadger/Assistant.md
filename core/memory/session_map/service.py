@@ -177,6 +177,10 @@ async def _execute_session_map_authoring(
             thinking=request.thinking,
             prompt=prompt,
         )
+        if draft.entries and draft.schema_version != 2:
+            raise ValueError(
+                "Session-map authoring requires the current trajectory schema"
+            )
         validate_session_map_provenance(
             draft,
             envelopes=(
@@ -211,6 +215,9 @@ async def _execute_session_map_authoring(
             "model_alias": request.model_alias,
             "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
             "entry_count": len(draft.entries),
+            "trajectory_char_count": (
+                len(draft.trajectory.text) if draft.trajectory is not None else 0
+            ),
             "evidence_envelope_count": len(request.envelopes),
             "retained_evidence_message_count": len(request.retained_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),

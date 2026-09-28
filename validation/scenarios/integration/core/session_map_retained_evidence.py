@@ -35,6 +35,7 @@ from core.memory.session_map.checkpoints import (  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
+    SessionMapTrajectory,
     SourceRange,
 )
 from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
@@ -85,6 +86,10 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
         captured_payloads: list[dict[str, object]] = []
 
         retained_artifact = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The deployment work moved from planning the README to completing it.",
+                sources=(SourceRange(start=0, end=2),),
+            ),
             entries=(
                 SessionMapEntry(
                     id="deployment_readme",
@@ -94,7 +99,7 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
                     text="The deployment README is complete.",
                     sources=(SourceRange(start=2, end=2),),
                 ),
-            )
+            ),
         )
 
         async def author_without_stale_action(**kwargs: object) -> SessionMapDraft:

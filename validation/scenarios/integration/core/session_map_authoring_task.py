@@ -18,6 +18,7 @@ from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
     SessionMapProvenanceError,
+    SessionMapTrajectory,
     SourceRange,
 )
 from core.memory.session_map.service import (  # noqa: E402
@@ -56,6 +57,10 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             ),
         )
         authored = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The legal-review work concluded after the user confirmed completion.",
+                sources=(SourceRange(start=10, end=12),),
+            ),
             entries=(
                 SessionMapEntry(
                     id="legal_review_completed",
@@ -65,7 +70,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                     text="The legal review is complete.",
                     sources=(SourceRange(start=12, end=12),),
                 ),
-            )
+            ),
         )
         observed_tasks: list[tuple[str, str]] = []
 
@@ -122,6 +127,10 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         )
 
         unsupported = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The legal-review trajectory remains grounded.",
+                sources=(SourceRange(start=10, end=10),),
+            ),
             entries=(
                 SessionMapEntry(
                     id="unsupported_decision",
@@ -131,7 +140,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                     text="An unavailable decision.",
                     sources=(SourceRange(start=99, end=99),),
                 ),
-            )
+            ),
         )
 
         async def return_unsupported_map(**_kwargs: object) -> SessionMapDraft:

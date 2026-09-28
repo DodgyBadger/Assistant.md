@@ -33,6 +33,7 @@ from core.memory.session_map.checkpoints import (  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
+    SessionMapTrajectory,
     SourceRange,
 )
 from core.memory.session_map.readiness import (  # noqa: E402
@@ -95,6 +96,7 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
         )
         assert initial_evidence.status == "resolved"
         initial_map = SessionMapDraft(
+            schema_version=1,
             entries=(
                 SessionMapEntry(
                     id="consulting_offer",
@@ -104,7 +106,7 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
                     text="Develop a practical consulting offer.",
                     sources=(SourceRange(start=0, end=1),),
                 ),
-            )
+            ),
         )
         commit_session_map_checkpoint(
             store=store,
@@ -198,6 +200,10 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
             )
             observed_ranges.extend((source.start, source.end) for source in sources)
             return SessionMapDraft(
+                trajectory=SessionMapTrajectory(
+                    text="The consulting offer advanced by reconciling a durable note with the current launch plan.",
+                    sources=sources,
+                ),
                 entries=(
                     initial_map.entries[0],
                     SessionMapEntry(
@@ -208,7 +214,7 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
                         text="Legacy and newly evicted evidence were reconciled.",
                         sources=sources,
                     ),
-                )
+                ),
             )
 
         readiness = evaluate_session_map_readiness(

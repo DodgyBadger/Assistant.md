@@ -1600,6 +1600,27 @@ details summary::-webkit-details-marker {
     margin-top: 1rem;
 }
 
+.session-map-trajectory {
+    display: grid;
+    gap: 0.45rem;
+    margin-top: 1rem;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 0.375rem;
+    background: rgb(var(--bg-elevated));
+}
+
+.session-map-trajectory h3 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: rgb(var(--text-primary));
+}
+
+.session-map-trajectory p {
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
 .session-map-section-heading {
     display: flex;
     align-items: center;

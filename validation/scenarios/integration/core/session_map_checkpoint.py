@@ -24,6 +24,7 @@ from core.memory.session_map.checkpoints import (  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
+    SessionMapTrajectory,
     SourceRange,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
@@ -62,6 +63,10 @@ class SessionMapCheckpointScenario(BaseScenario):
             end=1,
         )
         first_map = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The session began by organizing a legal review of the proposal.",
+                sources=(SourceRange(start=0, end=1),),
+            ),
             entries=(
                 SessionMapEntry(
                     id="proposal_legal_review",
@@ -71,7 +76,7 @@ class SessionMapCheckpointScenario(BaseScenario):
                     text="Review the redevelopment proposal.",
                     sources=(SourceRange(start=0, end=1),),
                 ),
-            )
+            ),
         )
         first_commit = commit_session_map_checkpoint(
             store=store,
@@ -206,6 +211,13 @@ class SessionMapCheckpointScenario(BaseScenario):
         )
         second_envelope = second_evidence.envelopes[0]
         second_map = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The proposal review narrowed to the legal implications of City land ownership.",
+                sources=(
+                    SourceRange(start=0, end=1),
+                    SourceRange(start=2, end=3),
+                ),
+            ),
             entries=(
                 first_map.entries[0],
                 SessionMapEntry(
@@ -216,7 +228,7 @@ class SessionMapCheckpointScenario(BaseScenario):
                     text="City land ownership requires legal clarification.",
                     sources=(SourceRange(start=2, end=3),),
                 ),
-            )
+            ),
         )
         second_commit = commit_session_map_checkpoint(
             store=store,
@@ -298,6 +310,12 @@ class SessionMapCheckpointScenario(BaseScenario):
             current_payload["revisions"][-1]["map_observed_through_sequence_index"],
             3,
             "The inspection payload should distinguish the authored observation boundary",
+        )
+        assert second_map.trajectory is not None
+        self.soft_assert_equal(
+            current_payload["session_map"]["trajectory"],
+            second_map.trajectory.model_dump(mode="json"),
+            "Map inspection should expose the source-linked narrative bridge",
         )
         historical_response = self.call_api(
             f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"

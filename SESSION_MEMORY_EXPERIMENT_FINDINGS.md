@@ -132,13 +132,19 @@ The smallest resulting context retained the active compensation offer, agreement
 
 The replay also exposed a separate correctness edge case. Real transcripts can contain an abandoned user turn with no assistant response before a later completed turn. The planner initially treated such an incomplete historical group as a permanent non-evictable prefix, so an otherwise eligible long session returned `incomplete_eviction_prefix`. The corrected planner now treats the later user turn as the boundary that makes the abandoned input historical canonical evidence: it can leave effective context without being deleted or omitted, while the newest active turn remains non-evictable and malformed tool history remains blocked.
 
+### 13. A small narrative bridge is a practical hybrid
+
+The sharpest difference between recovery cards and structured maps was narrative freedom rather than factual capacity. A hybrid Compaction v2 checkpoint therefore added one source-linked trajectory alongside the typed current-state entries, authored and validated in the same model call rather than maintaining a second summary. Across twelve live checkpoints, trajectory text remained between 369 and 551 characters while preserving the causal transitions most likely to be flattened by a field-only representation: why the budget and shortlist changed, why outreach paused and resumed, and why site selection remained open.
+
+All twelve authoring tasks completed, including retrieval-heavy retrospective turns, and the final effective context remained approximately 2,050 estimated tokens. The trajectories were not miniature transcripts and did not simply repeat every entry. This is positive evidence that a small narrative bridge can recover some recovery-card expressiveness without giving up structure, provenance, or compactness. Because the live user simulator produced a different conversation and checkpoint cadence from the prior map-only run, it is not a controlled demonstration that the hybrid is smaller or more accurate.
+
 ## Current Interpretation
 
 The experiments support three decisions with different confidence levels.
 
 First, bounded in-session transcript retrieval and an explicit cue to use it are durable improvements and should remain regardless of later memory choices.
 
-Second, rolling eviction backed by a provenance-aware session map is promising enough for continued opt-in use. It produced leaner compact state, represented supersession clearly, preserved raw evidence, and supported accurate retrieval. It has not yet earned replacement of recovery-card compaction as the default.
+Second, rolling eviction backed by a provenance-aware hybrid checkpoint is promising enough for continued opt-in use. Its bounded trajectory preserves causal orientation while typed entries represent current state and supersession; canonical sources preserve auditability and retrieval. It has not yet earned replacement of recovery-card compaction as the default.
 
 Third, Jev demonstrated credible movement classification but not enough value as a map-author gate. The gate changes when an inevitable rewrite occurs rather than eliminating the underlying work, and its savings depend on slice cadence while adding another runtime mode and failure path. The map should therefore use its configurable eviction watermarks directly and author unconditionally at each selected boundary. Gate-specific code should be removed while the generic decision-model capability remains available for better-supported uses.
 

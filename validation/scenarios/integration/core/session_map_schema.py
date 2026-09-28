@@ -19,9 +19,11 @@ class SessionMapSchemaScenario(BaseScenario):
         )
         from core.memory.session_map.models import (
             MAX_SESSION_MAP_ENTRIES,
+            MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS,
             SessionMapDraft,
             SessionMapEntry,
             SessionMapProvenanceError,
+            SessionMapTrajectory,
             SourceRange,
             validate_session_map_provenance,
         )
@@ -41,6 +43,7 @@ class SessionMapSchemaScenario(BaseScenario):
             ),
         )
         previous = SessionMapDraft(
+            schema_version=1,
             entries=(
                 SessionMapEntry(
                     id="redevelopment_orientation",
@@ -58,9 +61,16 @@ class SessionMapSchemaScenario(BaseScenario):
                     text="Wait for the written materials before deciding next steps.",
                     sources=(SourceRange(start=4, end=5),),
                 ),
-            )
+            ),
         )
         authored = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The work moved from initial proposal review into legal review after the City land issue emerged.",
+                sources=(
+                    SourceRange(start=2, end=5),
+                    SourceRange(start=10, end=14),
+                ),
+            ),
             entries=(
                 SessionMapEntry(
                     id="redevelopment_orientation",
@@ -100,7 +110,7 @@ class SessionMapSchemaScenario(BaseScenario):
                     text="The City owns the land beneath the co-op.",
                     sources=(SourceRange(start=14, end=14),),
                 ),
-            )
+            ),
         )
         validated = validate_session_map_provenance(
             authored,
@@ -115,7 +125,7 @@ class SessionMapSchemaScenario(BaseScenario):
                 envelopes=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v4"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v5"
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
             item["source_range"] for item in prompt_payload["new_evidence_envelopes"]
@@ -135,6 +145,10 @@ class SessionMapSchemaScenario(BaseScenario):
             raise AssertionError("Authoring without new evidence should fail")
 
         unsupported = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The prior legal-review trajectory remains current.",
+                sources=(SourceRange(start=10, end=10),),
+            ),
             entries=(
                 SessionMapEntry(
                     id="invented_claim",
@@ -144,7 +158,7 @@ class SessionMapSchemaScenario(BaseScenario):
                     text="An unsupported decision.",
                     sources=(SourceRange(start=99, end=100),),
                 ),
-            )
+            ),
         )
         try:
             validate_session_map_provenance(
@@ -159,7 +173,51 @@ class SessionMapSchemaScenario(BaseScenario):
             raise AssertionError("Out-of-scope source ranges should be rejected")
 
         try:
+            validate_session_map_provenance(
+                SessionMapDraft(
+                    trajectory=SessionMapTrajectory(
+                        text="An unsupported trajectory.",
+                        sources=(SourceRange(start=98, end=98),),
+                    ),
+                    entries=authored.entries,
+                ),
+                envelopes=envelopes,
+                previous_map=previous,
+            )
+        except SessionMapProvenanceError as exc:
+            assert "trajectory" in str(exc)
+            assert "98-98" in str(exc)
+        else:
+            raise AssertionError("Out-of-scope trajectory provenance should fail")
+
+        legacy = SessionMapDraft.model_validate(
+            {
+                "schema_version": 1,
+                "entries": previous.model_dump(mode="json")["entries"],
+            }
+        )
+        assert legacy.trajectory is None
+
+        try:
+            SessionMapDraft(entries=authored.entries)
+        except ValueError as exc:
+            assert "requires a trajectory" in str(exc)
+        else:
+            raise AssertionError("Current nonempty maps should require a trajectory")
+
+        try:
+            SessionMapTrajectory(
+                text="x" * (MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS + 1),
+                sources=(SourceRange(start=10, end=10),),
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("The narrative trajectory budget should be enforced")
+
+        try:
             SessionMapDraft(
+                schema_version=1,
                 entries=(
                     SessionMapEntry(
                         id="first_orientation",
@@ -177,7 +235,7 @@ class SessionMapSchemaScenario(BaseScenario):
                         text="Second orientation.",
                         sources=(SourceRange(start=11, end=11),),
                     ),
-                )
+                ),
             )
         except ValueError as exc:
             assert "orientation" in str(exc).lower()
@@ -186,6 +244,7 @@ class SessionMapSchemaScenario(BaseScenario):
 
         try:
             SessionMapDraft(
+                schema_version=1,
                 entries=tuple(
                     SessionMapEntry(
                         id=f"goal_{index}",
@@ -196,7 +255,7 @@ class SessionMapSchemaScenario(BaseScenario):
                         sources=(SourceRange(start=10, end=10),),
                     )
                     for index in range(MAX_SESSION_MAP_ENTRIES + 1)
-                )
+                ),
             )
         except ValueError:
             pass
@@ -205,6 +264,7 @@ class SessionMapSchemaScenario(BaseScenario):
 
         try:
             SessionMapDraft(
+                schema_version=1,
                 entries=(
                     SessionMapEntry(
                         id="duplicate_entry",
@@ -222,7 +282,7 @@ class SessionMapSchemaScenario(BaseScenario):
                         text="Second duplicate.",
                         sources=(SourceRange(start=11, end=11),),
                     ),
-                )
+                ),
             )
         except ValueError as exc:
             assert "unique" in str(exc).lower()
