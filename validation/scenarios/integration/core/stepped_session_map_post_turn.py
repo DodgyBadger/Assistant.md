@@ -32,7 +32,7 @@ from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
 class SteppedSessionMapPostTurnScenario(BaseScenario):
-    """Use maps only after successful authoring and fall back without data loss."""
+    """Pin context strategy and defer map failures without crossing formats."""
 
     async def test_scenario(self) -> None:
         vault = self.create_vault("SteppedSessionMapPostTurnVault")
@@ -90,7 +90,7 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         async def authored_map(**kwargs: object) -> SessionMapDraft:
             nonlocal author_calls
             author_calls += 1
-            if author_calls == 2:
+            if author_calls in {2, 3}:
                 raise RuntimeError("deterministic author failure")
             payload = json.loads(str(kwargs["prompt"]))
             sources = tuple(
@@ -142,6 +142,20 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
                     "model": "test",
                 }
             )
+            response = self.call_api(
+                "/api/system/settings/general/context_reduction_strategy",
+                method="PUT",
+                data={"value": "recovery_card"},
+            )
+            pinned_chat = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "Record the latest legal-review position.",
+                    "session_id": successful_session,
+                    "tools": [],
+                    "model": "test",
+                }
+            )
         finally:
             chat_executor._prepare_agent_config = original_prepare
             session_map_service._invoke_session_map_model = original_author
@@ -173,8 +187,8 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         success_effective = store.get_history(successful_session, vault.name) or []
         self.soft_assert_equal(
             len(success_raw),
-            6,
-            "The map path should retain every canonical chat message",
+            8,
+            "Repeated map reductions should retain every canonical chat message",
         )
         self.soft_assert(
             len(success_effective) < len(success_raw),
@@ -191,14 +205,58 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         )
         self.soft_assert_equal(
             failed_checkpoint.checkpoint_kind if failed_checkpoint else None,
-            "recovery_card",
-            "A failed map author should fall back to recovery-card compaction",
+            None,
+            "A failed first map author should not silently select recovery-card compaction",
         )
         failed_raw = store.get_history(failed_session, vault.name, mode="raw") or []
         self.soft_assert_equal(
             len(failed_raw),
             6,
-            "Fallback compaction should preserve every canonical chat message",
+            "Deferred map authoring should preserve every canonical chat message",
+        )
+
+        self.soft_assert_equal(
+            response.status_code,
+            200,
+            "The global context-reduction default should update",
+        )
+        self.soft_assert_equal(
+            pinned_chat["terminal_event"].get("event"),
+            "done",
+            "A pinned map session should continue after the global default changes",
+        )
+        pinned_checkpoint = store.get_latest_context_checkpoint(
+            successful_session, vault.name
+        )
+        self.soft_assert_equal(
+            pinned_checkpoint.checkpoint_kind if pinned_checkpoint else None,
+            "session_map",
+            "An established map checkpoint should pin the session to Compaction v2",
+        )
+        self.soft_assert_equal(
+            len(
+                store.list_context_checkpoints(
+                    successful_session,
+                    vault.name,
+                    checkpoint_kind="session_map",
+                )
+            ),
+            1,
+            "A failed pinned-map rewrite should leave the prior checkpoint untouched",
+        )
+
+        manual_recovery_rejected = False
+        try:
+            await compaction.compact_chat_history(
+                session_id=successful_session,
+                vault_name=vault.name,
+                vault_path=str(vault),
+            )
+        except ValueError:
+            manual_recovery_rejected = True
+        self.soft_assert(
+            manual_recovery_rejected,
+            "Direct recovery-card compaction should reject a pinned map session",
         )
 
         map_tasks = await runtime.task_coordinator.list_tasks(
@@ -206,21 +264,16 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         )
         self.soft_assert_equal(
             [task.status for task in map_tasks],
-            ["completed", "failed"],
+            ["completed", "failed", "failed"],
             "Every attempted map author should have an observable task outcome",
         )
         compaction_tasks = await runtime.task_coordinator.list_tasks(
             kind=ExecutionTaskKind.HISTORY_COMPACTION.value
         )
         self.soft_assert_equal(
-            len(compaction_tasks),
-            1,
-            "Recovery-card work should run only for the failed map attempt",
-        )
-        self.soft_assert_equal(
-            compaction_tasks[0].status,
-            "completed",
-            "The fallback recovery-card task should complete normally",
+            compaction_tasks,
+            [],
+            "Map failures and setting changes should not dispatch recovery-card work",
         )
         all_tasks = await runtime.task_coordinator.list_tasks()
         self.soft_assert(

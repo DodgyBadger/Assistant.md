@@ -187,7 +187,7 @@ settings:
     restart_required: false
   context_reduction_strategy:
     value: recovery_card
-    description: "Effective-history reduction strategy. Keep recovery_card unless intentionally testing the experimental stepped_session_map strategy; unavailable or ineligible map sessions continue using recovery-card compaction."
+    description: "Default effective-history reduction strategy for sessions without a checkpoint. After the first reduction, each session remains pinned to recovery_card or stepped_session_map until an explicit rebuild changes it."
     category: "Chat"
     restart_required: false
   session_map_author_model:

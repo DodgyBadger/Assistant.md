@@ -26,6 +26,7 @@ class SessionMapReadiness:
 
     enabled: bool
     reason: str
+    configured_strategy: str
     strategy: str
     author_model: str | None
     author_thinking: ThinkingValue
@@ -41,7 +42,14 @@ def evaluate_session_map_readiness(
     model_availability_check: Callable[[str], None] = validate_api_keys,
 ) -> SessionMapReadiness:
     """Resolve whether one session may use stepped-map context reduction."""
-    strategy = get_context_reduction_strategy()
+    configured_strategy = get_context_reduction_strategy()
+    checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+    if checkpoint is None:
+        strategy = configured_strategy
+    elif checkpoint.checkpoint_kind == "session_map":
+        strategy = "stepped_session_map"
+    else:
+        strategy = "recovery_card"
     author_model = get_session_map_author_model()
     try:
         author_thinking = get_session_map_author_thinking()
@@ -56,6 +64,7 @@ def evaluate_session_map_readiness(
         return SessionMapReadiness(
             enabled=enabled,
             reason=reason,
+            configured_strategy=configured_strategy,
             strategy=strategy,
             author_model=author_model,
             author_thinking=author_thinking,
@@ -64,7 +73,12 @@ def evaluate_session_map_readiness(
         )
 
     if strategy != "stepped_session_map":
-        return result(False, "strategy_not_enabled")
+        reason = (
+            "recovery_card_checkpoint_present"
+            if checkpoint is not None and checkpoint.checkpoint_kind == "recovery_card"
+            else "strategy_not_enabled"
+        )
+        return result(False, reason)
     if get_compaction_type() != "auto":
         return result(False, "automatic_context_reduction_disabled")
     if author_model is None:
@@ -88,11 +102,8 @@ def evaluate_session_map_readiness(
     session = store.get_session(session_id=session_id, vault_name=vault_name)
     if session is None:
         return result(False, "session_not_found")
-    checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
     if checkpoint is None:
         return result(True, "ready_canonical_history")
-    if checkpoint.checkpoint_kind != "session_map":
-        return result(False, "recovery_card_checkpoint_present")
     try:
         load_session_map_checkpoint(checkpoint)
     except ValueError:

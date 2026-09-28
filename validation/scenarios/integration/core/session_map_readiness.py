@@ -185,9 +185,13 @@ class SessionMapReadinessScenario(BaseScenario):
             vault_name=vault.name,
         )
         self.soft_assert_equal(
-            (recovery_card.enabled, recovery_card.reason),
-            (False, "recovery_card_checkpoint_present"),
-            "An existing recovery card should keep the session on its current strategy",
+            (
+                recovery_card.enabled,
+                recovery_card.reason,
+                recovery_card.strategy,
+            ),
+            (False, "recovery_card_checkpoint_present", "recovery_card"),
+            "An existing recovery card should pin the session to its current strategy",
         )
 
         self.assert_no_failures()

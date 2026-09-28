@@ -246,6 +246,14 @@ async def compact_chat_history(
         async with chat_session_history_lock(
             session_id=session_id, vault_name=vault_name
         ):
+            checkpoint = chat_store.get_latest_context_checkpoint(
+                session_id, vault_name
+            )
+            if checkpoint is not None and checkpoint.checkpoint_kind == "session_map":
+                raise ValueError(
+                    "Recovery-card compaction cannot replace a session-map checkpoint; "
+                    "use an explicit context rebuild to change strategies."
+                )
             messages = chat_store.get_history(session_id, vault_name) or []
             integrity = analyze_tool_history(messages)
             if not integrity.ok:
@@ -864,6 +872,7 @@ async def maybe_auto_compact_after_turn(
                 "session_id": session_id,
                 "vault_name": vault_name,
                 "strategy": readiness.strategy,
+                "configured_strategy": readiness.configured_strategy,
                 "reason": readiness.reason,
                 "high_watermark_tokens": readiness.high_watermark_tokens,
                 "low_watermark_tokens": readiness.low_watermark_tokens,
@@ -880,17 +889,19 @@ async def maybe_auto_compact_after_turn(
             )
         except Exception as exc:
             logger.warning(
-                "session_map_context_reduction_fallback",
+                "session_map_context_reduction_deferred",
                 data={
-                    "event": "session_map_context_reduction_fallback",
+                    "event": "session_map_context_reduction_deferred",
                     "session_id": session_id,
                     "vault_name": vault_name,
                     "strategy": readiness.strategy,
+                    "configured_strategy": readiness.configured_strategy,
                     "reason": "session_map_reduction_failed",
                     "error_type": type(exc).__name__,
                     "error": str(exc),
                 },
             )
+            return None
     elif readiness.strategy == "stepped_session_map":
         logger.info(
             "context_reduction_strategy_selected",
@@ -898,11 +909,13 @@ async def maybe_auto_compact_after_turn(
                 "event": "context_reduction_strategy_selected",
                 "session_id": session_id,
                 "vault_name": vault_name,
-                "strategy": "recovery_card",
+                "strategy": readiness.strategy,
+                "configured_strategy": readiness.configured_strategy,
                 "reason": readiness.reason,
-                "configured_strategy": readiness.strategy,
+                "action": "deferred",
             },
         )
+        return None
     return await _run_automatic_recovery_card_compaction(
         session_id=session_id,
         vault_name=vault_name,
