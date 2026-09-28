@@ -151,18 +151,36 @@ class SteppedEvictionPlannerScenario(BaseScenario):
         assert oversized_plan.eviction_end_index == 2
         assert oversized_plan.estimated_tokens_after == oversized_recent
 
-        incomplete_prefix = [
+        abandoned_prefix = [
             _user("An unanswered old request."),
             _user("A newer request."),
             _assistant("Only the newer request was answered."),
         ]
-        incomplete_plan = compaction.plan_stepped_history_eviction(
-            incomplete_prefix,
+        abandoned_plan = compaction.plan_stepped_history_eviction(
+            abandoned_prefix,
             high_watermark_tokens=1,
             low_watermark_tokens=0,
         )
-        assert incomplete_plan.status == "no_op"
-        assert incomplete_plan.reason == "incomplete_eviction_prefix"
+        assert abandoned_plan.status == "planned"
+        assert abandoned_plan.reason == "newest_group_exceeds_low_watermark"
+        assert abandoned_plan.eviction_end_index == 1
+        assert abandoned_plan.evicted_message_count == 1
+        assert abandoned_plan.retained_message_count == 2
+
+        newest_incomplete = [
+            _user("An answered old request."),
+            _assistant("The old answer."),
+            _user("The active request must remain verbatim."),
+        ]
+        newest_incomplete_plan = compaction.plan_stepped_history_eviction(
+            newest_incomplete,
+            high_watermark_tokens=1,
+            low_watermark_tokens=0,
+        )
+        assert newest_incomplete_plan.status == "planned"
+        assert newest_incomplete_plan.eviction_end_index == 2
+        assert newest_incomplete_plan.evicted_message_count == 2
+        assert newest_incomplete_plan.retained_message_count == 1
 
         malformed_tools = [
             _user("Use a tool."),

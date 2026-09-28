@@ -974,7 +974,7 @@ def get_session_map_low_watermark_tokens() -> int:
     entry = get_general_settings().get("session_map_low_watermark_tokens")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(
-        "session_map_low_watermark_tokens", 60_000
+        "session_map_low_watermark_tokens", 20_000
     )
     try:
         parsed = _setting_int(value)

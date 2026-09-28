@@ -68,6 +68,7 @@ def build_session_map_authoring_prompt(
     previous_map: SessionMapDraft,
     envelopes: Sequence[SessionMapEvidenceEnvelope],
     retained_evidence: Sequence[SessionMapRetainedEvidence] = (),
+    retrieved_evidence: Sequence[SessionMapRetainedEvidence] = (),
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not envelopes:
@@ -100,6 +101,18 @@ def build_session_map_authoring_prompt(
                 "content": message.content_text,
             }
             for message in retained_evidence
+        ],
+        "retrieved_canonical_evidence": [
+            {
+                "source_range": {
+                    "start": message.sequence_index,
+                    "end": message.sequence_index,
+                },
+                "sequence_index": message.sequence_index,
+                "role": message.role,
+                "content": message.content_text,
+            }
+            for message in retrieved_evidence
         ],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

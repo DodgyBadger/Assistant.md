@@ -13,10 +13,17 @@ from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
     TextPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
-from core.chat.compaction import maybe_auto_compact_after_turn  # noqa: E402
+from core.chat.compaction import (  # noqa: E402
+    SteppedHistoryEvictionPlan,
+    _build_retained_session_map_evidence,
+    _build_retrieved_session_map_evidence,
+    maybe_auto_compact_after_turn,
+)
 from core.identity import (  # noqa: E402
     LOCAL_USER_AUTHORITY,
     LOCAL_USER_PRINCIPAL_ID,
@@ -169,6 +176,95 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             tasks[0].metadata.get("retained_evidence_message_count"),
             2,
             "The governed task should expose the bounded retained-evidence count",
+        )
+
+        retrieval_session_id = "session-map-retrieved-evidence"
+        store.ensure_session(
+            retrieval_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            retrieval_session_id,
+            vault.name,
+            [
+                _user("The original pilot ceiling is $120,000."),
+                _assistant("Recorded the original ceiling."),
+                _user("What was the original ceiling?"),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            tool_name="session_ops",
+                            args={
+                                "operation": "get_transcript_window",
+                                "sequence_index": 0,
+                            },
+                            tool_call_id="window-1",
+                        )
+                    ]
+                ),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_name="session_ops",
+                            tool_call_id="window-1",
+                            content={
+                                "status": "ok",
+                                "operation": "get_transcript_window",
+                                "session_id": retrieval_session_id,
+                                "vault_name": vault.name,
+                                "messages": [
+                                    {
+                                        "sequence_index": 0,
+                                        "role": "user",
+                                        "content": "The original pilot ceiling is $120,000.",
+                                    }
+                                ],
+                            },
+                        )
+                    ]
+                ),
+                _assistant("The original ceiling was $120,000."),
+            ],
+        )
+        retrieval_plan = SteppedHistoryEvictionPlan(
+            status="planned",
+            reason="above_high_watermark",
+            history_revision=1,
+            high_watermark_tokens=2,
+            low_watermark_tokens=1,
+            estimated_tokens_before=10,
+            estimated_tokens_after=8,
+            message_count_before=6,
+            evicted_message_count=2,
+            retained_message_count=4,
+            group_count=2,
+            evicted_group_count=1,
+            retained_prefix_count=0,
+            eviction_start_index=0,
+            eviction_end_index=2,
+        )
+        retained_after_retrieval = _build_retained_session_map_evidence(
+            store=store,
+            session_id=retrieval_session_id,
+            vault_name=vault.name,
+            plan=retrieval_plan,
+        )
+        retrieved_canonical = _build_retrieved_session_map_evidence(
+            store=store,
+            session_id=retrieval_session_id,
+            vault_name=vault.name,
+            plan=retrieval_plan,
+        )
+        self.soft_assert_equal(
+            [message.sequence_index for message in retained_after_retrieval],
+            [2, 3, 5],
+            "The retrieval envelope itself should not become map evidence",
+        )
+        self.soft_assert_equal(
+            [message.sequence_index for message in retrieved_canonical],
+            [0],
+            "A transcript window should rehydrate its canonical source message",
         )
 
         self.assert_no_failures()

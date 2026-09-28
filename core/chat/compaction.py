@@ -116,7 +116,7 @@ class ChatHistoryCompactionResult:
 
 @dataclass(frozen=True)
 class SteppedHistoryEvictionPlan:
-    """Pure high/low-watermark plan over complete provider-history groups."""
+    """Pure high/low-watermark plan over whole provider-history groups."""
 
     status: str
     reason: str
@@ -179,11 +179,10 @@ class SessionMapContextReductionResult:
 
 @dataclass(frozen=True)
 class _HistoryMessageGroup:
-    """One complete or incomplete conversational group in effective history."""
+    """One conversational group bounded by user or system input."""
 
     start_index: int
     end_index: int
-    complete: bool
 
 
 @asynccontextmanager
@@ -463,17 +462,6 @@ def plan_stepped_history_eviction(
     evicted_group_count = 0
     estimated_after = estimated_before
     for group in groups[:-1]:
-        if not group.complete:
-            return _no_op_eviction_plan(
-                reason="incomplete_eviction_prefix",
-                messages=messages,
-                groups=groups,
-                estimated_tokens=estimated_before,
-                history_revision=history_revision,
-                high_watermark_tokens=high_watermark_tokens,
-                low_watermark_tokens=low_watermark_tokens,
-                retained_prefix_count=retained_prefix_count,
-            )
         eviction_end_index = retained_prefix_count + group.end_index
         evicted_group_count += 1
         estimated_after = estimate_history_tokens(
@@ -708,8 +696,7 @@ def _build_canonical_eviction_envelope(
     source_end = stored_messages[-1].sequence_index
     envelope_id = hashlib.sha256(
         (
-            f"{vault_name}\0{session_id}\0{source_start}\0{source_end}\0"
-            f"{source_digest}"
+            f"{vault_name}\0{session_id}\0{source_start}\0{source_end}\0{source_digest}"
         ).encode()
     ).hexdigest()
     projected_text = "\n\n".join(
@@ -758,7 +745,6 @@ def _group_history_messages(
             _HistoryMessageGroup(
                 start_index=start_index,
                 end_index=index,
-                complete=_history_group_is_complete(messages[start_index:index]),
             )
         )
         start_index = index
@@ -766,7 +752,6 @@ def _group_history_messages(
         _HistoryMessageGroup(
             start_index=start_index,
             end_index=len(messages),
-            complete=_history_group_is_complete(messages[start_index:]),
         )
     )
     return groups
@@ -779,24 +764,6 @@ def _starts_history_group(message: ModelMessage) -> bool:
         isinstance(part, UserPromptPart | SystemPromptPart)
         for part in (getattr(message, "parts", ()) or ())
     )
-
-
-def _history_group_is_complete(messages: list[ModelMessage]) -> bool:
-    if not messages:
-        return False
-    if len(messages) == 1 and _is_system_only_message(messages[0]):
-        return True
-    final_message = messages[-1]
-    return isinstance(final_message, ModelResponse) and not _tool_call_ids(
-        final_message
-    )
-
-
-def _is_system_only_message(message: ModelMessage) -> bool:
-    if not isinstance(message, ModelRequest):
-        return False
-    parts = getattr(message, "parts", ()) or ()
-    return bool(parts) and all(isinstance(part, SystemPromptPart) for part in parts)
 
 
 def _no_op_eviction_plan(
@@ -1025,6 +992,12 @@ async def _run_stepped_session_map_reduction(
             vault_name=vault_name,
             plan=plan,
         )
+        retrieved_evidence = _build_retrieved_session_map_evidence(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            plan=plan,
+        )
         authored = await run_session_map_authoring(
             SessionMapAuthoringRequest(
                 session_id=session_id,
@@ -1034,6 +1007,7 @@ async def _run_stepped_session_map_reduction(
                 previous_map=previous_map,
                 envelopes=cumulative_envelopes,
                 retained_evidence=retained_evidence,
+                retrieved_evidence=retrieved_evidence,
             ),
             authority=authority,
             source=ExecutionTaskSource.SYSTEM,
@@ -1055,6 +1029,7 @@ async def _run_stepped_session_map_reduction(
             source=ExecutionTaskSource.SYSTEM.value,
             authoring_task_id=authored.task_id,
             retained_evidence=retained_evidence,
+            retrieved_evidence=retrieved_evidence,
         )
         messages_after = (
             store.get_history(session_id, vault_name, mode="effective") or []
@@ -1110,7 +1085,93 @@ def _build_retained_session_map_evidence(
             content_text=message.content_text,
         )
         for message in retained
+        if not _is_session_ops_retrieval_result(message.message)
     )
+
+
+def _build_retrieved_session_map_evidence(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+    plan: SteppedHistoryEvictionPlan,
+) -> tuple[SessionMapRetainedEvidence, ...]:
+    """Rehydrate canonical messages named by retained transcript windows."""
+    stored_messages = store.get_stored_messages(
+        session_id, vault_name, mode="effective"
+    )
+    referenced_indexes: set[int] = set()
+    for stored in stored_messages[plan.eviction_end_index :]:
+        referenced_indexes.update(
+            _session_ops_window_sequence_indexes(
+                stored.message,
+                session_id=session_id,
+                vault_name=vault_name,
+            )
+        )
+    if not referenced_indexes:
+        return ()
+    raw_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
+    return tuple(
+        SessionMapRetainedEvidence(
+            sequence_index=message.sequence_index,
+            role=message.role,
+            content_text=message.content_text,
+        )
+        for message in raw_messages
+        if message.sequence_index in referenced_indexes
+        and not _is_session_ops_retrieval_result(message.message)
+    )
+
+
+def _is_session_ops_retrieval_result(message: ModelMessage) -> bool:
+    return bool(
+        isinstance(message, ModelRequest)
+        and any(
+            isinstance(part, ToolReturnPart) and part.tool_name == "session_ops"
+            for part in message.parts
+        )
+    )
+
+
+def _session_ops_window_sequence_indexes(
+    message: ModelMessage,
+    *,
+    session_id: str,
+    vault_name: str,
+) -> set[int]:
+    """Return canonical indexes from a valid same-session transcript window."""
+    if not isinstance(message, ModelRequest):
+        return set()
+    indexes: set[int] = set()
+    for part in message.parts:
+        if not isinstance(part, ToolReturnPart) or part.tool_name != "session_ops":
+            continue
+        payload = part.content
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("operation") != "get_transcript_window":
+            continue
+        if payload.get("status") != "ok" or payload.get("session_id") != session_id:
+            continue
+        payload_vault = payload.get("vault_name")
+        if payload_vault is not None and payload_vault != vault_name:
+            continue
+        messages = payload.get("messages")
+        if not isinstance(messages, list):
+            continue
+        for item in messages:
+            if not isinstance(item, dict):
+                continue
+            sequence_index = item.get("sequence_index")
+            if isinstance(sequence_index, int) and sequence_index >= 0:
+                indexes.add(sequence_index)
+    return indexes
 
 
 async def _run_automatic_recovery_card_compaction(

@@ -1,20 +1,34 @@
-# Session Transcript Retrieval and Context Evolution Plan
+# Session Transcript Retrieval and Compaction v2 Plan
 
 ## Status
 
-Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 implements a stepped-eviction map experiment behind the existing compaction boundary. The map-author gate was evaluated, rejected as unnecessary runtime complexity, and removed. The completed foundation indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence.
+Planning complete. Slice 1 and all five of its checkpoints are implemented and validated. Slice 2 established live-path feasibility and is closed without a larger trigger benchmark. Slice 3 makes recovery cards the conditional routing surface for transcript search and is complete without generated source references. Slice 4 implements opt-in Compaction v2: provenance-aware structured compaction with stepped eviction behind the existing context-reduction boundary. Jev has been evaluated and abandoned for session memory on this branch. The completed foundation indexes canonical transcripts, exposes bounded source retrieval, reuses the same backend for broad deep-session discovery, and keeps generated retrieval envelopes from becoming their own evidence while permitting canonical messages explicitly recovered through transcript windows to support later map revisions.
 
 ## Decision Summary
 
 AssistantMD's immediate long-session problem is not attention while relevant messages remain inside the model's effective context. It is the loss of detail, salience, and provenance after compaction replaces an older prefix with generated prose. Recovery cards remain useful for continuity, but repeated cards can reinterpret prior cards and cannot let the agent inspect the original evidence.
 
-The first product slice will therefore add sparse, bounded access to the canonical raw transcript through the existing `session_ops` tool. Lexical FTS is the initial ranking baseline, not a permanent restriction: the retrieval boundary must allow a later hybrid lexical/semantic strategy to reuse AssistantMD's existing session-search vector machinery without changing the tool contract. Slice 1 will not add embeddings, an autonomous memory author, or a second context representation. The current recovery-card compaction path remains unchanged while retrieval reliability is measured.
+The first product slice therefore added sparse, bounded access to the canonical raw transcript through the existing `session_ops` tool. Lexical FTS is the initial ranking baseline, not a permanent restriction: the retrieval boundary allows a later hybrid lexical/semantic strategy to reuse AssistantMD's existing session-search vector machinery without changing the tool contract. Slice 1 did not add embeddings, an autonomous memory author, or a second context representation. Recovery-card compaction remained unchanged while retrieval reliability was measured.
 
-A later experiment may replace checkpoint compaction with stepped eviction: keep a bounded recent transcript window, derive source-linked state from the message groups leaving that window, and retrieve raw evidence on demand. That direction becomes credible only after the retrieval primitive works reliably. It is not part of Slice 1.
+The later experiment should be understood as Compaction v2 rather than as a distinct live-memory system. Like recovery-card compaction, it periodically replaces an older effective-context prefix with generated continuation state and retains a recent verbatim tail. Its improvements are a structured and source-linked compact artifact, explicit high and low watermarks, whole-group eviction, immutable checkpoints, canonical transcript preservation, and bounded retrieval. The internal artifact remains a `session_map`, but that name does not imply continuous updating or a separate authority layer.
 
-The earlier live session-map implementation was removed rather than left dormant. The later stepped-eviction experiment rebuilt a smaller provenance-aware map on the context-reduction boundary. The generic TypeSafe/Jev provider, `decision` model capability, secret integration, and provider-neutral decision runtime remain reusable platform capabilities rather than session-map dependencies.
+Recovery-card compaction is Compaction v1 and remains the default and fallback while Compaction v2 is evaluated. Compaction v2 does not claim to eliminate summarization loss; it gives summarization a tighter schema and a route back to canonical evidence. Cross-session consolidation, vault memory, user-profile memory, and retrieval-cache admission remain separate memory-system concerns rather than extensions hidden inside the session map.
 
-The Jev map-author gate is now abandoned. It can defer a rewrite but cannot eliminate the eventual need to incorporate cumulative evidence, and the controlled replays did not demonstrate savings sufficient to justify another production mode, settings surface, task kind, and failure path. Stepped eviction should author unconditionally whenever its configurable high-watermark and low-watermark policy selects an outgoing prefix. Gate-specific runtime code will be removed while generic decision-model infrastructure remains. The leading future decision-model hypothesis is retrieval context admission, documented in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
+### Terminology and system boundary
+
+| Term | Meaning |
+| --- | --- |
+| Compaction v1 | The existing recovery-card strategy: generated continuity prose plus a retained recent tail. |
+| Compaction v2 | The opt-in structured-compaction strategy: a source-linked session map plus a retained recent tail, produced at configurable high/low-watermark boundaries. |
+| Session map | The internal structured checkpoint artifact used by Compaction v2; not a continuously updated or independent memory service. |
+| Canonical transcript | The authoritative raw session history retained outside effective model context and available through bounded search/window retrieval. |
+| Broader memory architecture | Future cross-session, user, vault, and cached-retrieval systems that may consume session artifacts but remain separate from session compaction. |
+
+Compaction v2 should earn promotion by outperforming Compaction v1 on continuity, current-state accuracy, resistance to salience drift over repeated reductions, provenance and recoverability, effective-context size, and total model work including retrieval. A smaller map alone is not success, and resemblance to a recovery card is not failure: the intended improvement is a cleaner and more inspectable compaction contract.
+
+The earlier continuously maintained live-map implementation was removed rather than left dormant. Compaction v2 rebuilt a smaller provenance-aware map only at the context-reduction boundary. The generic TypeSafe/Jev provider, `decision` model capability, secret integration, and provider-neutral decision runtime remain reusable platform capabilities rather than Compaction v2 dependencies.
+
+Jev is abandoned for session memory on this branch. The map-author gate could defer a rewrite but could not eliminate the eventual need to incorporate cumulative evidence, and the retrieval-reranking evaluation did not improve complete-answer coverage over a deterministic baseline. Stepped eviction authors unconditionally whenever its configurable high-watermark and low-watermark policy selects an outgoing prefix. Generic decision-model infrastructure remains for separately justified future features, but Compaction v2, transcript retrieval, and their validation have no Jev dependency. The completed reranking experiment is retained as a closed design record in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## User Outcomes
 
@@ -22,27 +36,27 @@ The Jev map-author gate is now abandoned. It can defer a rewrite but cannot elim
 - Retrieval returns small, explicit, source-linked excerpts rather than injecting an entire transcript.
 - Current-session lookup is direct; older-session lookup composes existing session discovery with the same transcript operations.
 - Results never cross the active vault or existing session-ownership boundary.
-- Canonical messages remain authoritative. Summaries, recovery cards, search indexes, and any later map are derived aids whose claims can be checked against source messages.
+- Canonical messages remain authoritative. Summaries, Compaction v1 recovery cards, search indexes, and Compaction v2 session maps are derived aids whose claims can be checked against source messages.
+- Compaction v2 can reduce effective history to a configurable target while preserving whole provider-history groups, a concise source-linked continuation state, and bounded access to evicted evidence.
 - Normal chat, compaction, and server startup do not depend on Jev or another optional service.
 
 ## Scope
 
 ### In scope now
 
-- Add `search_transcript` and `get_transcript_window` operations to `session_ops`.
-- Add a persistent lexical index over canonical raw chat messages in `chat_sessions.db`.
-- Rework `search_sessions(mode="deep")` to use the same raw-message index instead of building a temporary index over effective histories.
-- Add bounded result contracts, stable message anchors, vault authorization, truncation/continuation behavior, and prompt-injection-safe tool guidance.
-- Add concise system-owned retrieval guidance only after compaction by placing it in every recovery card.
-- Remove the live session-map product experiment and its obsolete plan, while retaining generic decision-model infrastructure.
+- Maintain `search_transcript` and `get_transcript_window` as bounded access to canonical raw session evidence.
+- Maintain the persistent lexical transcript index and the shared canonical backend for `search_sessions(mode="deep")`.
+- Keep Compaction v1 recovery cards as the default and fallback strategy, including their transcript-search guidance.
+- Evaluate opt-in Compaction v2 through the same post-turn compaction boundary using a structured session-map artifact, explicit high/low watermarks, whole-group eviction, provenance validation, and immutable checkpoint inspection.
+- Compare Compaction v2 with Compaction v1 on continuity, current-state accuracy, repeated-reduction drift, provenance recovery, context size, latency, and total model work.
+- Retain generic decision-model infrastructure without making Compaction v2 depend on Jev.
 
 ### Deferred
 
 - Hybrid lexical/semantic transcript ranking, evaluated behind the same bounded retrieval interface using the existing session-search vector infrastructure where practical.
 - Automatic retrieval on every turn.
 - Generated source references inside recovery cards; transcript search is the recovery-card routing mechanism while source ranges are tested as mechanical map metadata.
-- Sliding or stepped context eviction.
-- A replacement session-state map derived only from evicted messages.
+- Promotion of Compaction v2 to the default strategy or removal of Compaction v1.
 - Cross-session or vault memory consolidation.
 - Replacing the nightly session-summary workflow or its UI.
 
@@ -67,9 +81,9 @@ The design follows the existing ownership boundaries recorded in ADRs 0003, 0006
 | Agent-facing operations | `core/tools/session_ops.py` | Extend the existing session discovery and summary tool rather than create another chat-history tool. |
 | Effective provider history | `ChatHistoryService` | Leave ordinary effective-history construction unchanged. Transcript retrieval deliberately reads canonical raw records through the lower-level chat boundary. |
 | Broad historical discovery | Session summaries plus `search_sessions` | Keep summary search as the cheap first pass; make `deep` mode a bounded raw-message fallback returning anchors rather than transcript blocks. |
-| Future context reduction | `core/chat/compaction.py` or a factored strategy within that boundary | Compare checkpoint compaction and stepped eviction later without creating a parallel compactor. |
+| Context reduction | `core/chat/compaction.py` with the bounded artifact under `core/memory/session_map` | Keep Compaction v1 and Compaction v2 behind the same post-turn compaction boundary; the map package owns only the structured artifact and authoring contract, not a parallel memory runtime. |
 
-`ChatStore.get_stored_messages_range(...)`, introduced during the map work, is a generally useful canonical range primitive. Retain or refactor it under the retrieval service rather than deleting it with the map package. Everything that embeds session-map policy into chat execution should be removed.
+`ChatStore.get_stored_messages_range(...)`, introduced during the earlier map work, is a generally useful canonical range primitive shared by retrieval and Compaction v2 provenance resolution. The retired continuously maintained map policy must not return; Compaction v2 orchestration stays inside the existing compaction path.
 
 The transcript-search service should expose a strategy-neutral result shape keyed by canonical session and sequence anchors. The lexical implementation is first, but ranking policy must remain behind the service boundary so a hybrid implementation can combine FTS candidates with the existing `VectorService` and session-search scoring patterns. Neither the tool nor transcript-window retrieval should know which candidate generator produced an anchor.
 
@@ -267,14 +281,14 @@ Recovery cards remain the durable fallback when the map author is unavailable. T
 
 **Decision:** Deferred. Source ranges belong first on deterministic eviction envelopes and derived map entries, where the ranges are mechanically known rather than generated by the recovery-card author.
 
-## Slice 4: Stepped Eviction Experiment
+## Slice 4: Compaction v2 — Stepped Structured Compaction
 
-Compare checkpoint compaction with a sliding high-watermark/low-watermark strategy through independently testable checkpoints. The experiment remains opt-in until the final comparison proves it safe and useful; ordinary sessions continue to use recovery-card compaction.
+Compare Compaction v1 recovery cards with a structured high-watermark/low-watermark strategy through independently testable checkpoints. Compaction v2 remains opt-in until repeated live use demonstrates that it is at least as reliable and materially improves provenance, inspectability, or context efficiency; ordinary sessions continue to use Compaction v1.
 
-The candidate design is stepped eviction, not naive FIFO truncation:
+Compaction v2 is stepped structured compaction, not naive FIFO truncation or a continuously maintained memory service:
 
 1. Keep complete recent messages until a high token watermark is crossed.
-2. Select a coherent oldest prefix of complete turn/tool groups to remove until the low watermark is restored.
+2. Select a coherent oldest prefix of whole provider-history groups to remove until the low watermark is restored; an abandoned historical user group may leave context after a later group begins, while the newest group and malformed tool exchanges remain protected.
 3. Before removal, project the outgoing groups into authoring evidence with mechanically derived source ranges.
 4. Invoke a generative whole-map update for every eviction batch selected by the configurable watermarks.
 5. Commit the derived update and eviction checkpoint atomically enough that no canonical message leaves effective context without either retained recent context or a durable pointer/state representation.
@@ -284,9 +298,9 @@ The state representation for this experiment must be designed from eviction evid
 
 ### Slice 4A: Deterministic eviction planner
 
-**Status:** Complete. A pure planning boundary accepts provider-native effective history plus high and low token watermarks and returns an oldest-prefix boundary with token and grouping audit metadata without mutating storage. It plans only after the high watermark is crossed, preserves chronological order, retains the newest group, and never splits a complete user/assistant turn or tool-call/result exchange. It reports stable no-op reasons for history below the high watermark, invalid tool history, an incomplete evictable prefix, or a history with no older group to evict. When the newest indivisible group alone exceeds the low watermark, it safely evicts older complete groups and reports that the target remains exceeded.
+**Status:** Complete. A pure planning boundary accepts provider-native effective history plus high and low token watermarks and returns an oldest-prefix boundary with token and grouping audit metadata without mutating storage. It plans only after the high watermark is crossed, preserves chronological order, retains the newest group, and never splits a provider-history group or a valid tool-call/result exchange. A later user or system input makes an earlier abandoned user group historical and therefore evictable without deleting it from canonical storage. The planner reports stable no-op reasons for history below the high watermark, invalid tool history, or a history with no older group to evict. When the newest indivisible group alone exceeds the low watermark, it safely evicts older groups and reports that the target remains exceeded.
 
-The deterministic scenario covers ordinary turns, multiple tool calls and returns in one exchange, oversized indivisible groups, an existing recovery-card message, incomplete turns, malformed tool history, watermark validation, and stable token accounting. Slice 4A does not invoke Jev, author a map, change effective history, add settings, or persist state.
+The deterministic scenario covers ordinary turns, multiple tool calls and returns in one exchange, oversized indivisible groups, an existing recovery-card message, abandoned historical input, an incomplete newest turn, malformed tool history, watermark validation, and stable token accounting. Slice 4A does not invoke Jev, author a map, change effective history, add settings, or persist state.
 
 ### Slice 4B: Provenance-bearing eviction envelopes
 
@@ -450,6 +464,26 @@ Persisted-state cleanup must be one-way and lossless. Remove the three gate sett
 
 **Validation target:** Extend the unconditional post-turn scenario to prove that every planned eviction invokes one governed author task and no classification task. Add a focused legacy-checkpoint case proving that pending canonical evidence from a prior deferral is incorporated exactly once and then cleared. Cover removal of persisted gate settings, historical checkpoint readability, current modal rendering without gate fields, and generic Jev decision configuration. Run the focused map, settings-upgrade, API/UI, and decision-model scenarios plus the production Python quality gate.
 
+### Slice 4H: Tune the retained-context watermark and harden real-history grouping
+
+**Status:** Complete. The disposable comparison selected 20,000 tokens as the experimental default, and deterministic coverage now permits abandoned historical user turns to leave effective context without weakening active-turn or tool-history safety.
+
+The comparison held the 150,000-token high watermark, Terra map author, low thinking effort, authoring prompt, and canonical replay boundaries constant while testing 20,000-token and 40,000-token low-watermark targets. A clean 360-message suffix of the 1065 redevelopment transcript was replayed through three reductions per condition. The 20,000-token run produced effective contexts of approximately 62,700, 43,900, and 17,300 tokens; the 40,000-token run produced approximately 62,600, 43,800, and 26,200. A clean driving-planning control produced approximately 25,400 and 25,700 tokens. Complete provider-history groups frequently quantized both settings to the same eviction boundary, and one tool-heavy retained group alone contained roughly 61,600 estimated tokens.
+
+The 20,000-token maps remained semantically viable across the three successive rewrites. At the final checkpoint the map preserved the current compensation offer, side-letter protections, version-3 agreement issues, outstanding underpinning review, consultant arrangement, and future reciprocal-rights question with canonical provenance; it also replaced stale request-stage state with the later offer. No obvious stale-current-state or unsupported-promotion failure was found. When 20,000 and 40,000 selected the same boundary, their map differences reflected independent generative variation rather than the setting. Use 20,000 as the next opt-in live tuning value because it realizes the smaller context when group boundaries permit and safely degrades to retaining the newest complete group when they do not. Keep 40,000 available as a comparison setting rather than adding another runtime mode.
+
+The replay uncovered a separate correctness issue in canonical history. The full 1065 transcript contains several abandoned user turns without assistant responses, and the earlier planner could not cross one after it entered the evictable prefix. The planner now recognizes that a later user or system input closes the earlier group for eviction purposes. The abandoned content remains canonical evidence, appears exactly once in its own outgoing envelope, and retains its source index. The newest group is still never evicted, and the existing tool-history validator continues to block malformed or unresolved tool exchanges.
+
+**Validation result:** The planner and canonical-envelope scenarios prove the abandoned input is evicted exactly once with stable canonical provenance, the newest incomplete turn remains retained, and malformed tool history remains ineligible. The retained-evidence, pending-evidence, post-turn, and readiness scenarios pass with the correction. The experimental template and fallback default are now 20,000 tokens; settings loading preserves an existing user's explicit value. During live evaluation, record requested and actual post-reduction tokens, the size of the newest retained group, map tokens, retrieval count, and any stale-current-state or omitted-current-state finding.
+
+### Slice 4I: Multi-turn live-path validation and retrieved provenance
+
+**Status:** Complete. An initial 15-turn Terra-to-Terra conversation completed through the public chat-task API and normal task executor with eleven successful Compaction v2 checkpoints before a retrieval-heavy retrospective turn exposed a provenance boundary. The raw transcript contained 70 canonical messages because ordinary tool calls and results were preserved, and all three retrospective answers remained semantically accurate despite the later authoring failure and recovery-card fallback.
+
+The failed twelfth author pass tried to cite canonical message 6 after a retained `get_transcript_window` result had recovered that old source. The author could see the source, but provenance validation admitted only the outgoing interval, retained outer messages, and prior-map sources. Compaction v2 now excludes the retrieval envelope itself, mechanically resolves same-session window sequence IDs back to canonical raw messages, presents those messages in a separate authoring evidence section, and admits only those resolved sources to provenance validation. A deterministic regression proves that the retrieval envelope is not citable while its canonical source is.
+
+The corrected live rerun passed. It produced fourteen consecutive Compaction v2 checkpoints across fifteen completed turns, and all fourteen authoring tasks completed through the task executor. Retrieval-heavy revisions mechanically admitted thirteen and five canonical historical messages without citing their generated retrieval envelopes or switching to recovery-card history. The canonical transcript retained 46 messages and approximately 39,800 estimated tokens, while final effective context contained the latest map plus one user/assistant pair at approximately 2,100 tokens. The retrospective answers correctly recovered the replaced initial budget and site assumptions, the paused resident-fit workstream and its conditional resumption, and the current deliverable, settled constraints, and open temperature-dataset question. This establishes live-path feasibility across repeated reductions and retrieval; it does not yet establish long-horizon superiority over Compaction v1.
+
 ## Contract-Sensitive Areas
 
 - `session_ops` input schema, descriptions, error messages, and operation-specific parameter validation.
@@ -472,14 +506,16 @@ Persisted-state cleanup must be one-way and lossless. Remove the three gate sett
 4. Slice 1D: rebuild `search_sessions(mode="deep")` on the shared canonical index, add the cross-layer integration scenario, and run the full deterministic core profile; stop and verify the overall Slice 1 gate.
 5. Slice 1E: harden derived source projection and provenance, exclude retrieval-generated envelopes from candidate generation, backfill the canonical index, and rerun the Slice 1 validation gate.
 6. Close Slice 2 after live-path feasibility, remove its disposable probe, and defer hybrid ranking until an observed lexical recall failure justifies it.
-7. Add the fixed recovery-card transcript-search preamble and defer generated card references while stepped eviction is evaluated.
+7. Add the fixed Compaction v1 recovery-card transcript-search preamble and defer generated card references while Compaction v2 is evaluated.
 8. Implement Slices 4A and 4B as deterministic planning and provenance foundations with no runtime activation.
-9. Prove the bounded map and unconditional authoring path before adding opt-in runtime eviction, then evaluate Jev as an optimization over that working baseline.
+9. Prove the bounded session-map artifact and unconditional authoring path before adding opt-in Compaction v2 runtime eviction.
 10. Retire the map-author gate after the controlled evaluation, preserve one-way pending-evidence reconciliation, and keep the generic decision runtime for separately justified uses.
+11. Tune Compaction v2 to a 20,000-token low-watermark default, harden abandoned historical turns, and continue direct live comparison against Compaction v1 before considering default promotion.
+12. Validate repeated Compaction v2 checkpoints through a normal multi-turn chat, including retrospective transcript retrieval whose mechanically resolved canonical messages remain valid map provenance.
 
 ## Immediate Next Steps
 
-Begin bounded live tuning of the configurable stepped-eviction watermarks and use the checkpoint modal to inspect provenance failures, misleading stale state, semantic omissions, and retrieval behavior. Do not make stepped eviction the default or remove recovery-card compaction until live use adds evidence beyond the two controlled transcripts. Evaluate the separate retrieval context-admission hypothesis only through the disposable comparison defined in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
+Continue bounded opt-in comparison against Compaction v1 at the 20,000-token low-watermark default, focusing on repeated-reduction salience, stale current state, provenance recovery, total authoring and retrieval cost, and actual post-reduction size under whole-group constraints. Investigate the noisy but non-destructive first-turn maintenance case where a threshold-crossing tool-heavy turn contains no complete evictable prefix; it should defer cleanly rather than attempt an impossible recovery-card fallback. Do not make Compaction v2 the default or remove Compaction v1 until repeated live reductions demonstrate a clear operational advantage. No additional Jev memory experiments are planned on this branch.
 
 ## Evidence and Design Sources
 
@@ -499,6 +535,6 @@ Begin bounded live tuning of the configurable stepped-eviction watermarks and us
 - [MemGPT](https://arxiv.org/abs/2310.08560) is useful evidence for explicit movement between bounded working context and externally retrievable state, but does not establish AssistantMD's exact eviction or schema policy.
 - [LangMem background memory](https://langchain-ai.github.io/langmem/background_quickstart/) supports separating durable transforms from the foreground response path, while its broader memory lifecycle is not required for transcript retrieval.
 - [Graphiti](https://github.com/getzep/graphiti) provides relevant source-lineage and supersession patterns; its graph and embedding stack remain out of scope.
-- [Pydantic AI decision models](https://ai.pydantic.dev/models/decision/) and [TypeSafe integration](https://ai.pydantic.dev/models/typesafe/) remain references for future eviction classification, not dependencies of Slice 1.
+- [Pydantic AI decision models](https://ai.pydantic.dev/models/decision/) and [TypeSafe integration](https://ai.pydantic.dev/models/typesafe/) document generic platform capability retained outside the Compaction v2 design.
 
-These sources motivate experiments; they do not prove that stepped eviction will outperform AssistantMD's existing compaction. The comparison in Slice 4 is the decision boundary.
+These sources motivate experiments; they do not prove that Compaction v2 will outperform Compaction v1. Repeated live comparison through the shared compaction boundary remains the promotion gate.

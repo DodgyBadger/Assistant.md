@@ -44,6 +44,7 @@ class SessionMapAuthoringRequest:
     previous_map: SessionMapDraft
     envelopes: tuple[SessionMapEvidenceEnvelope, ...]
     retained_evidence: tuple[SessionMapRetainedEvidence, ...] = ()
+    retrieved_evidence: tuple[SessionMapRetainedEvidence, ...] = ()
     thinking: ThinkingValue = None
 
     def __post_init__(self) -> None:
@@ -114,6 +115,7 @@ async def run_session_map_authoring(
                 "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
                 "evidence_envelope_count": len(request.envelopes),
                 "retained_evidence_message_count": len(request.retained_evidence),
+                "retrieved_evidence_message_count": len(request.retrieved_evidence),
             },
         ),
         lambda task: _execute_session_map_authoring(request, task_id=task.task_id),
@@ -150,6 +152,7 @@ async def _execute_session_map_authoring(
             "evidence_source_end": last_source,
             "previous_entry_count": len(request.previous_map.entries),
             "retained_evidence_message_count": len(request.retained_evidence),
+            "retrieved_evidence_message_count": len(request.retrieved_evidence),
             "retained_evidence_source_start": (
                 request.retained_evidence[0].sequence_index
                 if request.retained_evidence
@@ -167,6 +170,7 @@ async def _execute_session_map_authoring(
             previous_map=request.previous_map,
             envelopes=request.envelopes,
             retained_evidence=request.retained_evidence,
+            retrieved_evidence=request.retrieved_evidence,
         )
         draft = await _invoke_session_map_model(
             model_alias=request.model_alias,
@@ -175,7 +179,11 @@ async def _execute_session_map_authoring(
         )
         validate_session_map_provenance(
             draft,
-            envelopes=(*request.envelopes, *request.retained_evidence),
+            envelopes=(
+                *request.envelopes,
+                *request.retained_evidence,
+                *request.retrieved_evidence,
+            ),
             previous_map=request.previous_map,
         )
     except Exception as exc:
@@ -205,6 +213,7 @@ async def _execute_session_map_authoring(
             "entry_count": len(draft.entries),
             "evidence_envelope_count": len(request.envelopes),
             "retained_evidence_message_count": len(request.retained_evidence),
+            "retrieved_evidence_message_count": len(request.retrieved_evidence),
         },
     )
     return SessionMapAuthoringResult(

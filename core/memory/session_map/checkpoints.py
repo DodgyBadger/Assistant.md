@@ -79,6 +79,7 @@ def commit_session_map_checkpoint(
     authoring_task_id: str | None = None,
     checkpoint_id: str | None = None,
     retained_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
+    retrieved_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
     map_observed_through_sequence_index: int | None = None,
 ) -> SessionMapCheckpointResult:
     """Atomically commit one map revision without changing canonical messages."""
@@ -90,7 +91,7 @@ def commit_session_map_checkpoint(
     )
     validate_session_map_provenance(
         draft,
-        envelopes=(*envelopes, *retained_evidence),
+        envelopes=(*envelopes, *retained_evidence, *retrieved_evidence),
         previous_map=previous_map,
     )
     consumed_through = envelopes[-1].source_end_sequence_index

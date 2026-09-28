@@ -38,6 +38,7 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
         messages = [
             _user("Initial question."),
             _assistant("Initial answer."),
+            _user("Abandoned but still canonical request."),
             _user("Use the evidence tool."),
             ModelResponse(
                 parts=[
@@ -80,17 +81,23 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
         )
         assert resolved.status == "resolved"
         assert resolved.reason == "canonical_ranges_resolved"
-        assert len(resolved.envelopes) == 2
+        assert len(resolved.envelopes) == 3
         assert [
             (
                 envelope.source_start_sequence_index,
                 envelope.source_end_sequence_index,
             )
             for envelope in resolved.envelopes
-        ] == [(0, 1), (2, 5)]
-        assert resolved.envelopes[1].message_count == 4
-        assert "[source:4] USER:" in resolved.envelopes[1].projected_text
-        assert "Canonical tool evidence." in resolved.envelopes[1].projected_text
+        ] == [(0, 1), (2, 2), (3, 6)]
+        assert resolved.envelopes[1].message_count == 1
+        assert (
+            resolved.envelopes[1].projected_text.count(
+                "Abandoned but still canonical request."
+            )
+            == 1
+        )
+        assert "[source:5] USER:" in resolved.envelopes[2].projected_text
+        assert "Canonical tool evidence." in resolved.envelopes[2].projected_text
         assert all(envelope.source_digest for envelope in resolved.envelopes)
 
         repeated = compaction.build_canonical_eviction_envelopes(
@@ -134,7 +141,10 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
             plan=current_plan,
         )
         assert current.status == "resolved"
-        assert [envelope.envelope_id for envelope in current.envelopes[:2]] == [
+        assert [
+            envelope.envelope_id
+            for envelope in current.envelopes[: len(resolved.envelopes)]
+        ] == [
             envelope.envelope_id for envelope in resolved.envelopes
         ], "Envelope identity should not change when later messages advance the revision"
 

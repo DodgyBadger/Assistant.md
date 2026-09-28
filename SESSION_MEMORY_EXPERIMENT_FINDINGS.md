@@ -6,13 +6,12 @@ These experiments began with a practical concern: repeated conversation compacti
 
 The strongest conclusion is that durable conversational memory is not primarily about retaining more text. It is about maintaining a compact and current interpretation while preserving a trustworthy path back to the original evidence.
 
-Three complementary mechanisms emerged:
+Two durable mechanisms emerged:
 
 - A compact representation, such as a recovery card or structured session map, keeps the model oriented.
 - A bounded transcript-search tool lets the model verify exact facts, decisions, and provenance without replaying the entire conversation.
-- An inexpensive classifier may reduce the cost of maintaining the compact representation by detecting intervals in which nothing materially changed.
 
-Transcript retrieval is already a meaningful improvement independent of whether structured session maps ultimately replace recovery cards. Session maps are promising but not yet proven superior over the full lifetime of a very long conversation. The classifier appears capable of detecting meaningful movement, but its practical value depends heavily on how frequently it runs and how much change each interval contains.
+Transcript retrieval is already a meaningful improvement independent of whether structured session maps ultimately replace recovery cards. Session maps are promising but not yet proven superior over the full lifetime of a very long conversation. Jev demonstrated movement detection and occasionally improved tight-budget ranking, but neither use produced enough value to justify another memory subsystem or production dependency. Jev memory work is closed for this branch.
 
 ## What We Tested
 
@@ -99,7 +98,7 @@ The most useful scoring categories were:
 
 These categories capture the actual risks of long-running conversational memory. Generic similarity scores or factual checklists cannot reliably distinguish a useful historical record from a dangerously stale instruction.
 
-### 9. A cheap classifier is safest as a cost optimization, not an information filter
+### 9. A cheap classifier was safest as a cost optimization, not an information filter
 
 Jev was used to estimate whether accumulated new evidence represented enough movement to justify rewriting the session map. When it deferred a rewrite, the evidence was preserved and included again on the next classification attempt. The classifier could delay interpretation, but it could not discard source material.
 
@@ -123,6 +122,16 @@ The map provides orientation: what is current, what changed, what remains unreso
 
 Neither eliminates the other. A perfect retrieval tool does not tell the agent what it should investigate without some orientation. A perfect-looking map should not be trusted as the sole source for exact or disputed historical claims. Their combination is more robust than treating either summarization or retrieval as a complete memory system.
 
+### 12. A low retained-context target is workable, but turn boundaries dominate the exact size
+
+A follow-up replay tested 20,000-token and 40,000-token low-watermark targets with the 150,000-token high watermark unchanged. A clean 360-message suffix of the 1065 redevelopment conversation produced three successive map rewrites per condition. The 20,000-token condition ended at approximately 62,700, 43,900, and 17,300 effective tokens; the 40,000-token condition ended at approximately 62,600, 43,800, and 26,200. A second clean conversation produced approximately 25,400 and 25,700 effective tokens for the two targets.
+
+These results do not mean the planner ignored its setting. Eviction preserves complete provider-history groups, and a single tool-heavy turn can exceed either target. The low watermark is therefore a selection target rather than a hard postcondition. In four of the paired checkpoints, both settings selected the same canonical boundary; their independently generated maps differed anyway, showing that stochastic authoring currently creates more variation than the watermark when the source partition is identical.
+
+The smallest resulting context retained the active compensation offer, agreement-closing issues, consultant arrangement, side-letter constraints, future-rights question, and source provenance while removing stale intermediate state. No clear semantic or salience failure appeared across the three rewrites. This is enough to make 20,000 tokens the preferred opt-in tuning value for further live evaluation: it captures the token benefit when conversational group sizes permit it, while whole-group preservation automatically retains more context when they do not. It is not evidence that 20,000 is a universal optimum or that the map strategy should become the default.
+
+The replay also exposed a separate correctness edge case. Real transcripts can contain an abandoned user turn with no assistant response before a later completed turn. The planner initially treated such an incomplete historical group as a permanent non-evictable prefix, so an otherwise eligible long session returned `incomplete_eviction_prefix`. The corrected planner now treats the later user turn as the boundary that makes the abandoned input historical canonical evidence: it can leave effective context without being deleted or omitted, while the newest active turn remains non-evictable and malformed tool history remains blocked.
+
 ## Current Interpretation
 
 The experiments support three decisions with different confidence levels.
@@ -133,15 +142,15 @@ Second, rolling eviction backed by a provenance-aware session map is promising e
 
 Third, Jev demonstrated credible movement classification but not enough value as a map-author gate. The gate changes when an inevitable rewrite occurs rather than eliminating the underlying work, and its savings depend on slice cadence while adding another runtime mode and failure path. The map should therefore use its configurable eviction watermarks directly and author unconditionally at each selected boundary. Gate-specific code should be removed while the generic decision-model capability remains available for better-supported uses.
 
-A more promising hypothesis is retrieval context admission: after the agent explicitly requests search, a cheap classifier may rerank a high-recall candidate pool before a deterministic token budget admits raw evidence into frontier-model context. This targets the observed tension between broad retrieval and bounded context without inserting a classifier into the agent’s reasoning loop. The proposal and its evaluation gate are documented in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
+Retrieval-context admission was the next hypothesis: after the agent explicitly requests search, a cheap classifier might rerank a high-recall candidate pool before a deterministic token budget admits raw evidence into frontier-model context. The broader evaluation did not improve complete-answer coverage and showed that candidate recall, diversity, and deterministic budget allocation dominate the result. That line is also closed for this branch; the measurements remain documented in [Retrieval Context Admission: A Role for Cheap Decision Models](RETRIEVAL_CONTEXT_ADMISSION_DESIGN.md).
 
 ## Open Questions
 
 - Does a structured map resist salience and narrative drift over dozens of successive updates, rather than five?
 - How much narrative texture can be removed before orientation degrades or retrieval becomes excessively frequent?
+- How often do unusually large provider-history groups prevent the configured low watermark from producing the intended context savings?
 - What is the total cost of smaller maps once additional retrieval calls are included?
 - How reliably does the agent recognize when compact memory is insufficient and transcript verification is warranted?
-- Can cheap reranking improve canonical-evidence recall per admitted token over lexical or hybrid ranking?
 - Can citation entailment be evaluated cheaply enough to complement mechanical provenance validation?
 - When, if ever, is the evidence strong enough to replace recovery-card compaction rather than retaining both strategies?
 

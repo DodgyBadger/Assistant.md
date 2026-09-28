@@ -201,8 +201,8 @@ settings:
     category: "Chat"
     restart_required: false
   session_map_low_watermark_tokens:
-    value: 60000
-    description: "Target effective-history size after an experimental stepped-map eviction. Must be lower than compaction_token_threshold."
+    value: 20000
+    description: "Target effective-history size after an experimental stepped-map eviction. Complete provider-history groups remain intact, so the actual size can exceed this target. Must be lower than compaction_token_threshold."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:
