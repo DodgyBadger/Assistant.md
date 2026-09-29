@@ -125,7 +125,7 @@ class SessionMapSchemaScenario(BaseScenario):
                 envelopes=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v6"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v8"
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
             item["source_range"] for item in prompt_payload["new_evidence_envelopes"]
@@ -197,6 +197,82 @@ class SessionMapSchemaScenario(BaseScenario):
             }
         )
         assert legacy.trajectory is None
+
+        prior_schema = SessionMapDraft.model_validate(
+            {
+                "schema_version": 2,
+                "trajectory": {
+                    "text": "An old checkpoint remains readable.",
+                    "sources": [{"start": 10, "end": 10}],
+                },
+                "entries": [
+                    {
+                        "id": "historical_assistant_decision",
+                        "kind": "decision",
+                        "state": "active",
+                        "basis": "assistant_proposed",
+                        "text": "A historical combination predating stricter admission.",
+                        "sources": [{"start": 10, "end": 10}],
+                    }
+                ],
+            }
+        )
+        assert prior_schema.schema_version == 2
+
+        conservative = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="Research exposed an alternative without adopting it.",
+                sources=(SourceRange(start=10, end=12),),
+            ),
+            entries=(
+                SessionMapEntry(
+                    id="alternate_site",
+                    kind="option",
+                    state="active",
+                    basis="assistant_proposed",
+                    text="The alternate site remains a candidate, not a decision.",
+                    sources=(SourceRange(start=10, end=10),),
+                ),
+                SessionMapEntry(
+                    id="site_cost",
+                    kind="finding",
+                    state="active",
+                    basis="tool_observed",
+                    text="The alternate site's reported cost exceeds the budget.",
+                    sources=(SourceRange(start=11, end=12),),
+                ),
+            ),
+        )
+        assert conservative.schema_version == 3
+
+        for kind, basis in (
+            ("goal", "assistant_proposed"),
+            ("decision", "assistant_proposed"),
+            ("next_action", "tool_observed"),
+            ("constraint", "assistant_proposed"),
+            ("artifact", "assistant_proposed"),
+        ):
+            try:
+                SessionMapDraft(
+                    trajectory=SessionMapTrajectory(
+                        text="The candidate entry is not established.",
+                        sources=(SourceRange(start=10, end=10),),
+                    ),
+                    entries=(
+                        SessionMapEntry(
+                            id=f"invalid_{kind}",
+                            kind=kind,
+                            state="active",
+                            basis=basis,
+                            text="This entry should use a less committal kind.",
+                            sources=(SourceRange(start=10, end=10),),
+                        ),
+                    ),
+                )
+            except ValueError as exc:
+                assert kind in str(exc)
+            else:
+                raise AssertionError(f"Invalid {kind}/{basis} admission should fail")
 
         try:
             SessionMapDraft(entries=authored.entries)

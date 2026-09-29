@@ -25,9 +25,11 @@ class SessionMapEntryKind(StrEnum):
 
     ORIENTATION = "orientation"
     GOAL = "goal"
+    OPTION = "option"
     NEXT_ACTION = "next_action"
     DECISION = "decision"
     CONSTRAINT = "constraint"
+    FINDING = "finding"
     OPEN_QUESTION = "open_question"
     ARTIFACT = "artifact"
 
@@ -105,7 +107,7 @@ class SessionMapTrajectory(_StrictFrozenModel):
 class SessionMapDraft(_StrictFrozenModel):
     """Complete bounded state authored from the prior map and new evidence."""
 
-    schema_version: Literal[1, 2] = 2
+    schema_version: Literal[1, 2, 3] = 3
     trajectory: SessionMapTrajectory | None = None
     entries: tuple[SessionMapEntry, ...] = Field(
         default=(),
@@ -116,8 +118,10 @@ class SessionMapDraft(_StrictFrozenModel):
     def validate_map_bounds(self) -> SessionMapDraft:
         if self.schema_version == 1 and self.trajectory is not None:
             raise ValueError("session-map schema version 1 cannot contain a trajectory")
-        if self.schema_version == 2 and self.entries and self.trajectory is None:
-            raise ValueError("session-map schema version 2 requires a trajectory")
+        if self.schema_version >= 2 and self.entries and self.trajectory is None:
+            raise ValueError(
+                f"session-map schema version {self.schema_version} requires a trajectory"
+            )
         entry_ids = [entry.id for entry in self.entries]
         if len(entry_ids) != len(set(entry_ids)):
             raise ValueError("session-map entry IDs must be globally unique")
@@ -128,6 +132,8 @@ class SessionMapDraft(_StrictFrozenModel):
         ]
         if len(orientations) > 1:
             raise ValueError("session map may contain at most one orientation entry")
+        if self.schema_version >= 3:
+            _validate_entry_admission(self.entries)
         total_text_chars = sum(len(entry.text) for entry in self.entries) + (
             len(self.trajectory.text) if self.trajectory is not None else 0
         )
@@ -136,6 +142,38 @@ class SessionMapDraft(_StrictFrozenModel):
                 f"session map text exceeds {MAX_SESSION_MAP_TEXT_CHARS} characters"
             )
         return self
+
+
+_USER_COMMITMENT_KINDS = frozenset(
+    {
+        SessionMapEntryKind.GOAL,
+        SessionMapEntryKind.NEXT_ACTION,
+        SessionMapEntryKind.DECISION,
+    }
+)
+
+
+def _validate_entry_admission(entries: Sequence[SessionMapEntry]) -> None:
+    for entry in entries:
+        if entry.kind in _USER_COMMITMENT_KINDS and entry.basis not in {
+            SessionMapEntryBasis.USER_ESTABLISHED,
+            SessionMapEntryBasis.MIXED,
+        }:
+            raise ValueError(
+                f"{entry.kind.value} entry '{entry.id}' requires user-established "
+                "or mixed evidence"
+            )
+        if (
+            entry.kind
+            in {
+                SessionMapEntryKind.CONSTRAINT,
+                SessionMapEntryKind.ARTIFACT,
+            }
+            and entry.basis is SessionMapEntryBasis.ASSISTANT_PROPOSED
+        ):
+            raise ValueError(
+                f"{entry.kind.value} entry '{entry.id}' cannot be assistant-proposed"
+            )
 
 
 class _CanonicalEnvelope(Protocol):

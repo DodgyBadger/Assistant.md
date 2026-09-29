@@ -177,9 +177,9 @@ async def _execute_session_map_authoring(
             thinking=request.thinking,
             prompt=prompt,
         )
-        if draft.entries and draft.schema_version != 2:
+        if draft.entries and draft.schema_version != 3:
             raise ValueError(
-                "Session-map authoring requires the current trajectory schema"
+                "Session-map authoring requires the current conservative schema"
             )
         validate_session_map_provenance(
             draft,
