@@ -21,6 +21,11 @@
                 const forkSequenceIndex = Number.isInteger(message.fork_sequence_index)
                     ? message.fork_sequence_index
                     : message.sequence_index;
+                if (message.context_checkpoint_kind === 'session_map') {
+                    pendingToolCallIds.clear();
+                    renderSessionMapCheckpoint(message);
+                    return;
+                }
                 if (message.is_tool_message) {
                     collectToolIds(message.tool_call_ids, pendingToolCallIds);
                     collectToolIds(message.tool_return_ids, pendingToolCallIds);
@@ -62,6 +67,33 @@
             if (reopenEntry) {
                 toolDetails.open(reopenEntry);
             }
+        }
+
+        function renderSessionMapCheckpoint(message) {
+            const row = document.createElement('div');
+            row.className = 'flex justify-start session-map-checkpoint-row';
+
+            const notice = document.createElement('div');
+            notice.className = 'max-w-[80%] px-4 py-3 rounded-lg message-bubble message-assistant shadow-sm session-map-checkpoint-notice';
+
+            const text = document.createElement('span');
+            text.textContent = 'Earlier messages were compacted into the session map.';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'session-map-checkpoint-link';
+            button.innerHTML = `${icons.MAP_ICON_SVG}<span>View session map</span>`;
+            button.setAttribute('aria-label', 'View session map and evicted transcript');
+            button.addEventListener('click', () => {
+                callbacks.openSessionMap?.({
+                    checkpointId: message.context_checkpoint_id || ''
+                });
+            });
+
+            notice.appendChild(text);
+            notice.appendChild(button);
+            row.appendChild(notice);
+            callbacks.appendMessageNode(row, { forceScroll: false });
         }
 
         function renderLatestFailureAction(latestFailure) {

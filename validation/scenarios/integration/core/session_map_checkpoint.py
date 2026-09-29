@@ -11,6 +11,8 @@ from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
     TextPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -317,6 +319,56 @@ class SessionMapCheckpointScenario(BaseScenario):
             second_map.trajectory.model_dump(mode="json"),
             "Map inspection should expose the source-linked narrative bridge",
         )
+        self.soft_assert_equal(
+            [
+                message["sequence_index"]
+                for message in current_payload["transcript"]["messages"]
+            ],
+            [0, 1, 2, 3],
+            "Map inspection should expose bounded canonical history through the selected eviction boundary",
+        )
+        detail_response = self.call_api(
+            f"/api/chat/sessions/{session_id}?vault_name={vault.name}"
+        )
+        assert detail_response.status_code == 200
+        detail_messages = detail_response.json()["messages"]
+        self.soft_assert_equal(
+            detail_messages[0]["context_checkpoint_kind"],
+            "session_map",
+            "Session detail should identify the effective map replacement explicitly",
+        )
+        self.soft_assert_equal(
+            detail_messages[0]["context_checkpoint_id"],
+            "second-map-checkpoint",
+            "Session detail should link the replacement row to the inspectable checkpoint",
+        )
+        self.soft_assert_equal(
+            detail_messages[0]["content"],
+            "",
+            "Session detail should not project internal map JSON as chat display prose",
+        )
+        paged_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
+            "&checkpoint_id=second-map-checkpoint&message_page=2&message_page_size=2"
+        )
+        assert paged_response.status_code == 200
+        paged_transcript = paged_response.json()["transcript"]
+        self.soft_assert_equal(
+            (
+                paged_transcript["page"],
+                paged_transcript["page_count"],
+                paged_transcript["total_entries"],
+                paged_transcript["has_previous"],
+                paged_transcript["has_next"],
+            ),
+            (2, 2, 4, True, False),
+            "Canonical checkpoint transcript paging should expose stable boundaries",
+        )
+        self.soft_assert_equal(
+            [message["sequence_index"] for message in paged_transcript["messages"]],
+            [2, 3],
+            "Canonical checkpoint transcript pages should remain chronological and bounded",
+        )
         historical_response = self.call_api(
             f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
             "&checkpoint_id=first-map-checkpoint"
@@ -326,6 +378,156 @@ class SessionMapCheckpointScenario(BaseScenario):
             historical_response.json()["session_map"],
             first_map.model_dump(mode="json"),
             "A historical checkpoint should return its original typed map",
+        )
+        self.soft_assert_equal(
+            [
+                message["sequence_index"]
+                for message in historical_response.json()["transcript"]["messages"]
+            ],
+            [0, 1],
+            "Historical checkpoint inspection should stop at that checkpoint's eviction boundary",
+        )
+
+        tool_session_id = "session-map-tool-transcript"
+        store.ensure_session(
+            tool_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        tool_messages = [
+            _user("Inspect the planning file."),
+            ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="file_read",
+                        args={"operation": "read", "path": "plan.md"},
+                        tool_call_id="call-map-transcript",
+                    )
+                ]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        tool_name="file_read",
+                        content="Planning evidence.",
+                        tool_call_id="call-map-transcript",
+                    )
+                ]
+            ),
+            _assistant("The planning file is current."),
+            _user("Continue with the next step."),
+            _assistant("I will continue."),
+        ]
+        store.add_messages(tool_session_id, vault.name, tool_messages)
+        store.add_tool_event(
+            session_id=tool_session_id,
+            vault_name=vault.name,
+            tool_call_id="call-map-transcript",
+            tool_name="file_read",
+            event_type="call",
+            args={"operation": "read", "path": "plan.md"},
+        )
+        store.add_tool_event(
+            session_id=tool_session_id,
+            vault_name=vault.name,
+            tool_call_id="call-map-transcript",
+            tool_name="file_read",
+            event_type="result",
+            result_text="Planning evidence.",
+            result_metadata={"status": "completed", "token_count": 5},
+        )
+        tool_revision = store.get_session_history_revision(tool_session_id, vault.name)
+        tool_map = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The session inspected the planning file.",
+                sources=(SourceRange(start=0, end=3),),
+            ),
+            entries=(
+                SessionMapEntry(
+                    id="planning_file_review",
+                    kind="artifact",
+                    state="active",
+                    basis="mixed",
+                    text="The planning file was inspected and is current.",
+                    sources=(SourceRange(start=0, end=3),),
+                ),
+            ),
+        )
+        commit_session_map_checkpoint(
+            store=store,
+            session_id=tool_session_id,
+            vault_name=vault.name,
+            draft=tool_map,
+            previous_map=SessionMapDraft(),
+            envelopes=(
+                _envelope(
+                    session_id=tool_session_id,
+                    vault_name=vault.name,
+                    history_revision=tool_revision,
+                    start=0,
+                    end=3,
+                ),
+            ),
+            expected_history_revision=tool_revision,
+            message_count_before=len(tool_messages),
+            source="validation",
+            checkpoint_id="tool-transcript-checkpoint",
+        )
+        tool_transcript_response = self.call_api(
+            f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
+        )
+        assert tool_transcript_response.status_code == 200
+        tool_transcript = tool_transcript_response.json()["transcript"]
+        self.soft_assert_equal(
+            [
+                (message["sequence_index"], message["role"])
+                for message in tool_transcript["messages"]
+            ],
+            [(0, "user"), (1, "tool"), (3, "assistant")],
+            "Map transcript inspection should preserve collapsed tool activity in sequence",
+        )
+        self.soft_assert_equal(
+            (
+                tool_transcript["messages"][1]["through_sequence_index"],
+                tool_transcript["messages"][1]["tool_calls"],
+            ),
+            (
+                2,
+                [
+                    {
+                        "tool_call_id": "call-map-transcript",
+                        "tool_name": "file_read",
+                        "status": "completed",
+                        "token_count": 5,
+                    }
+                ],
+            ),
+            "Collapsed tool activity should expose only safe, inspectable summaries",
+        )
+        scoped_tool_response = self.call_api(
+            f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"
+            f"?vault_name={vault.name}&checkpoint_id=tool-transcript-checkpoint"
+        )
+        assert scoped_tool_response.status_code == 200
+        self.soft_assert_equal(
+            (
+                scoped_tool_response.json()["args"],
+                scoped_tool_response.json()["result_text"],
+            ),
+            (
+                {"operation": "read", "path": "plan.md"},
+                "Planning evidence.",
+            ),
+            "Checkpoint-scoped inspection should reuse complete tool details",
+        )
+        active_tool_response = self.call_api(
+            f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"
+            f"?vault_name={vault.name}"
+        )
+        self.soft_assert_equal(
+            active_tool_response.status_code,
+            404,
+            "Evicted tool details should require an authorized checkpoint scope",
         )
 
         self.assert_no_failures()

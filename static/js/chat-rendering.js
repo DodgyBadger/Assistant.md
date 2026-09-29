@@ -64,6 +64,7 @@
                 updateToolCallsSummary,
                 finalizeAssistantMessage,
                 retryLatestFailure: callbacks.retryLatestFailure,
+                openSessionMap: callbacks.openSessionMap,
             },
         });
 
@@ -627,6 +628,7 @@
             renderMarkdownPreview: markdown.renderPreview,
             closeToolCallDetails: toolDetails.close,
             getActiveToolDetailId: toolDetails.getActiveId,
+            openPersistedToolCallDetails: toolDetails.openPersisted,
         });
     }
 

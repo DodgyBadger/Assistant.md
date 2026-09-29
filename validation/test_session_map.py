@@ -51,3 +51,22 @@ def test_session_map_renders_narrative_trajectory() -> None:
 
     assert "How We Got Here" in source
     assert "renderSources(trajectory)" in source
+
+
+def test_session_map_exposes_checkpoint_and_transcript_actions() -> None:
+    map_source = _MODULE.read_text(encoding="utf-8")
+    history_source = (_PROJECT_ROOT / "static/js/chat-history-rendering.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "renderTranscript(payload.transcript" in map_source
+    assert "data-session-map-transcript-page" in map_source
+    assert "data-session-map-tool-call" in map_source
+    assert "callbacks.openToolCall" in map_source
+    assert (
+        '<details class="session-map-transcript-message session-map-transcript-tools">'
+        in map_source
+    )
+    assert "session-map-checkpoint-link" in history_source
+    assert "message.context_checkpoint_kind === 'session_map'" in history_source
+    assert "callbacks.openSessionMap" in history_source

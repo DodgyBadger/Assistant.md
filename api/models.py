@@ -1131,6 +1131,19 @@ class ChatSessionMapCheckpointInfo(BaseModel):
     prompt_contract_version: str
 
 
+class ChatSessionMapTranscriptPage(BaseModel):
+    """Bounded canonical messages evicted through one map checkpoint."""
+
+    checkpoint_id: str
+    page: int = Field(..., ge=1)
+    page_size: int = Field(..., ge=1, le=50)
+    page_count: int = Field(..., ge=1)
+    total_entries: int = Field(..., ge=0)
+    has_previous: bool = False
+    has_next: bool = False
+    messages: list[ChatSessionMessageInfo] = Field(default_factory=list)
+
+
 class ChatSessionMapResponse(BaseModel):
     """Current or historical stepped-map checkpoint for inspection."""
 
@@ -1140,6 +1153,7 @@ class ChatSessionMapResponse(BaseModel):
     latest_checkpoint_id: str | None = None
     revisions: list[ChatSessionMapCheckpointInfo] = Field(default_factory=list)
     session_map: SessionMapDraft | None = None
+    transcript: ChatSessionMapTranscriptPage | None = None
 
 
 class ChatSessionWorkspaceRequest(BaseModel):
@@ -1259,6 +1273,19 @@ class ChatSessionRetryRequest(BaseModel):
     vault_name: str = Field(..., description="Owning vault name")
 
 
+class ChatSessionToolCallInfo(BaseModel):
+    """Non-confidential tool-call metadata for session rehydration."""
+
+    tool_call_id: str = Field(..., description="Tool call identifier")
+    tool_name: str = Field(..., description="Tool name")
+    status: Literal["running", "completed", "failed", "interrupted"] = Field(
+        ..., description="Tool call lifecycle state"
+    )
+    token_count: int | None = Field(
+        None, description="Estimated token count for the tool result"
+    )
+
+
 class ChatSessionMessageInfo(BaseModel):
     """Persisted normalized chat message for session rehydration."""
 
@@ -1287,6 +1314,27 @@ class ChatSessionMessageInfo(BaseModel):
     tool_return_ids: list[str] = Field(
         default_factory=list, description="Tool returns declared by this message"
     )
+    tool_call_count: int = Field(
+        0,
+        ge=0,
+        description="Tool calls collapsed into this conversational display row",
+    )
+    through_sequence_index: int | None = Field(
+        None,
+        description="Final canonical sequence represented by a collapsed transcript row",
+    )
+    tool_calls: list[ChatSessionToolCallInfo] = Field(
+        default_factory=list,
+        description="Safe summaries for tool calls represented by this transcript row",
+    )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = Field(
+        None,
+        description="Effective-history checkpoint represented by this display row",
+    )
+    context_checkpoint_id: str | None = Field(
+        None,
+        description="Checkpoint identifier when this row is a replacement artifact",
+    )
 
 
 class ChatSessionToolEventInfo(BaseModel):
@@ -1307,19 +1355,6 @@ class ChatSessionToolEventInfo(BaseModel):
     )
     artifact_ref: str | None = Field(
         None, description="Cache/artifact reference when present"
-    )
-
-
-class ChatSessionToolCallInfo(BaseModel):
-    """Non-confidential tool-call metadata for session rehydration."""
-
-    tool_call_id: str = Field(..., description="Tool call identifier")
-    tool_name: str = Field(..., description="Tool name")
-    status: Literal["running", "completed", "failed", "interrupted"] = Field(
-        ..., description="Tool call lifecycle state"
-    )
-    token_count: int | None = Field(
-        None, description="Estimated token count for the tool result"
     )
 
 

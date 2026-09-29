@@ -23,6 +23,7 @@ from core.chat.deferred_reviews import (
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
 from core.memory.session_map.checkpoints import (
+    SESSION_MAP_CONTEXT_MARKER,
     load_session_map_checkpoint,
     load_session_map_observed_through,
 )
@@ -58,6 +59,7 @@ from ..models import (
     ChatSessionInfo,
     ChatSessionMapCheckpointInfo,
     ChatSessionMapResponse,
+    ChatSessionMapTranscriptPage,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
     ChatSessionToolCallInfo,
@@ -312,6 +314,8 @@ def get_chat_session_map(
     session_id: str,
     *,
     checkpoint_id: str | None = None,
+    message_page: int = 1,
+    message_page_size: int = 20,
 ) -> ChatSessionMapResponse:
     """Return one append-only stepped-map checkpoint and its boundary history."""
     _require_chat_session_access(vault_name, session_id)
@@ -342,6 +346,18 @@ def get_chat_session_map(
                     "checkpoint_id": checkpoint_id,
                 },
             )
+    if message_page < 1:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidSessionMapTranscriptPage",
+            message="Session map transcript page must be at least 1.",
+        )
+    if message_page_size < 1 or message_page_size > 50:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidSessionMapTranscriptPageSize",
+            message="Session map transcript page size must be between 1 and 50.",
+        )
     revisions = [
         _session_map_checkpoint_info(revision, checkpoint)
         for revision, checkpoint in enumerate(checkpoints, start=1)
@@ -353,6 +369,17 @@ def get_chat_session_map(
         latest_checkpoint_id=(latest.checkpoint_id if latest else None),
         revisions=revisions,
         session_map=load_session_map_checkpoint(selected) if selected else None,
+        transcript=(
+            _session_map_transcript_page(
+                session_id=session_id,
+                vault_name=vault_name,
+                checkpoint=selected,
+                page=message_page,
+                page_size=message_page_size,
+            )
+            if selected
+            else None
+        ),
     )
 
 
@@ -379,6 +406,146 @@ def _session_map_checkpoint_info(
         action=action,
         prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
     )
+
+
+def _session_map_transcript_page(
+    *,
+    session_id: str,
+    vault_name: str,
+    checkpoint: StoredContextCheckpoint,
+    page: int,
+    page_size: int,
+) -> ChatSessionMapTranscriptPage:
+    """Return one chronological page of canonical history through a checkpoint."""
+    canonical_messages = _chat_store.get_stored_messages_range(
+        session_id,
+        vault_name,
+        after_sequence_index=-1,
+        through_sequence_index=checkpoint.last_message_sequence_index,
+    )
+    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+        session_id, vault_name
+    )
+    tool_events = _chat_store.get_tool_events(
+        session_id, vault_name, committed_only=True
+    )
+    transcript_items = _session_map_transcript_items(
+        canonical_messages,
+        declaration_counts=declaration_counts,
+        tool_events=tool_events,
+    )
+    total_entries = len(transcript_items)
+    page_count = max(1, (total_entries + page_size - 1) // page_size)
+    if page > page_count:
+        raise APIException(
+            status_code=404,
+            error_type="SessionMapTranscriptPageNotFound",
+            message=(
+                f"Session map transcript page {page} is beyond the "
+                f"{page_count} available pages."
+            ),
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "checkpoint_id": checkpoint.checkpoint_id,
+                "page": page,
+                "page_count": page_count,
+            },
+        )
+    start_index = (page - 1) * page_size
+    messages = transcript_items[start_index : start_index + page_size]
+    return ChatSessionMapTranscriptPage(
+        checkpoint_id=checkpoint.checkpoint_id,
+        page=page,
+        page_size=page_size,
+        page_count=page_count,
+        total_entries=total_entries,
+        has_previous=page > 1,
+        has_next=page < page_count,
+        messages=messages,
+    )
+
+
+def _session_map_transcript_items(
+    messages: list[StoredChatMessage],
+    *,
+    declaration_counts: dict[str, int],
+    tool_events: list[StoredChatToolEvent],
+) -> list[ChatSessionMessageInfo]:
+    """Preserve canonical sequence while collapsing adjacent provider tool traffic."""
+    displayed: list[ChatSessionMessageInfo] = []
+    summaries = {
+        item.tool_call_id: item
+        for item in _effective_tool_call_info(
+            messages,
+            declaration_counts,
+            tool_events,
+        )
+    }
+    group: list[ChatSessionMessageInfo] = []
+
+    def flush_tool_group() -> None:
+        if not group:
+            return
+        call_ids = list(
+            dict.fromkeys(
+                tool_call_id
+                for item in group
+                for tool_call_id in item.tool_call_ids
+                if tool_call_id
+            )
+        )
+        return_ids = list(
+            dict.fromkeys(
+                tool_call_id
+                for item in group
+                for tool_call_id in item.tool_return_ids
+                if tool_call_id
+            )
+        )
+        displayed.append(
+            ChatSessionMessageInfo(
+                sequence_index=group[0].sequence_index,
+                through_sequence_index=group[-1].sequence_index,
+                fork_sequence_index=group[-1].fork_sequence_index,
+                role="tool",
+                content="",
+                thinking_content="",
+                message_type="ToolActivity",
+                direction="activity",
+                is_tool_message=True,
+                tool_call_ids=call_ids,
+                tool_return_ids=return_ids,
+                tool_call_count=len(call_ids),
+                tool_calls=[summaries[item] for item in call_ids if item in summaries],
+                context_checkpoint_kind=None,
+                context_checkpoint_id=None,
+            )
+        )
+        group.clear()
+
+    for message in messages:
+        projected = _chat_session_message_info(message)
+        if projected.is_tool_message:
+            if projected.role == "assistant" and projected.content:
+                flush_tool_group()
+                displayed.append(
+                    projected.model_copy(
+                        update={
+                            "is_tool_message": False,
+                            "tool_call_ids": [],
+                            "tool_return_ids": [],
+                        }
+                    )
+                )
+            group.append(projected)
+            continue
+        flush_tool_group()
+        if projected.role not in {"user", "assistant"}:
+            continue
+        displayed.append(projected)
+    flush_tool_group()
+    return displayed
 
 
 def fork_chat_session(
@@ -696,6 +863,9 @@ def get_chat_session_detail(
     """Return persisted chat messages for one session."""
     _require_chat_session_access(vault_name, session_id)
     messages = _chat_store.get_stored_messages(session_id, vault_name)
+    latest_checkpoint = _chat_store.get_latest_context_checkpoint(
+        session_id, vault_name
+    )
     declaration_counts = _chat_store.get_tool_call_declaration_counts(
         session_id, vault_name
     )
@@ -723,7 +893,22 @@ def get_chat_session_detail(
             else None
         ),
         latest_failure=latest_failure,
-        messages=[_chat_session_message_info(message) for message in messages],
+        messages=[
+            _chat_session_message_info(
+                message,
+                context_checkpoint=(
+                    latest_checkpoint
+                    if (
+                        index == 0
+                        and latest_checkpoint is not None
+                        and latest_checkpoint.checkpoint_kind == "session_map"
+                        and message.content_text.startswith(SESSION_MAP_CONTEXT_MARKER)
+                    )
+                    else None
+                ),
+            )
+            for index, message in enumerate(messages)
+        ],
         tool_calls=_effective_tool_call_info(messages, declaration_counts, tool_events),
     )
 
@@ -732,10 +917,35 @@ def get_chat_tool_call_detail(
     vault_name: str,
     session_id: str,
     tool_call_id: str,
+    *,
+    checkpoint_id: str | None = None,
 ) -> ChatToolCallDetailResponse:
     """Return complete persisted detail for one session-owned tool call."""
     _require_chat_session_access(vault_name, session_id)
-    messages = _chat_store.get_stored_messages(session_id, vault_name)
+    if checkpoint_id is None:
+        messages = _chat_store.get_stored_messages(session_id, vault_name)
+    else:
+        checkpoint = next(
+            (
+                item
+                for item in _chat_store.list_context_checkpoints(
+                    session_id,
+                    vault_name,
+                    checkpoint_kind="session_map",
+                )
+                if item.checkpoint_id == checkpoint_id
+            ),
+            None,
+        )
+        if checkpoint is None:
+            _raise_chat_tool_call_not_found(session_id, tool_call_id)
+        assert checkpoint is not None
+        messages = _chat_store.get_stored_messages_range(
+            session_id,
+            vault_name,
+            after_sequence_index=-1,
+            through_sequence_index=checkpoint.last_message_sequence_index,
+        )
     effective_tool_call_ids = _effective_tool_call_ids(messages)
     declaration_counts = _chat_store.get_tool_call_declaration_counts(
         session_id, vault_name
@@ -910,7 +1120,11 @@ def _stored_tool_call_token_count(
     return estimate_token_count(result_event.result_text)
 
 
-def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessageInfo:
+def _chat_session_message_info(
+    message: StoredChatMessage,
+    *,
+    context_checkpoint: StoredContextCheckpoint | None = None,
+) -> ChatSessionMessageInfo:
     """Return browser-safe display data while withholding tool message contents."""
     is_tool_message = (
         _is_tool_message_text(message.content_text)
@@ -918,14 +1132,22 @@ def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessage
         or bool(message.tool_return_ids)
     )
     is_model_response = isinstance(message.message, ModelResponse)
+    is_session_map = (
+        context_checkpoint is not None
+        and context_checkpoint.checkpoint_kind == "session_map"
+    )
     return ChatSessionMessageInfo(
         sequence_index=message.sequence_index,
         fork_sequence_index=message.fork_sequence_index,
         role=message.role,
         content=(
-            _chat_message_display_content(message)
-            if is_model_response or not is_tool_message
-            else ""
+            ""
+            if is_session_map
+            else (
+                _chat_message_display_content(message)
+                if is_model_response or not is_tool_message
+                else ""
+            )
         ),
         thinking_content=(
             _chat_message_thinking_content(message) if is_model_response else ""
@@ -935,6 +1157,15 @@ def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessage
         is_tool_message=is_tool_message,
         tool_call_ids=list(message.tool_call_ids),
         tool_return_ids=list(message.tool_return_ids),
+        tool_call_count=0,
+        through_sequence_index=message.sequence_index,
+        tool_calls=[],
+        context_checkpoint_kind=(
+            context_checkpoint.checkpoint_kind if context_checkpoint else None
+        ),
+        context_checkpoint_id=(
+            context_checkpoint.checkpoint_id if context_checkpoint else None
+        ),
     )
 
 

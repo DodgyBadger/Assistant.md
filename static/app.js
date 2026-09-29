@@ -179,6 +179,9 @@ const sessionMap = window.SessionMap.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
+    callbacks: {
+        openToolCall: (options) => chatRendering.openPersistedToolCallDetails(options),
+    },
 });
 
 const vaultPathPicker = window.VaultPathPicker.create({
@@ -279,6 +282,10 @@ const chatRendering = window.ChatRendering.create({
         loadSession,
         openWorkspacePicker: () => workspacePicker.openModal(),
         openChatSettings: () => sessionControls.openSessionBrowserModal(),
+        openSessionMap: ({ checkpointId = '' } = {}) => sessionMap.openModalForSession(
+            { session_id: state.sessionId },
+            { checkpointId }
+        ),
         retryLatestFailure: (button) => chatTaskActions.retryLatestFailure(button),
         enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
         renderEditProposalArtifact: (container, artifactRef, options) => editProposals.renderArtifact(container, artifactRef, options),

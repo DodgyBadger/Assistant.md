@@ -2561,6 +2561,8 @@ async def chat_session_map(
     session_id: str,
     vault_name: str,
     checkpoint_id: str | None = None,
+    message_page: int = Query(1, ge=1),
+    message_page_size: int = Query(20, ge=1, le=50),
 ) -> ChatSessionMapResponse | JSONResponse:
     """Return the current or selected historical stepped-map checkpoint."""
     try:
@@ -2568,6 +2570,8 @@ async def chat_session_map(
             vault_name,
             session_id,
             checkpoint_id=checkpoint_id,
+            message_page=message_page,
+            message_page_size=message_page_size,
         )
     except Exception as e:
         return create_error_response(e)
@@ -2654,10 +2658,16 @@ async def chat_tool_call_detail(
     session_id: str,
     tool_call_id: str,
     vault_name: str,
+    checkpoint_id: str | None = None,
 ) -> ChatToolCallDetailResponse | JSONResponse:
     """Load complete persisted detail for one session-owned tool call."""
     try:
-        return get_chat_tool_call_detail(vault_name, session_id, tool_call_id)
+        return get_chat_tool_call_detail(
+            vault_name,
+            session_id,
+            tool_call_id,
+            checkpoint_id=checkpoint_id,
+        )
     except Exception as e:
         return create_error_response(e)
 

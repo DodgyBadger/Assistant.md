@@ -1,19 +1,19 @@
 (function sessionMapModule(window, document) {
-    function createSessionMapController({ elements, icons, utils }) {
+    function createSessionMapController({ elements, icons, utils, callbacks = {} }) {
         const { escapeHtml } = utils;
 
         function closeModal() {
             document.getElementById('session-map-modal')?.remove();
         }
 
-        async function fetchMap(sessionId, checkpointId = '') {
+        async function fetchMap(sessionId, checkpointId = '', messagePage = 1) {
             const vault = elements.vaultSelector?.value || '';
             if (!vault || !sessionId) throw new Error('A vault and session are required.');
             const checkpointQuery = checkpointId
                 ? `&checkpoint_id=${encodeURIComponent(checkpointId)}`
                 : '';
             const response = await fetch(
-                `api/chat/sessions/${encodeURIComponent(sessionId)}/map?vault_name=${encodeURIComponent(vault)}${checkpointQuery}`
+                `api/chat/sessions/${encodeURIComponent(sessionId)}/map?vault_name=${encodeURIComponent(vault)}${checkpointQuery}&message_page=${encodeURIComponent(messagePage)}`
             );
             if (!response.ok) {
                 let message = `HTTP ${response.status}`;
@@ -43,13 +43,16 @@
         function renderSources(entry) {
             const sources = Array.isArray(entry?.sources) ? entry.sources : [];
             if (!sources.length) return '';
+            const sourceLabel = sources.map(source => {
+                const start = String(source.start);
+                const end = String(source.end);
+                return start === end ? start : `${start}–${end}`;
+            }).join(', ');
             return `
                 <div class="session-map-refs" aria-label="Canonical transcript sources">
-                    ${sources.map(source => `
-                        <span class="session-map-ref" title="Canonical transcript range">
-                            messages ${escapeHtml(String(source.start))}–${escapeHtml(String(source.end))}
-                        </span>
-                    `).join('')}
+                    <span class="session-map-ref" title="Canonical transcript sources">
+                        messages ${escapeHtml(sourceLabel)}
+                    </span>
                 </div>
             `;
         }
@@ -59,11 +62,11 @@
                 <article class="session-map-entry">
                     <div class="session-map-entry-heading">
                         <p>${escapeHtml(entry.text || '')}</p>
-                        <span class="session-map-entry-id">${escapeHtml(entry.id || '')}</span>
                     </div>
                     <div class="session-map-badges">
                         <span>${escapeHtml(humanize(entry.state))}</span>
                         <span>${escapeHtml(humanize(entry.basis))}</span>
+                        <span class="session-map-entry-id">${escapeHtml(entry.id || '')}</span>
                     </div>
                     ${renderSources(entry)}
                 </article>
@@ -78,6 +81,75 @@
                     <p>${escapeHtml(trajectory.text)}</p>
                     ${renderSources(trajectory)}
                 </section>
+            `;
+        }
+
+        function renderTranscriptMessage(message, transcript) {
+            const content = String(message?.content || '').trim();
+            const toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : [];
+            const sequenceStart = message?.sequence_index ?? 'unknown';
+            const sequenceEnd = message?.through_sequence_index ?? sequenceStart;
+            const sequenceLabel = sequenceStart === sequenceEnd
+                ? `Message ${sequenceStart}`
+                : `Messages ${sequenceStart}–${sequenceEnd}`;
+            if (message?.is_tool_message) {
+                const tools = toolCalls.map(toolCall => `
+                    <button
+                        type="button"
+                        class="session-map-checkpoint-link"
+                        data-session-map-tool-call="${escapeHtml(toolCall.tool_call_id || '')}"
+                        data-session-map-tool-name="${escapeHtml(toolCall.tool_name || 'Tool call')}"
+                        data-session-map-tool-state="${escapeHtml(toolCall.status || 'interrupted')}"
+                        data-session-map-tool-tokens="${escapeHtml(toolCall.token_count ?? '')}"
+                        data-session-map-tool-checkpoint="${escapeHtml(transcript?.checkpoint_id || '')}"
+                        data-session-map-tool-page="${escapeHtml(String(transcript?.page || 1))}"
+                    >
+                        ${escapeHtml(toolCall.tool_name || 'Tool call')}
+                    </button>
+                `).join('');
+                return `
+                    <details class="session-map-transcript-message session-map-transcript-tools">
+                        <summary class="session-map-transcript-message-heading session-map-transcript-tool-summary">
+                            <strong><span class="tool-status-chevron" aria-hidden="true">▸</span> Tool activity</strong>
+                            <span>${escapeHtml(sequenceLabel)}</span>
+                        </summary>
+                        <div class="tool-status-list">
+                            ${tools || '<p class="text-txt-secondary">No inspectable tool details are available.</p>'}
+                        </div>
+                    </details>
+                `;
+            }
+            return `
+                <article class="session-map-transcript-message">
+                    <div class="session-map-transcript-message-heading">
+                        <strong>${escapeHtml(humanize(message?.role || 'message'))}</strong>
+                        <span>${escapeHtml(sequenceLabel)}</span>
+                    </div>
+                    ${content
+                        ? `<pre>${escapeHtml(content)}</pre>`
+                        : '<p class="text-txt-secondary">No displayable text.</p>'}
+                </article>
+            `;
+        }
+
+        function renderTranscript(transcript, { open = false } = {}) {
+            if (!transcript) return '';
+            const messages = Array.isArray(transcript.messages) ? transcript.messages : [];
+            return `
+                <details class="session-map-transcript"${open ? ' open' : ''}>
+                    <summary>View evicted transcript</summary>
+                    <div class="session-map-transcript-header">
+                        <p>Canonical messages through this checkpoint’s eviction boundary.</p>
+                        <span>Page ${escapeHtml(String(transcript.page))} of ${escapeHtml(String(transcript.page_count))} · ${escapeHtml(String(transcript.total_entries))} entries</span>
+                    </div>
+                    <div class="session-map-transcript-list">
+                        ${messages.map(message => renderTranscriptMessage(message, transcript)).join('') || '<p class="text-sm text-txt-secondary">No canonical messages are available for this checkpoint.</p>'}
+                    </div>
+                    <div class="session-map-transcript-pagination">
+                        <button type="button" data-session-map-transcript-page="${transcript.page - 1}" data-session-map-transcript-checkpoint="${escapeHtml(transcript.checkpoint_id || '')}"${transcript.has_previous ? '' : ' disabled'}>Previous</button>
+                        <button type="button" data-session-map-transcript-page="${transcript.page + 1}" data-session-map-transcript-checkpoint="${escapeHtml(transcript.checkpoint_id || '')}"${transcript.has_next ? '' : ' disabled'}>Next</button>
+                    </div>
+                </details>
             `;
         }
 
@@ -99,7 +171,7 @@
             return revisions.find(item => item.checkpoint_id === payload.selected_checkpoint_id) || null;
         }
 
-        function renderMap(payload) {
+        function renderMap(payload, options = {}) {
             const sessionMap = payload?.session_map;
             if (!sessionMap) {
                 return '<p class="text-sm text-txt-secondary">No stepped session map exists for this session.</p>';
@@ -108,7 +180,7 @@
             const selected = selectedRevision(payload);
             const revisionOptions = revisions.map(item => `
                 <option value="${escapeHtml(item.checkpoint_id)}"${item.checkpoint_id === payload.selected_checkpoint_id ? ' selected' : ''}>
-                    Revision ${item.revision} · observed through ${item.map_observed_through_sequence_index} · evicted through ${item.consumed_through_sequence_index}
+                    Revision ${item.revision}
                 </option>
             `).join('');
             const groups = new Map();
@@ -120,7 +192,6 @@
             const sections = Array.from(groups.entries())
                 .map(([kind, entries]) => renderSection(kind, entries))
                 .join('');
-            const isCurrent = payload.selected_checkpoint_id === payload.latest_checkpoint_id;
             const wasDeferred = selected?.action === 'deferred';
             return `
                 <div class="session-map-toolbar">
@@ -128,12 +199,9 @@
                     <select id="session-map-revision-select" data-session-map-checkpoint>
                         ${revisionOptions}
                     </select>
-                    <span class="${isCurrent ? 'session-map-current' : 'session-map-historical'}">${isCurrent ? 'Current' : 'Historical'}</span>
                 </div>
                 <div class="session-map-boundary-note">
-                    <p><strong>Map observed through message ${selected?.map_observed_through_sequence_index ?? 'unknown'}.</strong> The map author considered transcript evidence through this point.</p>
-                    <p>Raw history is evicted through message ${selected?.consumed_through_sequence_index ?? 'unknown'}; newer messages remain verbatim in active context.</p>
-                    ${wasDeferred ? '<p>This checkpoint advanced eviction after the classifier found no material map change, so the map itself was not rewritten.</p>' : ''}
+                    <p>This map reflects the conversation through message ${selected?.map_observed_through_sequence_index ?? 'unknown'}. Messages 1–${selected?.consumed_through_sequence_index ?? 'unknown'} have been replaced by this map in the assistant’s active context. The originals remain available below.${wasDeferred ? ' The prior map was reused at this checkpoint because no material change was detected.' : ''}</p>
                 </div>
                 <div class="session-map-provenance">
                     <span>${escapeHtml(formatDate(selected?.created_at))}</span>
@@ -144,16 +212,25 @@
                 <div class="session-map-sections">
                     ${sections || '<p class="text-sm text-txt-secondary">This checkpoint contains no map entries.</p>'}
                 </div>
+                ${renderTranscript(payload.transcript, { open: options.transcriptOpen === true })}
             `;
         }
 
-        async function loadCheckpoint(modal, sessionId, checkpointId = '') {
+        async function loadCheckpoint(
+            modal,
+            sessionId,
+            checkpointId = '',
+            messagePage = 1,
+            transcriptOpen = false
+        ) {
             const body = modal.querySelector('#session-map-modal-body');
             if (!body) return;
             body.innerHTML = '<p class="text-txt-secondary">Loading session map...</p>';
             try {
-                const payload = await fetchMap(sessionId, checkpointId);
-                if (modal.isConnected) body.innerHTML = renderMap(payload);
+                const payload = await fetchMap(sessionId, checkpointId, messagePage);
+                if (modal.isConnected) {
+                    body.innerHTML = renderMap(payload, { transcriptOpen });
+                }
             } catch (error) {
                 console.error('Error opening session map modal:', error);
                 if (modal.isConnected) {
@@ -206,6 +283,46 @@
                     return;
                 }
                 if (target.closest('[data-session-map-close="true"]')) closeModal();
+                const toolCall = target.closest('[data-session-map-tool-call]');
+                if (toolCall instanceof HTMLButtonElement && typeof callbacks.openToolCall === 'function') {
+                    const checkpointId = toolCall.getAttribute('data-session-map-tool-checkpoint') || '';
+                    const messagePage = Number.parseInt(
+                        toolCall.getAttribute('data-session-map-tool-page') || '1',
+                        10
+                    );
+                    const tokenValue = toolCall.getAttribute('data-session-map-tool-tokens') || '';
+                    const tokenCount = tokenValue === '' ? null : Number.parseInt(tokenValue, 10);
+                    closeModal();
+                    callbacks.openToolCall({
+                        toolId: toolCall.getAttribute('data-session-map-tool-call') || '',
+                        toolName: toolCall.getAttribute('data-session-map-tool-name') || 'Tool call',
+                        state: toolCall.getAttribute('data-session-map-tool-state') || 'interrupted',
+                        tokenCount: Number.isInteger(tokenCount) ? tokenCount : null,
+                        checkpointId,
+                        sessionId: session.session_id,
+                        contextLabel: 'Preserved in the canonical transcript for this session-map checkpoint.',
+                        backLabel: 'Session map',
+                        onBack: () => openModalForSession(session, {
+                            checkpointId,
+                            messagePage: Number.isInteger(messagePage) ? messagePage : 1,
+                            transcriptOpen: true,
+                            backLabel: options.backLabel,
+                            onBack: options.onBack,
+                        }),
+                    });
+                    return;
+                }
+                const transcriptPage = target.closest('[data-session-map-transcript-page]');
+                if (transcriptPage instanceof HTMLButtonElement && !transcriptPage.disabled) {
+                    const page = Number.parseInt(
+                        transcriptPage.getAttribute('data-session-map-transcript-page') || '',
+                        10
+                    );
+                    const checkpointId = transcriptPage.getAttribute('data-session-map-transcript-checkpoint') || '';
+                    if (Number.isInteger(page) && page > 0) {
+                        loadCheckpoint(modal, session.session_id, checkpointId, page, true);
+                    }
+                }
             });
             modal.addEventListener('change', event => {
                 const target = event.target;
@@ -213,7 +330,13 @@
                 loadCheckpoint(modal, session.session_id, target.value);
             });
             document.body.appendChild(modal);
-            await loadCheckpoint(modal, session.session_id);
+            await loadCheckpoint(
+                modal,
+                session.session_id,
+                String(options.checkpointId || ''),
+                Number.isInteger(options.messagePage) ? options.messagePage : 1,
+                options.transcriptOpen === true
+            );
         }
 
         return Object.freeze({ closeModal, openModalForSession });

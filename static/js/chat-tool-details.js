@@ -61,10 +61,12 @@
                 updateToolDetail(entry);
             }
 
-            function openToolCallDetails(entry) {
+            function openToolCallDetails(entry, options = {}) {
                 if (!entry) return;
                 closeToolCallDetails();
                 activeToolDetailEntry = entry;
+                entry.detailBackAction = typeof options.onBack === 'function' ? options.onBack : null;
+                entry.detailBackLabel = String(options.backLabel || 'Session map');
                 entry.modalAbortController = new AbortController();
 
                 const overlay = document.createElement('div');
@@ -79,6 +81,11 @@
                                 <p class="mt-1 text-xs text-txt-secondary cell-mono">${utils.escapeHtml(entry.toolId || '')}</p>
                             </div>
                             <div class="app-modal-actions">
+                                ${entry.detailBackAction ? `
+                                    <button type="button" class="app-modal-back-button" data-tool-call-back="true" aria-label="Back to ${utils.escapeHtml(entry.detailBackLabel)}" title="Back to ${utils.escapeHtml(entry.detailBackLabel)}">
+                                        ${icons.ARROW_LEFT_ICON_SVG}
+                                    </button>
+                                ` : ''}
                                 <button type="button" class="ui-icon-button is-compact" data-tool-call-close="true" aria-label="Close" title="Close">
                                     ${icons.X_ICON_SVG}
                                 </button>
@@ -90,6 +97,12 @@
                 overlay.addEventListener('click', (event) => {
                     const target = event.target;
                     if (!(target instanceof Element)) return;
+                    if (target.closest('[data-tool-call-back="true"]')) {
+                        const backAction = entry.detailBackAction;
+                        closeToolCallDetails();
+                        backAction?.();
+                        return;
+                    }
                     if (target.closest('[data-tool-call-close="true"]')) {
                         closeToolCallDetails();
                     }
@@ -104,7 +117,7 @@
 
             async function loadToolCallDetail(entry, options = {}) {
                 const vault = elements.vaultSelector?.value || '';
-                const sessionId = state.sessionId || '';
+                const sessionId = entry.sessionId || state.sessionId || '';
                 if (
                     !entry
                     || !entry.persisted
@@ -123,8 +136,11 @@
                 entry.detailError = '';
                 refreshToolCallDetails(entry);
                 try {
+                    const checkpointQuery = entry.checkpointId
+                        ? `&checkpoint_id=${encodeURIComponent(entry.checkpointId)}`
+                        : '';
                     const response = await fetch(
-                        `api/chat/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(entry.toolId)}?vault_name=${encodeURIComponent(vault)}`,
+                        `api/chat/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(entry.toolId)}?vault_name=${encodeURIComponent(vault)}${checkpointQuery}`,
                         { cache: 'no-store', signal: abortController.signal }
                     );
                     if (!response.ok) {
@@ -174,7 +190,7 @@
                     { label: 'Tool call ID', value: entry.toolId || '' },
                     { label: 'Status', value: callbacks.toolStateLabel(entry) },
                     { label: 'Elapsed', value: callbacks.formatToolElapsed(entry), elapsed: true },
-                    { label: 'Context', value: 'Retained in active chat context.' }
+                    { label: 'Context', value: entry.contextLabel || 'Retained in active chat context.' }
                 ];
                 if (!isEmptyToolValue(entry.detailArgs)) {
                     sections.push({ label: 'Args', value: entry.detailArgs, kind: 'args' });
@@ -256,6 +272,44 @@
                 entry.detailLoaded = false;
                 entry.detailLoading = false;
                 entry.detailError = '';
+                entry.detailBackAction = null;
+                entry.detailBackLabel = '';
+            }
+
+            function openPersistedToolCallDetails(options = {}) {
+                const now = Date.now();
+                const entry = {
+                    container: document.createElement('button'),
+                    line: document.createElement('span'),
+                    stateIcon: document.createElement('span'),
+                    toolId: String(options.toolId || ''),
+                    toolName: String(options.toolName || 'Tool call'),
+                    tokenCount: normalizeToolTokenCount(options.tokenCount),
+                    persisted: true,
+                    detailUnavailable: false,
+                    detailArgs: null,
+                    detailResult: null,
+                    detailMetadata: {},
+                    detailArtifactRef: '',
+                    detailVault: '',
+                    detailSessionId: '',
+                    detailEvents: [],
+                    state: options.state || 'interrupted',
+                    startedAt: now,
+                    finishedAt: now,
+                    detailLoaded: false,
+                    detailLoading: false,
+                    detailError: '',
+                    detailRequestId: 0,
+                    detailAbortController: null,
+                    modalAbortController: null,
+                    checkpointId: String(options.checkpointId || ''),
+                    sessionId: String(options.sessionId || ''),
+                    contextLabel: String(options.contextLabel || ''),
+                    detailBackAction: null,
+                    detailBackLabel: '',
+                };
+                openToolCallDetails(entry, options);
             }
 
             function handleToolCallModalKeydown(event) {
@@ -391,6 +445,7 @@
             load: loadToolCallDetail,
             normalizeTokenCount: normalizeToolTokenCount,
             open: openToolCallDetails,
+            openPersisted: openPersistedToolCallDetails,
             refresh: refreshToolCallDetails,
             setEntryTokenCount: setToolEntryTokenCount,
             updateEntry: updateToolDetail,
