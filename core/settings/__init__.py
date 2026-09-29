@@ -992,6 +992,20 @@ def get_session_map_low_watermark_tokens() -> int:
     return parsed if parsed > 0 else template_default
 
 
+def get_session_map_min_retained_groups() -> int:
+    """Return the minimum newest conversational groups retained verbatim."""
+    entry = get_general_settings().get("session_map_min_retained_groups")
+    value = getattr(entry, "value", None) if entry is not None else None
+    template_default = _get_template_setting_positive_int(
+        "session_map_min_retained_groups", 3
+    )
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return template_default
+    return parsed if 1 <= parsed <= 100 else template_default
+
+
 def _get_nonempty_setting_string(setting_key: str, default: str) -> str:
     entry = get_general_settings().get(setting_key)
     value = getattr(entry, "value", None) if entry is not None else None

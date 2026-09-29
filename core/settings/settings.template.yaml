@@ -202,7 +202,12 @@ settings:
     restart_required: false
   session_map_low_watermark_tokens:
     value: 20000
-    description: "Target Compaction v2 effective-history size after stepped-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete provider-history groups remain intact, so the actual history size can exceed this target. Must be lower than compaction_token_threshold."
+    description: "Target Compaction v2 effective-history size after stepped-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete provider-history groups and session_map_min_retained_groups take precedence, so the actual history size can exceed this target. Must be lower than compaction_token_threshold."
+    category: "Chat"
+    restart_required: false
+  session_map_min_retained_groups:
+    value: 3
+    description: "Minimum number of newest user-initiated conversational groups Compaction v2 preserves verbatim after eviction. A group includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; this floor can cause retained history to exceed session_map_low_watermark_tokens."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:

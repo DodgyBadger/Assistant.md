@@ -133,6 +133,7 @@ class SteppedHistoryEvictionPlan:
     retained_prefix_count: int
     eviction_start_index: int
     eviction_end_index: int
+    minimum_retained_groups: int
 
 
 @dataclass(frozen=True)
@@ -416,14 +417,17 @@ def plan_stepped_history_eviction(
     *,
     high_watermark_tokens: int,
     low_watermark_tokens: int,
+    minimum_retained_groups: int,
     history_revision: int | None = None,
     retained_prefix_count: int = 0,
 ) -> SteppedHistoryEvictionPlan:
-    """Plan safe oldest-group eviction after an optional pinned prefix."""
+    """Plan safe oldest-group eviction while preserving a recent group floor."""
     _validate_eviction_watermarks(
         high_watermark_tokens=high_watermark_tokens,
         low_watermark_tokens=low_watermark_tokens,
     )
+    if minimum_retained_groups < 1:
+        raise ValueError("Minimum retained groups must be at least one.")
     if retained_prefix_count < 0 or retained_prefix_count >= len(messages):
         if retained_prefix_count != 0 or messages:
             raise ValueError("Retained prefix must leave evictable history")
@@ -440,6 +444,7 @@ def plan_stepped_history_eviction(
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
             retained_prefix_count=retained_prefix_count,
+            minimum_retained_groups=minimum_retained_groups,
         )
 
     integrity = analyze_tool_history(evictable_messages)
@@ -453,10 +458,11 @@ def plan_stepped_history_eviction(
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
             retained_prefix_count=retained_prefix_count,
+            minimum_retained_groups=minimum_retained_groups,
         )
-    if len(groups) <= 1:
+    if len(groups) <= minimum_retained_groups:
         return _no_op_eviction_plan(
-            reason="insufficient_evictable_history",
+            reason="minimum_retained_groups",
             messages=messages,
             groups=groups,
             estimated_tokens=estimated_before,
@@ -464,12 +470,13 @@ def plan_stepped_history_eviction(
             high_watermark_tokens=high_watermark_tokens,
             low_watermark_tokens=low_watermark_tokens,
             retained_prefix_count=retained_prefix_count,
+            minimum_retained_groups=minimum_retained_groups,
         )
 
     eviction_end_index = 0
     evicted_group_count = 0
     estimated_after = estimated_before
-    for group in groups[:-1]:
+    for group in groups[:-minimum_retained_groups]:
         eviction_end_index = retained_prefix_count + group.end_index
         evicted_group_count += 1
         estimated_after = estimate_history_tokens(
@@ -487,7 +494,7 @@ def plan_stepped_history_eviction(
         reason=(
             "low_watermark_reached"
             if target_reached
-            else "newest_group_exceeds_low_watermark"
+            else "retained_group_floor_exceeds_low_watermark"
         ),
         history_revision=history_revision,
         high_watermark_tokens=high_watermark_tokens,
@@ -504,6 +511,7 @@ def plan_stepped_history_eviction(
         retained_prefix_count=retained_prefix_count,
         eviction_start_index=retained_prefix_count,
         eviction_end_index=eviction_end_index,
+        minimum_retained_groups=minimum_retained_groups,
     )
 
 
@@ -784,6 +792,7 @@ def _no_op_eviction_plan(
     high_watermark_tokens: int,
     low_watermark_tokens: int,
     retained_prefix_count: int,
+    minimum_retained_groups: int,
 ) -> SteppedHistoryEvictionPlan:
     return SteppedHistoryEvictionPlan(
         status="no_op",
@@ -801,6 +810,7 @@ def _no_op_eviction_plan(
         retained_prefix_count=retained_prefix_count,
         eviction_start_index=retained_prefix_count,
         eviction_end_index=retained_prefix_count,
+        minimum_retained_groups=minimum_retained_groups,
     )
 
 
@@ -876,6 +886,7 @@ async def maybe_auto_compact_after_turn(
                 "reason": readiness.reason,
                 "high_watermark_tokens": readiness.high_watermark_tokens,
                 "low_watermark_tokens": readiness.low_watermark_tokens,
+                "minimum_retained_groups": readiness.minimum_retained_groups,
                 "author_model": readiness.author_model,
             },
         )
@@ -957,6 +968,7 @@ async def _run_stepped_session_map_reduction(
             messages,
             high_watermark_tokens=readiness.high_watermark_tokens,
             low_watermark_tokens=readiness.low_watermark_tokens,
+            minimum_retained_groups=readiness.minimum_retained_groups,
             history_revision=history_revision,
             retained_prefix_count=retained_prefix_count,
         )
@@ -1074,6 +1086,8 @@ async def _run_stepped_session_map_reduction(
                     if authored.draft.trajectory is not None
                     else 0
                 ),
+                "minimum_retained_groups": plan.minimum_retained_groups,
+                "retained_group_count": plan.group_count - plan.evicted_group_count,
                 "raw_messages_preserved": True,
             },
         )

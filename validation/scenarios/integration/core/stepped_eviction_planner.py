@@ -39,6 +39,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             ordinary,
             high_watermark_tokens=total_tokens,
             low_watermark_tokens=latest_turn_tokens,
+            minimum_retained_groups=1,
         )
         assert below_high.status == "no_op"
         assert below_high.reason == "below_high_watermark"
@@ -48,6 +49,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             ordinary,
             high_watermark_tokens=total_tokens - 1,
             low_watermark_tokens=latest_turn_tokens,
+            minimum_retained_groups=1,
         )
         assert ordinary_plan.status == "planned"
         assert ordinary_plan.reason == "low_watermark_reached"
@@ -89,6 +91,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             tool_history,
             high_watermark_tokens=tool_total - 1,
             low_watermark_tokens=tool_recent,
+            minimum_retained_groups=1,
         )
         assert tool_plan.status == "planned"
         assert tool_plan.eviction_end_index == 4
@@ -108,6 +111,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             recovery_history,
             high_watermark_tokens=recovery_total - 1,
             low_watermark_tokens=recovery_recent,
+            minimum_retained_groups=1,
         )
         assert recovery_plan.status == "planned"
         assert recovery_plan.eviction_end_index == 1
@@ -123,6 +127,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             map_history,
             high_watermark_tokens=map_total - 1,
             low_watermark_tokens=map_target,
+            minimum_retained_groups=1,
             retained_prefix_count=1,
         )
         assert map_plan.status == "planned"
@@ -145,9 +150,10 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             oversized_latest,
             high_watermark_tokens=oversized_total - 1,
             low_watermark_tokens=max(1, oversized_recent - 1),
+            minimum_retained_groups=1,
         )
         assert oversized_plan.status == "planned"
-        assert oversized_plan.reason == "newest_group_exceeds_low_watermark"
+        assert oversized_plan.reason == "retained_group_floor_exceeds_low_watermark"
         assert oversized_plan.eviction_end_index == 2
         assert oversized_plan.estimated_tokens_after == oversized_recent
 
@@ -160,9 +166,10 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             abandoned_prefix,
             high_watermark_tokens=1,
             low_watermark_tokens=0,
+            minimum_retained_groups=1,
         )
         assert abandoned_plan.status == "planned"
-        assert abandoned_plan.reason == "newest_group_exceeds_low_watermark"
+        assert abandoned_plan.reason == "retained_group_floor_exceeds_low_watermark"
         assert abandoned_plan.eviction_end_index == 1
         assert abandoned_plan.evicted_message_count == 1
         assert abandoned_plan.retained_message_count == 2
@@ -176,6 +183,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             newest_incomplete,
             high_watermark_tokens=1,
             low_watermark_tokens=0,
+            minimum_retained_groups=1,
         )
         assert newest_incomplete_plan.status == "planned"
         assert newest_incomplete_plan.eviction_end_index == 2
@@ -194,6 +202,7 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             malformed_tools,
             high_watermark_tokens=1,
             low_watermark_tokens=0,
+            minimum_retained_groups=1,
         )
         assert malformed_plan.status == "no_op"
         assert malformed_plan.reason == "invalid_tool_history"
@@ -203,11 +212,56 @@ class SteppedEvictionPlannerScenario(BaseScenario):
                 ordinary,
                 high_watermark_tokens=100,
                 low_watermark_tokens=100,
+                minimum_retained_groups=1,
             )
         except ValueError as exc:
             assert "low watermark" in str(exc).lower()
         else:
             raise AssertionError("Equal watermarks should be rejected")
+
+        long_latest_with_floor = [
+            _user("oldest question"),
+            _assistant("oldest answer"),
+            _user("middle question"),
+            _assistant("middle answer"),
+            _user("recent question"),
+            _assistant("recent answer"),
+            _user("very long latest question " * 300),
+            _assistant("very long latest answer " * 300),
+        ]
+        floor_plan = compaction.plan_stepped_history_eviction(
+            long_latest_with_floor,
+            high_watermark_tokens=2,
+            low_watermark_tokens=1,
+            minimum_retained_groups=3,
+        )
+        assert floor_plan.status == "planned"
+        assert floor_plan.reason == "retained_group_floor_exceeds_low_watermark"
+        assert floor_plan.eviction_end_index == 2
+        assert floor_plan.evicted_group_count == 1
+        assert floor_plan.group_count - floor_plan.evicted_group_count == 3
+        assert floor_plan.estimated_tokens_after > floor_plan.low_watermark_tokens
+
+        exactly_floor = compaction.plan_stepped_history_eviction(
+            long_latest_with_floor[-6:],
+            high_watermark_tokens=1,
+            low_watermark_tokens=0,
+            minimum_retained_groups=3,
+        )
+        assert exactly_floor.status == "no_op"
+        assert exactly_floor.reason == "minimum_retained_groups"
+
+        try:
+            compaction.plan_stepped_history_eviction(
+                ordinary,
+                high_watermark_tokens=100,
+                low_watermark_tokens=1,
+                minimum_retained_groups=0,
+            )
+        except ValueError as exc:
+            assert "at least one" in str(exc).lower()
+        else:
+            raise AssertionError("A zero retained-group floor should be rejected")
 
         self.assert_no_failures()
 

@@ -186,6 +186,7 @@ class SessionMapCheckpointScenario(BaseScenario):
             low_watermark_tokens=compaction.estimate_history_tokens(
                 [effective_after_first[0], *effective_after_first[-2:]]
             ),
+            minimum_retained_groups=1,
             history_revision=second_revision,
             retained_prefix_count=1,
         )

@@ -70,6 +70,7 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
             persisted_history,
             high_watermark_tokens=total_tokens - 1,
             low_watermark_tokens=recent_tokens,
+            minimum_retained_groups=1,
             history_revision=store.get_session_history_revision(session_id, vault.name),
         )
 
@@ -132,6 +133,7 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
             low_watermark_tokens=compaction.estimate_history_tokens(
                 current_history[-2:]
             ),
+            minimum_retained_groups=1,
             history_revision=store.get_session_history_revision(session_id, vault.name),
         )
         current = compaction.build_canonical_eviction_envelopes(
@@ -168,6 +170,7 @@ class SteppedEvictionEnvelopesScenario(BaseScenario):
             low_watermark_tokens=compaction.estimate_history_tokens(
                 compacted_messages[-2:]
             ),
+            minimum_retained_groups=1,
             history_revision=store.get_session_history_revision(
                 compacted_session_id, vault.name
             ),

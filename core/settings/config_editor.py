@@ -102,6 +102,12 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
         )
+    if name == "session_map_min_retained_groups" and not (
+        isinstance(value, int) and 1 <= value <= 100
+    ):
+        raise SettingsError(
+            "Session-map minimum retained groups must be between 1 and 100."
+        )
 
     delay_names = {
         "model_stream_retry_base_delay_seconds",

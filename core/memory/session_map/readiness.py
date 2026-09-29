@@ -15,6 +15,7 @@ from core.settings import (
     get_session_map_author_model,
     get_session_map_author_thinking,
     get_session_map_low_watermark_tokens,
+    get_session_map_min_retained_groups,
 )
 
 from .checkpoints import load_session_map_checkpoint
@@ -32,6 +33,7 @@ class SessionMapReadiness:
     author_thinking: ThinkingValue
     high_watermark_tokens: int
     low_watermark_tokens: int
+    minimum_retained_groups: int
 
 
 def evaluate_session_map_readiness(
@@ -59,6 +61,7 @@ def evaluate_session_map_readiness(
         thinking_valid = False
     high_watermark = get_compaction_token_threshold()
     low_watermark = get_session_map_low_watermark_tokens()
+    minimum_retained_groups = get_session_map_min_retained_groups()
 
     def result(enabled: bool, reason: str) -> SessionMapReadiness:
         return SessionMapReadiness(
@@ -70,6 +73,7 @@ def evaluate_session_map_readiness(
             author_thinking=author_thinking,
             high_watermark_tokens=high_watermark,
             low_watermark_tokens=low_watermark,
+            minimum_retained_groups=minimum_retained_groups,
         )
 
     if strategy != "stepped_session_map":

@@ -541,6 +541,14 @@ The implemented artifact schema version 3 adds optional `option` and `finding` e
 
 A live Terra rebuild of the 100-message driving-school transcript produced one schema-version-3 checkpoint, reducing approximately 192,900 raw-history tokens to 24,600 effective-history tokens. The revised map represented the Vancity recommendation as an assistant-proposed option, the October 2026 licensing rule as a finding, and the persisted vault note as an artifact. An initial pass exposed that an ordinary assistant-produced link list could still be misclassified as an artifact; clarifying that artifacts must be stored outside the ordinary transcript caused the bounded rerun to classify the corrected link set as a finding instead. This is useful contract evidence but only one checkpoint. The next promotion test must exercise successive revisions because durable lineage and cumulative crystallization remain the actual risk.
 
+### Slice 4N: Preserve a configurable recent conversational floor
+
+**Status:** Complete. Compaction v2 now uses two independently configurable retention targets. `session_map_low_watermark_tokens` remains the preferred effective-history size after eviction, while `session_map_min_retained_groups` is a hard floor on the newest complete provider-history groups retained verbatim. The floor defaults to three groups and takes precedence over the token target, so one unusually large recent request, response, or tool exchange cannot reduce the live tail to a single conversational group merely because it consumes the entire token allowance.
+
+The planner still evicts only a coherent oldest prefix and never splits a conversational group or valid tool exchange. If the history contains no group older than the configured floor, reduction defers without mutating history. If older groups can be evicted but the retained floor remains above the low watermark, the planner proceeds safely and records that the group floor prevented reaching the token target. This makes the trade-off explicit and tunable: operators can favor a smaller effective context with a lower floor or stronger short-range continuity with a higher floor.
+
+**Validation result:** Focused deterministic scenarios prove legacy one-group behavior explicitly, the default three-group setting and API bounds, oversized newest-group behavior, exact-floor deferral, whole-tool-exchange preservation, readiness propagation, and normal post-turn authoring under the configured floor. Ruff, Black, and mypy pass.
+
 ## Contract-Sensitive Areas
 
 - `session_ops` input schema, descriptions, error messages, and operation-specific parameter validation.
@@ -573,10 +581,11 @@ A live Terra rebuild of the 100-message driving-school transcript produced one s
 14. Make the session-map author model inherit the default chat model unless an explicit override is configured.
 15. Pin each session to its first context-checkpoint strategy and reserve cross-strategy transitions for an explicit rebuild operation.
 16. Resolve schema-induced crystallization by adding optional `option` and `finding` kinds, tightening high-commitment entry admission, and validating the revised schema across successive checkpoint revisions before default promotion.
+17. Add a configurable minimum retained-group floor beside the low token watermark so Compaction v2 preserves several complete recent conversational groups even when one is unusually large.
 
 ## Immediate Next Steps
 
-Test the schema-version-3 map across successive revisions for cumulative crystallization before resuming promotion comparison. Continue bounded opt-in comparison against Compaction v1 at the 20,000-token low-watermark default, focusing on repeated-reduction salience, stale current state, provenance recovery, total authoring and retrieval cost, and actual post-reduction size under whole-group constraints. Investigate the noisy but non-destructive first-turn maintenance case where a threshold-crossing tool-heavy turn contains no complete evictable prefix; it should defer cleanly without crossing strategies. Design an explicit append-only context rebuild before promoting Compaction v2 so live test sessions can move deliberately in either direction. Do not make Compaction v2 the default or remove Compaction v1 until repeated live reductions demonstrate a clear operational advantage. No additional Jev memory experiments are planned on this branch.
+Test the schema-version-3 map across successive revisions for cumulative crystallization before resuming promotion comparison. Continue bounded opt-in comparison against Compaction v1 at the 20,000-token low-watermark default and three-group floor, focusing on repeated-reduction salience, stale current state, provenance recovery, total authoring and retrieval cost, and actual post-reduction size under whole-group constraints. Design an explicit append-only context rebuild before promoting Compaction v2 so live test sessions can move deliberately in either direction. Do not make Compaction v2 the default or remove Compaction v1 until repeated live reductions demonstrate a clear operational advantage. No additional Jev memory experiments are planned on this branch.
 
 ## Evidence and Design Sources
 

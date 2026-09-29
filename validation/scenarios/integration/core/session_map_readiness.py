@@ -61,6 +61,11 @@ class SessionMapReadinessScenario(BaseScenario):
             in (settings["session_map_author_model"].get("description") or ""),
             "The author-model setting should explain its default-model fallback",
         )
+        self.soft_assert_equal(
+            settings["session_map_min_retained_groups"]["value"],
+            "3",
+            "Compaction v2 should retain three recent groups by default",
+        )
         initial = evaluate_session_map_readiness(
             store=store,
             session_id=canonical_session,
@@ -77,6 +82,7 @@ class SessionMapReadinessScenario(BaseScenario):
             ("default_model", "test"),
             ("session_map_author_thinking", "low"),
             ("session_map_low_watermark_tokens", "50"),
+            ("session_map_min_retained_groups", "3"),
             ("compaction_token_threshold", "100"),
             ("compaction_type", "auto"),
         ):
@@ -104,9 +110,21 @@ class SessionMapReadinessScenario(BaseScenario):
                 ready.author_thinking,
                 ready.high_watermark_tokens,
                 ready.low_watermark_tokens,
+                ready.minimum_retained_groups,
             ),
-            (True, "ready_canonical_history", "test", "low", 100, 50),
+            (True, "ready_canonical_history", "test", "low", 100, 50, 3),
             "The default model should make canonical history eligible when no author override is set",
+        )
+
+        invalid_floor = self.call_api(
+            "/api/system/settings/general/session_map_min_retained_groups",
+            method="PUT",
+            data={"value": "0"},
+        )
+        self.soft_assert_equal(
+            invalid_floor.status_code,
+            400,
+            "The retained-group floor should reject values below one",
         )
 
         self._set_setting("session_map_author_model", "jev")

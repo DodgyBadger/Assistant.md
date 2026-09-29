@@ -362,6 +362,7 @@ def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
         ("session_map_author_model", MODEL_ALIAS),
         ("session_map_author_thinking", "low"),
         ("session_map_low_watermark_tokens", LOW_WATERMARK_TOKENS),
+        ("session_map_min_retained_groups", 3),
         ("compaction_token_threshold", HIGH_WATERMARK_TOKENS),
         ("compaction_type", "auto"),
     ):

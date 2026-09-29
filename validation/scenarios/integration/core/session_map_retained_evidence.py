@@ -54,6 +54,7 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             ("session_map_author_model", "test"),
             ("session_map_author_thinking", "low"),
             ("session_map_low_watermark_tokens", "1"),
+            ("session_map_min_retained_groups", "1"),
             ("compaction_token_threshold", "2"),
             ("compaction_type", "auto"),
         ):
@@ -248,6 +249,7 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             retained_prefix_count=0,
             eviction_start_index=0,
             eviction_end_index=2,
+            minimum_retained_groups=1,
         )
         retained_after_retrieval = _build_retained_session_map_evidence(
             store=store,
