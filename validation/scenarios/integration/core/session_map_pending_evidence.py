@@ -27,7 +27,7 @@ from core.identity import (  # noqa: E402
 from core.memory.session_map.checkpoints import (  # noqa: E402
     SessionMapPendingEvidence,
     build_session_map_context_message,
-    commit_session_map_checkpoint,
+    commit_session_map_context_checkpoint,
     load_session_map_pending_evidence,
 )
 from core.memory.session_map.models import (  # noqa: E402
@@ -37,7 +37,7 @@ from core.memory.session_map.models import (  # noqa: E402
     SourceRange,
 )
 from core.memory.session_map.readiness import (  # noqa: E402
-    evaluate_session_map_readiness,
+    evaluate_session_map_compaction_readiness,
 )
 from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
@@ -109,13 +109,13 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
                 ),
             ),
         )
-        commit_session_map_checkpoint(
+        commit_session_map_context_checkpoint(
             store=store,
             session_id=session_id,
             vault_name=vault.name,
             draft=initial_map,
             previous_map=SessionMapDraft(),
-            envelopes=initial_evidence.envelopes,
+            new_evidence=initial_evidence.envelopes,
             expected_history_revision=initial_revision,
             message_count_before=len(raw_messages),
             source="validation",
@@ -218,7 +218,7 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
                 ),
             )
 
-        readiness = evaluate_session_map_readiness(
+        readiness = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=session_id,
             vault_name=vault.name,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -16,13 +17,13 @@ from pydantic_ai.messages import (  # noqa: E402
     UserPromptPart,
 )
 
-from core.chat.compaction import CanonicalEvictionEnvelope  # noqa: E402
 from core.identity import LOCAL_USER_PRINCIPAL_ID  # noqa: E402
 from core.memory.session_map.checkpoints import (  # noqa: E402
     build_session_map_context_message,
-    commit_session_map_checkpoint,
+    commit_session_map_context_checkpoint,
     load_session_map_checkpoint,
 )
+from core.memory.session_map.evidence import SessionMapEvidence  # noqa: E402
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
@@ -80,17 +81,20 @@ class SessionMapCheckpointScenario(BaseScenario):
                 ),
             ),
         )
-        first_commit = commit_session_map_checkpoint(
+        first_commit = commit_session_map_context_checkpoint(
             store=store,
             session_id=session_id,
             vault_name=vault.name,
             draft=first_map,
             previous_map=SessionMapDraft(),
-            envelopes=(first_envelope,),
+            new_evidence=(first_envelope,),
             expected_history_revision=initial_revision,
             message_count_before=len(raw_messages),
             source="validation",
             authoring_task_id="task-first-map",
+            authoring_prompt_version="eviction-map-v8",
+            author_model_alias="gpt-mini",
+            author_thinking="low",
             checkpoint_id="first-map-checkpoint",
         )
 
@@ -108,6 +112,42 @@ class SessionMapCheckpointScenario(BaseScenario):
             load_session_map_checkpoint(first_commit.checkpoint),
             first_map,
             "The typed map should round-trip from checkpoint metadata",
+        )
+        first_metadata = json.loads(first_commit.checkpoint.metadata_json or "{}")
+        self.soft_assert_equal(
+            {
+                "map_schema_version": first_metadata.get("map_schema_version"),
+                "authoring_prompt_version": first_metadata.get(
+                    "authoring_prompt_version"
+                ),
+                "context_prompt_version": first_metadata.get("context_prompt_version"),
+                "author_model_alias": first_metadata.get("author_model_alias"),
+                "author_thinking": first_metadata.get("author_thinking"),
+                "source_history_revision": first_metadata.get(
+                    "source_history_revision"
+                ),
+                "evidence_source_start_sequence_index": first_metadata.get(
+                    "evidence_source_start_sequence_index"
+                ),
+                "evidence_source_end_sequence_index": first_metadata.get(
+                    "evidence_source_end_sequence_index"
+                ),
+                "map_observed_through_sequence_index": first_metadata.get(
+                    "map_observed_through_sequence_index"
+                ),
+            },
+            {
+                "map_schema_version": 3,
+                "authoring_prompt_version": "eviction-map-v8",
+                "context_prompt_version": "session-map-context-v3",
+                "author_model_alias": "gpt-mini",
+                "author_thinking": "low",
+                "source_history_revision": initial_revision,
+                "evidence_source_start_sequence_index": 0,
+                "evidence_source_end_sequence_index": 1,
+                "map_observed_through_sequence_index": 1,
+            },
+            "Map checkpoints should preserve distinct authoring and context provenance",
         )
         self.soft_assert_equal(
             store.get_history(session_id, vault.name, mode="raw"),
@@ -139,13 +179,13 @@ class SessionMapCheckpointScenario(BaseScenario):
             end=3,
         )
         try:
-            commit_session_map_checkpoint(
+            commit_session_map_context_checkpoint(
                 store=store,
                 session_id=session_id,
                 vault_name=vault.name,
                 draft=first_map,
                 previous_map=first_map,
-                envelopes=(stale_envelope,),
+                new_evidence=(stale_envelope,),
                 expected_history_revision=initial_revision,
                 message_count_before=len(effective_after_first),
                 source="validation",
@@ -233,13 +273,13 @@ class SessionMapCheckpointScenario(BaseScenario):
                 ),
             ),
         )
-        second_commit = commit_session_map_checkpoint(
+        second_commit = commit_session_map_context_checkpoint(
             store=store,
             session_id=session_id,
             vault_name=vault.name,
             draft=second_map,
             previous_map=first_map,
-            envelopes=(second_envelope,),
+            new_evidence=(second_envelope,),
             expected_history_revision=second_revision,
             message_count_before=len(effective_after_first),
             source="validation",
@@ -454,13 +494,13 @@ class SessionMapCheckpointScenario(BaseScenario):
                 ),
             ),
         )
-        commit_session_map_checkpoint(
+        commit_session_map_context_checkpoint(
             store=store,
             session_id=tool_session_id,
             vault_name=vault.name,
             draft=tool_map,
             previous_map=SessionMapDraft(),
-            envelopes=(
+            new_evidence=(
                 _envelope(
                     session_id=tool_session_id,
                     vault_name=vault.name,
@@ -541,9 +581,9 @@ def _envelope(
     history_revision: int,
     start: int,
     end: int,
-) -> CanonicalEvictionEnvelope:
-    return CanonicalEvictionEnvelope(
-        envelope_id=f"map-envelope-{start}-{end}-r{history_revision}",
+) -> SessionMapEvidence:
+    return SessionMapEvidence(
+        evidence_id=f"map-envelope-{start}-{end}-r{history_revision}",
         session_id=session_id,
         vault_name=vault_name,
         history_revision=history_revision,

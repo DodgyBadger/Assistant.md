@@ -1,4 +1,4 @@
-"""Minimal bounded schema for eviction-derived session state."""
+"""Minimal bounded schema for source-linked session state."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class SessionMapProvenanceError(ValueError):
 
 
 class SessionMapEntryKind(StrEnum):
-    """Small set of current-state dimensions retained across eviction."""
+    """Small set of dimensions represented in current session state."""
 
     ORIENTATION = "orientation"
     GOAL = "goal"
@@ -176,7 +176,7 @@ def _validate_entry_admission(entries: Sequence[SessionMapEntry]) -> None:
             )
 
 
-class _CanonicalEnvelope(Protocol):
+class _CanonicalEvidence(Protocol):
     @property
     def source_start_sequence_index(self) -> int: ...
 
@@ -187,16 +187,16 @@ class _CanonicalEnvelope(Protocol):
 def validate_session_map_provenance(
     draft: SessionMapDraft,
     *,
-    envelopes: Sequence[_CanonicalEnvelope],
+    evidence: Sequence[_CanonicalEvidence],
     previous_map: SessionMapDraft | None = None,
 ) -> SessionMapDraft:
     """Reject source ranges absent from the prior map and supplied evidence."""
     available = [
         SourceRange(
-            start=envelope.source_start_sequence_index,
-            end=envelope.source_end_sequence_index,
+            start=item.source_start_sequence_index,
+            end=item.source_end_sequence_index,
         )
-        for envelope in envelopes
+        for item in evidence
     ]
     if previous_map is not None:
         available.extend(

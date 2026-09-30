@@ -17,7 +17,7 @@ from pydantic_ai.messages import (  # noqa: E402
 from core.chat.compaction import build_compaction_summary_message  # noqa: E402
 from core.identity import LOCAL_USER_PRINCIPAL_ID  # noqa: E402
 from core.memory.session_map.readiness import (  # noqa: E402
-    evaluate_session_map_readiness,
+    evaluate_session_map_compaction_readiness,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
@@ -66,7 +66,7 @@ class SessionMapReadinessScenario(BaseScenario):
             "3",
             "Compaction v2 should retain three recent groups by default",
         )
-        initial = evaluate_session_map_readiness(
+        initial = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -97,7 +97,7 @@ class SessionMapReadinessScenario(BaseScenario):
                 f"{key} should save through the normal settings API",
             )
 
-        ready = evaluate_session_map_readiness(
+        ready = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -128,7 +128,7 @@ class SessionMapReadinessScenario(BaseScenario):
         )
 
         self._set_setting("session_map_author_model", "jev")
-        decision_only = evaluate_session_map_readiness(
+        decision_only = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -141,7 +141,7 @@ class SessionMapReadinessScenario(BaseScenario):
 
         self._set_setting("session_map_author_model", "test")
         self._set_setting("session_map_author_thinking", "impossible")
-        invalid_thinking = evaluate_session_map_readiness(
+        invalid_thinking = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -154,7 +154,7 @@ class SessionMapReadinessScenario(BaseScenario):
 
         self._set_setting("session_map_author_thinking", "low")
         self._set_setting("session_map_low_watermark_tokens", "100")
-        invalid_watermarks = evaluate_session_map_readiness(
+        invalid_watermarks = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -167,7 +167,7 @@ class SessionMapReadinessScenario(BaseScenario):
 
         self._set_setting("session_map_low_watermark_tokens", "50")
         self._set_setting("compaction_type", "suggested")
-        manual_only = evaluate_session_map_readiness(
+        manual_only = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
@@ -197,7 +197,7 @@ class SessionMapReadinessScenario(BaseScenario):
             summary_message=summary,
             replacement_history=[summary],
         )
-        recovery_card = evaluate_session_map_readiness(
+        recovery_card = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=compacted_session,
             vault_name=vault.name,

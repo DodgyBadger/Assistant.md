@@ -1,4 +1,4 @@
-"""Governed generative authoring for eviction-derived session maps."""
+"""Governed generative authoring for source-linked session maps."""
 
 from __future__ import annotations
 
@@ -21,11 +21,8 @@ from core.runtime.execution_tasks import (
 from core.runtime.state import get_runtime_context
 from core.runtime.task_runner import ExecutionTaskSpec
 
-from .authoring import (
-    SessionMapEvidenceEnvelope,
-    SessionMapRetainedEvidence,
-    build_session_map_authoring_prompt,
-)
+from .authoring import build_session_map_authoring_prompt
+from .evidence import SessionMapEvidence, SessionMapMessageEvidence
 from .models import SessionMapDraft, validate_session_map_provenance
 
 logger = UnifiedLogger(
@@ -42,9 +39,9 @@ class SessionMapAuthoringRequest:
     vault_name: str
     model_alias: str
     previous_map: SessionMapDraft
-    envelopes: tuple[SessionMapEvidenceEnvelope, ...]
-    retained_evidence: tuple[SessionMapRetainedEvidence, ...] = ()
-    retrieved_evidence: tuple[SessionMapRetainedEvidence, ...] = ()
+    new_evidence: tuple[SessionMapEvidence, ...]
+    recent_evidence: tuple[SessionMapMessageEvidence, ...] = ()
+    retrieved_evidence: tuple[SessionMapMessageEvidence, ...] = ()
     thinking: ThinkingValue = None
 
     def __post_init__(self) -> None:
@@ -54,32 +51,32 @@ class SessionMapAuthoringRequest:
             raise ValueError("Session-map authoring requires a vault name")
         if not self.model_alias.strip():
             raise ValueError("Session-map authoring requires a model alias")
-        if not self.envelopes:
-            raise ValueError("Session-map authoring requires evidence envelopes")
-        revisions = {envelope.history_revision for envelope in self.envelopes}
+        if not self.new_evidence:
+            raise ValueError("Session-map authoring requires new canonical evidence")
+        revisions = {evidence.history_revision for evidence in self.new_evidence}
         if len(revisions) != 1:
             raise ValueError("Session-map evidence must share one history revision")
         prior_end = -1
-        for envelope in self.envelopes:
-            if envelope.session_id != self.session_id:
+        for evidence in self.new_evidence:
+            if evidence.session_id != self.session_id:
                 raise ValueError("Session-map evidence belongs to another session")
-            if envelope.vault_name != self.vault_name:
+            if evidence.vault_name != self.vault_name:
                 raise ValueError("Session-map evidence belongs to another vault")
-            if envelope.source_start_sequence_index <= prior_end:
+            if evidence.source_start_sequence_index <= prior_end:
                 raise ValueError(
                     "Session-map evidence ranges must be ordered and non-overlapping"
                 )
             if (
-                envelope.source_end_sequence_index
-                < envelope.source_start_sequence_index
+                evidence.source_end_sequence_index
+                < evidence.source_start_sequence_index
             ):
                 raise ValueError("Session-map evidence range is reversed")
-            prior_end = envelope.source_end_sequence_index
-        retained_prior = prior_end
-        for message in self.retained_evidence:
-            if message.sequence_index <= retained_prior:
-                raise ValueError("Retained evidence must follow evicted evidence")
-            retained_prior = message.sequence_index
+            prior_end = evidence.source_end_sequence_index
+        recent_prior = prior_end
+        for message in self.recent_evidence:
+            if message.sequence_index <= recent_prior:
+                raise ValueError("Recent evidence must follow new evidence")
+            recent_prior = message.sequence_index
 
 
 @dataclass(frozen=True)
@@ -89,8 +86,12 @@ class SessionMapAuthoringResult:
     draft: SessionMapDraft
     task_id: str
     model_alias: str
+    thinking: ThinkingValue
     prompt_contract_version: str
-    evidence_envelope_count: int
+    new_evidence_count: int
+    source_history_revision: int
+    evidence_source_start: int
+    evidence_source_end: int
 
 
 async def run_session_map_authoring(
@@ -113,8 +114,8 @@ async def run_session_map_authoring(
                 "session_id": request.session_id,
                 "model_alias": request.model_alias,
                 "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
-                "evidence_envelope_count": len(request.envelopes),
-                "retained_evidence_message_count": len(request.retained_evidence),
+                "new_evidence_count": len(request.new_evidence),
+                "recent_evidence_message_count": len(request.recent_evidence),
                 "retrieved_evidence_message_count": len(request.retrieved_evidence),
             },
         ),
@@ -136,8 +137,8 @@ async def _execute_session_map_authoring(
     if task.kind != ExecutionTaskKind.SESSION_MAP_AUTHORING.value:
         raise RuntimeError("Session-map authoring requires a session-map task")
 
-    first_source = request.envelopes[0].source_start_sequence_index
-    last_source = request.envelopes[-1].source_end_sequence_index
+    first_source = request.new_evidence[0].source_start_sequence_index
+    last_source = request.new_evidence[-1].source_end_sequence_index
     logger.info(
         "session_map_authoring_started",
         data={
@@ -147,20 +148,20 @@ async def _execute_session_map_authoring(
             "vault_name": request.vault_name,
             "model_alias": request.model_alias,
             "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
-            "evidence_envelope_count": len(request.envelopes),
+            "new_evidence_count": len(request.new_evidence),
             "evidence_source_start": first_source,
             "evidence_source_end": last_source,
             "previous_entry_count": len(request.previous_map.entries),
-            "retained_evidence_message_count": len(request.retained_evidence),
+            "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
-            "retained_evidence_source_start": (
-                request.retained_evidence[0].sequence_index
-                if request.retained_evidence
+            "recent_evidence_source_start": (
+                request.recent_evidence[0].sequence_index
+                if request.recent_evidence
                 else None
             ),
-            "retained_evidence_source_end": (
-                request.retained_evidence[-1].sequence_index
-                if request.retained_evidence
+            "recent_evidence_source_end": (
+                request.recent_evidence[-1].sequence_index
+                if request.recent_evidence
                 else None
             ),
         },
@@ -168,8 +169,8 @@ async def _execute_session_map_authoring(
     try:
         prompt = build_session_map_authoring_prompt(
             previous_map=request.previous_map,
-            envelopes=request.envelopes,
-            retained_evidence=request.retained_evidence,
+            new_evidence=request.new_evidence,
+            recent_evidence=request.recent_evidence,
             retrieved_evidence=request.retrieved_evidence,
         )
         draft = await _invoke_session_map_model(
@@ -183,9 +184,9 @@ async def _execute_session_map_authoring(
             )
         validate_session_map_provenance(
             draft,
-            envelopes=(
-                *request.envelopes,
-                *request.retained_evidence,
+            evidence=(
+                *request.new_evidence,
+                *request.recent_evidence,
                 *request.retrieved_evidence,
             ),
             previous_map=request.previous_map,
@@ -218,8 +219,8 @@ async def _execute_session_map_authoring(
             "trajectory_char_count": (
                 len(draft.trajectory.text) if draft.trajectory is not None else 0
             ),
-            "evidence_envelope_count": len(request.envelopes),
-            "retained_evidence_message_count": len(request.retained_evidence),
+            "new_evidence_count": len(request.new_evidence),
+            "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
         },
     )
@@ -227,8 +228,12 @@ async def _execute_session_map_authoring(
         draft=draft,
         task_id=task_id,
         model_alias=request.model_alias,
+        thinking=request.thinking,
         prompt_contract_version=SESSION_MAP_AUTHORING_PROMPT_VERSION,
-        evidence_envelope_count=len(request.envelopes),
+        new_evidence_count=len(request.new_evidence),
+        source_history_revision=request.new_evidence[0].history_revision,
+        evidence_source_start=first_source,
+        evidence_source_end=last_source,
     )
 
 

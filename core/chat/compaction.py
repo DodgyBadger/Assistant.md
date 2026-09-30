@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -32,17 +31,23 @@ from core.constants import (
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
-from core.memory.session_map.authoring import SessionMapRetainedEvidence
 from core.memory.session_map.checkpoints import (
     SessionMapCheckpointResult,
-    commit_session_map_checkpoint,
+    commit_session_map_context_checkpoint,
     load_session_map_checkpoint,
     load_session_map_pending_evidence,
 )
+from core.memory.session_map.evidence import (
+    SessionMapEvidence,
+    SessionMapMessageEvidence,
+    build_session_map_evidence,
+    has_contiguous_canonical_sequences,
+    resolve_session_map_evidence_range,
+)
 from core.memory.session_map.models import SessionMapDraft
 from core.memory.session_map.readiness import (
-    SessionMapReadiness,
-    evaluate_session_map_readiness,
+    SessionMapCompactionReadiness,
+    evaluate_session_map_compaction_readiness,
 )
 from core.memory.session_map.service import (
     SessionMapAuthoringRequest,
@@ -63,7 +68,7 @@ from core.settings import (
 )
 from core.utils.tokens import estimate_token_count
 
-from .chat_store import ChatStore, StoredChatMessage
+from .chat_store import ChatStore
 
 logger = UnifiedLogger(tag="chat-compaction")
 
@@ -137,29 +142,13 @@ class SteppedHistoryEvictionPlan:
 
 
 @dataclass(frozen=True)
-class CanonicalEvictionEnvelope:
-    """Immutable projected evidence for one canonical evicted history group."""
-
-    envelope_id: str
-    session_id: str
-    vault_name: str
-    history_revision: int
-    source_start_sequence_index: int
-    source_end_sequence_index: int
-    message_count: int
-    estimated_tokens: int
-    projected_text: str
-    source_digest: str
-
-
-@dataclass(frozen=True)
 class CanonicalEvictionEnvelopeResult:
     """Result of resolving a plan against one canonical persisted snapshot."""
 
     status: str
     reason: str
     history_revision: int
-    envelopes: tuple[CanonicalEvictionEnvelope, ...] = ()
+    envelopes: tuple[SessionMapEvidence, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -584,20 +573,20 @@ def build_canonical_eviction_envelopes(
             history_revision=history_revision,
         )
 
-    envelopes: list[CanonicalEvictionEnvelope] = []
+    envelopes: list[SessionMapEvidence] = []
     for group in evicted_groups:
         group_start = plan.retained_prefix_count + group.start_index
         group_end = plan.retained_prefix_count + group.end_index
         group_stored = stored_messages[group_start:group_end]
         group_models = model_messages[group_start:group_end]
-        if not _has_contiguous_canonical_sequences(group_stored):
+        if not has_contiguous_canonical_sequences(group_stored):
             return CanonicalEvictionEnvelopeResult(
                 status="unavailable",
                 reason="non_contiguous_canonical_history",
                 history_revision=history_revision,
             )
         envelopes.append(
-            _build_canonical_eviction_envelope(
+            build_session_map_evidence(
                 session_id=session_id,
                 vault_name=vault_name,
                 history_revision=history_revision,
@@ -625,114 +614,20 @@ def build_canonical_evidence_range(
     expected_source_digest: str | None = None,
 ) -> CanonicalEvictionEnvelopeResult:
     """Rehydrate one canonical raw interval for legacy pending evidence."""
-    current_revision = store.get_session_history_revision(session_id, vault_name)
-    if current_revision != history_revision:
-        return CanonicalEvictionEnvelopeResult(
-            status="unavailable",
-            reason="stale_history_revision",
-            history_revision=current_revision,
-        )
-    if (
-        source_start_sequence_index < 0
-        or source_end_sequence_index < source_start_sequence_index
-    ):
-        return CanonicalEvictionEnvelopeResult(
-            status="unavailable",
-            reason="invalid_source_range",
-            history_revision=current_revision,
-        )
-    stored_messages = store.get_stored_messages_range(
-        session_id,
-        vault_name,
-        after_sequence_index=source_start_sequence_index - 1,
-        through_sequence_index=source_end_sequence_index,
-    )
-    if (
-        not stored_messages
-        or stored_messages[0].sequence_index != source_start_sequence_index
-        or stored_messages[-1].sequence_index != source_end_sequence_index
-        or not _has_contiguous_canonical_sequences(stored_messages)
-    ):
-        return CanonicalEvictionEnvelopeResult(
-            status="unavailable",
-            reason="canonical_range_unavailable",
-            history_revision=current_revision,
-        )
-    envelope = _build_canonical_eviction_envelope(
+    resolved = resolve_session_map_evidence_range(
+        store=store,
         session_id=session_id,
         vault_name=vault_name,
-        history_revision=current_revision,
-        stored_messages=stored_messages,
-        model_messages=[message.message for message in stored_messages],
-    )
-    if (
-        expected_source_digest is not None
-        and envelope.source_digest != expected_source_digest
-    ):
-        return CanonicalEvictionEnvelopeResult(
-            status="unavailable",
-            reason="source_digest_mismatch",
-            history_revision=current_revision,
-        )
-    return CanonicalEvictionEnvelopeResult(
-        status="resolved",
-        reason="canonical_range_resolved",
-        history_revision=current_revision,
-        envelopes=(envelope,),
-    )
-
-
-def _has_contiguous_canonical_sequences(
-    messages: list[StoredChatMessage],
-) -> bool:
-    if not messages:
-        return False
-    expected = range(
-        messages[0].sequence_index,
-        messages[0].sequence_index + len(messages),
-    )
-    return all(
-        message.sequence_index == sequence_index
-        for message, sequence_index in zip(messages, expected, strict=True)
-    )
-
-
-def _build_canonical_eviction_envelope(
-    *,
-    session_id: str,
-    vault_name: str,
-    history_revision: int,
-    stored_messages: list[StoredChatMessage],
-    model_messages: list[ModelMessage],
-) -> CanonicalEvictionEnvelope:
-    source_digest = hashlib.sha256(
-        "\n".join(message.message_json for message in stored_messages).encode()
-    ).hexdigest()
-    source_start = stored_messages[0].sequence_index
-    source_end = stored_messages[-1].sequence_index
-    envelope_id = hashlib.sha256(
-        (
-            f"{vault_name}\0{session_id}\0{source_start}\0{source_end}\0{source_digest}"
-        ).encode()
-    ).hexdigest()
-    projected_text = "\n\n".join(
-        (
-            f"[source:{message.sequence_index}] {message.role.upper()}:\n"
-            f"{message.content_text}"
-        )
-        for message in stored_messages
-    )
-    return CanonicalEvictionEnvelope(
-        envelope_id=envelope_id,
-        session_id=session_id,
-        vault_name=vault_name,
+        source_start_sequence_index=source_start_sequence_index,
+        source_end_sequence_index=source_end_sequence_index,
         history_revision=history_revision,
-        source_start_sequence_index=source_start,
-        source_end_sequence_index=source_end,
-        message_count=len(stored_messages),
-        estimated_tokens=estimate_history_tokens(model_messages),
-        projected_text=projected_text,
-        source_digest=source_digest,
+        expected_source_digest=expected_source_digest,
+    )
+    return CanonicalEvictionEnvelopeResult(
+        status=resolved.status,
+        reason=resolved.reason,
+        history_revision=resolved.history_revision,
+        envelopes=resolved.evidence,
     )
 
 
@@ -869,7 +764,7 @@ async def maybe_auto_compact_after_turn(
     session = runtime.chat_store.get_session_by_id(session_id)
     if session is None or session.vault_name != vault_name:
         raise LookupError(f"Chat session not found: {session_id}")
-    readiness = evaluate_session_map_readiness(
+    readiness = evaluate_session_map_compaction_readiness(
         store=runtime.chat_store,
         session_id=session_id,
         vault_name=vault_name,
@@ -939,7 +834,7 @@ async def _run_stepped_session_map_reduction(
     *,
     session_id: str,
     vault_name: str,
-    readiness: SessionMapReadiness,
+    readiness: SessionMapCompactionReadiness,
     authority: ExecutionAuthority,
     store: ChatStore,
 ) -> SessionMapContextReductionResult | None:
@@ -1030,8 +925,8 @@ async def _run_stepped_session_map_reduction(
                 model_alias=readiness.author_model,
                 thinking=readiness.author_thinking,
                 previous_map=previous_map,
-                envelopes=cumulative_envelopes,
-                retained_evidence=retained_evidence,
+                new_evidence=cumulative_envelopes,
+                recent_evidence=retained_evidence,
                 retrieved_evidence=retrieved_evidence,
             ),
             authority=authority,
@@ -1042,18 +937,21 @@ async def _run_stepped_session_map_reduction(
             != history_revision
         ):
             raise ValueError("Session history changed during map authoring")
-        committed: SessionMapCheckpointResult = commit_session_map_checkpoint(
+        committed: SessionMapCheckpointResult = commit_session_map_context_checkpoint(
             store=store,
             session_id=session_id,
             vault_name=vault_name,
             draft=authored.draft,
             previous_map=previous_map,
-            envelopes=cumulative_envelopes,
+            new_evidence=cumulative_envelopes,
             expected_history_revision=history_revision,
             message_count_before=plan.message_count_before,
             source=ExecutionTaskSource.SYSTEM.value,
             authoring_task_id=authored.task_id,
-            retained_evidence=retained_evidence,
+            authoring_prompt_version=authored.prompt_contract_version,
+            author_model_alias=authored.model_alias,
+            author_thinking=authored.thinking,
+            recent_evidence=retained_evidence,
             retrieved_evidence=retrieved_evidence,
         )
         messages_after = (
@@ -1100,7 +998,7 @@ def _build_retained_session_map_evidence(
     session_id: str,
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
-) -> tuple[SessionMapRetainedEvidence, ...]:
+) -> tuple[SessionMapMessageEvidence, ...]:
     """Project the canonical retained suffix as citable authoring evidence."""
     stored_messages = store.get_stored_messages(
         session_id,
@@ -1108,10 +1006,10 @@ def _build_retained_session_map_evidence(
         mode="effective",
     )
     retained = stored_messages[plan.eviction_end_index :]
-    if not retained or not _has_contiguous_canonical_sequences(retained):
+    if not retained or not has_contiguous_canonical_sequences(retained):
         raise ValueError("Retained session-map evidence is not canonical")
     return tuple(
-        SessionMapRetainedEvidence(
+        SessionMapMessageEvidence(
             sequence_index=message.sequence_index,
             role=message.role,
             content_text=message.content_text,
@@ -1127,7 +1025,7 @@ def _build_retrieved_session_map_evidence(
     session_id: str,
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
-) -> tuple[SessionMapRetainedEvidence, ...]:
+) -> tuple[SessionMapMessageEvidence, ...]:
     """Rehydrate canonical messages named by retained transcript windows."""
     stored_messages = store.get_stored_messages(
         session_id, vault_name, mode="effective"
@@ -1145,7 +1043,7 @@ def _build_retrieved_session_map_evidence(
         return ()
     raw_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
     return tuple(
-        SessionMapRetainedEvidence(
+        SessionMapMessageEvidence(
             sequence_index=message.sequence_index,
             role=message.role,
             content_text=message.content_text,

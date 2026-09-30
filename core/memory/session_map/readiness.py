@@ -1,4 +1,4 @@
-"""Fail-closed readiness checks for experimental stepped session maps."""
+"""Fail-closed readiness checks for Compaction v2 context reduction."""
 
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ from .checkpoints import load_session_map_checkpoint
 
 
 @dataclass(frozen=True)
-class SessionMapReadiness:
-    """Resolved strategy inputs and one stable eligibility decision."""
+class SessionMapCompactionReadiness:
+    """Resolved inputs and eligibility for one Compaction v2 reduction."""
 
     enabled: bool
     reason: str
@@ -36,14 +36,14 @@ class SessionMapReadiness:
     minimum_retained_groups: int
 
 
-def evaluate_session_map_readiness(
+def evaluate_session_map_compaction_readiness(
     *,
     store: ChatStore,
     session_id: str,
     vault_name: str,
     model_availability_check: Callable[[str], None] = validate_api_keys,
-) -> SessionMapReadiness:
-    """Resolve whether one session may use stepped-map context reduction."""
+) -> SessionMapCompactionReadiness:
+    """Resolve whether one session may use Compaction v2 context reduction."""
     configured_strategy = get_context_reduction_strategy()
     checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
     if checkpoint is None:
@@ -63,8 +63,8 @@ def evaluate_session_map_readiness(
     low_watermark = get_session_map_low_watermark_tokens()
     minimum_retained_groups = get_session_map_min_retained_groups()
 
-    def result(enabled: bool, reason: str) -> SessionMapReadiness:
-        return SessionMapReadiness(
+    def result(enabled: bool, reason: str) -> SessionMapCompactionReadiness:
+        return SessionMapCompactionReadiness(
             enabled=enabled,
             reason=reason,
             configured_strategy=configured_strategy,

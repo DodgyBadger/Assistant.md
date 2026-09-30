@@ -184,12 +184,12 @@ This workspace intentionally has no README.
             "Expected default context to truncate oversized user notes content",
         )
 
-        from core.chat.compaction import CanonicalEvictionEnvelope
         from core.identity import LOCAL_USER_PRINCIPAL_ID
         from core.memory.session_map.checkpoints import (
             build_session_map_context_message,
-            commit_session_map_checkpoint,
+            commit_session_map_context_checkpoint,
         )
+        from core.memory.session_map.evidence import SessionMapEvidence
         from core.memory.session_map.models import (
             SessionMapDraft,
             SessionMapEntry,
@@ -269,15 +269,15 @@ This workspace intentionally has no README.
                 ),
             ),
         )
-        commit_session_map_checkpoint(
+        commit_session_map_context_checkpoint(
             store=store,
             session_id=compacted_session_id,
             vault_name=vault.name,
             draft=session_map,
             previous_map=SessionMapDraft(),
-            envelopes=(
-                CanonicalEvictionEnvelope(
-                    envelope_id="default-context-compacted-envelope",
+            new_evidence=(
+                SessionMapEvidence(
+                    evidence_id="default-context-compacted-envelope",
                     session_id=compacted_session_id,
                     vault_name=vault.name,
                     history_revision=compacted_revision,

@@ -179,7 +179,7 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             "Retained-evidence authoring should remain inside the normal execution task",
         )
         self.soft_assert_equal(
-            tasks[0].metadata.get("retained_evidence_message_count"),
+            tasks[0].metadata.get("recent_evidence_message_count"),
             2,
             "The governed task should expose the bounded retained-evidence count",
         )

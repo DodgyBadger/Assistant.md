@@ -1,4 +1,4 @@
-"""Durable checkpoint composition for eviction-derived session maps."""
+"""Compaction context checkpoints backed by authored session maps."""
 
 from __future__ import annotations
 
@@ -14,8 +14,9 @@ from core.constants import (
     SESSION_MAP_CONTEXT_PREAMBLE,
     SESSION_MAP_CONTEXT_PROMPT_VERSION,
 )
+from core.llm.thinking import ThinkingValue
 
-from .authoring import SessionMapEvidenceEnvelope, SessionMapRetainedEvidence
+from .evidence import SessionMapEvidence, SessionMapMessageEvidence
 from .models import SessionMapDraft, validate_session_map_provenance
 
 SESSION_MAP_CONTEXT_MARKER = "AssistantMD session map"
@@ -65,38 +66,41 @@ def build_session_map_context_message(draft: SessionMapDraft) -> ModelRequest:
     return ModelRequest(parts=[SystemPromptPart(content=content)])
 
 
-def commit_session_map_checkpoint(
+def commit_session_map_context_checkpoint(
     *,
     store: ChatStore,
     session_id: str,
     vault_name: str,
     draft: SessionMapDraft,
     previous_map: SessionMapDraft,
-    envelopes: tuple[SessionMapEvidenceEnvelope, ...],
+    new_evidence: tuple[SessionMapEvidence, ...],
     expected_history_revision: int,
     message_count_before: int,
     source: str,
     authoring_task_id: str | None = None,
+    authoring_prompt_version: str | None = None,
+    author_model_alias: str | None = None,
+    author_thinking: ThinkingValue = None,
     checkpoint_id: str | None = None,
-    retained_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
-    retrieved_evidence: tuple[SessionMapRetainedEvidence, ...] = (),
+    recent_evidence: tuple[SessionMapMessageEvidence, ...] = (),
+    retrieved_evidence: tuple[SessionMapMessageEvidence, ...] = (),
     map_observed_through_sequence_index: int | None = None,
 ) -> SessionMapCheckpointResult:
     """Atomically commit one map revision without changing canonical messages."""
     _validate_checkpoint_evidence(
         session_id=session_id,
         vault_name=vault_name,
-        envelopes=envelopes,
+        new_evidence=new_evidence,
         expected_history_revision=expected_history_revision,
     )
     validate_session_map_provenance(
         draft,
-        envelopes=(*envelopes, *retained_evidence, *retrieved_evidence),
+        evidence=(*new_evidence, *recent_evidence, *retrieved_evidence),
         previous_map=previous_map,
     )
-    consumed_through = envelopes[-1].source_end_sequence_index
+    consumed_through = new_evidence[-1].source_end_sequence_index
     retained_prior = consumed_through
-    for message in retained_evidence:
+    for message in recent_evidence:
         if message.sequence_index <= retained_prior:
             raise ValueError("Retained evidence must follow the eviction boundary")
         retained_prior = message.sequence_index
@@ -104,9 +108,7 @@ def commit_session_map_checkpoint(
         map_observed_through_sequence_index
         if map_observed_through_sequence_index is not None
         else (
-            retained_evidence[-1].sequence_index
-            if retained_evidence
-            else consumed_through
+            recent_evidence[-1].sequence_index if recent_evidence else consumed_through
         )
     )
     if observed_through < 0:
@@ -125,10 +127,21 @@ def commit_session_map_checkpoint(
     metadata: dict[str, Any] = {
         "checkpoint_kind": "session_map",
         "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
+        "context_prompt_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
+        "authoring_prompt_version": authoring_prompt_version,
+        "map_schema_version": draft.schema_version,
+        "author_model_alias": author_model_alias,
+        "author_thinking": author_thinking,
         "source_history_revision": expected_history_revision,
         "consumed_through_sequence_index": consumed_through,
         "map_observed_through_sequence_index": observed_through,
-        "evidence_envelope_ids": [envelope.envelope_id for envelope in envelopes],
+        "evidence_source_start_sequence_index": (
+            new_evidence[0].source_start_sequence_index
+        ),
+        "evidence_source_end_sequence_index": (
+            new_evidence[-1].source_end_sequence_index
+        ),
+        "evidence_envelope_ids": [evidence.evidence_id for evidence in new_evidence],
         "map": draft.model_dump(mode="json"),
     }
     if authoring_task_id:
@@ -223,21 +236,21 @@ def _validate_checkpoint_evidence(
     *,
     session_id: str,
     vault_name: str,
-    envelopes: tuple[SessionMapEvidenceEnvelope, ...],
+    new_evidence: tuple[SessionMapEvidence, ...],
     expected_history_revision: int,
 ) -> None:
-    if not envelopes:
+    if not new_evidence:
         raise ValueError("Session-map checkpoint requires evidence envelopes")
     prior_end = -1
-    for envelope in envelopes:
-        if envelope.session_id != session_id or envelope.vault_name != vault_name:
+    for evidence in new_evidence:
+        if evidence.session_id != session_id or evidence.vault_name != vault_name:
             raise ValueError("Session-map checkpoint evidence scope does not match")
-        if envelope.history_revision != expected_history_revision:
+        if evidence.history_revision != expected_history_revision:
             raise ValueError("Session-map checkpoint evidence revision does not match")
-        if envelope.source_start_sequence_index <= prior_end:
+        if evidence.source_start_sequence_index <= prior_end:
             raise ValueError(
                 "Session-map checkpoint evidence must be ordered and non-overlapping"
             )
-        if envelope.source_end_sequence_index < envelope.source_start_sequence_index:
+        if evidence.source_end_sequence_index < evidence.source_start_sequence_index:
             raise ValueError("Session-map checkpoint evidence range is reversed")
-        prior_end = envelope.source_end_sequence_index
+        prior_end = evidence.source_end_sequence_index

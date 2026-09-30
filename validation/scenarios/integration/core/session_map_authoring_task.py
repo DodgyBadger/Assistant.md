@@ -11,9 +11,11 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.chat.compaction import CanonicalEvictionEnvelope  # noqa: E402
 from core.identity import LOCAL_USER_AUTHORITY  # noqa: E402
-from core.memory.session_map.authoring import SessionMapRetainedEvidence  # noqa: E402
+from core.memory.session_map.evidence import (  # noqa: E402
+    SessionMapEvidence,
+    SessionMapMessageEvidence,
+)
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
@@ -47,9 +49,9 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             vault_name="SessionMapTaskVault",
             model_alias="gpt-mini",
             previous_map=SessionMapDraft(),
-            envelopes=envelopes,
-            retained_evidence=(
-                SessionMapRetainedEvidence(
+            new_evidence=envelopes,
+            recent_evidence=(
+                SessionMapMessageEvidence(
                     sequence_index=12,
                     role="user",
                     content_text="The legal review is complete.",
@@ -95,6 +97,19 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             result.draft,
             authored,
             "The governed author should return the validated replacement map",
+        )
+        self.soft_assert_equal(
+            (
+                result.model_alias,
+                result.thinking,
+                result.prompt_contract_version,
+                result.new_evidence_count,
+                result.source_history_revision,
+                result.evidence_source_start,
+                result.evidence_source_end,
+            ),
+            ("gpt-mini", None, "eviction-map-v8", 1, 2, 10, 11),
+            "The author should return enough provenance for any persistence adapter",
         )
         self.soft_assert_equal(
             observed_tasks,
@@ -229,9 +244,9 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         self.assert_no_failures()
 
 
-def _envelope() -> CanonicalEvictionEnvelope:
-    return CanonicalEvictionEnvelope(
-        envelope_id="session-map-task-envelope",
+def _envelope() -> SessionMapEvidence:
+    return SessionMapEvidence(
+        evidence_id="session-map-task-envelope",
         session_id="session-map-task",
         vault_name="SessionMapTaskVault",
         history_revision=2,

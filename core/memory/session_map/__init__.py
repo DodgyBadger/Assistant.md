@@ -1,19 +1,12 @@
-"""Bounded, source-linked session state derived from evicted chat evidence."""
+"""Bounded, source-linked session state derived from canonical chat evidence."""
 
-from .authoring import (
-    SessionMapEvidenceEnvelope,
-    SessionMapRetainedEvidence,
-    build_session_map_authoring_prompt,
-)
-from .checkpoints import (
-    SESSION_MAP_CONTEXT_MARKER,
-    SessionMapCheckpointResult,
-    SessionMapPendingEvidence,
-    build_session_map_context_message,
-    commit_session_map_checkpoint,
-    load_session_map_checkpoint,
-    load_session_map_observed_through,
-    load_session_map_pending_evidence,
+from .authoring import build_session_map_authoring_prompt
+from .evidence import (
+    SessionMapEvidence,
+    SessionMapEvidenceRangeResult,
+    SessionMapMessageEvidence,
+    build_session_map_evidence,
+    resolve_session_map_evidence_range,
 )
 from .models import (
     MAX_SESSION_MAP_ENTRIES,
@@ -28,7 +21,6 @@ from .models import (
     SourceRange,
     validate_session_map_provenance,
 )
-from .readiness import SessionMapReadiness, evaluate_session_map_readiness
 from .service import (
     SessionMapAuthoringRequest,
     SessionMapAuthoringResult,
@@ -38,29 +30,22 @@ from .service import (
 __all__ = [
     "MAX_SESSION_MAP_ENTRIES",
     "MAX_SESSION_MAP_TRAJECTORY_TEXT_CHARS",
-    "SESSION_MAP_CONTEXT_MARKER",
     "SessionMapAuthoringRequest",
     "SessionMapAuthoringResult",
-    "SessionMapCheckpointResult",
     "SessionMapDraft",
+    "SessionMapEvidence",
+    "SessionMapEvidenceRangeResult",
     "SessionMapEntry",
     "SessionMapEntryBasis",
     "SessionMapEntryKind",
     "SessionMapEntryState",
-    "SessionMapPendingEvidence",
-    "SessionMapEvidenceEnvelope",
-    "SessionMapRetainedEvidence",
+    "SessionMapMessageEvidence",
     "SessionMapProvenanceError",
     "SessionMapTrajectory",
-    "SessionMapReadiness",
     "SourceRange",
     "build_session_map_authoring_prompt",
-    "build_session_map_context_message",
-    "commit_session_map_checkpoint",
-    "evaluate_session_map_readiness",
-    "load_session_map_checkpoint",
-    "load_session_map_observed_through",
-    "load_session_map_pending_evidence",
+    "build_session_map_evidence",
+    "resolve_session_map_evidence_range",
     "run_session_map_authoring",
     "validate_session_map_provenance",
 ]

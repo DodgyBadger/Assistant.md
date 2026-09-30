@@ -6,6 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
+from core.memory.session_map.evidence import SessionMapEvidence  # noqa: E402
 from validation.core.base_scenario import BaseScenario
 
 
@@ -13,7 +14,6 @@ class SessionMapSchemaScenario(BaseScenario):
     """Keep authored map state bounded and grounded in supplied evidence."""
 
     async def test_scenario(self) -> None:
-        from core.chat.compaction import CanonicalEvictionEnvelope
         from core.memory.session_map.authoring import (
             build_session_map_authoring_prompt,
         )
@@ -30,14 +30,12 @@ class SessionMapSchemaScenario(BaseScenario):
 
         envelopes = (
             _envelope(
-                CanonicalEvictionEnvelope,
-                envelope_id="envelope-a",
+                evidence_id="envelope-a",
                 start=10,
                 end=13,
             ),
             _envelope(
-                CanonicalEvictionEnvelope,
-                envelope_id="envelope-b",
+                evidence_id="envelope-b",
                 start=14,
                 end=17,
             ),
@@ -114,7 +112,7 @@ class SessionMapSchemaScenario(BaseScenario):
         )
         validated = validate_session_map_provenance(
             authored,
-            envelopes=envelopes,
+            evidence=envelopes,
             previous_map=previous,
         )
         assert validated is authored
@@ -122,7 +120,7 @@ class SessionMapSchemaScenario(BaseScenario):
         prompt_payload = json.loads(
             build_session_map_authoring_prompt(
                 previous_map=previous,
-                envelopes=envelopes,
+                new_evidence=envelopes,
             )
         )
         assert prompt_payload["prompt_contract_version"] == "eviction-map-v8"
@@ -137,10 +135,10 @@ class SessionMapSchemaScenario(BaseScenario):
         try:
             build_session_map_authoring_prompt(
                 previous_map=previous,
-                envelopes=(),
+                new_evidence=(),
             )
         except ValueError as exc:
-            assert "evidence envelope" in str(exc)
+            assert "canonical evidence" in str(exc)
         else:
             raise AssertionError("Authoring without new evidence should fail")
 
@@ -163,7 +161,7 @@ class SessionMapSchemaScenario(BaseScenario):
         try:
             validate_session_map_provenance(
                 unsupported,
-                envelopes=envelopes,
+                evidence=envelopes,
                 previous_map=previous,
             )
         except SessionMapProvenanceError as exc:
@@ -181,7 +179,7 @@ class SessionMapSchemaScenario(BaseScenario):
                     ),
                     entries=authored.entries,
                 ),
-                envelopes=envelopes,
+                evidence=envelopes,
                 previous_map=previous,
             )
         except SessionMapProvenanceError as exc:
@@ -383,14 +381,13 @@ class SessionMapSchemaScenario(BaseScenario):
 
 
 def _envelope(
-    envelope_type: type,
     *,
-    envelope_id: str,
+    evidence_id: str,
     start: int,
     end: int,
-):
-    return envelope_type(
-        envelope_id=envelope_id,
+) -> SessionMapEvidence:
+    return SessionMapEvidence(
+        evidence_id=evidence_id,
         session_id="session-map-schema",
         vault_name="SessionMapSchemaVault",
         history_revision=1,
