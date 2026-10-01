@@ -45,7 +45,7 @@
 
         function openExplorer({
             importOptions = {},
-            importSources = [],
+            importSources: initialImportSources = [],
             importUrl = '',
             revealPath = '',
             vaultName = '',
@@ -78,7 +78,7 @@
                 workspacePath: savedWorkspace,
                 explorer: true,
                 importOptions,
-                importSources,
+                importSources: initialImportSources,
                 importUrl,
                 showPath: true,
                 expandDirectoriesOnSelect: true,
