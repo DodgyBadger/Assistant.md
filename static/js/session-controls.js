@@ -91,7 +91,7 @@
             if (!fill || !track) return;
 
             fill.classList.remove('compaction-warm', 'compaction-hot');
-            if (!status || !status.compaction_token_threshold || status.compaction_type === 'none') {
+            if (!status || !status.compaction_high_watermark_tokens || status.compaction_type === 'none') {
                 fill.style.width = '0%';
                 track.title = status && status.compaction_type === 'none'
                     ? 'Chat history compaction is disabled'
@@ -99,7 +99,7 @@
                 return;
             }
 
-            const threshold = Math.max(Number(status.compaction_token_threshold) || 0, 1);
+            const threshold = Math.max(Number(status.compaction_high_watermark_tokens) || 0, 1);
             const tokens = Math.max(Number(status.estimated_tokens_before) || 0, 0);
             const percent = Math.round((tokens / threshold) * 100);
             const boundedPercent = tokens > 0 ? Math.max(2, Math.min(percent, 100)) : 0;

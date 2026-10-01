@@ -109,6 +109,7 @@ class SessionMapReadinessScenario(BaseScenario):
                     "session_map_author_thinking": {"value": "medium"},
                     "session_map_low_watermark_tokens": {"value": 1234},
                     "session_map_min_retained_groups": {"value": 4},
+                    "compaction_token_threshold": {"value": 5678},
                 }
             },
             {
@@ -121,6 +122,7 @@ class SessionMapReadinessScenario(BaseScenario):
                     "compaction_author_thinking": {"value": "low"},
                     "compaction_low_watermark_tokens": {"value": 20000},
                     "compaction_retained_turns": {"value": 3},
+                    "compaction_high_watermark_tokens": {"value": 80000},
                 }
             },
         )
@@ -133,6 +135,7 @@ class SessionMapReadinessScenario(BaseScenario):
                     "compaction_author_thinking",
                     "compaction_low_watermark_tokens",
                     "compaction_retained_turns",
+                    "compaction_high_watermark_tokens",
                 )
             },
             {
@@ -141,6 +144,7 @@ class SessionMapReadinessScenario(BaseScenario):
                 "compaction_author_thinking": "medium",
                 "compaction_low_watermark_tokens": 1234,
                 "compaction_retained_turns": 4,
+                "compaction_high_watermark_tokens": 5678,
             },
             "Settings repair should migrate the retired compaction settings",
         )
@@ -151,7 +155,7 @@ class SessionMapReadinessScenario(BaseScenario):
             ("compaction_author_thinking", "low"),
             ("compaction_low_watermark_tokens", "50"),
             ("compaction_retained_turns", "3"),
-            ("compaction_token_threshold", "100"),
+            ("compaction_high_watermark_tokens", "100"),
             ("compaction_type", "auto"),
         ):
             response = self.call_api(

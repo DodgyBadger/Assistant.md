@@ -363,7 +363,7 @@ def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
         ("compaction_author_thinking", "low"),
         ("compaction_low_watermark_tokens", LOW_WATERMARK_TOKENS),
         ("compaction_retained_turns", 3),
-        ("compaction_token_threshold", HIGH_WATERMARK_TOKENS),
+        ("compaction_high_watermark_tokens", HIGH_WATERMARK_TOKENS),
         ("compaction_type", "auto"),
     ):
         _set_setting(isolated, name, value)

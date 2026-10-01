@@ -11,10 +11,10 @@ from core.llm.thinking import ThinkingValue
 from core.settings import (
     get_compaction_author_model,
     get_compaction_author_thinking,
+    get_compaction_high_watermark_tokens,
     get_compaction_low_watermark_tokens,
     get_compaction_retained_turns,
     get_compaction_strategy,
-    get_compaction_token_threshold,
     get_compaction_type,
 )
 
@@ -59,7 +59,7 @@ def evaluate_session_map_compaction_readiness(
     except ValueError:
         author_thinking = None
         thinking_valid = False
-    high_watermark = get_compaction_token_threshold()
+    high_watermark = get_compaction_high_watermark_tokens()
     low_watermark = get_compaction_low_watermark_tokens()
     minimum_retained_groups = get_compaction_retained_turns()
 

@@ -228,9 +228,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
         }, "Recovery-card authoring should use the shared compaction author settings"
 
         original_retained_turns = compaction.get_compaction_retained_turns
-        original_threshold = compaction.get_compaction_token_threshold
+        original_threshold = compaction.get_compaction_high_watermark_tokens
         compaction.get_compaction_retained_turns = lambda: 1
-        compaction.get_compaction_token_threshold = lambda: 1
+        compaction.get_compaction_high_watermark_tokens = lambda: 1
 
         try:
             status_response = self.call_api(
@@ -276,7 +276,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
                 compaction._generate_compaction_summary = original_generate_summary
         finally:
             compaction.get_compaction_retained_turns = original_retained_turns
-            compaction.get_compaction_token_threshold = original_threshold
+            compaction.get_compaction_high_watermark_tokens = original_threshold
 
         assert compact_response.status_code == 200, "Compaction endpoint succeeds"
         compact_payload = compact_response.json()

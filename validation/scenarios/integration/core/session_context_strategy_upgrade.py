@@ -49,7 +49,7 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
             ("compaction_author_thinking", "low"),
             ("compaction_low_watermark_tokens", "250"),
             ("compaction_retained_turns", "2"),
-            ("compaction_token_threshold", "500"),
+            ("compaction_high_watermark_tokens", "500"),
             ("compaction_type", "auto"),
         ):
             response = self.call_api(

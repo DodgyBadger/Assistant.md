@@ -16,6 +16,7 @@ RETIRED_SETTINGS = frozenset(
     {
         "context_reduction_strategy",
         "compaction_keep_recent",
+        "compaction_token_threshold",
         "session_map_author_model",
         "session_map_author_thinking",
         "session_map_low_watermark_tokens",
@@ -95,6 +96,7 @@ def _upgrade_compaction_settings(
     """Move pre-namespace compaction settings into the current contract."""
     renames = {
         "context_reduction_strategy": "compaction_strategy",
+        "compaction_token_threshold": "compaction_high_watermark_tokens",
         "session_map_author_model": "compaction_author_model",
         "session_map_author_thinking": "compaction_author_thinking",
         "session_map_low_watermark_tokens": "compaction_low_watermark_tokens",

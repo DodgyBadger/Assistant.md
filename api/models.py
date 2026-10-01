@@ -1554,8 +1554,8 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     estimated_tokens_before: int = Field(
         ..., description="Estimated current history tokens"
     )
-    compaction_token_threshold: int = Field(
-        ..., description="Configured compaction threshold"
+    compaction_high_watermark_tokens: int = Field(
+        ..., description="Effective-history size that triggers compaction"
     )
     compaction_retained_turns: int = Field(
         ..., description="Minimum recent complete conversational turns to keep"

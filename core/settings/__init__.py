@@ -916,12 +916,12 @@ def get_compaction_type() -> str:
     return normalized if normalized in {"none", "suggested", "auto"} else "auto"
 
 
-def get_compaction_token_threshold() -> int:
-    """Return the estimated token threshold for chat-history compaction."""
-    entry = get_general_settings().get("compaction_token_threshold")
+def get_compaction_high_watermark_tokens() -> int:
+    """Return the effective-history size that triggers compaction."""
+    entry = get_general_settings().get("compaction_high_watermark_tokens")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(
-        "compaction_token_threshold", 80_000
+        "compaction_high_watermark_tokens", 80_000
     )
     try:
         parsed = _setting_int(value)

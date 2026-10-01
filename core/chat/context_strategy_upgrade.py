@@ -34,10 +34,10 @@ from core.runtime.task_runner import ExecutionGatePolicy, ExecutionTaskSpec
 from core.settings import (
     get_compaction_author_model,
     get_compaction_author_thinking,
+    get_compaction_high_watermark_tokens,
     get_compaction_low_watermark_tokens,
     get_compaction_retained_turns,
     get_compaction_strategy,
-    get_compaction_token_threshold,
 )
 
 from .chat_store import ChatStore, StoredChatMessage, StoredContextCheckpoint
@@ -150,7 +150,7 @@ async def start_session_context_strategy_upgrade(
     if author_model is None:
         raise SessionContextStrategyUpgradeUnavailable("author_model_not_configured")
     author_thinking = get_compaction_author_thinking()
-    high_watermark = get_compaction_token_threshold()
+    high_watermark = get_compaction_high_watermark_tokens()
     low_watermark = get_compaction_low_watermark_tokens()
     if low_watermark >= high_watermark:
         raise SessionContextStrategyUpgradeUnavailable("invalid_watermarks")

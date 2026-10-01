@@ -172,12 +172,12 @@ settings:
     restart_required: false
   compaction_type:
     value: auto
-    description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_token_threshold first."
+    description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_high_watermark_tokens first."
     category: "Chat"
     restart_required: false
-  compaction_token_threshold:
+  compaction_high_watermark_tokens:
     value: 80000
-    description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
+    description: "Estimated effective-history size that triggers suggested or automatic compaction. Increase this high watermark if compaction happens too often."
     category: "Chat"
     restart_required: false
   compaction_strategy:
@@ -197,7 +197,7 @@ settings:
     restart_required: false
   compaction_low_watermark_tokens:
     value: 20000
-    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete conversational turns and compaction_retained_turns take precedence, so the actual history size can exceed this target. Must be lower than compaction_token_threshold."
+    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete conversational turns and compaction_retained_turns take precedence, so the actual history size can exceed this target. Must be lower than compaction_high_watermark_tokens."
     category: "Chat"
     restart_required: false
   compaction_retained_turns:

@@ -40,13 +40,13 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         ), "New settings files should default chat history compaction to auto"
         compaction_description = settings_by_key["compaction_type"]["description"]
         assert (
-            "increase compaction_token_threshold first" in compaction_description
+            "increase compaction_high_watermark_tokens first" in compaction_description
         ), "Compaction setting copy should steer users to threshold tuning before disabling auto"
 
         for key, value in (
             ("compaction_type", "auto"),
             ("compaction_retained_turns", "1"),
-            ("compaction_token_threshold", "1"),
+            ("compaction_high_watermark_tokens", "1"),
             ("compaction_author_model", "test"),
             ("compaction_author_thinking", "low"),
         ):
@@ -147,8 +147,8 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             last_compaction["author_thinking"] == "low"
         ), "Recovery-card provenance should record the shared compaction author thinking"
         assert (
-            last_compaction["compaction_token_threshold"] == 1
-        ), "Auto compaction should record effective threshold"
+            last_compaction["compaction_high_watermark_tokens"] == 1
+        ), "Auto compaction should record the effective high watermark"
         assert (
             last_compaction["compaction_retained_turns"] == 1
         ), "Auto compaction should record effective turn retention"

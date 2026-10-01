@@ -66,8 +66,8 @@ from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings import (
     get_compaction_author_model,
     get_compaction_author_thinking,
+    get_compaction_high_watermark_tokens,
     get_compaction_retained_turns,
-    get_compaction_token_threshold,
     get_compaction_type,
 )
 from core.utils.tokens import estimate_token_count
@@ -91,7 +91,7 @@ class ChatHistoryCompactionStatus:
     compaction_type: str
     messages_before: int
     estimated_tokens_before: int
-    compaction_token_threshold: int
+    compaction_high_watermark_tokens: int
     compaction_retained_turns: int
     recommended: bool
     already_compacted: bool
@@ -199,7 +199,7 @@ async def get_compaction_status(
     chat_store = store or ChatStore()
     messages = chat_store.get_history(session_id, vault_name) or []
     estimated_tokens = estimate_history_tokens(messages)
-    threshold = get_compaction_token_threshold()
+    threshold = get_compaction_high_watermark_tokens()
     metadata = chat_store.get_session_metadata(session_id, vault_name)
     return ChatHistoryCompactionStatus(
         session_id=session_id,
@@ -207,7 +207,7 @@ async def get_compaction_status(
         compaction_type=get_compaction_type(),
         messages_before=len(messages),
         estimated_tokens_before=estimated_tokens,
-        compaction_token_threshold=threshold,
+        compaction_high_watermark_tokens=threshold,
         compaction_retained_turns=get_compaction_retained_turns(),
         recommended=estimated_tokens >= threshold,
         already_compacted=bool(metadata.get("last_compaction")),
@@ -330,7 +330,7 @@ async def compact_chat_history(
                     "reason": reason,
                     "prompt_contract_version": CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
                     "compaction_type": get_compaction_type(),
-                    "compaction_token_threshold": get_compaction_token_threshold(),
+                    "compaction_high_watermark_tokens": get_compaction_high_watermark_tokens(),
                     "compaction_retained_turns": retained_turns,
                     "author_model": author_model,
                     "author_thinking": author_thinking_label,
