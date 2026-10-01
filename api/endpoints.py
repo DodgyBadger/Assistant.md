@@ -2849,7 +2849,7 @@ async def compact_chat_history_endpoint(
     session_id: str,
     request: ChatHistoryCompactionRequest,
 ) -> ChatHistoryCompactionResponse | JSONResponse:
-    """Compact one persisted chat session into a summary plus recent turns."""
+    """Compact one persisted chat session with its pinned strategy."""
     try:
         vault_path = str(resolve_vault_root(request.vault_name))
         return await compact_chat_session_history(

@@ -15,7 +15,7 @@ from core.chat.chat_store import (
     StoredChatToolEvent,
     StoredContextCheckpoint,
 )
-from core.chat.compaction import compact_chat_history, get_compaction_status
+from core.chat.compaction import compact_chat_context, get_compaction_status
 from core.chat.context_strategy_upgrade import (
     SessionContextStrategyUpgradeUnavailable,
     get_session_context_strategy_status,
@@ -1342,12 +1342,13 @@ async def compact_chat_session_history(
             authority=require_current_execution_authority(),
             metadata={"vault": vault_name, "session_id": session_id},
         ),
-        lambda _task: compact_chat_history(
+        lambda _task: compact_chat_context(
             session_id=session_id,
             vault_name=vault_name,
             vault_path=vault_path,
             focus=focus,
             source=ExecutionTaskSource.API,
+            authority=require_current_execution_authority(),
             store=_chat_store,
         ),
     )

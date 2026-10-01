@@ -50,6 +50,7 @@ from core.memory.session_map.models import SessionMapDraft
 from core.memory.session_map.readiness import (
     SessionMapCompactionReadiness,
     evaluate_session_map_compaction_readiness,
+    resolve_session_compaction_strategy,
 )
 from core.memory.session_map.service import (
     SessionMapAuthoringRequest,
@@ -67,6 +68,7 @@ from core.settings import (
     get_compaction_author_model,
     get_compaction_author_thinking,
     get_compaction_high_watermark_tokens,
+    get_compaction_low_watermark_tokens,
     get_compaction_retained_turns,
     get_compaction_type,
 )
@@ -89,12 +91,15 @@ class ChatHistoryCompactionStatus:
     session_id: str
     vault_name: str
     compaction_type: str
+    strategy: str
     messages_before: int
     estimated_tokens_before: int
     compaction_high_watermark_tokens: int
+    compaction_low_watermark_tokens: int
     compaction_retained_turns: int
     recommended: bool
     already_compacted: bool
+    manual_compaction_available: bool
 
 
 @dataclass(frozen=True)
@@ -116,11 +121,15 @@ class ChatHistoryCompactionResult:
 
     def as_api_dict(self) -> dict[str, Any]:
         """Return API/UI-safe result fields."""
-        return asdict(self)
+        return {
+            **asdict(self),
+            "strategy": "recovery_card",
+            "checkpoint_id": self.compaction_id,
+        }
 
     def as_tool_dict(self) -> dict[str, Any]:
         """Return chat-agent-safe result fields."""
-        return asdict(self)
+        return self.as_api_dict()
 
 
 @dataclass(frozen=True)
@@ -169,6 +178,46 @@ class SessionMapContextReductionResult:
     messages_after: int
     estimated_tokens_before: int
     estimated_tokens_after: int
+    source: str
+
+    def as_api_dict(self) -> dict[str, Any]:
+        """Return API/UI-safe result fields."""
+        return {
+            **asdict(self),
+            "strategy": "session_map",
+            "status": "completed",
+        }
+
+    def as_tool_dict(self) -> dict[str, Any]:
+        """Return chat-agent-safe result fields."""
+        return self.as_api_dict()
+
+
+@dataclass(frozen=True)
+class ChatContextCompactionUnavailableResult:
+    """Stable manual result when no safe context reduction is possible."""
+
+    session_id: str
+    vault_name: str
+    strategy: str
+    reason: str
+    messages_before: int
+    estimated_tokens_before: int
+    source: str
+
+    def as_api_dict(self) -> dict[str, Any]:
+        """Return API/UI-safe result fields."""
+        return {
+            **asdict(self),
+            "status": "unavailable",
+            "messages_after": self.messages_before,
+            "estimated_tokens_after": self.estimated_tokens_before,
+            "checkpoint_id": None,
+        }
+
+    def as_tool_dict(self) -> dict[str, Any]:
+        """Return chat-agent-safe result fields."""
+        return self.as_api_dict()
 
 
 @dataclass(frozen=True)
@@ -200,18 +249,90 @@ async def get_compaction_status(
     messages = chat_store.get_history(session_id, vault_name) or []
     estimated_tokens = estimate_history_tokens(messages)
     threshold = get_compaction_high_watermark_tokens()
-    metadata = chat_store.get_session_metadata(session_id, vault_name)
+    strategy = resolve_session_compaction_strategy(
+        store=chat_store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    checkpoint = chat_store.get_latest_context_checkpoint(session_id, vault_name)
+    retained_prefix_count = (
+        1
+        if checkpoint is not None and checkpoint.checkpoint_kind == "session_map"
+        else 0
+    )
+    groups = _group_history_messages(messages[retained_prefix_count:])
     return ChatHistoryCompactionStatus(
         session_id=session_id,
         vault_name=vault_name,
         compaction_type=get_compaction_type(),
+        strategy=strategy,
         messages_before=len(messages),
         estimated_tokens_before=estimated_tokens,
         compaction_high_watermark_tokens=threshold,
+        compaction_low_watermark_tokens=get_compaction_low_watermark_tokens(),
         compaction_retained_turns=get_compaction_retained_turns(),
         recommended=estimated_tokens >= threshold,
-        already_compacted=bool(metadata.get("last_compaction")),
+        already_compacted=checkpoint is not None,
+        manual_compaction_available=(len(groups) > get_compaction_retained_turns()),
     )
+
+
+async def compact_chat_context(
+    *,
+    session_id: str,
+    vault_name: str,
+    vault_path: str | None = None,
+    focus: str | None = None,
+    source: ExecutionTaskSource = ExecutionTaskSource.API,
+    authority: ExecutionAuthority,
+    store: ChatStore | None = None,
+) -> (
+    ChatHistoryCompactionResult
+    | SessionMapContextReductionResult
+    | ChatContextCompactionUnavailableResult
+):
+    """Manually compact one session using its pinned context strategy."""
+    chat_store = store or ChatStore()
+    readiness = evaluate_session_map_compaction_readiness(
+        store=chat_store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    if readiness.strategy != "session_map":
+        return await compact_chat_history(
+            session_id=session_id,
+            vault_name=vault_name,
+            vault_path=vault_path,
+            focus=focus,
+            source=source,
+            store=chat_store,
+        )
+    if not readiness.enabled:
+        raise ValueError(f"Session-map compaction is unavailable: {readiness.reason}.")
+    result = await _run_stepped_session_map_reduction(
+        session_id=session_id,
+        vault_name=vault_name,
+        readiness=readiness,
+        authority=authority,
+        store=chat_store,
+        source=source,
+        focus=focus,
+        force=True,
+    )
+    if result is None:
+        messages = (
+            chat_store.get_history(session_id, vault_name, mode="effective") or []
+        )
+        return ChatContextCompactionUnavailableResult(
+            session_id=session_id,
+            vault_name=vault_name,
+            strategy="session_map",
+            reason="retained_turn_floor",
+            messages_before=len(messages),
+            estimated_tokens_before=estimate_history_tokens(messages),
+            source=source.value,
+        )
+    return result
 
 
 async def compact_chat_history(
@@ -852,6 +973,9 @@ async def _run_stepped_session_map_reduction(
     readiness: SessionMapCompactionReadiness,
     authority: ExecutionAuthority,
     store: ChatStore,
+    source: ExecutionTaskSource = ExecutionTaskSource.SYSTEM,
+    focus: str | None = None,
+    force: bool = False,
 ) -> SessionMapContextReductionResult | None:
     """Author and commit one map checkpoint while holding the session lock."""
     if not readiness.enabled or readiness.author_model is None:
@@ -874,16 +998,25 @@ async def _run_stepped_session_map_reduction(
             raise ValueError("Recovery-card history is not eligible for stepped maps")
 
         messages = store.get_history(session_id, vault_name, mode="effective") or []
+        high_watermark_tokens = readiness.high_watermark_tokens
+        low_watermark_tokens = readiness.low_watermark_tokens
+        if force:
+            estimated_tokens = estimate_history_tokens(messages)
+            high_watermark_tokens = max(1, estimated_tokens - 1)
+            low_watermark_tokens = min(
+                low_watermark_tokens,
+                high_watermark_tokens - 1,
+            )
         plan = plan_stepped_history_eviction(
             messages,
-            high_watermark_tokens=readiness.high_watermark_tokens,
-            low_watermark_tokens=readiness.low_watermark_tokens,
+            high_watermark_tokens=high_watermark_tokens,
+            low_watermark_tokens=low_watermark_tokens,
             minimum_retained_groups=readiness.minimum_retained_groups,
             history_revision=history_revision,
             retained_prefix_count=retained_prefix_count,
         )
         if plan.status != "planned":
-            if plan.reason == "below_high_watermark":
+            if plan.reason in {"below_high_watermark", "minimum_retained_groups"}:
                 return None
             raise ValueError(f"Stepped eviction unavailable: {plan.reason}")
         evidence = build_canonical_eviction_envelopes(
@@ -943,9 +1076,10 @@ async def _run_stepped_session_map_reduction(
                 new_evidence=cumulative_envelopes,
                 recent_evidence=retained_evidence,
                 retrieved_evidence=retrieved_evidence,
+                focus=focus,
             ),
             authority=authority,
-            source=ExecutionTaskSource.SYSTEM,
+            source=source,
         )
         if (
             store.get_session_history_revision(session_id, vault_name)
@@ -961,7 +1095,7 @@ async def _run_stepped_session_map_reduction(
             new_evidence=cumulative_envelopes,
             expected_history_revision=history_revision,
             message_count_before=plan.message_count_before,
-            source=ExecutionTaskSource.SYSTEM.value,
+            source=source.value,
             authoring_task_id=authored.task_id,
             authoring_prompt_version=authored.prompt_contract_version,
             author_model_alias=authored.model_alias,
@@ -986,6 +1120,7 @@ async def _run_stepped_session_map_reduction(
             messages_after=len(messages_after),
             estimated_tokens_before=plan.estimated_tokens_before,
             estimated_tokens_after=estimated_after,
+            source=source.value,
         )
         logger.info(
             "session_map_context_reduction_completed",
@@ -1002,6 +1137,7 @@ async def _run_stepped_session_map_reduction(
                 "minimum_retained_groups": plan.minimum_retained_groups,
                 "retained_group_count": plan.group_count - plan.evicted_group_count,
                 "raw_messages_preserved": True,
+                "focus_provided": bool((focus or "").strip()),
             },
         )
         return result

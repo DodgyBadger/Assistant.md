@@ -21,6 +21,7 @@ def build_session_map_authoring_prompt(
     new_evidence: Sequence[SessionMapEvidence],
     recent_evidence: Sequence[SessionMapMessageEvidence] = (),
     retrieved_evidence: Sequence[SessionMapMessageEvidence] = (),
+    focus: str | None = None,
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not new_evidence:
@@ -28,6 +29,7 @@ def build_session_map_authoring_prompt(
     payload: dict[str, Any] = {
         "prompt_contract_version": SESSION_MAP_AUTHORING_PROMPT_VERSION,
         "instruction": SESSION_MAP_AUTHORING_INSTRUCTION,
+        "user_focus": (focus or "").strip() or None,
         "previous_map": previous_map.model_dump(mode="json"),
         "new_evidence_envelopes": [
             {

@@ -8,6 +8,7 @@ from .chat_store import ChatStore
 from .compaction import (
     ChatHistoryCompactionResult,
     ChatHistoryCompactionStatus,
+    compact_chat_context,
     compact_chat_history,
     get_compaction_status,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "ChatStore",
     "ChatHistoryCompactionResult",
     "ChatHistoryCompactionStatus",
+    "compact_chat_context",
     "compact_chat_history",
     "ExportedTranscript",
     "export_chat_transcript",

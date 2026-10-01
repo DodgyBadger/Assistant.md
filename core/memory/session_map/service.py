@@ -43,6 +43,7 @@ class SessionMapAuthoringRequest:
     recent_evidence: tuple[SessionMapMessageEvidence, ...] = ()
     retrieved_evidence: tuple[SessionMapMessageEvidence, ...] = ()
     thinking: ThinkingValue = None
+    focus: str | None = None
 
     def __post_init__(self) -> None:
         if not self.session_id.strip():
@@ -119,6 +120,7 @@ async def run_session_map_authoring(
                 "new_evidence_count": len(request.new_evidence),
                 "recent_evidence_message_count": len(request.recent_evidence),
                 "retrieved_evidence_message_count": len(request.retrieved_evidence),
+                "focus_provided": bool((request.focus or "").strip()),
             },
         ),
         lambda task: _execute_session_map_authoring(request, task_id=task.task_id),
@@ -156,6 +158,7 @@ async def _execute_session_map_authoring(
             "previous_entry_count": len(request.previous_map.entries),
             "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
+            "focus_provided": bool((request.focus or "").strip()),
             "recent_evidence_source_start": (
                 request.recent_evidence[0].sequence_index
                 if request.recent_evidence
@@ -174,6 +177,7 @@ async def _execute_session_map_authoring(
             new_evidence=request.new_evidence,
             recent_evidence=request.recent_evidence,
             retrieved_evidence=request.retrieved_evidence,
+            focus=request.focus,
         )
         draft = await _invoke_session_map_model(
             model_alias=request.model_alias,
@@ -224,6 +228,7 @@ async def _execute_session_map_authoring(
             "new_evidence_count": len(request.new_evidence),
             "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
+            "focus_provided": bool((request.focus or "").strip()),
         },
     )
     return SessionMapAuthoringResult(

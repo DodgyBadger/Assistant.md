@@ -1541,7 +1541,10 @@ class ChatHistoryCompactionRequest(BaseModel):
     """Request to compact one persisted chat session."""
 
     vault_name: str = Field(..., description="Owning vault name")
-    focus: str | None = Field(None, description="Optional summary focus instructions")
+    focus: str | None = Field(
+        None,
+        description="Optional salience guidance for the compaction author",
+    )
 
 
 class ChatHistoryCompactionStatusResponse(BaseModel):
@@ -1550,12 +1553,16 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
     compaction_type: str = Field(..., description="Configured compaction policy")
+    strategy: str = Field(..., description="Effective strategy pinned to the session")
     messages_before: int = Field(..., description="Current stored message count")
     estimated_tokens_before: int = Field(
         ..., description="Estimated current history tokens"
     )
     compaction_high_watermark_tokens: int = Field(
         ..., description="Effective-history size that triggers compaction"
+    )
+    compaction_low_watermark_tokens: int = Field(
+        ..., description="Effective-history target after session-map compaction"
     )
     compaction_retained_turns: int = Field(
         ..., description="Minimum recent complete conversational turns to keep"
@@ -1566,6 +1573,9 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     already_compacted: bool = Field(
         ..., description="Whether this session has prior compaction metadata"
     )
+    manual_compaction_available: bool = Field(
+        ..., description="Whether enough history exists for a manual compaction"
+    )
 
 
 class ChatHistoryCompactionResponse(BaseModel):
@@ -1574,6 +1584,7 @@ class ChatHistoryCompactionResponse(BaseModel):
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
     status: str = Field(..., description="Compaction status")
+    strategy: str = Field(..., description="Strategy used for this compaction")
     messages_before: int = Field(..., description="Message count before compaction")
     messages_after: int = Field(..., description="Message count after compaction")
     estimated_tokens_before: int = Field(
@@ -1582,11 +1593,30 @@ class ChatHistoryCompactionResponse(BaseModel):
     estimated_tokens_after: int = Field(
         ..., description="Estimated tokens after compaction"
     )
-    kept_recent: int = Field(..., description="Recent raw messages preserved verbatim")
-    summary_message_index: int = Field(..., description="Stored summary message index")
-    compaction_id: str = Field(..., description="Compaction audit identifier")
-    compacted_at: str = Field(..., description="Compaction timestamp")
+    kept_recent: int | None = Field(
+        None, description="Recent raw messages preserved by recovery-card compaction"
+    )
+    summary_message_index: int | None = Field(
+        None, description="Stored recovery-card message index"
+    )
+    compaction_id: str | None = Field(
+        None, description="Recovery-card audit identifier"
+    )
+    checkpoint_id: str | None = Field(None, description="Context checkpoint identifier")
+    compacted_at: str | None = Field(
+        None, description="Recovery-card compaction timestamp"
+    )
     source: str = Field(..., description="Compaction source")
+    action: str | None = Field(None, description="Session-map authoring action")
+    authoring_task_id: str | None = Field(
+        None, description="Session-map authoring task identifier"
+    )
+    consumed_through_sequence_index: int | None = Field(
+        None, description="Last canonical message consumed by the session map"
+    )
+    reason: str | None = Field(
+        None, description="Why an explicitly requested compaction was unavailable"
+    )
 
 
 class ModelConfigRequest(BaseModel):

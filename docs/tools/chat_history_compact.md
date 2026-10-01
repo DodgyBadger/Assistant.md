@@ -2,11 +2,17 @@
 
 Check or compact the current chat session history.
 
-Use `operation="status"` to inspect the current message and token estimate. Use `operation="compact"` only after the user has explicitly approved compaction.
+Use `operation="status"` to inspect the current message and token estimate, the session's effective compaction strategy, whether it has reached the automatic high watermark, and whether enough older history exists for a manual compaction. Use `operation="compact"` only after the user has explicitly approved compaction.
 
 Parameters:
 
 - `operation`: `status` or `compact`
-- `focus`: optional user guidance for what the compaction summary should preserve
+- `focus`: optional user guidance for what the compaction author should emphasize
 
-The compact operation records a replay checkpoint so default future history starts with a system-maintained summary plus recent raw turns.
+The compact operation uses the strategy pinned to the session by its latest context checkpoint, or the configured default when the session has no checkpoint. Recovery-card sessions produce a replacement summary plus recent raw turns. Session-map sessions author a new source-linked map revision and evict whole older conversational groups while retaining the configured recent-turn floor.
+
+Manual compaction can run below the automatic high watermark. The `suggested` policy reports when compaction is recommended but waits for an explicit request. The `none` policy disables automatic compaction and proactive suggestions but does not block an explicitly approved manual request.
+
+If a session-map request has no complete conversational group older than the retained-turn floor, it returns `status="unavailable"` with `reason="retained_turn_floor"` and does not author or commit a new revision.
+
+For session maps, `focus` is a salience lens for the current rewrite, not evidence or permission to change classifications. The author must preserve provenance and unrelated active commitments supported by the transcript.

@@ -123,13 +123,24 @@ class SessionMapSchemaScenario(BaseScenario):
                 new_evidence=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v8"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v9"
+        assert prompt_payload["user_focus"] is None
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
             item["source_range"] for item in prompt_payload["new_evidence_envelopes"]
         ] == [{"start": 10, "end": 13}, {"start": 14, "end": 17}]
         assert prompt_payload["new_evidence_envelopes"][0]["projected_text"] == (
             "Evidence for 10-13"
+        )
+        focused_payload = json.loads(
+            build_session_map_authoring_prompt(
+                previous_map=previous,
+                new_evidence=envelopes,
+                focus="Preserve the unresolved legal question.",
+            )
+        )
+        assert focused_payload["user_focus"] == (
+            "Preserve the unresolved legal question."
         )
 
         try:

@@ -246,8 +246,8 @@ class SessionMapReadinessScenario(BaseScenario):
         )
         self.soft_assert_equal(
             (manual_only.enabled, manual_only.reason),
-            (False, "automatic_context_reduction_disabled"),
-            "Stepped maps should not silently activate under a manual-only policy",
+            (True, "ready_canonical_history"),
+            "Mechanical readiness should remain available under a manual-only policy",
         )
 
         self._set_setting("compaction_type", "auto")

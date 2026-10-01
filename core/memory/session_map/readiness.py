@@ -1,4 +1,4 @@
-"""Fail-closed readiness checks for Compaction v2 context reduction."""
+"""Fail-closed mechanical readiness checks for Compaction v2."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from core.settings import (
     get_compaction_low_watermark_tokens,
     get_compaction_retained_turns,
     get_compaction_strategy,
-    get_compaction_type,
 )
 
 from .checkpoints import load_session_map_checkpoint
@@ -43,15 +42,14 @@ def evaluate_session_map_compaction_readiness(
     vault_name: str,
     model_availability_check: Callable[[str], None] = validate_api_keys,
 ) -> SessionMapCompactionReadiness:
-    """Resolve whether one session may use Compaction v2 context reduction."""
+    """Resolve whether one session can run Compaction v2 when initiated."""
     configured_strategy = get_compaction_strategy()
     checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
-    if checkpoint is None:
-        strategy = configured_strategy
-    elif checkpoint.checkpoint_kind == "session_map":
-        strategy = "session_map"
-    else:
-        strategy = "recovery_card"
+    strategy = resolve_session_compaction_strategy(
+        store=store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
     author_model = get_compaction_author_model()
     try:
         author_thinking = get_compaction_author_thinking()
@@ -83,8 +81,6 @@ def evaluate_session_map_compaction_readiness(
             else "strategy_not_enabled"
         )
         return result(False, reason)
-    if get_compaction_type() != "auto":
-        return result(False, "automatic_context_reduction_disabled")
     if author_model is None:
         return result(False, "author_model_not_configured")
     if not thinking_valid:
@@ -113,3 +109,18 @@ def evaluate_session_map_compaction_readiness(
     except ValueError:
         return result(False, "session_map_checkpoint_invalid")
     return result(True, "ready_existing_session_map")
+
+
+def resolve_session_compaction_strategy(
+    *,
+    store: ChatStore,
+    session_id: str,
+    vault_name: str,
+) -> str:
+    """Resolve the strategy pinned by a checkpoint or use the configured default."""
+    checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+    if checkpoint is None:
+        return get_compaction_strategy()
+    if checkpoint.checkpoint_kind == "session_map":
+        return "session_map"
+    return "recovery_card"

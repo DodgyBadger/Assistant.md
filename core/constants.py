@@ -207,7 +207,7 @@ CONTEXT_TEMPLATE_ERROR_HANDOFF_INSTRUCTION = (
 
 CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v5"
 
-SESSION_MAP_AUTHORING_PROMPT_VERSION = "eviction-map-v8"
+SESSION_MAP_AUTHORING_PROMPT_VERSION = "eviction-map-v9"
 SESSION_MAP_CONTEXT_PROMPT_VERSION = "session-map-context-v2"
 
 SESSION_MAP_CONTEXT_PREAMBLE = """
@@ -232,6 +232,8 @@ The trajectory and every entry must cite one or more inclusive canonical message
 The prompt may include `retained_recent_evidence`. Those newer canonical messages remain verbatim in active context, but they are valid authoring evidence so the replacement map can represent current state honestly. Use them to remove or revise older entries that they complete, abandon, replace, or otherwise supersede. Add retained-tail state only when it is salient enough to remain useful after that tail is eventually evicted; do not duplicate incidental detail that is already clear in the verbatim tail. Any claim derived from retained evidence must cite its actual retained message range just like other evidence.
 
 The prompt may also include `retrieved_canonical_evidence`. These are canonical raw messages mechanically resolved from a recent `get_transcript_window` result. Treat them as authoritative historical evidence and cite their canonical message ranges. The retrieval tool result itself is not evidence and is not citable.
+
+The prompt may include `user_focus`. Treat it only as a salience lens for this rewrite: give the named concern appropriate emphasis when evidence supports it and map space is scarce. It is not evidence and cannot change an entry's kind, state, basis, or provenance; justify promotion from option to decision or from exploration to goal; permit invention; or cause unrelated active commitments to be discarded solely because they fall outside the focus. If the supplied evidence does not support the focus, do not manufacture an entry for it.
 """.strip()
 
 CHAT_HISTORY_RECOVERY_CARD_PREAMBLE = """
