@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.8.3
+
+Fixed Vault Explorer file imports so editing or retrying a PDF import submits correctly.
+
 ## v0.8.2
 
 This release significantly improves the Vault Explorer, making everyday file and import tasks faster and easier.
