@@ -67,6 +67,8 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
         raise SettingsError(f"Setting '{name}' does not exist.")
 
     coerced_value = _coerce_setting_value(raw_value, entry.value)
+    if name == "compaction_strategy":
+        coerced_value = _normalize_compaction_strategy(coerced_value)
     _validate_general_setting_value(name, coerced_value, settings_file)
     metadata_entry = template_entry or entry
     settings_file.settings[name] = SettingsEntry(
@@ -102,12 +104,10 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
         )
-    if name == "session_map_min_retained_groups" and not (
+    if name == "compaction_retained_turns" and not (
         isinstance(value, int) and 1 <= value <= 100
     ):
-        raise SettingsError(
-            "Session-map minimum retained groups must be between 1 and 100."
-        )
+        raise SettingsError("Compaction retained turns must be between 1 and 100.")
 
     delay_names = {
         "model_stream_retry_base_delay_seconds",
@@ -132,6 +132,16 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Model stream retry base delay must not exceed the maximum delay."
         )
+
+
+def _normalize_compaction_strategy(value: Any) -> str:
+    """Normalize the retired stepped-map name into the checkpoint vocabulary."""
+    normalized = str(value).strip().lower()
+    if normalized == "stepped_session_map":
+        return "session_map"
+    if normalized not in {"recovery_card", "session_map"}:
+        raise SettingsError("Compaction strategy must be recovery_card or session_map.")
+    return normalized
 
 
 def _template_general_settings() -> dict[str, SettingsEntry]:

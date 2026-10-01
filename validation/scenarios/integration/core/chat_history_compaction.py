@@ -188,8 +188,27 @@ class ChatHistoryCompactionScenario(BaseScenario):
         async def _create_streaming_summary_agent_stub(*args, **kwargs):
             return _StreamingSummaryAgent()
 
+        author_setting_response = self.call_api(
+            "/api/system/settings/general/compaction_author_model",
+            method="PUT",
+            data={"value": "test"},
+        )
+        assert (
+            author_setting_response.status_code == 200
+        ), "Shared compaction author model should be configurable"
+
+        captured_compaction_author = {}
+
+        def _build_compaction_author_stub(model_alias, *, thinking=None):
+            captured_compaction_author.update(
+                {"model_alias": model_alias, "thinking": thinking}
+            )
+            return object()
+
         original_create_agent = llm_agents.create_agent
+        original_build_model = compaction.build_model_instance
         llm_agents.create_agent = _create_streaming_summary_agent_stub
+        compaction.build_model_instance = _build_compaction_author_stub
         try:
             streamed_summary = await compaction._generate_compaction_summary(
                 older_messages=older_messages,
@@ -198,10 +217,15 @@ class ChatHistoryCompactionScenario(BaseScenario):
             )
         finally:
             llm_agents.create_agent = original_create_agent
+            compaction.build_model_instance = original_build_model
 
         assert (
             streamed_summary == "Streamed compaction summary."
         ), "Compaction summary generation should return aggregated streamed text"
+        assert captured_compaction_author == {
+            "model_alias": "test",
+            "thinking": "low",
+        }, "Recovery-card authoring should use the shared compaction author settings"
 
         original_keep_recent = compaction.get_compaction_keep_recent
         original_threshold = compaction.get_compaction_token_threshold

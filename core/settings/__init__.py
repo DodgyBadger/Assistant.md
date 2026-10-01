@@ -942,20 +942,20 @@ def get_compaction_token_threshold() -> int:
     return parsed if parsed > 0 else template_default
 
 
-def get_context_reduction_strategy() -> str:
-    """Return the configured effective-history reduction strategy."""
-    entry = get_general_settings().get("context_reduction_strategy")
+def get_compaction_strategy() -> str:
+    """Return the configured compaction strategy."""
+    entry = get_general_settings().get("compaction_strategy")
     value = getattr(entry, "value", None) if entry is not None else None
     normalized = str(value or "recovery_card").strip().lower()
-    if normalized == "stepped_session_map":
-        return normalized
+    if normalized in {"session_map", "stepped_session_map"}:
+        return "session_map"
     return "recovery_card"
 
 
-def get_session_map_author_model() -> str | None:
-    """Return the session-map author alias, inheriting the default model."""
+def get_compaction_author_model() -> str | None:
+    """Return the compaction author alias, inheriting the default model."""
     settings = get_general_settings()
-    entry = settings.get("session_map_author_model")
+    entry = settings.get("compaction_author_model")
     value = getattr(entry, "value", None) if entry is not None else None
     normalized = str(value or "").strip()
     if normalized and normalized.lower() != "none":
@@ -971,19 +971,19 @@ def get_session_map_author_model() -> str | None:
     return normalized_default
 
 
-def get_session_map_author_thinking() -> ThinkingValue:
-    """Return the thinking policy for experimental session-map authoring."""
-    entry = get_general_settings().get("session_map_author_thinking")
+def get_compaction_author_thinking() -> ThinkingValue:
+    """Return the thinking policy for compaction authoring."""
+    entry = get_general_settings().get("compaction_author_thinking")
     value = getattr(entry, "value", None) if entry is not None else None
-    return normalize_thinking_value(value, source_name="session_map_author_thinking")
+    return normalize_thinking_value(value, source_name="compaction_author_thinking")
 
 
-def get_session_map_low_watermark_tokens() -> int:
+def get_compaction_low_watermark_tokens() -> int:
     """Return the target token size after one stepped-map eviction."""
-    entry = get_general_settings().get("session_map_low_watermark_tokens")
+    entry = get_general_settings().get("compaction_low_watermark_tokens")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(
-        "session_map_low_watermark_tokens", 20_000
+        "compaction_low_watermark_tokens", 20_000
     )
     try:
         parsed = _setting_int(value)
@@ -992,12 +992,12 @@ def get_session_map_low_watermark_tokens() -> int:
     return parsed if parsed > 0 else template_default
 
 
-def get_session_map_min_retained_groups() -> int:
-    """Return the minimum newest conversational groups retained verbatim."""
-    entry = get_general_settings().get("session_map_min_retained_groups")
+def get_compaction_retained_turns() -> int:
+    """Return the minimum newest conversational turns retained verbatim."""
+    entry = get_general_settings().get("compaction_retained_turns")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(
-        "session_map_min_retained_groups", 3
+        "compaction_retained_turns", 3
     )
     try:
         parsed = _setting_int(value)

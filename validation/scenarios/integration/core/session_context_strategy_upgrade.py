@@ -44,11 +44,11 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
         vault = self.create_vault("SessionContextStrategyUpgradeVault")
         await self.start_system()
         for key, value in (
-            ("context_reduction_strategy", "stepped_session_map"),
+            ("compaction_strategy", "session_map"),
             ("default_model", "test"),
-            ("session_map_author_thinking", "low"),
-            ("session_map_low_watermark_tokens", "250"),
-            ("session_map_min_retained_groups", "2"),
+            ("compaction_author_thinking", "low"),
+            ("compaction_low_watermark_tokens", "250"),
+            ("compaction_retained_turns", "2"),
             ("compaction_token_threshold", "500"),
             ("compaction_type", "auto"),
         ):
@@ -251,7 +251,7 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 upgraded_listing["can_upgrade_to_v2"],
                 upgraded_listing["has_session_map"],
             ),
-            ("stepped_session_map", False, True),
+            ("session_map", False, True),
             "The completed session should lose the upgrade action and gain its map affordance",
         )
         repeated = self.call_api(

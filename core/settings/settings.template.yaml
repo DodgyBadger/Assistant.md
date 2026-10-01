@@ -185,29 +185,29 @@ settings:
     description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
     category: "Chat"
     restart_required: false
-  context_reduction_strategy:
+  compaction_strategy:
     value: recovery_card
-    description: "Default effective-history reduction strategy for sessions without a checkpoint. After the first reduction, each session remains pinned to recovery_card or stepped_session_map until an explicit rebuild changes it."
+    description: "Default compaction strategy for sessions without a checkpoint: recovery_card (Compaction v1) or session_map (Compaction v2). After the first reduction, each session remains pinned to its selected strategy until an explicit upgrade changes it."
     category: "Chat"
     restart_required: false
-  session_map_author_model:
+  compaction_author_model:
     value: none
-    description: "Optional model alias for authoring Compaction v2 session maps. When unset or set to none, it uses default_model."
+    description: "Optional model alias for authoring recovery cards and session maps. When unset or set to none, it uses default_model."
     category: "Chat"
     restart_required: false
-  session_map_author_thinking:
+  compaction_author_thinking:
     value: low
-    description: "Thinking effort for experimental session-map authoring. Use default, on, off, minimal, low, medium, high, or xhigh."
+    description: "Thinking effort for authoring recovery cards and session maps. Use default, on, off, minimal, low, medium, high, or xhigh."
     category: "Chat"
     restart_required: false
-  session_map_low_watermark_tokens:
+  compaction_low_watermark_tokens:
     value: 20000
-    description: "Target Compaction v2 effective-history size after stepped-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete provider-history groups and session_map_min_retained_groups take precedence, so the actual history size can exceed this target. Must be lower than compaction_token_threshold."
+    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete conversational turns and compaction_retained_turns take precedence, so the actual history size can exceed this target. Must be lower than compaction_token_threshold."
     category: "Chat"
     restart_required: false
-  session_map_min_retained_groups:
+  compaction_retained_turns:
     value: 3
-    description: "Minimum number of newest user-initiated conversational groups Compaction v2 preserves verbatim after eviction. A group includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; this floor can cause retained history to exceed session_map_low_watermark_tokens."
+    description: "Minimum number of newest conversational turns Compaction v2 preserves verbatim after eviction. A turn includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; this floor can cause retained history to exceed compaction_low_watermark_tokens."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:

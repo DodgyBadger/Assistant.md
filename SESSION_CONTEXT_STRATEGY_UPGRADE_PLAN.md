@@ -8,7 +8,7 @@ Allow a user to upgrade one explicitly selected Compaction v1 session to Compact
 
 ## User Contract
 
-- The session-list API reports the effective context strategy derived from the latest checkpoint: `unassigned` when no checkpoint exists, `recovery_card` for Compaction v1, and `stepped_session_map` for Compaction v2.
+- The session-list API reports the effective context strategy derived from the latest checkpoint: `unassigned` when no checkpoint exists, `recovery_card` for Compaction v1, and `session_map` for Compaction v2.
 - An upgrade action appears only for a recovery-card session when Compaction v2 is the configured strategy.
 - The user confirms the inference-bearing operation for one session. The API starts a background execution task and returns immediately.
 - The UI monitors the normal execution-task endpoint. On success it refreshes the session list and reloads the active session, causing the upgrade action to disappear and the map affordance to appear.
@@ -29,7 +29,7 @@ Allow a user to upgrade one explicitly selected Compaction v1 session to Compact
 - Failure or cancellation before the final checkpoint append leaves the recovery-card checkpoint effective.
 - A concurrent history change makes the final compare-and-swap checkpoint write fail.
 - Only a latest recovery-card checkpoint can be upgraded; unpinned and existing V2 sessions are rejected.
-- The configured global strategy must be `stepped_session_map`, and normal map-author model validation remains authoritative.
+- The configured global `compaction_strategy` must be `session_map`, and normal compaction-author model validation remains authoritative.
 - The final checkpoint records ordinary map authoring and context-rendering provenance and uses `context_strategy_upgrade` as its source.
 
 ## API and UI Surface

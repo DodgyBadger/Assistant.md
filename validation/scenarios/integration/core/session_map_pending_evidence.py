@@ -51,11 +51,11 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
         vault = self.create_vault("SessionMapPendingEvidenceVault")
         await self.start_system()
         for key, value in (
-            ("context_reduction_strategy", "stepped_session_map"),
-            ("session_map_author_model", "test"),
-            ("session_map_author_thinking", "low"),
-            ("session_map_low_watermark_tokens", "1"),
-            ("session_map_min_retained_groups", "1"),
+            ("compaction_strategy", "session_map"),
+            ("compaction_author_model", "test"),
+            ("compaction_author_thinking", "low"),
+            ("compaction_low_watermark_tokens", "1"),
+            ("compaction_retained_turns", "1"),
             ("compaction_token_threshold", "2"),
             ("compaction_type", "auto"),
         ):

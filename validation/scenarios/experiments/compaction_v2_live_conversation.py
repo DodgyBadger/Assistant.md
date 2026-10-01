@@ -358,11 +358,11 @@ def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
             isolated["settings"][name] = copy.deepcopy(live_settings[name])
     for name, value in (
         ("default_model", MODEL_ALIAS),
-        ("context_reduction_strategy", "stepped_session_map"),
-        ("session_map_author_model", MODEL_ALIAS),
-        ("session_map_author_thinking", "low"),
-        ("session_map_low_watermark_tokens", LOW_WATERMARK_TOKENS),
-        ("session_map_min_retained_groups", 3),
+        ("compaction_strategy", "session_map"),
+        ("compaction_author_model", MODEL_ALIAS),
+        ("compaction_author_thinking", "low"),
+        ("compaction_low_watermark_tokens", LOW_WATERMARK_TOKENS),
+        ("compaction_retained_turns", 3),
         ("compaction_token_threshold", HIGH_WATERMARK_TOKENS),
         ("compaction_type", "auto"),
     ):

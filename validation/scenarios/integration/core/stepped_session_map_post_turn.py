@@ -43,11 +43,11 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         import core.memory.session_map.service as session_map_service
 
         for key, value in (
-            ("context_reduction_strategy", "stepped_session_map"),
-            ("session_map_author_model", "test"),
-            ("session_map_author_thinking", "low"),
-            ("session_map_low_watermark_tokens", "1"),
-            ("session_map_min_retained_groups", "1"),
+            ("compaction_strategy", "session_map"),
+            ("compaction_author_model", "test"),
+            ("compaction_author_thinking", "low"),
+            ("compaction_low_watermark_tokens", "1"),
+            ("compaction_retained_turns", "1"),
             ("compaction_token_threshold", "2"),
             ("compaction_keep_recent", "1"),
             ("compaction_type", "auto"),
@@ -144,7 +144,7 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
                 }
             )
             response = self.call_api(
-                "/api/system/settings/general/context_reduction_strategy",
+                "/api/system/settings/general/compaction_strategy",
                 method="PUT",
                 data={"value": "recovery_card"},
             )

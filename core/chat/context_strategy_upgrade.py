@@ -32,12 +32,12 @@ from core.runtime.execution_tasks import (
 from core.runtime.state import get_runtime_context
 from core.runtime.task_runner import ExecutionGatePolicy, ExecutionTaskSpec
 from core.settings import (
+    get_compaction_author_model,
+    get_compaction_author_thinking,
+    get_compaction_low_watermark_tokens,
+    get_compaction_retained_turns,
+    get_compaction_strategy,
     get_compaction_token_threshold,
-    get_context_reduction_strategy,
-    get_session_map_author_model,
-    get_session_map_author_thinking,
-    get_session_map_low_watermark_tokens,
-    get_session_map_min_retained_groups,
 )
 
 from .chat_store import ChatStore, StoredChatMessage, StoredContextCheckpoint
@@ -51,7 +51,7 @@ from .compaction import (
 SessionContextStrategy = Literal[
     "unassigned",
     "recovery_card",
-    "stepped_session_map",
+    "session_map",
 ]
 
 logger = UnifiedLogger(
@@ -107,18 +107,16 @@ def get_session_context_strategy_status(
         )
     if checkpoint.checkpoint_kind == "session_map":
         return SessionContextStrategyStatus(
-            strategy="stepped_session_map",
+            strategy="session_map",
             can_upgrade_to_v2=False,
             reason="already_compaction_v2",
         )
-    configured = get_context_reduction_strategy()
+    configured = get_compaction_strategy()
     return SessionContextStrategyStatus(
         strategy="recovery_card",
-        can_upgrade_to_v2=configured == "stepped_session_map",
+        can_upgrade_to_v2=configured == "session_map",
         reason=(
-            "ready"
-            if configured == "stepped_session_map"
-            else "compaction_v2_not_configured"
+            "ready" if configured == "session_map" else "compaction_v2_not_configured"
         ),
     )
 
@@ -148,12 +146,12 @@ async def start_session_context_strategy_upgrade(
     )
     if source_checkpoint is None:  # pragma: no cover - guarded by status
         raise SessionContextStrategyUpgradeUnavailable("recovery_checkpoint_missing")
-    author_model = get_session_map_author_model()
+    author_model = get_compaction_author_model()
     if author_model is None:
         raise SessionContextStrategyUpgradeUnavailable("author_model_not_configured")
-    author_thinking = get_session_map_author_thinking()
+    author_thinking = get_compaction_author_thinking()
     high_watermark = get_compaction_token_threshold()
-    low_watermark = get_session_map_low_watermark_tokens()
+    low_watermark = get_compaction_low_watermark_tokens()
     if low_watermark >= high_watermark:
         raise SessionContextStrategyUpgradeUnavailable("invalid_watermarks")
 
@@ -170,7 +168,7 @@ async def start_session_context_strategy_upgrade(
                 author_thinking=author_thinking,
                 high_watermark=high_watermark,
                 low_watermark=low_watermark,
-                minimum_retained_groups=get_session_map_min_retained_groups(),
+                minimum_retained_groups=get_compaction_retained_turns(),
                 authority=authority,
             )
             return asdict(result)
@@ -202,7 +200,7 @@ async def start_session_context_strategy_upgrade(
                 "vault": vault_name,
                 "session_id": session_id,
                 "source_checkpoint_id": source_checkpoint.checkpoint_id,
-                "target_strategy": "stepped_session_map",
+                "target_strategy": "session_map",
                 "queued_by_session": True,
             },
         ),

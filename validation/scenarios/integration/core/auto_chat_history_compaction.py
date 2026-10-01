@@ -40,6 +40,8 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             ("compaction_type", "auto"),
             ("compaction_keep_recent", "1"),
             ("compaction_token_threshold", "1"),
+            ("compaction_author_model", "test"),
+            ("compaction_author_thinking", "low"),
         ):
             response = self.call_api(
                 f"/api/system/settings/general/{key}",
@@ -118,6 +120,12 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         assert (
             last_compaction["compaction_type"] == "auto"
         ), "Auto compaction should record effective policy"
+        assert (
+            last_compaction["author_model"] == "test"
+        ), "Recovery-card provenance should record the shared compaction author model"
+        assert (
+            last_compaction["author_thinking"] == "low"
+        ), "Recovery-card provenance should record the shared compaction author thinking"
         assert (
             last_compaction["compaction_token_threshold"] == 1
         ), "Auto compaction should record effective threshold"

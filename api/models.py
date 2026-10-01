@@ -1116,11 +1116,9 @@ class ChatSessionInfo(BaseModel):
     has_session_map: bool = Field(
         False, description="Whether the session has a stepped-map checkpoint"
     )
-    context_strategy: Literal["unassigned", "recovery_card", "stepped_session_map"] = (
-        Field(
-            "unassigned",
-            description="Effective context-reduction strategy for the session",
-        )
+    context_strategy: Literal["unassigned", "recovery_card", "session_map"] = Field(
+        "unassigned",
+        description="Effective context-reduction strategy for the session",
     )
     can_upgrade_to_v2: bool = Field(
         False,

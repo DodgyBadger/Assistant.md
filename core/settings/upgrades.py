@@ -14,6 +14,11 @@ _WEB_TOOL_RENAMES = {
 
 RETIRED_SETTINGS = frozenset(
     {
+        "context_reduction_strategy",
+        "session_map_author_model",
+        "session_map_author_thinking",
+        "session_map_low_watermark_tokens",
+        "session_map_min_retained_groups",
         "live_session_memory_mode",
         "live_session_memory_decision_model",
         "live_session_memory_author_model",
@@ -40,6 +45,8 @@ def upgrade_settings_mapping(
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):
         return upgraded
+
+    _upgrade_compaction_settings(settings, template_settings)
 
     for retired_setting in RETIRED_SETTINGS:
         settings.pop(retired_setting, None)
@@ -79,6 +86,33 @@ def upgrade_settings_mapping(
         )
 
     return upgraded
+
+
+def _upgrade_compaction_settings(
+    settings: dict[str, Any], template_settings: dict[str, Any]
+) -> None:
+    """Move pre-namespace compaction settings into the current contract."""
+    renames = {
+        "context_reduction_strategy": "compaction_strategy",
+        "session_map_author_model": "compaction_author_model",
+        "session_map_author_thinking": "compaction_author_thinking",
+        "session_map_low_watermark_tokens": "compaction_low_watermark_tokens",
+        "session_map_min_retained_groups": "compaction_retained_turns",
+    }
+    for old_name, new_name in renames.items():
+        if new_name in settings:
+            continue
+        old_entry = settings.get(old_name)
+        if old_entry is None:
+            continue
+        value = _entry_value(old_entry)
+        if old_name == "context_reduction_strategy" and value == "stepped_session_map":
+            value = "session_map"
+        settings[new_name] = _template_entry_with_value(
+            template_settings,
+            new_name,
+            value,
+        )
 
 
 def _available_tool_names(

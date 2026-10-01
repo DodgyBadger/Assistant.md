@@ -30,6 +30,8 @@ from core.constants import (
     SESSION_MAP_CONTEXT_PROMPT_VERSION,
 )
 from core.identity import ExecutionAuthority
+from core.llm.model_factory import build_model_instance
+from core.llm.thinking import thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.memory.session_map.checkpoints import (
     SessionMapCheckpointResult,
@@ -62,6 +64,8 @@ from core.runtime.execution_tasks import (
 from core.runtime.state import get_runtime_context, has_runtime_context
 from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings import (
+    get_compaction_author_model,
+    get_compaction_author_thinking,
     get_compaction_keep_recent,
     get_compaction_token_threshold,
     get_compaction_type,
@@ -270,6 +274,11 @@ async def compact_chat_history(
 
             estimated_before = estimate_history_tokens(messages)
             trigger, reason = _compaction_trigger_and_reason(source)
+            author_model = get_compaction_author_model()
+            if author_model is None:
+                raise ValueError("Compaction author model is not configured.")
+            author_thinking = get_compaction_author_thinking()
+            author_thinking_label = thinking_value_to_label(author_thinking)
             logger.info(
                 "chat_compaction_plan_selected",
                 data={
@@ -280,6 +289,8 @@ async def compact_chat_history(
                     "trigger": trigger,
                     "reason": reason,
                     "prompt_contract_version": CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
+                    "author_model": author_model,
+                    "author_thinking": author_thinking_label,
                     "history_mode": "effective",
                     "messages_before": len(messages),
                     "older_messages": len(older_messages),
@@ -321,6 +332,8 @@ async def compact_chat_history(
                     "compaction_type": get_compaction_type(),
                     "compaction_token_threshold": get_compaction_token_threshold(),
                     "compaction_keep_recent": keep_recent,
+                    "author_model": author_model,
+                    "author_thinking": author_thinking_label,
                     "messages_before": len(messages),
                     "messages_after": len(replacement),
                     "estimated_tokens_before": estimated_before,
@@ -771,9 +784,9 @@ async def maybe_auto_compact_after_turn(
     )
     if readiness.enabled:
         logger.info(
-            "context_reduction_strategy_selected",
+            "compaction_strategy_selected",
             data={
-                "event": "context_reduction_strategy_selected",
+                "event": "compaction_strategy_selected",
                 "session_id": session_id,
                 "vault_name": vault_name,
                 "strategy": readiness.strategy,
@@ -808,11 +821,11 @@ async def maybe_auto_compact_after_turn(
                 },
             )
             return None
-    elif readiness.strategy == "stepped_session_map":
+    elif readiness.strategy == "session_map":
         logger.info(
-            "context_reduction_strategy_selected",
+            "compaction_strategy_selected",
             data={
-                "event": "context_reduction_strategy_selected",
+                "event": "compaction_strategy_selected",
                 "session_id": session_id,
                 "vault_name": vault_name,
                 "strategy": readiness.strategy,
@@ -1200,12 +1213,18 @@ async def _generate_compaction_summary(
 ) -> str:
     from core.llm.agents import collect_response, create_agent
 
+    author_model = get_compaction_author_model()
+    if author_model is None:
+        raise ValueError("Compaction author model is not configured.")
+    author_thinking = get_compaction_author_thinking()
     prompt = _build_summary_prompt(
         older_messages=older_messages,
         recent_messages=recent_messages,
         focus=focus,
     )
-    agent = await create_agent()
+    agent = await create_agent(
+        model=build_model_instance(author_model, thinking=author_thinking)
+    )
     result = await collect_response(agent, prompt)
     return str(result.output or "").strip()
 

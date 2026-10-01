@@ -9,13 +9,13 @@ from core.chat.chat_store import ChatStore
 from core.llm.model_utils import model_supports_capability, validate_api_keys
 from core.llm.thinking import ThinkingValue
 from core.settings import (
+    get_compaction_author_model,
+    get_compaction_author_thinking,
+    get_compaction_low_watermark_tokens,
+    get_compaction_retained_turns,
+    get_compaction_strategy,
     get_compaction_token_threshold,
     get_compaction_type,
-    get_context_reduction_strategy,
-    get_session_map_author_model,
-    get_session_map_author_thinking,
-    get_session_map_low_watermark_tokens,
-    get_session_map_min_retained_groups,
 )
 
 from .checkpoints import load_session_map_checkpoint
@@ -44,24 +44,24 @@ def evaluate_session_map_compaction_readiness(
     model_availability_check: Callable[[str], None] = validate_api_keys,
 ) -> SessionMapCompactionReadiness:
     """Resolve whether one session may use Compaction v2 context reduction."""
-    configured_strategy = get_context_reduction_strategy()
+    configured_strategy = get_compaction_strategy()
     checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
     if checkpoint is None:
         strategy = configured_strategy
     elif checkpoint.checkpoint_kind == "session_map":
-        strategy = "stepped_session_map"
+        strategy = "session_map"
     else:
         strategy = "recovery_card"
-    author_model = get_session_map_author_model()
+    author_model = get_compaction_author_model()
     try:
-        author_thinking = get_session_map_author_thinking()
+        author_thinking = get_compaction_author_thinking()
         thinking_valid = True
     except ValueError:
         author_thinking = None
         thinking_valid = False
     high_watermark = get_compaction_token_threshold()
-    low_watermark = get_session_map_low_watermark_tokens()
-    minimum_retained_groups = get_session_map_min_retained_groups()
+    low_watermark = get_compaction_low_watermark_tokens()
+    minimum_retained_groups = get_compaction_retained_turns()
 
     def result(enabled: bool, reason: str) -> SessionMapCompactionReadiness:
         return SessionMapCompactionReadiness(
@@ -76,7 +76,7 @@ def evaluate_session_map_compaction_readiness(
             minimum_retained_groups=minimum_retained_groups,
         )
 
-    if strategy != "stepped_session_map":
+    if strategy != "session_map":
         reason = (
             "recovery_card_checkpoint_present"
             if checkpoint is not None and checkpoint.checkpoint_kind == "recovery_card"

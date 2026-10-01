@@ -20,6 +20,7 @@ from core.memory.session_map.readiness import (  # noqa: E402
     evaluate_session_map_compaction_readiness,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
+from core.settings.upgrades import upgrade_settings_mapping  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
 
 
@@ -47,24 +48,24 @@ class SessionMapReadinessScenario(BaseScenario):
         )
         settings = {item["key"]: item for item in settings_response.json()}
         self.soft_assert_equal(
-            settings["context_reduction_strategy"]["value"],
+            settings["compaction_strategy"]["value"],
             "recovery_card",
             "Recovery-card compaction should remain the default strategy",
         )
         self.soft_assert_equal(
-            settings["session_map_author_model"]["value"],
+            settings["compaction_author_model"]["value"],
             "none",
-            "The session-map-specific author override should default to none",
+            "The shared compaction author override should default to none",
         )
         self.soft_assert(
             "uses default_model"
-            in (settings["session_map_author_model"].get("description") or ""),
+            in (settings["compaction_author_model"].get("description") or ""),
             "The author-model setting should explain its default-model fallback",
         )
         self.soft_assert_equal(
-            settings["session_map_min_retained_groups"]["value"],
+            settings["compaction_retained_turns"]["value"],
             "3",
-            "Compaction v2 should retain three recent groups by default",
+            "Compaction v2 should retain three recent turns by default",
         )
         initial = evaluate_session_map_compaction_readiness(
             store=store,
@@ -77,12 +78,79 @@ class SessionMapReadinessScenario(BaseScenario):
             "The default configuration should fail closed",
         )
 
+        legacy_update = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "stepped_session_map"},
+        )
+        self.soft_assert_equal(
+            (
+                legacy_update.status_code,
+                legacy_update.json().get("value"),
+            ),
+            (200, "session_map"),
+            "The retired strategy name should normalize to session_map",
+        )
+        invalid_strategy = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "unknown"},
+        )
+        self.soft_assert_equal(
+            invalid_strategy.status_code,
+            400,
+            "Unknown context-reduction strategies should be rejected",
+        )
+        upgraded_settings = upgrade_settings_mapping(
+            {
+                "settings": {
+                    "context_reduction_strategy": {"value": "stepped_session_map"},
+                    "session_map_author_model": {"value": "legacy-author"},
+                    "session_map_author_thinking": {"value": "medium"},
+                    "session_map_low_watermark_tokens": {"value": 1234},
+                    "session_map_min_retained_groups": {"value": 4},
+                }
+            },
+            {
+                "settings": {
+                    "compaction_strategy": {
+                        "value": "recovery_card",
+                        "description": "Current strategy contract.",
+                    },
+                    "compaction_author_model": {"value": "none"},
+                    "compaction_author_thinking": {"value": "low"},
+                    "compaction_low_watermark_tokens": {"value": 20000},
+                    "compaction_retained_turns": {"value": 3},
+                }
+            },
+        )
+        self.soft_assert_equal(
+            {
+                key: upgraded_settings["settings"][key]["value"]
+                for key in (
+                    "compaction_strategy",
+                    "compaction_author_model",
+                    "compaction_author_thinking",
+                    "compaction_low_watermark_tokens",
+                    "compaction_retained_turns",
+                )
+            },
+            {
+                "compaction_strategy": "session_map",
+                "compaction_author_model": "legacy-author",
+                "compaction_author_thinking": "medium",
+                "compaction_low_watermark_tokens": 1234,
+                "compaction_retained_turns": 4,
+            },
+            "Settings repair should migrate the retired compaction settings",
+        )
+
         for key, value in (
-            ("context_reduction_strategy", "stepped_session_map"),
+            ("compaction_strategy", "session_map"),
             ("default_model", "test"),
-            ("session_map_author_thinking", "low"),
-            ("session_map_low_watermark_tokens", "50"),
-            ("session_map_min_retained_groups", "3"),
+            ("compaction_author_thinking", "low"),
+            ("compaction_low_watermark_tokens", "50"),
+            ("compaction_retained_turns", "3"),
             ("compaction_token_threshold", "100"),
             ("compaction_type", "auto"),
         ):
@@ -117,17 +185,17 @@ class SessionMapReadinessScenario(BaseScenario):
         )
 
         invalid_floor = self.call_api(
-            "/api/system/settings/general/session_map_min_retained_groups",
+            "/api/system/settings/general/compaction_retained_turns",
             method="PUT",
             data={"value": "0"},
         )
         self.soft_assert_equal(
             invalid_floor.status_code,
             400,
-            "The retained-group floor should reject values below one",
+            "The retained-turn floor should reject values below one",
         )
 
-        self._set_setting("session_map_author_model", "jev")
+        self._set_setting("compaction_author_model", "jev")
         decision_only = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -139,8 +207,8 @@ class SessionMapReadinessScenario(BaseScenario):
             "A decision-only model must not be used as the generative author",
         )
 
-        self._set_setting("session_map_author_model", "test")
-        self._set_setting("session_map_author_thinking", "impossible")
+        self._set_setting("compaction_author_model", "test")
+        self._set_setting("compaction_author_thinking", "impossible")
         invalid_thinking = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -152,8 +220,8 @@ class SessionMapReadinessScenario(BaseScenario):
             "An invalid author thinking policy should fail closed",
         )
 
-        self._set_setting("session_map_author_thinking", "low")
-        self._set_setting("session_map_low_watermark_tokens", "100")
+        self._set_setting("compaction_author_thinking", "low")
+        self._set_setting("compaction_low_watermark_tokens", "100")
         invalid_watermarks = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -165,7 +233,7 @@ class SessionMapReadinessScenario(BaseScenario):
             "The low watermark must remain below the shared high watermark",
         )
 
-        self._set_setting("session_map_low_watermark_tokens", "50")
+        self._set_setting("compaction_low_watermark_tokens", "50")
         self._set_setting("compaction_type", "suggested")
         manual_only = evaluate_session_map_compaction_readiness(
             store=store,
