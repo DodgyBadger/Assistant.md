@@ -208,7 +208,7 @@ CONTEXT_TEMPLATE_ERROR_HANDOFF_INSTRUCTION = (
 CHAT_HISTORY_COMPACTION_PROMPT_VERSION = "recovery-card-v5"
 
 SESSION_MAP_AUTHORING_PROMPT_VERSION = "eviction-map-v8"
-SESSION_MAP_CONTEXT_PROMPT_VERSION = "session-map-context-v3"
+SESSION_MAP_CONTEXT_PROMPT_VERSION = "session-map-context-v2"
 
 SESSION_MAP_CONTEXT_PREAMBLE = """
 This checkpoint carries a concise narrative trajectory and structured current state from canonical session messages that are no longer in active context. Treat it as a compact continuity aid, not as a complete transcript. The trajectory and each entry cite inclusive canonical message ranges that support that particular map claim; those references are not an exhaustive index of relevant session evidence. When completeness, exact wording, omitted detail, surrounding context, rationale, correction, supersession, or provenance matters, use `session_ops(operation="search_transcript")` on the active session and `session_ops(operation="get_transcript_window")` around a returned sequence index before relying on the checkpoint or its references alone. Do not use `search_sessions` for evidence inside the active session; that operation finds other sessions.

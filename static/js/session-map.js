@@ -205,13 +205,14 @@
                 </div>
                 <div class="session-map-provenance">
                     <span>${escapeHtml(formatDate(selected?.created_at))}</span>
-                    <span>${escapeHtml(humanize(selected?.action))}</span>
-                    <span>Contract: ${escapeHtml(selected?.prompt_contract_version || 'unknown')}</span>
                 </div>
-                ${renderTrajectory(sessionMap.trajectory)}
-                <div class="session-map-sections">
-                    ${sections || '<p class="text-sm text-txt-secondary">This checkpoint contains no map entries.</p>'}
-                </div>
+                <details class="session-map-content"${options.mapOpen === false ? '' : ' open'}>
+                    <summary>View session map</summary>
+                    ${renderTrajectory(sessionMap.trajectory)}
+                    <div class="session-map-sections">
+                        ${sections || '<p class="text-sm text-txt-secondary">This checkpoint contains no map entries.</p>'}
+                    </div>
+                </details>
                 ${renderTranscript(payload.transcript, { open: options.transcriptOpen === true })}
             `;
         }
@@ -221,7 +222,8 @@
             sessionId,
             checkpointId = '',
             messagePage = 1,
-            transcriptOpen = false
+            transcriptOpen = false,
+            mapOpen = true
         ) {
             const body = modal.querySelector('#session-map-modal-body');
             if (!body) return;
@@ -229,7 +231,7 @@
             try {
                 const payload = await fetchMap(sessionId, checkpointId, messagePage);
                 if (modal.isConnected) {
-                    body.innerHTML = renderMap(payload, { transcriptOpen });
+                    body.innerHTML = renderMap(payload, { transcriptOpen, mapOpen });
                 }
             } catch (error) {
                 console.error('Error opening session map modal:', error);
@@ -285,6 +287,7 @@
                 if (target.closest('[data-session-map-close="true"]')) closeModal();
                 const toolCall = target.closest('[data-session-map-tool-call]');
                 if (toolCall instanceof HTMLButtonElement && typeof callbacks.openToolCall === 'function') {
+                    const mapOpen = modal.querySelector('.session-map-content')?.open !== false;
                     const checkpointId = toolCall.getAttribute('data-session-map-tool-checkpoint') || '';
                     const messagePage = Number.parseInt(
                         toolCall.getAttribute('data-session-map-tool-page') || '1',
@@ -306,6 +309,7 @@
                             checkpointId,
                             messagePage: Number.isInteger(messagePage) ? messagePage : 1,
                             transcriptOpen: true,
+                            mapOpen,
                             backLabel: options.backLabel,
                             onBack: options.onBack,
                         }),
@@ -320,14 +324,17 @@
                     );
                     const checkpointId = transcriptPage.getAttribute('data-session-map-transcript-checkpoint') || '';
                     if (Number.isInteger(page) && page > 0) {
-                        loadCheckpoint(modal, session.session_id, checkpointId, page, true);
+                        const mapOpen = modal.querySelector('.session-map-content')?.open !== false;
+                        loadCheckpoint(modal, session.session_id, checkpointId, page, true, mapOpen);
                     }
                 }
             });
             modal.addEventListener('change', event => {
                 const target = event.target;
                 if (!(target instanceof HTMLSelectElement) || !target.matches('[data-session-map-checkpoint]')) return;
-                loadCheckpoint(modal, session.session_id, target.value);
+                const transcriptOpen = modal.querySelector('.session-map-transcript')?.open === true;
+                const mapOpen = modal.querySelector('.session-map-content')?.open !== false;
+                loadCheckpoint(modal, session.session_id, target.value, 1, transcriptOpen, mapOpen);
             });
             document.body.appendChild(modal);
             await loadCheckpoint(
@@ -335,7 +342,8 @@
                 session.session_id,
                 String(options.checkpointId || ''),
                 Number.isInteger(options.messagePage) ? options.messagePage : 1,
-                options.transcriptOpen === true
+                options.transcriptOpen === true,
+                options.mapOpen !== false
             );
         }
 

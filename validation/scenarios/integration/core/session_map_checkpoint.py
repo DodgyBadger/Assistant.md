@@ -139,7 +139,7 @@ class SessionMapCheckpointScenario(BaseScenario):
             {
                 "map_schema_version": 3,
                 "authoring_prompt_version": "eviction-map-v8",
-                "context_prompt_version": "session-map-context-v3",
+                "context_prompt_version": "session-map-context-v2",
                 "author_model_alias": "gpt-mini",
                 "author_thinking": "low",
                 "source_history_revision": initial_revision,

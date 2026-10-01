@@ -51,6 +51,11 @@ def test_session_map_renders_narrative_trajectory() -> None:
 
     assert "How We Got Here" in source
     assert "renderSources(trajectory)" in source
+    assert '<details class="session-map-content"' in source
+    assert "options.mapOpen === false" in source
+    assert "formatDate(selected?.created_at)" in source
+    assert "selected?.prompt_contract_version" not in source
+    assert "humanize(selected?.action)" not in source
 
 
 def test_session_map_exposes_checkpoint_and_transcript_actions() -> None:
@@ -61,6 +66,10 @@ def test_session_map_exposes_checkpoint_and_transcript_actions() -> None:
 
     assert "renderTranscript(payload.transcript" in map_source
     assert "data-session-map-transcript-page" in map_source
+    assert (
+        "loadCheckpoint(modal, session.session_id, checkpointId, page, true, mapOpen)"
+        in map_source
+    )
     assert "data-session-map-tool-call" in map_source
     assert "callbacks.openToolCall" in map_source
     assert (

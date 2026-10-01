@@ -1674,9 +1674,10 @@ details summary::-webkit-details-marker {
 
 .session-map-checkpoint-notice {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    flex-direction: column;
     flex-wrap: wrap;
-    gap: 0.4rem 0.75rem;
+    gap: 0.35rem;
     color: rgb(var(--text-secondary));
     font-size: 0.875rem;
 }
@@ -1703,12 +1704,14 @@ details summary::-webkit-details-marker {
     height: 0.9rem;
 }
 
+.session-map-content,
 .session-map-transcript {
     margin-top: 1rem;
     border-top: 1px solid rgb(var(--border-primary));
     padding-top: 0.8rem;
 }
 
+.session-map-content > summary,
 .session-map-transcript > summary {
     color: rgb(var(--accent-primary));
     font-weight: 700;
