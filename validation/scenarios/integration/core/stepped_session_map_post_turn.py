@@ -49,7 +49,6 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
             ("compaction_low_watermark_tokens", "1"),
             ("compaction_retained_turns", "1"),
             ("compaction_token_threshold", "2"),
-            ("compaction_keep_recent", "1"),
             ("compaction_type", "auto"),
         ):
             response = self.call_api(

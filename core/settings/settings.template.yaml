@@ -175,11 +175,6 @@ settings:
     description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_token_threshold first."
     category: "Chat"
     restart_required: false
-  compaction_keep_recent:
-    value: 8
-    description: "Target number of recent raw chat messages to preserve verbatim when compacting history."
-    category: "Chat"
-    restart_required: false
   compaction_token_threshold:
     value: 80000
     description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
@@ -207,7 +202,7 @@ settings:
     restart_required: false
   compaction_retained_turns:
     value: 3
-    description: "Minimum number of newest conversational turns Compaction v2 preserves verbatim after eviction. A turn includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; this floor can cause retained history to exceed compaction_low_watermark_tokens."
+    description: "Minimum number of newest conversational turns preserved verbatim by recovery-card and session-map compaction. A turn includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; for session maps this floor can cause retained history to exceed compaction_low_watermark_tokens."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:

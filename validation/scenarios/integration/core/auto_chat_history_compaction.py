@@ -17,12 +17,19 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
 
         await self.start_system()
 
+        from pydantic_ai.messages import (
+            ModelRequest,
+            ModelResponse,
+            TextPart,
+            UserPromptPart,
+        )
         from pydantic_ai.models.test import TestModel
 
         import core.chat.compaction as compaction
         import core.chat.executor as chat_executor
         from core.chat.chat_store import ChatStore
         from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
+        from core.identity import LOCAL_USER_PRINCIPAL_ID
         from core.runtime.state import get_runtime_context
 
         settings_response = self.call_api("/api/system/settings/general")
@@ -38,7 +45,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
 
         for key, value in (
             ("compaction_type", "auto"),
-            ("compaction_keep_recent", "1"),
+            ("compaction_retained_turns", "1"),
             ("compaction_token_threshold", "1"),
             ("compaction_author_model", "test"),
             ("compaction_author_thinking", "low"),
@@ -72,6 +79,21 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         chat_executor._prepare_agent_config = _patched_prepare_agent_config
         compaction._generate_compaction_summary = _summary_stub
         session_id = "auto_chat_history_compaction_session"
+        runtime = get_runtime_context()
+        store = ChatStore(system_root=str(runtime.config.system_root))
+        store.ensure_session(
+            session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            session_id,
+            vault.name,
+            [
+                ModelRequest(parts=[UserPromptPart(content="Earlier user turn.")]),
+                ModelResponse(parts=[TextPart(content="Earlier assistant turn.")]),
+            ],
+        )
         try:
             chat_result = await self.run_chat_task(
                 {
@@ -93,13 +115,11 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             chat_result["terminal_event"].get("event") == "done"
         ), "Chat task should complete before auto compaction assertion"
         assert captured_summary_inputs == {
-            "older_count": 1,
-            "recent_count": 1,
+            "older_count": 2,
+            "recent_count": 2,
             "focus": None,
-        }, "Automatic compaction should summarize older history and preserve recent history"
+        }, "Automatic compaction should summarize older turns and preserve the newest complete turn"
 
-        runtime = get_runtime_context()
-        store = ChatStore(system_root=str(runtime.config.system_root))
         metadata = store.get_session_metadata(session_id, vault.name)
         last_compaction = metadata.get("last_compaction")
         assert (
@@ -130,8 +150,8 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             last_compaction["compaction_token_threshold"] == 1
         ), "Auto compaction should record effective threshold"
         assert (
-            last_compaction["compaction_keep_recent"] == 1
-        ), "Auto compaction should record effective recent-message setting"
+            last_compaction["compaction_retained_turns"] == 1
+        ), "Auto compaction should record effective turn retention"
 
         checkpoint = store.get_latest_compaction_checkpoint(session_id, vault.name)
         assert checkpoint is not None, "Automatic compaction should record a checkpoint"
@@ -145,8 +165,8 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
 
         effective_messages = store.get_stored_messages(session_id, vault.name)
         assert (
-            len(effective_messages) == 2
-        ), "Effective history should be compacted to summary plus recent message"
+            len(effective_messages) == 3
+        ), "Effective history should be compacted to summary plus the recent turn"
         assert (
             effective_messages[0].role == "system"
         ), "Effective history should start with the automatic compaction card"
@@ -157,5 +177,5 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
             CHAT_HISTORY_RECOVERY_CARD_PREAMBLE in effective_messages[0].content_text
         ), "Automatic compaction card should include retrieval guidance"
         assert (
-            store.get_message_count(session_id, vault.name, mode="raw") == 2
+            store.get_message_count(session_id, vault.name, mode="raw") == 4
         ), "Automatic compaction should preserve raw archival messages"

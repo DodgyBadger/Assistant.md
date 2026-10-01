@@ -66,7 +66,7 @@ from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings import (
     get_compaction_author_model,
     get_compaction_author_thinking,
-    get_compaction_keep_recent,
+    get_compaction_retained_turns,
     get_compaction_token_threshold,
     get_compaction_type,
 )
@@ -92,7 +92,7 @@ class ChatHistoryCompactionStatus:
     messages_before: int
     estimated_tokens_before: int
     compaction_token_threshold: int
-    compaction_keep_recent: int
+    compaction_retained_turns: int
     recommended: bool
     already_compacted: bool
 
@@ -208,7 +208,7 @@ async def get_compaction_status(
         messages_before=len(messages),
         estimated_tokens_before=estimated_tokens,
         compaction_token_threshold=threshold,
-        compaction_keep_recent=get_compaction_keep_recent(),
+        compaction_retained_turns=get_compaction_retained_turns(),
         recommended=estimated_tokens >= threshold,
         already_compacted=bool(metadata.get("last_compaction")),
     )
@@ -264,10 +264,10 @@ async def compact_chat_history(
             if not messages:
                 raise ValueError("Cannot compact an empty chat session.")
 
-            keep_recent = get_compaction_keep_recent()
+            retained_turns = get_compaction_retained_turns()
             older_messages, recent_messages = split_history_for_compaction(
                 messages,
-                keep_recent=keep_recent,
+                retained_turns=retained_turns,
             )
             if not older_messages:
                 raise ValueError("Chat session does not have older history to compact.")
@@ -295,7 +295,7 @@ async def compact_chat_history(
                     "messages_before": len(messages),
                     "older_messages": len(older_messages),
                     "recent_messages": len(recent_messages),
-                    "configured_keep_recent": keep_recent,
+                    "configured_retained_turns": retained_turns,
                     "estimated_tokens_before": estimated_before,
                     "transcript_export": "manual_only",
                     "tool_history_integrity_status": integrity.status,
@@ -331,7 +331,7 @@ async def compact_chat_history(
                     "prompt_contract_version": CHAT_HISTORY_COMPACTION_PROMPT_VERSION,
                     "compaction_type": get_compaction_type(),
                     "compaction_token_threshold": get_compaction_token_threshold(),
-                    "compaction_keep_recent": keep_recent,
+                    "compaction_retained_turns": retained_turns,
                     "author_model": author_model,
                     "author_thinking": author_thinking_label,
                     "messages_before": len(messages),
@@ -725,13 +725,15 @@ def _no_op_eviction_plan(
 def split_history_for_compaction(
     messages: list[ModelMessage],
     *,
-    keep_recent: int,
+    retained_turns: int,
 ) -> tuple[list[ModelMessage], list[ModelMessage]]:
-    """Split history while preserving tool-call/result pairs in recent history."""
-    if keep_recent <= 0 or keep_recent >= len(messages):
+    """Split history while retaining complete newest conversational turns."""
+    if retained_turns <= 0:
         return [], list(messages)
-    start = max(0, len(messages) - keep_recent)
-    start = _shift_recent_start_for_tool_pairs(messages, start)
+    groups = _group_history_messages(messages)
+    if retained_turns >= len(groups):
+        return [], list(messages)
+    start = groups[-retained_turns].start_index
     return list(messages[:start]), list(messages[start:])
 
 
@@ -1159,50 +1161,6 @@ async def _get_session_lock(*, session_id: str, vault_name: str) -> asyncio.Lock
             lock = asyncio.Lock()
             _SESSION_LOCKS[key] = lock
         return lock
-
-
-def _shift_recent_start_for_tool_pairs(messages: list[ModelMessage], start: int) -> int:
-    while start > 0 and _boundary_splits_tool_pair(
-        messages[start - 1], messages[start]
-    ):
-        start -= 1
-    while start > 0 and _message_has_tool_return(messages[start]):
-        start -= 1
-    return start
-
-
-def _boundary_splits_tool_pair(previous: ModelMessage, current: ModelMessage) -> bool:
-    previous_calls = _tool_call_ids(previous)
-    current_returns = _tool_return_ids(current)
-    return bool(previous_calls & current_returns)
-
-
-def _tool_call_ids(message: ModelMessage) -> set[str]:
-    ids: set[str] = set()
-    if not isinstance(message, ModelResponse):
-        return ids
-    for part in getattr(message, "parts", ()) or ():
-        if isinstance(part, ToolCallPart):
-            tool_call_id = getattr(part, "tool_call_id", None)
-            if tool_call_id:
-                ids.add(str(tool_call_id))
-    return ids
-
-
-def _tool_return_ids(message: ModelMessage) -> set[str]:
-    ids: set[str] = set()
-    if not isinstance(message, ModelRequest):
-        return ids
-    for part in getattr(message, "parts", ()) or ():
-        if isinstance(part, ToolReturnPart):
-            tool_call_id = getattr(part, "tool_call_id", None)
-            if tool_call_id:
-                ids.add(str(tool_call_id))
-    return ids
-
-
-def _message_has_tool_return(message: ModelMessage) -> bool:
-    return bool(_tool_return_ids(message))
 
 
 async def _generate_compaction_summary(

@@ -916,18 +916,6 @@ def get_compaction_type() -> str:
     return normalized if normalized in {"none", "suggested", "auto"} else "auto"
 
 
-def get_compaction_keep_recent() -> int:
-    """Return the target recent message count to preserve when compacting."""
-    entry = get_general_settings().get("compaction_keep_recent")
-    value = getattr(entry, "value", None) if entry is not None else None
-    template_default = _get_template_setting_positive_int("compaction_keep_recent", 8)
-    try:
-        parsed = _setting_int(value)
-    except (TypeError, ValueError):
-        return template_default
-    return parsed if parsed > 0 else template_default
-
-
 def get_compaction_token_threshold() -> int:
     """Return the estimated token threshold for chat-history compaction."""
     entry = get_general_settings().get("compaction_token_threshold")

@@ -1557,8 +1557,8 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     compaction_token_threshold: int = Field(
         ..., description="Configured compaction threshold"
     )
-    compaction_keep_recent: int = Field(
-        ..., description="Target recent message count to keep"
+    compaction_retained_turns: int = Field(
+        ..., description="Minimum recent complete conversational turns to keep"
     )
     recommended: bool = Field(
         ..., description="Whether compaction is currently recommended"

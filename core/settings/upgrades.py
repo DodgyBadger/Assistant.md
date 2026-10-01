@@ -15,6 +15,7 @@ _WEB_TOOL_RENAMES = {
 RETIRED_SETTINGS = frozenset(
     {
         "context_reduction_strategy",
+        "compaction_keep_recent",
         "session_map_author_model",
         "session_map_author_thinking",
         "session_map_low_watermark_tokens",

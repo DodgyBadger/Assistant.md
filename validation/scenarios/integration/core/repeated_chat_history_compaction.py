@@ -88,9 +88,9 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             )
             return summaries[len(captured_inputs) - 1]
 
-        original_keep_recent = compaction.get_compaction_keep_recent
+        original_retained_turns = compaction.get_compaction_retained_turns
         original_generate_summary = compaction._generate_compaction_summary
-        compaction.get_compaction_keep_recent = lambda: 1
+        compaction.get_compaction_retained_turns = lambda: 1
         compaction._generate_compaction_summary = _summary_stub
         try:
             first = await compaction.compact_chat_history(
@@ -128,7 +128,7 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
                 focus="Carry forward only current objective, progress, blocker, and next step.",
             )
         finally:
-            compaction.get_compaction_keep_recent = original_keep_recent
+            compaction.get_compaction_retained_turns = original_retained_turns
             compaction._generate_compaction_summary = original_generate_summary
 
         messages_before = [
@@ -138,14 +138,14 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
         ]
         assert messages_before == [
             4,
-            4,
-            4,
+            5,
+            5,
         ], "Each compaction should read the current effective history, not all raw archival rows"
         assert [first.messages_after, second.messages_after, third.messages_after] == [
-            2,
-            2,
-            2,
-        ], "Each compaction should rewrite to one card plus one preserved recent message"
+            3,
+            3,
+            3,
+        ], "Each compaction should rewrite to one card plus one preserved recent turn"
 
         assert "Objective: draft the Alfa client research memo." in str(
             captured_inputs[0]["older_text"]
@@ -163,8 +163,8 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             == 1
         ), "Repeated compaction should receive one fixed recovery-card preamble"
         assert "Update: source notes are collected." in str(
-            captured_inputs[1]["older_text"]
-        ), "Second compaction should receive newer raw turns after the first checkpoint"
+            captured_inputs[1]["recent_text"]
+        ), "Second compaction should retain the newest complete raw turn"
         assert "Round 2 card" in str(
             captured_inputs[2]["older_text"]
         ), "Third compaction should receive the latest merged card"
@@ -177,7 +177,7 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
 
         effective_messages = store.get_stored_messages(session_id, vault.name)
         assert (
-            len(effective_messages) == 2
+            len(effective_messages) == 3
         ), "Effective history should stay compact after three rounds"
         assert (
             "Round 3 card" in effective_messages[0].content_text
@@ -192,14 +192,14 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
             == 1
         ), "Latest recovery card should contain exactly one fixed preamble"
         assert (
-            effective_messages[1].content_text
+            effective_messages[2].content_text
             == "Blocker: waiting for finance appendix."
-        ), "Latest effective history should preserve the configured recent message"
+        ), "Latest effective history should preserve the configured recent turn"
         assert (
             store.get_message_count(session_id, vault.name, mode="raw") == 8
         ), "Repeated compaction should preserve all raw archival messages"
         assert (
-            store.get_message_count(session_id, vault.name) == 2
+            store.get_message_count(session_id, vault.name) == 3
         ), "Default message count should use the latest effective checkpoint"
         assert (
             store.get_session_history_revision(session_id, vault.name) == 6
