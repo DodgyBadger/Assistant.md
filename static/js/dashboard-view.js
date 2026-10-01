@@ -525,12 +525,11 @@
         }
 
         function syncExecutionTaskPolling() {
-            const hasActiveExecutionTasks = activeExecutionTasks().length > 0;
-            if (hasActiveExecutionTasks && !state.executionTaskPollTimer) {
+            if (state.dashboardActive && !state.executionTaskPollTimer) {
                 state.executionTaskPollTimer = window.setInterval(() => {
                     callbacks.fetchExecutionTasks({ render: true });
                 }, 2000);
-            } else if (!hasActiveExecutionTasks && state.executionTaskPollTimer) {
+            } else if (!state.dashboardActive && state.executionTaskPollTimer) {
                 window.clearInterval(state.executionTaskPollTimer);
                 state.executionTaskPollTimer = null;
             }

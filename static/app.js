@@ -31,6 +31,7 @@ const state = {
     selectedActivityVault: '',
     dashboardVaultSort: { column: 'name', direction: 'asc' },
     dashboardWorkflowSort: { column: 'id', direction: 'asc' },
+    dashboardActive: false,
     executionTasks: [],
     executionTaskPollTimer: null,
     vaultActivitySort: { column: 'last_run', direction: 'desc' },
@@ -121,6 +122,7 @@ const appShell = window.AppShell.create({
     browserStorage,
     callbacks: {
         refreshStatus: () => fetchSystemStatus(),
+        setDashboardActive,
     },
 });
 
@@ -366,6 +368,11 @@ const vaultActivity = window.VaultActivity.create({
 });
 
 let dashboardView;
+
+function setDashboardActive(active) {
+    state.dashboardActive = Boolean(active);
+    dashboardView?.syncExecutionTaskPolling();
+}
 
 function vaultMutationInteractionLocked() {
     return Boolean(state.isLoading || state.pendingDeferredReview);
