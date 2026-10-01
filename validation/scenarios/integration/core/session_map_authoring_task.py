@@ -22,6 +22,7 @@ from core.memory.session_map.models import (  # noqa: E402
     SessionMapProvenanceError,
     SessionMapTrajectory,
     SourceRange,
+    validate_session_map_provenance,
 )
 from core.memory.session_map.service import (  # noqa: E402
     SessionMapAuthoringRequest,
@@ -239,6 +240,60 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             structured_calls,
             2,
             "Map authoring should retain structured-output retries over streaming transport",
+        )
+
+        provenance_calls = 0
+        unavailable = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The draft cites a message outside the supplied evidence.",
+                sources=(SourceRange(start=99, end=99),),
+            )
+        )
+        grounded = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The draft is grounded in the supplied evidence.",
+                sources=(SourceRange(start=10, end=11),),
+            )
+        )
+
+        async def provenance_stream(
+            _messages: object,
+            info: AgentInfo,
+        ) -> AsyncIterator[dict[int, DeltaToolCall]]:
+            nonlocal provenance_calls
+            provenance_calls += 1
+            output_tool = info.model_request_parameters.output_tools[0]
+            draft = unavailable if provenance_calls == 1 else grounded
+            yield {
+                0: DeltaToolCall(
+                    name=output_tool.name,
+                    json_args=draft.model_dump_json(),
+                    tool_call_id=f"session-map-provenance-{provenance_calls}",
+                )
+            }
+
+        def require_available_provenance(draft: SessionMapDraft) -> SessionMapDraft:
+            return validate_session_map_provenance(draft, evidence=envelopes)
+
+        with patch(
+            "core.memory.session_map.service.build_model_instance",
+            return_value=FunctionModel(stream_function=provenance_stream),
+        ):
+            provenance_retried = await _invoke_session_map_model(
+                model_alias="gpt-mini",
+                thinking="low",
+                prompt="Return a grounded session map.",
+                output_validator=require_available_provenance,
+            )
+        self.soft_assert_equal(
+            provenance_retried,
+            grounded,
+            "Map authoring should return the provenance-corrected output",
+        )
+        self.soft_assert_equal(
+            provenance_calls,
+            2,
+            "Unavailable provenance should receive a normal structured-output retry",
         )
 
         self.assert_no_failures()

@@ -140,7 +140,7 @@ async def generate_stream(
 
 
 async def generate_response(
-    agent: Agent,
+    agent: Agent[Any, Any],
     prompt: PromptInput,
     message_history: Sequence[ModelMessage] | None = None,
     deps: Any = None,

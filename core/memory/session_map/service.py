@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import cast
+
+from pydantic_ai import Agent, ModelRetry
 
 from core.constants import SESSION_MAP_AUTHORING_PROMPT_VERSION
 from core.identity import ExecutionAuthority
@@ -29,6 +33,8 @@ logger = UnifiedLogger(
     tag="session-map-authoring",
     default_sinks=["activity", "logfire", "validation"],
 )
+
+SessionMapOutputValidator = Callable[[SessionMapDraft], SessionMapDraft]
 
 
 @dataclass(frozen=True)
@@ -179,24 +185,17 @@ async def _execute_session_map_authoring(
             retrieved_evidence=request.retrieved_evidence,
             focus=request.focus,
         )
+
+        def validate_output(output: SessionMapDraft) -> SessionMapDraft:
+            return _validate_session_map_output(output, request=request)
+
         draft = await _invoke_session_map_model(
             model_alias=request.model_alias,
             thinking=request.thinking,
             prompt=prompt,
+            output_validator=validate_output,
         )
-        if draft.entries and draft.schema_version != 3:
-            raise ValueError(
-                "Session-map authoring requires the current conservative schema"
-            )
-        validate_session_map_provenance(
-            draft,
-            evidence=(
-                *request.new_evidence,
-                *request.recent_evidence,
-                *request.retrieved_evidence,
-            ),
-            previous_map=request.previous_map,
-        )
+        _validate_session_map_output(draft, request=request)
     except Exception as exc:
         logger.warning(
             "session_map_authoring_failed",
@@ -249,12 +248,46 @@ async def _invoke_session_map_model(
     model_alias: str,
     thinking: ThinkingValue,
     prompt: str,
+    output_validator: SessionMapOutputValidator | None = None,
 ) -> SessionMapDraft:
     model = build_model_instance(model_alias, thinking=thinking)
     if isinstance(model, ModelExecutionSpec):
         raise ValueError("Session-map authoring requires a generative model")
-    agent = await create_agent(model=model, output_type=SessionMapDraft)
+    agent = cast(
+        Agent[object, SessionMapDraft],
+        await create_agent(model=model, output_type=SessionMapDraft),
+    )
+    if output_validator is not None:
+
+        @agent.output_validator
+        def retry_invalid_output(output: SessionMapDraft) -> SessionMapDraft:
+            try:
+                return output_validator(output)
+            except ValueError as exc:
+                raise ModelRetry(str(exc)) from exc
+
     output = await generate_response(agent, prompt)
     if not isinstance(output, SessionMapDraft):
         raise TypeError("Session-map model returned an invalid structured output")
     return output
+
+
+def _validate_session_map_output(
+    draft: SessionMapDraft,
+    *,
+    request: SessionMapAuthoringRequest,
+) -> SessionMapDraft:
+    """Validate model-authored semantics inside and after the retry boundary."""
+    if draft.entries and draft.schema_version != 3:
+        raise ValueError(
+            "Session-map authoring requires the current conservative schema"
+        )
+    return validate_session_map_provenance(
+        draft,
+        evidence=(
+            *request.new_evidence,
+            *request.recent_evidence,
+            *request.retrieved_evidence,
+        ),
+        previous_map=request.previous_map,
+    )

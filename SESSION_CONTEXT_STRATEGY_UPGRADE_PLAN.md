@@ -1,6 +1,6 @@
 # Session Context Strategy Upgrade Plan
 
-Status: implemented and validated.
+Status: implemented and validated, including production-failure hardening.
 
 ## Objective
 
@@ -74,3 +74,9 @@ Frontend rendering and polling receive a focused syntax/build smoke check; the d
 - The relevant focused session-map, execution-task, and API scenarios pass.
 - The complete deterministic `integration/core` profile passes: 127 of 127 scenarios.
 - The production Python quality gate and JavaScript syntax checks pass.
+
+## Production-Failure Hardening
+
+Production telemetry showed that independent upgrades can run concurrently, but a structurally valid author response with an unavailable provenance range could abort an otherwise recoverable multi-pass upgrade. Deterministic map-output validation now runs inside Pydantic AI's structured-output retry boundary, with the final validation check and atomic checkpoint commit retained. The session list refreshes server-derived eligibility after failed upgrade tasks so the retry action remains available. A deterministic author test proves an invalid first provenance response can be corrected on retry, while the existing failure case proves exhausted or unrecoverable attempts leave Compaction v1 effective.
+
+The complete deterministic `integration/core` profile passed 127 of 128 scenarios on the first run; the unrelated MCP OAuth coordinator scenario encountered a temporary missing activity-log file and passed immediately when rerun in isolation. The production Python quality gate, focused map-authoring and upgrade scenarios, regular post-turn map scenario, frontend smoke tests, and JavaScript syntax check pass.

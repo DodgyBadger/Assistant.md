@@ -452,6 +452,7 @@
             } catch (error) {
                 console.error('Failed to upgrade session context strategy:', error);
                 alert(`Failed to upgrade session: ${error.message}`);
+                await callbacks.fetchSessions(vault, state.sessionId || '');
             } finally {
                 if (btn) btn.disabled = false;
                 renderSessionBrowserList();
