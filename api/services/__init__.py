@@ -245,6 +245,7 @@ from .chat_sessions import (
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,
+    start_chat_session_context_strategy_upgrade,
     update_chat_session_summary,
 )
 from .configuration import (

@@ -38,6 +38,7 @@ class ExecutionTaskKind(StrEnum):
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
     SESSION_MAP_AUTHORING = "session_map_authoring"
+    CONTEXT_STRATEGY_UPGRADE = "context_strategy_upgrade"
     INGESTION = "ingestion"
 
 
@@ -104,6 +105,11 @@ def compaction_task_label(session_id: str) -> str:
 def session_map_task_label(session_id: str) -> str:
     """Return the stable label for session-map authoring tasks."""
     return f"session-map:{session_id}"
+
+
+def context_strategy_upgrade_task_label(session_id: str) -> str:
+    """Return the stable label for one explicit context-strategy upgrade."""
+    return f"upgrade-context:{session_id}"
 
 
 def get_current_execution_task() -> ExecutionTaskSnapshot | None:

@@ -71,6 +71,8 @@ from .models import (
     ChatHistoryCompactionRequest,
     ChatHistoryCompactionResponse,
     ChatHistoryCompactionStatusResponse,
+    ChatSessionContextUpgradeRequest,
+    ChatSessionContextUpgradeResponse,
     ChatSessionDetailResponse,
     ChatSessionExportRequest,
     ChatSessionExportResponse,
@@ -253,6 +255,7 @@ from .services import (
     set_chat_session_title,
     set_chat_session_workspace,
     set_workflow_enabled_state,
+    start_chat_session_context_strategy_upgrade,
     start_openai_oauth_connection,
     start_openai_oauth_device_connection,
     submit_chat_deferred_review,
@@ -2572,6 +2575,30 @@ async def chat_session_map(
             checkpoint_id=checkpoint_id,
             message_page=message_page,
             message_page_size=message_page_size,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/chat/sessions/{session_id}/upgrade-context-strategy",
+    response_model=ChatSessionContextUpgradeResponse,
+    status_code=202,
+)
+async def upgrade_chat_session_context_strategy(
+    session_id: str,
+    request: ChatSessionContextUpgradeRequest,
+) -> ChatSessionContextUpgradeResponse | JSONResponse:
+    """Start one explicit Compaction v1 to v2 session upgrade."""
+    try:
+        started = await start_chat_session_context_strategy_upgrade(
+            request.vault_name,
+            session_id,
+        )
+        task = await get_execution_task(started.task_id)
+        return ChatSessionContextUpgradeResponse(
+            session_id=session_id,
+            task=task,
         )
     except Exception as e:
         return create_error_response(e)

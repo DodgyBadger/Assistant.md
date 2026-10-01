@@ -1116,6 +1116,16 @@ class ChatSessionInfo(BaseModel):
     has_session_map: bool = Field(
         False, description="Whether the session has a stepped-map checkpoint"
     )
+    context_strategy: Literal["unassigned", "recovery_card", "stepped_session_map"] = (
+        Field(
+            "unassigned",
+            description="Effective context-reduction strategy for the session",
+        )
+    )
+    can_upgrade_to_v2: bool = Field(
+        False,
+        description="Whether this recovery-card session can be explicitly upgraded",
+    )
 
 
 class ChatSessionMapCheckpointInfo(BaseModel):
@@ -1271,6 +1281,21 @@ class ChatSessionRetryRequest(BaseModel):
     """Request to retry the latest unfinished chat turn."""
 
     vault_name: str = Field(..., description="Owning vault name")
+
+
+class ChatSessionContextUpgradeRequest(BaseModel):
+    """Request an explicit single-session Compaction v1 to v2 upgrade."""
+
+    vault_name: str = Field(..., description="Owning vault name")
+
+
+class ChatSessionContextUpgradeResponse(BaseModel):
+    """Background task started for one explicit context-strategy upgrade."""
+
+    session_id: str = Field(..., description="Session identifier")
+    task: ExecutionTaskInfo = Field(
+        ..., description="Execution task created for the strategy upgrade"
+    )
 
 
 class ChatSessionToolCallInfo(BaseModel):

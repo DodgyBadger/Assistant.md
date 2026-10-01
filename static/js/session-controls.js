@@ -37,9 +37,13 @@
             focusEditingInput();
         }
 
-        function renderSessionActions(sessionId) {
+        function renderSessionActions(session) {
+            const sessionId = session?.session_id || '';
             return `
                 <div class="session-dropdown-row-actions" aria-label="Session actions">
+                    ${session?.can_upgrade_to_v2
+                        ? renderRowActionButton('upgrade-v2', sessionId, 'Upgrade to Compaction v2', icons.REFRESH_ICON_SVG)
+                        : ''}
                     ${renderRowActionButton('edit-title', sessionId, 'Edit title', icons.EDIT_ICON_SVG)}
                     ${renderRowActionButton('export', sessionId, 'Export transcript', icons.DOWNLOAD_ICON_SVG)}
                     ${renderRowActionButton('delete', sessionId, 'Delete session', icons.TRASH_ICON_SVG, 'is-danger')}
@@ -237,7 +241,7 @@
                         </span>
                         ${meta ? `<span class="session-browser-row-meta">${escapeHtml(meta)}</span>` : ''}
                     </div>
-                    ${renderSessionActions(sessionId)}
+                    ${renderSessionActions(session)}
                 </div>
             `;
         }
@@ -310,7 +314,7 @@
                         <div class="session-browser-section-header">
                             <div>
                                 <h3 class="session-browser-section-title">Sessions</h3>
-                                <p class="session-browser-section-subtitle">Filter, open, summarize, export, or delete chat sessions.</p>
+                                <p class="session-browser-section-subtitle">Filter, open, upgrade, export, or delete chat sessions.</p>
                             </div>
                             <button type="button" class="session-browser-new-button" data-session-browser-new="true" aria-label="New session" title="New session">
                                 ${icons.PLUS_ICON_SVG}
@@ -392,6 +396,65 @@
             } finally {
                 if (btn) btn.disabled = false;
                 callbacks.syncChatControlLocks();
+            }
+        }
+
+        async function upgradeContextStrategy(sessionId, btn = null) {
+            const vault = elements.vaultSelector?.value || '';
+            const session = state.sessions.find((item) => item.session_id === sessionId);
+            if (!sessionId || !vault || !session?.can_upgrade_to_v2) return;
+            if (!confirm(
+                `Upgrade "${title(session)}" to Compaction v2? This will use the configured map-author model. Canonical chat history will be preserved.`
+            )) return;
+
+            if (btn) btn.disabled = true;
+            try {
+                const response = await fetch(
+                    `api/chat/sessions/${encodeURIComponent(sessionId)}/upgrade-context-strategy`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vault_name: vault }),
+                    }
+                );
+                const started = await response.json();
+                if (!response.ok) {
+                    throw new Error(started?.message || `HTTP ${response.status}`);
+                }
+                const taskId = started?.task?.task_id || '';
+                if (!taskId) throw new Error('Upgrade task did not return an ID');
+
+                let task = started.task;
+                for (let attempt = 0; attempt < 1200; attempt += 1) {
+                    if (!['queued', 'running'].includes(task?.status)) break;
+                    await new Promise((resolve) => window.setTimeout(resolve, 500));
+                    const taskResponse = await fetch(
+                        `api/tasks/${encodeURIComponent(taskId)}`,
+                        { cache: 'no-store' }
+                    );
+                    if (!taskResponse.ok) {
+                        throw new Error(`Task status HTTP ${taskResponse.status}`);
+                    }
+                    task = await taskResponse.json();
+                }
+                if (task?.status !== 'completed') {
+                    throw new Error(
+                        task?.terminal_reason
+                        || `Upgrade ended with status ${task?.status || 'unknown'}`
+                    );
+                }
+
+                await callbacks.fetchSessions(vault, state.sessionId || '');
+                if (state.sessionId === sessionId) {
+                    await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
+                }
+                alert('Session upgraded to Compaction v2.');
+            } catch (error) {
+                console.error('Failed to upgrade session context strategy:', error);
+                alert(`Failed to upgrade session: ${error.message}`);
+            } finally {
+                if (btn) btn.disabled = false;
+                renderSessionBrowserList();
             }
         }
 
@@ -479,6 +542,10 @@
             }
             if (action === 'export') {
                 await exportCurrent(sessionId, button);
+                return;
+            }
+            if (action === 'upgrade-v2') {
+                await upgradeContextStrategy(sessionId, button);
                 return;
             }
             if (action === 'delete') {

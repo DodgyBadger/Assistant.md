@@ -102,6 +102,7 @@ async def run_session_map_authoring(
 ) -> SessionMapAuthoringResult:
     """Author one replacement map inside the normal execution-task lifecycle."""
     runtime = get_runtime_context()
+    parent_task = get_current_execution_task()
     result = await runtime.task_runner.run_inline(
         ExecutionTaskSpec(
             kind=ExecutionTaskKind.SESSION_MAP_AUTHORING,
@@ -109,6 +110,7 @@ async def run_session_map_authoring(
             source=source,
             label=session_map_task_label(request.session_id),
             authority=authority,
+            parent_task_id=parent_task.task_id if parent_task is not None else None,
             metadata={
                 "vault": request.vault_name,
                 "session_id": request.session_id,

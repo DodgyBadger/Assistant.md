@@ -16,6 +16,11 @@ from core.chat.chat_store import (
     StoredContextCheckpoint,
 )
 from core.chat.compaction import compact_chat_history, get_compaction_status
+from core.chat.context_strategy_upgrade import (
+    SessionContextStrategyUpgradeUnavailable,
+    get_session_context_strategy_status,
+    start_session_context_strategy_upgrade,
+)
 from core.chat.deferred_reviews import (
     StoredDeferredReview,
     get_pending_deferred_review,
@@ -30,6 +35,7 @@ from core.memory.session_map.checkpoints import (
 from core.memory.session_summary import SessionSummary, SessionSummaryStore
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
+    ExecutionTaskSnapshot,
     ExecutionTaskSource,
     chat_session_scope,
     compaction_task_label,
@@ -281,32 +287,45 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
     summary_store = SessionSummaryStore()
-    return [
-        ChatSessionInfo(
+    result: list[ChatSessionInfo] = []
+    for session in sessions:
+        strategy_status = get_session_context_strategy_status(
+            store=_chat_store,
             session_id=session.session_id,
-            created_at=session.created_at,
-            last_activity_at=session.last_activity_at,
-            title=session.title or None,
-            workspace=_chat_workspace_info(
-                vault_name,
-                _chat_store.get_session_workspace_path(session.session_id, vault_name),
-            ),
-            chat_mode=_chat_store.get_session_chat_mode(session.session_id, vault_name),
-            has_summary=summary_store.get_session_summary(
-                vault_name=vault_name,
-                session_id=session.session_id,
-            )
-            is not None,
-            has_session_map=bool(
-                _chat_store.list_context_checkpoints(
-                    session.session_id,
-                    vault_name,
-                    checkpoint_kind="session_map",
-                )
-            ),
+            vault_name=vault_name,
         )
-        for session in sessions
-    ]
+        result.append(
+            ChatSessionInfo(
+                session_id=session.session_id,
+                created_at=session.created_at,
+                last_activity_at=session.last_activity_at,
+                title=session.title or None,
+                workspace=_chat_workspace_info(
+                    vault_name,
+                    _chat_store.get_session_workspace_path(
+                        session.session_id, vault_name
+                    ),
+                ),
+                chat_mode=_chat_store.get_session_chat_mode(
+                    session.session_id, vault_name
+                ),
+                has_summary=summary_store.get_session_summary(
+                    vault_name=vault_name,
+                    session_id=session.session_id,
+                )
+                is not None,
+                has_session_map=bool(
+                    _chat_store.list_context_checkpoints(
+                        session.session_id,
+                        vault_name,
+                        checkpoint_kind="session_map",
+                    )
+                ),
+                context_strategy=strategy_status.strategy,
+                can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
+            )
+        )
+    return result
 
 
 def get_chat_session_map(
@@ -637,6 +656,8 @@ def fork_chat_session(
             ),
             has_summary=False,
             has_session_map=False,
+            context_strategy="unassigned",
+            can_upgrade_to_v2=False,
         ),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
@@ -1331,6 +1352,31 @@ async def compact_chat_session_history(
         ),
     )
     return ChatHistoryCompactionResponse(**result.as_api_dict())
+
+
+async def start_chat_session_context_strategy_upgrade(
+    vault_name: str,
+    session_id: str,
+) -> ExecutionTaskSnapshot:
+    """Start one authorized, explicitly selected V1-to-V2 upgrade."""
+    _require_chat_session_access(vault_name, session_id)
+    try:
+        return await start_session_context_strategy_upgrade(
+            session_id=session_id,
+            vault_name=vault_name,
+            authority=require_current_execution_authority(),
+        )
+    except SessionContextStrategyUpgradeUnavailable as exc:
+        raise APIException(
+            status_code=409,
+            error_type="SessionContextStrategyUpgradeUnavailable",
+            message=str(exc),
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "reason": exc.reason,
+            },
+        ) from exc
 
 
 def delete_chat_session(vault_name: str, vault_path: str, session_id: str) -> None:

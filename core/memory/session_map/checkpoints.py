@@ -9,7 +9,11 @@ from typing import Any
 
 from pydantic_ai.messages import ModelRequest, SystemPromptPart
 
-from core.chat.chat_store import ChatStore, StoredContextCheckpoint
+from core.chat.chat_store import (
+    ChatStore,
+    ContextCheckpointKind,
+    StoredContextCheckpoint,
+)
 from core.constants import (
     SESSION_MAP_CONTEXT_PREAMBLE,
     SESSION_MAP_CONTEXT_PROMPT_VERSION,
@@ -85,6 +89,7 @@ def commit_session_map_context_checkpoint(
     recent_evidence: tuple[SessionMapMessageEvidence, ...] = (),
     retrieved_evidence: tuple[SessionMapMessageEvidence, ...] = (),
     map_observed_through_sequence_index: int | None = None,
+    expected_previous_checkpoint_kind: ContextCheckpointKind | None = None,
 ) -> SessionMapCheckpointResult:
     """Atomically commit one map revision without changing canonical messages."""
     _validate_checkpoint_evidence(
@@ -114,11 +119,18 @@ def commit_session_map_context_checkpoint(
     if observed_through < 0:
         raise ValueError("Session-map observed boundary cannot be negative")
     latest = store.get_latest_context_checkpoint(session_id, vault_name)
-    if latest is not None:
-        if latest.checkpoint_kind != "session_map":
+    if expected_previous_checkpoint_kind is not None:
+        if (
+            latest is None
+            or latest.checkpoint_kind != expected_previous_checkpoint_kind
+        ):
             raise ValueError(
-                "Session-map checkpoints cannot follow recovery-card history"
+                "Session-map checkpoint predecessor does not match: "
+                f"expected {expected_previous_checkpoint_kind}"
             )
+    elif latest is not None and latest.checkpoint_kind != "session_map":
+        raise ValueError("Session-map checkpoints cannot follow recovery-card history")
+    if latest is not None and latest.checkpoint_kind == "session_map":
         if consumed_through <= latest.last_message_sequence_index:
             raise ValueError("Session-map checkpoint boundary must advance")
 

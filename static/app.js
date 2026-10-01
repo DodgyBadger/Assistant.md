@@ -261,6 +261,7 @@ sessionControls = window.SessionControls.create({
     sessionSummary,
     sessionMap,
     callbacks: {
+        fetchSessions,
         loadSession,
         clearSession,
         clearPendingAttachments,
