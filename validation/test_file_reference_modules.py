@@ -18,6 +18,11 @@ const vm = require('vm');
 
 global.window = global;
 global.document = {};
+let importRequest = null;
+global.fetch = async (url, options) => {
+    importRequest = { url, options };
+    return { ok: true, json: async () => ({ job_id: 17 }) };
+};
 for (const path of process.argv.slice(1)) {
     vm.runInThisContext(fs.readFileSync(path, 'utf8'), { filename: path });
 }
@@ -53,6 +58,24 @@ controller.openExplorer({ vaultName: 'ArchiveVault' });
 assert.strictEqual(pickerOptions.workspacePath, '');
 assert.strictEqual(pickerOptions.onAddReference, undefined);
 assert.strictEqual(pickerOptions.onSetWorkspace, undefined);
+
+controller.openExplorer({
+    vaultName: 'ArchiveVault',
+    importSources: ['Incoming/report.pdf'],
+});
+assert.deepStrictEqual(pickerOptions.importSources, ['Incoming/report.pdf']);
+assert.strictEqual(typeof pickerOptions.onImportSources, 'function');
+pickerOptions.onImportSources({ sources: ['Incoming/report.pdf'] }).then((result) => {
+    assert.deepStrictEqual(result, { job_id: 17 });
+    assert.strictEqual(importRequest.url, 'api/import/sources');
+    assert.deepStrictEqual(JSON.parse(importRequest.options.body), {
+        sources: ['Incoming/report.pdf'],
+        vault: 'ArchiveVault',
+    });
+}).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
 
 controller.openExplorer();
 assert.strictEqual(pickerOptions.workspacePath, 'Projects');
