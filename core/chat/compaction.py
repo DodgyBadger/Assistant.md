@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -43,7 +43,6 @@ from core.memory.session_map.evidence import (
     SessionMapEvidence,
     SessionMapMessageEvidence,
     SessionMapRetrievedEvidence,
-    bound_retrieved_session_map_evidence,
     build_session_map_evidence,
     has_contiguous_canonical_sequences,
     resolve_session_map_evidence_range,
@@ -54,6 +53,10 @@ from core.memory.session_map.readiness import (
     evaluate_compaction_author_readiness,
     evaluate_session_map_compaction_readiness,
     resolve_session_compaction_strategy,
+)
+from core.memory.session_map.retained_evidence import (
+    project_retained_session_map_evidence,
+    project_retrieved_session_map_evidence,
 )
 from core.memory.session_map.service import (
     SessionMapAuthoringRequest,
@@ -79,7 +82,7 @@ from core.settings import (
 )
 from core.utils.tokens import estimate_token_count
 
-from .chat_store import ChatStore, StoredChatMessage
+from .chat_store import ChatStore
 
 logger = UnifiedLogger(tag="chat-compaction")
 
@@ -1143,23 +1146,9 @@ async def maybe_auto_compact_after_turn(
                 if isinstance(result, ChatContextCompactionUnavailableResult)
                 else result
             )
-        except Exception as exc:
-            logger.warning(
-                "session_map_context_reduction_deferred",
-                data={
-                    **_compaction_log_context(
-                        "session_map_context_reduction_deferred",
-                        session_id=session_id,
-                        vault_name=vault_name,
-                    ),
-                    "status": "deferred",
-                    "strategy": readiness.strategy,
-                    "configured_strategy": readiness.configured_strategy,
-                    **_compaction_failure_details(
-                        exc, reason="session_map_reduction_failed"
-                    ),
-                },
-            )
+        except Exception:
+            # The V2 operation emitted its correlated terminal failure event.
+            # A completed chat turn must still survive background reduction failure.
             return None
     elif readiness.strategy == "session_map":
         logger.info(
@@ -1193,6 +1182,81 @@ async def maybe_auto_compact_after_turn(
 
 
 async def _run_stepped_session_map_reduction(
+    *,
+    session_id: str,
+    vault_name: str,
+    readiness: SessionMapCompactionReadiness,
+    authority: ExecutionAuthority,
+    store: ChatStore,
+    source: ExecutionTaskSource = ExecutionTaskSource.SYSTEM,
+    focus: str | None = None,
+    force: bool = False,
+) -> SessionMapContextReductionResult | None:
+    """Own one correlated terminal lifecycle for V2 reduction."""
+    try:
+        result = await _execute_stepped_session_map_reduction(
+            session_id=session_id,
+            vault_name=vault_name,
+            readiness=readiness,
+            authority=authority,
+            store=store,
+            source=source,
+            focus=focus,
+            force=force,
+        )
+        if result is None:
+            logger.info(
+                "session_map_context_reduction_skipped",
+                data={
+                    **_compaction_log_context(
+                        "session_map_context_reduction_skipped",
+                        session_id=session_id,
+                        vault_name=vault_name,
+                    ),
+                    "status": "skipped",
+                    "source": source.value,
+                    "strategy": "session_map",
+                    "reason": "no_safe_reduction",
+                },
+            )
+        return result
+    except asyncio.CancelledError:
+        logger.info(
+            "session_map_context_reduction_cancelled",
+            data={
+                **_compaction_log_context(
+                    "session_map_context_reduction_cancelled",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "cancelled",
+                "source": source.value,
+                "strategy": "session_map",
+                "reason": "reduction_cancelled",
+            },
+        )
+        raise
+    except Exception as exc:
+        logger.warning(
+            "session_map_context_reduction_failed",
+            data={
+                **_compaction_log_context(
+                    "session_map_context_reduction_failed",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "failed",
+                "source": source.value,
+                "strategy": "session_map",
+                **_compaction_failure_details(
+                    exc, reason="session_map_reduction_failed"
+                ),
+            },
+        )
+        raise
+
+
+async def _execute_stepped_session_map_reduction(
     *,
     session_id: str,
     vault_name: str,
@@ -1418,23 +1482,8 @@ def _build_retained_session_map_evidence(
     plan: SteppedHistoryEvictionPlan,
 ) -> tuple[SessionMapMessageEvidence, ...]:
     """Project the canonical retained suffix as citable authoring evidence."""
-    stored_messages = store.get_stored_messages(
-        session_id,
-        vault_name,
-        mode="effective",
-    )
-    retained = stored_messages[plan.eviction_end_index :]
-    if not retained or not has_contiguous_canonical_sequences(retained):
-        raise ValueError("Retained session-map evidence is not canonical")
-    return tuple(
-        SessionMapMessageEvidence(
-            sequence_index=message.sequence_index,
-            role=message.role,
-            content_text=message.content_text,
-        )
-        for message in retained
-        if not _is_session_ops_retrieval_result(message.message)
-    )
+    stored = store.get_stored_messages(session_id, vault_name, mode="effective")
+    return project_retained_session_map_evidence(stored[plan.eviction_end_index :])
 
 
 def _build_retrieved_session_map_evidence(
@@ -1444,166 +1493,14 @@ def _build_retrieved_session_map_evidence(
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
 ) -> SessionMapRetrievedEvidence:
-    """Admit bounded transcript fragments after verifying selected canonical rows."""
-    stored_messages = store.get_stored_messages(
-        session_id, vault_name, mode="effective"
+    """Admit bounded, verified transcript fragments from the retained suffix."""
+    stored = store.get_stored_messages(session_id, vault_name, mode="effective")
+    return project_retrieved_session_map_evidence(
+        store=store,
+        session_id=session_id,
+        vault_name=vault_name,
+        retained=stored[plan.eviction_end_index :],
     )
-    source_boundaries = _session_map_retrieval_source_boundaries(
-        store=store, session_id=session_id, vault_name=vault_name
-    )
-    canonical_messages: dict[int, StoredChatMessage | None] = {}
-
-    def verified_fragments() -> Iterator[SessionMapMessageEvidence]:
-        for stored in stored_messages[plan.eviction_end_index :]:
-            yield from _session_ops_window_fragments(
-                stored.message,
-                store=store,
-                session_id=session_id,
-                vault_name=vault_name,
-                source_boundaries=source_boundaries,
-                canonical_messages=canonical_messages,
-            )
-
-    return bound_retrieved_session_map_evidence(verified_fragments())
-
-
-def _is_session_ops_retrieval_result(message: ModelMessage) -> bool:
-    return bool(
-        isinstance(message, ModelRequest)
-        and any(
-            isinstance(part, ToolReturnPart) and part.tool_name == "session_ops"
-            for part in message.parts
-        )
-    )
-
-
-def _session_map_retrieval_source_boundaries(
-    *, store: ChatStore, session_id: str, vault_name: str
-) -> dict[str, int | None]:
-    """Resolve ancestor identities only within their inherited canonical prefixes."""
-    boundaries: dict[str, int | None] = {session_id: None}
-    current_session = session_id
-    inherited_through: int | None = None
-    while True:
-        lineage = store.get_session_metadata(current_session, vault_name).get("fork")
-        if not isinstance(lineage, dict):
-            break
-        source = lineage.get("source_session_id")
-        through = lineage.get("through_sequence_index")
-        if (
-            not isinstance(source, str)
-            or not source
-            or source in boundaries
-            or not isinstance(through, int)
-            or isinstance(through, bool)
-            or through < 0
-        ):
-            break
-        inherited_through = (
-            through if inherited_through is None else min(inherited_through, through)
-        )
-        boundaries[source] = inherited_through
-        current_session = source
-    return boundaries
-
-
-def _session_ops_window_fragments(
-    message: ModelMessage,
-    *,
-    store: ChatStore,
-    session_id: str,
-    vault_name: str,
-    source_boundaries: dict[str, int | None],
-    canonical_messages: dict[int, StoredChatMessage | None],
-) -> Iterator[SessionMapMessageEvidence]:
-    """Verify exact window fragments against selected child-owned canonical rows."""
-    if not isinstance(message, ModelRequest):
-        return
-    for part in message.parts:
-        if not isinstance(part, ToolReturnPart) or part.tool_name != "session_ops":
-            continue
-        payload = part.content
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload)
-            except json.JSONDecodeError:
-                continue
-        if not isinstance(payload, dict):
-            continue
-        if payload.get("operation") != "get_transcript_window":
-            continue
-        source_session = payload.get("session_id")
-        if (
-            payload.get("status") != "ok"
-            or not isinstance(source_session, str)
-            or source_session not in source_boundaries
-        ):
-            continue
-        payload_vault = payload.get("vault_name")
-        if payload_vault is not None and payload_vault != vault_name:
-            continue
-        messages = payload.get("messages")
-        if not isinstance(messages, list):
-            continue
-        for item in messages:
-            if not isinstance(item, dict):
-                continue
-            sequence_index = item.get("sequence_index")
-            source_boundary = source_boundaries[source_session]
-            if (
-                not isinstance(sequence_index, int)
-                or isinstance(sequence_index, bool)
-                or sequence_index < 0
-                or (source_boundary is not None and sequence_index > source_boundary)
-            ):
-                continue
-            content = item.get("content")
-            start = item.get("content_start", 0)
-            end = item.get(
-                "content_end", len(content) if isinstance(content, str) else 0
-            )
-            complete = item.get("content_complete", True)
-            if (
-                not isinstance(content, str)
-                or not content
-                or not isinstance(start, int)
-                or isinstance(start, bool)
-                or not isinstance(end, int)
-                or isinstance(end, bool)
-                or not isinstance(complete, bool)
-                or start < 0
-                or end - start != len(content)
-            ):
-                continue
-            if sequence_index not in canonical_messages:
-                selected = store.get_stored_messages_range(
-                    session_id,
-                    vault_name,
-                    after_sequence_index=sequence_index - 1,
-                    through_sequence_index=sequence_index,
-                )
-                canonical_messages[sequence_index] = (
-                    selected[0] if len(selected) == 1 else None
-                )
-            canonical = canonical_messages[sequence_index]
-            if canonical is None:
-                continue
-            if (
-                item.get("role") != canonical.role
-                or end > len(canonical.content_text)
-                or canonical.content_text[start:end] != content
-                or complete != (start == 0 and end == len(canonical.content_text))
-                or _is_session_ops_retrieval_result(canonical.message)
-            ):
-                continue
-            yield SessionMapMessageEvidence(
-                sequence_index=sequence_index,
-                role=canonical.role,
-                content_text=content,
-                content_start=start,
-                content_end=end,
-                content_complete=complete,
-            )
 
 
 async def _get_session_lock(*, session_id: str, vault_name: str) -> asyncio.Lock:

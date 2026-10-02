@@ -14,10 +14,16 @@ from core.memory.session_map.checkpoints import (
 )
 from core.memory.session_map.evidence import (
     SessionMapEvidence,
-    SessionMapMessageEvidence,
     resolve_session_map_evidence_range,
 )
 from core.memory.session_map.models import SessionMapDraft
+from core.memory.session_map.readiness import (
+    evaluate_session_map_configuration_readiness,
+)
+from core.memory.session_map.retained_evidence import (
+    project_retained_session_map_evidence,
+    project_retrieved_session_map_evidence,
+)
 from core.memory.session_map.service import (
     SessionMapAuthoringRequest,
     SessionMapAuthoringResult,
@@ -32,14 +38,6 @@ from core.runtime.execution_tasks import (
 )
 from core.runtime.state import get_runtime_context
 from core.runtime.task_runner import ExecutionGatePolicy, ExecutionTaskSpec
-from core.settings import (
-    get_compaction_author_model,
-    get_compaction_author_thinking,
-    get_compaction_high_watermark_tokens,
-    get_compaction_low_watermark_tokens,
-    get_compaction_retained_turns,
-    get_compaction_strategy,
-)
 
 from .chat_store import ChatStore, StoredChatMessage, StoredContextCheckpoint
 from .compaction import (
@@ -117,13 +115,17 @@ def get_session_context_strategy_status(
             can_upgrade_to_v2=False,
             reason="already_compaction_v2",
         )
-    configured = get_compaction_strategy()
+    configuration = evaluate_session_map_configuration_readiness()
+    configured = configuration.configured_strategy
+    reason = (
+        "compaction_v2_not_configured"
+        if configured != "session_map"
+        else configuration.reason
+    )
     return SessionContextStrategyStatus(
         strategy="recovery_card",
-        can_upgrade_to_v2=configured == "session_map",
-        reason=(
-            "ready" if configured == "session_map" else "compaction_v2_not_configured"
-        ),
+        can_upgrade_to_v2=reason == "ready",
+        reason=reason,
     )
 
 
@@ -178,15 +180,12 @@ async def _admit_session_context_strategy_upgrade(
     )
     if source_checkpoint is None:  # pragma: no cover - guarded by status
         raise SessionContextStrategyUpgradeUnavailable("recovery_checkpoint_missing")
-    author_model = get_compaction_author_model()
-    if author_model is None:
+    configuration = evaluate_session_map_configuration_readiness()
+    if not configuration.enabled:
+        raise SessionContextStrategyUpgradeUnavailable(configuration.reason)
+    author_model = configuration.author_model
+    if author_model is None:  # pragma: no cover - checked by configuration
         raise SessionContextStrategyUpgradeUnavailable("author_model_not_configured")
-    author_thinking = get_compaction_author_thinking()
-    high_watermark = get_compaction_high_watermark_tokens()
-    low_watermark = get_compaction_low_watermark_tokens()
-    minimum_retained_groups = get_compaction_retained_turns()
-    if low_watermark >= high_watermark:
-        raise SessionContextStrategyUpgradeUnavailable("invalid_watermarks")
 
     async def run(tracked_task: ExecutionTaskSnapshot) -> dict[str, object]:
         async def run_in_session_gate() -> dict[str, object]:
@@ -198,10 +197,10 @@ async def _admit_session_context_strategy_upgrade(
                 vault_name=vault_name,
                 source_checkpoint=source_checkpoint,
                 author_model=author_model,
-                author_thinking=author_thinking,
-                high_watermark=high_watermark,
-                low_watermark=low_watermark,
-                minimum_retained_groups=minimum_retained_groups,
+                author_thinking=configuration.author_thinking,
+                high_watermark=configuration.high_watermark_tokens,
+                low_watermark=configuration.low_watermark_tokens,
+                minimum_retained_groups=configuration.minimum_retained_groups,
                 authority=authority,
             )
             return asdict(result)
@@ -305,7 +304,14 @@ async def _run_session_context_strategy_upgrade(
                 raw_messages=raw_messages,
                 plan=plan,
             )
-            recent_evidence = _build_recent_evidence(raw_messages, plan)
+            retained = raw_messages[plan.eviction_end_index :]
+            recent_evidence = project_retained_session_map_evidence(retained)
+            retrieved_evidence = project_retrieved_session_map_evidence(
+                store=store,
+                session_id=session_id,
+                vault_name=vault_name,
+                retained=retained,
+            )
             logger.info(
                 "context_strategy_upgrade_planned",
                 data={
@@ -339,6 +345,16 @@ async def _run_session_context_strategy_upgrade(
                         new_evidence=(item,),
                         recent_evidence=(
                             recent_evidence if pass_index == len(evidence) else ()
+                        ),
+                        retrieved_evidence=(
+                            retrieved_evidence.messages
+                            if pass_index == len(evidence)
+                            else ()
+                        ),
+                        retrieved_evidence_truncated=(
+                            retrieved_evidence.truncated
+                            if pass_index == len(evidence)
+                            else False
                         ),
                     ),
                     authority=authority,
@@ -383,6 +399,7 @@ async def _run_session_context_strategy_upgrade(
                 author_model_alias=authored.model_alias,
                 author_thinking=authored.thinking,
                 recent_evidence=recent_evidence,
+                retrieved_evidence=retrieved_evidence.messages,
                 expected_previous_checkpoint_kind="recovery_card",
             )
             result = SessionContextStrategyUpgradeResult(
@@ -394,7 +411,7 @@ async def _run_session_context_strategy_upgrade(
                 consumed_through_sequence_index=(
                     committed.checkpoint.last_message_sequence_index
                 ),
-                retained_message_count=len(recent_evidence),
+                retained_message_count=len(retained),
                 raw_message_count=len(raw_messages),
             )
             logger.info(
@@ -529,17 +546,3 @@ def _build_upgrade_evidence(
         evidence.append(resolved.evidence[0])
         source_start = boundary + 1
     return tuple(evidence)
-
-
-def _build_recent_evidence(
-    raw_messages: list[StoredChatMessage],
-    plan: SteppedHistoryEvictionPlan,
-) -> tuple[SessionMapMessageEvidence, ...]:
-    return tuple(
-        SessionMapMessageEvidence(
-            sequence_index=message.sequence_index,
-            role=message.role,
-            content_text=message.content_text,
-        )
-        for message in raw_messages[plan.eviction_end_index :]
-    )

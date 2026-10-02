@@ -5,13 +5,6 @@ without pulling in the full chat execution stack.
 """
 
 from .chat_store import ChatStore
-from .compaction import (
-    ChatHistoryCompactionResult,
-    ChatHistoryCompactionStatus,
-    compact_chat_context,
-    compact_chat_history,
-    get_compaction_status,
-)
 from .transcript_writer import (
     ExportedTranscript,
     export_chat_transcript,
@@ -20,12 +13,7 @@ from .transcript_writer import (
 
 __all__ = [
     "ChatStore",
-    "ChatHistoryCompactionResult",
-    "ChatHistoryCompactionStatus",
-    "compact_chat_context",
-    "compact_chat_history",
     "ExportedTranscript",
     "export_chat_transcript",
-    "get_compaction_status",
     "remove_chat_transcript_exports",
 ]

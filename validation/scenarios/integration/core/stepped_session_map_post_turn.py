@@ -356,32 +356,32 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
                 "session_map_context_reduction_started",
                 "session_map_context_reduction_plan_selected",
                 "session_map_context_reduction_completed",
-                "session_map_context_reduction_deferred",
+                "session_map_context_reduction_failed",
             }
         ]
-        deferred = [
+        failures = [
             entry
             for entry in entries
-            if entry["event"] == "session_map_context_reduction_deferred"
+            if entry["event"] == "session_map_context_reduction_failed"
         ]
         self.soft_assert_equal(
-            {entry.get("session_id") for entry in deferred},
+            {entry.get("session_id") for entry in failures},
             {successful_session, failed_session, commit_failed_session},
             "All distinct-session reduction failures must remain visible in System Activity",
         )
         self.soft_assert_equal(
-            len({entry.get("issue") for entry in deferred}),
+            len({entry.get("issue") for entry in failures}),
             3,
-            "Deferred operations require distinct warning identities",
+            "Failed operations require distinct warning identities",
         )
         self.soft_assert(
             all(
-                entry.get("status") == "deferred"
-                and entry.get("task_id") in chat_ids
+                entry.get("status") == "failed"
+                and entry.get("task_id") in compaction_ids
                 and len(str(entry.get("error", ""))) <= 200
-                for entry in deferred
+                for entry in failures
             ),
-            "Post-turn deferral must identify the owning chat task with bounded diagnostics",
+            "Reduction failure must identify its owning task with bounded diagnostics",
         )
         completed = [
             entry

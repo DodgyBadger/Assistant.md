@@ -46,8 +46,12 @@ from core.memory.session_map.models import (  # noqa: E402
     SessionMapTrajectory,
     SourceRange,
 )
+from core.memory.session_map.retained_evidence import (  # noqa: E402
+    project_retained_session_map_evidence,
+)
 from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
+from core.utils.messages import project_message  # noqa: E402
 from core.utils.tokens import estimate_token_count  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
 
@@ -276,6 +280,34 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             [message.sequence_index for message in retained_after_retrieval],
             [2, 3, 5],
             "The retrieval envelope itself should not become map evidence",
+        )
+        mixed_return = ModelRequest(
+            parts=[
+                ToolReturnPart(
+                    tool_name="session_ops",
+                    content="private window",
+                    tool_call_id="window",
+                ),
+                ToolReturnPart(
+                    tool_name="other_tool",
+                    content="independent result",
+                    tool_call_id="other",
+                ),
+            ]
+        )
+        stored_retrieval = store.get_stored_messages(
+            retrieval_session_id, vault.name, mode="raw"
+        )[4]
+        mixed_stored = replace(
+            stored_retrieval,
+            message=mixed_return,
+            content_text=project_message(mixed_return).content_text,
+        )
+        mixed_evidence = project_retained_session_map_evidence([mixed_stored])
+        self.soft_assert_equal(
+            [item.content_text for item in mixed_evidence],
+            ["[other_tool] independent result"],
+            "Mixed tool returns should retain unrelated evidence without raw session_ops content",
         )
         self.soft_assert_equal(
             [message.sequence_index for message in retrieved_canonical.messages],

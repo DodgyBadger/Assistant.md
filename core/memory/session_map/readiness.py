@@ -76,6 +76,47 @@ class SessionMapCompactionReadiness:
     minimum_retained_groups: int
 
 
+@dataclass(frozen=True)
+class SessionMapConfigurationReadiness:
+    """Shared configuration and author contract for reduction and upgrade."""
+
+    enabled: bool
+    reason: str
+    configured_strategy: str
+    author_model: str | None
+    author_thinking: ThinkingValue
+    high_watermark_tokens: int
+    low_watermark_tokens: int
+    minimum_retained_groups: int
+
+
+def evaluate_session_map_configuration_readiness(
+    *, model_availability_check: Callable[[str], None] | None = None
+) -> SessionMapConfigurationReadiness:
+    """Check the same V2 configuration before status, admission, or execution."""
+    configured_strategy = get_compaction_strategy()
+    author = evaluate_compaction_author_readiness(
+        model_availability_check=model_availability_check
+    )
+    high_watermark = get_compaction_high_watermark_tokens()
+    low_watermark = get_compaction_low_watermark_tokens()
+    reason = "ready"
+    if not author.enabled:
+        reason = author.reason
+    elif low_watermark >= high_watermark:
+        reason = "invalid_watermarks"
+    return SessionMapConfigurationReadiness(
+        enabled=reason == "ready",
+        reason=reason,
+        configured_strategy=configured_strategy,
+        author_model=author.model,
+        author_thinking=author.thinking,
+        high_watermark_tokens=high_watermark,
+        low_watermark_tokens=low_watermark,
+        minimum_retained_groups=get_compaction_retained_turns(),
+    )
+
+
 def evaluate_session_map_compaction_readiness(
     *,
     store: ChatStore,
@@ -84,19 +125,16 @@ def evaluate_session_map_compaction_readiness(
     model_availability_check: Callable[[str], None] | None = None,
 ) -> SessionMapCompactionReadiness:
     """Resolve whether one session can run Compaction v2 when initiated."""
-    configured_strategy = get_compaction_strategy()
+    configuration = evaluate_session_map_configuration_readiness(
+        model_availability_check=model_availability_check
+    )
+    configured_strategy = configuration.configured_strategy
     checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
     strategy = resolve_session_compaction_strategy(
         store=store,
         session_id=session_id,
         vault_name=vault_name,
     )
-    author = evaluate_compaction_author_readiness(
-        model_availability_check=model_availability_check
-    )
-    high_watermark = get_compaction_high_watermark_tokens()
-    low_watermark = get_compaction_low_watermark_tokens()
-    minimum_retained_groups = get_compaction_retained_turns()
 
     def result(enabled: bool, reason: str) -> SessionMapCompactionReadiness:
         return SessionMapCompactionReadiness(
@@ -104,11 +142,11 @@ def evaluate_session_map_compaction_readiness(
             reason=reason,
             configured_strategy=configured_strategy,
             strategy=strategy,
-            author_model=author.model,
-            author_thinking=author.thinking,
-            high_watermark_tokens=high_watermark,
-            low_watermark_tokens=low_watermark,
-            minimum_retained_groups=minimum_retained_groups,
+            author_model=configuration.author_model,
+            author_thinking=configuration.author_thinking,
+            high_watermark_tokens=configuration.high_watermark_tokens,
+            low_watermark_tokens=configuration.low_watermark_tokens,
+            minimum_retained_groups=configuration.minimum_retained_groups,
         )
 
     if strategy != "session_map":
@@ -118,10 +156,8 @@ def evaluate_session_map_compaction_readiness(
             else "strategy_not_enabled"
         )
         return result(False, reason)
-    if not author.enabled:
-        return result(False, author.reason)
-    if low_watermark >= high_watermark:
-        return result(False, "invalid_watermarks")
+    if not configuration.enabled:
+        return result(False, configuration.reason)
 
     session = store.get_session(session_id=session_id, vault_name=vault_name)
     if session is None:

@@ -28,7 +28,6 @@ from core.authoring.template_discovery import (
 )
 from core.chat import export_chat_transcript, remove_chat_transcript_exports
 from core.chat.chat_store import StoredChatSession
-from core.chat.compaction import compact_chat_history, get_compaction_status
 from core.chat.deferred_reviews import (
     DeferredReviewError,
     StoredDeferredReview,

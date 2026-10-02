@@ -21,6 +21,8 @@ from pydantic_ai.messages import (  # noqa: E402
 from core.chat.chat_store import ChatStore  # noqa: E402
 from core.chat.compaction import build_compaction_summary_message  # noqa: E402
 from core.chat.context_strategy_upgrade import (  # noqa: E402
+    SessionContextStrategyUpgradeUnavailable,
+    get_session_context_strategy_status,
     start_session_context_strategy_upgrade,
 )
 from core.identity import LOCAL_USER_AUTHORITY, LOCAL_USER_PRINCIPAL_ID  # noqa: E402
@@ -128,6 +130,32 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
             ("recovery_card", True),
             "A V1 session should expose the explicit upgrade action",
         )
+        with patch(
+            "core.memory.session_map.readiness.model_supports_capability",
+            return_value=False,
+        ):
+            unavailable_status = get_session_context_strategy_status(
+                store=store, session_id=session_id, vault_name=vault.name
+            )
+            self.soft_assert_equal(
+                (unavailable_status.can_upgrade_to_v2, unavailable_status.reason),
+                (False, "author_model_not_text_capable"),
+                "Upgrade status must use the V2 author capability rule",
+            )
+            try:
+                await start_session_context_strategy_upgrade(
+                    session_id=session_id,
+                    vault_name=vault.name,
+                    authority=LOCAL_USER_AUTHORITY,
+                )
+            except SessionContextStrategyUpgradeUnavailable as exc:
+                self.soft_assert_equal(
+                    exc.reason,
+                    "author_model_not_text_capable",
+                    "Upgrade admission must share the status readiness reason",
+                )
+            else:
+                raise AssertionError("Decision-only authors cannot start an upgrade")
 
         authored_ranges: list[tuple[int, int]] = []
         author_parent_tasks: list[str | None] = []
