@@ -296,6 +296,10 @@ The first frontend correction batch closes four demonstrated async or accessibil
 
 The remaining frontend work is browser-level manual verification of mobile layout, nested modal behavior, paging under real data, double actions, and the compaction-notice/fork flows. Automated controller coverage should continue to protect behavior without freezing incidental markup.
 
+#### Stage 5 Verification Status
+
+The focused frontend suite passes 21/21 and covers map-modal focus and Escape behavior, tool-detail Back restoration, stale revision and transcript-page responses, shared fork confirmation cancellation, dashboard polling cleanup, and stale task-response handling. A real-browser pass could not run in the hardening environment because the installed Playwright Chromium binary lacks required host GLib, NSS, NSPR, X11, and GTK libraries and no alternate browser is installed; no host packages were installed for this branch. Manual verification remains for an evicted assistant-message fork through confirmation and resulting child state, real-data revision/transcript paging with nested tool details, 320/375-pixel layouts and dark mode, and desktop dashboard refresh after a task begins elsewhere. Code review found no concrete defect in those paths.
+
 #### Initial Stage 4 Activity Findings
 
 The activity audit found that successful operation records are generally content-safe and use counts, ranges, and identifiers rather than prompts, queries, transcripts, map output, or summaries. The meaningful gaps are lifecycle consistency and failure correlation:
@@ -337,6 +341,10 @@ The root implementation plans are working records rather than durable product do
 
 Generic execution-task failure records also currently project raw exception strings. That is a cross-cutting Activity concern affecting every task family, not a session-memory-only correction. Keep the session-memory domain events content-safe in this branch and evaluate generic task failure redaction as one coordinated task-runner contract change rather than modifying it incidentally in individual operation families.
 
+#### Stage 6 Documentation Correction Status
+
+The architecture overview now describes canonical versus effective chat history, recovery-card and session-map strategies, watermark and retained-turn behavior, per-session strategy pinning, shared author-model fallback, canonical transcript retrieval, and explicit per-session V1-to-V2 upgrade. ADR 0049 records the durable checkpoint and strategy decisions, their consequences, and the boundary between in-session continuity and future cross-session memory work. Product-facing tool documentation remains the authority for model-visible `chat_history_compact` and `session_ops` operation details.
+
 #### Stage 6 Dependency and Residue Findings
 
 Pydantic AI 2.49 is required for the retained TypeSafe decision-model integration, and the exact pin currently passes the decision runtime and provider-error scenarios. The dependency refresh also advances the provider SDKs and FastAPI/Starlette, so the complete deterministic profile remains required before merge. The branch imports `httpx2` directly for provider transports; it is now declared directly rather than relied on as a transitive dependency.
@@ -353,7 +361,7 @@ No tracked benchmark dataset, generated validation output, debug code, or active
 - The complete deterministic pre-merge profile passed 130/130 scenarios in `20261002_190522_519299`.
 - The first two full-profile attempts exposed a stable validation isolation defect in `mcp_oauth_coordinator`: it assumed its bootstrap service root was also the process-wide Activity destination. The scenario now resolves the logger's actual runtime-owned root; the exact preceding MCP scenario sequence and the full profile both pass.
 
-Remaining browser-only verification is limited to the evicted-transcript fork interaction and broad responsive/manual inspection. Remaining cross-cutting follow-ups are generic execution-task exception projection and the Pydantic AI v3 provider-transport migration; neither is a demonstrated Compaction V2 correctness failure under the pinned dependencies.
+Remaining browser-only verification is limited to the explicitly recorded evicted-transcript, real-data modal, responsive/dark-mode, and desktop task-refresh checks. Remaining cross-cutting follow-ups are generic execution-task exception projection and the Pydantic AI v3 provider-transport migration; neither is a demonstrated Compaction V2 correctness failure under the pinned dependencies.
 
 #### Post-Validation Structural Review
 
@@ -423,4 +431,4 @@ These directions may influence data portability and naming, but they must not ex
 
 ## Immediate Next Step
 
-Review the final diff and package the hardening corrections into coherent commits. Before merge, complete the remaining browser-only fork verification and decide which completed root implementation plans should be archived externally or removed from the product branch.
+Run the recorded manual browser checks in an environment with a working browser, then decide which completed root implementation plans should be archived externally or removed from the product branch before final merge preparation.
