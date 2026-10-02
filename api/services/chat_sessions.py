@@ -282,45 +282,49 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
     summary_store = SessionSummaryStore()
-    result: list[ChatSessionInfo] = []
-    for session in sessions:
-        strategy_status = get_session_context_strategy_status(
-            store=_chat_store,
-            session_id=session.session_id,
-            vault_name=vault_name,
-        )
-        result.append(
-            ChatSessionInfo(
-                session_id=session.session_id,
-                created_at=session.created_at,
-                last_activity_at=session.last_activity_at,
-                title=session.title or None,
-                workspace=_chat_workspace_info(
-                    vault_name,
-                    _chat_store.get_session_workspace_path(
-                        session.session_id, vault_name
-                    ),
-                ),
-                chat_mode=_chat_store.get_session_chat_mode(
-                    session.session_id, vault_name
-                ),
-                has_summary=summary_store.get_session_summary(
-                    vault_name=vault_name,
-                    session_id=session.session_id,
-                )
-                is not None,
-                has_session_map=bool(
-                    _chat_store.list_context_checkpoints(
-                        session.session_id,
-                        vault_name,
-                        checkpoint_kind="session_map",
-                    )
-                ),
-                context_strategy=strategy_status.strategy,
-                can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
+    return [
+        _chat_session_info(session, summary_store=summary_store) for session in sessions
+    ]
+
+
+def _chat_session_info(
+    session: StoredChatSession,
+    *,
+    summary_store: SessionSummaryStore,
+) -> ChatSessionInfo:
+    """Project one persisted session consistently across listing and fork replies."""
+    vault_name = session.vault_name
+    session_id = session.session_id
+    strategy_status = get_session_context_strategy_status(
+        store=_chat_store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    return ChatSessionInfo(
+        session_id=session_id,
+        created_at=session.created_at,
+        last_activity_at=session.last_activity_at,
+        title=session.title or None,
+        workspace=_chat_workspace_info(
+            vault_name,
+            _chat_store.get_session_workspace_path(session_id, vault_name),
+        ),
+        chat_mode=_chat_store.get_session_chat_mode(session_id, vault_name),
+        has_summary=(
+            summary_store.get_session_summary(
+                vault_name=vault_name,
+                session_id=session_id,
             )
-        )
-    return result
+            is not None
+        ),
+        has_session_map=bool(
+            _chat_store.list_context_checkpoints(
+                session_id, vault_name, checkpoint_kind="session_map"
+            )
+        ),
+        context_strategy=strategy_status.strategy,
+        can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
+    )
 
 
 def get_chat_session_map(
@@ -431,24 +435,13 @@ def _session_map_transcript_page(
     page_size: int,
 ) -> ChatSessionMapTranscriptPage:
     """Return one chronological page of canonical history through a checkpoint."""
-    canonical_messages = _chat_store.get_stored_messages_range(
+    total_entries, page_boundaries = _chat_store.get_canonical_display_row_page(
         session_id,
         vault_name,
-        after_sequence_index=-1,
         through_sequence_index=checkpoint.last_message_sequence_index,
+        limit=page_size,
+        offset=(page - 1) * page_size,
     )
-    declaration_counts = _chat_store.get_tool_call_declaration_counts(
-        session_id, vault_name
-    )
-    tool_events = _chat_store.get_tool_events(
-        session_id, vault_name, committed_only=True
-    )
-    transcript_items = _session_map_transcript_items(
-        canonical_messages,
-        declaration_counts=declaration_counts,
-        tool_events=tool_events,
-    )
-    total_entries = len(transcript_items)
     page_count = max(1, (total_entries + page_size - 1) // page_size)
     if page > page_count:
         raise APIException(
@@ -466,8 +459,56 @@ def _session_map_transcript_page(
                 "page_count": page_count,
             },
         )
-    start_index = (page - 1) * page_size
-    messages = transcript_items[start_index : start_index + page_size]
+    messages: list[ChatSessionMessageInfo] = []
+    if page_boundaries:
+        canonical_messages = _chat_store.get_stored_messages_range(
+            session_id,
+            vault_name,
+            after_sequence_index=page_boundaries[0][0] - 1,
+            through_sequence_index=page_boundaries[-1][1],
+        )
+        tool_call_ids = list(
+            dict.fromkeys(
+                tool_call_id
+                for message in canonical_messages
+                for tool_call_id in message.tool_call_ids
+                if tool_call_id
+            )
+        )
+        declaration_counts = _chat_store.get_tool_call_declaration_counts(
+            session_id, vault_name, tool_call_ids=tool_call_ids
+        )
+        tool_events = [
+            event
+            for tool_call_id in tool_call_ids
+            for event in _chat_store.get_tool_events_for_call(
+                session_id, vault_name, tool_call_id
+            )
+        ]
+        canonical_fork_points = _chat_store.get_canonical_fork_points_for_sequences(
+            session_id,
+            vault_name,
+            [
+                message.sequence_index
+                for message in canonical_messages
+                if message.message_type == "ModelResponse"
+            ],
+        )
+        transcript_items = _session_map_transcript_items(
+            canonical_messages,
+            canonical_fork_points=canonical_fork_points,
+            declaration_counts=declaration_counts,
+            tool_events=tool_events,
+        )
+        items_by_boundary = {
+            (
+                item.sequence_index,
+                item.through_sequence_index,
+                "tool" if item.role == "tool" else "message",
+            ): item
+            for item in transcript_items
+        }
+        messages = [items_by_boundary[boundary] for boundary in page_boundaries]
     return ChatSessionMapTranscriptPage(
         checkpoint_id=checkpoint.checkpoint_id,
         page=page,
@@ -483,12 +524,12 @@ def _session_map_transcript_page(
 def _session_map_transcript_items(
     messages: list[StoredChatMessage],
     *,
+    canonical_fork_points: set[int],
     declaration_counts: dict[str, int],
     tool_events: list[StoredChatToolEvent],
 ) -> list[ChatSessionMessageInfo]:
     """Preserve canonical sequence while collapsing adjacent provider tool traffic."""
     displayed: list[ChatSessionMessageInfo] = []
-    canonical_fork_points = canonical_assistant_fork_points(messages)
     summaries = {
         item.tool_call_id: item
         for item in _effective_tool_call_info(
@@ -668,14 +709,6 @@ def _fork_chat_session(
     if new_session is None:  # pragma: no cover - defensive consistency check
         raise RuntimeError(f"Forked session was not persisted: {new_session_id}")
 
-    strategy_status = get_session_context_strategy_status(
-        store=_chat_store,
-        session_id=new_session_id,
-        vault_name=vault_name,
-    )
-    map_checkpoints = _chat_store.list_context_checkpoints(
-        new_session_id, vault_name, checkpoint_kind="session_map"
-    )
     inherited_checkpoints = _chat_store.list_context_checkpoints(
         new_session_id, vault_name
     )
@@ -712,31 +745,7 @@ def _fork_chat_session(
         },
     )
     return ChatSessionForkResponse(
-        session=ChatSessionInfo(
-            session_id=new_session.session_id,
-            created_at=new_session.created_at,
-            last_activity_at=new_session.last_activity_at,
-            title=new_session.title or None,
-            workspace=_chat_workspace_info(
-                vault_name,
-                _chat_store.get_session_workspace_path(
-                    new_session.session_id, vault_name
-                ),
-            ),
-            chat_mode=_chat_store.get_session_chat_mode(
-                new_session.session_id, vault_name
-            ),
-            has_summary=(
-                SessionSummaryStore().get_session_summary(
-                    vault_name=vault_name,
-                    session_id=new_session_id,
-                )
-                is not None
-            ),
-            has_session_map=bool(map_checkpoints),
-            context_strategy=strategy_status.strategy,
-            can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
-        ),
+        session=_chat_session_info(new_session, summary_store=SessionSummaryStore()),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
         copied_message_count=copied_message_count,
@@ -1455,10 +1464,9 @@ async def start_chat_session_context_strategy_upgrade(
         ) from exc
 
 
-def delete_chat_session(vault_name: str, vault_path: str, session_id: str) -> None:
+def delete_chat_session(vault_name: str, session_id: str) -> None:
     """Delete one chat session and its session summary."""
     _require_chat_session_access(vault_name, session_id)
-    del vault_path
     _chat_store.delete_sessions(vault_name, session_id=session_id)
     SessionSummaryStore().delete_session_summary(
         vault_name=vault_name, session_id=session_id

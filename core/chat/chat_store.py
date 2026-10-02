@@ -261,6 +261,179 @@ class ChatStore:
             through_sequence_index=through_sequence_index,
         )
 
+    def get_canonical_display_row_page(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        through_sequence_index: int,
+        limit: int,
+        offset: int,
+    ) -> tuple[int, list[tuple[int, int, str]]]:
+        """Count display rows and return one page of raw sequence boundaries.
+
+        SQLite scans compact message metadata to count collapsed tool runs. Only
+        the selected boundaries cross into Python; message JSON is hydrated by
+        the caller for that page alone.
+        """
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                WITH classified AS (
+                    SELECT sequence_index, role, message_type,
+                           CASE WHEN (
+                               substr(ltrim(coalesce(content_text, '')), 1, 1) = '['
+                               AND instr(ltrim(coalesce(content_text, '')), ']') > 0
+                           ) OR EXISTS (
+                               SELECT 1 FROM json_each(message_json, '$.parts') part
+                               WHERE json_extract(part.value, '$.part_kind')
+                                   IN ('tool-call', 'tool-return')
+                                 AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
+                           ) THEN 1 ELSE 0 END AS is_tool,
+                           CASE WHEN EXISTS (
+                               SELECT 1 FROM json_each(message_json, '$.parts') part
+                               WHERE json_extract(part.value, '$.part_kind') = 'text'
+                                 AND trim(coalesce(json_extract(part.value, '$.content'), '')) != ''
+                           ) OR (
+                               NOT EXISTS (
+                                   SELECT 1 FROM json_each(message_json, '$.parts') part
+                                   WHERE json_extract(part.value, '$.part_kind') = 'tool-call'
+                                     AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
+                               ) AND trim(coalesce(content_text, '')) != ''
+                           ) THEN 1 ELSE 0 END AS has_text
+                    FROM chat_messages
+                    WHERE session_id = ? AND vault_name = ?
+                      AND sequence_index <= ?
+                ), pieces AS (
+                    SELECT sequence_index, 0 AS piece_order,
+                           CASE WHEN is_tool = 0 AND role NOT IN ('user', 'assistant')
+                                THEN 'separator' ELSE 'message' END AS kind
+                    FROM classified WHERE is_tool = 0
+                    UNION ALL
+                    SELECT sequence_index, 0, 'message'
+                    FROM classified
+                    WHERE is_tool = 1 AND role = 'assistant'
+                      AND message_type = 'ModelResponse' AND has_text = 1
+                    UNION ALL
+                    SELECT sequence_index, 1, 'tool'
+                    FROM classified WHERE is_tool = 1
+                ), adjacent AS (
+                    SELECT sequence_index, piece_order, kind,
+                           lag(kind) OVER (
+                               ORDER BY sequence_index, piece_order
+                           ) AS previous_kind
+                    FROM pieces
+                ), grouped AS (
+                    SELECT sequence_index, kind,
+                           sum(CASE WHEN kind = 'tool' AND previous_kind = 'tool'
+                                    THEN 0 ELSE 1 END) OVER (
+                               ORDER BY sequence_index, piece_order
+                           ) AS group_id
+                    FROM adjacent
+                ), display_rows AS (
+                    SELECT group_id, min(sequence_index) AS first_sequence_index,
+                           max(sequence_index) AS last_sequence_index,
+                           min(kind) AS kind
+                    FROM grouped GROUP BY group_id HAVING kind != 'separator'
+                )
+                SELECT totals.total_entries, page.first_sequence_index,
+                       page.last_sequence_index, page.kind
+                FROM (SELECT count(*) AS total_entries FROM display_rows) totals
+                LEFT JOIN (
+                    SELECT first_sequence_index, last_sequence_index, kind
+                    FROM display_rows ORDER BY group_id LIMIT ? OFFSET ?
+                ) page ON 1 = 1
+                """,
+                (session_id, vault_name, through_sequence_index, limit, offset),
+            ).fetchall()
+        finally:
+            conn.close()
+        total_entries = int(rows[0][0]) if rows else 0
+        boundaries = [
+            (int(first), int(last), str(kind))
+            for _, first, last, kind in rows
+            if first is not None and last is not None and kind is not None
+        ]
+        return total_entries, boundaries
+
+    def get_canonical_fork_points_for_sequences(
+        self,
+        session_id: str,
+        vault_name: str,
+        candidate_sequence_indexes: Sequence[int],
+    ) -> set[int]:
+        """Validate selected assistant fork points against compact prefix tool metadata."""
+        candidates = sorted(set(candidate_sequence_indexes))
+        if not candidates:
+            return set()
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                """
+                WITH numbered AS (
+                    SELECT sequence_index, message_type, message_json,
+                           row_number() OVER (ORDER BY sequence_index) - 1
+                               AS message_index
+                    FROM chat_messages
+                    WHERE session_id = ? AND vault_name = ?
+                      AND sequence_index <= ?
+                )
+                SELECT message.sequence_index, message.message_index,
+                       json_extract(part.value, '$.part_kind'),
+                       json_extract(part.value, '$.tool_call_id')
+                FROM numbered AS message,
+                     json_each(message.message_json, '$.parts') AS part
+                WHERE (
+                      (message.message_type = 'ModelResponse'
+                       AND json_extract(part.value, '$.part_kind') = 'tool-call')
+                      OR
+                      (message.message_type = 'ModelRequest'
+                       AND json_extract(part.value, '$.part_kind') = 'tool-return')
+                  )
+                ORDER BY message.sequence_index, CAST(part.key AS INTEGER)
+                """,
+                (session_id, vault_name, candidates[-1]),
+            )
+            events = iter(cursor)
+            current = next(events, None)
+            pending: dict[str, int] = {}
+            invalid = False
+            fork_points: set[int] = set()
+            for candidate in candidates:
+                while current is not None and int(current[0]) <= candidate:
+                    sequence_index = int(current[0])
+                    message_index = int(current[1])
+                    calls: list[str] = []
+                    returns: list[str] = []
+                    while current is not None and int(current[0]) == sequence_index:
+                        tool_call_id = str(current[3] or "").strip()
+                        if tool_call_id:
+                            if current[2] == "tool-call":
+                                calls.append(tool_call_id)
+                            else:
+                                returns.append(tool_call_id)
+                        current = next(events, None)
+                    if len(calls) != len(set(calls)) or len(returns) != len(
+                        set(returns)
+                    ):
+                        invalid = True
+                    for tool_call_id in calls:
+                        if tool_call_id in pending:
+                            invalid = True
+                        pending[tool_call_id] = message_index
+                    for tool_call_id in returns:
+                        call_message_index = pending.pop(tool_call_id, None)
+                        if call_message_index is None or (
+                            message_index != call_message_index + 1
+                        ):
+                            invalid = True
+                if not invalid and not pending:
+                    fork_points.add(candidate)
+            return fork_points
+        finally:
+            conn.close()
+
     def add_messages(
         self,
         session_id: str,
@@ -995,12 +1168,25 @@ class ChatStore:
         self,
         session_id: str,
         vault_name: str,
+        *,
+        tool_call_ids: Sequence[str] | None = None,
     ) -> dict[str, int]:
         """Count raw tool-call declarations without hydrating message history."""
+        if tool_call_ids is not None and not tool_call_ids:
+            return {}
+        id_filter = ""
+        params: list[Any] = [session_id, vault_name]
+        if tool_call_ids is not None:
+            id_filter = (
+                "AND json_extract(part.value, '$.tool_call_id') IN ("
+                + ", ".join("?" for _ in tool_call_ids)
+                + ")"
+            )
+            params.extend(tool_call_ids)
         conn = self._connect()
         try:
             rows = conn.execute(
-                """
+                f"""
                 SELECT json_extract(part.value, '$.tool_call_id') AS tool_call_id,
                        COUNT(*) AS declaration_count
                 FROM chat_messages AS message,
@@ -1009,9 +1195,10 @@ class ChatStore:
                   AND message.vault_name = ?
                   AND json_extract(part.value, '$.part_kind') = 'tool-call'
                   AND json_extract(part.value, '$.tool_call_id') IS NOT NULL
+                  {id_filter}
                 GROUP BY tool_call_id
                 """,
-                (session_id, vault_name),
+                params,
             ).fetchall()
         finally:
             conn.close()

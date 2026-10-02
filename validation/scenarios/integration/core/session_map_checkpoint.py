@@ -556,6 +556,24 @@ class SessionMapCheckpointScenario(BaseScenario):
             [0, 2, 3],
             "Canonical transcript rows should retain their exact sequence boundaries",
         )
+        tool_page_response = self.call_api(
+            f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
+            "&checkpoint_id=tool-transcript-checkpoint&message_page=2&message_page_size=1"
+        )
+        assert tool_page_response.status_code == 200
+        tool_page = tool_page_response.json()["transcript"]
+        self.soft_assert_equal(
+            (
+                tool_page["total_entries"],
+                tool_page["page_count"],
+                [
+                    (item["sequence_index"], item["through_sequence_index"])
+                    for item in tool_page["messages"]
+                ],
+            ),
+            (3, 3, [(1, 2)]),
+            "One transcript page should retain a complete collapsed tool run",
+        )
         scoped_tool_response = self.call_api(
             f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"
             f"?vault_name={vault.name}&checkpoint_id=tool-transcript-checkpoint"

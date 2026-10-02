@@ -2705,8 +2705,7 @@ async def delete_chat_session_endpoint(
 ) -> dict[str, Any] | JSONResponse:
     """Delete one chat session from the canonical store."""
     try:
-        vault_path = str(resolve_vault_root(vault_name))
-        delete_chat_session(vault_name, vault_path, session_id)
+        delete_chat_session(vault_name, session_id)
         return {"session_id": session_id, "deleted": True}
     except Exception as e:
         return create_error_response(e)
