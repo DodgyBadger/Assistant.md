@@ -44,7 +44,7 @@ A session fork is an independently owned physical copy of canonical messages thr
 
 Chat storage separates canonical history from the effective history sent to a model. Canonical user, assistant, and tool messages remain intact and searchable. A compaction checkpoint supplies a derived replacement for an older canonical prefix while the newest complete conversational turns remain verbatim. The default recovery-card strategy produces an unstructured continuity summary; the optional session-map strategy produces a structured, provenance-linked map and evicts toward a configurable low watermark. Both preserve at least the configured retained-turn floor, so a single large recent turn may leave effective history above the token target.
 
-The installation setting chooses a strategy only for sessions that do not yet have a compaction checkpoint. The first successful reduction pins that session to its strategy so later settings changes cannot silently reinterpret its history. An explicit per-session upgrade may replace a safe recovery-card boundary with a session map; there is no automatic downgrade or bulk conversion. Sessions below the high watermark can therefore remain on canonical history alone and need not have a map. Recovery cards and session maps share an optional compaction-author model, which falls back to the default chat model when no separate alias is configured.
+The installation setting chooses a strategy only for sessions that do not yet have a compaction checkpoint. The first successful reduction pins that session to its strategy so later settings changes cannot silently reinterpret its history. An explicit per-session upgrade may replace a safe recovery-card boundary with a session map; there is no automatic downgrade or bulk conversion. Sessions below the high watermark can therefore remain on canonical history alone and need not have a map. Recovery cards and session maps share an optional compaction-author model, which falls back to the default chat model when no separate alias is configured. A session map is a bounded, sparse whole-map replacement: typed entries distinguish current state, supersession, and evidentiary basis, while one concise trajectory preserves causal orientation. Every authored claim cites admitted canonical message ranges, but those references are evidence routes rather than an exhaustive index of the conversation.
 
 Compaction is lossy context shaping rather than deletion. The `session_ops` transcript search and bounded-window operations retrieve canonical history when an agent needs wording, provenance, or detail absent from effective context. Session-map references identify canonical message evidence and are inspectable in the session-map UI, but they are not an exhaustive evidence index.
 
@@ -156,7 +156,7 @@ ADRs under [`docs/development/adr/`](adr/) are append-oriented records of durabl
 
 Start with these groups when investigating a boundary:
 
-- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, 0047, and 0049;
+- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, 0047, and 0049–0050;
 - vaults, ingestion, memory, and goals: ADRs 0005–0006, 0011–0018, 0024–0025, and 0029–0030;
 - tools, models, and external capabilities: ADRs 0007–0010, 0021–0023, 0027, 0035, 0037, 0039, 0042, and 0045;
 - identity, storage, connections, and OAuth: ADRs 0015, 0028, and 0034–0041;

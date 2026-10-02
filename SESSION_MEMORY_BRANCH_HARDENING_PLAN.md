@@ -343,7 +343,7 @@ Generic execution-task failure records also currently project raw exception stri
 
 #### Stage 6 Documentation Correction Status
 
-The architecture overview now describes canonical versus effective chat history, recovery-card and session-map strategies, watermark and retained-turn behavior, per-session strategy pinning, shared author-model fallback, canonical transcript retrieval, and explicit per-session V1-to-V2 upgrade. ADR 0049 records the durable checkpoint and strategy decisions, their consequences, and the boundary between in-session continuity and future cross-session memory work. Product-facing tool documentation remains the authority for model-visible `chat_history_compact` and `session_ops` operation details.
+The architecture overview now describes canonical versus effective chat history, recovery-card and session-map strategies, watermark and retained-turn behavior, per-session strategy pinning, shared author-model fallback, canonical transcript retrieval, and explicit per-session V1-to-V2 upgrade. ADR 0049 records checkpoint-derived effective history, append-only reduction boundaries, strategy pinning, governed authoring, and explicit upgrade policy. ADR 0050 records the foundational Compaction V2 representation: bounded sparse whole-map replacement, conservative typed state, narrative trajectory, canonical provenance, complete revision, and transcript-backed inspectability. Product-facing tool documentation remains the authority for model-visible `chat_history_compact` and `session_ops` operation details.
 
 #### Stage 6 Dependency and Residue Findings
 
