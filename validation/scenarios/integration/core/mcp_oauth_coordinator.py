@@ -44,7 +44,7 @@ from core.mcp.oauth import (  # noqa: E402
     MCPOAuthError,
     _Attempt,
 )
-from core.runtime.paths import set_bootstrap_roots  # noqa: E402
+from core.runtime.paths import get_system_root, set_bootstrap_roots  # noqa: E402
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
 
@@ -133,6 +133,11 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
         data_root = self.run_path / "data"
         data_root.mkdir()
         set_bootstrap_roots(data_root=data_root, system_root=system_root)
+        # The complete profile may still have a process-wide runtime context from
+        # the preceding direct scenario. Activity logging correctly prefers that
+        # active runtime root over bootstrap roots, so inspect the logger's actual
+        # destination rather than assuming this scenario's service root owns it.
+        activity_log = Path(get_system_root()) / "activity.log"
         secrets = EncryptedSecretsService(
             system_root=str(system_root),
             keyring=SecretKeyring(keys={1: bytes(range(32))}, active_version=1),
@@ -271,7 +276,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
         )
         rejection_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         self.soft_assert(
@@ -312,7 +317,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
             pass
         else:
             self.soft_assert(False, "A rejected token exchange must fail completion")
-        activity_text = (system_root / "activity.log").read_text()
+        activity_text = activity_log.read_text()
         activity_records = [
             json.loads(line) for line in activity_text.splitlines() if line.strip()
         ]
@@ -384,7 +389,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
             self.soft_assert(False, "A token-exchange timeout must fail completion")
         activity_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         timeout_event = next(
@@ -442,7 +447,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
         )
         cancellation_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         cancellation_data = [
@@ -499,7 +504,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
                 self.soft_assert(False, "A durable disconnect failure must propagate")
         mutation_failure_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         self.soft_assert(
@@ -517,7 +522,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
         )
         retry_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         retry_cancellations = [
@@ -560,7 +565,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
                 self.soft_assert(False, "A durable supersede failure must propagate")
         failed_supersede_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         self.soft_assert(
@@ -579,7 +584,7 @@ class MCPOAuthCoordinatorScenario(BaseScenario):
         )
         supersede_retry_records = [
             json.loads(line)
-            for line in (system_root / "activity.log").read_text().splitlines()
+            for line in activity_log.read_text().splitlines()
             if line.strip()
         ]
         supersede_cancellations = [
