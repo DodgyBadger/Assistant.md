@@ -294,11 +294,11 @@ The first frontend correction batch closes four demonstrated async or accessibil
 - Session-map and tool-detail dialogs receive focus on open, close on Escape, and restore a still-connected invoking control.
 - Returning from canonical-history tool detail restores the same map checkpoint, transcript page, and disclosure state, then focuses the restored map dialog.
 
-The remaining frontend work is browser-level manual verification of mobile layout, nested modal behavior, paging under real data, double actions, and the compaction-notice/fork flows. Automated controller coverage should continue to protect behavior without freezing incidental markup.
+The remaining frontend work is browser-level manual verification of 320/375-pixel layout and dark-mode rendering. Automated controller coverage should continue to protect behavior without freezing incidental markup.
 
 #### Stage 5 Verification Status
 
-The focused frontend suite passes 21/21 and covers map-modal focus and Escape behavior, tool-detail Back restoration, stale revision and transcript-page responses, shared fork confirmation cancellation, dashboard polling cleanup, and stale task-response handling. A real-browser pass could not run in the hardening environment because the installed Playwright Chromium binary lacks required host GLib, NSS, NSPR, X11, and GTK libraries and no alternate browser is installed; no host packages were installed for this branch. Manual verification remains for an evicted assistant-message fork through confirmation and resulting child state, real-data revision/transcript paging with nested tool details, 320/375-pixel layouts and dark mode, and desktop dashboard refresh after a task begins elsewhere. Code review found no concrete defect in those paths.
+The focused frontend suite passes 21/21 and covers map-modal focus and Escape behavior, tool-detail Back restoration, stale revision and transcript-page responses, shared fork confirmation cancellation, dashboard polling cleanup, and stale task-response handling. A real-browser pass through Obscura 0.2.3 and Chrome CDP against an isolated FastAPI fixture verified revision switching, transcript paging across 110 canonical entries, disclosure-state preservation, nested tool-detail inspection and Back restoration, evicted-message fork cancellation and acceptance, inherited canonical messages and map checkpoint state in the accepted child, and desktop task appearance and removal without a page refresh. Obscura does not toggle native `details` elements even on a blank page, so the paging and nested-modal checks opened those elements through the DOM before exercising the application controls. Intermittent Obscura bootstrap stalls prevented a reliable 320/375-pixel and dark-mode pass; those rendering checks remain manual, with no concrete application defect found.
 
 #### Initial Stage 4 Activity Findings
 
@@ -361,7 +361,7 @@ No tracked benchmark dataset, generated validation output, debug code, or active
 - The complete deterministic pre-merge profile passed 130/130 scenarios in `20261002_190522_519299`.
 - The first two full-profile attempts exposed a stable validation isolation defect in `mcp_oauth_coordinator`: it assumed its bootstrap service root was also the process-wide Activity destination. The scenario now resolves the logger's actual runtime-owned root; the exact preceding MCP scenario sequence and the full profile both pass.
 
-Remaining browser-only verification is limited to the explicitly recorded evicted-transcript, real-data modal, responsive/dark-mode, and desktop task-refresh checks. Remaining cross-cutting follow-ups are generic execution-task exception projection and the Pydantic AI v3 provider-transport migration; neither is a demonstrated Compaction V2 correctness failure under the pinned dependencies.
+Remaining browser-only verification is limited to the explicitly recorded responsive and dark-mode rendering checks. Remaining cross-cutting follow-ups are generic execution-task exception projection and the Pydantic AI v3 provider-transport migration; neither is a demonstrated Compaction V2 correctness failure under the pinned dependencies.
 
 #### Post-Validation Structural Review
 
@@ -431,4 +431,4 @@ These directions may influence data portability and naming, but they must not ex
 
 ## Immediate Next Step
 
-Run the recorded manual browser checks in an environment with a working browser, then decide which completed root implementation plans should be archived externally or removed from the product branch before final merge preparation.
+Run the remaining responsive and dark-mode rendering checks in a conventional browser, then decide which completed root implementation plans should be archived externally or removed from the product branch before final merge preparation.
