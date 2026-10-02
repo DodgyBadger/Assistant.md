@@ -1,6 +1,6 @@
 # Canonical Session Fork Lineage Implementation Plan
 
-Status: implemented and in hardening.
+Status: implementation and deterministic validation complete; awaiting manual UI verification.
 
 ## Objective
 
@@ -141,7 +141,7 @@ The lineage recorded here is deliberately sufficient for those later designs wit
 
 ## Next Step
 
-Complete the production quality gate and full deterministic `integration/core` profile, then review the resulting diff and commit the validated implementation milestone.
+Build the branch on a live server and manually inspect at least one recovery-card fork and one session-map fork, including inherited strategy controls, map revisions, canonical transcript inspection, continued chat, and parent/child divergence. Whole-branch hardening remains a separate follow-up across the complete Compaction v2 branch.
 
 ## Implementation Results
 
@@ -150,3 +150,4 @@ Complete the production quality gate and full deterministic `integration/core` p
 - Fork lineage records the immediate parent, original root, canonical branch point, child-owned boundary, inherited checkpoint count, and copied tool-event count. Nested forks preserve the root.
 - The fork API accepts canonical assistant-message branch points and derives strategy, V2 upgrade eligibility, and map availability from durable child state.
 - Deterministic coverage now includes V1 raw-history restoration, structured tool activity, V2 future-checkpoint exclusion, inherited revision inspection, nested lineage, parent immutability, and migration behavior.
+- Deterministic failure coverage injects a SQLite abort during checkpoint cloning and proves that the transaction leaves no child session, messages, or checkpoints. A separate legacy fixture duplicates provider-native assistant history, proves that origin recovery remains unresolved, and verifies a specific non-destructive API rejection.

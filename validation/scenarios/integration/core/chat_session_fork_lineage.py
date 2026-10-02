@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -192,6 +193,109 @@ class ChatSessionForkLineageScenario(BaseScenario):
             len(map_response.json()["revisions"]),
             2,
             "Inherited V2 revisions should remain inspectable through the map modal API",
+        )
+
+        atomic_child_id = "atomic-failure-child"
+        database_path = get_runtime_context().config.system_root / "chat_sessions.db"
+        with sqlite3.connect(database_path) as conn:
+            conn.execute(
+                """
+                CREATE TRIGGER reject_atomic_fork_checkpoint
+                BEFORE INSERT ON chat_compaction_checkpoints
+                WHEN NEW.session_id = 'atomic-failure-child'
+                BEGIN
+                    SELECT RAISE(ABORT, 'injected checkpoint copy failure');
+                END
+                """
+            )
+        try:
+            try:
+                store.fork_session(
+                    source_session_id=session_id,
+                    new_session_id=atomic_child_id,
+                    vault_name=vault.name,
+                    through_sequence_index=7,
+                    title="Injected atomic failure",
+                )
+            except sqlite3.IntegrityError as exc:
+                self.soft_assert(
+                    "injected checkpoint copy failure" in str(exc),
+                    "Injected failure should occur during checkpoint cloning",
+                )
+            else:
+                self.soft_assert(False, "Injected checkpoint failure should abort fork")
+        finally:
+            with sqlite3.connect(database_path) as conn:
+                conn.execute("DROP TRIGGER reject_atomic_fork_checkpoint")
+        self.soft_assert_equal(
+            store.get_session(atomic_child_id, vault.name),
+            None,
+            "A failed fork transaction should leave no child session",
+        )
+        self.soft_assert_equal(
+            store.get_stored_messages(atomic_child_id, vault.name, mode="raw"),
+            [],
+            "A failed fork transaction should leave no child messages",
+        )
+        self.soft_assert_equal(
+            store.list_context_checkpoints(atomic_child_id, vault.name),
+            [],
+            "A failed fork transaction should leave no child checkpoints",
+        )
+
+        legacy_session_id = "ambiguous-legacy-checkpoint"
+        store.ensure_session(
+            legacy_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        duplicate_response = _assistant("The same legacy answer.")
+        legacy_raw = [
+            _user("First occurrence."),
+            duplicate_response,
+            _user("Second occurrence."),
+            duplicate_response,
+        ]
+        store.add_messages(legacy_session_id, vault.name, legacy_raw)
+        legacy_summary = _map_context("Legacy recovery context")
+        store.add_compaction_checkpoint(
+            session_id=legacy_session_id,
+            vault_name=vault.name,
+            checkpoint_id="legacy-ambiguous-checkpoint",
+            source="validation",
+            message_count_before=4,
+            last_message_sequence_index=3,
+            summary_message=legacy_summary,
+            replacement_history=[legacy_summary, duplicate_response],
+        )
+        projected_legacy = store.get_stored_messages(legacy_session_id, vault.name)
+        self.soft_assert_equal(
+            projected_legacy[-1].fork_sequence_index,
+            None,
+            "Ambiguous legacy retained messages should not receive a guessed origin",
+        )
+        sessions_before_rejection = {
+            session.session_id for session in store.list_sessions(vault.name)
+        }
+        rejected_response = self.call_api(
+            f"/api/chat/sessions/{legacy_session_id}/fork",
+            method="POST",
+            data={"vault_name": vault.name, "through_sequence_index": 3},
+        )
+        self.soft_assert_equal(
+            rejected_response.status_code,
+            409,
+            "Ambiguous legacy provenance should fail closed",
+        )
+        self.soft_assert_equal(
+            rejected_response.json().get("error"),
+            "ChatSessionForkPointUnresolved",
+            "Ambiguous legacy provenance should return a specific rejection",
+        )
+        self.soft_assert_equal(
+            {session.session_id for session in store.list_sessions(vault.name)},
+            sessions_before_rejection,
+            "Rejected legacy forks should not create a partial child",
         )
 
 
