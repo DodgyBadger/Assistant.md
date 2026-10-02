@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 from pydantic import TypeAdapter
 from pydantic_ai.messages import (
@@ -42,6 +42,8 @@ from core.memory.session_map.checkpoints import (
 from core.memory.session_map.evidence import (
     SessionMapEvidence,
     SessionMapMessageEvidence,
+    SessionMapRetrievedEvidence,
+    bound_retrieved_session_map_evidence,
     build_session_map_evidence,
     has_contiguous_canonical_sequences,
     resolve_session_map_evidence_range,
@@ -49,6 +51,7 @@ from core.memory.session_map.evidence import (
 from core.memory.session_map.models import SessionMapDraft
 from core.memory.session_map.readiness import (
     SessionMapCompactionReadiness,
+    evaluate_compaction_author_readiness,
     evaluate_session_map_compaction_readiness,
     resolve_session_compaction_strategy,
 )
@@ -58,11 +61,13 @@ from core.memory.session_map.service import (
 )
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
+    ExecutionTaskSnapshot,
     ExecutionTaskSource,
     chat_session_scope,
     compaction_task_label,
+    get_current_execution_task,
 )
-from core.runtime.state import get_runtime_context, has_runtime_context
+from core.runtime.state import get_runtime_context
 from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings import (
     get_compaction_author_model,
@@ -74,7 +79,7 @@ from core.settings import (
 )
 from core.utils.tokens import estimate_token_count
 
-from .chat_store import ChatStore
+from .chat_store import ChatStore, StoredChatMessage
 
 logger = UnifiedLogger(tag="chat-compaction")
 
@@ -82,6 +87,38 @@ _MODEL_MESSAGE_ADAPTER: TypeAdapter[ModelMessage] = TypeAdapter(ModelMessage)
 _SESSION_LOCKS: dict[tuple[str, str], asyncio.Lock] = {}
 _SESSION_LOCKS_GUARD = asyncio.Lock()
 _SUMMARY_MARKER = "AssistantMD compacted chat history"
+
+
+class _CompactionStrategyChangedError(ValueError):
+    """The strategy pinned while waiting no longer matches the selected author path."""
+
+
+def _compaction_log_context(
+    event: str, *, session_id: str, vault_name: str
+) -> dict[str, str | None]:
+    """Correlate domain lifecycle and warning deduplication to the owning task."""
+    task = get_current_execution_task()
+    task_id = task.task_id if task is not None else None
+    return {
+        "event": event,
+        "session_id": session_id,
+        "vault_name": vault_name,
+        "task_id": task_id,
+        "parent_task_id": task.parent_task_id if task is not None else None,
+        "issue": f"{event}:{vault_name}:{session_id}:{task_id or 'unscoped'}",
+    }
+
+
+def _compaction_failure_details(exc: Exception, *, reason: str) -> dict[str, str]:
+    """Project controlled diagnostics without exposing provider or transcript text."""
+    return {
+        "reason": reason,
+        "error_type": type(exc).__name__[:100],
+        "error": (
+            f"Compaction did not complete ({reason}); "
+            "inspect the correlated execution task."
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -277,6 +314,71 @@ async def get_compaction_status(
     )
 
 
+async def run_chat_context_compaction(
+    *,
+    session_id: str,
+    vault_name: str,
+    vault_path: str | None = None,
+    focus: str | None = None,
+    source: ExecutionTaskSource = ExecutionTaskSource.API,
+    authority: ExecutionAuthority,
+    store: ChatStore | None = None,
+    automatic: bool = False,
+) -> (
+    ChatHistoryCompactionResult
+    | SessionMapContextReductionResult
+    | ChatContextCompactionUnavailableResult
+):
+    """Own one compaction task through its durable checkpoint or unavailable result."""
+    runtime = get_runtime_context()
+    parent_task = get_current_execution_task()
+
+    async def run(
+        task: ExecutionTaskSnapshot,
+    ) -> (
+        ChatHistoryCompactionResult
+        | SessionMapContextReductionResult
+        | ChatContextCompactionUnavailableResult
+    ):
+        result = await compact_chat_context(
+            session_id=session_id,
+            vault_name=vault_name,
+            vault_path=vault_path,
+            focus=focus,
+            source=source,
+            authority=authority,
+            store=store or runtime.chat_store,
+            force=not automatic,
+        )
+        await runtime.task_coordinator.record_result(task.task_id, result.as_api_dict())
+        return result
+
+    result = await runtime.task_runner.run_inline(
+        ExecutionTaskSpec(
+            kind=ExecutionTaskKind.HISTORY_COMPACTION,
+            scope=chat_session_scope(session_id),
+            source=source,
+            label=compaction_task_label(session_id),
+            authority=authority,
+            parent_task_id=parent_task.task_id if parent_task is not None else None,
+            metadata={
+                "vault": vault_name,
+                "session_id": session_id,
+                "automatic": automatic,
+            },
+        ),
+        run,
+    )
+    if not isinstance(
+        result,
+        ChatHistoryCompactionResult
+        | SessionMapContextReductionResult
+        | ChatContextCompactionUnavailableResult,
+    ):
+        raise TypeError("Compaction execution returned an invalid result")
+    return result
+
+
 async def compact_chat_context(
     *,
     session_id: str,
@@ -286,12 +388,13 @@ async def compact_chat_context(
     source: ExecutionTaskSource = ExecutionTaskSource.API,
     authority: ExecutionAuthority,
     store: ChatStore | None = None,
+    force: bool = True,
 ) -> (
     ChatHistoryCompactionResult
     | SessionMapContextReductionResult
     | ChatContextCompactionUnavailableResult
 ):
-    """Manually compact one session using its pinned context strategy."""
+    """Compact one session using its pinned strategy and requested watermark policy."""
     chat_store = store or ChatStore()
     readiness = evaluate_session_map_compaction_readiness(
         store=chat_store,
@@ -299,14 +402,25 @@ async def compact_chat_context(
         vault_name=vault_name,
     )
     if readiness.strategy != "session_map":
-        return await compact_chat_history(
-            session_id=session_id,
-            vault_name=vault_name,
-            vault_path=vault_path,
-            focus=focus,
-            source=source,
-            store=chat_store,
-        )
+        try:
+            return await compact_chat_history(
+                session_id=session_id,
+                vault_name=vault_name,
+                vault_path=vault_path,
+                focus=focus,
+                source=source,
+                store=chat_store,
+            )
+        except _CompactionStrategyChangedError:
+            # The failed path has released its lock. An upgrade can pin V2 while
+            # this request waits; resolve once without opening another task.
+            readiness = evaluate_session_map_compaction_readiness(
+                store=chat_store,
+                session_id=session_id,
+                vault_name=vault_name,
+            )
+            if readiness.strategy != "session_map":
+                raise
     if not readiness.enabled:
         raise ValueError(f"Session-map compaction is unavailable: {readiness.reason}.")
     result = await _run_stepped_session_map_reduction(
@@ -317,20 +431,18 @@ async def compact_chat_context(
         store=chat_store,
         source=source,
         focus=focus,
-        force=True,
+        force=force,
     )
     if result is None:
         messages = (
             chat_store.get_history(session_id, vault_name, mode="effective") or []
         )
-        return ChatContextCompactionUnavailableResult(
+        return _unavailable_compaction_result(
             session_id=session_id,
             vault_name=vault_name,
             strategy="session_map",
-            reason="retained_turn_floor",
-            messages_before=len(messages),
-            estimated_tokens_before=estimate_history_tokens(messages),
-            source=source.value,
+            messages=messages,
+            source=source,
         )
     return result
 
@@ -343,32 +455,45 @@ async def compact_chat_history(
     focus: str | None = None,
     source: ExecutionTaskSource = ExecutionTaskSource.API,
     store: ChatStore | None = None,
-) -> ChatHistoryCompactionResult:
+) -> ChatHistoryCompactionResult | ChatContextCompactionUnavailableResult:
     """Compact one chat session into a summary plus recent raw messages."""
     chat_store = store or ChatStore()
     source_value = str(source)
     logger.info(
         "chat_compaction_started",
         data={
-            "event": "chat_compaction_started",
-            "session_id": session_id,
-            "vault_name": vault_name,
+            **_compaction_log_context(
+                "chat_compaction_started", session_id=session_id, vault_name=vault_name
+            ),
+            "status": "started",
             "source": source_value,
             "focus_provided": bool((focus or "").strip()),
         },
     )
+    failure_reason = "history_snapshot_failed"
     try:
         async with chat_session_history_lock(
             session_id=session_id, vault_name=vault_name
         ):
+            if (
+                chat_store.get_session(session_id=session_id, vault_name=vault_name)
+                is None
+            ):
+                raise LookupError(f"Chat session not found: {session_id}")
             checkpoint = chat_store.get_latest_context_checkpoint(
                 session_id, vault_name
             )
             if checkpoint is not None and checkpoint.checkpoint_kind == "session_map":
-                raise ValueError(
+                raise _CompactionStrategyChangedError(
                     "Recovery-card compaction cannot replace a session-map checkpoint; "
                     "use an explicit context rebuild to change strategies."
                 )
+            history_revision = chat_store.get_session_history_revision(
+                session_id, vault_name
+            )
+            last_message_sequence_index = chat_store.get_highest_message_sequence_index(
+                session_id, vault_name
+            )
             messages = chat_store.get_history(session_id, vault_name) or []
             stored_messages = chat_store.get_stored_messages(
                 session_id, vault_name, mode="effective"
@@ -378,37 +503,58 @@ async def compact_chat_history(
                 logger.warning(
                     "chat_compaction_tool_integrity_issue",
                     data={
-                        "event": "chat_compaction_tool_integrity_issue",
-                        "session_id": session_id,
-                        "vault_name": vault_name,
+                        **_compaction_log_context(
+                            "chat_compaction_tool_integrity_issue",
+                            session_id=session_id,
+                            vault_name=vault_name,
+                        ),
+                        "status": "warning",
+                        "reason": "tool_history_integrity_issues",
                         "source": source_value,
-                        **integrity.to_dict(),
+                        "tool_history_integrity_status": integrity.status,
+                        "tool_call_count": integrity.tool_call_count,
+                        "tool_return_count": integrity.tool_return_count,
+                        "issue_count": len(integrity.issues),
+                        "issue_codes": sorted(
+                            {issue.code for issue in integrity.issues}
+                        ),
                     },
                 )
-            if not messages:
-                raise ValueError("Cannot compact an empty chat session.")
-
             retained_turns = get_compaction_retained_turns()
             older_messages, recent_messages = split_history_for_compaction(
                 messages,
                 retained_turns=retained_turns,
             )
             if not older_messages:
-                raise ValueError("Chat session does not have older history to compact.")
+                return _unavailable_compaction_result(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    strategy="recovery_card",
+                    messages=messages,
+                    source=source,
+                )
 
             estimated_before = estimate_history_tokens(messages)
             trigger, reason = _compaction_trigger_and_reason(source)
-            author_model = get_compaction_author_model()
-            if author_model is None:
-                raise ValueError("Compaction author model is not configured.")
-            author_thinking = get_compaction_author_thinking()
+            failure_reason = "author_readiness_failed"
+            author = evaluate_compaction_author_readiness()
+            if not author.enabled or author.model is None:
+                failure_reason = author.reason
+                raise ValueError(
+                    f"Recovery-card compaction is unavailable: {author.reason}."
+                )
+            author_model = author.model
+            author_thinking = author.thinking
             author_thinking_label = thinking_value_to_label(author_thinking)
             logger.info(
                 "chat_compaction_plan_selected",
                 data={
-                    "event": "chat_compaction_plan_selected",
-                    "session_id": session_id,
-                    "vault_name": vault_name,
+                    **_compaction_log_context(
+                        "chat_compaction_plan_selected",
+                        session_id=session_id,
+                        vault_name=vault_name,
+                    ),
+                    "status": "selected",
                     "source": source_value,
                     "trigger": trigger,
                     "reason": reason,
@@ -429,6 +575,7 @@ async def compact_chat_history(
                 },
             )
 
+            failure_reason = "authoring_failed"
             summary = await _generate_compaction_summary(
                 older_messages=older_messages,
                 recent_messages=recent_messages,
@@ -447,10 +594,6 @@ async def compact_chat_history(
             estimated_after = estimate_history_tokens(replacement)
             compacted_at = datetime.now(UTC).isoformat()
             compaction_id = uuid.uuid4().hex
-            last_message_sequence_index = chat_store.get_highest_message_sequence_index(
-                session_id,
-                vault_name,
-            )
             metadata_update = {
                 "last_compaction": {
                     "compaction_id": compaction_id,
@@ -476,6 +619,7 @@ async def compact_chat_history(
                 "history_mode": "effective",
                 "raw_messages_preserved": True,
             }
+            failure_reason = "checkpoint_commit_failed"
             chat_store.add_compaction_checkpoint(
                 session_id=session_id,
                 vault_name=vault_name,
@@ -488,6 +632,7 @@ async def compact_chat_history(
                 replacement_source_sequence_indexes=[None, *retained_origins],
                 metadata=checkpoint_metadata,
                 metadata_update=metadata_update,
+                expected_history_revision=history_revision,
             )
             result = ChatHistoryCompactionResult(
                 session_id=session_id,
@@ -506,7 +651,11 @@ async def compact_chat_history(
             logger.info(
                 "chat_compaction_completed",
                 data={
-                    "event": "chat_compaction_completed",
+                    **_compaction_log_context(
+                        "chat_compaction_completed",
+                        session_id=session_id,
+                        vault_name=vault_name,
+                    ),
                     **result.as_tool_dict(),
                     "trigger": trigger,
                     "reason": reason,
@@ -519,19 +668,69 @@ async def compact_chat_history(
                 },
             )
             return result
+    except _CompactionStrategyChangedError:
+        logger.info(
+            "chat_compaction_strategy_changed",
+            data={
+                **_compaction_log_context(
+                    "chat_compaction_strategy_changed",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "deferred",
+                "source": source_value,
+                "strategy": "session_map",
+                "reason": "checkpoint_strategy_changed",
+            },
+        )
+        raise
     except Exception as exc:
         logger.warning(
             "chat_compaction_failed",
             data={
-                "event": "chat_compaction_failed",
-                "session_id": session_id,
-                "vault_name": vault_name,
+                **_compaction_log_context(
+                    "chat_compaction_failed",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "failed",
                 "source": source_value,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
+                **_compaction_failure_details(exc, reason=failure_reason),
             },
         )
         raise
+
+
+def _unavailable_compaction_result(
+    *,
+    session_id: str,
+    vault_name: str,
+    strategy: str,
+    messages: list[ModelMessage],
+    source: ExecutionTaskSource,
+) -> ChatContextCompactionUnavailableResult:
+    """Complete an explicit no-op without authoring or mutating session history."""
+    result = ChatContextCompactionUnavailableResult(
+        session_id=session_id,
+        vault_name=vault_name,
+        strategy=strategy,
+        reason="retained_turn_floor",
+        messages_before=len(messages),
+        estimated_tokens_before=estimate_history_tokens(messages),
+        source=source.value,
+    )
+    logger.info(
+        "chat_compaction_unavailable",
+        data={
+            **_compaction_log_context(
+                "chat_compaction_unavailable",
+                session_id=session_id,
+                vault_name=vault_name,
+            ),
+            **result.as_api_dict(),
+        },
+    )
+    return result
 
 
 def estimate_history_tokens(messages: list[ModelMessage]) -> int:
@@ -896,17 +1095,12 @@ async def maybe_auto_compact_after_turn(
     vault_path: str,
 ) -> ChatHistoryCompactionResult | SessionMapContextReductionResult | None:
     """Run the configured automatic context reduction after a completed turn."""
-    status = await get_compaction_status(session_id=session_id, vault_name=vault_name)
+    runtime = get_runtime_context()
+    status = await get_compaction_status(
+        session_id=session_id, vault_name=vault_name, store=runtime.chat_store
+    )
     if status.compaction_type != "auto" or not status.recommended:
         return None
-    runtime = get_runtime_context() if has_runtime_context() else None
-    if runtime is None:
-        return await compact_chat_history(
-            session_id=session_id,
-            vault_name=vault_name,
-            vault_path=vault_path,
-            source=ExecutionTaskSource.SYSTEM,
-        )
     session = runtime.chat_store.get_session_by_id(session_id)
     if session is None or session.vault_name != vault_name:
         raise LookupError(f"Chat session not found: {session_id}")
@@ -919,9 +1113,12 @@ async def maybe_auto_compact_after_turn(
         logger.info(
             "compaction_strategy_selected",
             data={
-                "event": "compaction_strategy_selected",
-                "session_id": session_id,
-                "vault_name": vault_name,
+                **_compaction_log_context(
+                    "compaction_strategy_selected",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "selected",
                 "strategy": readiness.strategy,
                 "configured_strategy": readiness.configured_strategy,
                 "reason": readiness.reason,
@@ -932,25 +1129,35 @@ async def maybe_auto_compact_after_turn(
             },
         )
         try:
-            return await _run_stepped_session_map_reduction(
+            result = await run_chat_context_compaction(
                 session_id=session_id,
                 vault_name=vault_name,
-                readiness=readiness,
+                vault_path=vault_path,
                 authority=ExecutionAuthority(session.owner_principal_id),
                 store=runtime.chat_store,
+                source=ExecutionTaskSource.SYSTEM,
+                automatic=True,
+            )
+            return (
+                None
+                if isinstance(result, ChatContextCompactionUnavailableResult)
+                else result
             )
         except Exception as exc:
             logger.warning(
                 "session_map_context_reduction_deferred",
                 data={
-                    "event": "session_map_context_reduction_deferred",
-                    "session_id": session_id,
-                    "vault_name": vault_name,
+                    **_compaction_log_context(
+                        "session_map_context_reduction_deferred",
+                        session_id=session_id,
+                        vault_name=vault_name,
+                    ),
+                    "status": "deferred",
                     "strategy": readiness.strategy,
                     "configured_strategy": readiness.configured_strategy,
-                    "reason": "session_map_reduction_failed",
-                    "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    **_compaction_failure_details(
+                        exc, reason="session_map_reduction_failed"
+                    ),
                 },
             )
             return None
@@ -958,9 +1165,12 @@ async def maybe_auto_compact_after_turn(
         logger.info(
             "compaction_strategy_selected",
             data={
-                "event": "compaction_strategy_selected",
-                "session_id": session_id,
-                "vault_name": vault_name,
+                **_compaction_log_context(
+                    "compaction_strategy_selected",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "deferred",
                 "strategy": readiness.strategy,
                 "configured_strategy": readiness.configured_strategy,
                 "reason": readiness.reason,
@@ -968,11 +1178,17 @@ async def maybe_auto_compact_after_turn(
             },
         )
         return None
-    return await _run_automatic_recovery_card_compaction(
+    result = await run_chat_context_compaction(
         session_id=session_id,
         vault_name=vault_name,
         vault_path=vault_path,
         authority=ExecutionAuthority(session.owner_principal_id),
+        source=ExecutionTaskSource.SYSTEM,
+        store=runtime.chat_store,
+        automatic=True,
+    )
+    return (
+        None if isinstance(result, ChatContextCompactionUnavailableResult) else result
     )
 
 
@@ -990,6 +1206,21 @@ async def _run_stepped_session_map_reduction(
     """Author and commit one map checkpoint while holding the session lock."""
     if not readiness.enabled or readiness.author_model is None:
         raise ValueError("Session-map reduction requires a ready author model")
+    logger.info(
+        "session_map_context_reduction_started",
+        data={
+            **_compaction_log_context(
+                "session_map_context_reduction_started",
+                session_id=session_id,
+                vault_name=vault_name,
+            ),
+            "status": "started",
+            "source": source.value,
+            "strategy": "session_map",
+            "force": force,
+            "focus_provided": bool((focus or "").strip()),
+        },
+    )
     async with chat_session_history_lock(
         session_id=session_id,
         vault_name=vault_name,
@@ -1076,6 +1307,26 @@ async def _run_stepped_session_map_reduction(
             vault_name=vault_name,
             plan=plan,
         )
+        logger.info(
+            "session_map_context_reduction_plan_selected",
+            data={
+                **_compaction_log_context(
+                    "session_map_context_reduction_plan_selected",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "selected",
+                "source": source.value,
+                "strategy": "session_map",
+                "reason": plan.reason,
+                "author_model": readiness.author_model,
+                "history_revision": history_revision,
+                "messages_before": plan.message_count_before,
+                "evicted_message_count": plan.evicted_message_count,
+                "retained_message_count": plan.retained_message_count,
+                "estimated_tokens_before": plan.estimated_tokens_before,
+            },
+        )
         authored = await run_session_map_authoring(
             SessionMapAuthoringRequest(
                 session_id=session_id,
@@ -1085,7 +1336,8 @@ async def _run_stepped_session_map_reduction(
                 previous_map=previous_map,
                 new_evidence=cumulative_envelopes,
                 recent_evidence=retained_evidence,
-                retrieved_evidence=retrieved_evidence,
+                retrieved_evidence=retrieved_evidence.messages,
+                retrieved_evidence_truncated=retrieved_evidence.truncated,
                 focus=focus,
             ),
             authority=authority,
@@ -1111,7 +1363,7 @@ async def _run_stepped_session_map_reduction(
             author_model_alias=authored.model_alias,
             author_thinking=authored.thinking,
             recent_evidence=retained_evidence,
-            retrieved_evidence=retrieved_evidence,
+            retrieved_evidence=retrieved_evidence.messages,
         )
         messages_after = (
             store.get_history(session_id, vault_name, mode="effective") or []
@@ -1135,7 +1387,12 @@ async def _run_stepped_session_map_reduction(
         logger.info(
             "session_map_context_reduction_completed",
             data={
-                "event": "session_map_context_reduction_completed",
+                **_compaction_log_context(
+                    "session_map_context_reduction_completed",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "completed",
                 **asdict(result),
                 "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
                 "entry_count": len(authored.draft.entries),
@@ -1186,33 +1443,28 @@ def _build_retrieved_session_map_evidence(
     session_id: str,
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
-) -> tuple[SessionMapMessageEvidence, ...]:
-    """Rehydrate canonical messages named by retained transcript windows."""
+) -> SessionMapRetrievedEvidence:
+    """Admit bounded transcript fragments after verifying selected canonical rows."""
     stored_messages = store.get_stored_messages(
         session_id, vault_name, mode="effective"
     )
-    referenced_indexes: set[int] = set()
-    for stored in stored_messages[plan.eviction_end_index :]:
-        referenced_indexes.update(
-            _session_ops_window_sequence_indexes(
+    source_boundaries = _session_map_retrieval_source_boundaries(
+        store=store, session_id=session_id, vault_name=vault_name
+    )
+    canonical_messages: dict[int, StoredChatMessage | None] = {}
+
+    def verified_fragments() -> Iterator[SessionMapMessageEvidence]:
+        for stored in stored_messages[plan.eviction_end_index :]:
+            yield from _session_ops_window_fragments(
                 stored.message,
+                store=store,
                 session_id=session_id,
                 vault_name=vault_name,
+                source_boundaries=source_boundaries,
+                canonical_messages=canonical_messages,
             )
-        )
-    if not referenced_indexes:
-        return ()
-    raw_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
-    return tuple(
-        SessionMapMessageEvidence(
-            sequence_index=message.sequence_index,
-            role=message.role,
-            content_text=message.content_text,
-        )
-        for message in raw_messages
-        if message.sequence_index in referenced_indexes
-        and not _is_session_ops_retrieval_result(message.message)
-    )
+
+    return bound_retrieved_session_map_evidence(verified_fragments())
 
 
 def _is_session_ops_retrieval_result(message: ModelMessage) -> bool:
@@ -1225,16 +1477,48 @@ def _is_session_ops_retrieval_result(message: ModelMessage) -> bool:
     )
 
 
-def _session_ops_window_sequence_indexes(
+def _session_map_retrieval_source_boundaries(
+    *, store: ChatStore, session_id: str, vault_name: str
+) -> dict[str, int | None]:
+    """Resolve ancestor identities only within their inherited canonical prefixes."""
+    boundaries: dict[str, int | None] = {session_id: None}
+    current_session = session_id
+    inherited_through: int | None = None
+    while True:
+        lineage = store.get_session_metadata(current_session, vault_name).get("fork")
+        if not isinstance(lineage, dict):
+            break
+        source = lineage.get("source_session_id")
+        through = lineage.get("through_sequence_index")
+        if (
+            not isinstance(source, str)
+            or not source
+            or source in boundaries
+            or not isinstance(through, int)
+            or isinstance(through, bool)
+            or through < 0
+        ):
+            break
+        inherited_through = (
+            through if inherited_through is None else min(inherited_through, through)
+        )
+        boundaries[source] = inherited_through
+        current_session = source
+    return boundaries
+
+
+def _session_ops_window_fragments(
     message: ModelMessage,
     *,
+    store: ChatStore,
     session_id: str,
     vault_name: str,
-) -> set[int]:
-    """Return canonical indexes from a valid same-session transcript window."""
+    source_boundaries: dict[str, int | None],
+    canonical_messages: dict[int, StoredChatMessage | None],
+) -> Iterator[SessionMapMessageEvidence]:
+    """Verify exact window fragments against selected child-owned canonical rows."""
     if not isinstance(message, ModelRequest):
-        return set()
-    indexes: set[int] = set()
+        return
     for part in message.parts:
         if not isinstance(part, ToolReturnPart) or part.tool_name != "session_ops":
             continue
@@ -1248,7 +1532,12 @@ def _session_ops_window_sequence_indexes(
             continue
         if payload.get("operation") != "get_transcript_window":
             continue
-        if payload.get("status") != "ok" or payload.get("session_id") != session_id:
+        source_session = payload.get("session_id")
+        if (
+            payload.get("status") != "ok"
+            or not isinstance(source_session, str)
+            or source_session not in source_boundaries
+        ):
             continue
         payload_vault = payload.get("vault_name")
         if payload_vault is not None and payload_vault != vault_name:
@@ -1260,43 +1549,61 @@ def _session_ops_window_sequence_indexes(
             if not isinstance(item, dict):
                 continue
             sequence_index = item.get("sequence_index")
-            if isinstance(sequence_index, int) and sequence_index >= 0:
-                indexes.add(sequence_index)
-    return indexes
-
-
-async def _run_automatic_recovery_card_compaction(
-    *,
-    session_id: str,
-    vault_name: str,
-    vault_path: str,
-    authority: ExecutionAuthority,
-) -> ChatHistoryCompactionResult:
-    """Run the existing recovery-card path through its execution task."""
-    runtime = get_runtime_context()
-    return cast(
-        ChatHistoryCompactionResult,
-        await runtime.task_runner.run_inline(
-            ExecutionTaskSpec(
-                kind=ExecutionTaskKind.HISTORY_COMPACTION,
-                scope=chat_session_scope(session_id),
-                source=ExecutionTaskSource.SYSTEM,
-                label=compaction_task_label(session_id),
-                authority=authority,
-                metadata={
-                    "vault": vault_name,
-                    "session_id": session_id,
-                    "automatic": True,
-                },
-            ),
-            lambda _task: compact_chat_history(
-                session_id=session_id,
-                vault_name=vault_name,
-                vault_path=vault_path,
-                source=ExecutionTaskSource.SYSTEM,
-            ),
-        ),
-    )
+            source_boundary = source_boundaries[source_session]
+            if (
+                not isinstance(sequence_index, int)
+                or isinstance(sequence_index, bool)
+                or sequence_index < 0
+                or (source_boundary is not None and sequence_index > source_boundary)
+            ):
+                continue
+            content = item.get("content")
+            start = item.get("content_start", 0)
+            end = item.get(
+                "content_end", len(content) if isinstance(content, str) else 0
+            )
+            complete = item.get("content_complete", True)
+            if (
+                not isinstance(content, str)
+                or not content
+                or not isinstance(start, int)
+                or isinstance(start, bool)
+                or not isinstance(end, int)
+                or isinstance(end, bool)
+                or not isinstance(complete, bool)
+                or start < 0
+                or end - start != len(content)
+            ):
+                continue
+            if sequence_index not in canonical_messages:
+                selected = store.get_stored_messages_range(
+                    session_id,
+                    vault_name,
+                    after_sequence_index=sequence_index - 1,
+                    through_sequence_index=sequence_index,
+                )
+                canonical_messages[sequence_index] = (
+                    selected[0] if len(selected) == 1 else None
+                )
+            canonical = canonical_messages[sequence_index]
+            if canonical is None:
+                continue
+            if (
+                item.get("role") != canonical.role
+                or end > len(canonical.content_text)
+                or canonical.content_text[start:end] != content
+                or complete != (start == 0 and end == len(canonical.content_text))
+                or _is_session_ops_retrieval_result(canonical.message)
+            ):
+                continue
+            yield SessionMapMessageEvidence(
+                sequence_index=sequence_index,
+                role=canonical.role,
+                content_text=content,
+                content_start=start,
+                content_end=end,
+                content_complete=complete,
+            )
 
 
 async def _get_session_lock(*, session_id: str, vault_name: str) -> asyncio.Lock:

@@ -13,6 +13,29 @@ from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority  # noqa:
 from core.settings.store import ModelConfig  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
 
+_RETIRED_SETTING_FIXTURE = {
+    "context_reduction_strategy": "stepped_session_map",
+    "compaction_keep_recent": 4,
+    "compaction_token_threshold": 5000,
+    "session_map_author_model": "test",
+    "session_map_author_thinking": "low",
+    "session_map_low_watermark_tokens": 1500,
+    "session_map_min_retained_groups": 3,
+    "live_session_memory_mode": "observe",
+    "live_session_memory_decision_model": "jev",
+    "live_session_memory_author_model": "test",
+    "live_session_memory_eligibility_turns": 4,
+    "live_session_memory_broad_change_threshold": 0.5,
+    "live_session_memory_field_change_threshold": 0.5,
+    "live_session_memory_max_pending_turns": 12,
+    "live_session_memory_max_pending_tokens": 24000,
+    "live_session_memory_task_timeout_seconds": 120,
+    "live_session_memory_max_concurrent_tasks": 1,
+    "session_map_gate_model": "jev",
+    "session_map_gate_threshold": 0.5,
+    "session_map_gate_max_input_tokens": 24000,
+}
+
 
 class DecisionModelConfigurationScenario(BaseScenario):
     """Prove decision-only aliases are configurable but excluded from chat."""
@@ -200,20 +223,10 @@ class DecisionModelConfigurationScenario(BaseScenario):
         settings = yaml.safe_load(settings_response.json()["content"])
         settings["models"].pop("jev")
         settings["providers"].pop("typesafe")
-        settings["settings"]["live_session_memory_mode"] = {
-            "value": "observe",
-            "description": "Retired validation setting",
-            "category": "Session Memory",
-            "restart_required": False,
-        }
-        for key, value in (
-            ("session_map_gate_model", "jev"),
-            ("session_map_gate_threshold", 0.5),
-            ("session_map_gate_max_input_tokens", 24000),
-        ):
+        for key, value in _RETIRED_SETTING_FIXTURE.items():
             settings["settings"][key] = {
                 "value": value,
-                "description": "Retired session-map gate setting",
+                "description": "Retired compaction or live-memory setting",
                 "category": "Chat",
                 "restart_required": False,
             }
@@ -229,16 +242,10 @@ class DecisionModelConfigurationScenario(BaseScenario):
         )
         self.soft_assert(
             all(
-                setting["key"]
-                not in {
-                    "live_session_memory_mode",
-                    "session_map_gate_model",
-                    "session_map_gate_threshold",
-                    "session_map_gate_max_input_tokens",
-                }
+                setting["key"] not in _RETIRED_SETTING_FIXTURE
                 for setting in self.call_api("/api/system/settings/general").json()
             ),
-            "Retired memory settings should stay out of the settings API",
+            "All retired compaction and live-memory settings should stay out of the settings API",
         )
         repair = self.call_api("/api/system/settings/repair", method="POST")
         repaired = yaml.safe_load(repair.json()["content"])
@@ -253,19 +260,8 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "Settings repair should add the TypeSafe secret pointer",
         )
         self.soft_assert(
-            "live_session_memory_mode" not in repaired["settings"],
-            "Settings repair should remove retired live-session-memory settings",
-        )
-        self.soft_assert(
-            all(
-                key not in repaired["settings"]
-                for key in (
-                    "session_map_gate_model",
-                    "session_map_gate_threshold",
-                    "session_map_gate_max_input_tokens",
-                )
-            ),
-            "Settings repair should remove retired session-map gate settings",
+            _RETIRED_SETTING_FIXTURE.keys().isdisjoint(repaired["settings"]),
+            "Settings repair should remove every retired compaction and live-memory setting",
         )
 
         clear_secret = self.call_api(

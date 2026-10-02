@@ -1440,12 +1440,12 @@ async def _run_prepared_chat_stream_task_inner(
             )
             raise
 
-    if final_result and deferred_review is None:
-        await chat_executor._try_auto_compact_after_turn(
-            session_id=session_id,
-            vault_name=vault_name,
-            vault_path=vault_path,
-        )
+        if final_result and deferred_review is None:
+            await chat_executor._try_auto_compact_after_turn(
+                session_id=session_id,
+                vault_name=vault_name,
+                vault_path=vault_path,
+            )
 
 
 async def _collect_chat_stream_attempt(

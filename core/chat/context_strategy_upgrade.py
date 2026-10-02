@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict, dataclass
 from typing import Literal, cast
 
@@ -58,6 +59,11 @@ logger = UnifiedLogger(
     tag="context-strategy-upgrade",
     default_sinks=["activity", "logfire", "validation"],
 )
+
+# Admission is short-lived; execution remains governed by the session gate and
+# history lock. The task coordinator, not a separate pending-upgrade registry,
+# owns active-operation state and releases it on cancellation or runtime restart.
+_UPGRADE_ADMISSION_LOCK = asyncio.Lock()
 
 
 class SessionContextStrategyUpgradeUnavailable(ValueError):
@@ -127,13 +133,39 @@ async def start_session_context_strategy_upgrade(
     vault_name: str,
     authority: ExecutionAuthority,
 ) -> ExecutionTaskSnapshot:
-    """Start one explicitly selected upgrade in the runtime background."""
+    """Start or reuse one explicitly selected active upgrade."""
+    async with _UPGRADE_ADMISSION_LOCK:
+        return await _admit_session_context_strategy_upgrade(
+            session_id=session_id,
+            vault_name=vault_name,
+            authority=authority,
+        )
+
+
+async def _admit_session_context_strategy_upgrade(
+    *,
+    session_id: str,
+    vault_name: str,
+    authority: ExecutionAuthority,
+) -> ExecutionTaskSnapshot:
+    """Atomically resolve eligibility and register one background operation."""
     runtime = get_runtime_context()
     session = runtime.chat_store.get_session(session_id, vault_name)
     if session is None:
         raise SessionContextStrategyUpgradeUnavailable("session_not_found")
     if session.owner_principal_id != authority.principal_id:
         raise SessionContextStrategyUpgradeUnavailable("session_owner_mismatch")
+    active = await runtime.task_coordinator.list_tasks(
+        kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+        scope=chat_session_scope(session_id),
+        include_terminal=False,
+    )
+    for task in active:
+        if (
+            task.principal_id == authority.principal_id
+            and task.metadata.get("vault") == vault_name
+        ):
+            return task
     status = get_session_context_strategy_status(
         store=runtime.chat_store,
         session_id=session_id,
@@ -152,6 +184,7 @@ async def start_session_context_strategy_upgrade(
     author_thinking = get_compaction_author_thinking()
     high_watermark = get_compaction_high_watermark_tokens()
     low_watermark = get_compaction_low_watermark_tokens()
+    minimum_retained_groups = get_compaction_retained_turns()
     if low_watermark >= high_watermark:
         raise SessionContextStrategyUpgradeUnavailable("invalid_watermarks")
 
@@ -168,7 +201,7 @@ async def start_session_context_strategy_upgrade(
                 author_thinking=author_thinking,
                 high_watermark=high_watermark,
                 low_watermark=low_watermark,
-                minimum_retained_groups=get_compaction_retained_turns(),
+                minimum_retained_groups=minimum_retained_groups,
                 authority=authority,
             )
             return asdict(result)
@@ -227,7 +260,10 @@ async def _run_session_context_strategy_upgrade(
         "context_strategy_upgrade_started",
         data={
             "event": "context_strategy_upgrade_started",
+            "status": "running",
             "task_id": task.task_id,
+            "parent_task_id": task.parent_task_id,
+            "source": task.source,
             "session_id": session_id,
             "vault_name": vault_name,
             "source_checkpoint_id": source_checkpoint.checkpoint_id,
@@ -274,7 +310,10 @@ async def _run_session_context_strategy_upgrade(
                 "context_strategy_upgrade_planned",
                 data={
                     "event": "context_strategy_upgrade_planned",
+                    "status": "planned",
                     "task_id": task.task_id,
+                    "parent_task_id": task.parent_task_id,
+                    "source": task.source,
                     "session_id": session_id,
                     "vault_name": vault_name,
                     "target_boundary": plan.eviction_end_index - 1,
@@ -305,6 +344,16 @@ async def _run_session_context_strategy_upgrade(
                     authority=authority,
                     source=ExecutionTaskSource.API,
                 )
+                # Writers outside this process need not share the history lock.
+                # Stop between passes rather than spend the remaining inference
+                # budget on a snapshot that can no longer be committed.
+                if (
+                    store.get_session_history_revision(session_id, vault_name)
+                    != history_revision
+                ):
+                    raise SessionContextStrategyUpgradeUnavailable(
+                        "session_history_changed"
+                    )
                 previous_map = authored.draft
                 await get_runtime_context().task_coordinator.heartbeat(
                     task.task_id,
@@ -316,13 +365,6 @@ async def _run_session_context_strategy_upgrade(
                 )
             if authored is None:  # pragma: no cover - evidence is required
                 raise RuntimeError("Context-strategy upgrade produced no authored map")
-            if (
-                store.get_session_history_revision(session_id, vault_name)
-                != history_revision
-            ):
-                raise SessionContextStrategyUpgradeUnavailable(
-                    "session_history_changed"
-                )
             effective_before = (
                 store.get_history(session_id, vault_name, mode="effective") or []
             )
@@ -359,26 +401,63 @@ async def _run_session_context_strategy_upgrade(
                 "context_strategy_upgrade_completed",
                 data={
                     "event": "context_strategy_upgrade_completed",
+                    "status": "completed",
                     "task_id": task.task_id,
+                    "parent_task_id": task.parent_task_id,
+                    "source": task.source,
                     **asdict(result),
                     "raw_messages_preserved": True,
                 },
             )
             return result
+    except asyncio.CancelledError:
+        logger.info(
+            "context_strategy_upgrade_cancelled",
+            data={
+                "event": "context_strategy_upgrade_cancelled",
+                "status": "cancelled",
+                "task_id": task.task_id,
+                "parent_task_id": task.parent_task_id,
+                "source": task.source,
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "source_checkpoint_id": source_checkpoint.checkpoint_id,
+                "reason": "upgrade_cancelled",
+            },
+        )
+        raise
     except Exception as exc:
+        reason = _upgrade_failure_reason(exc)
         logger.warning(
             "context_strategy_upgrade_failed",
             data={
                 "event": "context_strategy_upgrade_failed",
+                "status": "failed",
+                "issue": f"context_strategy_upgrade_failed:{task.task_id}",
                 "task_id": task.task_id,
+                "parent_task_id": task.parent_task_id,
+                "source": task.source,
                 "session_id": session_id,
                 "vault_name": vault_name,
                 "source_checkpoint_id": source_checkpoint.checkpoint_id,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "reason": reason,
+                "error": reason.replace("_", " "),
             },
         )
         raise
+
+
+def _upgrade_failure_reason(error: Exception) -> str:
+    """Keep closed lifecycle reasons without copying arbitrary exception text."""
+    if isinstance(error, SessionContextStrategyUpgradeUnavailable) and error.reason in {
+        "recovery_checkpoint_changed",
+        "session_history_changed",
+        "canonical_history_empty",
+        "canonical_history_too_small",
+    }:
+        return error.reason
+    return "upgrade_execution_failed"
 
 
 def _plan_upgrade_eviction(

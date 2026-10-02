@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, fields, is_dataclass, replace
 from typing import Any, Literal, cast
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -21,6 +21,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_core import to_jsonable_python
 
+from core.chat.tool_history import analyze_tool_history
 from core.database import connect_sqlite_from_system_db
 from core.identity import normalize_principal_id
 from core.logger import UnifiedLogger
@@ -37,6 +38,32 @@ _MODEL_MESSAGE_LIST_ADAPTER: TypeAdapter[list[ModelMessage]] = TypeAdapter(
 )
 HistoryMode = Literal["effective", "raw"]
 ContextCheckpointKind = Literal["recovery_card", "session_map"]
+
+
+class ChatHistoryCorruptionError(RuntimeError):
+    """A persisted chat record cannot safely become canonical or effective history."""
+
+    def __init__(
+        self,
+        *,
+        session_id: str,
+        vault_name: str,
+        sequence_index: int | None = None,
+        checkpoint_id: str | None = None,
+    ) -> None:
+        self.session_id = session_id
+        self.vault_name = vault_name
+        self.sequence_index = sequence_index
+        self.checkpoint_id = checkpoint_id
+        record = (
+            f"canonical message {sequence_index}"
+            if sequence_index is not None
+            else f"context checkpoint '{checkpoint_id}'"
+        )
+        super().__init__(
+            f"Unable to deserialize {record} for session '{session_id}' "
+            f"in vault '{vault_name}'."
+        )
 
 
 def _json_dumps(value: Any) -> str:
@@ -90,6 +117,11 @@ class StoredContextCheckpoint:
     replacement_history_json: str
     replacement_source_sequence_indexes_json: str | None = None
     metadata_json: str | None = None
+
+    @property
+    def observed_through_sequence_index(self) -> int:
+        """Return the validated canonical cutoff required for safe inheritance."""
+        return _checkpoint_observation_boundary(self)
 
 
 StoredCompactionCheckpoint = StoredContextCheckpoint
@@ -447,6 +479,11 @@ class ChatStore:
             if messages[-1].sequence_index != through_sequence_index:
                 raise ValueError(
                     f"Canonical fork point does not exist: {through_sequence_index}"
+                )
+            if through_sequence_index not in canonical_assistant_fork_points(messages):
+                raise ValueError(
+                    f"Canonical fork point is not a protocol-complete assistant "
+                    f"message: {through_sequence_index}"
                 )
 
             checkpoint_rows = conn.execute(
@@ -1348,6 +1385,7 @@ class ChatStore:
         replacement_source_sequence_indexes: list[int | None] | None = None,
         metadata: dict[str, Any] | None = None,
         metadata_update: dict[str, Any] | None = None,
+        expected_history_revision: int | None = None,
     ) -> None:
         """Record a compaction checkpoint without mutating raw chat messages."""
         self.add_context_checkpoint(
@@ -1363,6 +1401,7 @@ class ChatStore:
             replacement_source_sequence_indexes=(replacement_source_sequence_indexes),
             metadata=metadata,
             metadata_update=metadata_update,
+            expected_history_revision=expected_history_revision,
         )
 
     def add_context_checkpoint(
@@ -1604,18 +1643,28 @@ class ChatStore:
             messages = _MODEL_MESSAGE_LIST_ADAPTER.validate_json(
                 checkpoint.replacement_history_json
             )
-        except Exception as exc:  # noqa: BLE001
+        except ValidationError as exc:
+            error = ChatHistoryCorruptionError(
+                session_id=session_id,
+                vault_name=vault_name,
+                checkpoint_id=checkpoint.checkpoint_id,
+            )
             logger.warning(
                 "Failed to deserialize compaction checkpoint replacement history",
                 data={
+                    "event": "chat_history_deserialization_failed",
+                    "status": "failed",
+                    "reason": "invalid_checkpoint_replacement",
+                    "issue": f"chat-history-corruption:{checkpoint.checkpoint_id}",
                     "session_id": session_id,
                     "vault_name": vault_name,
                     "checkpoint_id": checkpoint.checkpoint_id,
-                    "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    "error_type": type(error).__name__,
+                    "cause_type": type(exc).__name__,
+                    "error": str(error),
                 },
             )
-            return []
+            raise error from exc
 
         origins = self._checkpoint_replacement_origins(
             conn,
@@ -1727,18 +1776,28 @@ class ChatStore:
             ) = row
             try:
                 message = _MODEL_MESSAGE_ADAPTER.validate_json(message_json)
-            except Exception as exc:  # noqa: BLE001
+            except ValidationError as exc:
+                error = ChatHistoryCorruptionError(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    sequence_index=int(sequence_index),
+                )
                 logger.warning(
                     "Failed to deserialize stored chat message",
                     data={
+                        "event": "chat_history_deserialization_failed",
+                        "status": "failed",
+                        "reason": "invalid_canonical_message",
+                        "issue": f"chat-history-corruption:{session_id}:{sequence_index}",
                         "session_id": session_id,
                         "vault_name": vault_name,
                         "sequence_index": sequence_index,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
+                        "error_type": type(error).__name__,
+                        "cause_type": type(exc).__name__,
+                        "error": str(error),
                     },
                 )
-                continue
+                raise error from exc
             messages.append(
                 StoredChatMessage(
                     sequence_index=int(sequence_index),
@@ -1986,6 +2045,35 @@ def _metadata_history_revision(metadata: dict[str, Any]) -> int:
     return max(revision, 0)
 
 
+def canonical_assistant_fork_points(messages: Sequence[StoredChatMessage]) -> set[int]:
+    """Return known canonical assistant origins whose prefixes are protocol-complete."""
+    integrity = analyze_tool_history([message.message for message in messages])
+    # A future unfinished call cannot invalidate an earlier complete prefix;
+    # pending calls are checked as each possible boundary is visited below.
+    invalid_from = min(
+        (
+            issue.message_index
+            for issue in integrity.issues
+            if issue.code != "orphan_tool_call"
+        ),
+        default=len(messages),
+    )
+    fork_points: set[int] = set()
+    pending_tool_call_ids: set[str] = set()
+    for index, message in enumerate(messages):
+        if index >= invalid_from:
+            break
+        pending_tool_call_ids.update(message.tool_call_ids)
+        pending_tool_call_ids.difference_update(message.tool_return_ids)
+        if (
+            isinstance(message.message, ModelResponse)
+            and message.fork_sequence_index is not None
+            and not pending_tool_call_ids
+        ):
+            fork_points.add(message.fork_sequence_index)
+    return fork_points
+
+
 def _fork_session_metadata(source_metadata: dict[str, Any]) -> dict[str, Any]:
     """Return source session metadata that is safe to carry into a fork."""
     metadata = dict(source_metadata)
@@ -2012,17 +2100,29 @@ def _checkpoint_metadata(checkpoint: StoredContextCheckpoint) -> dict[str, Any]:
 
 def _checkpoint_observation_boundary(checkpoint: StoredContextCheckpoint) -> int:
     """Return the newest canonical message visible to a checkpoint author."""
+    invalid_boundary = (
+        f"Invalid checkpoint observation boundary: {checkpoint.checkpoint_id}"
+    )
+    if checkpoint.last_message_sequence_index < 0:
+        raise ValueError(invalid_boundary)
     if checkpoint.checkpoint_kind != "session_map":
         return checkpoint.last_message_sequence_index
-    raw = _checkpoint_metadata(checkpoint).get("map_observed_through_sequence_index")
-    if isinstance(raw, int):
-        return raw
-    if isinstance(raw, str):
-        try:
-            return int(raw)
-        except ValueError:
-            pass
-    return checkpoint.last_message_sequence_index
+    if checkpoint.metadata_json is None:
+        return checkpoint.last_message_sequence_index
+    try:
+        metadata = json.loads(checkpoint.metadata_json)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError(invalid_boundary) from exc
+    if not isinstance(metadata, dict):
+        raise ValueError(invalid_boundary)
+    # Early map checkpoints did not record the author observation cutoff.
+    # Their consumed boundary is the only durable inheritance boundary available.
+    if "map_observed_through_sequence_index" not in metadata:
+        return checkpoint.last_message_sequence_index
+    observed = metadata["map_observed_through_sequence_index"]
+    if type(observed) is not int or observed < checkpoint.last_message_sequence_index:
+        raise ValueError(invalid_boundary)
+    return observed
 
 
 def _message_for_persistence(

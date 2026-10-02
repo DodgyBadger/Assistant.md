@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
@@ -27,7 +28,11 @@ from core.runtime.task_runner import ExecutionTaskSpec
 
 from .authoring import build_session_map_authoring_prompt
 from .evidence import SessionMapEvidence, SessionMapMessageEvidence
-from .models import SessionMapDraft, validate_session_map_provenance
+from .models import (
+    SessionMapDraft,
+    SessionMapProvenanceError,
+    validate_session_map_provenance,
+)
 
 logger = UnifiedLogger(
     tag="session-map-authoring",
@@ -48,6 +53,7 @@ class SessionMapAuthoringRequest:
     new_evidence: tuple[SessionMapEvidence, ...]
     recent_evidence: tuple[SessionMapMessageEvidence, ...] = ()
     retrieved_evidence: tuple[SessionMapMessageEvidence, ...] = ()
+    retrieved_evidence_truncated: bool = False
     thinking: ThinkingValue = None
     focus: str | None = None
 
@@ -126,10 +132,18 @@ async def run_session_map_authoring(
                 "new_evidence_count": len(request.new_evidence),
                 "recent_evidence_message_count": len(request.recent_evidence),
                 "retrieved_evidence_message_count": len(request.retrieved_evidence),
+                "retrieved_evidence_truncated": request.retrieved_evidence_truncated,
                 "focus_provided": bool((request.focus or "").strip()),
             },
         ),
-        lambda task: _execute_session_map_authoring(request, task_id=task.task_id),
+        lambda task: _execute_session_map_authoring(
+            request,
+            task_id=task.task_id,
+            upgrade_reconstruction=(
+                parent_task is not None
+                and parent_task.kind == ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE
+            ),
+        ),
     )
     if not isinstance(result, SessionMapAuthoringResult):
         raise TypeError("Session-map execution returned an invalid result")
@@ -140,6 +154,7 @@ async def _execute_session_map_authoring(
     request: SessionMapAuthoringRequest,
     *,
     task_id: str,
+    upgrade_reconstruction: bool,
 ) -> SessionMapAuthoringResult:
     task = get_current_execution_task()
     if task is None or task.task_id != task_id:
@@ -149,11 +164,19 @@ async def _execute_session_map_authoring(
 
     first_source = request.new_evidence[0].source_start_sequence_index
     last_source = request.new_evidence[-1].source_end_sequence_index
-    logger.info(
+    lifecycle_log = (
+        logger.set_sinks(["logfire", "validation"])
+        if upgrade_reconstruction
+        else logger
+    )
+    lifecycle_log.info(
         "session_map_authoring_started",
         data={
             "event": "session_map_authoring_started",
+            "status": "running",
             "task_id": task_id,
+            "parent_task_id": task.parent_task_id,
+            "source": task.source,
             "session_id": request.session_id,
             "vault_name": request.vault_name,
             "model_alias": request.model_alias,
@@ -164,6 +187,7 @@ async def _execute_session_map_authoring(
             "previous_entry_count": len(request.previous_map.entries),
             "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
+            "retrieved_evidence_truncated": request.retrieved_evidence_truncated,
             "focus_provided": bool((request.focus or "").strip()),
             "recent_evidence_source_start": (
                 request.recent_evidence[0].sequence_index
@@ -183,6 +207,7 @@ async def _execute_session_map_authoring(
             new_evidence=request.new_evidence,
             recent_evidence=request.recent_evidence,
             retrieved_evidence=request.retrieved_evidence,
+            retrieved_evidence_truncated=request.retrieved_evidence_truncated,
             focus=request.focus,
         )
 
@@ -196,26 +221,51 @@ async def _execute_session_map_authoring(
             output_validator=validate_output,
         )
         _validate_session_map_output(draft, request=request)
+    except asyncio.CancelledError:
+        logger.info(
+            "session_map_authoring_cancelled",
+            data={
+                "event": "session_map_authoring_cancelled",
+                "status": "cancelled",
+                "task_id": task_id,
+                "parent_task_id": task.parent_task_id,
+                "source": task.source,
+                "session_id": request.session_id,
+                "vault_name": request.vault_name,
+                "model_alias": request.model_alias,
+                "reason": "authoring_cancelled",
+            },
+        )
+        raise
     except Exception as exc:
+        reason = _session_map_authoring_failure_reason(exc)
         logger.warning(
             "session_map_authoring_failed",
             data={
                 "event": "session_map_authoring_failed",
+                "status": "failed",
+                "issue": f"session_map_authoring_failed:{task_id}",
                 "task_id": task_id,
+                "parent_task_id": task.parent_task_id,
+                "source": task.source,
                 "session_id": request.session_id,
                 "vault_name": request.vault_name,
                 "model_alias": request.model_alias,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "reason": reason,
+                "error": reason.replace("_", " "),
             },
         )
         raise
 
-    logger.info(
+    lifecycle_log.info(
         "session_map_authoring_completed",
         data={
             "event": "session_map_authoring_completed",
+            "status": "completed",
             "task_id": task_id,
+            "parent_task_id": task.parent_task_id,
+            "source": task.source,
             "session_id": request.session_id,
             "vault_name": request.vault_name,
             "model_alias": request.model_alias,
@@ -227,6 +277,7 @@ async def _execute_session_map_authoring(
             "new_evidence_count": len(request.new_evidence),
             "recent_evidence_message_count": len(request.recent_evidence),
             "retrieved_evidence_message_count": len(request.retrieved_evidence),
+            "retrieved_evidence_truncated": request.retrieved_evidence_truncated,
             "focus_provided": bool((request.focus or "").strip()),
         },
     )
@@ -241,6 +292,17 @@ async def _execute_session_map_authoring(
         evidence_source_start=first_source,
         evidence_source_end=last_source,
     )
+
+
+def _session_map_authoring_failure_reason(error: Exception) -> str:
+    """Project categories, never model outputs or provider exception contents."""
+    if isinstance(error, SessionMapProvenanceError):
+        return "invalid_provenance"
+    if isinstance(error, TypeError | ValueError):
+        return "invalid_authoring_input_or_output"
+    if isinstance(error, TimeoutError):
+        return "authoring_timeout"
+    return "authoring_failed"
 
 
 async def _invoke_session_map_model(

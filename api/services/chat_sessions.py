@@ -5,6 +5,7 @@ import re
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart
 
@@ -14,8 +15,9 @@ from core.chat.chat_store import (
     StoredChatSession,
     StoredChatToolEvent,
     StoredContextCheckpoint,
+    canonical_assistant_fork_points,
 )
-from core.chat.compaction import compact_chat_context, get_compaction_status
+from core.chat.compaction import get_compaction_status, run_chat_context_compaction
 from core.chat.context_strategy_upgrade import (
     SessionContextStrategyUpgradeUnavailable,
     get_session_context_strategy_status,
@@ -33,15 +35,8 @@ from core.memory.session_map.checkpoints import (
     load_session_map_observed_through,
 )
 from core.memory.session_summary import SessionSummary, SessionSummaryStore
-from core.runtime.execution_tasks import (
-    ExecutionTaskKind,
-    ExecutionTaskSnapshot,
-    ExecutionTaskSource,
-    chat_session_scope,
-    compaction_task_label,
-)
+from core.runtime.execution_tasks import ExecutionTaskSnapshot, ExecutionTaskSource
 from core.runtime.state import RuntimeStateError, get_runtime_context
-from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings.store import (
     get_enabled_tool_names,
     get_enabled_tools_config,
@@ -493,7 +488,7 @@ def _session_map_transcript_items(
 ) -> list[ChatSessionMessageInfo]:
     """Preserve canonical sequence while collapsing adjacent provider tool traffic."""
     displayed: list[ChatSessionMessageInfo] = []
-    canonical_fork_points = _canonical_assistant_fork_points(messages)
+    canonical_fork_points = canonical_assistant_fork_points(messages)
     summaries = {
         item.tool_call_id: item
         for item in _effective_tool_call_info(
@@ -545,7 +540,9 @@ def _session_map_transcript_items(
         group.clear()
 
     for message in messages:
-        projected = _chat_session_message_info(message)
+        projected = _chat_session_message_info(
+            message, canonical_fork_points=canonical_fork_points
+        )
         if projected.is_tool_message:
             if projected.role == "assistant" and projected.content:
                 flush_tool_group()
@@ -555,12 +552,6 @@ def _session_map_transcript_items(
                             "is_tool_message": False,
                             "tool_call_ids": [],
                             "tool_return_ids": [],
-                            "fork_sequence_index": (
-                                projected.fork_sequence_index
-                                if projected.fork_sequence_index
-                                in canonical_fork_points
-                                else None
-                            ),
                         }
                     )
                 )
@@ -569,11 +560,6 @@ def _session_map_transcript_items(
         flush_tool_group()
         if projected.role not in {"user", "assistant"}:
             continue
-        if (
-            projected.role == "assistant"
-            and projected.fork_sequence_index not in canonical_fork_points
-        ):
-            projected = projected.model_copy(update={"fork_sequence_index": None})
         displayed.append(projected)
     flush_tool_group()
     return displayed
@@ -586,12 +572,57 @@ def fork_chat_session(
     through_sequence_index: int,
 ) -> ChatSessionForkResponse:
     """Create a new chat session from a source session prefix."""
+    operation_id = uuid4().hex
+    logger.info(
+        "chat_session_fork_started",
+        data={
+            "event": "chat_session_fork_started",
+            "status": "started",
+            "operation_id": operation_id,
+            "vault_name": vault_name,
+            "source_session_id": source_session_id,
+            "canonical_through_sequence_index": through_sequence_index,
+        },
+    )
+    try:
+        return _fork_chat_session(
+            vault_name=vault_name,
+            source_session_id=source_session_id,
+            through_sequence_index=through_sequence_index,
+            operation_id=operation_id,
+        )
+    except Exception as exc:
+        error_type = type(exc).__name__
+        logger.warning(
+            "chat_session_fork_failed",
+            data={
+                "event": "chat_session_fork_failed",
+                "status": "failed",
+                "operation_id": operation_id,
+                "issue": f"chat_session_fork:{operation_id}",
+                "vault_name": vault_name,
+                "source_session_id": source_session_id,
+                "canonical_through_sequence_index": through_sequence_index,
+                "error_type": error_type,
+                "error": "The session fork failed; inspect server diagnostics.",
+            },
+        )
+        raise
+
+
+def _fork_chat_session(
+    *,
+    vault_name: str,
+    source_session_id: str,
+    through_sequence_index: int,
+    operation_id: str,
+) -> ChatSessionForkResponse:
     source_session = _require_chat_session_access(vault_name, source_session_id)
 
     source_messages = _chat_store.get_stored_messages(
         source_session_id, vault_name, mode="raw"
     )
-    canonical_fork_points = _canonical_assistant_fork_points(source_messages)
+    canonical_fork_points = canonical_assistant_fork_points(source_messages)
     if not canonical_fork_points:
         raise APIException(
             status_code=400,
@@ -655,6 +686,8 @@ def fork_chat_session(
         "chat_session_fork_completed",
         data={
             "event": "chat_session_fork_completed",
+            "status": "completed",
+            "operation_id": operation_id,
             "vault_name": vault_name,
             "source_session_id": source_session_id,
             "new_session_id": new_session_id,
@@ -718,24 +751,6 @@ def _generate_unique_chat_session_id(vault_name: str) -> str:
         suffix += 1
         generated_session_id = f"{base_session_id}_{suffix}"
     return generated_session_id
-
-
-def _canonical_assistant_fork_points(
-    messages: list[StoredChatMessage],
-) -> set[int]:
-    """Return assistant boundaries that leave provider tool history complete."""
-    fork_points: set[int] = set()
-    pending_tool_call_ids: set[str] = set()
-    for message in messages:
-        pending_tool_call_ids.update(message.tool_call_ids)
-        pending_tool_call_ids.difference_update(message.tool_return_ids)
-        if (
-            message.role == "assistant"
-            and message.fork_sequence_index is not None
-            and not pending_tool_call_ids
-        ):
-            fork_points.add(message.fork_sequence_index)
-    return fork_points
 
 
 def _forked_session_title(source_session: StoredChatSession) -> str:
@@ -947,6 +962,7 @@ def get_chat_session_detail(
     """Return persisted chat messages for one session."""
     _require_chat_session_access(vault_name, session_id)
     messages = _chat_store.get_stored_messages(session_id, vault_name)
+    canonical_fork_points = canonical_assistant_fork_points(messages)
     latest_checkpoint = _chat_store.get_latest_context_checkpoint(
         session_id, vault_name
     )
@@ -980,6 +996,7 @@ def get_chat_session_detail(
         messages=[
             _chat_session_message_info(
                 message,
+                canonical_fork_points=canonical_fork_points,
                 context_checkpoint=(
                     latest_checkpoint
                     if (
@@ -1207,6 +1224,7 @@ def _stored_tool_call_token_count(
 def _chat_session_message_info(
     message: StoredChatMessage,
     *,
+    canonical_fork_points: set[int],
     context_checkpoint: StoredContextCheckpoint | None = None,
 ) -> ChatSessionMessageInfo:
     """Return browser-safe display data while withholding tool message contents."""
@@ -1222,7 +1240,12 @@ def _chat_session_message_info(
     )
     return ChatSessionMessageInfo(
         sequence_index=message.sequence_index,
-        fork_sequence_index=message.fork_sequence_index,
+        fork_sequence_index=(
+            message.fork_sequence_index
+            if message.role != "assistant"
+            or message.fork_sequence_index in canonical_fork_points
+            else None
+        ),
         role=message.role,
         content=(
             ""
@@ -1395,25 +1418,14 @@ async def compact_chat_session_history(
 ) -> ChatHistoryCompactionResponse:
     """Compact one chat session through the shared compaction service."""
     _require_chat_session_access(vault_name, session_id)
-    runtime = get_runtime_context()
-    result = await runtime.task_runner.run_inline(
-        ExecutionTaskSpec(
-            kind=ExecutionTaskKind.HISTORY_COMPACTION,
-            scope=chat_session_scope(session_id),
-            source=ExecutionTaskSource.API,
-            label=compaction_task_label(session_id),
-            authority=require_current_execution_authority(),
-            metadata={"vault": vault_name, "session_id": session_id},
-        ),
-        lambda _task: compact_chat_context(
-            session_id=session_id,
-            vault_name=vault_name,
-            vault_path=vault_path,
-            focus=focus,
-            source=ExecutionTaskSource.API,
-            authority=require_current_execution_authority(),
-            store=_chat_store,
-        ),
+    result = await run_chat_context_compaction(
+        session_id=session_id,
+        vault_name=vault_name,
+        vault_path=vault_path,
+        focus=focus,
+        source=ExecutionTaskSource.API,
+        authority=require_current_execution_authority(),
+        store=_chat_store,
     )
     return ChatHistoryCompactionResponse(**result.as_api_dict())
 

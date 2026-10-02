@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -17,13 +18,18 @@ from pydantic_ai.messages import (  # noqa: E402
     UserPromptPart,
 )
 
+from core.chat.chat_store import ChatHistoryCorruptionError, ChatStore  # noqa: E402
 from core.identity import LOCAL_USER_PRINCIPAL_ID  # noqa: E402
 from core.memory.session_map.checkpoints import (  # noqa: E402
     build_session_map_context_message,
     commit_session_map_context_checkpoint,
     load_session_map_checkpoint,
+    load_session_map_observed_through,
 )
-from core.memory.session_map.evidence import SessionMapEvidence  # noqa: E402
+from core.memory.session_map.evidence import (  # noqa: E402
+    SessionMapEvidence,
+    SessionMapMessageEvidence,
+)
 from core.memory.session_map.models import (  # noqa: E402
     SessionMapDraft,
     SessionMapEntry,
@@ -576,7 +582,251 @@ class SessionMapCheckpointScenario(BaseScenario):
             "Evicted tool details should require an authorized checkpoint scope",
         )
 
+        recovery_session_id = "corrupted-recovery-checkpoint"
+        store.ensure_session(
+            recovery_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(recovery_session_id, vault.name, raw_messages)
+        recovery_context = _user("Persisted recovery context")
+        store.add_compaction_checkpoint(
+            session_id=recovery_session_id,
+            vault_name=vault.name,
+            checkpoint_id="corrupted-recovery-checkpoint",
+            source="validation",
+            message_count_before=len(raw_messages),
+            last_message_sequence_index=3,
+            summary_message=recovery_context,
+            replacement_history=[recovery_context],
+            replacement_source_sequence_indexes=[None],
+        )
+        for inspected_session_id in (session_id, recovery_session_id):
+            self._assert_corrupt_replacement_is_rejected(
+                store=store,
+                session_id=inspected_session_id,
+                vault_name=vault.name,
+                database_path=get_runtime_context().config.system_root
+                / "chat_sessions.db",
+            )
+
+        self._assert_checkpoint_boundary_contract(store=store, vault_name=vault.name)
         self.assert_no_failures()
+
+    def _assert_checkpoint_boundary_contract(
+        self, *, store: ChatStore, vault_name: str
+    ) -> None:
+        session_id = "checkpoint-boundary-integrity"
+        store.ensure_session(
+            session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        raw_messages = [
+            message
+            for index in range(4)
+            for message in (_user(f"Question {index}"), _assistant(f"Answer {index}"))
+        ]
+        store.add_messages(session_id, vault_name, raw_messages)
+        revision = store.get_session_history_revision(session_id, vault_name)
+
+        def envelope(start: int, end: int) -> SessionMapEvidence:
+            return _envelope(
+                session_id=session_id,
+                vault_name=vault_name,
+                history_revision=revision,
+                start=start,
+                end=end,
+            )
+
+        recent = (SessionMapMessageEvidence(3, "assistant", "Recent context"),)
+        retrieved = (SessionMapMessageEvidence(7, "assistant", "Retrieved context"),)
+        invalid_cases = [
+            ((envelope(2, 3),), (), (), None),
+            ((envelope(0, 1), envelope(3, 4)), (), (), None),
+            ((envelope(0, 1),), (), (), -1),
+            ((envelope(0, 1),), (), (), 0),
+            ((envelope(0, 1),), (), (), True),
+            ((envelope(0, 1),), recent, (), 1),
+            ((envelope(0, 1),), (), retrieved, 3),
+        ]
+        for evidence, recent_evidence, retrieved_evidence, observed in invalid_cases:
+            try:
+                commit_session_map_context_checkpoint(
+                    store=store,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    draft=SessionMapDraft(),
+                    previous_map=SessionMapDraft(),
+                    new_evidence=evidence,
+                    expected_history_revision=revision,
+                    message_count_before=len(raw_messages),
+                    source="validation",
+                    recent_evidence=recent_evidence,
+                    retrieved_evidence=retrieved_evidence,
+                    map_observed_through_sequence_index=observed,
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "Invalid evidence coverage or observation cutoff must not commit"
+                )
+            self.soft_assert_equal(
+                store.get_session_history_revision(session_id, vault_name),
+                revision,
+                "Rejected boundary evidence must not advance history revision",
+            )
+            self.soft_assert_equal(
+                store.list_context_checkpoints(session_id, vault_name),
+                [],
+                "Rejected boundary evidence must not create a checkpoint",
+            )
+
+        committed = commit_session_map_context_checkpoint(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            draft=SessionMapDraft(),
+            previous_map=SessionMapDraft(),
+            new_evidence=(envelope(0, 1),),
+            expected_history_revision=revision,
+            message_count_before=len(raw_messages),
+            source="validation",
+            recent_evidence=recent,
+            retrieved_evidence=retrieved,
+        )
+        self.soft_assert_equal(
+            load_session_map_observed_through(committed.checkpoint),
+            7,
+            "The default cutoff must cover retained and retrieved authoring evidence",
+        )
+        revision = store.get_session_history_revision(session_id, vault_name)
+        for start in (1, 3):
+            try:
+                commit_session_map_context_checkpoint(
+                    store=store,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    draft=SessionMapDraft(),
+                    previous_map=SessionMapDraft(),
+                    new_evidence=(envelope(start, 4),),
+                    expected_history_revision=revision,
+                    message_count_before=7,
+                    source="validation",
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "Later evidence must begin after the prior boundary"
+                )
+        committed = commit_session_map_context_checkpoint(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            draft=SessionMapDraft(),
+            previous_map=SessionMapDraft(),
+            new_evidence=(envelope(2, 3),),
+            expected_history_revision=revision,
+            message_count_before=7,
+            source="validation",
+        )
+        self.soft_assert_equal(
+            load_session_map_observed_through(committed.checkpoint),
+            7,
+            "A rewrite must preserve the inherited map's observation cutoff",
+        )
+        self.soft_assert_equal(
+            store.get_history(session_id, vault_name, mode="raw"),
+            raw_messages,
+            "Boundary validation and authoring must preserve canonical history",
+        )
+
+    def _assert_corrupt_replacement_is_rejected(
+        self,
+        *,
+        store: ChatStore,
+        session_id: str,
+        vault_name: str,
+        database_path: Path,
+    ) -> None:
+        checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+        assert checkpoint is not None
+        raw_before = store.get_history(session_id, vault_name, mode="raw")
+        effective_before = store.get_history(session_id, vault_name)
+        revision_before = store.get_session_history_revision(session_id, vault_name)
+        private_marker = "private-checkpoint-contents"
+        with sqlite3.connect(database_path) as conn:
+            conn.execute(
+                """
+                UPDATE chat_compaction_checkpoints
+                SET replacement_history_json = ?
+                WHERE checkpoint_id = ?
+                """,
+                (json.dumps({"private": private_marker}), checkpoint.checkpoint_id),
+            )
+        try:
+            try:
+                store.get_history(session_id, vault_name)
+            except ChatHistoryCorruptionError as exc:
+                self.soft_assert_equal(
+                    (
+                        exc.session_id,
+                        exc.vault_name,
+                        exc.checkpoint_id,
+                    ),
+                    (session_id, vault_name, checkpoint.checkpoint_id),
+                    "A damaged checkpoint should identify its exact durable record",
+                )
+            else:
+                self.soft_assert(
+                    False,
+                    "Damaged V1/V2 context must fail instead of continuing with only the raw tail",
+                )
+            self.soft_assert_equal(
+                store.get_history(session_id, vault_name, mode="raw"),
+                raw_before,
+                "Rejecting a damaged checkpoint must preserve every canonical message",
+            )
+            self.soft_assert_equal(
+                store.get_session_history_revision(session_id, vault_name),
+                revision_before,
+                "A failed effective-history read must not mutate session history",
+            )
+        finally:
+            with sqlite3.connect(database_path) as conn:
+                conn.execute(
+                    """
+                    UPDATE chat_compaction_checkpoints
+                    SET replacement_history_json = ?
+                    WHERE checkpoint_id = ?
+                    """,
+                    (checkpoint.replacement_history_json, checkpoint.checkpoint_id),
+                )
+        self.soft_assert_equal(
+            store.get_history(session_id, vault_name),
+            effective_before,
+            "Restoring the persisted checkpoint should recover its complete effective context",
+        )
+        activity_response = self.call_api("/api/system/activity-log?limit=200")
+        assert activity_response.status_code == 200
+        entries = activity_response.json()["entries"]
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("event")
+                == "chat_history_deserialization_failed"
+                and entry["data"].get("status") == "failed"
+                and entry["data"].get("session_id") == session_id
+                and entry["data"].get("vault_name") == vault_name
+                and entry["data"].get("checkpoint_id") == checkpoint.checkpoint_id
+                and entry["data"].get("error_type") == "ChatHistoryCorruptionError"
+                for entry in entries
+            ),
+            "System Activity should identify each failed checkpoint without collapsing distinct issues",
+        )
+        self.soft_assert(
+            private_marker not in json.dumps(entries),
+            "Checkpoint failure diagnostics must not include persisted transcript contents",
+        )
 
 
 def _envelope(

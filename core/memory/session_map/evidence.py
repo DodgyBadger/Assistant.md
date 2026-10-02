@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
-from dataclasses import dataclass
+import json
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 
 from pydantic import TypeAdapter
 from pydantic_ai.messages import ModelMessage
@@ -13,6 +14,7 @@ from core.chat.chat_store import ChatStore, StoredChatMessage
 from core.utils.tokens import estimate_token_count
 
 _MODEL_MESSAGE_ADAPTER: TypeAdapter[ModelMessage] = TypeAdapter(ModelMessage)
+MAX_RETRIEVED_SESSION_MAP_EVIDENCE_TOKENS = 8_000
 
 
 @dataclass(frozen=True)
@@ -38,17 +40,46 @@ class SessionMapEvidence:
 
 @dataclass(frozen=True)
 class SessionMapMessageEvidence:
-    """One canonical message made available to the map author."""
+    """One canonical message or verified character fragment available to the author."""
 
     sequence_index: int
     role: str
     content_text: str
+    content_start: int = 0
+    content_end: int | None = None
+    content_complete: bool = True
 
     def __post_init__(self) -> None:
         if self.sequence_index < 0:
             raise ValueError("Session-map evidence sequence index cannot be negative")
         if not self.role.strip():
             raise ValueError("Session-map evidence requires a message role")
+        content_end = (
+            self.content_start + len(self.content_text)
+            if self.content_end is None
+            else self.content_end
+        )
+        if (
+            self.content_start < 0
+            or content_end < self.content_start
+            or content_end - self.content_start != len(self.content_text)
+        ):
+            raise ValueError("Session-map evidence offsets must match its text")
+        if self.content_complete and self.content_start != 0:
+            raise ValueError("Complete evidence must start at the canonical beginning")
+        object.__setattr__(self, "content_end", content_end)
+
+    def as_authoring_dict(self) -> dict[str, object]:
+        """Project source identity and exact fragment bounds for authoring."""
+        return {
+            "source_range": {"start": self.sequence_index, "end": self.sequence_index},
+            "sequence_index": self.sequence_index,
+            "role": self.role,
+            "content": self.content_text,
+            "content_start": self.content_start,
+            "content_end": self.content_end,
+            "content_complete": self.content_complete,
+        }
 
     @property
     def source_start_sequence_index(self) -> int:
@@ -57,6 +88,65 @@ class SessionMapMessageEvidence:
     @property
     def source_end_sequence_index(self) -> int:
         return self.sequence_index
+
+
+@dataclass(frozen=True)
+class SessionMapRetrievedEvidence:
+    """Bounded verified fragments with explicit aggregate admission truncation."""
+
+    messages: tuple[SessionMapMessageEvidence, ...] = ()
+    truncated: bool = False
+
+
+def bound_retrieved_session_map_evidence(
+    messages: Iterable[SessionMapMessageEvidence],
+    *,
+    max_tokens: int = MAX_RETRIEVED_SESSION_MAP_EVIDENCE_TOKENS,
+) -> SessionMapRetrievedEvidence:
+    """Deduplicate fragments and cap their serialized authoring payload."""
+    if max_tokens <= 0:
+        raise ValueError("Retrieved evidence token budget must be positive")
+    accepted: list[SessionMapMessageEvidence] = []
+    seen: set[tuple[int, int, int | None]] = set()
+
+    def fits(candidate: SessionMapMessageEvidence) -> bool:
+        payload = {
+            "retrieved_canonical_evidence": [
+                item.as_authoring_dict() for item in (*accepted, candidate)
+            ]
+        }
+        return (
+            estimate_token_count(json.dumps(payload, ensure_ascii=False, indent=2))
+            <= max_tokens
+        )
+
+    for message in messages:
+        key = (message.sequence_index, message.content_start, message.content_end)
+        if key in seen:
+            continue
+        seen.add(key)
+        if fits(message):
+            accepted.append(message)
+            continue
+        low, high = 1, len(message.content_text)
+        best: SessionMapMessageEvidence | None = None
+        while low <= high:
+            length = (low + high) // 2
+            candidate = replace(
+                message,
+                content_text=message.content_text[:length],
+                content_end=message.content_start + length,
+                content_complete=False,
+            )
+            if fits(candidate):
+                best = candidate
+                low = length + 1
+            else:
+                high = length - 1
+        if best is not None:
+            accepted.append(best)
+        return SessionMapRetrievedEvidence(tuple(accepted), truncated=True)
+    return SessionMapRetrievedEvidence(tuple(accepted))
 
 
 @dataclass(frozen=True)

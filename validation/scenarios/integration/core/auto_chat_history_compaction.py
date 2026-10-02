@@ -30,7 +30,8 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         from core.chat.chat_store import ChatStore
         from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
         from core.identity import LOCAL_USER_PRINCIPAL_ID
-        from core.runtime.state import get_runtime_context
+        from core.runtime.execution_tasks import ExecutionTaskKind
+        from core.runtime.state import RuntimeStateError, get_runtime_context
 
         settings_response = self.call_api("/api/system/settings/general")
         assert settings_response.status_code == 200, "General settings should load"
@@ -179,3 +180,31 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         assert (
             store.get_message_count(session_id, vault.name, mode="raw") == 4
         ), "Automatic compaction should preserve raw archival messages"
+        history_tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.HISTORY_COMPACTION.value
+        )
+        assert len(history_tasks) == 1
+        history_task = history_tasks[0]
+        assert history_task.source == "system"
+        assert (
+            history_task.parent_task_id == chat_result["task_id"]
+        ), "Automatic compaction must remain a child of its active chat task"
+        assert history_task.status == "completed"
+        assert history_task.result is not None
+        assert history_task.result["strategy"] == "recovery_card"
+        assert history_task.result["checkpoint_id"] == checkpoint.checkpoint_id
+
+        await self.stop_system()
+        try:
+            await compaction.maybe_auto_compact_after_turn(
+                session_id=session_id,
+                vault_name=vault.name,
+                vault_path=str(vault),
+            )
+        except RuntimeStateError:
+            pass
+        else:
+            raise AssertionError(
+                "Automatic compaction must require runtime task ownership"
+            )
+        assert len(store.list_context_checkpoints(session_id, vault.name)) == 1

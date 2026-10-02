@@ -21,6 +21,7 @@ def build_session_map_authoring_prompt(
     new_evidence: Sequence[SessionMapEvidence],
     recent_evidence: Sequence[SessionMapMessageEvidence] = (),
     retrieved_evidence: Sequence[SessionMapMessageEvidence] = (),
+    retrieved_evidence_truncated: bool = False,
     focus: str | None = None,
 ) -> str:
     """Build one structured whole-map authoring request."""
@@ -43,28 +44,11 @@ def build_session_map_authoring_prompt(
             for evidence in new_evidence
         ],
         "retained_recent_evidence": [
-            {
-                "source_range": {
-                    "start": message.sequence_index,
-                    "end": message.sequence_index,
-                },
-                "sequence_index": message.sequence_index,
-                "role": message.role,
-                "content": message.content_text,
-            }
-            for message in recent_evidence
+            message.as_authoring_dict() for message in recent_evidence
         ],
         "retrieved_canonical_evidence": [
-            {
-                "source_range": {
-                    "start": message.sequence_index,
-                    "end": message.sequence_index,
-                },
-                "sequence_index": message.sequence_index,
-                "role": message.role,
-                "content": message.content_text,
-            }
-            for message in retrieved_evidence
+            message.as_authoring_dict() for message in retrieved_evidence
         ],
+        "retrieved_evidence_truncated": retrieved_evidence_truncated,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

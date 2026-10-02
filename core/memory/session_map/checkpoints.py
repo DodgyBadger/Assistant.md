@@ -92,32 +92,6 @@ def commit_session_map_context_checkpoint(
     expected_previous_checkpoint_kind: ContextCheckpointKind | None = None,
 ) -> SessionMapCheckpointResult:
     """Atomically commit one map revision without changing canonical messages."""
-    _validate_checkpoint_evidence(
-        session_id=session_id,
-        vault_name=vault_name,
-        new_evidence=new_evidence,
-        expected_history_revision=expected_history_revision,
-    )
-    validate_session_map_provenance(
-        draft,
-        evidence=(*new_evidence, *recent_evidence, *retrieved_evidence),
-        previous_map=previous_map,
-    )
-    consumed_through = new_evidence[-1].source_end_sequence_index
-    retained_prior = consumed_through
-    for message in recent_evidence:
-        if message.sequence_index <= retained_prior:
-            raise ValueError("Retained evidence must follow the eviction boundary")
-        retained_prior = message.sequence_index
-    observed_through = (
-        map_observed_through_sequence_index
-        if map_observed_through_sequence_index is not None
-        else (
-            recent_evidence[-1].sequence_index if recent_evidence else consumed_through
-        )
-    )
-    if observed_through < 0:
-        raise ValueError("Session-map observed boundary cannot be negative")
     latest = store.get_latest_context_checkpoint(session_id, vault_name)
     if expected_previous_checkpoint_kind is not None:
         if (
@@ -130,9 +104,79 @@ def commit_session_map_context_checkpoint(
             )
     elif latest is not None and latest.checkpoint_kind != "session_map":
         raise ValueError("Session-map checkpoints cannot follow recovery-card history")
+
+    pending_evidence = None
+    expected_evidence_start = 0
+    if latest is not None and latest.checkpoint_kind == "session_map":
+        pending_evidence = load_session_map_pending_evidence(latest)
+        if pending_evidence is not None:
+            if (
+                pending_evidence.end_sequence_index
+                != latest.last_message_sequence_index
+            ):
+                raise ValueError(
+                    "Pending evidence must end at the prior eviction boundary"
+                )
+            expected_evidence_start = pending_evidence.start_sequence_index
+        else:
+            expected_evidence_start = latest.last_message_sequence_index + 1
+    _validate_checkpoint_evidence(
+        session_id=session_id,
+        vault_name=vault_name,
+        new_evidence=new_evidence,
+        expected_history_revision=expected_history_revision,
+        expected_source_start_sequence_index=expected_evidence_start,
+    )
+    validate_session_map_provenance(
+        draft,
+        evidence=(*new_evidence, *recent_evidence, *retrieved_evidence),
+        previous_map=previous_map,
+    )
+    consumed_through = new_evidence[-1].source_end_sequence_index
     if latest is not None and latest.checkpoint_kind == "session_map":
         if consumed_through <= latest.last_message_sequence_index:
             raise ValueError("Session-map checkpoint boundary must advance")
+    retained_prior = consumed_through
+    for message in recent_evidence:
+        if message.sequence_index <= retained_prior:
+            raise ValueError("Retained evidence must follow the eviction boundary")
+        retained_prior = message.sequence_index
+    minimum_observed_through = max(
+        [
+            consumed_through,
+            *(
+                message.sequence_index
+                for message in (*recent_evidence, *retrieved_evidence)
+            ),
+        ]
+    )
+    if latest is not None and latest.checkpoint_kind == "session_map":
+        if pending_evidence is not None:
+            # Retired gate checkpoints could evict evidence before rewriting the
+            # map. Repair reauthors their complete pending interval; its new
+            # cutoff must cover both that interval and any prior author exposure.
+            previous_observed = _load_session_map_metadata(latest).get(
+                "map_observed_through_sequence_index",
+                latest.last_message_sequence_index,
+            )
+            if type(previous_observed) is not int or previous_observed < 0:
+                raise ValueError("Session-map observed boundary metadata is invalid")
+        else:
+            previous_observed = latest.observed_through_sequence_index
+        minimum_observed_through = max(minimum_observed_through, previous_observed)
+    observed_through = (
+        map_observed_through_sequence_index
+        if map_observed_through_sequence_index is not None
+        else minimum_observed_through
+    )
+    if type(observed_through) is not int or observed_through < minimum_observed_through:
+        raise ValueError(
+            "Session-map observed boundary must cover all authoring evidence"
+        )
+    if observed_through > store.get_highest_message_sequence_index(
+        session_id, vault_name
+    ):
+        raise ValueError("Session-map observed boundary exceeds canonical history")
 
     resolved_checkpoint_id = checkpoint_id or uuid.uuid4().hex
     context_message = build_session_map_context_message(draft)
@@ -219,14 +263,9 @@ def load_session_map_observed_through(
     checkpoint: StoredContextCheckpoint,
 ) -> int:
     """Load the newest canonical message seen by the persisted map author."""
-    metadata = _load_session_map_metadata(checkpoint)
-    value = metadata.get(
-        "map_observed_through_sequence_index",
-        checkpoint.last_message_sequence_index,
-    )
-    if not isinstance(value, int) or value < 0:
-        raise ValueError("Session-map observed boundary metadata is invalid")
-    return value
+    if checkpoint.checkpoint_kind != "session_map":
+        raise ValueError("Context checkpoint is not a session map")
+    return checkpoint.observed_through_sequence_index
 
 
 def _load_session_map_metadata(
@@ -251,19 +290,28 @@ def _validate_checkpoint_evidence(
     vault_name: str,
     new_evidence: tuple[SessionMapEvidence, ...],
     expected_history_revision: int,
+    expected_source_start_sequence_index: int,
 ) -> None:
     if not new_evidence:
         raise ValueError("Session-map checkpoint requires evidence envelopes")
-    prior_end = -1
+    prior_end = expected_source_start_sequence_index - 1
     for evidence in new_evidence:
         if evidence.session_id != session_id or evidence.vault_name != vault_name:
             raise ValueError("Session-map checkpoint evidence scope does not match")
         if evidence.history_revision != expected_history_revision:
             raise ValueError("Session-map checkpoint evidence revision does not match")
-        if evidence.source_start_sequence_index <= prior_end:
+        if evidence.source_start_sequence_index != prior_end + 1:
             raise ValueError(
-                "Session-map checkpoint evidence must be ordered and non-overlapping"
+                "Session-map checkpoint evidence must cover a contiguous prefix"
             )
         if evidence.source_end_sequence_index < evidence.source_start_sequence_index:
             raise ValueError("Session-map checkpoint evidence range is reversed")
+        if evidence.message_count != (
+            evidence.source_end_sequence_index
+            - evidence.source_start_sequence_index
+            + 1
+        ):
+            raise ValueError(
+                "Session-map checkpoint evidence count does not match its range"
+            )
         prior_end = evidence.source_end_sequence_index

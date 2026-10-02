@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -22,6 +24,7 @@ from core.memory.session_summary import (  # noqa: E402
     SessionSummaryStore,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
+from core.utils.tokens import estimate_token_count  # noqa: E402
 from validation.core.base_scenario import (  # noqa: E402
     BaseScenario,
     with_local_user_authority,
@@ -45,6 +48,10 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         controller_session_id = "session_ops_transcript_controller"
         deep_controller_session_id = "session_ops_transcript_deep_controller"
         structured_session_id = "session_ops_transcript_structured"
+        budget_session_id = "session_ops_transcript_budget"
+        fragment_session_id = "session_ops_transcript_fragment"
+        continuation_session_id = "session_ops_transcript_continuation"
+        infrastructure_session_id = "session_ops_transcript_infrastructure"
         source_session_id = "session_ops_transcript_source"
         chat_store.ensure_session(
             session_id,
@@ -129,6 +136,22 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             vault.name,
             [_message("The solstice-archive code is SA-2049.")],
         )
+        chat_store.ensure_session(
+            budget_session_id, vault.name, owner_principal_id="local-user"
+        )
+        chat_store.add_messages(
+            budget_session_id,
+            vault.name,
+            [_message("A brief conversation message. " * 10) for _ in range(21)],
+        )
+        for controller_id in (
+            fragment_session_id,
+            continuation_session_id,
+            infrastructure_session_id,
+        ):
+            chat_store.ensure_session(
+                controller_id, vault.name, owner_principal_id="local-user"
+            )
         inaccessible_session_id = "session_ops_transcript_inaccessible"
         chat_store.ensure_session(
             inaccessible_session_id,
@@ -162,6 +185,12 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "query": "aurora covenant",
                         "limit": 5,
                     }
+                if current_case["name"] == "infrastructure":
+                    return {
+                        "operation": "search_transcript",
+                        "query": "private transcript query marker",
+                        "limit": 5,
+                    }
                 if current_case["name"] == "window":
                     return {
                         "operation": "get_transcript_window",
@@ -170,6 +199,26 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "after": 1,
                         "max_tokens": 1000,
                     }
+                if current_case["name"] == "budget-window":
+                    return {
+                        "operation": "get_transcript_window",
+                        "sequence_index": 10,
+                        "before": 10,
+                        "after": 10,
+                        "max_tokens": 1000,
+                    }
+                if current_case["name"] in {"budget-fragment", "budget-continuation"}:
+                    args = {
+                        "operation": "get_transcript_window",
+                        "session_id": source_session_id,
+                        "sequence_index": 1,
+                        "before": 0,
+                        "after": 0,
+                        "max_tokens": 512,
+                    }
+                    if current_case["name"] == "budget-continuation":
+                        args["cursor"] = current_case["cursor"]
+                    return args
                 if current_case["name"] == "structured":
                     return {
                         "operation": "search_transcript",
@@ -294,6 +343,17 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 True,
                 "Window output should mark historical content as untrusted",
             )
+            current_case["name"] = "budget-window"
+            budget_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=budget_session_id,
+                prompt="Retrieve a bounded window with nearby messages.",
+                chat_store=chat_store,
+            )
+            self.soft_assert(
+                len(budget_result.get("messages", [])) > 1,
+                "The serialized budget regression should exercise a multi-message window",
+            )
 
             current_case["name"] = "explicit"
             explicit_result = await self._run_case(
@@ -394,6 +454,30 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 source_session_id,
                 vault.name,
                 [_message(long_text)],
+            )
+            current_case["name"] = "budget-fragment"
+            fragment_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=fragment_session_id,
+                prompt="Inspect a bounded fragment of the large canonical message.",
+                chat_store=chat_store,
+            )
+            self.soft_assert(
+                bool(fragment_result.get("next_cursor")),
+                "The minimum-budget tool result should retain a usable continuation cursor",
+            )
+            current_case["name"] = "budget-continuation"
+            current_case["cursor"] = fragment_result["next_cursor"]
+            continuation_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=continuation_session_id,
+                prompt="Continue inspecting that bounded transcript fragment.",
+                chat_store=chat_store,
+            )
+            self.soft_assert_equal(
+                continuation_result["messages"][0]["content_start"],
+                fragment_result["messages"][0]["content_end"],
+                "The real tool continuation should begin exactly after the prior fragment",
             )
             retrieval = TranscriptRetrievalService(
                 runtime.chat_store,
@@ -515,6 +599,86 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 ),
                 "Unknown transcript anchors should fail clearly",
             )
+            connection = MagicMock(spec=sqlite3.Connection)
+            connection.execute.side_effect = sqlite3.OperationalError(
+                "Injected FTS infrastructure failure"
+            )
+            with patch.object(
+                TranscriptRetrievalService, "_connect", return_value=connection
+            ):
+                try:
+                    retrieval.search(
+                        vault_name=vault.name,
+                        session_id=session_id,
+                        query="aurora covenant",
+                    )
+                except sqlite3.OperationalError:
+                    pass
+                else:
+                    raise AssertionError(
+                        "FTS infrastructure failures must preserve their SQLite error type"
+                    )
+                current_case["name"] = "infrastructure"
+                prior_event_count = len(
+                    chat_store.get_tool_events(infrastructure_session_id, vault.name)
+                )
+                response = await self.run_chat_task(
+                    {
+                        "vault_name": vault.name,
+                        "prompt": "Find the original facade decision.",
+                        "session_id": infrastructure_session_id,
+                        "tools": ["session_ops"],
+                        "model": "test",
+                    }
+                )
+                self.soft_assert_equal(
+                    response["terminal_event"].get("event"),
+                    "done",
+                    "An infrastructure tool failure should be returned without a model-retry loop",
+                )
+            results = [
+                event
+                for event in chat_store.get_tool_events(
+                    infrastructure_session_id, vault.name
+                )[prior_event_count:]
+                if event.tool_name == "session_ops" and event.event_type == "result"
+            ]
+            self.soft_assert_equal(
+                len(results),
+                1,
+                "An FTS infrastructure failure should produce one structured result",
+            )
+            if results:
+                metadata = json.loads(results[0].result_metadata_json or "{}")
+                self.soft_assert_equal(
+                    (metadata.get("status"), metadata.get("error_type")),
+                    ("failed", "OperationalError"),
+                    "The real tool boundary should preserve the infrastructure failure identity",
+                )
+            activity_response = self.call_api("/api/system/activity-log?limit=200")
+            assert activity_response.status_code == 200
+            activity_entries = activity_response.json()["entries"]
+            retrieval_failures = [
+                entry
+                for entry in activity_entries
+                if entry.get("data", {}).get("event") == "session_ops_failed"
+                and entry.get("data", {}).get("session_id") == infrastructure_session_id
+            ]
+            self.soft_assert(
+                any(
+                    failure.get("data", {}).get("status") == "failed"
+                    and failure.get("data", {}).get("vault_name") == vault.name
+                    and failure.get("data", {}).get("operation") == "search_transcript"
+                    and failure.get("data", {}).get("error_type") == "OperationalError"
+                    and failure.get("data", {}).get("issue")
+                    for failure in retrieval_failures
+                ),
+                "Unexpected active-session retrieval failures should be searchable with resolved identities",
+            )
+            self.soft_assert(
+                "private transcript query marker" not in json.dumps(retrieval_failures),
+                "Retrieval failure activity must not include raw search queries",
+            )
         finally:
             chat_executor._prepare_agent_config = original_prepare
             await self.stop_system()
@@ -553,7 +717,18 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         ]
         if not results or not results[-1].result_text:
             raise AssertionError("Expected a persisted session_ops result event")
-        return json.loads(results[-1].result_text)
+        payload = json.loads(results[-1].result_text)
+        if payload.get("operation") == "get_transcript_window":
+            actual_tokens = estimate_token_count(results[-1].result_text)
+            self.soft_assert(
+                actual_tokens <= payload["max_tokens"],
+                "The complete persisted model-facing window result must fit its requested token budget",
+            )
+            self.soft_assert(
+                actual_tokens <= payload["estimated_tokens"] <= payload["max_tokens"],
+                "Reported window estimates must conservatively bound the actual serialized result",
+            )
+        return payload
 
     def _assert_value_error(self, operation, message: str) -> None:
         try:

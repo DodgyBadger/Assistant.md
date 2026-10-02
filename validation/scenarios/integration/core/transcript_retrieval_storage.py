@@ -169,6 +169,35 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
                 "Long matching messages should return bounded excerpts",
             )
 
+            store.add_messages(
+                session_id,
+                vault_name,
+                [
+                    _message("The café résumé archive is stored in Montréal."),
+                    _message("東京 京都の旅程はこのメッセージに記録されています。"),
+                ],
+            )
+            accented = retrieval.search(
+                vault_name=vault_name,
+                session_id=session_id,
+                query="café résumé",
+            )
+            self.soft_assert_equal(
+                [hit.anchor.sequence_index for hit in accented],
+                [6],
+                "Unicode-aware query tokenization should find accented transcript text",
+            )
+            non_latin = retrieval.search(
+                vault_name=vault_name,
+                session_id=session_id,
+                query="東京 京都",
+            )
+            self.soft_assert_equal(
+                [hit.anchor.sequence_index for hit in non_latin],
+                [7],
+                "Unicode-aware query tokenization should find non-Latin transcript text",
+            )
+
             exact_range = retrieval.get_range(
                 vault_name=vault_name,
                 session_id=session_id,

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.13.*"
 
 [[package]]
@@ -1554,6 +1554,7 @@ dependencies = [
     { name = "fastmcp-slim", extra = ["client"] },
     { name = "httpcore" },
     { name = "httpx" },
+    { name = "httpx2" },
     { name = "logfire", extra = ["fastapi", "sqlalchemy"] },
     { name = "markdown-it-py" },
     { name = "markdownify" },
@@ -1607,6 +1608,7 @@ requires-dist = [
     { name = "fastmcp-slim", extras = ["client"], specifier = "==3.4.0" },
     { name = "httpcore", specifier = ">=1.0.9,<2" },
     { name = "httpx", specifier = ">=0.28.1,<0.29" },
+    { name = "httpx2", specifier = ">=2.12.0,<3" },
     { name = "logfire", extras = ["fastapi", "sqlalchemy"] },
     { name = "markdown-it-py", specifier = ">=4.0.0" },
     { name = "markdownify", specifier = ">=1.2.2" },

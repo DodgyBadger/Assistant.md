@@ -8,7 +8,8 @@ import hmac
 import json
 import secrets
 import sqlite3
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from typing import Any
 
 from core.database import connect_sqlite_from_system_db
@@ -37,7 +38,6 @@ MIN_WINDOW_TOKENS = 512
 MAX_WINDOW_TOKENS = 8_000
 _WINDOW_CURSOR_VERSION = 1
 _WINDOW_CURSOR_KEY = secrets.token_bytes(32)
-_WINDOW_OUTPUT_TOKEN_RESERVE = 96
 
 
 @dataclass(frozen=True)
@@ -130,6 +130,13 @@ class TranscriptWindow:
             "next_cursor": self.next_cursor,
             "historical_content_is_untrusted": True,
         }
+
+    def to_json(self) -> str:
+        """Serialize the canonical window representation used by default budgeting."""
+        return json.dumps(self.to_dict(), ensure_ascii=False, separators=(",", ":"))
+
+
+TranscriptWindowSerializer = Callable[[TranscriptWindow], str]
 
 
 class TranscriptRetrievalService:
@@ -298,8 +305,6 @@ class TranscriptRetrievalService:
                 query_sql,
                 (normalized_query, vault_name, *session_ids, limit),
             ).fetchall()
-        except sqlite3.OperationalError as exc:
-            raise ValueError("Transcript search query could not be evaluated.") from exc
         finally:
             conn.close()
 
@@ -361,8 +366,9 @@ class TranscriptRetrievalService:
         after: int = DEFAULT_WINDOW_AFTER,
         max_tokens: int = DEFAULT_WINDOW_TOKENS,
         cursor: str = "",
+        serializer: TranscriptWindowSerializer = TranscriptWindow.to_json,
     ) -> TranscriptWindow:
-        """Return a token-bounded canonical window centered on one message."""
+        """Bound the complete serialized window using its consumer's representation."""
         self._require_session(vault_name=vault_name, session_id=session_id)
         _validate_window_request(
             sequence_index=sequence_index,
@@ -425,6 +431,7 @@ class TranscriptRetrievalService:
                 compacted_through_sequence_index=compacted_through,
                 truncated_before=has_before,
                 truncated_after=has_after,
+                serializer=serializer,
             )
         return _build_initial_window(
             anchor=anchor,
@@ -436,6 +443,7 @@ class TranscriptRetrievalService:
             after=after,
             max_tokens=max_tokens,
             compacted_through_sequence_index=compacted_through,
+            serializer=serializer,
         )
 
     def rebuild_index(self) -> None:
@@ -491,6 +499,7 @@ def _build_initial_window(
     after: int,
     max_tokens: int,
     compacted_through_sequence_index: int | None,
+    serializer: TranscriptWindowSerializer,
 ) -> TranscriptWindow:
     anchor_message = _window_message(anchor)
     has_before = any(
@@ -499,7 +508,7 @@ def _build_initial_window(
     has_after = any(
         item.sequence_index > anchor.sequence_index for item in stored_messages
     )
-    base = _window_payload(
+    base = _window(
         session_id=session_id,
         vault_name=vault_name,
         anchor_sequence_index=anchor.sequence_index,
@@ -513,7 +522,7 @@ def _build_initial_window(
         truncated_after=has_after,
         next_cursor=None,
     )
-    if _payload_tokens(base) > max_tokens:
+    if _measure_window(base, serializer).estimated_tokens > max_tokens:
         return _build_fragment_window(
             anchor=anchor,
             session_id=session_id,
@@ -526,6 +535,7 @@ def _build_initial_window(
             compacted_through_sequence_index=compacted_through_sequence_index,
             truncated_before=has_before,
             truncated_after=has_after,
+            serializer=serializer,
         )
 
     selected = {anchor.sequence_index: anchor_message}
@@ -544,7 +554,7 @@ def _build_initial_window(
         candidate = dict(selected)
         candidate[neighbor.sequence_index] = _window_message(neighbor)
         ordered = [candidate[index] for index in sorted(candidate)]
-        test_payload = _window_payload(
+        test_payload = _window(
             session_id=session_id,
             vault_name=vault_name,
             anchor_sequence_index=anchor.sequence_index,
@@ -566,7 +576,7 @@ def _build_initial_window(
             ),
             next_cursor=None,
         )
-        if _payload_tokens(test_payload) <= max_tokens:
+        if _measure_window(test_payload, serializer).estimated_tokens <= max_tokens:
             selected = candidate
 
     ordered_messages = tuple(selected[index] for index in sorted(selected))
@@ -580,7 +590,7 @@ def _build_initial_window(
         and item.sequence_index not in selected
         for item in stored_messages
     )
-    final_payload = _window_payload(
+    final_payload = _window(
         session_id=session_id,
         vault_name=vault_name,
         anchor_sequence_index=anchor.sequence_index,
@@ -594,20 +604,7 @@ def _build_initial_window(
         truncated_after=truncated_after,
         next_cursor=None,
     )
-    return TranscriptWindow(
-        session_id=session_id,
-        vault_name=vault_name,
-        anchor_sequence_index=anchor.sequence_index,
-        history_revision=history_revision,
-        requested_before=before,
-        requested_after=after,
-        max_tokens=max_tokens,
-        estimated_tokens=_payload_tokens(final_payload),
-        compacted_through_sequence_index=compacted_through_sequence_index,
-        messages=ordered_messages,
-        truncated_before=truncated_before,
-        truncated_after=truncated_after,
-    )
+    return _measure_window(final_payload, serializer)
 
 
 def _build_fragment_window(
@@ -623,14 +620,13 @@ def _build_fragment_window(
     compacted_through_sequence_index: int | None,
     truncated_before: bool,
     truncated_after: bool,
+    serializer: TranscriptWindowSerializer,
 ) -> TranscriptWindow:
     if not 0 <= content_offset < len(anchor.content_text):
         raise ValueError("Transcript continuation cursor is stale or exhausted.")
     low = content_offset + 1
     high = len(anchor.content_text)
-    best_end = content_offset
-    best_cursor: str | None = None
-    best_payload: dict[str, Any] | None = None
+    best_window: TranscriptWindow | None = None
     while low <= high:
         candidate_end = (low + high) // 2
         next_cursor = (
@@ -655,7 +651,7 @@ def _build_fragment_window(
             content_complete=content_offset == 0
             and candidate_end == len(anchor.content_text),
         )
-        payload = _window_payload(
+        payload = _window(
             session_id=session_id,
             vault_name=vault_name,
             anchor_sequence_index=anchor.sequence_index,
@@ -669,37 +665,15 @@ def _build_fragment_window(
             truncated_after=truncated_after,
             next_cursor=next_cursor,
         )
-        if _payload_tokens(payload) <= max_tokens:
-            best_end = candidate_end
-            best_cursor = next_cursor
-            best_payload = payload
+        measured = _measure_window(payload, serializer)
+        if measured.estimated_tokens <= max_tokens:
+            best_window = measured
             low = candidate_end + 1
         else:
             high = candidate_end - 1
-    if best_payload is None or best_end <= content_offset:
+    if best_window is None:
         raise ValueError("max_tokens is too small for transcript window metadata.")
-    message = _window_message(
-        anchor,
-        content=anchor.content_text[content_offset:best_end],
-        content_start=content_offset,
-        content_end=best_end,
-        content_complete=content_offset == 0 and best_end == len(anchor.content_text),
-    )
-    return TranscriptWindow(
-        session_id=session_id,
-        vault_name=vault_name,
-        anchor_sequence_index=anchor.sequence_index,
-        history_revision=history_revision,
-        requested_before=before,
-        requested_after=after,
-        max_tokens=max_tokens,
-        estimated_tokens=_payload_tokens(best_payload),
-        compacted_through_sequence_index=compacted_through_sequence_index,
-        messages=(message,),
-        truncated_before=truncated_before,
-        truncated_after=truncated_after,
-        next_cursor=best_cursor,
-    )
+    return best_window
 
 
 def _window_message(
@@ -725,7 +699,7 @@ def _window_message(
     )
 
 
-def _window_payload(
+def _window(
     *,
     session_id: str,
     vault_name: str,
@@ -739,31 +713,35 @@ def _window_payload(
     truncated_before: bool,
     truncated_after: bool,
     next_cursor: str | None,
-) -> dict[str, Any]:
-    return {
-        "session_id": session_id,
-        "vault_name": vault_name,
-        "anchor_sequence_index": anchor_sequence_index,
-        "history_revision": history_revision,
-        "requested_before": before,
-        "requested_after": after,
-        "max_tokens": max_tokens,
-        "compacted_through_sequence_index": compacted_through_sequence_index,
-        "messages": [message.to_dict() for message in messages],
-        "truncated_before": truncated_before,
-        "truncated_after": truncated_after,
-        "next_cursor": next_cursor,
-        "historical_content_is_untrusted": True,
-    }
-
-
-def _payload_tokens(payload: dict[str, Any]) -> int:
-    return (
-        estimate_token_count(
-            json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        )
-        + _WINDOW_OUTPUT_TOKEN_RESERVE
+) -> TranscriptWindow:
+    return TranscriptWindow(
+        session_id=session_id,
+        vault_name=vault_name,
+        anchor_sequence_index=anchor_sequence_index,
+        history_revision=history_revision,
+        requested_before=before,
+        requested_after=after,
+        max_tokens=max_tokens,
+        estimated_tokens=0,
+        compacted_through_sequence_index=compacted_through_sequence_index,
+        messages=tuple(messages),
+        truncated_before=truncated_before,
+        truncated_after=truncated_after,
+        next_cursor=next_cursor,
     )
+
+
+def _measure_window(
+    window: TranscriptWindow, serializer: TranscriptWindowSerializer
+) -> TranscriptWindow:
+    """Measure the final envelope, including its reported token estimate."""
+    estimated_tokens = 0
+    while True:
+        measured = replace(window, estimated_tokens=estimated_tokens)
+        actual_tokens = estimate_token_count(serializer(measured))
+        if actual_tokens <= estimated_tokens:
+            return measured
+        estimated_tokens = actual_tokens
 
 
 def _encode_window_cursor(

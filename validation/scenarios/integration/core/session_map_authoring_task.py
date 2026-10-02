@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -141,6 +143,20 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             "session_map_authoring_completed" in authoring_events,
             "Map authoring should log its validated completion",
         )
+        activity = self.call_api("/api/system/activity-log?limit=200")
+        assert activity.status_code == 200
+        ordinary_events = [
+            entry["data"]
+            for entry in activity.json()["entries"]
+            if entry.get("tag") == "session-map-authoring"
+            and entry.get("data", {}).get("task_id") == result.task_id
+        ]
+        assert {event["status"] for event in ordinary_events} == {
+            "running",
+            "completed",
+        }
+        assert all(event["source"] == "system" for event in ordinary_events)
+        assert all(event["parent_task_id"] is None for event in ordinary_events)
 
         unsupported = SessionMapDraft(
             trajectory=SessionMapTrajectory(
@@ -201,6 +217,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             "session_map_authoring_failed" in failure_events,
             "Rejected provenance should emit a domain failure event",
         )
+        await self._test_content_safe_distinct_failures(request)
 
         structured_calls = 0
 
@@ -297,6 +314,64 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
         )
 
         self.assert_no_failures()
+
+    async def _test_content_safe_distinct_failures(
+        self, request: SessionMapAuthoringRequest
+    ) -> None:
+        sentinel = "PRIVATE-AUTHOR-PROMPT-SENTINEL " + (
+            "secret document contents " * 500
+        )
+        failed_ids: set[str] = set()
+
+        async def failing_model(**_kwargs: object) -> SessionMapDraft:
+            task = get_current_execution_task()
+            assert task is not None
+            failed_ids.add(task.task_id)
+            raise RuntimeError(sentinel)
+
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            new=failing_model,
+        ):
+            for suffix in ("one", "two"):
+                session_id = f"session-map-failure-{suffix}"
+                distinct = replace(
+                    request,
+                    session_id=session_id,
+                    new_evidence=(
+                        replace(request.new_evidence[0], session_id=session_id),
+                    ),
+                )
+                try:
+                    await run_session_map_authoring(
+                        distinct, authority=LOCAL_USER_AUTHORITY
+                    )
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("The owning author task must fail")
+
+        response = self.call_api("/api/system/activity-log?limit=200")
+        assert response.status_code == 200
+        rows = [
+            entry["data"]
+            for entry in response.json()["entries"]
+            if entry.get("tag") == "session-map-authoring"
+            and entry.get("data", {}).get("event") == "session_map_authoring_failed"
+            and entry["data"].get("task_id") in failed_ids
+        ]
+        assert len(rows) == 2, "Warning dedupe must not erase distinct author failures"
+        assert len({row["issue"] for row in rows}) == 2
+        assert all(
+            row["status"] == "failed" and row["reason"] == "authoring_failed"
+            for row in rows
+        )
+        assert all(
+            row["error_type"] == "RuntimeError" and len(row["error"]) < 100
+            for row in rows
+        )
+        assert "PRIVATE-AUTHOR-PROMPT-SENTINEL" not in json.dumps(rows)
+        assert "secret document contents" not in json.dumps(rows)
 
 
 def _envelope() -> SessionMapEvidence:

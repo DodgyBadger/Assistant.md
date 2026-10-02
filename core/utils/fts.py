@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 def build_fts_query(value: str, *, max_terms: int = 12) -> str:
@@ -15,15 +16,15 @@ def fts_query_terms(value: str, *, max_terms: int = 12) -> list[str]:
     """Extract bounded, deduplicated phrases and tokens for an FTS query."""
     if max_terms <= 0:
         return []
+    normalized_value = unicodedata.normalize("NFC", value)
     phrases = [
         phrase.strip().lower()
-        for phrase in re.findall(r'"([^"]+)"', value)
+        for phrase in re.findall(r'"([^"]+)"', normalized_value)
         if phrase.strip()
     ]
-    without_phrases = re.sub(r'"[^"]+"', " ", value)
+    without_phrases = re.sub(r'"[^"]+"', " ", normalized_value)
     tokens = [
-        token.lower()
-        for token in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9-]{1,}", without_phrases)
+        token.lower() for token in re.findall(r"[^\W_][\w-]{1,}", without_phrases)
     ]
     parts = [*phrases, *tokens]
     deduped: list[str] = []

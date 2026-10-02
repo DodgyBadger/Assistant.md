@@ -21,6 +21,47 @@ from .checkpoints import load_session_map_checkpoint
 
 
 @dataclass(frozen=True)
+class CompactionAuthorReadiness:
+    """Shared generative-author eligibility for both compaction strategies."""
+
+    enabled: bool
+    reason: str
+    model: str | None
+    thinking: ThinkingValue
+
+
+def evaluate_compaction_author_readiness(
+    *, model_availability_check: Callable[[str], None] | None = None
+) -> CompactionAuthorReadiness:
+    """Require a text-capable author with valid thinking and usable credentials."""
+    model = get_compaction_author_model()
+    try:
+        thinking = get_compaction_author_thinking()
+    except ValueError:
+        return CompactionAuthorReadiness(False, "author_thinking_invalid", model, None)
+    if model is None:
+        return CompactionAuthorReadiness(
+            False, "author_model_not_configured", model, thinking
+        )
+    try:
+        supports_text = model_supports_capability(model, "text")
+    except ValueError:
+        return CompactionAuthorReadiness(False, "author_model_unknown", model, thinking)
+    if not supports_text:
+        return CompactionAuthorReadiness(
+            False, "author_model_not_text_capable", model, thinking
+        )
+    try:
+        if model.strip().lower() != "test":
+            (model_availability_check or validate_api_keys)(model)
+    except (RuntimeError, ValueError):
+        return CompactionAuthorReadiness(
+            False, "author_model_unavailable", model, thinking
+        )
+    return CompactionAuthorReadiness(True, "ready_author", model, thinking)
+
+
+@dataclass(frozen=True)
 class SessionMapCompactionReadiness:
     """Resolved inputs and eligibility for one Compaction v2 reduction."""
 
@@ -40,7 +81,7 @@ def evaluate_session_map_compaction_readiness(
     store: ChatStore,
     session_id: str,
     vault_name: str,
-    model_availability_check: Callable[[str], None] = validate_api_keys,
+    model_availability_check: Callable[[str], None] | None = None,
 ) -> SessionMapCompactionReadiness:
     """Resolve whether one session can run Compaction v2 when initiated."""
     configured_strategy = get_compaction_strategy()
@@ -50,13 +91,9 @@ def evaluate_session_map_compaction_readiness(
         session_id=session_id,
         vault_name=vault_name,
     )
-    author_model = get_compaction_author_model()
-    try:
-        author_thinking = get_compaction_author_thinking()
-        thinking_valid = True
-    except ValueError:
-        author_thinking = None
-        thinking_valid = False
+    author = evaluate_compaction_author_readiness(
+        model_availability_check=model_availability_check
+    )
     high_watermark = get_compaction_high_watermark_tokens()
     low_watermark = get_compaction_low_watermark_tokens()
     minimum_retained_groups = get_compaction_retained_turns()
@@ -67,8 +104,8 @@ def evaluate_session_map_compaction_readiness(
             reason=reason,
             configured_strategy=configured_strategy,
             strategy=strategy,
-            author_model=author_model,
-            author_thinking=author_thinking,
+            author_model=author.model,
+            author_thinking=author.thinking,
             high_watermark_tokens=high_watermark,
             low_watermark_tokens=low_watermark,
             minimum_retained_groups=minimum_retained_groups,
@@ -81,21 +118,8 @@ def evaluate_session_map_compaction_readiness(
             else "strategy_not_enabled"
         )
         return result(False, reason)
-    if author_model is None:
-        return result(False, "author_model_not_configured")
-    if not thinking_valid:
-        return result(False, "author_thinking_invalid")
-    try:
-        supports_text = model_supports_capability(author_model, "text")
-    except ValueError:
-        return result(False, "author_model_unknown")
-    if not supports_text:
-        return result(False, "author_model_not_text_capable")
-    try:
-        if author_model.strip().lower() != "test":
-            model_availability_check(author_model)
-    except (RuntimeError, ValueError):
-        return result(False, "author_model_unavailable")
+    if not author.enabled:
+        return result(False, author.reason)
     if low_watermark >= high_watermark:
         return result(False, "invalid_watermarks")
 

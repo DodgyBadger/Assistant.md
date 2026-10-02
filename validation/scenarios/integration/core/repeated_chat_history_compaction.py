@@ -19,6 +19,15 @@ class RepeatedChatHistoryCompactionScenario(BaseScenario):
 
         await self.start_system()
 
+        response = self.call_api(
+            "/api/system/settings/general/compaction_author_model",
+            method="PUT",
+            data={"value": "test"},
+        )
+        assert (
+            response.status_code == 200
+        ), "Deterministic compaction needs a test author"
+
         import core.chat.compaction as compaction
         from core.chat.chat_store import ChatStore
         from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE

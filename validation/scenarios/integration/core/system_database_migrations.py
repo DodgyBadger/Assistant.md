@@ -25,7 +25,6 @@ if __name__ == "__main__":
     set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
 
 from core.chat import ChatStore  # noqa: E402
-from core.chat.schema import ensure_chat_sessions_schema  # noqa: E402
 from core.ingestion.service import IngestionService  # noqa: E402
 from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
 from core.runtime.paths import set_bootstrap_roots  # noqa: E402
@@ -244,7 +243,38 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         retired_map_root.mkdir()
         retired_map_db = retired_map_root / "chat_sessions.db"
         self._create_pre_retirement_chat_sessions_db(retired_map_db)
-        ensure_chat_sessions_schema(str(retired_map_root), apply_migrations=True)
+        retired_map_migrations = run_system_migrations(
+            retired_map_root,
+            backup=True,
+        )
+        retired_map_chat_target = next(
+            target
+            for target in retired_map_migrations.targets
+            if target.db_name == "chat_sessions"
+        )
+        self.soft_assert(
+            retired_map_chat_target.backup_path is not None,
+            "A pre-retirement chat database should be backed up before map teardown",
+        )
+        if retired_map_chat_target.backup_path is not None:
+            backup_path = Path(retired_map_chat_target.backup_path)
+            self.soft_assert(
+                backup_path.exists(), "The pre-retirement backup should exist"
+            )
+            with sqlite3.connect(backup_path) as backup_conn:
+                for table_name in (
+                    "chat_session_map_revisions",
+                    "chat_session_map_maintenance",
+                    "chat_session_map_attempts",
+                ):
+                    row = backup_conn.execute(
+                        f"SELECT sentinel FROM {table_name} WHERE id = 1"
+                    ).fetchone()
+                    self.soft_assert_equal(
+                        row[0] if row else None,
+                        f"retired:{table_name}",
+                        f"The backup should preserve representative {table_name} data",
+                    )
         with sqlite3.connect(retired_map_db) as conn:
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
@@ -323,7 +353,13 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                 "chat_session_map_maintenance",
                 "chat_session_map_attempts",
             ):
-                conn.execute(f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY)")
+                conn.execute(
+                    f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY, sentinel TEXT NOT NULL)"
+                )
+                conn.execute(
+                    f"INSERT INTO {table_name} (id, sentinel) VALUES (1, ?)",
+                    (f"retired:{table_name}",),
+                )
 
     @staticmethod
     def _create_legacy_ingestion_jobs_db(db_path: Path) -> None:

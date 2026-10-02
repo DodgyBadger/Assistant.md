@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -14,10 +16,16 @@ from pydantic_ai.messages import (  # noqa: E402
     ModelResponse,
     SystemPromptPart,
     TextPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
+from core.chat.chat_store import ChatHistoryCorruptionError  # noqa: E402
 from core.identity import LOCAL_USER_PRINCIPAL_ID  # noqa: E402
+from core.memory.session_map.checkpoints import (
+    load_session_map_observed_through,  # noqa: E402
+)
 from core.memory.session_map.models import SessionMapDraft  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
 from validation.core.base_scenario import BaseScenario  # noqa: E402
@@ -212,6 +220,21 @@ class ChatSessionForkLineageScenario(BaseScenario):
             "A fork from evicted history should end at the selected canonical message",
         )
 
+        with patch(
+            "core.chat.chat_store.ChatStore.fork_session",
+            side_effect=sqlite3.IntegrityError("private fork failure marker"),
+        ):
+            injected_failure = self.call_api(
+                f"/api/chat/sessions/{session_id}/fork",
+                method="POST",
+                data={"vault_name": vault.name, "through_sequence_index": 5},
+            )
+        self.soft_assert_equal(
+            injected_failure.status_code,
+            500,
+            "An injected persistence failure should fail the fork request",
+        )
+
         atomic_child_id = "atomic-failure-child"
         database_path = get_runtime_context().config.system_root / "chat_sessions.db"
         with sqlite3.connect(database_path) as conn:
@@ -309,6 +332,366 @@ class ChatSessionForkLineageScenario(BaseScenario):
             4,
             "Canonical transcript forks should not depend on replacement-message inference",
         )
+
+        protocol_session_id = "fork-protocol-source"
+        store.ensure_session(
+            protocol_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        protocol_messages = [
+            _user("Start a tool-assisted review."),
+            _assistant("I will review the sources."),
+            _user("Check the source."),
+            ModelResponse(
+                parts=[ToolCallPart(tool_name="probe", args={}, tool_call_id="closed")]
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        tool_name="probe", content="Checked", tool_call_id="closed"
+                    )
+                ]
+            ),
+            _assistant("The source is checked."),
+            _user("Check another source."),
+            ModelResponse(
+                parts=[ToolCallPart(tool_name="probe", args={}, tool_call_id="pending")]
+            ),
+            _assistant("The second tool cycle is still incomplete."),
+        ]
+        store.add_messages(protocol_session_id, vault.name, protocol_messages)
+        for boundary in (0, 2, 3, 4, 6, 7, 8):
+            rejected_child_id = f"rejected-protocol-child-{boundary}"
+            try:
+                store.fork_session(
+                    source_session_id=protocol_session_id,
+                    new_session_id=rejected_child_id,
+                    vault_name=vault.name,
+                    through_sequence_index=boundary,
+                    title="Invalid protocol boundary",
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    f"Core fork must reject unsafe canonical boundary {boundary}"
+                )
+            assert store.get_session(rejected_child_id, vault.name) is None
+            assert not store.get_stored_messages(
+                rejected_child_id, vault.name, mode="raw"
+            )
+            rejected_response = self.call_api(
+                f"/api/chat/sessions/{protocol_session_id}/fork",
+                method="POST",
+                data={"vault_name": vault.name, "through_sequence_index": boundary},
+            )
+            assert rejected_response.status_code == 400, rejected_response.text
+
+        valid_response = self.call_api(
+            f"/api/chat/sessions/{protocol_session_id}/fork",
+            method="POST",
+            data={"vault_name": vault.name, "through_sequence_index": 5},
+        )
+        assert valid_response.status_code == 200, valid_response.text
+        assert valid_response.json()["copied_message_count"] == 6
+        protocol_context = _map_context("Prior tool review context")
+        store.add_compaction_checkpoint(
+            session_id=protocol_session_id,
+            vault_name=vault.name,
+            checkpoint_id="protocol-effective-checkpoint",
+            source="validation",
+            message_count_before=9,
+            last_message_sequence_index=8,
+            summary_message=protocol_context,
+            replacement_history=[protocol_context, *protocol_messages[5:]],
+            replacement_source_sequence_indexes=[None, 5, 6, 7, 8],
+        )
+        protocol_detail = self.call_api(
+            f"/api/chat/sessions/{protocol_session_id}?vault_name={vault.name}"
+        )
+        assert protocol_detail.status_code == 200, protocol_detail.text
+        projected_protocol = protocol_detail.json()["messages"]
+        assert (
+            projected_protocol[1]["fork_sequence_index"] == 5
+        ), "Effective projection must preserve safe canonical assistant origins"
+        assert projected_protocol[3]["fork_sequence_index"] is None
+        assert (
+            projected_protocol[4]["fork_sequence_index"] is None
+        ), "Effective projection must withhold unresolved tool-cycle fork actions"
+        legacy_detail = self.call_api(
+            f"/api/chat/sessions/{legacy_session_id}?vault_name={vault.name}"
+        )
+        assert legacy_detail.status_code == 200, legacy_detail.text
+        assert (
+            legacy_detail.json()["messages"][-1]["fork_sequence_index"] is None
+        ), "API projection must not invent ambiguous legacy canonical origins"
+
+        malformed_session_id = "fork-orphan-tool-result"
+        store.ensure_session(
+            malformed_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            malformed_session_id,
+            vault.name,
+            [
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_name="probe", content="Orphan", tool_call_id="missing"
+                        )
+                    ]
+                ),
+                _assistant("An unmatched tool result precedes this response."),
+            ],
+        )
+        try:
+            store.fork_session(
+                source_session_id=malformed_session_id,
+                new_session_id="rejected-orphan-result-child",
+                vault_name=vault.name,
+                through_sequence_index=1,
+                title="Malformed tool protocol",
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Core fork must reject an orphan tool-result prefix")
+        assert store.get_session("rejected-orphan-result-child", vault.name) is None
+
+        corrupt_child_id = "corrupt-source-child"
+        revision_before = store.get_session_history_revision(session_id, vault.name)
+        private_marker = "private-canonical-contents"
+        with sqlite3.connect(database_path) as conn:
+            conn.execute(
+                """
+                UPDATE chat_messages SET message_json = ?
+                WHERE session_id = ? AND vault_name = ? AND sequence_index = 1
+                """,
+                (json.dumps({"private": private_marker}), session_id, vault.name),
+            )
+            damaged_source_rows = conn.execute(
+                """
+                SELECT sequence_index, message_json FROM chat_messages
+                WHERE session_id = ? AND vault_name = ? ORDER BY sequence_index
+                """,
+                (session_id, vault.name),
+            ).fetchall()
+        try:
+            for operation in (
+                lambda: store.get_history(session_id, vault.name, mode="raw"),
+                lambda: store.fork_session(
+                    source_session_id=session_id,
+                    new_session_id=corrupt_child_id,
+                    vault_name=vault.name,
+                    through_sequence_index=7,
+                    title="Damaged canonical prefix",
+                ),
+            ):
+                try:
+                    operation()
+                except ChatHistoryCorruptionError as exc:
+                    self.soft_assert_equal(
+                        (
+                            exc.session_id,
+                            exc.vault_name,
+                            exc.sequence_index,
+                        ),
+                        (session_id, vault.name, 1),
+                        "A damaged canonical row should identify its session and sequence",
+                    )
+                else:
+                    self.soft_assert(
+                        False,
+                        "Canonical reads and forks must reject a damaged interior message",
+                    )
+            self.soft_assert_equal(
+                store.get_session(corrupt_child_id, vault.name),
+                None,
+                "A damaged source prefix must not create a partial child session",
+            )
+            self.soft_assert_equal(
+                store.get_stored_messages(corrupt_child_id, vault.name, mode="raw"),
+                [],
+                "A rejected corrupt fork must leave no child messages",
+            )
+            self.soft_assert_equal(
+                store.list_context_checkpoints(corrupt_child_id, vault.name),
+                [],
+                "A rejected corrupt fork must leave no inherited checkpoints",
+            )
+            self.soft_assert_equal(
+                store.get_session_history_revision(session_id, vault.name),
+                revision_before,
+                "Rejecting corrupt history must not advance the source revision",
+            )
+            with sqlite3.connect(database_path) as conn:
+                self.soft_assert_equal(
+                    conn.execute(
+                        """
+                        SELECT sequence_index, message_json FROM chat_messages
+                        WHERE session_id = ? AND vault_name = ? ORDER BY sequence_index
+                        """,
+                        (session_id, vault.name),
+                    ).fetchall(),
+                    damaged_source_rows,
+                    "Rejecting corrupt history must preserve the original persisted rows",
+                )
+        finally:
+            with sqlite3.connect(database_path) as conn:
+                conn.execute(
+                    """
+                    UPDATE chat_messages SET message_json = ?
+                    WHERE session_id = ? AND vault_name = ? AND sequence_index = 1
+                    """,
+                    (source_before[1].message_json, session_id, vault.name),
+                )
+        activity_response = self.call_api("/api/system/activity-log?limit=200")
+        assert activity_response.status_code == 200
+        entries = activity_response.json()["entries"]
+        completed_forks = [
+            entry
+            for entry in entries
+            if entry.get("data", {}).get("event") == "chat_session_fork_completed"
+            and entry.get("data", {}).get("source_session_id") == session_id
+            and entry.get("data", {}).get("new_session_id") == child_id
+            and entry.get("data", {}).get("canonical_through_sequence_index") == 5
+        ]
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("status") == "completed"
+                and entry.get("data", {}).get("operation_id")
+                for entry in completed_forks
+            ),
+            "Successful fork Activity should include status, source/child identity, boundary, and correlation ID",
+        )
+        fork_failures = [
+            entry
+            for entry in entries
+            if entry.get("data", {}).get("event") == "chat_session_fork_failed"
+            and entry.get("data", {}).get("source_session_id") == session_id
+            and entry.get("data", {}).get("canonical_through_sequence_index") == 5
+        ]
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("status") == "failed"
+                and entry.get("data", {}).get("vault_name") == vault.name
+                and entry.get("data", {}).get("error_type") == "IntegrityError"
+                and entry.get("data", {}).get("issue")
+                and entry.get("data", {}).get("operation_id")
+                for entry in fork_failures
+            ),
+            "Failed fork Activity should retain a distinct lifecycle and failure identity",
+        )
+        completed_operation_ids = {
+            entry.get("data", {}).get("operation_id") for entry in completed_forks
+        }
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("event") == "chat_session_fork_started"
+                and entry.get("data", {}).get("status") == "started"
+                and entry.get("data", {}).get("source_session_id") == session_id
+                and entry.get("data", {}).get("canonical_through_sequence_index") == 5
+                and entry.get("data", {}).get("operation_id") in completed_operation_ids
+                for entry in entries
+            ),
+            "Fork start and completion should share a searchable operation correlation ID",
+        )
+        failed_operation_ids = {
+            entry.get("data", {}).get("operation_id") for entry in fork_failures
+        }
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("event") == "chat_session_fork_started"
+                and entry.get("data", {}).get("status") == "started"
+                and entry.get("data", {}).get("operation_id") in failed_operation_ids
+                for entry in entries
+            ),
+            "The failed fork should retain a correlated start record",
+        )
+        self.soft_assert(
+            "private fork failure marker" not in json.dumps(fork_failures),
+            "Fork failure Activity must not log raw persistence exception text",
+        )
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("event")
+                == "chat_history_deserialization_failed"
+                and entry["data"].get("status") == "failed"
+                and entry["data"].get("session_id") == session_id
+                and entry["data"].get("vault_name") == vault.name
+                and entry["data"].get("sequence_index") == 1
+                and entry["data"].get("error_type") == "ChatHistoryCorruptionError"
+                for entry in entries
+            ),
+            "System Activity should identify the canonical row that prevents reading or forking",
+        )
+        self.soft_assert(
+            private_marker not in json.dumps(entries),
+            "Canonical failure diagnostics must not include persisted transcript contents",
+        )
+
+        checkpoint = store.get_latest_context_checkpoint(session_id, vault.name)
+        assert checkpoint is not None
+        malformed_metadata = [
+            json.dumps({"map_observed_through_sequence_index": value})
+            for value in (-1, 2, None, True, "7")
+        ] + ["{", "[]"]
+        for metadata_json in malformed_metadata:
+            damaged = replace(checkpoint, metadata_json=metadata_json)
+            try:
+                load_session_map_observed_through(damaged)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "Explicit invalid checkpoint cutoffs must fail closed"
+                )
+        for metadata_json in (None, "{}"):
+            legacy = replace(checkpoint, metadata_json=metadata_json)
+            self.soft_assert_equal(
+                load_session_map_observed_through(legacy),
+                checkpoint.last_message_sequence_index,
+                "Only absent legacy observation metadata may use the consumed boundary",
+            )
+        unsafe_child_id = "invalid-cutoff-child"
+        with sqlite3.connect(database_path) as conn:
+            conn.execute(
+                """
+                UPDATE chat_compaction_checkpoints SET metadata_json = ?
+                WHERE checkpoint_id = ?
+                """,
+                ("{", checkpoint.checkpoint_id),
+            )
+        try:
+            try:
+                store.fork_session(
+                    source_session_id=session_id,
+                    new_session_id=unsafe_child_id,
+                    vault_name=vault.name,
+                    through_sequence_index=7,
+                    title="Invalid checkpoint observation cutoff",
+                )
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("A fork must reject malformed checkpoint metadata")
+            self.soft_assert_equal(
+                store.get_session(unsafe_child_id, vault.name),
+                None,
+                "A rejected observation cutoff must leave no forked child",
+            )
+        finally:
+            with sqlite3.connect(database_path) as conn:
+                conn.execute(
+                    """
+                    UPDATE chat_compaction_checkpoints SET metadata_json = ?
+                    WHERE checkpoint_id = ?
+                    """,
+                    (checkpoint.metadata_json, checkpoint.checkpoint_id),
+                )
 
 
 def _user(text: str) -> ModelRequest:

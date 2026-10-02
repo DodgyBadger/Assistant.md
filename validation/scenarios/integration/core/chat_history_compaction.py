@@ -379,10 +379,10 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert [message["fork_sequence_index"] for message in detail_messages] == [
             None,
             2,
-            3,
+            None,
             4,
             5,
-        ], "Retained messages expose canonical fork points and the recovery card does not"
+        ], "Retained messages preserve canonical origins and withhold unresolved assistant tool-call fork points"
         fork_response = self.call_api(
             f"/api/chat/sessions/{session_id}/fork",
             method="POST",
