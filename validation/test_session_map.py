@@ -166,6 +166,103 @@ const controller = SessionMap.create({
     )
 
 
+def test_session_map_ignores_out_of_order_checkpoint_and_page_results() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+class Element {
+    constructor() { this.listeners = {}; this.isConnected = true; }
+    addEventListener(name, handler) { this.listeners[name] = handler; }
+    removeEventListener(name) { delete this.listeners[name]; }
+    focus() {}
+    remove() { this.isConnected = false; }
+    querySelector(selector) {
+        if (selector === '#session-map-modal-body') return this.body;
+        if (selector === '[data-session-map-dialog]') return this;
+        if (selector === '.session-map-content') return { open: true };
+        if (selector === '.session-map-transcript') return { open: true };
+        return null;
+    }
+}
+class HTMLButtonElement extends Element {
+    closest(selector) { return selector === '[data-session-map-transcript-page]' ? this : null; }
+    getAttribute(name) { return this.attributes[name] || null; }
+}
+class HTMLSelectElement extends Element {
+    matches() { return true; }
+}
+global.window = global;
+global.Element = Element;
+global.HTMLButtonElement = HTMLButtonElement;
+global.HTMLSelectElement = HTMLSelectElement;
+let modal;
+global.document = {
+    activeElement: new Element(),
+    body: { appendChild(value) { modal = value; } },
+    createElement() { const value = new Element(); value.body = { innerHTML: '' }; return value; },
+    getElementById() { return modal; },
+};
+const requests = [];
+global.fetch = () => new Promise((resolve, reject) => requests.push({ resolve, reject }));
+const errors = [];
+global.console = { error(value) { errors.push(value); } };
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+const controller = SessionMap.create({
+    elements: { vaultSelector: { value: 'vault' } },
+    icons: {},
+    utils: { escapeHtml: value => String(value) },
+});
+const payload = marker => ({
+    session_map: { entries: [{ kind: 'note', text: marker }] },
+    revisions: [{ checkpoint_id: 'cp-1', revision: 1 }],
+    selected_checkpoint_id: 'cp-1',
+});
+const succeed = (request, marker) => request.resolve({ ok: true, json: async () => payload(marker) });
+
+(async () => {
+    const opening = controller.openModalForSession({ session_id: 'session' });
+    succeed(requests[0], 'initial');
+    await opening;
+
+    const page = new HTMLButtonElement();
+    page.attributes = {
+        'data-session-map-transcript-page': '2',
+        'data-session-map-transcript-checkpoint': 'cp-1',
+    };
+    await modal.listeners.click({ target: page });
+    const revision = new HTMLSelectElement();
+    revision.value = 'cp-1';
+    modal.listeners.change({ target: revision });
+    succeed(requests[2], 'latest revision');
+    await Promise.resolve();
+    await Promise.resolve();
+    succeed(requests[1], 'stale page');
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.match(modal.body.innerHTML, /latest revision/);
+    assert.doesNotMatch(modal.body.innerHTML, /stale page/);
+
+    await modal.listeners.click({ target: page });
+    modal.listeners.change({ target: revision });
+    succeed(requests[4], 'latest after error');
+    await Promise.resolve();
+    await Promise.resolve();
+    requests[3].reject(new Error('old request failed'));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.match(modal.body.innerHTML, /latest after error/);
+    assert.deepStrictEqual(errors, []);
+})().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_session_map_loads_before_application() -> None:
     markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
 

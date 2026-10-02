@@ -3,6 +3,7 @@
         const { escapeHtml } = utils;
         let activeModal = null;
         let returnFocusTarget = null;
+        const checkpointRequestIds = new WeakMap();
 
         function closeModal({ restoreFocus = true } = {}) {
             const modal = activeModal || document.getElementById('session-map-modal');
@@ -259,17 +260,19 @@
         ) {
             const body = modal.querySelector('#session-map-modal-body');
             if (!body) return;
+            const requestId = (checkpointRequestIds.get(modal) || 0) + 1;
+            checkpointRequestIds.set(modal, requestId);
+            const isCurrent = () => modal.isConnected && checkpointRequestIds.get(modal) === requestId;
             body.innerHTML = '<p class="text-txt-secondary">Loading session map...</p>';
             try {
                 const payload = await fetchMap(sessionId, checkpointId, messagePage);
-                if (modal.isConnected) {
+                if (isCurrent()) {
                     body.innerHTML = renderMap(payload, { transcriptOpen, mapOpen });
                 }
             } catch (error) {
+                if (!isCurrent()) return;
                 console.error('Error opening session map modal:', error);
-                if (modal.isConnected) {
-                    body.innerHTML = `<p class="text-sm state-error">Unable to load session map: ${escapeHtml(error.message)}</p>`;
-                }
+                body.innerHTML = `<p class="text-sm state-error">Unable to load session map: ${escapeHtml(error.message)}</p>`;
             }
         }
 

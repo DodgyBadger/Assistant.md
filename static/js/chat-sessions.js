@@ -1,6 +1,13 @@
 (function chatSessionsModule(window) {
     function createChatSessions({ state, elements, sessionControls, chatRendering, chatTaskActions, chatTaskStream, callbacks }) {
+        let sessionsRequestId = 0;
+        let sessionLoadRequestId = 0;
+
         async function fetchSessions(vault, preferredSessionId = '') {
+            if (vault !== (elements.vaultSelector?.value || '')) return;
+            const requestId = ++sessionsRequestId;
+            const isCurrent = () => requestId === sessionsRequestId && elements.vaultSelector?.value === vault;
+            const selectedSessionId = state.sessionId;
             state.sessions = [];
             sessionControls.renderSelector();
             if (!vault) {
@@ -12,21 +19,33 @@
                 if (!response.ok) {
                     throw new Error('Failed to fetch chat sessions');
                 }
-                state.sessions = await response.json();
+                const sessions = await response.json();
+                if (!isCurrent()) return;
+                state.sessions = sessions;
                 sessionControls.renderSelector();
-                if (preferredSessionId && state.sessions.some((session) => session.session_id === preferredSessionId)) {
+                if (
+                    preferredSessionId
+                    && state.sessionId === selectedSessionId
+                    && state.sessions.some((session) => session.session_id === preferredSessionId)
+                ) {
                     state.sessionId = preferredSessionId;
                     sessionControls.renderSelector();
                 }
                 await sessionControls.refreshCompactionProgress();
             } catch (error) {
-                console.error('Error fetching chat sessions:', error);
+                if (isCurrent()) console.error('Error fetching chat sessions:', error);
             }
         }
 
         async function loadSession(sessionId, options = {}) {
+            const requestId = ++sessionLoadRequestId;
             const vault = elements.vaultSelector?.value || '';
             if (!vault || !sessionId) return;
+            const isCurrent = () => (
+                requestId === sessionLoadRequestId
+                && state.sessionId === sessionId
+                && elements.vaultSelector?.value === vault
+            );
 
             chatRendering.closeToolCallDetails();
             let loadedSessionId = '';
@@ -45,7 +64,10 @@
                     throw new Error('Failed to load chat session');
                 }
                 const payload = await response.json();
-                if (state.sessionId !== sessionId || elements.vaultSelector?.value !== vault) return;
+                if (!isCurrent()) return;
+                if (payload.session_id && payload.session_id !== sessionId) {
+                    throw new Error('Loaded chat session does not match the requested session');
+                }
 
                 state.sessionId = payload.session_id || sessionId;
                 loadedSessionId = state.sessionId;
@@ -69,23 +91,28 @@
                     chatRendering.setAssistantStatus(reviewMessage, 'Waiting for review', 'tools');
                 }
                 sessionControls.renderSelector();
-                sessionControls.updateTitleRow();
                 callbacks.updateStatus();
             } catch (error) {
+                if (!isCurrent()) return;
                 console.error('Error loading chat session:', error);
                 callbacks.addErrorMessage(error.message);
             } finally {
-                state.isLoading = false;
-                callbacks.syncControls();
+                if (isCurrent()) {
+                    state.isLoading = false;
+                    callbacks.syncControls();
+                }
             }
             if (
                 loadedSessionId
+                && requestId === sessionLoadRequestId
                 && !options.skipActiveTaskCheck
                 && !state.activeChatTaskId
                 && state.sessionId === loadedSessionId
+                && elements.vaultSelector?.value === vault
             ) {
                 await reattachActiveTask(loadedSessionId, vault, {
                     historyRevision: loadedHistoryRevision,
+                    loadRequestId: requestId,
                 });
             }
         }
@@ -108,7 +135,16 @@
             }
         }
 
-        async function reattachActiveTask(sessionId, vault, { historyRevision = null } = {}) {
+        async function reattachActiveTask(
+            sessionId,
+            vault,
+            { historyRevision = null, loadRequestId = sessionLoadRequestId } = {}
+        ) {
+            const isCurrent = () => (
+                loadRequestId === sessionLoadRequestId
+                && state.sessionId === sessionId
+                && elements.vaultSelector?.value === vault
+            );
             let response;
             try {
                 response = await fetch(
@@ -116,18 +152,18 @@
                     { cache: 'no-store' }
                 );
             } catch (error) {
-                console.warn('Could not check for an active chat task:', error);
+                if (isCurrent()) console.warn('Could not check for an active chat task:', error);
                 return;
             }
+            if (!isCurrent()) return;
             if (response.status === 404) {
                 const errorData = await response.json().catch(() => ({}));
+                if (!isCurrent()) return;
                 const currentRevision = errorData?.details?.history_revision;
                 if (
                     Number.isInteger(historyRevision)
                     && Number.isInteger(currentRevision)
                     && currentRevision !== historyRevision
-                    && state.sessionId === sessionId
-                    && elements.vaultSelector?.value === vault
                 ) {
                     await loadSession(sessionId, { skipActiveTaskCheck: true });
                 }
@@ -139,8 +175,9 @@
             }
 
             const task = await response.json();
+            if (!isCurrent()) return;
             if (!task?.task_id || !['queued', 'running'].includes(task.status)) return;
-            if (state.activeChatTaskId || state.sessionId !== sessionId) return;
+            if (state.activeChatTaskId) return;
 
             const abortController = new AbortController();
             state.isLoading = true;
@@ -157,8 +194,8 @@
                     { hydrateReplay: true }
                 );
             } catch (error) {
-                console.error('Error reattaching to active chat task:', error);
-                if (!state.isCancellingChat && error.name !== 'AbortError') {
+                if (isCurrent()) console.error('Error reattaching to active chat task:', error);
+                if (isCurrent() && !state.isCancellingChat && error.name !== 'AbortError') {
                     callbacks.addErrorMessage(error.message);
                 }
             } finally {
