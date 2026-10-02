@@ -1,6 +1,6 @@
 # Canonical Session Fork Lineage Implementation Plan
 
-Status: implementation and deterministic validation complete; awaiting manual UI verification.
+Status: implementation and deterministic validation complete. Manual verification of the latest evicted-transcript fork flow remains outstanding.
 
 ## Objective
 
@@ -8,11 +8,11 @@ Make a fork an independent, faithful copy of one chat session through the select
 
 This effort fixes fork persistence and context-strategy inheritance only. Cross-session search deduplication, conversation-family ranking, vault-to-session relationship interpretation, and copy-on-write storage remain deferred memory-layer work.
 
-## Current Defect
+## Original Defect (Resolved)
 
-`ChatStore.fork_session()` currently copies the source session's effective replay rather than its canonical raw prefix. A compacted recovery card or session map is flattened into an ordinary child message, checkpoint rows are omitted, compaction metadata is removed, and the API hard-codes the new session as `unassigned`. The child may therefore look compacted while losing strategy pinning, map observability, canonical pre-compaction evidence, and V1-to-V2 upgrade eligibility.
+Before this implementation, `ChatStore.fork_session()` copied the source session's effective replay rather than its canonical raw prefix. A compacted recovery card or session map was flattened into an ordinary child message, checkpoint rows were omitted, compaction metadata was removed, and the API hard-coded the new session as `unassigned`. The child could therefore look compacted while losing strategy pinning, map observability, canonical pre-compaction evidence, and V1-to-V2 upgrade eligibility. The implementation results below record the correction.
 
-The existing `fork_sequence_index` contract also becomes ambiguous after Compaction v1 because recovery-card replacement history is assigned synthetic indexes rather than the retained messages' canonical source indexes. Correct forking requires resolving the selected visible assistant message back to its canonical source message before copying anything.
+The original `fork_sequence_index` contract also became ambiguous after Compaction v1 because recovery-card replacement history was assigned synthetic indexes rather than the retained messages' canonical source indexes. Correct forking required resolving the selected visible assistant message back to its canonical source message before copying anything.
 
 ## User Contract
 
@@ -139,9 +139,9 @@ Run the production Python quality gate, relevant frontend smoke checks, focused 
 
 The lineage recorded here is deliberately sufficient for those later designs without making this branch choose their retrieval semantics.
 
-## Next Step
+## Manual Verification Status
 
-Build the branch on a live server and manually inspect at least one recovery-card fork and one session-map fork, including inherited strategy controls, map revisions, canonical transcript inspection, continued chat, and parent/child divergence. Whole-branch hardening remains a separate follow-up across the complete Compaction v2 branch.
+Deterministic implementation and validation are complete. Still verify the latest evicted-transcript fork action in the live UI, including the confirmation, selecting an older canonical assistant message, inherited strategy/checkpoints, continued chat, and parent/child divergence. Earlier manual testing confirmed ordinary recovery-card and session-map fork behavior; this latest UI path needs its own confirmation.
 
 ## Implementation Results
 
