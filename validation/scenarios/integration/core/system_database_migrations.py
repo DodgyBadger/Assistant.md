@@ -145,8 +145,18 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5, 6, 7, 8],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
                 "Chat migration version should be recorded",
+            )
+            checkpoint_columns = {
+                str(row[1])
+                for row in conn.execute(
+                    "PRAGMA table_info(chat_compaction_checkpoints)"
+                )
+            }
+            self.soft_assert(
+                "replacement_source_sequence_indexes_json" in checkpoint_columns,
+                "Chat checkpoint migration should add replacement origins",
             )
             self.soft_assert(
                 not self._table_exists(conn, "chat_session_map_revisions"),
@@ -238,7 +248,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         with sqlite3.connect(retired_map_db) as conn:
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5, 6, 7, 8],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9],
                 "A database already at map migration 4 should apply current migrations",
             )
             self.soft_assert(

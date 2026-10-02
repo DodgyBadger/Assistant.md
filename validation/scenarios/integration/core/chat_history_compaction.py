@@ -63,6 +63,23 @@ class ChatHistoryCompactionScenario(BaseScenario):
             ModelResponse(parts=[TextPart(content="Probe result handled.")]),
         ]
         store.add_messages(session_id, vault.name, messages)
+        store.add_tool_event(
+            session_id=session_id,
+            vault_name=vault.name,
+            tool_call_id="probe-1",
+            tool_name="probe",
+            event_type="call",
+            args={},
+        )
+        store.add_tool_event(
+            session_id=session_id,
+            vault_name=vault.name,
+            tool_call_id="probe-1",
+            tool_name="probe",
+            event_type="result",
+            result_text="probe result",
+            result_metadata={"status": "completed"},
+        )
         assert (
             store.get_message_count(session_id, vault.name, mode="raw") == 6
         ), "Raw count starts with seeded messages"
@@ -360,12 +377,12 @@ class ChatHistoryCompactionScenario(BaseScenario):
             and detail_messages[3]["content"] == ""
         ), "Tool result remains paired with the call without exposing its content"
         assert [message["fork_sequence_index"] for message in detail_messages] == [
-            0,
-            1,
+            None,
             2,
             3,
             4,
-        ], "Compacted replacement messages expose effective fork points"
+            5,
+        ], "Retained messages expose canonical fork points and the recovery card does not"
         fork_response = self.call_api(
             f"/api/chat/sessions/{session_id}/fork",
             method="POST",
@@ -379,8 +396,11 @@ class ChatHistoryCompactionScenario(BaseScenario):
         ), "Forking from compacted retained messages succeeds"
         fork_payload = fork_response.json()
         assert (
-            fork_payload["copied_message_count"] == 5
-        ), "Forking from compacted replacement history copies only the visible effective prefix"
+            fork_payload["copied_message_count"] == 6
+        ), "Forking from compacted history copies the complete canonical prefix"
+        assert (
+            fork_payload["session"]["context_strategy"] == "recovery_card"
+        ), "Forking carries recovery-card strategy pinning into the child"
         fork_session_id = fork_payload["session"]["session_id"]
         fork_detail = self.call_api(
             f"/api/chat/sessions/{fork_session_id}?vault_name={vault.name}"
@@ -389,7 +409,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
         fork_messages = fork_detail.json()["messages"]
         assert (
             len(fork_messages) == 5
-        ), "Forked session starts from the compacted visible history"
+        ), "Forked session replays the inherited recovery checkpoint"
         assert (
             fork_messages[0]["role"] == "system"
         ), "Forked session preserves the compaction card as a system-maintained message"
@@ -401,12 +421,26 @@ class ChatHistoryCompactionScenario(BaseScenario):
         ), "Forked session preserves recovery-card retrieval guidance"
         assert (
             fork_messages[-1]["content"] == "Probe result handled."
-        ), "Forked session includes the retained assistant message without restoring archival history"
+        ), "Forked session includes the selected retained assistant message"
+        assert (
+            store.get_message_count(fork_session_id, vault.name, mode="raw") == 6
+        ), "Forked session preserves the complete canonical raw prefix"
+        assert (
+            len(store.get_tool_events(fork_session_id, vault.name)) == 2
+        ), "Forked session preserves structured tool activity for copied messages"
+        fork_checkpoint = store.get_latest_context_checkpoint(
+            fork_session_id, vault.name
+        )
+        assert (
+            fork_checkpoint is not None
+            and fork_checkpoint.checkpoint_kind == "recovery_card"
+        ), "Forked session owns an inherited recovery checkpoint"
         fork_metadata = store.get_session_metadata(fork_session_id, vault.name)
         assert "fork" in fork_metadata, "Forked session records fork provenance"
         assert (
-            "last_compaction" not in fork_metadata
-        ), "Forked compacted session should not inherit source checkpoint metadata"
+            fork_metadata["last_compaction"]["compaction_id"]
+            == fork_checkpoint.checkpoint_id
+        ), "Forked checkpoint metadata points to the child-owned checkpoint"
         assert (
             fork_metadata["history_revision"] == 1
         ), "Forked compacted session starts a fresh history revision from copied effective history"
@@ -467,6 +501,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
             6,
             7,
             8,
+            9,
         ], "Chat migrations are recorded in schema_migrations"
 
         assert (

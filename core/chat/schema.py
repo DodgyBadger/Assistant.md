@@ -53,6 +53,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="classify_context_checkpoints",
         apply=lambda conn: _migrate_context_checkpoint_kinds(conn),
     ),
+    SQLiteMigration(
+        version=9,
+        name="add_checkpoint_replacement_origins",
+        apply=lambda conn: _migrate_checkpoint_replacement_origins(conn),
+    ),
 )
 
 
@@ -240,6 +245,7 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
             last_message_sequence_index INTEGER NOT NULL,
             summary_message_json TEXT NOT NULL,
             replacement_history_json TEXT NOT NULL,
+            replacement_source_sequence_indexes_json TEXT,
             metadata_json TEXT,
             UNIQUE (checkpoint_id),
             FOREIGN KEY (session_id, vault_name)
@@ -249,6 +255,7 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
         """
     )
     _migrate_context_checkpoint_kinds(conn)
+    _migrate_checkpoint_replacement_origins(conn)
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_chat_compaction_checkpoints_session_id
@@ -270,6 +277,16 @@ def _migrate_context_checkpoint_kinds(conn: sqlite3.Connection) -> None:
         "chat_compaction_checkpoints",
         "checkpoint_kind",
         "TEXT NOT NULL DEFAULT 'recovery_card'",
+    )
+
+
+def _migrate_checkpoint_replacement_origins(conn: sqlite3.Connection) -> None:
+    """Record canonical origins for checkpoint replacement messages."""
+    _ensure_column(
+        conn,
+        "chat_compaction_checkpoints",
+        "replacement_source_sequence_indexes_json",
+        "TEXT",
     )
     conn.execute(
         """

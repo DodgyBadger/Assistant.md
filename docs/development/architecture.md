@@ -40,6 +40,8 @@ The web UI calls the same API and runtime services used by programmatic clients.
 
 Interactive chat enters through `core/chat/`. A session has an immutable owner and workspace. A process-local execution task owns the model stream, tool-call state, cancellation, buffered event replay, and safe recovery checkpoints. Each chat event stream also retains a compact process-local projection of its current response, reasoning, safe tool state, review state, and terminal state; reconnecting browsers hydrate that projection once and resume SSE strictly after its atomic event cursor, while persisted session history remains authoritative after completion. Model-stream liveness is measured between semantic Pydantic AI events rather than raw connection traffic; the idle deadline resets on model progress and is suspended while an observed tool call is running. Agent construction resolves the selected model, context instructions, effective tools, connections, limits, and output handling for the captured execution authority. Deferred inline-edit review resumes through the same task-owned execution path.
 
+A session fork is an independently owned physical copy of canonical messages through one assistant response. Applicable compaction checkpoints and structured tool events cross the branch with child-owned identities, while lineage metadata records the immediate parent and original root. A checkpoint crosses only when its author observed no message after the branch point.
+
 Ordinary browser-facing tool lists and lifecycle events expose only tool identity, lifecycle state, and estimated result size. Persisted tool arguments and results cross into the browser through the authenticated per-call detail endpoint after an explicit user request; those responses are non-cacheable and the UI clears its detail references when the modal closes. Deferred-review cards are the deliberate exception: they receive proposed tool arguments because the user must inspect and may edit them before approving execution.
 
 Authoring files under `core/authoring/` define Markdown workflows and context assembly backed by Python executed in the Monty sandbox. Monty code receives only explicit host capability functions; it does not inherit the application process or unrestricted Python access. The workflow governor applies vault lanes, timeouts, cancellation, authority propagation, activity, and durable run history. APScheduler jobs under `core/scheduling/` retain the workflow owner and enter the same governed path.
@@ -95,7 +97,7 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 | Authoring catalog | Managed and project-local Markdown definitions | vaults beneath the data root |
 | Installation settings | Deployment-wide typed configuration | system root and restart-bound environment |
 | Encrypted credentials, OAuth state, MCP and native connections | Separate principal-owned domain tables sharing atomic mutations | `access.db`; credentials use the external installation key |
-| Chats and messages | Principal-owned canonical conversation state | chat subsystem databases |
+| Chats, messages, checkpoints, and fork lineage | Principal-owned canonical conversation state | chat subsystem databases |
 | Workflow outcomes | Principal-owned durable domain history | workflow-run database |
 | Vault activity and recovery | Attributed activities, revisions, and snapshots | vault-state databases and snapshot storage |
 | Session summaries | Rebuildable derived memory indexes | memory subsystem state |

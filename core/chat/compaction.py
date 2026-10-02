@@ -370,6 +370,9 @@ async def compact_chat_history(
                     "use an explicit context rebuild to change strategies."
                 )
             messages = chat_store.get_history(session_id, vault_name) or []
+            stored_messages = chat_store.get_stored_messages(
+                session_id, vault_name, mode="effective"
+            )
             integrity = analyze_tool_history(messages)
             if not integrity.ok:
                 logger.warning(
@@ -435,6 +438,12 @@ async def compact_chat_history(
                 raise ValueError("Compaction summary generation returned empty output.")
             summary_message = build_compaction_summary_message(summary)
             replacement = [summary_message, *recent_messages]
+            retained_origins = [
+                message.fork_sequence_index
+                for message in (
+                    stored_messages[-len(recent_messages) :] if recent_messages else []
+                )
+            ]
             estimated_after = estimate_history_tokens(replacement)
             compacted_at = datetime.now(UTC).isoformat()
             compaction_id = uuid.uuid4().hex
@@ -476,6 +485,7 @@ async def compact_chat_history(
                 last_message_sequence_index=last_message_sequence_index,
                 summary_message=summary_message,
                 replacement_history=replacement,
+                replacement_source_sequence_indexes=[None, *retained_origins],
                 metadata=checkpoint_metadata,
                 metadata_update=metadata_update,
             )

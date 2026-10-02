@@ -168,6 +168,7 @@ def commit_session_map_context_checkpoint(
         last_message_sequence_index=consumed_through,
         summary_message=context_message,
         replacement_history=[context_message],
+        replacement_source_sequence_indexes=[None],
         metadata=metadata,
         metadata_update={
             "last_session_map_checkpoint": {

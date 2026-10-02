@@ -577,29 +577,27 @@ def fork_chat_session(
     source_session = _require_chat_session_access(vault_name, source_session_id)
 
     source_messages = _chat_store.get_stored_messages(source_session_id, vault_name)
-    highest_sequence = max(
-        (message.sequence_index for message in source_messages), default=-1
-    )
-    if highest_sequence < 0:
+    canonical_fork_points = _canonical_assistant_fork_points(source_messages)
+    if not canonical_fork_points:
         raise APIException(
             status_code=400,
             error_type="ChatSessionForkEmpty",
             message=f"Chat session has no messages to fork: {source_session_id}",
             details={"session_id": source_session_id, "vault_name": vault_name},
         )
-    if through_sequence_index > highest_sequence:
+    if through_sequence_index not in canonical_fork_points:
         raise APIException(
             status_code=400,
             error_type="ChatSessionForkPointInvalid",
             message=(
-                f"Fork point {through_sequence_index} is beyond the latest "
-                f"effective message sequence {highest_sequence}."
+                f"Fork point {through_sequence_index} does not identify a "
+                "canonical message in the effective session history."
             ),
             details={
                 "session_id": source_session_id,
                 "vault_name": vault_name,
                 "through_sequence_index": through_sequence_index,
-                "highest_sequence_index": highest_sequence,
+                "canonical_fork_points": sorted(canonical_fork_points),
             },
         )
 
@@ -625,18 +623,45 @@ def fork_chat_session(
     if new_session is None:  # pragma: no cover - defensive consistency check
         raise RuntimeError(f"Forked session was not persisted: {new_session_id}")
 
+    strategy_status = get_session_context_strategy_status(
+        store=_chat_store,
+        session_id=new_session_id,
+        vault_name=vault_name,
+    )
+    map_checkpoints = _chat_store.list_context_checkpoints(
+        new_session_id, vault_name, checkpoint_kind="session_map"
+    )
+    inherited_checkpoints = _chat_store.list_context_checkpoints(
+        new_session_id, vault_name
+    )
+    fork_metadata = _chat_store.get_session_metadata(new_session_id, vault_name).get(
+        "fork"
+    )
     logger.info(
-        "Chat session forked",
+        "chat_session_fork_completed",
         data={
+            "event": "chat_session_fork_completed",
             "vault_name": vault_name,
             "source_session_id": source_session_id,
             "new_session_id": new_session_id,
-            "through_sequence_index": through_sequence_index,
-            "copied_message_count": copied_message_count,
-            "workspace_path": _chat_store.get_session_workspace_path(
-                new_session_id, vault_name
-            )
-            or None,
+            "canonical_through_sequence_index": through_sequence_index,
+            "raw_message_count": copied_message_count,
+            "tool_event_count": (
+                fork_metadata.get("copied_tool_event_count", 0)
+                if isinstance(fork_metadata, dict)
+                else 0
+            ),
+            "inherited_checkpoint_count": len(inherited_checkpoints),
+            "latest_checkpoint_kind": (
+                inherited_checkpoints[-1].checkpoint_kind
+                if inherited_checkpoints
+                else None
+            ),
+            "lineage_root_session_id": (
+                fork_metadata.get("root_session_id")
+                if isinstance(fork_metadata, dict)
+                else source_session_id
+            ),
         },
     )
     return ChatSessionForkResponse(
@@ -654,10 +679,16 @@ def fork_chat_session(
             chat_mode=_chat_store.get_session_chat_mode(
                 new_session.session_id, vault_name
             ),
-            has_summary=False,
-            has_session_map=False,
-            context_strategy="unassigned",
-            can_upgrade_to_v2=False,
+            has_summary=(
+                SessionSummaryStore().get_session_summary(
+                    vault_name=vault_name,
+                    session_id=new_session_id,
+                )
+                is not None
+            ),
+            has_session_map=bool(map_checkpoints),
+            context_strategy=strategy_status.strategy,
+            can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
         ),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
@@ -673,6 +704,24 @@ def _generate_unique_chat_session_id(vault_name: str) -> str:
         suffix += 1
         generated_session_id = f"{base_session_id}_{suffix}"
     return generated_session_id
+
+
+def _canonical_assistant_fork_points(
+    messages: list[StoredChatMessage],
+) -> set[int]:
+    """Return assistant boundaries that leave provider tool history complete."""
+    fork_points: set[int] = set()
+    pending_tool_call_ids: set[str] = set()
+    for message in messages:
+        pending_tool_call_ids.update(message.tool_call_ids)
+        pending_tool_call_ids.difference_update(message.tool_return_ids)
+        if (
+            message.role == "assistant"
+            and message.fork_sequence_index is not None
+            and not pending_tool_call_ids
+        ):
+            fork_points.add(message.fork_sequence_index)
+    return fork_points
 
 
 def _forked_session_title(source_session: StoredChatSession) -> str:

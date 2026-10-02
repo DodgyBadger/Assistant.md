@@ -1,6 +1,6 @@
 # Canonical Session Fork Lineage Implementation Plan
 
-Status: planned.
+Status: implemented and in hardening.
 
 ## Objective
 
@@ -141,4 +141,12 @@ The lineage recorded here is deliberately sufficient for those later designs wit
 
 ## Next Step
 
-Move to Feature Development with Slice 0: add the failing deterministic fork-lineage scenario and revise the obsolete flattened-fork assertions before changing production persistence.
+Complete the production quality gate and full deterministic `integration/core` profile, then review the resulting diff and commit the validated implementation milestone.
+
+## Implementation Results
+
+- Checkpoint replacement history now carries aligned canonical source indexes through chat database migration 9. Fresh recovery-card and session-map checkpoints write the mapping directly, while legacy checkpoint projection uses exact ordered provider-message matching and leaves ambiguous messages non-forkable.
+- Fork persistence now copies the canonical raw prefix without renumbering, preserves timestamps and reachable structured tool events, clones only checkpoints whose author observation boundary is safe, and gives inherited checkpoints child-owned IDs with explicit origin metadata.
+- Fork lineage records the immediate parent, original root, canonical branch point, child-owned boundary, inherited checkpoint count, and copied tool-event count. Nested forks preserve the root.
+- The fork API accepts canonical assistant-message branch points and derives strategy, V2 upgrade eligibility, and map availability from durable child state.
+- Deterministic coverage now includes V1 raw-history restoration, structured tool activity, V2 future-checkpoint exclusion, inherited revision inspection, nested lineage, parent immutability, and migration behavior.
