@@ -24,7 +24,7 @@ The existing `fork_sequence_index` contract also becomes ambiguous after Compact
 - A child whose latest inherited checkpoint is a recovery card remains Compaction v1 and exposes the V2 upgrade action when V2 is configured. A child whose latest inherited checkpoint is a session map remains Compaction v2 and exposes the inherited map revisions and canonical transcript in the existing modal.
 - A fork before the first eligible checkpoint is truthfully `unassigned`, matching the parent state at that historical point.
 - Forking performs no model inference and spends no model quota.
-- If a legacy checkpoint's visible retained message cannot be mapped unambiguously to canonical history, the operation fails with a specific, non-destructive error rather than silently creating another flattened fork.
+- If a legacy checkpoint's visible retained message cannot be mapped unambiguously to canonical history, that replacement message exposes no fork action. The corresponding canonical transcript messages remain forkable by their exact raw indexes.
 
 ## Persistence Model
 
@@ -52,7 +52,7 @@ These fields are sufficient for future conversation-family search without defini
 
 ## Legacy Compatibility
 
-Existing checkpoints have no replacement-origin column. Add a deterministic compatibility resolver that aligns retained replacement messages against canonical raw messages in order, using provider-native persisted message equality and the checkpoint observation boundary. Recovery-card and session-map generated context messages remain originless. Ambiguous or missing alignment must fail closed and emit a bounded diagnostic; it must not guess based only on prose.
+Existing checkpoints have no replacement-origin column. A deterministic compatibility resolver aligns retained replacement messages against canonical raw messages in order, using provider-native persisted message equality and the checkpoint observation boundary. Recovery-card and session-map generated context messages remain originless. Ambiguous or missing alignment does not expose a fork action on the replacement message and never guesses based only on prose. Canonical transcript inspection remains independently forkable because each displayed archival message already has an exact raw sequence index.
 
 Do not automatically rewrite already-created flattened forks. Their canonical parent prefix has already been discarded from the child, and some may have substantial divergent work. Record this limitation and assess a separate explicit repair operation only after the forward fork contract is stable. New forks from legacy parent sessions must use the compatibility resolver and receive the corrected canonical/checkpoint representation.
 
@@ -84,7 +84,7 @@ Do not add a second fork service or a memory-specific fork implementation. The c
 
 Retain one completion event at the existing fork decision boundary and make its structured payload explicit: `event=chat_session_fork_completed`, `source_session_id`, `new_session_id`, `vault_name`, `canonical_through_sequence_index`, `raw_message_count`, `tool_event_count`, `inherited_checkpoint_count`, `latest_checkpoint_kind`, and `lineage_root_session_id`.
 
-Emit `chat_session_fork_rejected` only for a persistence-specific decision that the ordinary API error boundary cannot explain, especially unresolved legacy replacement provenance. Include the source session, requested visible index, reason code, and checkpoint ID when applicable; do not log message contents.
+Emit `chat_session_fork_rejected` only for a persistence-specific decision that the ordinary API error boundary cannot explain. Include the source session, requested canonical index, reason code, and checkpoint ID when applicable; do not log message contents.
 
 ## Testable Slices
 
@@ -150,4 +150,5 @@ Build the branch on a live server and manually inspect at least one recovery-car
 - Fork lineage records the immediate parent, original root, canonical branch point, child-owned boundary, inherited checkpoint count, and copied tool-event count. Nested forks preserve the root.
 - The fork API accepts canonical assistant-message branch points and derives strategy, V2 upgrade eligibility, and map availability from durable child state.
 - Deterministic coverage now includes V1 raw-history restoration, structured tool activity, V2 future-checkpoint exclusion, inherited revision inspection, nested lineage, parent immutability, and migration behavior.
-- Deterministic failure coverage injects a SQLite abort during checkpoint cloning and proves that the transaction leaves no child session, messages, or checkpoints. A separate legacy fixture duplicates provider-native assistant history, proves that origin recovery remains unresolved, and verifies a specific non-destructive API rejection.
+- Deterministic failure coverage injects a SQLite abort during checkpoint cloning and proves that the transaction leaves no child session, messages, or checkpoints. A separate legacy fixture duplicates provider-native assistant history and proves that origin recovery remains unresolved without preventing a fork from an explicit canonical transcript index.
+- The session-map transcript exposes fork actions on protocol-complete assistant messages, reusing the ordinary confirmation, request, and navigation path. The fork API validates against canonical raw history so messages evicted from effective context remain valid historical branch points.

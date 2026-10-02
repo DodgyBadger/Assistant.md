@@ -183,6 +183,7 @@ const sessionMap = window.SessionMap.create({
     utils: window.AssistantMDUtils,
     callbacks: {
         openToolCall: (options) => chatRendering.openPersistedToolCallDetails(options),
+        forkSession: (options) => chatRendering.forkSession(options),
     },
 });
 

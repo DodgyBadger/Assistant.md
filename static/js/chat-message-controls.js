@@ -126,17 +126,20 @@
 
             button.addEventListener('click', async (event) => {
                 event.stopPropagation();
-                await forkCurrentSession(sequenceIndex, button);
+                await forkSession({
+                    sessionId: state.sessionId,
+                    sequenceIndex,
+                    button,
+                });
             });
 
             return button;
         }
 
-        async function forkCurrentSession(sequenceIndex, button) {
+        async function forkSession({ sessionId, sequenceIndex, button }) {
             const vault = elements.vaultSelector.value;
-            const sessionId = state.sessionId;
             if (state.isLoading || !vault || !sessionId || !Number.isInteger(sequenceIndex)) {
-                return;
+                return null;
             }
             const confirmed = window.confirm(
                 'Fork this conversation here?\n\n' +
@@ -144,7 +147,7 @@
                 'If it inherits a recovery card, you may need to upgrade the fork to Compaction V2 again.'
             );
             if (!confirmed) {
-                return;
+                return null;
             }
 
             const previousDisabled = button.disabled;
@@ -170,10 +173,12 @@
                 state.sessionId = forkSessionId;
                 await callbacks.fetchSessions(vault, forkSessionId);
                 await callbacks.loadSession(forkSessionId);
+                return forkSessionId;
             } catch (error) {
                 console.error('Failed to fork chat session:', error);
                 callbacks.addErrorMessage(`Fork failed: ${error.message}`);
                 button.disabled = previousDisabled;
+                return null;
             }
         }
 
@@ -183,6 +188,7 @@
             addMessage,
             createCopyButton,
             createForkButton,
+            forkSession,
         });
     }
 

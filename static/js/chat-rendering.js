@@ -629,6 +629,7 @@
             closeToolCallDetails: toolDetails.close,
             getActiveToolDetailId: toolDetails.getActiveId,
             openPersistedToolCallDetails: toolDetails.openPersisted,
+            forkSession: messageControls.forkSession,
         });
     }
 

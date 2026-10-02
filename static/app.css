@@ -1755,6 +1755,16 @@ details summary::-webkit-details-marker {
     color: rgb(var(--text-primary));
 }
 
+.session-map-transcript-message-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.session-map-transcript-message-actions .copy-button {
+    padding: 2px 6px;
+}
+
 .session-map-transcript-tool-summary {
     margin: 0;
     cursor: pointer;

@@ -194,6 +194,23 @@ class ChatSessionForkLineageScenario(BaseScenario):
             2,
             "Inherited V2 revisions should remain inspectable through the map modal API",
         )
+        evicted_fork_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/fork",
+            method="POST",
+            data={"vault_name": vault.name, "through_sequence_index": 3},
+        )
+        assert evicted_fork_response.status_code == 200, evicted_fork_response.text
+        evicted_child_id = evicted_fork_response.json()["session"]["session_id"]
+        self.soft_assert_equal(
+            len(store.list_context_checkpoints(evicted_child_id, vault.name)),
+            1,
+            "A fork from evicted canonical history should exclude future-informed maps",
+        )
+        self.soft_assert_equal(
+            store.get_message_count(evicted_child_id, vault.name, mode="raw"),
+            4,
+            "A fork from evicted history should end at the selected canonical message",
+        )
 
         atomic_child_id = "atomic-failure-child"
         database_path = get_runtime_context().config.system_root / "chat_sessions.db"
@@ -274,28 +291,23 @@ class ChatSessionForkLineageScenario(BaseScenario):
             None,
             "Ambiguous legacy retained messages should not receive a guessed origin",
         )
-        sessions_before_rejection = {
-            session.session_id for session in store.list_sessions(vault.name)
-        }
-        rejected_response = self.call_api(
+        canonical_legacy_response = self.call_api(
             f"/api/chat/sessions/{legacy_session_id}/fork",
             method="POST",
             data={"vault_name": vault.name, "through_sequence_index": 3},
         )
         self.soft_assert_equal(
-            rejected_response.status_code,
-            409,
-            "Ambiguous legacy provenance should fail closed",
+            canonical_legacy_response.status_code,
+            200,
+            "An explicit canonical transcript index should remain forkable",
         )
+        canonical_legacy_child = canonical_legacy_response.json()["session"][
+            "session_id"
+        ]
         self.soft_assert_equal(
-            rejected_response.json().get("error"),
-            "ChatSessionForkPointUnresolved",
-            "Ambiguous legacy provenance should return a specific rejection",
-        )
-        self.soft_assert_equal(
-            {session.session_id for session in store.list_sessions(vault.name)},
-            sessions_before_rejection,
-            "Rejected legacy forks should not create a partial child",
+            store.get_message_count(canonical_legacy_child, vault.name, mode="raw"),
+            4,
+            "Canonical transcript forks should not depend on replacement-message inference",
         )
 
 

@@ -42,6 +42,7 @@ const controller = ChatRendering.create({
 
 for (const name of [
     'closeToolCallDetails',
+    'forkSession',
     'getActiveToolDetailId',
     'handleToolEvent',
     'reconcileToolCallPersistence',

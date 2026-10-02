@@ -72,6 +72,9 @@ def test_session_map_exposes_checkpoint_and_transcript_actions() -> None:
     )
     assert "data-session-map-tool-call" in map_source
     assert "callbacks.openToolCall" in map_source
+    assert "data-session-map-fork" in map_source
+    assert "callbacks.forkSession" in map_source
+    assert "message?.role === 'assistant'" in map_source
     assert (
         '<details class="session-map-transcript-message session-map-transcript-tools">'
         in map_source

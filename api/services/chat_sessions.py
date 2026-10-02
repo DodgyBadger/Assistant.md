@@ -493,6 +493,7 @@ def _session_map_transcript_items(
 ) -> list[ChatSessionMessageInfo]:
     """Preserve canonical sequence while collapsing adjacent provider tool traffic."""
     displayed: list[ChatSessionMessageInfo] = []
+    canonical_fork_points = _canonical_assistant_fork_points(messages)
     summaries = {
         item.tool_call_id: item
         for item in _effective_tool_call_info(
@@ -554,6 +555,12 @@ def _session_map_transcript_items(
                             "is_tool_message": False,
                             "tool_call_ids": [],
                             "tool_return_ids": [],
+                            "fork_sequence_index": (
+                                projected.fork_sequence_index
+                                if projected.fork_sequence_index
+                                in canonical_fork_points
+                                else None
+                            ),
                         }
                     )
                 )
@@ -562,6 +569,11 @@ def _session_map_transcript_items(
         flush_tool_group()
         if projected.role not in {"user", "assistant"}:
             continue
+        if (
+            projected.role == "assistant"
+            and projected.fork_sequence_index not in canonical_fork_points
+        ):
+            projected = projected.model_copy(update={"fork_sequence_index": None})
         displayed.append(projected)
     flush_tool_group()
     return displayed
@@ -576,41 +588,10 @@ def fork_chat_session(
     """Create a new chat session from a source session prefix."""
     source_session = _require_chat_session_access(vault_name, source_session_id)
 
-    source_messages = _chat_store.get_stored_messages(source_session_id, vault_name)
+    source_messages = _chat_store.get_stored_messages(
+        source_session_id, vault_name, mode="raw"
+    )
     canonical_fork_points = _canonical_assistant_fork_points(source_messages)
-    if (
-        through_sequence_index not in canonical_fork_points
-        and _legacy_fork_point_is_ambiguous(
-            source_session_id=source_session_id,
-            vault_name=vault_name,
-            through_sequence_index=through_sequence_index,
-            effective_messages=source_messages,
-        )
-    ):
-        logger.warning(
-            "chat_session_fork_rejected",
-            data={
-                "event": "chat_session_fork_rejected",
-                "vault_name": vault_name,
-                "source_session_id": source_session_id,
-                "requested_sequence_index": through_sequence_index,
-                "reason": "legacy_replacement_origin_ambiguous",
-            },
-        )
-        raise APIException(
-            status_code=409,
-            error_type="ChatSessionForkPointUnresolved",
-            message=(
-                "The selected message cannot be mapped unambiguously to "
-                "canonical history in this legacy checkpoint."
-            ),
-            details={
-                "session_id": source_session_id,
-                "vault_name": vault_name,
-                "through_sequence_index": through_sequence_index,
-                "reason": "legacy_replacement_origin_ambiguous",
-            },
-        )
     if not canonical_fork_points:
         raise APIException(
             status_code=400,
@@ -624,7 +605,7 @@ def fork_chat_session(
             error_type="ChatSessionForkPointInvalid",
             message=(
                 f"Fork point {through_sequence_index} does not identify a "
-                "canonical message in the effective session history."
+                "protocol-complete assistant message in canonical session history."
             ),
             details={
                 "session_id": source_session_id,
@@ -755,36 +736,6 @@ def _canonical_assistant_fork_points(
         ):
             fork_points.add(message.fork_sequence_index)
     return fork_points
-
-
-def _legacy_fork_point_is_ambiguous(
-    *,
-    source_session_id: str,
-    vault_name: str,
-    through_sequence_index: int,
-    effective_messages: list[StoredChatMessage],
-) -> bool:
-    """Identify an exact legacy replacement message with unresolved provenance."""
-    raw_messages = _chat_store.get_stored_messages(
-        source_session_id, vault_name, mode="raw"
-    )
-    target = next(
-        (
-            message
-            for message in raw_messages
-            if message.sequence_index == through_sequence_index
-            and message.role == "assistant"
-        ),
-        None,
-    )
-    if target is None:
-        return False
-    return any(
-        message.role == "assistant"
-        and message.fork_sequence_index is None
-        and message.message_json == target.message_json
-        for message in effective_messages
-    )
 
 
 def _forked_session_title(source_session: StoredChatSession) -> str:

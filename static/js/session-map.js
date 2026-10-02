@@ -92,6 +92,18 @@
             const sequenceLabel = sequenceStart === sequenceEnd
                 ? `Message ${sequenceStart}`
                 : `Messages ${sequenceStart}–${sequenceEnd}`;
+            const forkSequenceIndex = message?.fork_sequence_index;
+            const forkAction = message?.role === 'assistant' && Number.isInteger(forkSequenceIndex)
+                ? `
+                    <button
+                        type="button"
+                        class="copy-button message-fork-button"
+                        data-session-map-fork="${escapeHtml(String(forkSequenceIndex))}"
+                        aria-label="Fork session from this message"
+                        title="Fork session from this message"
+                    >${icons.FORK_ICON_SVG}</button>
+                `
+                : '';
             if (message?.is_tool_message) {
                 const tools = toolCalls.map(toolCall => `
                     <button
@@ -123,7 +135,10 @@
                 <article class="session-map-transcript-message">
                     <div class="session-map-transcript-message-heading">
                         <strong>${escapeHtml(humanize(message?.role || 'message'))}</strong>
-                        <span>${escapeHtml(sequenceLabel)}</span>
+                        <span class="session-map-transcript-message-actions">
+                            <span>${escapeHtml(sequenceLabel)}</span>
+                            ${forkAction}
+                        </span>
                     </div>
                     ${content
                         ? `<pre>${escapeHtml(content)}</pre>`
@@ -276,7 +291,7 @@
                     </div>
                 </section>
             `;
-            modal.addEventListener('click', event => {
+            modal.addEventListener('click', async event => {
                 const target = event.target;
                 if (!(target instanceof Element)) return;
                 if (target.closest('[data-session-map-back="true"]')) {
@@ -285,6 +300,25 @@
                     return;
                 }
                 if (target.closest('[data-session-map-close="true"]')) closeModal();
+                const forkTarget = target.closest('[data-session-map-fork]');
+                if (
+                    forkTarget instanceof HTMLButtonElement
+                    && typeof callbacks.forkSession === 'function'
+                ) {
+                    const sequenceIndex = Number.parseInt(
+                        forkTarget.getAttribute('data-session-map-fork') || '',
+                        10
+                    );
+                    if (Number.isInteger(sequenceIndex) && sequenceIndex >= 0) {
+                        const forkSessionId = await callbacks.forkSession({
+                            sessionId: session.session_id,
+                            sequenceIndex,
+                            button: forkTarget,
+                        });
+                        if (forkSessionId) closeModal();
+                    }
+                    return;
+                }
                 const toolCall = target.closest('[data-session-map-tool-call]');
                 if (toolCall instanceof HTMLButtonElement && typeof callbacks.openToolCall === 'function') {
                     const mapOpen = modal.querySelector('.session-map-content')?.open !== false;

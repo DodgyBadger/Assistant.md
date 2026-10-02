@@ -545,6 +545,11 @@ class SessionMapCheckpointScenario(BaseScenario):
             ),
             "Collapsed tool activity should expose only safe, inspectable summaries",
         )
+        self.soft_assert_equal(
+            [message["fork_sequence_index"] for message in tool_transcript["messages"]],
+            [0, 2, 3],
+            "Canonical transcript rows should retain their exact sequence boundaries",
+        )
         scoped_tool_response = self.call_api(
             f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"
             f"?vault_name={vault.name}&checkpoint_id=tool-transcript-checkpoint"
