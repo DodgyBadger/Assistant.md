@@ -444,15 +444,29 @@
                     );
                 }
 
-                await callbacks.fetchSessions(vault, state.sessionId || '');
-                if (state.sessionId === sessionId) {
-                    await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
+                let refreshError = null;
+                try {
+                    await callbacks.fetchSessions(vault, state.sessionId || '');
+                    if (state.sessionId === sessionId) {
+                        await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
+                    }
+                } catch (error) {
+                    refreshError = error;
+                    console.warn('Session upgrade succeeded, but the session view could not refresh:', error);
                 }
-                alert('Session upgraded to Compaction v2.');
+                if (refreshError) {
+                    alert(`Session upgraded to Compaction v2, but the view could not refresh: ${refreshError.message}. Reload the session to see the updated context.`);
+                } else {
+                    alert('Session upgraded to Compaction v2.');
+                }
             } catch (error) {
                 console.error('Failed to upgrade session context strategy:', error);
                 alert(`Failed to upgrade session: ${error.message}`);
-                await callbacks.fetchSessions(vault, state.sessionId || '');
+                try {
+                    await callbacks.fetchSessions(vault, state.sessionId || '');
+                } catch (refreshError) {
+                    console.warn('Could not refresh sessions after upgrade failure:', refreshError);
+                }
             } finally {
                 if (btn) btn.disabled = false;
                 renderSessionBrowserList();

@@ -20,7 +20,10 @@
             messages.forEach((message) => {
                 const forkSequenceIndex = Number.isInteger(message.fork_sequence_index)
                     ? message.fork_sequence_index
-                    : message.sequence_index;
+                    : null;
+                const displaySequenceIndex = Number.isInteger(message.sequence_index)
+                    ? message.sequence_index
+                    : null;
                 if (message.context_checkpoint_kind === 'session_map') {
                     pendingToolCallIds.clear();
                     renderSessionMapCheckpoint(message);
@@ -58,7 +61,7 @@
 
                 pendingToolCallIds.clear();
                 messageControls.addMessage('user', message.content || '', {
-                    sequenceIndex: forkSequenceIndex
+                    sequenceIndex: displaySequenceIndex
                 });
             });
 

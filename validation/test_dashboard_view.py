@@ -63,3 +63,39 @@ assert.strictEqual(state.executionTaskPollTimer, null);
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_dashboard_task_error_preserves_last_known_tasks() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.AssistantMDIcons = { STOP_ICON_SVG: '<svg></svg>' };
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+
+const executionTasksStatus = { innerHTML: '' };
+const state = {
+    systemStatus: { vaults: [] },
+    executionTasks: [{ task_id: 'task-1', status: 'running', metadata: {} }],
+    executionTasksError: 'temporary outage',
+};
+const controller = DashboardView.create({
+    state,
+    elements: { executionTasksStatus },
+    utils: { escapeHtml(value) { return String(value); }, formatShortDate() { return ''; } },
+    callbacks: {
+        isTerminalTaskStatus() { return false; },
+    },
+});
+
+controller.displaySystemStatus();
+assert.match(executionTasksStatus.innerHTML, /Unable to refresh task status/);
+assert.match(executionTasksStatus.innerHTML, /task-1/);
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

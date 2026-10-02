@@ -1,9 +1,26 @@
 (function sessionMapModule(window, document) {
     function createSessionMapController({ elements, icons, utils, callbacks = {} }) {
         const { escapeHtml } = utils;
+        let activeModal = null;
+        let returnFocusTarget = null;
 
-        function closeModal() {
-            document.getElementById('session-map-modal')?.remove();
+        function closeModal({ restoreFocus = true } = {}) {
+            const modal = activeModal || document.getElementById('session-map-modal');
+            if (!modal) return;
+            modal.removeEventListener('keydown', handleModalKeydown);
+            modal.remove();
+            if (activeModal === modal) activeModal = null;
+            if (restoreFocus && returnFocusTarget?.isConnected) {
+                returnFocusTarget.focus();
+            }
+            returnFocusTarget = null;
+        }
+
+        function handleModalKeydown(event) {
+            if (event.key !== 'Escape' || !activeModal?.isConnected) return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeModal();
         }
 
         async function fetchMap(sessionId, checkpointId = '', messagePage = 1) {
@@ -258,7 +275,8 @@
 
         async function openModalForSession(session, options = {}) {
             if (!session?.session_id) return;
-            closeModal();
+            closeModal({ restoreFocus: false });
+            returnFocusTarget = options.returnFocusTarget || document.activeElement;
             const backLabel = String(options.backLabel || 'Sessions');
             const hasBackAction = typeof options.onBack === 'function';
             const modal = document.createElement('div');
@@ -266,7 +284,7 @@
             modal.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
             modal.innerHTML = `
                 <div class="absolute inset-0" data-session-map-close="true"></div>
-                <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="session-map-modal-title">
+                <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="session-map-modal-title" tabindex="-1" data-session-map-dialog>
                     <div class="app-modal-header sticky top-0">
                         <div class="app-modal-title-block">
                             <h2 id="session-map-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
@@ -295,7 +313,7 @@
                 const target = event.target;
                 if (!(target instanceof Element)) return;
                 if (target.closest('[data-session-map-back="true"]')) {
-                    closeModal();
+                    closeModal({ restoreFocus: false });
                     options.onBack();
                     return;
                 }
@@ -322,6 +340,7 @@
                 const toolCall = target.closest('[data-session-map-tool-call]');
                 if (toolCall instanceof HTMLButtonElement && typeof callbacks.openToolCall === 'function') {
                     const mapOpen = modal.querySelector('.session-map-content')?.open !== false;
+                    const mapReturnFocusTarget = returnFocusTarget;
                     const checkpointId = toolCall.getAttribute('data-session-map-tool-checkpoint') || '';
                     const messagePage = Number.parseInt(
                         toolCall.getAttribute('data-session-map-tool-page') || '1',
@@ -329,7 +348,7 @@
                     );
                     const tokenValue = toolCall.getAttribute('data-session-map-tool-tokens') || '';
                     const tokenCount = tokenValue === '' ? null : Number.parseInt(tokenValue, 10);
-                    closeModal();
+                    closeModal({ restoreFocus: false });
                     callbacks.openToolCall({
                         toolId: toolCall.getAttribute('data-session-map-tool-call') || '',
                         toolName: toolCall.getAttribute('data-session-map-tool-name') || 'Tool call',
@@ -339,11 +358,13 @@
                         sessionId: session.session_id,
                         contextLabel: 'Preserved in the canonical transcript for this session-map checkpoint.',
                         backLabel: 'Session map',
+                        returnFocusTarget: mapReturnFocusTarget,
                         onBack: () => openModalForSession(session, {
                             checkpointId,
                             messagePage: Number.isInteger(messagePage) ? messagePage : 1,
                             transcriptOpen: true,
                             mapOpen,
+                            returnFocusTarget: mapReturnFocusTarget,
                             backLabel: options.backLabel,
                             onBack: options.onBack,
                         }),
@@ -371,6 +392,9 @@
                 loadCheckpoint(modal, session.session_id, target.value, 1, transcriptOpen, mapOpen);
             });
             document.body.appendChild(modal);
+            activeModal = modal;
+            modal.addEventListener('keydown', handleModalKeydown);
+            modal.querySelector('[data-session-map-dialog]')?.focus();
             await loadCheckpoint(
                 modal,
                 session.session_id,

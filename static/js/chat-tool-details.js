@@ -63,10 +63,11 @@
 
             function openToolCallDetails(entry, options = {}) {
                 if (!entry) return;
-                closeToolCallDetails();
+                closeToolCallDetails({ restoreFocus: false });
                 activeToolDetailEntry = entry;
                 entry.detailBackAction = typeof options.onBack === 'function' ? options.onBack : null;
                 entry.detailBackLabel = String(options.backLabel || 'Session map');
+                entry.detailReturnFocus = options.returnFocusTarget || document.activeElement;
                 entry.modalAbortController = new AbortController();
 
                 const overlay = document.createElement('div');
@@ -74,7 +75,7 @@
                 overlay.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
                 overlay.innerHTML = `
                     <div class="absolute inset-0" data-tool-call-close="true"></div>
-                    <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="chat-tool-call-modal-title">
+                    <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="chat-tool-call-modal-title" tabindex="-1" data-tool-call-dialog>
                         <div class="app-modal-header sticky top-0">
                             <div class="app-modal-title-block">
                                 <h2 id="chat-tool-call-modal-title" class="text-lg font-semibold text-txt-primary">${utils.escapeHtml(entry.toolName || 'Tool call')}</h2>
@@ -99,7 +100,7 @@
                     if (!(target instanceof Element)) return;
                     if (target.closest('[data-tool-call-back="true"]')) {
                         const backAction = entry.detailBackAction;
-                        closeToolCallDetails();
+                        closeToolCallDetails({ restoreFocus: false });
                         backAction?.();
                         return;
                     }
@@ -109,6 +110,7 @@
                 });
                 document.addEventListener('keydown', handleToolCallModalKeydown);
                 document.body.appendChild(overlay);
+                overlay.querySelector('[data-tool-call-dialog]')?.focus();
                 refreshToolCallDetails(entry);
                 if (entry.persisted) {
                     void loadToolCallDetail(entry);
@@ -240,8 +242,9 @@
                 }
             }
 
-            function closeToolCallDetails() {
+            function closeToolCallDetails({ restoreFocus = true } = {}) {
                 const entry = activeToolDetailEntry;
+                const returnFocusTarget = entry?.detailReturnFocus;
                 activeToolDetailEntry = null;
                 const modal = document.getElementById('chat-tool-call-modal');
                 if (modal) {
@@ -249,6 +252,7 @@
                 }
                 clearToolCallDetail(entry);
                 document.removeEventListener('keydown', handleToolCallModalKeydown);
+                if (restoreFocus && returnFocusTarget?.isConnected) returnFocusTarget.focus();
             }
 
             function getActiveToolDetailId() {
@@ -274,6 +278,7 @@
                 entry.detailError = '';
                 entry.detailBackAction = null;
                 entry.detailBackLabel = '';
+                entry.detailReturnFocus = null;
             }
 
             function openPersistedToolCallDetails(options = {}) {
@@ -314,6 +319,8 @@
 
             function handleToolCallModalKeydown(event) {
                 if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     closeToolCallDetails();
                 }
             }
