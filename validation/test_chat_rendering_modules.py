@@ -107,3 +107,68 @@ def test_tool_details_load_before_chat_rendering() -> None:
         < thinking_position
         < rendering_position
     )
+
+
+def test_fork_confirmation_explains_compaction_inheritance() -> None:
+    harness = r"""
+const fs = require('fs');
+const vm = require('vm');
+
+let confirmation = '';
+let fetchCalled = false;
+global.window = global;
+global.window.confirm = (message) => {
+    confirmation = message;
+    return false;
+};
+global.fetch = async () => {
+    fetchCalled = true;
+    throw new Error('Fetch should not run after cancelling confirmation.');
+};
+global.document = {
+    createElement: () => ({
+        disabled: false,
+        listeners: {},
+        setAttribute() {},
+        addEventListener(name, listener) {
+            this.listeners[name] = listener;
+        },
+    }),
+};
+
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const controller = ChatMessageControls.create({
+    state: { sessionId: 'source-session', isLoading: false },
+    elements: { vaultSelector: { value: 'TestVault' } },
+    icons: { FORK_ICON_SVG: '<svg></svg>' },
+    utils: {},
+    markdown: {},
+    callbacks: {},
+});
+const button = controller.createForkButton(7);
+if (!button) throw new Error('Expected a fork button.');
+
+(async () => {
+    await button.listeners.click({ stopPropagation() {} });
+    if (!confirmation.includes('compaction state')) {
+        throw new Error('Confirmation should explain inherited compaction state.');
+    }
+    if (!confirmation.includes('upgrade the fork to Compaction V2 again')) {
+        throw new Error('Confirmation should explain that V2 may need another upgrade.');
+    }
+    if (fetchCalled) {
+        throw new Error('Cancelling confirmation should not call the fork API.');
+    }
+})().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MESSAGE_CONTROLS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

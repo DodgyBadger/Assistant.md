@@ -138,6 +138,14 @@
             if (state.isLoading || !vault || !sessionId || !Number.isInteger(sequenceIndex)) {
                 return;
             }
+            const confirmed = window.confirm(
+                'Fork this conversation here?\n\n' +
+                'The new session will inherit only the compaction state that was valid at this point. ' +
+                'If it inherits a recovery card, you may need to upgrade the fork to Compaction V2 again.'
+            );
+            if (!confirmed) {
+                return;
+            }
 
             const previousDisabled = button.disabled;
             button.disabled = true;
