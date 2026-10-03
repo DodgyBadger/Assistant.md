@@ -183,43 +183,86 @@ class _CanonicalEvidence(Protocol):
     @property
     def source_end_sequence_index(self) -> int: ...
 
+    @property
+    def citable_source_ranges(self) -> tuple[SourceRange, ...]: ...
+
 
 def validate_session_map_provenance(
     draft: SessionMapDraft,
     *,
     evidence: Sequence[_CanonicalEvidence],
     previous_map: SessionMapDraft | None = None,
+    excluded_source_ranges: Sequence[SourceRange] = (),
 ) -> SessionMapDraft:
     """Reject source ranges absent from the prior map and supplied evidence."""
-    available = [
-        SourceRange(
-            start=item.source_start_sequence_index,
-            end=item.source_end_sequence_index,
-        )
-        for item in evidence
-    ]
+    available = [source for item in evidence for source in item.citable_source_ranges]
+    noncitable: list[SourceRange] = []
+    for item in evidence:
+        cursor = item.source_start_sequence_index
+        for source in item.citable_source_ranges:
+            if cursor < source.start:
+                noncitable.append(SourceRange(start=cursor, end=source.start - 1))
+            cursor = source.end + 1
+        if cursor <= item.source_end_sequence_index:
+            noncitable.append(
+                SourceRange(start=cursor, end=item.source_end_sequence_index)
+            )
     if previous_map is not None:
-        available.extend(
+        inherited = [
             source for entry in previous_map.entries for source in entry.sources
-        )
+        ]
         if previous_map.trajectory is not None:
-            available.extend(previous_map.trajectory.sources)
+            inherited.extend(previous_map.trajectory.sources)
+        available.extend(
+            _subtract_source_ranges(inherited, (*excluded_source_ranges, *noncitable))
+        )
     merged_available = _merge_source_ranges(available)
     if draft.trajectory is not None:
         for source in draft.trajectory.sources:
-            if not _source_range_is_covered(source, merged_available):
+            if not _source_range_is_covered(
+                source, merged_available
+            ) or _source_range_overlaps(source, noncitable):
                 raise SessionMapProvenanceError(
                     "trajectory cites unavailable source range "
                     f"{source.start}-{source.end}"
                 )
     for entry in draft.entries:
         for source in entry.sources:
-            if not _source_range_is_covered(source, merged_available):
+            if not _source_range_is_covered(
+                source, merged_available
+            ) or _source_range_overlaps(source, noncitable):
                 raise SessionMapProvenanceError(
                     f"entry '{entry.id}' cites unavailable source range "
                     f"{source.start}-{source.end}"
                 )
     return draft
+
+
+def _source_range_overlaps(source: SourceRange, ranges: Sequence[SourceRange]) -> bool:
+    return any(
+        candidate.start <= source.end and candidate.end >= source.start
+        for candidate in ranges
+    )
+
+
+def _subtract_source_ranges(
+    sources: Sequence[SourceRange], excluded: Sequence[SourceRange]
+) -> tuple[SourceRange, ...]:
+    remaining: list[SourceRange] = []
+    exclusions = _merge_source_ranges(excluded)
+    for source in sources:
+        cursor = source.start
+        for exclusion in exclusions:
+            if exclusion.end < cursor:
+                continue
+            if exclusion.start > source.end:
+                break
+            if cursor < exclusion.start:
+                remaining.append(SourceRange(start=cursor, end=exclusion.start - 1))
+            cursor = max(cursor, exclusion.end + 1)
+        if cursor <= source.end:
+            remaining.append(SourceRange(start=cursor, end=source.end))
+    return tuple(remaining)
 
 
 def _validate_ordered_source_ranges(

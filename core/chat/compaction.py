@@ -45,6 +45,7 @@ from core.memory.session_map.evidence import (
     SessionMapRetrievedEvidence,
     build_session_map_evidence,
     has_contiguous_canonical_sequences,
+    resolve_previous_map_excluded_sources,
     resolve_session_map_evidence_range,
 )
 from core.memory.session_map.models import SessionMapDraft
@@ -66,6 +67,7 @@ from core.runtime.execution_tasks import (
     ExecutionTaskKind,
     ExecutionTaskSnapshot,
     ExecutionTaskSource,
+    ExecutionTaskStatus,
     chat_session_scope,
     compaction_task_label,
     get_current_execution_task,
@@ -94,6 +96,10 @@ _SUMMARY_MARKER = "AssistantMD compacted chat history"
 
 class _CompactionStrategyChangedError(ValueError):
     """The strategy pinned while waiting no longer matches the selected author path."""
+
+
+class _RecordedAutomaticCompactionFailure(RuntimeError):
+    """An owned automatic compaction task has already published its failure."""
 
 
 def _compaction_log_context(
@@ -301,6 +307,29 @@ async def get_compaction_status(
         else 0
     )
     groups = _group_history_messages(messages[retained_prefix_count:])
+    retained_turns = get_compaction_retained_turns()
+    low_watermark = get_compaction_low_watermark_tokens()
+    manual_available = len(groups) > retained_turns
+    if manual_available:
+        if strategy == "session_map":
+            readiness = evaluate_session_map_compaction_readiness(
+                store=chat_store, session_id=session_id, vault_name=vault_name
+            )
+            manual_available = readiness.enabled
+            if manual_available:
+                manual_available = (
+                    session_map_reduction_unavailability_reason(
+                        messages,
+                        high_watermark_tokens=readiness.high_watermark_tokens,
+                        low_watermark_tokens=readiness.low_watermark_tokens,
+                        minimum_retained_groups=readiness.minimum_retained_groups,
+                        retained_prefix_count=retained_prefix_count,
+                        force=True,
+                    )
+                    is None
+                )
+        else:
+            manual_available = evaluate_compaction_author_readiness().enabled
     return ChatHistoryCompactionStatus(
         session_id=session_id,
         vault_name=vault_name,
@@ -309,11 +338,11 @@ async def get_compaction_status(
         messages_before=len(messages),
         estimated_tokens_before=estimated_tokens,
         compaction_high_watermark_tokens=threshold,
-        compaction_low_watermark_tokens=get_compaction_low_watermark_tokens(),
-        compaction_retained_turns=get_compaction_retained_turns(),
+        compaction_low_watermark_tokens=low_watermark,
+        compaction_retained_turns=retained_turns,
         recommended=estimated_tokens >= threshold,
         already_compacted=checkpoint is not None,
-        manual_compaction_available=(len(groups) > get_compaction_retained_turns()),
+        manual_compaction_available=manual_available,
     )
 
 
@@ -335,6 +364,7 @@ async def run_chat_context_compaction(
     """Own one compaction task through its durable checkpoint or unavailable result."""
     runtime = get_runtime_context()
     parent_task = get_current_execution_task()
+    owned_task_id: str | None = None
 
     async def run(
         task: ExecutionTaskSnapshot,
@@ -343,6 +373,8 @@ async def run_chat_context_compaction(
         | SessionMapContextReductionResult
         | ChatContextCompactionUnavailableResult
     ):
+        nonlocal owned_task_id
+        owned_task_id = task.task_id
         result = await compact_chat_context(
             session_id=session_id,
             vault_name=vault_name,
@@ -356,22 +388,34 @@ async def run_chat_context_compaction(
         await runtime.task_coordinator.record_result(task.task_id, result.as_api_dict())
         return result
 
-    result = await runtime.task_runner.run_inline(
-        ExecutionTaskSpec(
-            kind=ExecutionTaskKind.HISTORY_COMPACTION,
-            scope=chat_session_scope(session_id),
-            source=source,
-            label=compaction_task_label(session_id),
-            authority=authority,
-            parent_task_id=parent_task.task_id if parent_task is not None else None,
-            metadata={
-                "vault": vault_name,
-                "session_id": session_id,
-                "automatic": automatic,
-            },
-        ),
-        run,
-    )
+    try:
+        result = await runtime.task_runner.run_inline(
+            ExecutionTaskSpec(
+                kind=ExecutionTaskKind.HISTORY_COMPACTION,
+                scope=chat_session_scope(session_id),
+                source=source,
+                label=compaction_task_label(session_id),
+                authority=authority,
+                parent_task_id=parent_task.task_id if parent_task is not None else None,
+                metadata={
+                    "vault": vault_name,
+                    "session_id": session_id,
+                    "automatic": automatic,
+                },
+            ),
+            run,
+        )
+    except Exception as exc:
+        if automatic and owned_task_id is not None:
+            failed_task = await runtime.task_coordinator.get_task(owned_task_id)
+            if (
+                failed_task is not None
+                and failed_task.status == ExecutionTaskStatus.FAILED
+            ):
+                raise _RecordedAutomaticCompactionFailure(
+                    "Automatic compaction failed in its owning execution task"
+                ) from exc
+        raise
     if not isinstance(
         result,
         ChatHistoryCompactionResult
@@ -587,12 +631,15 @@ async def compact_chat_history(
             if not summary:
                 raise ValueError("Compaction summary generation returned empty output.")
             summary_message = build_compaction_summary_message(summary)
-            replacement = [summary_message, *recent_messages]
+            retained_stored_messages = (
+                stored_messages[-len(recent_messages) :] if recent_messages else []
+            )
+            replacement = [
+                summary_message,
+                *(message.message for message in retained_stored_messages),
+            ]
             retained_origins = [
-                message.fork_sequence_index
-                for message in (
-                    stored_messages[-len(recent_messages) :] if recent_messages else []
-                )
+                message.fork_sequence_index for message in retained_stored_messages
             ]
             estimated_after = estimate_history_tokens(replacement)
             compacted_at = datetime.now(UTC).isoformat()
@@ -747,6 +794,92 @@ def estimate_history_tokens(messages: list[ModelMessage]) -> int:
     return estimate_token_count("\n".join(parts))
 
 
+def plan_session_map_reduction(
+    messages: list[ModelMessage],
+    *,
+    high_watermark_tokens: int,
+    low_watermark_tokens: int,
+    minimum_retained_groups: int,
+    history_revision: int | None = None,
+    retained_prefix_count: int = 0,
+    force: bool = False,
+) -> SteppedHistoryEvictionPlan:
+    """Apply one watermark policy to status, explicit upgrades, and reduction."""
+    high_watermark_tokens, low_watermark_tokens = _reduction_watermarks(
+        messages, high_watermark_tokens, low_watermark_tokens, force=force
+    )
+    return plan_stepped_history_eviction(
+        messages,
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+        minimum_retained_groups=minimum_retained_groups,
+        history_revision=history_revision,
+        retained_prefix_count=retained_prefix_count,
+    )
+
+
+def session_map_reduction_unavailability_reason(
+    messages: list[ModelMessage],
+    *,
+    high_watermark_tokens: int,
+    low_watermark_tokens: int,
+    minimum_retained_groups: int,
+    retained_prefix_count: int = 0,
+    force: bool = False,
+) -> str | None:
+    """Assess the planner's eligibility without selecting an eviction boundary."""
+    high_watermark_tokens, low_watermark_tokens = _reduction_watermarks(
+        messages, high_watermark_tokens, low_watermark_tokens, force=force
+    )
+    _, _, reason = _assess_stepped_history_eviction(
+        messages,
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+        minimum_retained_groups=minimum_retained_groups,
+        retained_prefix_count=retained_prefix_count,
+    )
+    return reason
+
+
+def _reduction_watermarks(
+    messages: list[ModelMessage], high: int, low: int, *, force: bool
+) -> tuple[int, int]:
+    if force:
+        high = max(1, estimate_history_tokens(messages) - 1)
+        low = min(low, high - 1)
+    return high, low
+
+
+def _assess_stepped_history_eviction(
+    messages: list[ModelMessage],
+    *,
+    high_watermark_tokens: int,
+    low_watermark_tokens: int,
+    minimum_retained_groups: int,
+    retained_prefix_count: int,
+) -> tuple[int, list[_HistoryMessageGroup], str | None]:
+    """Share all no-op conditions between eligibility and full planning."""
+    _validate_eviction_watermarks(
+        high_watermark_tokens=high_watermark_tokens,
+        low_watermark_tokens=low_watermark_tokens,
+    )
+    if minimum_retained_groups < 1:
+        raise ValueError("Minimum retained groups must be at least one.")
+    if retained_prefix_count < 0 or retained_prefix_count >= len(messages):
+        if retained_prefix_count != 0 or messages:
+            raise ValueError("Retained prefix must leave evictable history")
+    estimated = estimate_history_tokens(messages)
+    evictable = messages[retained_prefix_count:]
+    groups = _group_history_messages(evictable)
+    if estimated < high_watermark_tokens:
+        return estimated, groups, "below_high_watermark"
+    if not analyze_tool_history(evictable).ok:
+        return estimated, groups, "invalid_tool_history"
+    if len(groups) <= minimum_retained_groups:
+        return estimated, groups, "minimum_retained_groups"
+    return estimated, groups, None
+
+
 def plan_stepped_history_eviction(
     messages: list[ModelMessage],
     *,
@@ -757,47 +890,16 @@ def plan_stepped_history_eviction(
     retained_prefix_count: int = 0,
 ) -> SteppedHistoryEvictionPlan:
     """Plan safe oldest-group eviction while preserving a recent group floor."""
-    _validate_eviction_watermarks(
+    estimated_before, groups, unavailable_reason = _assess_stepped_history_eviction(
+        messages,
         high_watermark_tokens=high_watermark_tokens,
         low_watermark_tokens=low_watermark_tokens,
+        minimum_retained_groups=minimum_retained_groups,
+        retained_prefix_count=retained_prefix_count,
     )
-    if minimum_retained_groups < 1:
-        raise ValueError("Minimum retained groups must be at least one.")
-    if retained_prefix_count < 0 or retained_prefix_count >= len(messages):
-        if retained_prefix_count != 0 or messages:
-            raise ValueError("Retained prefix must leave evictable history")
-    estimated_before = estimate_history_tokens(messages)
-    evictable_messages = messages[retained_prefix_count:]
-    groups = _group_history_messages(evictable_messages)
-    if estimated_before <= high_watermark_tokens:
+    if unavailable_reason is not None:
         return _no_op_eviction_plan(
-            reason="below_high_watermark",
-            messages=messages,
-            groups=groups,
-            estimated_tokens=estimated_before,
-            history_revision=history_revision,
-            high_watermark_tokens=high_watermark_tokens,
-            low_watermark_tokens=low_watermark_tokens,
-            retained_prefix_count=retained_prefix_count,
-            minimum_retained_groups=minimum_retained_groups,
-        )
-
-    integrity = analyze_tool_history(evictable_messages)
-    if not integrity.ok:
-        return _no_op_eviction_plan(
-            reason="invalid_tool_history",
-            messages=messages,
-            groups=groups,
-            estimated_tokens=estimated_before,
-            history_revision=history_revision,
-            high_watermark_tokens=high_watermark_tokens,
-            low_watermark_tokens=low_watermark_tokens,
-            retained_prefix_count=retained_prefix_count,
-            minimum_retained_groups=minimum_retained_groups,
-        )
-    if len(groups) <= minimum_retained_groups:
-        return _no_op_eviction_plan(
-            reason="minimum_retained_groups",
+            reason=unavailable_reason,
             messages=messages,
             groups=groups,
             estimated_tokens=estimated_before,
@@ -1131,25 +1233,6 @@ async def maybe_auto_compact_after_turn(
                 "author_model": readiness.author_model,
             },
         )
-        try:
-            result = await run_chat_context_compaction(
-                session_id=session_id,
-                vault_name=vault_name,
-                vault_path=vault_path,
-                authority=ExecutionAuthority(session.owner_principal_id),
-                store=runtime.chat_store,
-                source=ExecutionTaskSource.SYSTEM,
-                automatic=True,
-            )
-            return (
-                None
-                if isinstance(result, ChatContextCompactionUnavailableResult)
-                else result
-            )
-        except Exception:
-            # The V2 operation emitted its correlated terminal failure event.
-            # A completed chat turn must still survive background reduction failure.
-            return None
     elif readiness.strategy == "session_map":
         logger.info(
             "compaction_strategy_selected",
@@ -1167,18 +1250,25 @@ async def maybe_auto_compact_after_turn(
             },
         )
         return None
-    result = await run_chat_context_compaction(
-        session_id=session_id,
-        vault_name=vault_name,
-        vault_path=vault_path,
-        authority=ExecutionAuthority(session.owner_principal_id),
-        source=ExecutionTaskSource.SYSTEM,
-        store=runtime.chat_store,
-        automatic=True,
-    )
-    return (
-        None if isinstance(result, ChatContextCompactionUnavailableResult) else result
-    )
+    try:
+        result = await run_chat_context_compaction(
+            session_id=session_id,
+            vault_name=vault_name,
+            vault_path=vault_path,
+            authority=ExecutionAuthority(session.owner_principal_id),
+            source=ExecutionTaskSource.SYSTEM,
+            store=runtime.chat_store,
+            automatic=True,
+        )
+        return (
+            None
+            if isinstance(result, ChatContextCompactionUnavailableResult)
+            else result
+        )
+    except _RecordedAutomaticCompactionFailure:
+        # The operation owns its correlated terminal failure event. Preserve the
+        # completed chat turn without repeating that failure in the executor.
+        return None
 
 
 async def _run_stepped_session_map_reduction(
@@ -1303,22 +1393,14 @@ async def _execute_stepped_session_map_reduction(
             raise ValueError("Recovery-card history is not eligible for stepped maps")
 
         messages = store.get_history(session_id, vault_name, mode="effective") or []
-        high_watermark_tokens = readiness.high_watermark_tokens
-        low_watermark_tokens = readiness.low_watermark_tokens
-        if force:
-            estimated_tokens = estimate_history_tokens(messages)
-            high_watermark_tokens = max(1, estimated_tokens - 1)
-            low_watermark_tokens = min(
-                low_watermark_tokens,
-                high_watermark_tokens - 1,
-            )
-        plan = plan_stepped_history_eviction(
+        plan = plan_session_map_reduction(
             messages,
-            high_watermark_tokens=high_watermark_tokens,
-            low_watermark_tokens=low_watermark_tokens,
+            high_watermark_tokens=readiness.high_watermark_tokens,
+            low_watermark_tokens=readiness.low_watermark_tokens,
             minimum_retained_groups=readiness.minimum_retained_groups,
             history_revision=history_revision,
             retained_prefix_count=retained_prefix_count,
+            force=force,
         )
         if plan.status != "planned":
             if plan.reason in {"below_high_watermark", "minimum_retained_groups"}:
@@ -1370,6 +1452,9 @@ async def _execute_stepped_session_map_reduction(
             session_id=session_id,
             vault_name=vault_name,
             plan=plan,
+            source_start_sequence_index=cumulative_envelopes[
+                0
+            ].source_start_sequence_index,
         )
         logger.info(
             "session_map_context_reduction_plan_selected",
@@ -1402,6 +1487,12 @@ async def _execute_stepped_session_map_reduction(
                 recent_evidence=retained_evidence,
                 retrieved_evidence=retrieved_evidence.messages,
                 retrieved_evidence_truncated=retrieved_evidence.truncated,
+                excluded_source_ranges=resolve_previous_map_excluded_sources(
+                    store=store,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    previous_map=previous_map,
+                ),
                 focus=focus,
             ),
             authority=authority,
@@ -1492,14 +1583,27 @@ def _build_retrieved_session_map_evidence(
     session_id: str,
     vault_name: str,
     plan: SteppedHistoryEvictionPlan,
+    source_start_sequence_index: int | None = None,
 ) -> SessionMapRetrievedEvidence:
-    """Admit bounded, verified transcript fragments from the retained suffix."""
-    stored = store.get_stored_messages(session_id, vault_name, mode="effective")
+    """Verify bounded transcript fragments from the full canonical active tail."""
+    if source_start_sequence_index is not None:
+        stored = store.get_stored_messages_range(
+            session_id,
+            vault_name,
+            after_sequence_index=source_start_sequence_index - 1,
+            through_sequence_index=store.get_highest_message_sequence_index(
+                session_id, vault_name
+            ),
+        )
+    else:
+        stored = store.get_stored_messages(session_id, vault_name, mode="effective")[
+            plan.retained_prefix_count :
+        ]
     return project_retrieved_session_map_evidence(
         store=store,
         session_id=session_id,
         vault_name=vault_name,
-        retained=stored[plan.eviction_end_index :],
+        retained=stored,
     )
 
 

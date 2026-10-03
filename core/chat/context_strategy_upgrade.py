@@ -18,6 +18,7 @@ from core.memory.session_map.evidence import (
 )
 from core.memory.session_map.models import SessionMapDraft
 from core.memory.session_map.readiness import (
+    SessionMapConfigurationReadiness,
     evaluate_session_map_configuration_readiness,
 )
 from core.memory.session_map.retained_evidence import (
@@ -43,8 +44,8 @@ from .chat_store import ChatStore, StoredChatMessage, StoredContextCheckpoint
 from .compaction import (
     SteppedHistoryEvictionPlan,
     chat_session_history_lock,
-    estimate_history_tokens,
-    plan_stepped_history_eviction,
+    plan_session_map_reduction,
+    session_map_reduction_unavailability_reason,
 )
 
 SessionContextStrategy = Literal[
@@ -95,6 +96,15 @@ class SessionContextStrategyUpgradeResult:
     raw_message_count: int
 
 
+@dataclass(frozen=True)
+class _SessionContextStrategyUpgradeReadiness:
+    """One non-mutating status/admission snapshot without duplicate hydration."""
+
+    status: SessionContextStrategyStatus
+    source_checkpoint: StoredContextCheckpoint | None = None
+    configuration: SessionMapConfigurationReadiness | None = None
+
+
 def get_session_context_strategy_status(
     *,
     store: ChatStore,
@@ -102,18 +112,31 @@ def get_session_context_strategy_status(
     vault_name: str,
 ) -> SessionContextStrategyStatus:
     """Resolve checkpoint pinning separately from the configured default."""
+    return _evaluate_session_context_strategy_upgrade_readiness(
+        store=store, session_id=session_id, vault_name=vault_name
+    ).status
+
+
+def _evaluate_session_context_strategy_upgrade_readiness(
+    *, store: ChatStore, session_id: str, vault_name: str
+) -> _SessionContextStrategyUpgradeReadiness:
+    """Check cheap prerequisites before hydrating the canonical upgrade plan."""
     checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
     if checkpoint is None:
-        return SessionContextStrategyStatus(
-            strategy="unassigned",
-            can_upgrade_to_v2=False,
-            reason="session_not_pinned",
+        return _SessionContextStrategyUpgradeReadiness(
+            SessionContextStrategyStatus(
+                strategy="unassigned",
+                can_upgrade_to_v2=False,
+                reason="session_not_pinned",
+            )
         )
     if checkpoint.checkpoint_kind == "session_map":
-        return SessionContextStrategyStatus(
-            strategy="session_map",
-            can_upgrade_to_v2=False,
-            reason="already_compaction_v2",
+        return _SessionContextStrategyUpgradeReadiness(
+            SessionContextStrategyStatus(
+                strategy="session_map",
+                can_upgrade_to_v2=False,
+                reason="already_compaction_v2",
+            )
         )
     configuration = evaluate_session_map_configuration_readiness()
     configured = configuration.configured_strategy
@@ -122,10 +145,28 @@ def get_session_context_strategy_status(
         if configured != "session_map"
         else configuration.reason
     )
-    return SessionContextStrategyStatus(
-        strategy="recovery_card",
-        can_upgrade_to_v2=reason == "ready",
-        reason=reason,
+    if reason == "ready":
+        raw_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
+        if not raw_messages:
+            reason = "canonical_history_empty"
+        else:
+            unavailable = session_map_reduction_unavailability_reason(
+                [message.message for message in raw_messages],
+                high_watermark_tokens=configuration.high_watermark_tokens,
+                low_watermark_tokens=configuration.low_watermark_tokens,
+                minimum_retained_groups=configuration.minimum_retained_groups,
+                force=True,
+            )
+            if unavailable is not None:
+                reason = f"upgrade_plan_{unavailable}"
+    return _SessionContextStrategyUpgradeReadiness(
+        status=SessionContextStrategyStatus(
+            strategy="recovery_card",
+            can_upgrade_to_v2=reason == "ready",
+            reason=reason,
+        ),
+        source_checkpoint=checkpoint,
+        configuration=configuration,
     )
 
 
@@ -168,21 +209,19 @@ async def _admit_session_context_strategy_upgrade(
             and task.metadata.get("vault") == vault_name
         ):
             return task
-    status = get_session_context_strategy_status(
+    readiness = _evaluate_session_context_strategy_upgrade_readiness(
         store=runtime.chat_store,
         session_id=session_id,
         vault_name=vault_name,
     )
-    if not status.can_upgrade_to_v2:
-        raise SessionContextStrategyUpgradeUnavailable(status.reason)
-    source_checkpoint = runtime.chat_store.get_latest_context_checkpoint(
-        session_id, vault_name
-    )
+    if not readiness.status.can_upgrade_to_v2:
+        raise SessionContextStrategyUpgradeUnavailable(readiness.status.reason)
+    source_checkpoint = readiness.source_checkpoint
     if source_checkpoint is None:  # pragma: no cover - guarded by status
         raise SessionContextStrategyUpgradeUnavailable("recovery_checkpoint_missing")
-    configuration = evaluate_session_map_configuration_readiness()
-    if not configuration.enabled:
-        raise SessionContextStrategyUpgradeUnavailable(configuration.reason)
+    configuration = readiness.configuration
+    if configuration is None:  # pragma: no cover - guarded by status
+        raise SessionContextStrategyUpgradeUnavailable("compaction_v2_not_configured")
     author_model = configuration.author_model
     if author_model is None:  # pragma: no cover - checked by configuration
         raise SessionContextStrategyUpgradeUnavailable("author_model_not_configured")
@@ -310,7 +349,7 @@ async def _run_session_context_strategy_upgrade(
                 store=store,
                 session_id=session_id,
                 vault_name=vault_name,
-                retained=retained,
+                retained=raw_messages,
             )
             logger.info(
                 "context_strategy_upgrade_planned",
@@ -487,21 +526,13 @@ def _plan_upgrade_eviction(
 ) -> SteppedHistoryEvictionPlan:
     if not raw_messages:
         raise SessionContextStrategyUpgradeUnavailable("canonical_history_empty")
-    model_messages = [message.message for message in raw_messages]
-    estimated_tokens = estimate_history_tokens(model_messages)
-    planned_high = high_watermark
-    planned_low = low_watermark
-    if estimated_tokens <= high_watermark:
-        planned_high = max(1, estimated_tokens - 1)
-        planned_low = min(low_watermark, max(0, planned_high - 1))
-    if planned_low >= planned_high:
-        raise SessionContextStrategyUpgradeUnavailable("canonical_history_too_small")
-    plan = plan_stepped_history_eviction(
-        model_messages,
-        high_watermark_tokens=planned_high,
-        low_watermark_tokens=planned_low,
+    plan = plan_session_map_reduction(
+        [message.message for message in raw_messages],
+        high_watermark_tokens=high_watermark,
+        low_watermark_tokens=low_watermark,
         minimum_retained_groups=minimum_retained_groups,
         history_revision=history_revision,
+        force=True,
     )
     if plan.status != "planned" or plan.eviction_end_index <= 0:
         raise SessionContextStrategyUpgradeUnavailable(f"upgrade_plan_{plan.reason}")

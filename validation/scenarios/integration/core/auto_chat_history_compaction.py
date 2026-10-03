@@ -2,7 +2,9 @@
 
 import json
 import sys
+from contextlib import ExitStack
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -29,7 +31,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         import core.chat.executor as chat_executor
         from core.chat.chat_store import ChatStore
         from core.constants import CHAT_HISTORY_RECOVERY_CARD_PREAMBLE
-        from core.identity import LOCAL_USER_PRINCIPAL_ID
+        from core.identity import LOCAL_USER_AUTHORITY, LOCAL_USER_PRINCIPAL_ID
         from core.runtime.execution_tasks import ExecutionTaskKind
         from core.runtime.state import RuntimeStateError, get_runtime_context
 
@@ -193,6 +195,185 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         assert history_task.result is not None
         assert history_task.result["strategy"] == "recovery_card"
         assert history_task.result["checkpoint_id"] == checkpoint.checkpoint_id
+
+        sentinel = "PRIVATE-AUTO-COMPACTION-SENTINEL"
+
+        async def failing_summary(**_kwargs):
+            raise RuntimeError(sentinel)
+
+        for failure_phase in ("authoring", "commit"):
+            failed_session = f"auto-compaction-failure-{failure_phase}"
+            store.ensure_session(
+                failed_session,
+                vault.name,
+                owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+            )
+            store.add_messages(
+                failed_session,
+                vault.name,
+                [
+                    ModelRequest(parts=[UserPromptPart(content="Earlier user turn.")]),
+                    ModelResponse(parts=[TextPart(content="Earlier assistant turn.")]),
+                ],
+            )
+            with (
+                patch.object(
+                    chat_executor,
+                    "_prepare_agent_config",
+                    _patched_prepare_agent_config,
+                ),
+                patch.object(
+                    compaction,
+                    "_generate_compaction_summary",
+                    failing_summary if failure_phase == "authoring" else _summary_stub,
+                ),
+                ExitStack() as commit_patch,
+            ):
+                if failure_phase == "commit":
+                    commit_patch.enter_context(
+                        patch.object(
+                            runtime.chat_store,
+                            "add_compaction_checkpoint",
+                            side_effect=RuntimeError(sentinel),
+                        )
+                    )
+                failed_chat = await self.run_chat_task(
+                    {
+                        "vault_name": vault.name,
+                        "prompt": "Exercise automatic compaction failure.",
+                        "session_id": failed_session,
+                        "tools": [],
+                        "model": "test",
+                    }
+                )
+            assert failed_chat["terminal_event"]["event"] == "done"
+            assert (
+                store.get_latest_context_checkpoint(failed_session, vault.name) is None
+            )
+            assert store.get_message_count(failed_session, vault.name, mode="raw") == 4
+            tasks = await runtime.task_coordinator.list_tasks(
+                kind=ExecutionTaskKind.HISTORY_COMPACTION.value
+            )
+            failed_task = tasks[-1]
+            assert failed_task.status == "failed"
+            assert failed_task.parent_task_id == failed_chat["task_id"]
+            assert failed_task.terminal_error_type == "RuntimeError"
+            assert sentinel not in str(failed_task.terminal_reason)
+            task_response = self.call_api(f"/api/tasks/{failed_task.task_id}")
+            assert task_response.status_code == 200
+            assert sentinel not in task_response.text
+            response = self.call_api("/api/system/activity-log?limit=200")
+            assert response.status_code == 200
+            correlated = [
+                entry
+                for entry in response.json()["entries"]
+                if entry.get("data", {}).get("task_id")
+                in {failed_task.task_id, failed_chat["task_id"]}
+            ]
+            assert sentinel not in json.dumps(correlated)
+            assert (
+                sum(
+                    entry.get("data", {}).get("event") == "chat_compaction_failed"
+                    for entry in correlated
+                )
+                == 1
+            )
+            assert not any(
+                entry.get("data", {}).get("event") == "chat_post_turn_compaction_failed"
+                for entry in correlated
+            ), "The domain failure must not trigger another executor warning"
+
+        with patch.object(
+            chat_executor,
+            "maybe_auto_compact_after_turn",
+            side_effect=RuntimeError(sentinel),
+        ):
+            async with runtime.task_coordinator.track_current_task(
+                kind=ExecutionTaskKind.CHAT,
+                scope="chat_session:auto-compaction-pre-domain-failure",
+                source="system",
+                label="auto-compaction-pre-domain-failure",
+                authority=LOCAL_USER_AUTHORITY,
+            ) as fallback_task:
+                await chat_executor._try_auto_compact_after_turn(
+                    session_id="auto-compaction-pre-domain-failure",
+                    vault_name=vault.name,
+                    vault_path=str(vault),
+                )
+        response = self.call_api("/api/system/activity-log?limit=200")
+        assert response.status_code == 200
+        fallback = [
+            entry["data"]
+            for entry in response.json()["entries"]
+            if entry.get("data", {}).get("event") == "chat_post_turn_compaction_failed"
+        ]
+        assert len(fallback) == 1
+        assert fallback[0]["status"] == "failed"
+        assert fallback[0]["error_type"] == "RuntimeError"
+        assert fallback[0]["issue"]
+        assert fallback[0]["task_id"] == fallback_task.task_id
+        assert fallback_task.task_id in fallback[0]["issue"]
+        assert sentinel not in json.dumps(fallback)
+
+        admission_session = "auto-compaction-admission-rejected"
+        store.ensure_session(
+            admission_session,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            admission_session,
+            vault.name,
+            [
+                ModelRequest(parts=[UserPromptPart(content="Earlier user turn.")]),
+                ModelResponse(parts=[TextPart(content="Earlier assistant turn.")]),
+                ModelRequest(parts=[UserPromptPart(content="Current user turn.")]),
+                ModelResponse(parts=[TextPart(content="Current assistant turn.")]),
+            ],
+        )
+        async with runtime.task_coordinator.track_current_task(
+            kind=ExecutionTaskKind.CHAT,
+            scope=f"chat_session:{admission_session}",
+            source="system",
+            label=admission_session,
+            authority=LOCAL_USER_AUTHORITY,
+        ) as admission_parent:
+            await runtime.task_coordinator.mark_completed(admission_parent.task_id)
+            try:
+                await compaction.maybe_auto_compact_after_turn(
+                    session_id=admission_session,
+                    vault_name=vault.name,
+                    vault_path=str(vault),
+                )
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Compaction admission failures must propagate")
+            await chat_executor._try_auto_compact_after_turn(
+                session_id=admission_session,
+                vault_name=vault.name,
+                vault_path=str(vault),
+            )
+        assert not await runtime.task_coordinator.list_child_tasks(
+            admission_parent.task_id
+        )
+        assert (
+            store.get_latest_context_checkpoint(admission_session, vault.name) is None
+        )
+        assert store.get_message_count(admission_session, vault.name, mode="raw") == 4
+        response = self.call_api("/api/system/activity-log?limit=200")
+        assert response.status_code == 200
+        admission_failures = [
+            entry["data"]
+            for entry in response.json()["entries"]
+            if entry.get("data", {}).get("event") == "chat_post_turn_compaction_failed"
+            and entry["data"].get("session_id") == admission_session
+        ]
+        assert len(admission_failures) == 1
+        assert admission_failures[0]["status"] == "failed"
+        assert admission_failures[0]["error_type"] == "RuntimeError"
+        assert admission_failures[0]["task_id"] == admission_parent.task_id
+        assert admission_parent.task_id in admission_failures[0]["issue"]
 
         await self.stop_system()
         try:

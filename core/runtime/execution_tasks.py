@@ -329,7 +329,7 @@ class TaskCoordinator:
             if registered:
                 await self._finish_failed_task(
                     task_id,
-                    reason=f"{type(exc).__name__}: {exc}",
+                    reason=_execution_task_failure_reason(kind, exc),
                     error_type=type(exc).__name__,
                 )
             raise
@@ -409,7 +409,7 @@ class TaskCoordinator:
         except Exception as exc:
             await self._finish_failed_task(
                 task_id,
-                reason=f"{type(exc).__name__}: {exc}",
+                reason=_execution_task_failure_reason(record.kind, exc),
                 error_type=type(exc).__name__,
             )
             raise
@@ -1026,6 +1026,17 @@ def _clean_goal_context_value(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _execution_task_failure_reason(kind: str, exc: Exception) -> str:
+    """Keep content-bearing inference failures safe across task read surfaces."""
+    if kind in {
+        ExecutionTaskKind.HISTORY_COMPACTION,
+        ExecutionTaskKind.SESSION_MAP_AUTHORING,
+        ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+    }:
+        return f"{type(exc).__name__}: {kind} failed"
+    return f"{type(exc).__name__}: {exc}"
 
 
 def _bound_activity_text(value: str | None) -> str | None:

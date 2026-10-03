@@ -18,6 +18,8 @@ Treat each authored revision as a complete replacement map rather than a patch l
 
 Require every trajectory and entry claim to cite one or more canonical message ranges available through the prior map or admitted authoring evidence. Validate the bounded schema, conservative entry admission, source availability, and provenance before persistence. A source range proves that evidence was available; it does not by itself prove semantic entailment, make the references exhaustive, or elevate the map above the canonical transcript.
 
+Keep each evidence envelope's contiguous consumed interval distinct from its citable ranges. Remove `session_ops` retrieval returns from author-visible message projections while preserving eligible parts of mixed messages. Admit bounded original transcript fragments only after verifying their canonical identity and exact content. Record the verified evidence-admission version in checkpoint metadata so sanitized mixed-message citations remain durable. A prior-map citation from a checkpoint without verified admission requires fresh eligible evidence when its message contains a retrieval return; retrieval-only messages are never citable. Persistence independently enforces the same provenance boundary.
+
 Keep the canonical eviction boundary separate from the author observation boundary. Retained messages may inform current-state correction and may be cited when they support a salient map claim, but they remain verbatim in effective history until a later reduction consumes them. Persist a validated map only through the atomic, history-revision-fenced checkpoint contract in ADR 0049.
 
 Expose append-only map revisions, their boundaries, their source references, and bounded canonical transcript pages for inspection. Keep canonical transcript search and bounded window retrieval available for exact wording, disputed provenance, omitted detail, and information outside the sparse map.
@@ -55,6 +57,7 @@ Whole-map replacement avoids an ever-growing chain of active, superseded, and cl
 - `validation/scenarios/integration/core/session_map_schema.py`
 - `validation/scenarios/integration/core/session_map_checkpoint.py`
 - `validation/scenarios/integration/core/session_map_retained_evidence.py`
+- `validation/scenarios/integration/core/session_map_evidence_admission.py`
 - `validation/scenarios/integration/core/session_map_authoring_task.py`
 
 ## Related Decisions

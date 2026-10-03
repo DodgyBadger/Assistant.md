@@ -866,6 +866,7 @@ def _envelope(
         estimated_tokens=100,
         projected_text=f"Evidence {start}-{end}",
         source_digest=f"digest-{start}-{end}",
+        citable_source_ranges=(SourceRange(start=start, end=end),),
     )
 
 

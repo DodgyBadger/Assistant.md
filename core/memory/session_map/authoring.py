@@ -12,7 +12,7 @@ from core.constants import (
 )
 
 from .evidence import SessionMapEvidence, SessionMapMessageEvidence
-from .models import SessionMapDraft
+from .models import SessionMapDraft, SourceRange
 
 
 def build_session_map_authoring_prompt(
@@ -23,6 +23,7 @@ def build_session_map_authoring_prompt(
     retrieved_evidence: Sequence[SessionMapMessageEvidence] = (),
     retrieved_evidence_truncated: bool = False,
     focus: str | None = None,
+    excluded_source_ranges: Sequence[SourceRange] = (),
 ) -> str:
     """Build one structured whole-map authoring request."""
     if not new_evidence:
@@ -39,6 +40,10 @@ def build_session_map_authoring_prompt(
                     "start": evidence.source_start_sequence_index,
                     "end": evidence.source_end_sequence_index,
                 },
+                "citable_source_ranges": [
+                    source.model_dump(mode="json")
+                    for source in evidence.citable_source_ranges
+                ],
                 "projected_text": evidence.projected_text,
             }
             for evidence in new_evidence
@@ -50,5 +55,8 @@ def build_session_map_authoring_prompt(
             message.as_authoring_dict() for message in retrieved_evidence
         ],
         "retrieved_evidence_truncated": retrieved_evidence_truncated,
+        "excluded_source_ranges": [
+            source.model_dump(mode="json") for source in excluded_source_ranges
+        ],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

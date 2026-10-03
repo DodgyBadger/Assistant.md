@@ -16,6 +16,7 @@ from core.chat.chat_store import (
     StoredChatToolEvent,
     StoredContextCheckpoint,
     canonical_assistant_fork_points,
+    tool_call_events_are_unambiguous,
 )
 from core.chat.compaction import get_compaction_status, run_chat_context_compaction
 from core.chat.context_strategy_upgrade import (
@@ -1072,7 +1073,7 @@ def get_chat_tool_call_detail(
     )
     if not events:
         _raise_chat_tool_call_not_found(session_id, tool_call_id)
-    if not _tool_call_events_are_unambiguous(events):
+    if not tool_call_events_are_unambiguous(events):
         logger.warning(
             "Ambiguous chat tool detail withheld",
             data={
@@ -1145,11 +1146,6 @@ def _tool_event_info(event: StoredChatToolEvent) -> ChatSessionToolEventInfo:
     )
 
 
-def _tool_call_events_are_unambiguous(events: list[StoredChatToolEvent]) -> bool:
-    """Return whether stored rows describe exactly one tool invocation."""
-    return sum(event.event_type == "call" for event in events) == 1
-
-
 def _effective_tool_call_info(
     messages: list[StoredChatMessage],
     declaration_counts: dict[str, int],
@@ -1165,7 +1161,7 @@ def _effective_tool_call_info(
         if declaration_counts.get(tool_call_id) != 1:
             continue
         call_events = events_by_id.get(tool_call_id)
-        if not call_events or not _tool_call_events_are_unambiguous(call_events):
+        if not call_events or not tool_call_events_are_unambiguous(call_events):
             continue
         summaries.append(
             ChatSessionToolCallInfo(
@@ -1427,15 +1423,28 @@ async def compact_chat_session_history(
 ) -> ChatHistoryCompactionResponse:
     """Compact one chat session through the shared compaction service."""
     _require_chat_session_access(vault_name, session_id)
-    result = await run_chat_context_compaction(
-        session_id=session_id,
-        vault_name=vault_name,
-        vault_path=vault_path,
-        focus=focus,
-        source=ExecutionTaskSource.API,
-        authority=require_current_execution_authority(),
-        store=_chat_store,
-    )
+    authority = require_current_execution_authority()
+    try:
+        result = await run_chat_context_compaction(
+            session_id=session_id,
+            vault_name=vault_name,
+            vault_path=vault_path,
+            focus=focus,
+            source=ExecutionTaskSource.API,
+            authority=authority,
+            store=_chat_store,
+        )
+    except Exception as exc:
+        raise APIException(
+            status_code=500,
+            error_type="ChatHistoryCompactionFailed",
+            message="Chat history compaction did not complete; inspect the session and execution task.",
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "cause_error_type": type(exc).__name__,
+            },
+        ) from exc
     return ChatHistoryCompactionResponse(**result.as_api_dict())
 
 

@@ -15,6 +15,8 @@ from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
     TextPart,
+    ToolCallPart,
+    ToolReturnPart,
     UserPromptPart,
 )
 
@@ -47,6 +49,7 @@ from core.runtime.task_runner import (  # noqa: E402
     ExecutionTaskSpec,
 )
 from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.core.tool_history_fixtures import tool_reply_cases  # noqa: E402
 
 
 class SessionContextStrategyUpgradeScenario(BaseScenario):
@@ -429,11 +432,244 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
             "The normal session-map author task path should remain observable",
         )
         await self._test_stale_authoring(vault.name)
+        await self._test_upgrade_plan_readiness(vault.name)
         await self._test_session_gate(vault.name)
         await self._test_manual_compaction_contention(vault.name)
         await self._test_failure_logging(vault.name)
         await self._test_cancellation_and_restart(vault.name)
         self.assert_no_failures()
+
+    async def _test_upgrade_plan_readiness(self, vault_name: str) -> None:
+        runtime = get_runtime_context()
+        store = runtime.chat_store
+
+        async def reply_author(**kwargs: object) -> SessionMapDraft:
+            return _cumulative_draft(kwargs)
+
+        for case in tool_reply_cases():
+            reply_session_id = f"strategy-upgrade-tool-reply-{case.name}"
+            _seed_v1(store, reply_session_id, vault_name)
+            store.add_messages(reply_session_id, vault_name, case.messages)
+            status = get_session_context_strategy_status(
+                store=store, session_id=reply_session_id, vault_name=vault_name
+            )
+            self.soft_assert_equal(
+                status.can_upgrade_to_v2,
+                not case.issue_codes,
+                f"Upgrade readiness must honor {case.name} invocation matching",
+            )
+            if case.issue_codes:
+                rejected = self.call_api(
+                    f"/api/chat/sessions/{reply_session_id}/upgrade-context-strategy",
+                    method="POST",
+                    data={"vault_name": vault_name},
+                )
+                self.soft_assert_equal(
+                    (
+                        rejected.status_code,
+                        rejected.json().get("details", {}).get("reason"),
+                    ),
+                    (409, "upgrade_plan_invalid_tool_history"),
+                    f"Upgrade admission must reject {case.name}",
+                )
+                tasks = await runtime.task_coordinator.list_tasks(
+                    kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+                    scope=chat_session_scope(reply_session_id),
+                )
+                self.soft_assert_equal(
+                    tasks, [], f"Rejected {case.name} must not create a task"
+                )
+            else:
+                raw_before = store.get_history(reply_session_id, vault_name, mode="raw")
+                with patch(
+                    "core.memory.session_map.service._invoke_session_map_model",
+                    new=reply_author,
+                ):
+                    task = await _start_upgrade(reply_session_id, vault_name)
+                    terminal = await _wait_for_terminal_task(task.task_id)
+                self.soft_assert_equal(
+                    terminal.status, "completed", f"Upgrade must commit {case.name}"
+                )
+                self.soft_assert_equal(
+                    store.get_history(reply_session_id, vault_name, mode="raw"),
+                    raw_before,
+                    "Tool-reply upgrades must preserve canonical history",
+                )
+        session_id = "strategy-upgrade-retained-floor"
+        _seed_v1(store, session_id, vault_name)
+        for floor, eligible in ((10, False), (2, True)):
+            response = self.call_api(
+                "/api/system/settings/general/compaction_retained_turns",
+                method="PUT",
+                data={"value": str(floor)},
+            )
+            assert response.status_code == 200
+            with (
+                patch.object(
+                    store, "get_stored_messages", wraps=store.get_stored_messages
+                ) as hydrate,
+                patch(
+                    "core.chat.compaction.plan_stepped_history_eviction",
+                    side_effect=AssertionError(
+                        "Status must not select a full eviction boundary"
+                    ),
+                ),
+            ):
+                status = get_session_context_strategy_status(
+                    store=store, session_id=session_id, vault_name=vault_name
+                )
+                self.soft_assert_equal(
+                    hydrate.call_count,
+                    1,
+                    "Upgrade status should hydrate canonical history once",
+                )
+            self.soft_assert_equal(
+                status.can_upgrade_to_v2,
+                eligible,
+                "Upgrade status must respect the canonical retained floor",
+            )
+            if not eligible:
+                forked = self.call_api(
+                    f"/api/chat/sessions/{session_id}/fork",
+                    method="POST",
+                    data={"vault_name": vault_name, "through_sequence_index": 11},
+                )
+                assert forked.status_code == 200
+                child = forked.json()["session"]
+                self.soft_assert_equal(
+                    (child["context_strategy"], child["can_upgrade_to_v2"]),
+                    ("recovery_card", False),
+                    "A V1 fork must inherit truthful upgrade eligibility",
+                )
+                listed = self.call_api(f"/api/chat/sessions?vault_name={vault_name}")
+                assert listed.status_code == 200
+                rows = {row["session_id"]: row for row in listed.json()}
+                self.soft_assert(
+                    not rows[session_id]["can_upgrade_to_v2"]
+                    and not rows[child["session_id"]]["can_upgrade_to_v2"],
+                    "Session listing must agree with source and fork upgrade readiness",
+                )
+                rejected = self.call_api(
+                    f"/api/chat/sessions/{session_id}/upgrade-context-strategy",
+                    method="POST",
+                    data={"vault_name": vault_name},
+                )
+                self.soft_assert_equal(
+                    (
+                        rejected.status_code,
+                        rejected.json().get("details", {}).get("reason"),
+                    ),
+                    (409, "upgrade_plan_minimum_retained_groups"),
+                    "An impossible upgrade must be rejected at admission",
+                )
+                tasks = await runtime.task_coordinator.list_tasks(
+                    kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+                    scope=chat_session_scope(session_id),
+                )
+                self.soft_assert_equal(
+                    tasks, [], "Rejected upgrade must not create a task"
+                )
+
+        store.add_messages(
+            session_id,
+            vault_name,
+            [
+                _user("Use a tool"),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(tool_name="probe", args={}, tool_call_id="orphan")
+                    ]
+                ),
+                _user("Continue without its return"),
+                _assistant("Continue"),
+            ],
+        )
+        status = get_session_context_strategy_status(
+            store=store, session_id=session_id, vault_name=vault_name
+        )
+        self.soft_assert_equal(
+            (status.can_upgrade_to_v2, status.reason),
+            (False, "upgrade_plan_invalid_tool_history"),
+            "Malformed canonical tool history must block an upgrade",
+        )
+        try:
+            await _start_upgrade(session_id, vault_name)
+        except SessionContextStrategyUpgradeUnavailable as exc:
+            self.soft_assert_equal(
+                exc.reason,
+                status.reason,
+                "Upgrade admission must share the tool-history readiness reason",
+            )
+        else:
+            raise AssertionError(
+                "Malformed canonical history must reject upgrade admission"
+            )
+        tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+            scope=chat_session_scope(session_id),
+        )
+        self.soft_assert_equal(
+            tasks, [], "Malformed-history rejection must not create a task"
+        )
+        for label, tool_call_id, return_name in (
+            ("blank", "", "probe"),
+            ("whitespace", " \t ", "probe"),
+            ("name-mismatch", "id", "other"),
+        ):
+            identity_session_id = f"strategy-upgrade-invalid-identity-{label}"
+            _seed_v1(store, identity_session_id, vault_name)
+            store.add_messages(
+                identity_session_id,
+                vault_name,
+                [
+                    _user("Use a tool"),
+                    ModelResponse(
+                        parts=[
+                            ToolCallPart(
+                                tool_name="probe", args={}, tool_call_id=tool_call_id
+                            )
+                        ]
+                    ),
+                    ModelRequest(
+                        parts=[
+                            ToolReturnPart(
+                                tool_name=return_name,
+                                content="result",
+                                tool_call_id=tool_call_id,
+                            )
+                        ]
+                    ),
+                    _assistant("Completed"),
+                ],
+            )
+            status = get_session_context_strategy_status(
+                store=store, session_id=identity_session_id, vault_name=vault_name
+            )
+            self.soft_assert_equal(
+                (status.can_upgrade_to_v2, status.reason),
+                (False, "upgrade_plan_invalid_tool_history"),
+                f"Upgrade readiness must reject {label} tool identity",
+            )
+            rejected = self.call_api(
+                f"/api/chat/sessions/{identity_session_id}/upgrade-context-strategy",
+                method="POST",
+                data={"vault_name": vault_name},
+            )
+            self.soft_assert_equal(
+                (
+                    rejected.status_code,
+                    rejected.json().get("details", {}).get("reason"),
+                ),
+                (409, "upgrade_plan_invalid_tool_history"),
+                f"Upgrade admission must reject {label} tool identity",
+            )
+            tasks = await runtime.task_coordinator.list_tasks(
+                kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+                scope=chat_session_scope(identity_session_id),
+            )
+            self.soft_assert_equal(
+                tasks, [], "Invalid tool identity must not create an upgrade task"
+            )
 
     async def _test_stale_authoring(self, vault_name: str) -> None:
         runtime = get_runtime_context()
@@ -706,9 +942,33 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 failed_ids.add(started.task_id)
                 terminal = await _wait_for_terminal_task(started.task_id)
                 assert terminal.status == "failed"
+                assert terminal.terminal_error_type == "RuntimeError"
+                assert "PRIVATE-UPGRADE-PROMPT-SENTINEL" not in str(
+                    terminal.terminal_reason
+                )
+                task_response = self.call_api(f"/api/tasks/{started.task_id}")
+                assert task_response.status_code == 200
+                assert "PRIVATE-UPGRADE-PROMPT-SENTINEL" not in task_response.text
 
         response = self.call_api("/api/system/activity-log?limit=200")
         assert response.status_code == 200
+        children = [
+            task
+            for task in await runtime.task_coordinator.list_tasks()
+            if task.parent_task_id in failed_ids
+        ]
+        assert all(
+            "PRIVATE-UPGRADE-PROMPT-SENTINEL" not in str(task.terminal_reason)
+            for task in children
+        )
+        correlated_ids = failed_ids | {task.task_id for task in children}
+        correlated = [
+            entry
+            for entry in response.json()["entries"]
+            if entry.get("data", {}).get("task_id") in correlated_ids
+        ]
+        assert "PRIVATE-UPGRADE-PROMPT-SENTINEL" not in json.dumps(correlated)
+        assert "private transcript contents" not in json.dumps(correlated)
         rows = [
             entry["data"]
             for entry in response.json()["entries"]

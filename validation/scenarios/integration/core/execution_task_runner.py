@@ -13,6 +13,7 @@ from core.identity import SYSTEM_AUTHORITY, ExecutionAuthority
 from core.runtime.execution_tasks import (
     EXECUTION_TASK_RESULT_MAX_CHARS,
     ExecutionTaskKind,
+    ExecutionTaskSnapshot,
     ExecutionTaskSource,
     TaskCoordinator,
 )
@@ -981,6 +982,8 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "Runner should call cancellation hook exactly once",
         )
 
+        await self._test_content_safe_inference_failures()
+
         failure_hook: list[tuple[str, str]] = []
         failed_task = await runtime.task_runner.start_background(
             ExecutionTaskSpec(
@@ -1667,6 +1670,65 @@ class ExecutionTaskRunnerScenario(BaseScenario):
         await self.stop_system()
         self.teardown_scenario()
         self.assert_no_failures()
+
+    async def _test_content_safe_inference_failures(self) -> None:
+        """Sanitize task records while preserving original failure propagation."""
+        runtime = self._runtime()
+        for kind in (
+            ExecutionTaskKind.HISTORY_COMPACTION,
+            ExecutionTaskKind.SESSION_MAP_AUTHORING,
+            ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+        ):
+            sentinel = f"PRIVATE-TASK-CONTENT-{kind}"
+            failure = RuntimeError(sentinel)
+            inline_ids: list[str] = []
+            hook_errors: list[BaseException] = []
+
+            async def fail(
+                task: ExecutionTaskSnapshot,
+                task_ids: list[str] = inline_ids,
+                error: RuntimeError = failure,
+            ) -> None:
+                task_ids.append(task.task_id)
+                raise error
+
+            async def record_failure(
+                _task_id: str,
+                error: BaseException,
+                errors: list[BaseException] = hook_errors,
+            ) -> None:
+                errors.append(error)
+
+            spec = ExecutionTaskSpec(
+                kind=kind,
+                scope=f"runner:content-safe:{kind}",
+                source=ExecutionTaskSource.SYSTEM,
+                label=f"content-safe:{kind}",
+                authority=SYSTEM_AUTHORITY,
+            )
+            try:
+                await runtime.task_runner.run_inline(spec, fail)
+            except RuntimeError as error:
+                assert (
+                    error is failure
+                ), "Inline callers must receive the original error"
+            else:
+                raise AssertionError("Inline inference failures must propagate")
+            inline = await runtime.task_coordinator.get_task(inline_ids[-1])
+            assert inline is not None and inline.status == "failed"
+            assert inline.terminal_error_type == "RuntimeError"
+            assert sentinel not in str(inline.terminal_reason)
+            assert kind in str(inline.terminal_reason)
+
+            started = await runtime.task_runner.start_background(
+                spec, fail, hooks=ExecutionTaskHooks(on_failed=record_failure)
+            )
+            terminal = await self._wait_for_task_terminal(started.task_id)
+            assert terminal is not None and terminal.status == "failed"
+            assert terminal.terminal_error_type == "RuntimeError"
+            assert sentinel not in str(terminal.terminal_reason)
+            assert kind in str(terminal.terminal_reason)
+            assert hook_errors == [failure], "Failure hooks need the original exception"
 
     async def _wait_for_task_terminal(self, task_id: str):
         runtime = self._runtime()

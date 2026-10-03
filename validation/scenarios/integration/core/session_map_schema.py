@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.memory.session_map.evidence import SessionMapEvidence  # noqa: E402
+from core.memory.session_map.models import SourceRange  # noqa: E402
 from validation.core.base_scenario import BaseScenario
 
 
@@ -24,7 +25,6 @@ class SessionMapSchemaScenario(BaseScenario):
             SessionMapEntry,
             SessionMapProvenanceError,
             SessionMapTrajectory,
-            SourceRange,
             validate_session_map_provenance,
         )
 
@@ -123,7 +123,7 @@ class SessionMapSchemaScenario(BaseScenario):
                 new_evidence=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v9"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v10"
         assert prompt_payload["user_focus"] is None
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
@@ -408,4 +408,5 @@ def _envelope(
         estimated_tokens=100,
         projected_text=f"Evidence for {start}-{end}",
         source_digest=f"digest-{start}-{end}",
+        citable_source_ranges=(SourceRange(start=start, end=end),),
     )

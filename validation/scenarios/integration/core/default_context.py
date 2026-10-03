@@ -287,6 +287,7 @@ This workspace intentionally has no README.
                     estimated_tokens=20,
                     projected_text="Compacted objective evidence.",
                     source_digest="a" * 64,
+                    citable_source_ranges=(SourceRange(start=0, end=1),),
                 ),
             ),
             expected_history_revision=compacted_revision,

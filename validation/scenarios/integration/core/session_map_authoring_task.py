@@ -111,7 +111,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                 result.evidence_source_start,
                 result.evidence_source_end,
             ),
-            ("gpt-mini", None, "eviction-map-v9", 1, 2, 10, 11),
+            ("gpt-mini", None, "eviction-map-v10", 1, 2, 10, 11),
             "The author should return enough provenance for any persistence adapter",
         )
         self.soft_assert_equal(
@@ -351,8 +351,23 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                 else:
                     raise AssertionError("The owning author task must fail")
 
+        for task_id in failed_ids:
+            task = await get_runtime_context().task_coordinator.get_task(task_id)
+            assert task is not None and task.terminal_error_type == "RuntimeError"
+            assert "PRIVATE-AUTHOR-PROMPT-SENTINEL" not in str(task.terminal_reason)
+            task_response = self.call_api(f"/api/tasks/{task_id}")
+            assert task_response.status_code == 200
+            assert "PRIVATE-AUTHOR-PROMPT-SENTINEL" not in task_response.text
+
         response = self.call_api("/api/system/activity-log?limit=200")
         assert response.status_code == 200
+        correlated = [
+            entry
+            for entry in response.json()["entries"]
+            if entry.get("data", {}).get("task_id") in failed_ids
+        ]
+        assert "PRIVATE-AUTHOR-PROMPT-SENTINEL" not in json.dumps(correlated)
+        assert "secret document contents" not in json.dumps(correlated)
         rows = [
             entry["data"]
             for entry in response.json()["entries"]
@@ -386,4 +401,5 @@ def _envelope() -> SessionMapEvidence:
         estimated_tokens=100,
         projected_text="[source:10] USER:\nPlease review this with counsel.",
         source_digest="session-map-task-digest",
+        citable_source_ranges=(SourceRange(start=10, end=11),),
     )

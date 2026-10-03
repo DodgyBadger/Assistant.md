@@ -31,6 +31,7 @@ from .evidence import SessionMapEvidence, SessionMapMessageEvidence
 from .models import (
     SessionMapDraft,
     SessionMapProvenanceError,
+    SourceRange,
     validate_session_map_provenance,
 )
 
@@ -56,6 +57,7 @@ class SessionMapAuthoringRequest:
     retrieved_evidence_truncated: bool = False
     thinking: ThinkingValue = None
     focus: str | None = None
+    excluded_source_ranges: tuple[SourceRange, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.session_id.strip():
@@ -209,6 +211,7 @@ async def _execute_session_map_authoring(
             retrieved_evidence=request.retrieved_evidence,
             retrieved_evidence_truncated=request.retrieved_evidence_truncated,
             focus=request.focus,
+            excluded_source_ranges=request.excluded_source_ranges,
         )
 
         def validate_output(output: SessionMapDraft) -> SessionMapDraft:
@@ -352,4 +355,5 @@ def _validate_session_map_output(
             *request.retrieved_evidence,
         ),
         previous_map=request.previous_map,
+        excluded_source_ranges=request.excluded_source_ranges,
     )

@@ -53,6 +53,7 @@ from core.llm.thinking import ThinkingValue, thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.mcp import MCPReadinessSnapshot, MCPUnavailableConnection
 from core.runtime.buffers import BufferStore
+from core.runtime.execution_tasks import get_current_execution_task
 from core.runtime.state import get_runtime_context, has_runtime_context
 from core.settings import (
     get_chat_model_requests_limit,
@@ -661,13 +662,24 @@ async def _try_auto_compact_after_turn(
             vault_path=vault_path,
         )
     except Exception as exc:  # noqa: BLE001
+        task = get_current_execution_task()
+        task_id = task.task_id if task is not None else None
         logger.warning(
             "Automatic chat history compaction failed after completed chat turn",
             data={
+                "event": "chat_post_turn_compaction_failed",
+                "status": "failed",
+                "issue": (
+                    f"chat_post_turn_compaction_failed:{vault_name}:{session_id}:"
+                    f"{task_id or 'unscoped'}"
+                ),
+                "task_id": task_id,
+                "parent_task_id": task.parent_task_id if task is not None else None,
                 "vault_name": vault_name,
                 "session_id": session_id,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "reason": "unexpected_post_turn_compaction_failure",
+                "error": "Automatic compaction did not complete; inspect the session and execution task.",
             },
         )
 

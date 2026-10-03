@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -420,6 +421,49 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
             "Compaction-owned Activity must not leak model or checkpoint exception content",
         )
 
+        equality_session = "stepped-map-high-watermark-equality"
+        store.ensure_session(
+            equality_session, vault.name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        equality_history = [
+            _user("Older question"),
+            _assistant("Older answer"),
+            _user("Newest question"),
+            _assistant("Newest answer"),
+        ]
+        store.add_messages(equality_session, vault.name, equality_history)
+        threshold = compaction.estimate_history_tokens(equality_history)
+        for key, value in (
+            ("compaction_strategy", "session_map"),
+            ("compaction_high_watermark_tokens", str(threshold)),
+        ):
+            response = self.call_api(
+                f"/api/system/settings/general/{key}",
+                method="PUT",
+                data={"value": value},
+            )
+            assert response.status_code == 200
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            new=authored_map,
+        ):
+            status = await compaction.get_compaction_status(
+                session_id=equality_session, vault_name=vault.name, store=store
+            )
+            result = await compaction.maybe_auto_compact_after_turn(
+                session_id=equality_session,
+                vault_name=vault.name,
+                vault_path=str(vault),
+            )
+        self.soft_assert(
+            status.recommended and result is not None,
+            "Automatic V2 reduction must run at the exact advertised high watermark",
+        )
+        checkpoint = store.get_latest_context_checkpoint(equality_session, vault.name)
+        self.soft_assert(
+            checkpoint is not None and checkpoint.checkpoint_kind == "session_map",
+            "High-watermark equality must commit the V2 checkpoint",
+        )
         self.assert_no_failures()
 
 

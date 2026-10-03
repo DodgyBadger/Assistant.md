@@ -5,16 +5,18 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator, Sequence
 
-from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
+from pydantic_ai.messages import ModelMessage
 
 from core.chat.chat_store import ChatStore, StoredChatMessage
-from core.utils.messages import project_message
 
 from .evidence import (
     SessionMapMessageEvidence,
     SessionMapRetrievedEvidence,
     bound_retrieved_session_map_evidence,
+    contains_session_map_retrieval_result,
     has_contiguous_canonical_sequences,
+    is_session_map_retrieval_part,
+    project_session_map_message,
 )
 
 
@@ -26,30 +28,14 @@ def project_retained_session_map_evidence(
         raise ValueError("Retained session-map evidence is not canonical")
     projected: list[SessionMapMessageEvidence] = []
     for stored in retained:
-        message = stored.message
-        if isinstance(message, ModelRequest):
-            safe_parts = [
-                part
-                for part in message.parts
-                if not (
-                    isinstance(part, ToolReturnPart) and part.tool_name == "session_ops"
-                )
-            ]
-            if not safe_parts:
-                continue
-            if len(safe_parts) != len(message.parts):
-                content_text = project_message(
-                    ModelRequest(parts=safe_parts)
-                ).content_text
-            else:
-                content_text = stored.content_text
-        else:
-            content_text = stored.content_text
+        projection = project_session_map_message(stored.message)
+        if projection is None:
+            continue
         projected.append(
             SessionMapMessageEvidence(
                 sequence_index=stored.sequence_index,
-                role=stored.role,
-                content_text=content_text,
+                role=projection.role,
+                content_text=projection.content_text,
             )
         )
     return tuple(projected)
@@ -80,16 +66,6 @@ def project_retrieved_session_map_evidence(
             )
 
     return bound_retrieved_session_map_evidence(verified_fragments())
-
-
-def _is_session_ops_retrieval_result(message: ModelMessage) -> bool:
-    return bool(
-        isinstance(message, ModelRequest)
-        and any(
-            isinstance(part, ToolReturnPart) and part.tool_name == "session_ops"
-            for part in message.parts
-        )
-    )
 
 
 def _session_map_retrieval_source_boundaries(
@@ -132,10 +108,8 @@ def _session_ops_window_fragments(
     canonical_messages: dict[int, StoredChatMessage | None],
 ) -> Iterator[SessionMapMessageEvidence]:
     """Verify exact window fragments against selected child-owned canonical rows."""
-    if not isinstance(message, ModelRequest):
-        return
     for part in message.parts:
-        if not isinstance(part, ToolReturnPart) or part.tool_name != "session_ops":
+        if not is_session_map_retrieval_part(part):
             continue
         payload = part.content
         if isinstance(payload, str):
@@ -208,7 +182,7 @@ def _session_ops_window_fragments(
                 or end > len(canonical.content_text)
                 or canonical.content_text[start:end] != content
                 or complete != (start == 0 and end == len(canonical.content_text))
-                or _is_session_ops_retrieval_result(canonical.message)
+                or contains_session_map_retrieval_result(canonical.message)
             ):
                 continue
             yield SessionMapMessageEvidence(

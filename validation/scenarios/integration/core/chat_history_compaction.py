@@ -44,12 +44,26 @@ class ChatHistoryCompactionScenario(BaseScenario):
             vault.name,
             owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
         )
+        persistence_setting = self.call_api(
+            "/api/system/settings/general/persist_model_reasoning_parts",
+            method="PUT",
+            data={"value": "true"},
+        )
+        assert persistence_setting.status_code == 200
         messages = [
             ModelRequest(parts=[UserPromptPart(content="First user decision.")]),
             ModelResponse(parts=[TextPart(content="First assistant answer.")]),
             ModelRequest(parts=[UserPromptPart(content="Please use the probe tool.")]),
             ModelResponse(
-                parts=[ToolCallPart(tool_name="probe", args={}, tool_call_id="probe-1")]
+                parts=[
+                    ToolCallPart(
+                        tool_name="probe",
+                        args={},
+                        tool_call_id="probe-1",
+                        id="provider-probe-item",
+                        provider_name="openai",
+                    )
+                ]
             ),
             ModelRequest(
                 parts=[
@@ -63,6 +77,14 @@ class ChatHistoryCompactionScenario(BaseScenario):
             ModelResponse(parts=[TextPart(content="Probe result handled.")]),
         ]
         store.add_messages(session_id, vault.name, messages)
+        initial_stored = store.get_stored_messages(session_id, vault.name, mode="raw")
+        initial_replay = store.get_history(session_id, vault.name) or []
+        assert (
+            initial_stored[3].message == messages[3]
+        ), "Opt-in persistence should preserve canonical provider item identity"
+        assert (
+            initial_replay[3].parts[0].id is None
+        ), "Model replay must strip provider item IDs when their response has no reasoning parts"
         store.add_tool_event(
             session_id=session_id,
             vault_name=vault.name,
@@ -268,6 +290,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
             ), "Status response omits export fields"
 
             async def _summary_stub(*args, **kwargs):
+                assert (
+                    kwargs["recent_messages"][1].parts[0].id is None
+                ), "Compaction authoring should receive replay-safe retained messages"
                 return "Preserve first decision and the probe result outcome."
 
             original_generate_summary = compaction._generate_compaction_summary
@@ -325,6 +350,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
         ), "Raw archival history still includes pre-compaction messages"
 
         effective_messages = store.get_stored_messages(session_id, vault.name)
+        assert [item.message for item in effective_messages[1:]] == messages[
+            2:
+        ], "Compaction checkpoints must retain exact canonical messages with their provider item identity"
         assert (
             len(effective_messages) == 5
         ), "Default stored-message reads return effective history"
@@ -351,6 +379,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert (
             provider_history is not None and len(provider_history) == 5
         ), "Provider-native history defaults to effective replay"
+        assert (
+            provider_history[2].parts[0].id is None
+        ), "Effective model replay must continue to strip provider item IDs without reasoning parts"
 
         detail = self.call_api(
             f"/api/chat/sessions/{session_id}?vault_name={vault.name}"

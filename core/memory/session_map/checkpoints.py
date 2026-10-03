@@ -20,7 +20,12 @@ from core.constants import (
 )
 from core.llm.thinking import ThinkingValue
 
-from .evidence import SessionMapEvidence, SessionMapMessageEvidence
+from .evidence import (
+    SESSION_MAP_EVIDENCE_ADMISSION_VERSION,
+    SessionMapEvidence,
+    SessionMapMessageEvidence,
+    resolve_previous_map_excluded_sources,
+)
 from .models import SessionMapDraft, validate_session_map_provenance
 
 SESSION_MAP_CONTEXT_MARKER = "AssistantMD session map"
@@ -131,6 +136,12 @@ def commit_session_map_context_checkpoint(
         draft,
         evidence=(*new_evidence, *recent_evidence, *retrieved_evidence),
         previous_map=previous_map,
+        excluded_source_ranges=resolve_previous_map_excluded_sources(
+            store=store,
+            session_id=session_id,
+            vault_name=vault_name,
+            previous_map=previous_map,
+        ),
     )
     consumed_through = new_evidence[-1].source_end_sequence_index
     if latest is not None and latest.checkpoint_kind == "session_map":
@@ -186,6 +197,7 @@ def commit_session_map_context_checkpoint(
         "context_prompt_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
         "authoring_prompt_version": authoring_prompt_version,
         "map_schema_version": draft.schema_version,
+        "evidence_admission_version": SESSION_MAP_EVIDENCE_ADMISSION_VERSION,
         "author_model_alias": author_model_alias,
         "author_thinking": author_thinking,
         "source_history_revision": expected_history_revision,

@@ -15,13 +15,18 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
     NativeToolReturnPart,
+    RetryPromptPart,
     ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
 )
 from pydantic_core import to_jsonable_python
 
-from core.chat.tool_history import analyze_tool_history
+from core.chat.tool_history import (
+    ToolHistoryInvocation,
+    ToolHistoryProtocolState,
+    model_message_tool_invocations,
+)
 from core.database import connect_sqlite_from_system_db
 from core.identity import normalize_principal_id
 from core.logger import UnifiedLogger
@@ -139,6 +144,23 @@ class StoredChatToolEvent:
     result_text: str | None = None
     result_metadata_json: str | None = None
     artifact_ref: str | None = None
+
+
+def tool_call_events_are_unambiguous(events: Sequence[StoredChatToolEvent]) -> bool:
+    """Accept one call and at most one terminal event with the same identity."""
+    return (
+        bool(events)
+        and events[0].event_type == "call"
+        and (
+            len(events) == 1
+            or (
+                len(events) == 2
+                and events[1].tool_call_id == events[0].tool_call_id
+                and events[1].tool_name == events[0].tool_name
+                and events[1].event_type in {"result", "overflow_cached"}
+            )
+        )
+    )
 
 
 def _stored_tool_event_from_row(row: Any) -> StoredChatToolEvent:
@@ -381,7 +403,8 @@ class ChatStore:
                 )
                 SELECT message.sequence_index, message.message_index,
                        json_extract(part.value, '$.part_kind'),
-                       json_extract(part.value, '$.tool_call_id')
+                       json_extract(part.value, '$.tool_call_id'),
+                       json_extract(part.value, '$.tool_name')
                 FROM numbered AS message,
                      json_each(message.message_json, '$.parts') AS part
                 WHERE (
@@ -389,7 +412,13 @@ class ChatStore:
                        AND json_extract(part.value, '$.part_kind') = 'tool-call')
                       OR
                       (message.message_type = 'ModelRequest'
-                       AND json_extract(part.value, '$.part_kind') = 'tool-return')
+                       AND (
+                           json_extract(part.value, '$.part_kind') = 'tool-return'
+                           OR (
+                               json_extract(part.value, '$.part_kind') = 'retry-prompt'
+                               AND json_extract(part.value, '$.tool_name') IS NOT NULL
+                           )
+                       ))
                   )
                 ORDER BY message.sequence_index, CAST(part.key AS INTEGER)
                 """,
@@ -397,38 +426,29 @@ class ChatStore:
             )
             events = iter(cursor)
             current = next(events, None)
-            pending: dict[str, int] = {}
-            invalid = False
+            protocol = ToolHistoryProtocolState()
             fork_points: set[int] = set()
             for candidate in candidates:
                 while current is not None and int(current[0]) <= candidate:
                     sequence_index = int(current[0])
                     message_index = int(current[1])
-                    calls: list[str] = []
-                    returns: list[str] = []
+                    calls: list[ToolHistoryInvocation] = []
+                    replies: list[ToolHistoryInvocation] = []
                     while current is not None and int(current[0]) == sequence_index:
-                        tool_call_id = str(current[3] or "").strip()
-                        if tool_call_id:
-                            if current[2] == "tool-call":
-                                calls.append(tool_call_id)
-                            else:
-                                returns.append(tool_call_id)
+                        invocation = ToolHistoryInvocation(
+                            tool_call_id=str(current[3] or ""),
+                            tool_name=None if current[4] is None else str(current[4]),
+                            is_retry=current[2] == "retry-prompt",
+                        )
+                        if current[2] == "tool-call":
+                            calls.append(invocation)
+                        else:
+                            replies.append(invocation)
                         current = next(events, None)
-                    if len(calls) != len(set(calls)) or len(returns) != len(
-                        set(returns)
-                    ):
-                        invalid = True
-                    for tool_call_id in calls:
-                        if tool_call_id in pending:
-                            invalid = True
-                        pending[tool_call_id] = message_index
-                    for tool_call_id in returns:
-                        call_message_index = pending.pop(tool_call_id, None)
-                        if call_message_index is None or (
-                            message_index != call_message_index + 1
-                        ):
-                            invalid = True
-                if not invalid and not pending:
+                    protocol.record_message(message_index, calls, replies)
+                    if protocol.issues:
+                        return fork_points
+                if not protocol.issues and not protocol.pending:
                     fork_points.add(candidate)
             return fork_points
         finally:
@@ -609,6 +629,10 @@ class ChatStore:
     ) -> int:
         """Create an isolated session from one canonical source-message prefix."""
         with self.transaction() as conn:
+            # Reserve the writer before reading any source state. Implicit
+            # SQLite transactions begin only at the first write, which would
+            # otherwise allow messages and checkpoints from different revisions.
+            conn.execute("BEGIN IMMEDIATE")
             source = conn.execute(
                 """
                 SELECT metadata_json, owner_principal_id
@@ -680,6 +704,13 @@ class ChatStore:
                 if _checkpoint_observation_boundary(checkpoint)
                 <= through_sequence_index
             ]
+            for checkpoint in eligible_checkpoints:
+                self._checkpoint_replacement_messages(
+                    conn,
+                    checkpoint,
+                    session_id=source_session_id,
+                    vault_name=vault_name,
+                )
             source_metadata["fork"] = {
                 "source_session_id": source_session_id,
                 "through_sequence_index": through_sequence_index,
@@ -745,28 +776,37 @@ class ChatStore:
                 copied_tool_call_ids.update(message.tool_return_ids)
 
             if copied_tool_call_ids:
+                declaration_counts = self._tool_call_declaration_counts_from_conn(
+                    conn,
+                    source_session_id,
+                    vault_name,
+                    tool_call_ids=sorted(copied_tool_call_ids),
+                )
                 event_rows = conn.execute(
                     """
-                    SELECT tool_call_id, tool_name, event_type, args_json, result_text,
-                           result_metadata_json, artifact_ref, created_at
+                    SELECT tool_call_id, tool_name, event_type, created_at,
+                           args_json, result_text, result_metadata_json, artifact_ref
                     FROM chat_tool_events
                     WHERE session_id = ? AND vault_name = ?
                     ORDER BY id ASC
                     """,
                     (source_session_id, vault_name),
                 ).fetchall()
-                for event_row in event_rows:
-                    (
-                        tool_call_id,
-                        tool_name,
-                        event_type,
-                        args_json,
-                        result_text,
-                        result_metadata_json,
-                        artifact_ref,
-                        created_at,
-                    ) = event_row
-                    if str(tool_call_id) not in copied_tool_call_ids:
+                events = [_stored_tool_event_from_row(row) for row in event_rows]
+                events_by_id: dict[str, list[StoredChatToolEvent]] = {}
+                for event in events:
+                    events_by_id.setdefault(event.tool_call_id, []).append(event)
+                safe_tool_call_ids = {
+                    tool_call_id
+                    for tool_call_id, call_events in events_by_id.items()
+                    if tool_call_id in copied_tool_call_ids
+                    and declaration_counts.get(tool_call_id) == 1
+                    and tool_call_events_are_unambiguous(call_events)
+                }
+                for event in events:
+                    # Events lack an invocation sequence. A reused ID cannot
+                    # distinguish inherited details from a later invocation.
+                    if event.tool_call_id not in safe_tool_call_ids:
                         continue
                     conn.execute(
                         """
@@ -786,14 +826,14 @@ class ChatStore:
                         (
                             new_session_id,
                             vault_name,
-                            tool_call_id,
-                            tool_name,
-                            event_type,
-                            args_json,
-                            result_text,
-                            result_metadata_json,
-                            artifact_ref,
-                            created_at,
+                            event.tool_call_id,
+                            event.tool_name,
+                            event.event_type,
+                            event.args_json,
+                            event.result_text,
+                            event.result_metadata_json,
+                            event.artifact_ref,
+                            event.created_at,
                         ),
                     )
                     copied_tool_event_count += 1
@@ -1172,6 +1212,23 @@ class ChatStore:
         tool_call_ids: Sequence[str] | None = None,
     ) -> dict[str, int]:
         """Count raw tool-call declarations without hydrating message history."""
+        conn = self._connect()
+        try:
+            return self._tool_call_declaration_counts_from_conn(
+                conn, session_id, vault_name, tool_call_ids=tool_call_ids
+            )
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _tool_call_declaration_counts_from_conn(
+        conn: sqlite3.Connection,
+        session_id: str,
+        vault_name: str,
+        *,
+        tool_call_ids: Sequence[str] | None = None,
+    ) -> dict[str, int]:
+        """Count declarations within the caller's consistent history snapshot."""
         if tool_call_ids is not None and not tool_call_ids:
             return {}
         id_filter = ""
@@ -1183,10 +1240,8 @@ class ChatStore:
                 + ")"
             )
             params.extend(tool_call_ids)
-        conn = self._connect()
-        try:
-            rows = conn.execute(
-                f"""
+        rows = conn.execute(
+            f"""
                 SELECT json_extract(part.value, '$.tool_call_id') AS tool_call_id,
                        COUNT(*) AS declaration_count
                 FROM chat_messages AS message,
@@ -1198,10 +1253,8 @@ class ChatStore:
                   {id_filter}
                 GROUP BY tool_call_id
                 """,
-                params,
-            ).fetchall()
-        finally:
-            conn.close()
+            params,
+        ).fetchall()
         return {str(tool_call_id): int(count) for tool_call_id, count in rows}
 
     def _committed_tool_call_ids(
@@ -1611,19 +1664,6 @@ class ChatStore:
         """Atomically record one typed effective-history checkpoint."""
         if checkpoint_kind not in {"recovery_card", "session_map"}:
             raise ValueError(f"Unsupported context checkpoint kind: {checkpoint_kind}")
-        if replacement_source_sequence_indexes is not None and len(
-            replacement_source_sequence_indexes
-        ) != len(replacement_history):
-            raise ValueError(
-                "Checkpoint replacement origins must align with replacement history"
-            )
-        if replacement_source_sequence_indexes is not None and any(
-            origin is not None and (origin < 0 or origin > last_message_sequence_index)
-            for origin in replacement_source_sequence_indexes
-        ):
-            raise ValueError(
-                "Checkpoint replacement origins must fall within its canonical boundary"
-            )
         with self.transaction() as conn:
             self._upsert_session(conn, session_id=session_id, vault_name=vault_name)
             current_revision = _metadata_history_revision(
@@ -1646,13 +1686,34 @@ class ChatStore:
                 summary_message,
                 persist_reasoning_parts=persist_reasoning,
             )
-            replacement_history = [
-                _message_for_persistence(
-                    message,
-                    persist_reasoning_parts=persist_reasoning,
+            replacement_origins = (
+                None
+                if replacement_source_sequence_indexes is None
+                else _aligned_checkpoint_replacement_origins(
+                    replacement_history, replacement_source_sequence_indexes
                 )
-                for message in replacement_history
+            )
+            replacement_history = [
+                (
+                    message
+                    if replacement_origins is not None
+                    and replacement_origins[index] is not None
+                    else _message_for_persistence(
+                        message,
+                        persist_reasoning_parts=persist_reasoning,
+                    )
+                )
+                for index, message in enumerate(replacement_history)
             ]
+            if replacement_source_sequence_indexes is not None:
+                self._validate_checkpoint_replacement_origins(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    messages=replacement_history,
+                    origins=replacement_source_sequence_indexes,
+                    last_message_sequence_index=last_message_sequence_index,
+                )
             conn.execute(
                 """
                 INSERT INTO chat_compaction_checkpoints (
@@ -1897,23 +1958,36 @@ class ChatStore:
         if encoded is not None:
             try:
                 parsed_origins = json.loads(encoded)
-            except json.JSONDecodeError as exc:
-                raise ValueError(
-                    f"Invalid checkpoint replacement origins: {checkpoint.checkpoint_id}"
-                ) from exc
-            if not isinstance(parsed_origins, list) or len(parsed_origins) != len(
-                messages
-            ):
-                raise ValueError(
-                    f"Misaligned checkpoint replacement origins: {checkpoint.checkpoint_id}"
+                return self._validate_checkpoint_replacement_origins(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    messages=messages,
+                    origins=parsed_origins,
+                    last_message_sequence_index=checkpoint.last_message_sequence_index,
                 )
-            if not all(
-                value is None or isinstance(value, int) for value in parsed_origins
-            ):
-                raise ValueError(
-                    f"Invalid checkpoint replacement origin value: {checkpoint.checkpoint_id}"
+            except ValueError as exc:
+                error = ChatHistoryCorruptionError(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    checkpoint_id=checkpoint.checkpoint_id,
                 )
-            return cast(list[int | None], parsed_origins)
+                logger.warning(
+                    "Invalid checkpoint replacement origins",
+                    data={
+                        "event": "chat_history_deserialization_failed",
+                        "status": "failed",
+                        "reason": "invalid_checkpoint_replacement_origins",
+                        "issue": f"chat-history-corruption:{checkpoint.checkpoint_id}",
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "checkpoint_id": checkpoint.checkpoint_id,
+                        "error_type": type(error).__name__,
+                        "cause_type": type(exc).__name__,
+                        "error": str(error),
+                    },
+                )
+                raise error from exc
 
         raw = self._fetch_raw_messages_from_conn(
             conn,
@@ -1942,6 +2016,61 @@ class ChatStore:
             resolved_origins.append(origin)
             previous_origin = origin
         return resolved_origins
+
+    def _validate_checkpoint_replacement_origins(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        session_id: str,
+        vault_name: str,
+        messages: list[ModelMessage],
+        origins: object,
+        last_message_sequence_index: int,
+    ) -> list[int | None]:
+        """Require explicit origins to identify ordered canonical messages."""
+        validated_origins = _aligned_checkpoint_replacement_origins(messages, origins)
+        previous_origin = -1
+        canonical_origins: list[int] = []
+        for origin in validated_origins:
+            if origin is None:
+                continue
+            if origin < 0 or origin > last_message_sequence_index:
+                raise ValueError(
+                    "Checkpoint replacement origins must fall within its canonical boundary"
+                )
+            if origin <= previous_origin:
+                raise ValueError(
+                    "Checkpoint replacement origins must be strictly increasing"
+                )
+            previous_origin = origin
+            canonical_origins.append(origin)
+        if not canonical_origins:
+            return validated_origins
+
+        canonical_messages = self._fetch_raw_messages_from_conn(
+            conn,
+            session_id=session_id,
+            vault_name=vault_name,
+            after_sequence_index=canonical_origins[0] - 1,
+            through_sequence_index=canonical_origins[-1],
+        )
+        canonical_by_origin = {
+            item.sequence_index: _MODEL_MESSAGE_ADAPTER.dump_json(item.message)
+            for item in canonical_messages
+        }
+        for message, origin in zip(messages, validated_origins, strict=True):
+            if origin is None:
+                continue
+            canonical_message_json = canonical_by_origin.get(origin)
+            if canonical_message_json is None:
+                raise ValueError(
+                    "Checkpoint replacement origin must identify an existing canonical message"
+                )
+            if _MODEL_MESSAGE_ADAPTER.dump_json(message) != canonical_message_json:
+                raise ValueError(
+                    "Checkpoint replacement must match its canonical message origin"
+                )
+        return validated_origins
 
     def _stored_messages_from_rows(
         self,
@@ -2234,28 +2363,17 @@ def _metadata_history_revision(metadata: dict[str, Any]) -> int:
 
 def canonical_assistant_fork_points(messages: Sequence[StoredChatMessage]) -> set[int]:
     """Return known canonical assistant origins whose prefixes are protocol-complete."""
-    integrity = analyze_tool_history([message.message for message in messages])
-    # A future unfinished call cannot invalidate an earlier complete prefix;
-    # pending calls are checked as each possible boundary is visited below.
-    invalid_from = min(
-        (
-            issue.message_index
-            for issue in integrity.issues
-            if issue.code != "orphan_tool_call"
-        ),
-        default=len(messages),
-    )
+    protocol = ToolHistoryProtocolState()
     fork_points: set[int] = set()
-    pending_tool_call_ids: set[str] = set()
     for index, message in enumerate(messages):
-        if index >= invalid_from:
+        calls, replies = model_message_tool_invocations(message.message)
+        protocol.record_message(index, calls, replies)
+        if protocol.issues:
             break
-        pending_tool_call_ids.update(message.tool_call_ids)
-        pending_tool_call_ids.difference_update(message.tool_return_ids)
         if (
             isinstance(message.message, ModelResponse)
             and message.fork_sequence_index is not None
-            and not pending_tool_call_ids
+            and not protocol.pending
         ):
             fork_points.add(message.fork_sequence_index)
     return fork_points
@@ -2283,6 +2401,19 @@ def _checkpoint_metadata(checkpoint: StoredContextCheckpoint) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _aligned_checkpoint_replacement_origins(
+    messages: Sequence[ModelMessage], origins: object
+) -> list[int | None]:
+    """Require one integer or null origin per replacement message."""
+    if not isinstance(origins, list) or len(origins) != len(messages):
+        raise ValueError(
+            "Checkpoint replacement origins must align with replacement history"
+        )
+    if any(origin is not None and type(origin) is not int for origin in origins):
+        raise ValueError("Checkpoint replacement origins must be integers or null")
+    return cast(list[int | None], origins)
 
 
 def _checkpoint_observation_boundary(checkpoint: StoredContextCheckpoint) -> int:
@@ -2406,7 +2537,9 @@ def _ordered_tool_return_ids_from_message(message: ModelMessage) -> tuple[str, .
     ids: set[str] = set()
     ordered_ids: list[str] = []
     for part in getattr(message, "parts", ()) or ():
-        if isinstance(part, ToolReturnPart | NativeToolReturnPart):
+        if isinstance(part, ToolReturnPart | NativeToolReturnPart) or (
+            isinstance(part, RetryPromptPart) and part.tool_name is not None
+        ):
             tool_call_id = getattr(part, "tool_call_id", None)
             if tool_call_id and str(tool_call_id) not in ids:
                 ids.add(str(tool_call_id))

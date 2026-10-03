@@ -5,7 +5,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart, ToolCallPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    UserPromptPart,
+)
 
 from core.chat.chat_store import ChatStore
 from core.identity import LOCAL_USER_PRINCIPAL_ID
@@ -143,9 +150,103 @@ class ChatReasoningHistoryPolicyScenario(BaseScenario):
             "Opt-in session detail should keep visible text separate from reasoning",
         )
 
+        self._test_checkpoint_policy_transitions(store, vault.name)
+
         await self.stop_system()
         self.teardown_scenario()
         self.assert_no_failures()
+
+    def _test_checkpoint_policy_transitions(
+        self, store: ChatStore, vault_name: str
+    ) -> None:
+        for initial_policy, checkpoint_policy in ((True, False), (False, True)):
+            session_id = f"reasoning-checkpoint-{initial_policy}-{checkpoint_policy}"
+            for policy in (initial_policy, checkpoint_policy):
+                response = self.call_api(
+                    "/api/system/settings/general/persist_model_reasoning_parts",
+                    method="PUT",
+                    data={"value": str(policy).lower()},
+                )
+                assert response.status_code == 200
+                if policy == initial_policy:
+                    store.ensure_session(
+                        session_id,
+                        vault_name,
+                        owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+                    )
+                    store.add_messages(
+                        session_id,
+                        vault_name,
+                        [
+                            ModelRequest(parts=[UserPromptPart(content="Question")]),
+                            ModelResponse(
+                                parts=[
+                                    ThinkingPart(
+                                        content="Canonical reasoning",
+                                        id="canonical-reasoning",
+                                    ),
+                                    TextPart(
+                                        content="Canonical answer",
+                                        id="canonical-answer",
+                                    ),
+                                ]
+                            ),
+                        ],
+                    )
+            canonical = store.get_stored_messages(session_id, vault_name, mode="raw")
+            canonical_messages = [item.message for item in canonical]
+            synthetic = ModelResponse(
+                parts=[
+                    ThinkingPart(
+                        content="Synthetic reasoning", id="synthetic-reasoning"
+                    ),
+                    TextPart(content="Synthetic answer", id="synthetic-answer"),
+                ]
+            )
+            store.add_compaction_checkpoint(
+                session_id=session_id,
+                vault_name=vault_name,
+                checkpoint_id=f"{session_id}-checkpoint",
+                source="validation",
+                message_count_before=2,
+                last_message_sequence_index=1,
+                summary_message=synthetic,
+                replacement_history=[synthetic, *canonical_messages],
+                replacement_source_sequence_indexes=[None, 0, 1],
+            )
+            effective = store.get_stored_messages(session_id, vault_name)
+            self.soft_assert_equal(
+                [item.message for item in effective[1:]],
+                canonical_messages,
+                "Checkpoint retention must preserve canonical identity across reasoning-policy changes",
+            )
+            self.soft_assert_equal(
+                self._thinking_part_count([effective[0].message]),
+                int(checkpoint_policy),
+                "Synthetic checkpoint messages must follow the current reasoning-persistence policy",
+            )
+            replay = store.get_history(session_id, vault_name) or []
+            self.soft_assert_equal(
+                self._thinking_part_count(replay),
+                int(checkpoint_policy) * (1 + int(initial_policy)),
+                "Model replay must apply the current policy to synthetic and retained messages",
+            )
+            child_id = f"{session_id}-child"
+            store.fork_session(
+                source_session_id=session_id,
+                new_session_id=child_id,
+                vault_name=vault_name,
+                through_sequence_index=1,
+                title="Reasoning policy fork",
+            )
+            self.soft_assert_equal(
+                [
+                    item.message
+                    for item in store.get_stored_messages(child_id, vault_name)[1:]
+                ],
+                canonical_messages,
+                "Checkpoint inheritance must preserve canonical identity across reasoning-policy changes",
+            )
 
     def _response_with_reasoning(self) -> ModelResponse:
         return ModelResponse(

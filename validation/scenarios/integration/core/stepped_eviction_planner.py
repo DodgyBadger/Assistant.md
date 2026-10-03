@@ -16,6 +16,7 @@ from pydantic_ai.messages import (
 )
 
 from validation.core.base_scenario import BaseScenario
+from validation.core.tool_history_fixtures import tool_reply_cases
 
 
 class SteppedEvictionPlannerScenario(BaseScenario):
@@ -23,6 +24,28 @@ class SteppedEvictionPlannerScenario(BaseScenario):
 
     async def test_scenario(self) -> None:
         import core.chat.compaction as compaction
+
+        for case in tool_reply_cases():
+            for force in (False, True):
+                arguments = {
+                    "high_watermark_tokens": 1,
+                    "low_watermark_tokens": 0,
+                    "minimum_retained_groups": 1,
+                    "force": force,
+                }
+                plan = compaction.plan_session_map_reduction(case.messages, **arguments)
+                expected_reason = "invalid_tool_history" if case.issue_codes else None
+                assert (
+                    compaction.session_map_reduction_unavailability_reason(
+                        case.messages, **arguments
+                    )
+                    == expected_reason
+                ), case.name
+                assert plan.status == (
+                    "no_op" if case.issue_codes else "planned"
+                ), case.name
+                if not case.issue_codes:
+                    assert plan.eviction_end_index == len(case.messages) - 2, case.name
 
         ordinary = [
             _user("first question " * 40),
@@ -37,13 +60,22 @@ class SteppedEvictionPlannerScenario(BaseScenario):
 
         below_high = compaction.plan_stepped_history_eviction(
             ordinary,
-            high_watermark_tokens=total_tokens,
+            high_watermark_tokens=total_tokens + 1,
             low_watermark_tokens=latest_turn_tokens,
             minimum_retained_groups=1,
         )
         assert below_high.status == "no_op"
         assert below_high.reason == "below_high_watermark"
         assert below_high.eviction_end_index == 0
+
+        at_high = compaction.plan_stepped_history_eviction(
+            ordinary,
+            high_watermark_tokens=total_tokens,
+            low_watermark_tokens=latest_turn_tokens,
+            minimum_retained_groups=1,
+        )
+        assert at_high.status == "planned"
+        assert at_high.eviction_end_index == 4
 
         ordinary_plan = compaction.plan_stepped_history_eviction(
             ordinary,
@@ -206,6 +238,52 @@ class SteppedEvictionPlannerScenario(BaseScenario):
         )
         assert malformed_plan.status == "no_op"
         assert malformed_plan.reason == "invalid_tool_history"
+
+        for tool_call_id, return_name in (
+            ("", "probe"),
+            (" \t ", "probe"),
+            ("mismatched", "other"),
+        ):
+            malformed_identity = [
+                _user("Use a tool."),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            tool_name="probe", args={}, tool_call_id=tool_call_id
+                        )
+                    ]
+                ),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_name=return_name,
+                            content="result",
+                            tool_call_id=tool_call_id,
+                        )
+                    ]
+                ),
+                _assistant("Finished."),
+                _user("Continue."),
+                _assistant("Latest answer."),
+            ]
+            for force in (False, True):
+                arguments = {
+                    "high_watermark_tokens": 1,
+                    "low_watermark_tokens": 0,
+                    "minimum_retained_groups": 1,
+                    "force": force,
+                }
+                identity_plan = compaction.plan_session_map_reduction(
+                    malformed_identity, **arguments
+                )
+                assert identity_plan.status == "no_op"
+                assert identity_plan.reason == "invalid_tool_history"
+                assert (
+                    compaction.session_map_reduction_unavailability_reason(
+                        malformed_identity, **arguments
+                    )
+                    == "invalid_tool_history"
+                )
 
         try:
             compaction.plan_stepped_history_eviction(
