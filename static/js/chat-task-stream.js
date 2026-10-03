@@ -93,6 +93,9 @@
             }
 
             if (eventType === 'done') {
+                assistantMessage.sequenceIndex = Number.isInteger(payload.fork_sequence_index)
+                    ? payload.fork_sequence_index
+                    : null;
                 return {
                     finished: true,
                     messageCount: 1,

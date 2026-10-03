@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -16,6 +17,7 @@ from pydantic_ai.messages import (
     TextPartDelta,
     ThinkingPart,
     ThinkingPartDelta,
+    ToolCallPart,
     UserPromptPart,
 )
 
@@ -75,6 +77,20 @@ class _DeltaThenHangingStreamAgent:
         await asyncio.Event().wait()
 
 
+class _UnresolvedToolStreamResult:
+    def new_messages(self):
+        return [
+            ModelRequest(parts=[UserPromptPart(content="Leave the tool unresolved.")]),
+            ModelResponse(parts=[ToolCallPart("probe", {}, "pending-call")]),
+        ]
+
+
+class _UnresolvedToolStreamAgent:
+    @stream_events_context
+    async def run_stream_events(self, *args, **kwargs):
+        yield AgentRunResultEvent(result=_UnresolvedToolStreamResult())
+
+
 class ChatTaskEventStreamApiScenario(BaseScenario):
     """Validate replay and subscriber-disconnect behavior for chat task SSE."""
 
@@ -84,6 +100,8 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
         store = ChatStore()
         for session_id in (
             "chat_task_event_stream_api_session",
+            "chat_task_event_fork_projection_failure_session",
+            "chat_task_event_unresolved_tool_session",
             "chat_task_event_pruner_session",
             "chat_task_event_disconnect_session",
         ):
@@ -177,6 +195,86 @@ class ChatTaskEventStreamApiScenario(BaseScenario):
             .get("delta", {})
             .get("content", ""),
             "Replay snapshots should concatenate buffered reasoning and response text",
+        )
+        self.soft_assert_equal(
+            snapshot_events[-1].get("fork_sequence_index"),
+            1,
+            "A completed live response should expose its canonical fork point in the terminal event",
+        )
+        terminal_fork = self.call_api(
+            "/api/chat/sessions/chat_task_event_stream_api_session/fork",
+            method="POST",
+            data={
+                "vault_name": vault.name,
+                "through_sequence_index": snapshot_events[-1]["fork_sequence_index"],
+            },
+        )
+        self.soft_assert_equal(
+            terminal_fork.status_code,
+            200,
+            "The canonical fork point advertised by the terminal event should be executable",
+        )
+
+        unresolved = await start_prepared_chat_stream_task(
+            prepared=PreparedChatExecution(
+                agent=_UnresolvedToolStreamAgent(),
+                message_history=None,
+                prompt_for_history="Leave the tool unresolved.",
+                user_prompt="Leave the tool unresolved.",
+                attached_image_count=0,
+                model="test",
+                tools=[],
+            ),
+            vault_name=vault.name,
+            vault_path=str(vault),
+            session_id="chat_task_event_unresolved_tool_session",
+        )
+        await self._wait_for_task_terminal(unresolved.task.task_id)
+        unresolved_snapshot = self.call_api(
+            f"/api/chat/tasks/{unresolved.task.task_id}/replay-snapshot"
+        ).json()
+        self.soft_assert_equal(
+            unresolved_snapshot.get("events", [])[-1].get("fork_sequence_index"),
+            None,
+            "A terminal event must withhold the fork point while a custom tool call is unresolved",
+        )
+
+        with patch.object(
+            ChatStore,
+            "get_canonical_fork_points_for_sequences",
+            side_effect=RuntimeError("forced fork projection failure"),
+        ):
+            projection_failure = await start_prepared_chat_stream_task(
+                prepared=PreparedChatExecution(
+                    agent=_CompletingStreamAgent(),
+                    message_history=None,
+                    prompt_for_history="Do not commit an unprojectable response.",
+                    user_prompt="Do not commit an unprojectable response.",
+                    attached_image_count=0,
+                    model="test",
+                    tools=[],
+                ),
+                vault_name=vault.name,
+                vault_path=str(vault),
+                session_id="chat_task_event_fork_projection_failure_session",
+            )
+            failed_task = await self._wait_for_task_terminal(
+                projection_failure.task.task_id
+            )
+        self.soft_assert_equal(
+            failed_task.status if failed_task else None,
+            "failed",
+            "Fork-origin projection failure should fail the turn before canonical response commit",
+        )
+        rolled_back_messages = store.get_stored_messages(
+            "chat_task_event_fork_projection_failure_session",
+            vault.name,
+            mode="raw",
+        )
+        self.soft_assert_equal(
+            len(rolled_back_messages),
+            1,
+            "A fork-origin projection failure must roll back the assistant response atomically",
         )
 
         non_chat_task = await get_runtime_context().task_runner.start_background(

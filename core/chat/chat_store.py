@@ -393,12 +393,15 @@ class ChatStore:
         session_id: str,
         vault_name: str,
         candidate_sequence_indexes: Sequence[int],
+        *,
+        connection: sqlite3.Connection | None = None,
     ) -> set[int]:
         """Validate selected assistant fork points against compact prefix tool metadata."""
         candidates = sorted(set(candidate_sequence_indexes))
         if not candidates:
             return set()
-        conn = self._connect()
+        conn = connection or self._connect()
+        owns_connection = connection is None
         try:
             cursor = iter(
                 self._raw_tool_protocol_rows_from_conn(
@@ -435,7 +438,8 @@ class ChatStore:
                     fork_points.add(candidate)
             return fork_points
         finally:
-            conn.close()
+            if owns_connection:
+                conn.close()
 
     def get_raw_history_structure(
         self,
@@ -565,13 +569,13 @@ class ChatStore:
         messages: list[ModelMessage],
         *,
         connection: sqlite3.Connection | None = None,
-    ) -> None:
-        """Append provider-native messages to one session."""
+    ) -> list[int]:
+        """Append provider-native messages and return their canonical sequence indexes."""
         if not messages:
-            return
+            return []
         if connection is None:
             with self.transaction() as conn:
-                self.add_messages(
+                return self.add_messages(
                     session_id,
                     vault_name,
                     messages,
@@ -622,6 +626,7 @@ class ChatStore:
             vault_name=vault_name,
             advance_history_revision=True,
         )
+        return list(range(next_index, next_index + len(messages)))
 
     def ensure_session(
         self,

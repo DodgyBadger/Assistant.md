@@ -10,6 +10,41 @@
             const messages = Array.isArray(payload?.messages) ? payload.messages : [];
             const toolCallsById = groupToolCallsById(payload?.tool_calls);
             const pendingToolCallIds = new Set();
+            const pendingAssistantText = [];
+            const pendingAssistantThinking = [];
+
+            function collectAssistantContent(message) {
+                const content = String(message?.content || '').trim();
+                const thinking = String(message?.thinking_content || '').trim();
+                if (content) pendingAssistantText.push(content);
+                if (thinking) pendingAssistantThinking.push(thinking);
+            }
+
+            function flushAssistantTurn(sequenceIndex = null) {
+                const toolCalls = toolCallsForIds(toolCallsById, pendingToolCallIds);
+                if (
+                    pendingAssistantText.length === 0
+                    && pendingAssistantThinking.length === 0
+                    && (
+                        toolCalls.length === 0
+                        || !Number.isInteger(sequenceIndex)
+                    )
+                ) {
+                    pendingToolCallIds.clear();
+                    return;
+                }
+                renderPersistedAssistantMessage(
+                    pendingAssistantText.join('\n\n'),
+                    toolCalls,
+                    {
+                        sequenceIndex,
+                        thinkingText: pendingAssistantThinking.join('\n\n')
+                    }
+                );
+                pendingAssistantText.length = 0;
+                pendingAssistantThinking.length = 0;
+                pendingToolCallIds.clear();
+            }
 
             if (messages.length === 0) {
                 callbacks.renderEmptyState('Selected session has no persisted messages.');
@@ -25,24 +60,19 @@
                     ? message.sequence_index
                     : null;
                 if (message.context_checkpoint_kind === 'session_map') {
-                    pendingToolCallIds.clear();
+                    flushAssistantTurn();
                     renderSessionMapCheckpoint(message);
                     return;
                 }
                 if (message.is_tool_message) {
                     collectToolIds(message.tool_call_ids, pendingToolCallIds);
                     collectToolIds(message.tool_return_ids, pendingToolCallIds);
-                    if (message.role === 'assistant' && (message.content || message.thinking_content)) {
-                        renderPersistedAssistantMessage(message.content || '', [], {
-                            sequenceIndex: forkSequenceIndex,
-                            thinkingText: message.thinking_content || ''
-                        });
-                    }
+                    if (message.role === 'assistant') collectAssistantContent(message);
                     return;
                 }
 
                 if (isCompactionSummaryMessage(message)) {
-                    pendingToolCallIds.clear();
+                    flushAssistantTurn();
                     renderPersistedAssistantMessage(message.content || '', [], {
                         sequenceIndex: forkSequenceIndex
                     });
@@ -50,20 +80,17 @@
                 }
 
                 if (message.role === 'assistant') {
-                    const assistantToolCalls = toolCallsForIds(toolCallsById, pendingToolCallIds);
-                    pendingToolCallIds.clear();
-                    renderPersistedAssistantMessage(message.content || '', assistantToolCalls, {
-                        sequenceIndex: forkSequenceIndex,
-                        thinkingText: message.thinking_content || ''
-                    });
+                    collectAssistantContent(message);
+                    flushAssistantTurn(forkSequenceIndex);
                     return;
                 }
 
-                pendingToolCallIds.clear();
+                flushAssistantTurn();
                 messageControls.addMessage('user', message.content || '', {
                     sequenceIndex: displaySequenceIndex
                 });
             });
+            flushAssistantTurn();
 
             renderLatestFailureAction(payload?.latest_failure);
             const reopenEntry = persistedToolEntriesById.get(options.reopenToolCallId || '');

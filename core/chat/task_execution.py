@@ -24,7 +24,7 @@ from pydantic_ai import (
     ThinkingPartDelta,
 )
 from pydantic_ai.exceptions import UsageLimitExceeded
-from pydantic_ai.messages import ModelMessage, TextPart, ToolReturnPart
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolReturnPart
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from core.authoring.context_manager import ContextTemplateExecutionError
@@ -1120,22 +1120,50 @@ async def _run_prepared_chat_stream_task_inner(
                     )
                     await asyncio.sleep(delay_seconds)
 
+            terminal_fork_sequence_index: int | None = None
             if final_result:
                 deferred_requests = getattr(final_result, "output", None)
+                committed_messages = (
+                    chat_executor._messages_after_accepted_user_request(
+                        messages_for_canonical_commit or final_result.new_messages()
+                    )
+                )
+                final_response_offset = next(
+                    (
+                        offset
+                        for offset in range(len(committed_messages) - 1, -1, -1)
+                        if isinstance(committed_messages[offset], ModelResponse)
+                    ),
+                    None,
+                )
+                final_response_sequence_index: int | None = None
                 async with chat_session_history_lock(
                     session_id=session_id,
                     vault_name=vault_name,
                 ):
                     with _CHAT_STORE.transaction() as connection:
-                        _CHAT_STORE.add_messages(
+                        committed_sequence_indexes = _CHAT_STORE.add_messages(
                             session_id,
                             vault_name,
-                            chat_executor._messages_after_accepted_user_request(
-                                messages_for_canonical_commit
-                                or final_result.new_messages()
-                            ),
+                            committed_messages,
                             connection=connection,
                         )
+                        if final_response_offset is not None:
+                            final_response_sequence_index = committed_sequence_indexes[
+                                final_response_offset
+                            ]
+                            safe_fork_points = (
+                                _CHAT_STORE.get_canonical_fork_points_for_sequences(
+                                    session_id,
+                                    vault_name,
+                                    [final_response_sequence_index],
+                                    connection=connection,
+                                )
+                            )
+                            if final_response_sequence_index in safe_fork_points:
+                                terminal_fork_sequence_index = (
+                                    final_response_sequence_index
+                                )
                         chat_executor._clear_latest_turn_failure(
                             session_id=session_id,
                             vault_name=vault_name,
@@ -1214,6 +1242,7 @@ async def _run_prepared_chat_stream_task_inner(
                         }
                     ],
                     "tool_summary": tool_activity,
+                    "fork_sequence_index": terminal_fork_sequence_index,
                 },
             )
         except asyncio.CancelledError as exc:
