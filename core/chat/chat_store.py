@@ -133,6 +133,15 @@ StoredCompactionCheckpoint = StoredContextCheckpoint
 
 
 @dataclass(frozen=True)
+class StoredChatHistoryStructure:
+    """Content-free history shape used by list and eligibility projections."""
+
+    message_count: int
+    group_count: int
+    tool_history_ok: bool
+
+
+@dataclass(frozen=True)
 class StoredChatToolEvent:
     """One stored structured chat tool event."""
 
@@ -391,41 +400,15 @@ class ChatStore:
             return set()
         conn = self._connect()
         try:
-            cursor = conn.execute(
-                """
-                WITH numbered AS (
-                    SELECT sequence_index, message_type, message_json,
-                           row_number() OVER (ORDER BY sequence_index) - 1
-                               AS message_index
-                    FROM chat_messages
-                    WHERE session_id = ? AND vault_name = ?
-                      AND sequence_index <= ?
+            cursor = iter(
+                self._raw_tool_protocol_rows_from_conn(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    through_sequence_index=candidates[-1],
                 )
-                SELECT message.sequence_index, message.message_index,
-                       json_extract(part.value, '$.part_kind'),
-                       json_extract(part.value, '$.tool_call_id'),
-                       json_extract(part.value, '$.tool_name')
-                FROM numbered AS message,
-                     json_each(message.message_json, '$.parts') AS part
-                WHERE (
-                      (message.message_type = 'ModelResponse'
-                       AND json_extract(part.value, '$.part_kind') = 'tool-call')
-                      OR
-                      (message.message_type = 'ModelRequest'
-                       AND (
-                           json_extract(part.value, '$.part_kind') = 'tool-return'
-                           OR (
-                               json_extract(part.value, '$.part_kind') = 'retry-prompt'
-                               AND json_extract(part.value, '$.tool_name') IS NOT NULL
-                           )
-                       ))
-                  )
-                ORDER BY message.sequence_index, CAST(part.key AS INTEGER)
-                """,
-                (session_id, vault_name, candidates[-1]),
             )
-            events = iter(cursor)
-            current = next(events, None)
+            current = next(cursor, None)
             protocol = ToolHistoryProtocolState()
             fork_points: set[int] = set()
             for candidate in candidates:
@@ -444,15 +427,136 @@ class ChatStore:
                             calls.append(invocation)
                         else:
                             replies.append(invocation)
-                        current = next(events, None)
+                        current = next(cursor, None)
                     protocol.record_message(message_index, calls, replies)
                     if protocol.issues:
-                        return fork_points
+                        break
                 if not protocol.issues and not protocol.pending:
                     fork_points.add(candidate)
             return fork_points
         finally:
             conn.close()
+
+    def get_raw_history_structure(
+        self,
+        session_id: str,
+        vault_name: str,
+    ) -> StoredChatHistoryStructure:
+        """Inspect grouping and tool protocol without hydrating message content."""
+        conn = self._connect()
+        try:
+            count_row = conn.execute(
+                """
+                WITH ordered AS (
+                    SELECT row_number() OVER (ORDER BY sequence_index) AS position,
+                           message_type,
+                           message_json
+                    FROM chat_messages
+                    WHERE session_id = ? AND vault_name = ?
+                )
+                SELECT count(*),
+                       CASE WHEN count(*) = 0 THEN 0 ELSE
+                           1 + coalesce(sum(CASE WHEN position > 1
+                               AND message_type = 'ModelRequest'
+                               AND EXISTS (
+                                   SELECT 1
+                                   FROM json_each(message_json, '$.parts') AS part
+                                   WHERE json_extract(part.value, '$.part_kind')
+                                       IN ('user-prompt', 'system-prompt')
+                               ) THEN 1 ELSE 0 END), 0)
+                       END
+                FROM ordered
+                """,
+                (session_id, vault_name),
+            ).fetchone()
+            message_count = int(count_row[0]) if count_row else 0
+            group_count = int(count_row[1]) if count_row else 0
+
+            rows = self._raw_tool_protocol_rows_from_conn(
+                conn,
+                session_id=session_id,
+                vault_name=vault_name,
+            )
+        finally:
+            conn.close()
+
+        protocol = ToolHistoryProtocolState()
+        cursor = 0
+        while cursor < len(rows):
+            sequence_index = int(rows[cursor][0])
+            message_index = int(rows[cursor][1])
+            calls: list[ToolHistoryInvocation] = []
+            replies: list[ToolHistoryInvocation] = []
+            while cursor < len(rows) and int(rows[cursor][0]) == sequence_index:
+                part_kind = str(rows[cursor][2] or "")
+                invocation = ToolHistoryInvocation(
+                    tool_call_id=str(rows[cursor][3] or ""),
+                    tool_name=(
+                        None if rows[cursor][4] is None else str(rows[cursor][4])
+                    ),
+                    is_retry=part_kind == "retry-prompt",
+                )
+                if part_kind == "tool-call":
+                    calls.append(invocation)
+                else:
+                    replies.append(invocation)
+                cursor += 1
+            protocol.record_message(message_index, calls, replies)
+
+        return StoredChatHistoryStructure(
+            message_count=message_count,
+            group_count=group_count,
+            tool_history_ok=not protocol.issues
+            and not protocol.unmatched_call_issues(),
+        )
+
+    def _raw_tool_protocol_rows_from_conn(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        session_id: str,
+        vault_name: str,
+        through_sequence_index: int | None = None,
+    ) -> list[Any]:
+        """Project only ordered tool identities needed by protocol checks."""
+        boundary_filter = ""
+        params: list[Any] = [session_id, vault_name]
+        if through_sequence_index is not None:
+            boundary_filter = "AND sequence_index <= ?"
+            params.append(through_sequence_index)
+        return conn.execute(
+            f"""
+            WITH numbered AS (
+                SELECT sequence_index, message_type, message_json,
+                       row_number() OVER (ORDER BY sequence_index) - 1
+                           AS message_index
+                FROM chat_messages
+                WHERE session_id = ? AND vault_name = ?
+                  {boundary_filter}
+            )
+            SELECT message.sequence_index, message.message_index,
+                   json_extract(part.value, '$.part_kind'),
+                   json_extract(part.value, '$.tool_call_id'),
+                   json_extract(part.value, '$.tool_name')
+            FROM numbered AS message,
+                 json_each(message.message_json, '$.parts') AS part
+            WHERE (
+                  (message.message_type = 'ModelResponse'
+                   AND json_extract(part.value, '$.part_kind') = 'tool-call')
+                  OR
+                  (message.message_type = 'ModelRequest'
+                   AND (
+                       json_extract(part.value, '$.part_kind') = 'tool-return'
+                       OR (
+                           json_extract(part.value, '$.part_kind') = 'retry-prompt'
+                           AND json_extract(part.value, '$.tool_name') IS NOT NULL
+                       )
+                   ))
+              )
+            ORDER BY message.sequence_index, CAST(part.key AS INTEGER)
+            """,
+            params,
+        ).fetchall()
 
     def add_messages(
         self,
@@ -2005,21 +2109,40 @@ class ChatStore:
                 )
                 raise error from exc
 
-        raw = self._fetch_raw_messages_from_conn(
-            conn,
-            session_id=session_id,
-            vault_name=vault_name,
-            through_sequence_index=checkpoint.last_message_sequence_index,
+        serialized_messages = [
+            _MODEL_MESSAGE_ADAPTER.dump_json(message).decode("utf-8")
+            for message in messages
+        ]
+        candidate_json = json.dumps(
+            list(dict.fromkeys(serialized_messages)),
+            ensure_ascii=False,
         )
+        raw = conn.execute(
+            """
+            SELECT sequence_index, message_json
+            FROM chat_messages
+            WHERE session_id = ? AND vault_name = ?
+              AND sequence_index <= ?
+              AND message_json IN (
+                  SELECT value FROM json_each(?)
+              )
+            ORDER BY sequence_index ASC
+            """,
+            (
+                session_id,
+                vault_name,
+                checkpoint.last_message_sequence_index,
+                candidate_json,
+            ),
+        ).fetchall()
         candidates_by_json: dict[str, list[int]] = {}
-        for item in raw:
-            candidates_by_json.setdefault(item.message_json, []).append(
-                item.sequence_index
+        for sequence_index, message_json in raw:
+            candidates_by_json.setdefault(str(message_json), []).append(
+                int(sequence_index)
             )
         resolved_origins: list[int | None] = []
         previous_origin = -1
-        for message in messages:
-            message_json = _MODEL_MESSAGE_ADAPTER.dump_json(message).decode("utf-8")
+        for message_json in serialized_messages:
             candidates = [
                 index
                 for index in candidates_by_json.get(message_json, [])

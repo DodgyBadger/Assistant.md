@@ -2545,7 +2545,7 @@ async def chat_sessions(vault_name: str) -> list[ChatSessionInfo] | JSONResponse
     List persisted chat sessions for a vault ordered by latest activity.
     """
     try:
-        return list_chat_sessions(vault_name)
+        return await run_in_threadpool(list_chat_sessions, vault_name)
     except Exception as e:
         return create_error_response(e)
 
@@ -2672,7 +2672,11 @@ async def chat_session_detail(
     Load one persisted chat session for UI rehydration.
     """
     try:
-        return get_chat_session_detail(vault_name, session_id)
+        return await run_in_threadpool(
+            get_chat_session_detail,
+            vault_name,
+            session_id,
+        )
     except Exception as e:
         return create_error_response(e)
 

@@ -323,11 +323,7 @@ def _chat_session_info(
             )
             is not None
         ),
-        has_session_map=bool(
-            _chat_store.list_context_checkpoints(
-                session_id, vault_name, checkpoint_kind="session_map"
-            )
-        ),
+        has_session_map=strategy_status.strategy == "session_map",
         context_strategy=strategy_status.strategy,
         can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
     )

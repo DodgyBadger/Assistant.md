@@ -114,7 +114,15 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
         store.add_messages(session_id, vault.name, raw_messages[12:])
         raw_before = store.get_history(session_id, vault.name, mode="raw")
 
-        sessions_response = self.call_api(f"/api/chat/sessions?vault_name={vault.name}")
+        with patch(
+            "api.services.chat_sessions._chat_store.get_stored_messages",
+            side_effect=AssertionError(
+                "Session listing must not hydrate canonical message content"
+            ),
+        ):
+            sessions_response = self.call_api(
+                f"/api/chat/sessions?vault_name={vault.name}"
+            )
         assert sessions_response.status_code == 200
         listed = {item["session_id"]: item for item in sessions_response.json()}
         self.soft_assert_equal(
@@ -529,6 +537,11 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 patch.object(
                     store, "get_stored_messages", wraps=store.get_stored_messages
                 ) as hydrate,
+                patch.object(
+                    store,
+                    "get_raw_history_structure",
+                    wraps=store.get_raw_history_structure,
+                ) as inspect_structure,
                 patch(
                     "core.chat.compaction.plan_stepped_history_eviction",
                     side_effect=AssertionError(
@@ -541,8 +554,13 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 )
                 self.soft_assert_equal(
                     hydrate.call_count,
+                    0,
+                    "Upgrade status should not hydrate canonical message content",
+                )
+                self.soft_assert_equal(
+                    inspect_structure.call_count,
                     1,
-                    "Upgrade status should hydrate canonical history once",
+                    "Upgrade status should inspect canonical history structure once",
                 )
             self.soft_assert_equal(
                 status.can_upgrade_to_v2,

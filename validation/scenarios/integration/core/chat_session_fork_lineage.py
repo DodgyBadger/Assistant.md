@@ -732,8 +732,57 @@ class ChatSessionForkLineageScenario(BaseScenario):
         self._test_tool_event_group_lineage(store, vault.name)
         self._test_checkpoint_payload_validation(store, vault.name, database_path)
         self._test_checkpoint_origin_validation(store, vault.name, database_path)
+        self._test_legacy_checkpoint_origin_projection(store, vault.name)
         self._test_retry_fork_points(store, vault.name)
         self._test_fork_protocol_parity(store, vault.name)
+
+    def _test_legacy_checkpoint_origin_projection(
+        self, store: ChatStore, vault_name: str
+    ) -> None:
+        session_id = "legacy-checkpoint-origin-projection"
+        canonical = [
+            _user("First question"),
+            _assistant("First answer"),
+            _user("Retained question"),
+            _assistant("Retained answer"),
+        ]
+        store.ensure_session(
+            session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        store.add_messages(session_id, vault_name, canonical)
+        context = _map_context("Legacy recovery context")
+        store.add_context_checkpoint(
+            session_id=session_id,
+            vault_name=vault_name,
+            checkpoint_id="legacy-origin-checkpoint",
+            checkpoint_kind="recovery_card",
+            source="validation",
+            message_count_before=len(canonical),
+            last_message_sequence_index=3,
+            summary_message=context,
+            replacement_history=[context, canonical[-1]],
+            replacement_source_sequence_indexes=None,
+        )
+
+        raw_fetches: list[dict[str, object]] = []
+        original_fetch = store._fetch_raw_messages_from_conn
+
+        def record_fetch(*args: object, **kwargs: object):
+            raw_fetches.append(dict(kwargs))
+            return original_fetch(*args, **kwargs)
+
+        with patch.object(store, "_fetch_raw_messages_from_conn", record_fetch):
+            effective = store.get_stored_messages(session_id, vault_name)
+
+        self.soft_assert_equal(
+            [message.fork_sequence_index for message in effective],
+            [None, 3],
+            "Legacy replacement messages should retain uniquely matched canonical origins",
+        )
+        self.soft_assert(
+            all(fetch.get("through_sequence_index") is None for fetch in raw_fetches),
+            "Legacy origin matching must not hydrate the evicted canonical prefix",
+        )
 
     def _test_retry_fork_points(self, store: ChatStore, vault_name: str) -> None:
         call = ModelResponse(parts=[ToolCallPart("probe", {}, "first")])

@@ -46,7 +46,6 @@ from .compaction import (
     SteppedHistoryEvictionPlan,
     chat_session_history_lock,
     plan_session_map_reduction,
-    session_map_reduction_unavailability_reason,
 )
 
 SessionContextStrategy = Literal[
@@ -147,19 +146,13 @@ def _evaluate_session_context_strategy_upgrade_readiness(
         else configuration.reason
     )
     if reason == "ready":
-        raw_messages = store.get_stored_messages(session_id, vault_name, mode="raw")
-        if not raw_messages:
+        structure = store.get_raw_history_structure(session_id, vault_name)
+        if structure.message_count == 0:
             reason = "canonical_history_empty"
-        else:
-            unavailable = session_map_reduction_unavailability_reason(
-                [message.message for message in raw_messages],
-                high_watermark_tokens=configuration.high_watermark_tokens,
-                low_watermark_tokens=configuration.low_watermark_tokens,
-                minimum_retained_groups=configuration.minimum_retained_groups,
-                force=True,
-            )
-            if unavailable is not None:
-                reason = f"upgrade_plan_{unavailable}"
+        elif not structure.tool_history_ok:
+            reason = "upgrade_plan_invalid_tool_history"
+        elif structure.group_count <= configuration.minimum_retained_groups:
+            reason = "upgrade_plan_minimum_retained_groups"
     return _SessionContextStrategyUpgradeReadiness(
         status=SessionContextStrategyStatus(
             strategy="recovery_card",

@@ -106,3 +106,47 @@ def test_file_reference_links_load_before_controller() -> None:
     )
 
     assert links_position < references_position
+
+
+def test_adjacent_at_path_references_do_not_merge_across_prose() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {};
+const source = fs.readFileSync(process.argv[1], 'utf8').replace(
+    'return Object.freeze({ enhanceFileLinks });',
+    'global.__candidateMatches = candidateMatches; return Object.freeze({ enhanceFileLinks });'
+);
+vm.runInThisContext(source, { filename: process.argv[1] });
+FileReferenceLinks.create({
+    callbacks: {
+        selectedVault() { return 'PHHC'; },
+        workspacePath() { return ''; },
+        openDirectory() {},
+        openFile() {},
+    },
+});
+
+const text = 'The working package and full preview are at @PHHC/Cana reports/2026-10/ and @PHHC/Cana reports/2026-10/Board summary and publication preview.md.';
+assert.deepStrictEqual(
+    global.__candidateMatches(text).map(({ raw, candidate }) => ({ raw, candidate })),
+    [
+        {
+            raw: '@PHHC/Cana reports/2026-10/',
+            candidate: 'PHHC/Cana reports/2026-10',
+        },
+        {
+            raw: '@PHHC/Cana reports/2026-10/Board summary and publication preview.md',
+            candidate: 'PHHC/Cana reports/2026-10/Board summary and publication preview.md',
+        },
+    ]
+);
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_LINKS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
