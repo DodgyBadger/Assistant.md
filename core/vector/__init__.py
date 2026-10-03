@@ -13,6 +13,7 @@ from core.vector.store import (
     StoredVector,
     VectorSearchResult,
     VectorStore,
+    VectorStoreItem,
 )
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "VectorService",
     "VectorSearchResult",
     "VectorStore",
+    "VectorStoreItem",
     "build_embedding_space_id",
     "cosine_similarity",
     "fingerprint_text",

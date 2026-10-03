@@ -6,19 +6,29 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import sqlite3
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
+from pydantic import TypeAdapter
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    NativeToolReturnPart,
+    ToolReturnPart,
+)
+
 from core.database import connect_sqlite_from_system_db
-from core.utils.fts import build_fts_query
+from core.utils.fts import build_fts_query, fts_query_terms
 from core.utils.messages import (
     MessageProjection,
     MessageSourceKind,
     project_message,
-    project_message_json,
 )
 from core.utils.tokens import estimate_token_count
 
@@ -29,6 +39,9 @@ from .session_access import ChatSessionAccessService
 DEFAULT_SEARCH_LIMIT = 5
 MAX_SEARCH_LIMIT = 20
 MAX_VAULT_SEARCH_LIMIT = 200
+MIN_SEARCH_CANDIDATE_LIMIT = 100
+MAX_SEARCH_CANDIDATE_LIMIT = 4_000
+SEARCH_CANDIDATE_MULTIPLIER = 20
 DEFAULT_EXCERPT_CHARS = 600
 DEFAULT_WINDOW_BEFORE = 2
 DEFAULT_WINDOW_AFTER = 2
@@ -38,6 +51,7 @@ MIN_WINDOW_TOKENS = 512
 MAX_WINDOW_TOKENS = 8_000
 _WINDOW_CURSOR_VERSION = 1
 _WINDOW_CURSOR_KEY = secrets.token_bytes(32)
+_MODEL_MESSAGE_ADAPTER: TypeAdapter[ModelMessage] = TypeAdapter(ModelMessage)
 
 
 @dataclass(frozen=True)
@@ -219,124 +233,98 @@ class TranscriptRetrievalService:
             )
 
         session_placeholders = ", ".join("?" for _ in session_ids)
-        retrieval_envelope_filter = """
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM json_each(
-                              CASE WHEN json_valid(messages.message_json)
-                                   THEN messages.message_json
-                                   ELSE '{"parts":[]}' END,
-                              '$.parts'
-                          ) AS part
-                          WHERE json_extract(part.value, '$.tool_name') = 'session_ops'
-                            AND json_extract(part.value, '$.part_kind') IN (
-                                'tool-return', 'builtin-tool-return'
-                            )
+        candidate_limit = min(
+            max(limit * SEARCH_CANDIDATE_MULTIPLIER, MIN_SEARCH_CANDIDATE_LIMIT),
+            MAX_SEARCH_CANDIDATE_LIMIT,
+        )
+        query_sql = f"""
+            SELECT messages.session_id,
+                   messages.vault_name,
+                   messages.sequence_index,
+                   messages.role,
+                   messages.message_type,
+                   messages.created_at,
+                   messages.message_json,
+                   snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
+                   bm25(chat_messages_fts) AS lexical_rank
+            FROM chat_messages_fts
+            JOIN chat_messages AS messages
+              ON messages.id = chat_messages_fts.rowid
+            WHERE chat_messages_fts MATCH ?
+              AND messages.vault_name = ?
+              AND messages.session_id IN ({session_placeholders})
+              AND NOT (
+                  json_array_length(messages.message_json, '$.parts') > 0
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM json_each(messages.message_json, '$.parts') AS part
+                      WHERE NOT (
+                          json_extract(part.value, '$.part_kind') IN (
+                              'tool-return', 'builtin-tool-return'
+                          )
+                          AND json_extract(part.value, '$.tool_name') = 'session_ops'
                       )
+                  )
+              )
+            ORDER BY lexical_rank ASC, messages.session_id ASC,
+                     messages.sequence_index ASC
+            LIMIT ?
         """
-        if one_hit_per_session:
-            query_sql = f"""
-                WITH message_matches AS (
-                    SELECT messages.session_id,
-                           messages.vault_name,
-                           messages.sequence_index,
-                           messages.role,
-                           messages.message_type,
-                           messages.created_at,
-                           messages.message_json,
-                           snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
-                           bm25(chat_messages_fts) AS lexical_rank
-                    FROM chat_messages_fts
-                    JOIN chat_messages AS messages
-                      ON messages.id = chat_messages_fts.rowid
-                    WHERE chat_messages_fts MATCH ?
-                      AND messages.vault_name = ?
-                      AND messages.session_id IN ({session_placeholders})
-                      {retrieval_envelope_filter}
-                ),
-                ranked_matches AS (
-                    SELECT *,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY session_id
-                               ORDER BY lexical_rank ASC, sequence_index ASC
-                           ) AS session_rank
-                    FROM message_matches
-                )
-                SELECT session_id,
-                       vault_name,
-                       sequence_index,
-                       role,
-                       message_type,
-                       created_at,
-                       message_json,
-                       excerpt,
-                       lexical_rank
-                FROM ranked_matches
-                WHERE session_rank = 1
-                ORDER BY lexical_rank ASC, session_id ASC, sequence_index ASC
-                LIMIT ?
-            """
-        else:
-            query_sql = f"""
-                SELECT messages.session_id,
-                       messages.vault_name,
-                       messages.sequence_index,
-                       messages.role,
-                       messages.message_type,
-                       messages.created_at,
-                       messages.message_json,
-                       snippet(chat_messages_fts, 0, '[', ']', '...', 32) AS excerpt,
-                       bm25(chat_messages_fts) AS lexical_rank
-                FROM chat_messages_fts
-                JOIN chat_messages AS messages
-                  ON messages.id = chat_messages_fts.rowid
-                WHERE chat_messages_fts MATCH ?
-                  AND messages.vault_name = ?
-                  AND messages.session_id IN ({session_placeholders})
-                  {retrieval_envelope_filter}
-                ORDER BY lexical_rank ASC, messages.sequence_index ASC
-                LIMIT ?
-            """
 
         conn = self._connect()
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
                 query_sql,
-                (normalized_query, vault_name, *session_ids, limit),
-            ).fetchall()
+                (normalized_query, vault_name, *session_ids, candidate_limit),
+            )
+            hits: list[TranscriptSearchHit] = []
+            admitted_sessions: set[str] = set()
+            for row in rows:
+                projection, removed_retrieval = _search_projection(
+                    str(row["message_json"])
+                )
+                if projection is None:
+                    continue
+                if removed_retrieval and not _projection_matches_query(
+                    projection.content_text, query
+                ):
+                    continue
+                session_id = str(row["session_id"])
+                if one_hit_per_session and session_id in admitted_sessions:
+                    continue
+                excerpt = (
+                    _bounded_search_excerpt(
+                        projection.content_text,
+                        query=query,
+                        max_chars=self._excerpt_chars,
+                    )
+                    if removed_retrieval
+                    else _bounded_excerpt(
+                        str(row["excerpt"] or ""), self._excerpt_chars
+                    )
+                )
+                hits.append(
+                    TranscriptSearchHit(
+                        anchor=TranscriptAnchor(
+                            session_id=session_id,
+                            sequence_index=int(row["sequence_index"]),
+                        ),
+                        vault_name=str(row["vault_name"]),
+                        rank=len(hits) + 1,
+                        role=str(row["role"]),
+                        message_type=str(row["message_type"]),
+                        created_at=str(row["created_at"] or ""),
+                        excerpt=excerpt,
+                        source_kind=projection.source_kind,
+                        tool_names=projection.tool_names,
+                    )
+                )
+                admitted_sessions.add(session_id)
+                if len(hits) >= limit:
+                    break
         finally:
             conn.close()
-
-        hits: list[TranscriptSearchHit] = []
-        for rank, row in enumerate(rows, start=1):
-            try:
-                projection = project_message_json(str(row["message_json"]))
-            except (TypeError, ValueError):
-                projection = MessageProjection(
-                    role=str(row["role"]),
-                    content_text="",
-                    source_kind="unknown",
-                    tool_names=(),
-                )
-            hits.append(
-                TranscriptSearchHit(
-                    anchor=TranscriptAnchor(
-                        session_id=str(row["session_id"]),
-                        sequence_index=int(row["sequence_index"]),
-                    ),
-                    vault_name=str(row["vault_name"]),
-                    rank=rank,
-                    role=str(row["role"]),
-                    message_type=str(row["message_type"]),
-                    created_at=str(row["created_at"] or ""),
-                    excerpt=_bounded_excerpt(
-                        str(row["excerpt"] or ""), self._excerpt_chars
-                    ),
-                    source_kind=projection.source_kind,
-                    tool_names=projection.tool_names,
-                )
-            )
         return hits
 
     def get_range(
@@ -400,6 +388,11 @@ class TranscriptRetrievalService:
             after_sequence_index=start - 1,
             through_sequence_index=end,
         )
+        stored_messages = [
+            safe_message
+            for message in stored_messages
+            if (safe_message := _retrieval_safe_stored_message(message)) is not None
+        ]
         messages_by_sequence = {
             message.sequence_index: message for message in stored_messages
         }
@@ -471,6 +464,110 @@ def _bounded_excerpt(value: str, max_chars: int) -> str:
     if max_chars == 1:
         return "…"
     return normalized[: max_chars - 1].rstrip() + "…"
+
+
+def _search_projection(message_json: str) -> tuple[MessageProjection | None, bool]:
+    """Project searchable content while withholding prior retrieval envelopes."""
+    try:
+        message = _MODEL_MESSAGE_ADAPTER.validate_json(message_json)
+    except (TypeError, ValueError):
+        return None, False
+    safe_message, removed_retrieval = _retrieval_safe_message(message)
+    if safe_message is None:
+        return None, removed_retrieval
+    projection = project_message(safe_message)
+    return (projection if projection.content_text else None), removed_retrieval
+
+
+def _retrieval_safe_stored_message(
+    message: StoredChatMessage,
+) -> StoredChatMessage | None:
+    """Project a canonical message without recursively returning retrieval output."""
+    safe_message, _ = _retrieval_safe_message(message.message)
+    if safe_message is None:
+        return None
+    projection = project_message(safe_message)
+    if not projection.content_text:
+        return None
+    return replace(
+        message,
+        role=projection.role,
+        content_text=projection.content_text,
+        message=safe_message,
+    )
+
+
+def _retrieval_safe_message(
+    message: ModelMessage,
+) -> tuple[ModelMessage | None, bool]:
+    """Remove prior session retrieval returns while preserving sibling parts."""
+    if isinstance(message, ModelRequest):
+        safe_request_parts = [
+            part for part in message.parts if not _is_session_ops_return(part)
+        ]
+        removed_retrieval = len(safe_request_parts) != len(message.parts)
+        safe_message: ModelMessage = (
+            replace(message, parts=safe_request_parts) if removed_retrieval else message
+        )
+        has_safe_parts = bool(safe_request_parts)
+    elif isinstance(message, ModelResponse):
+        safe_response_parts = [
+            part for part in message.parts if not _is_session_ops_return(part)
+        ]
+        removed_retrieval = len(safe_response_parts) != len(message.parts)
+        safe_message = (
+            replace(message, parts=safe_response_parts)
+            if removed_retrieval
+            else message
+        )
+        has_safe_parts = bool(safe_response_parts)
+    else:  # pragma: no cover - ModelMessage currently has two variants
+        return None, False
+    if not has_safe_parts:
+        return None, removed_retrieval
+    return safe_message, removed_retrieval
+
+
+def _is_session_ops_return(part: object) -> bool:
+    return (
+        isinstance(part, ToolReturnPart | NativeToolReturnPart)
+        and part.tool_name == "session_ops"
+    )
+
+
+def _projection_matches_query(value: str, query: str) -> bool:
+    """Apply the OR-term admission contract to a sanitized message projection."""
+    normalized_value = f" {_normalize_search_text(value)} "
+    return any(
+        f" {_normalize_search_text(term)} " in normalized_value
+        for term in fts_query_terms(query)
+    )
+
+
+def _bounded_search_excerpt(value: str, *, query: str, max_chars: int) -> str:
+    """Build a bounded excerpt around the first sanitized query term."""
+    normalized = value.strip()
+    if len(normalized) <= max_chars:
+        return normalized
+    lowered = normalized.casefold()
+    offsets = [
+        lowered.find(term.casefold())
+        for term in fts_query_terms(query)
+        if lowered.find(term.casefold()) >= 0
+    ]
+    center = min(offsets) if offsets else 0
+    start = max(center - max_chars // 3, 0)
+    end = min(start + max_chars, len(normalized))
+    start = max(end - max_chars, 0)
+    prefix = "…" if start else ""
+    suffix = "…" if end < len(normalized) else ""
+    body_limit = max_chars - len(prefix) - len(suffix)
+    return f"{prefix}{normalized[start:end][:body_limit].strip()}{suffix}"
+
+
+def _normalize_search_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFC", value).casefold()
+    return re.sub(r"[_\W]+", " ", normalized).strip()
 
 
 def _validate_window_request(

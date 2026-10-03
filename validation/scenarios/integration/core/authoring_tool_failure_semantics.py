@@ -140,10 +140,16 @@ class AuthoringToolFailureSemanticsScenario(BaseScenario):
             "failed",
             "Uncaught session_ops model failure should be durable",
         )
+        durable_session_reason = str(session_run.reason if session_run else "")
+        self.soft_assert(
+            "session_ops operation 'summarize_session' failed"
+            in durable_session_reason,
+            "Durable workflow failure should retain stable tool and operation context",
+        )
         self.soft_assert(
             "Configured summarization model is unavailable"
-            in str(session_run.reason if session_run else ""),
-            "Durable workflow failure should retain the underlying model reason",
+            not in durable_session_reason,
+            "Durable workflow failure should not retain raw provider or model error text",
         )
 
         await self.stop_system()

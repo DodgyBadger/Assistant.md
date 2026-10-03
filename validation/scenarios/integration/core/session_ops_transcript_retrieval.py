@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
+from pydantic_ai import ModelRetry  # noqa: E402
 from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ToolReturnPart,
@@ -18,8 +19,10 @@ from pydantic_ai.messages import (  # noqa: E402
 from pydantic_ai.models.test import TestModel  # noqa: E402
 
 from core.authoring.shared.tool_binding import resolve_tool_binding  # noqa: E402
+from core.chat.history_service import ConversationToolEventItem  # noqa: E402
 from core.chat.transcript_retrieval import TranscriptRetrievalService  # noqa: E402
 from core.memory.session_summary import (  # noqa: E402
+    SessionSummaryArtifact,
     SessionSummarySearchResult,
     SessionSummaryStore,
 )
@@ -48,6 +51,11 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         controller_session_id = "session_ops_transcript_controller"
         deep_controller_session_id = "session_ops_transcript_deep_controller"
         structured_session_id = "session_ops_transcript_structured"
+        mixed_session_id = "session_ops_transcript_mixed"
+        mixed_controller_session_id = "session_ops_transcript_mixed_controller"
+        bounded_summary_controller_id = "session_ops_bounded_summary_controller"
+        echo_starvation_session_id = "session_ops_transcript_echo_starvation"
+        compact_list_session_id = "session_ops_compact_list_projection"
         budget_session_id = "session_ops_transcript_budget"
         fragment_session_id = "session_ops_transcript_fragment"
         continuation_session_id = "session_ops_transcript_continuation"
@@ -102,6 +110,102 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             ],
         )
         chat_store.ensure_session(
+            mixed_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.add_messages(
+            mixed_session_id,
+            vault.name,
+            [
+                _mixed_tool_results(
+                    primary_content={
+                        "status": "ok",
+                        "detail": "cedar-invoice primary evidence "
+                        + ("safe-locator " * 2_000)
+                        + "safe-tail-terminus",
+                    },
+                    retrieval_content={
+                        "operation": "search_transcript",
+                        "matches": [
+                            {"excerpt": "retrieval-only-marker must stay excluded"}
+                        ],
+                    },
+                )
+            ],
+        )
+        chat_store.ensure_session(
+            mixed_controller_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.ensure_session(
+            echo_starvation_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.add_messages(
+            echo_starvation_session_id,
+            vault.name,
+            [
+                _tool_result(
+                    "session_ops",
+                    {
+                        "operation": "search_transcript",
+                        "matches": [{"excerpt": "ember-beacon prior retrieval echo"}],
+                    },
+                    f"echo-starvation-{index}",
+                )
+                for index in range(101)
+            ]
+            + [_message("The ember-beacon primary evidence remains searchable.")],
+        )
+        chat_store.ensure_session(
+            compact_list_session_id,
+            vault.name,
+            owner_principal_id="local-user",
+        )
+        chat_store.set_session_title(
+            compact_list_session_id,
+            vault.name,
+            "oversized title " * 100,
+        )
+        summary_store = SessionSummaryStore()
+        summary_store.upsert_session_summary(
+            vault_name=vault.name,
+            session_id=session_id,
+            workspace_path="oversized-workspace/" * 100,
+        )
+        summary_store.upsert_session_summary(
+            vault_name=vault.name,
+            session_id=compact_list_session_id,
+            summary="oversized summary " * 200,
+            domain="oversized domain " * 100,
+            work_product="oversized work product " * 100,
+            user_intent="oversized intent " * 100,
+            named_entities="oversized entities " * 100,
+            source_summary="oversized source summary " * 200,
+            workspace_path="oversized-list-workspace/" * 100,
+            metadata={
+                "source": "validation",
+                "history_revision": 7,
+                "private_unbounded_metadata": "do-not-return " * 100,
+            },
+        )
+        summary_store.add_session_artifacts(
+            vault_name=vault.name,
+            session_id=compact_list_session_id,
+            artifacts=tuple(
+                SessionSummaryArtifact(
+                    path=f"references/source-{index}.md",
+                    artifact_role="file_retrieved",
+                    vault_name=vault.name,
+                    metadata={"private": "do-not-return"},
+                )
+                for index in range(55)
+            ),
+        )
+        chat_store.ensure_session(
             window_session_id,
             vault.name,
             owner_principal_id="local-user",
@@ -150,6 +254,11 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             continuation_session_id,
             infrastructure_session_id,
             untrusted_operation_session_id,
+            "session_ops_foreign_list_controller",
+            "session_ops_foreign_get_controller",
+            "session_ops_foreign_upsert_controller",
+            "session_ops_foreign_summarize_controller",
+            bounded_summary_controller_id,
         ):
             chat_store.ensure_session(
                 controller_id, vault.name, owner_principal_id="local-user"
@@ -232,6 +341,13 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "query": "granite signal primary failure",
                         "limit": 5,
                     }
+                if current_case["name"] == "mixed":
+                    return {
+                        "operation": "search_transcript",
+                        "session_id": mixed_session_id,
+                        "query": "cedar invoice",
+                        "limit": 5,
+                    }
                 if current_case["name"] == "explicit":
                     return {
                         "operation": "search_transcript",
@@ -244,6 +360,33 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "mode": "deep",
                         "query": "aurora covenant",
                         "limit": 5,
+                    }
+                if current_case["name"] == "foreign-list":
+                    return {
+                        "operation": "list_sessions",
+                        "summary_status": "any",
+                    }
+                if current_case["name"] == "foreign-get":
+                    return {
+                        "operation": "get_session_summary",
+                        "session_id": inaccessible_session_id,
+                    }
+                if current_case["name"] == "bounded-get":
+                    return {
+                        "operation": "get_session_summary",
+                        "session_id": compact_list_session_id,
+                    }
+                if current_case["name"] == "foreign-upsert":
+                    return {
+                        "operation": "upsert_session_summary",
+                        "session_id": inaccessible_session_id,
+                        "data": {"summary": "illicit replacement"},
+                    }
+                if current_case["name"] == "foreign-summarize":
+                    return {
+                        "operation": "summarize_session",
+                        "session_id": inaccessible_session_id,
+                        "summarization_model": "must-not-be-called",
                     }
                 raise AssertionError(
                     f"Unexpected transcript retrieval case: {current_case['name']}"
@@ -326,6 +469,283 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 ["mail_probe"],
                 "The real tool path should expose the producing tool name",
             )
+
+            current_case["name"] = "mixed"
+            mixed_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=mixed_controller_session_id,
+                prompt="Find the primary result bundled beside prior retrieval output.",
+                chat_store=chat_store,
+            )
+            mixed_matches = mixed_result.get("matches", [])
+            self.soft_assert_equal(
+                [match.get("sequence_index") for match in mixed_matches],
+                [0],
+                "A mixed tool-result message should retain its non-retrieval evidence",
+            )
+            self.soft_assert_equal(
+                mixed_matches[0].get("tool_names") if mixed_matches else None,
+                ["mail_probe"],
+                "Mixed search provenance should exclude the session_ops retrieval envelope",
+            )
+            self.soft_assert(
+                "retrieval-only-marker" not in json.dumps(mixed_result),
+                "Mixed search results must not expose session_ops return content",
+            )
+            mixed_retrieval = TranscriptRetrievalService(
+                runtime.chat_store,
+                runtime.chat_session_access,
+            )
+            self.soft_assert_equal(
+                mixed_retrieval.search(
+                    vault_name=vault.name,
+                    session_id=mixed_session_id,
+                    query="retrieval only marker",
+                ),
+                [],
+                "A mixed message must not match text found only in a session_ops return",
+            )
+            mixed_page = mixed_retrieval.get_window(
+                vault_name=vault.name,
+                session_id=mixed_session_id,
+                sequence_index=0,
+                before=0,
+                after=0,
+                max_tokens=512,
+            )
+            mixed_fragments = [mixed_page.messages[0].content]
+            while mixed_page.next_cursor:
+                mixed_page = mixed_retrieval.get_window(
+                    vault_name=vault.name,
+                    session_id=mixed_session_id,
+                    sequence_index=0,
+                    before=0,
+                    after=0,
+                    max_tokens=512,
+                    cursor=mixed_page.next_cursor,
+                )
+                mixed_fragments.append(mixed_page.messages[0].content)
+            mixed_window_text = "".join(mixed_fragments)
+            self.soft_assert(
+                "safe-tail-terminus" in mixed_window_text,
+                "Mixed-message continuation should preserve all primary evidence",
+            )
+            self.soft_assert(
+                "retrieval-only-marker" not in mixed_window_text,
+                "Transcript windows and continuation fragments must suppress session_ops returns",
+            )
+            starvation_hits = mixed_retrieval.search(
+                vault_name=vault.name,
+                session_id=echo_starvation_session_id,
+                query="ember beacon",
+                limit=5,
+            )
+            self.soft_assert_equal(
+                [hit.anchor.sequence_index for hit in starvation_hits],
+                [101],
+                "More than 100 pure retrieval echoes must not starve later primary evidence",
+            )
+            starvation_window = mixed_retrieval.get_window(
+                vault_name=vault.name,
+                session_id=echo_starvation_session_id,
+                sequence_index=101,
+                before=10,
+                after=0,
+                max_tokens=1_000,
+            )
+            self.soft_assert_equal(
+                [message.sequence_index for message in starvation_window.messages],
+                [101],
+                "Transcript windows must omit neighboring pure session_ops return messages",
+            )
+
+            from core.tools.session_ops import (
+                MAX_SESSION_SEARCH_QUERY_CHARS,
+                _build_first_pass_prompt,
+                _build_source_summary_prompt,
+                _build_tool_event_log,
+                _list_sessions,
+                _session_summary_extraction_projection,
+                _validate_search_query,
+            )
+
+            compact_listing = _list_sessions(
+                vault_name=vault.name,
+                limit=100,
+                cursor="",
+                summary_status="any",
+            )
+            compact_row = next(
+                row
+                for row in compact_listing["sessions"]
+                if row["session_id"] == compact_list_session_id
+            )
+            self.soft_assert(
+                all(
+                    len(str(compact_row[field] or "")) <= 243
+                    for field in ("title", "domain", "user_intent")
+                ),
+                "list_sessions compact fields must remain bounded",
+            )
+            self.soft_assert(
+                len(str(compact_row.get("workspace_path") or "")) <= 503,
+                "list_sessions workspace paths must remain bounded",
+            )
+            current_case["name"] = "bounded-get"
+            bounded_get = await self._run_case(
+                vault_name=vault.name,
+                session_id=bounded_summary_controller_id,
+                prompt="Inspect the selected session summary.",
+                chat_store=chat_store,
+            )
+            bounded_summary = bounded_get.get("session_summary") or {}
+            self.soft_assert(
+                all(
+                    len(str(bounded_summary.get(field) or "")) <= limit
+                    for field, limit in {
+                        "title": 243,
+                        "summary": 1_003,
+                        "domain": 243,
+                        "work_product": 243,
+                        "user_intent": 243,
+                        "named_entities": 503,
+                        "source_summary": 1_003,
+                    }.items()
+                ),
+                "Full model-facing session summaries must bound every prose field",
+            )
+            self.soft_assert_equal(
+                len(bounded_summary.get("artifacts", [])),
+                50,
+                "Full model-facing summaries must cap artifact projections",
+            )
+            self.soft_assert_equal(
+                bounded_summary.get("artifacts_truncated"),
+                True,
+                "A capped artifact projection should disclose truncation",
+            )
+            self.soft_assert(
+                "private_unbounded_metadata" not in bounded_summary.get("metadata", {}),
+                "Full model-facing summaries must expose only useful metadata fields",
+            )
+            projected_extraction = _session_summary_extraction_projection(
+                {
+                    "session_id": compact_list_session_id,
+                    "vault_name": vault.name,
+                    "title": "title " * 100,
+                    "summary": "summary " * 500,
+                    "domain": "domain " * 100,
+                    "work_product": "product " * 100,
+                    "user_intent": "intent " * 100,
+                    "named_entities": "entities " * 200,
+                    "source_summary": "source " * 500,
+                    "message_count": 20,
+                    "history_revision": 10,
+                    "tool_event_count": 5,
+                }
+            )
+            self.soft_assert(
+                all(
+                    len(str(projected_extraction.get(field) or "")) <= limit
+                    for field, limit in {
+                        "title": 243,
+                        "summary": 1_003,
+                        "domain": 243,
+                        "work_product": 243,
+                        "user_intent": 243,
+                        "named_entities": 503,
+                        "source_summary": 1_003,
+                    }.items()
+                ),
+                "summarize_session extraction output must use the same bounded prose contract",
+            )
+            oversized_session = chat_store.get_session(
+                compact_list_session_id, vault.name
+            )
+            assert oversized_session is not None
+            first_prompt = _build_first_pass_prompt(
+                session=oversized_session,
+                messages=(),
+            )
+            source_prompt = _build_source_summary_prompt(
+                session=oversized_session,
+                summary_intent={"summary": "summary", "user_intent": "intent"},
+                tool_event_log="source",
+            )
+            self.soft_assert(
+                "oversized title " * 20 not in first_prompt
+                and "oversized title " * 20 not in source_prompt,
+                "All session-summary author prompts must bound the stored title",
+            )
+            locator_log = _build_tool_event_log(
+                (
+                    ConversationToolEventItem(
+                        tool_call_id="credential-source",
+                        tool_name="web_extract",
+                        event_type="call",
+                        args={
+                            "url": (
+                                "https://source-user:source-password@example.com/"
+                                "evidence?api_key=private-token#private-fragment"
+                            )
+                        },
+                    ),
+                    ConversationToolEventItem(
+                        tool_call_id="credential-source",
+                        tool_name="web_extract",
+                        event_type="result",
+                        result_text="ok",
+                        artifact_ref=(
+                            "https://cache-user:cache-password@example.com/"
+                            "artifact?token=private#fragment"
+                        ),
+                    ),
+                    ConversationToolEventItem(
+                        tool_call_id="malformed-source",
+                        tool_name="web_extract",
+                        event_type="call",
+                        args={"url": "http://["},
+                    ),
+                    ConversationToolEventItem(
+                        tool_call_id="malformed-source",
+                        tool_name="web_extract",
+                        event_type="result",
+                        result_text="ok",
+                    ),
+                )
+            )
+            self.soft_assert(
+                "https://example.com/evidence" in locator_log,
+                "Source locator prompts should retain a useful sanitized URL",
+            )
+            self.soft_assert(
+                all(
+                    secret not in locator_log
+                    for secret in (
+                        "source-user",
+                        "source-password",
+                        "api_key",
+                        "private-token",
+                        "private-fragment",
+                        "cache-user",
+                        "cache-password",
+                    )
+                ),
+                "Source locator prompts must strip credentials, queries, fragments, and unsafe artifact refs",
+            )
+            for operation in ("search_transcript", "search_sessions"):
+                try:
+                    _validate_search_query(
+                        "q" * (MAX_SESSION_SEARCH_QUERY_CHARS + 1),
+                        operation=operation,
+                    )
+                except ModelRetry:
+                    pass
+                else:
+                    self.soft_assert(
+                        False,
+                        f"{operation} must reject oversized model-supplied queries",
+                    )
 
             current_case["name"] = "window"
             window_result = await self._run_case(
@@ -444,6 +864,18 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 "Deep search evidence should remain excerpt-bounded",
             )
             self.soft_assert(
+                len(
+                    str(
+                        ((deep_match or {}).get("chat_session") or {}).get(
+                            "workspace_path"
+                        )
+                        or ""
+                    )
+                )
+                <= 503,
+                "Deep-search workspace paths must remain bounded",
+            )
+            self.soft_assert(
                 all(
                     match.get("session_id") != inaccessible_session_id
                     for match in deep_matches
@@ -454,6 +886,76 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 deep_result.get("historical_content_is_untrusted"),
                 True,
                 "Deep search should mark transcript excerpts as untrusted history",
+            )
+
+            current_case["name"] = "foreign-list"
+            foreign_list = await self._run_case(
+                vault_name=vault.name,
+                session_id="session_ops_foreign_list_controller",
+                prompt="List sessions available to this caller.",
+                chat_store=chat_store,
+            )
+            self.soft_assert(
+                all(
+                    row.get("session_id") != inaccessible_session_id
+                    for row in foreign_list.get("sessions", [])
+                ),
+                "list_sessions must exclude same-vault sessions owned by another principal",
+            )
+            current_case["name"] = "foreign-get"
+            foreign_get = await self._run_case(
+                vault_name=vault.name,
+                session_id="session_ops_foreign_get_controller",
+                prompt="Fetch a selected session summary.",
+                chat_store=chat_store,
+            )
+            self.soft_assert_equal(
+                (foreign_get.get("status"), foreign_get.get("session_summary")),
+                ("not_found", None),
+                "get_session_summary must conceal a same-vault foreign summary",
+            )
+            foreign_failures = []
+            for case_name in ("foreign-upsert", "foreign-summarize"):
+                current_case["name"] = case_name
+                foreign_mutation = await self._run_case(
+                    vault_name=vault.name,
+                    session_id=f"session_ops_{case_name.replace('-', '_')}_controller",
+                    prompt="Attempt a selected-session summary operation.",
+                    chat_store=chat_store,
+                )
+                self.soft_assert_equal(
+                    foreign_mutation.get("metadata", {}).get("status"),
+                    "failed",
+                    f"{case_name} must fail closed for a same-vault foreign session",
+                )
+                foreign_failures.append(foreign_mutation)
+            self.soft_assert(
+                inaccessible_session_id not in json.dumps(foreign_failures),
+                "Structured failure returns must not repeat a caller-supplied inaccessible session id",
+            )
+            foreign_activity_response = self.call_api(
+                "/api/system/activity-log?limit=200"
+            )
+            assert foreign_activity_response.status_code == 200
+            foreign_failure_activity = [
+                entry
+                for entry in foreign_activity_response.json()["entries"]
+                if entry.get("data", {}).get("event") == "session_ops_failed"
+                and entry.get("data", {}).get("operation")
+                in {"upsert_session_summary", "summarize_session"}
+            ]
+            self.soft_assert(
+                inaccessible_session_id not in json.dumps(foreign_failure_activity),
+                "Durable failure activity must correlate to context without exposing the requested inaccessible id",
+            )
+            private_summary = SessionSummaryStore().get_session_summary(
+                vault_name=vault.name,
+                session_id=inaccessible_session_id,
+            )
+            self.soft_assert_equal(
+                private_summary.summary if private_summary else None,
+                "The aurora covenant is recorded in this private summary.",
+                "Foreign summary operations must not mutate the protected summary",
             )
 
             long_text = "oversized-evidence " + ("granite detail " * 1500)
@@ -709,11 +1211,10 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 == untrusted_operation_session_id
             ]
             self.soft_assert(
-                len(untrusted_failures) == 1
-                and untrusted_failures[0].get("data", {}).get("operation") == "unknown"
+                not untrusted_failures
                 and "private-model-supplied-operation-marker"
-                not in json.dumps(untrusted_failures),
-                "Activity must not retain an unrecognized model-supplied operation argument",
+                not in json.dumps(activity_response.json()["entries"]),
+                "An unknown operation should not create a failure event or leak its raw value",
             )
         finally:
             chat_executor._prepare_agent_config = original_prepare
@@ -753,7 +1254,15 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         ]
         if not results or not results[-1].result_text:
             raise AssertionError("Expected a persisted session_ops result event")
-        payload = json.loads(results[-1].result_text)
+        try:
+            payload = json.loads(results[-1].result_text)
+        except json.JSONDecodeError:
+            payload = {
+                "raw_result": results[-1].result_text,
+                "metadata": json.loads(results[-1].result_metadata_json or "{}"),
+            }
+        if not isinstance(payload, dict):
+            payload = {"raw_result": payload}
         if payload.get("operation") == "get_transcript_window":
             actual_tokens = estimate_token_count(results[-1].result_text)
             self.soft_assert(
@@ -793,5 +1302,24 @@ def _tool_result(tool_name: str, content: object, tool_call_id: str) -> ModelReq
                 content=content,
                 tool_call_id=tool_call_id,
             )
+        ]
+    )
+
+
+def _mixed_tool_results(
+    *, primary_content: object, retrieval_content: object
+) -> ModelRequest:
+    return ModelRequest(
+        parts=[
+            ToolReturnPart(
+                tool_name="mail_probe",
+                content=primary_content,
+                tool_call_id="mixed-primary",
+            ),
+            ToolReturnPart(
+                tool_name="session_ops",
+                content=retrieval_content,
+                tool_call_id="mixed-retrieval",
+            ),
         ]
     )

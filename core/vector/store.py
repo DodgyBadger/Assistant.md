@@ -41,6 +41,15 @@ class VectorSearchResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class VectorStoreItem:
+    """One vector and its stable item identity for a store mutation."""
+
+    item_id: str
+    embedding: EmbeddingVector
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 class VectorStore(Protocol):
     """Storage contract that can later be backed by sqlite-vec or another store."""
 
@@ -75,6 +84,16 @@ class VectorStore(Protocol):
         """Delete stored vectors for item ids in one namespace."""
         ...
 
+    def replace_items(
+        self,
+        *,
+        namespace: str,
+        item_ids: tuple[str, ...],
+        items: tuple[VectorStoreItem, ...],
+    ) -> None:
+        """Atomically replace the selected item ids."""
+        ...
+
 
 class SQLitePythonVectorStore:
     """Plain SQLite vector store that computes similarity in Python."""
@@ -100,45 +119,13 @@ class SQLitePythonVectorStore:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """Insert or replace one stored vector."""
-        row_metadata = {
-            "input_type": embedding.input_type,
-            "provider": embedding.provider,
-            "model_string": embedding.model_string,
-        }
-        row_metadata.update(metadata or {})
         with self._connect() as conn:
-            conn.execute(
-                f"""
-                INSERT INTO {self.table_name} (
-                    namespace, item_id, input_text, input_fingerprint,
-                    embedding_space_id, dimensions, model_alias, provider_name,
-                    model_name, vector_json, metadata_json
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(namespace, item_id, embedding_space_id)
-                DO UPDATE SET
-                    input_text = excluded.input_text,
-                    input_fingerprint = excluded.input_fingerprint,
-                    dimensions = excluded.dimensions,
-                    model_alias = excluded.model_alias,
-                    provider_name = excluded.provider_name,
-                    model_name = excluded.model_name,
-                    vector_json = excluded.vector_json,
-                    metadata_json = excluded.metadata_json
-                """,
-                (
-                    namespace,
-                    item_id,
-                    embedding.text,
-                    fingerprint_text(embedding.text),
-                    embedding.embedding_space_id,
-                    embedding.dimensions,
-                    embedding.model_alias,
-                    embedding.provider_name,
-                    embedding.model_name,
-                    json.dumps(list(embedding.vector), separators=(",", ":")),
-                    json.dumps(row_metadata, sort_keys=True),
-                ),
+            self._upsert_with_connection(
+                conn,
+                namespace=namespace,
+                item_id=item_id,
+                embedding=embedding,
+                metadata=metadata,
             )
 
     def search_similar(
@@ -206,6 +193,91 @@ class SQLitePythonVectorStore:
                 (namespace, *item_ids),
             )
             return cursor.rowcount
+
+    def replace_items(
+        self,
+        *,
+        namespace: str,
+        item_ids: tuple[str, ...],
+        items: tuple[VectorStoreItem, ...],
+    ) -> None:
+        """Replace selected vectors in one SQLite transaction."""
+        selected_item_ids = set(item_ids)
+        replacement_item_ids = [item.item_id for item in items]
+        if len(replacement_item_ids) != len(set(replacement_item_ids)):
+            raise ValueError("Replacement vector item ids must be unique")
+        if not set(replacement_item_ids).issubset(selected_item_ids):
+            raise ValueError("Replacement vectors must belong to the selected item ids")
+
+        with self._connect() as conn:
+            if item_ids:
+                placeholders = ", ".join("?" for _ in item_ids)
+                conn.execute(
+                    f"""
+                    DELETE FROM {self.table_name}
+                    WHERE namespace = ?
+                      AND item_id IN ({placeholders})
+                    """,
+                    (namespace, *item_ids),
+                )
+            for item in items:
+                self._upsert_with_connection(
+                    conn,
+                    namespace=namespace,
+                    item_id=item.item_id,
+                    embedding=item.embedding,
+                    metadata=item.metadata,
+                )
+
+    def _upsert_with_connection(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        namespace: str,
+        item_id: str,
+        embedding: EmbeddingVector,
+        metadata: dict[str, Any] | None,
+    ) -> None:
+        """Insert or replace one vector inside the caller-owned transaction."""
+        row_metadata = {
+            "input_type": embedding.input_type,
+            "provider": embedding.provider,
+            "model_string": embedding.model_string,
+        }
+        row_metadata.update(metadata or {})
+        conn.execute(
+            f"""
+            INSERT INTO {self.table_name} (
+                namespace, item_id, input_text, input_fingerprint,
+                embedding_space_id, dimensions, model_alias, provider_name,
+                model_name, vector_json, metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(namespace, item_id, embedding_space_id)
+            DO UPDATE SET
+                input_text = excluded.input_text,
+                input_fingerprint = excluded.input_fingerprint,
+                dimensions = excluded.dimensions,
+                model_alias = excluded.model_alias,
+                provider_name = excluded.provider_name,
+                model_name = excluded.model_name,
+                vector_json = excluded.vector_json,
+                metadata_json = excluded.metadata_json
+            """,
+            (
+                namespace,
+                item_id,
+                embedding.text,
+                fingerprint_text(embedding.text),
+                embedding.embedding_space_id,
+                embedding.dimensions,
+                embedding.model_alias,
+                embedding.provider_name,
+                embedding.model_name,
+                json.dumps(list(embedding.vector), separators=(",", ":")),
+                json.dumps(row_metadata, sort_keys=True),
+            ),
+        )
 
     def _ensure_schema(self) -> None:
         with self._connect() as conn:

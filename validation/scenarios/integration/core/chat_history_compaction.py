@@ -4,6 +4,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -37,6 +38,18 @@ class ChatHistoryCompactionScenario(BaseScenario):
         from core.runtime.state import get_runtime_context
 
         runtime = get_runtime_context()
+        assert (
+            session_ops._session_summary_prompt_token_limit(
+                SimpleNamespace(profile=SimpleNamespace(context_window=10_000))
+            )
+            == 8_000
+        ), "Session summarization should reserve model-specific response headroom"
+        assert (
+            session_ops._session_summary_prompt_token_limit(
+                SimpleNamespace(profile=SimpleNamespace(context_window=1_000_000))
+            )
+            == session_ops.SESSION_SUMMARY_TRANSCRIPT_TOKEN_LIMIT
+        ), "Session summarization should retain its global safety ceiling"
         store = ChatStore(system_root=str(runtime.config.system_root))
         session_id = "chat_history_compaction_session"
         store.ensure_session(
@@ -69,7 +82,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
                 parts=[
                     ToolReturnPart(
                         tool_name="probe",
-                        content="probe result",
+                        content="probe result raw-secret-sentinel",
                         tool_call_id="probe-1",
                     )
                 ]
@@ -99,7 +112,7 @@ class ChatHistoryCompactionScenario(BaseScenario):
             tool_call_id="probe-1",
             tool_name="probe",
             event_type="result",
-            result_text="probe result",
+            result_text="probe result raw-secret-sentinel",
             result_metadata={"status": "completed"},
         )
         assert (
@@ -625,6 +638,9 @@ class ChatHistoryCompactionScenario(BaseScenario):
                 assert (
                     "First user decision." not in prompt
                 ), "Session summarization prompt should not include archival pre-checkpoint raw history"
+                assert (
+                    "raw-secret-sentinel" not in prompt
+                ), "Session summarization prompt should exclude raw tool-return content"
                 return agent.output_type(
                     summary="Effective summary prompt only.",
                     user_intent="Validate effective summarization.",
@@ -660,6 +676,40 @@ class ChatHistoryCompactionScenario(BaseScenario):
         assert (
             extraction["history_revision"] == 4
         ), "Session summarization should report current history revision"
+
+        source_log = session_ops._build_tool_event_log(
+            (
+                session_ops.ConversationToolEventItem(
+                    tool_call_id="shell-source",
+                    tool_name="shell",
+                    event_type="call",
+                    args={"command": "echo private-shell-secret"},
+                ),
+                session_ops.ConversationToolEventItem(
+                    tool_call_id="shell-source",
+                    tool_name="shell",
+                    event_type="result",
+                    result_text="private-shell-result",
+                ),
+                session_ops.ConversationToolEventItem(
+                    tool_call_id="file-source",
+                    tool_name="file_read",
+                    event_type="call",
+                    args={"path": "Projects/source.md", "content": "private-file-body"},
+                ),
+                session_ops.ConversationToolEventItem(
+                    tool_call_id="file-source",
+                    tool_name="file_read",
+                    event_type="result",
+                    result_text="private-file-result",
+                ),
+            )
+        )
+        assert "Projects/source.md" in source_log
+        assert "private-shell-secret" not in source_log
+        assert "private-shell-result" not in source_log
+        assert "private-file-body" not in source_log
+        assert "private-file-result" not in source_log
 
         await self.stop_system()
         self.teardown_scenario()

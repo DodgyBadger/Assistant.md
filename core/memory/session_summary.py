@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import sqlite3
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -12,7 +15,12 @@ from typing import Any
 from core.database import connect_sqlite_from_system_db
 from core.memory.schema import DB_NAME, ensure_session_summary_schema
 from core.utils.fts import build_fts_query, fts_query_terms
-from core.vector import SQLitePythonVectorStore, VectorService, VectorStore
+from core.vector import (
+    SQLitePythonVectorStore,
+    VectorService,
+    VectorStore,
+    VectorStoreItem,
+)
 
 SESSION_SUMMARY_TEXT_FIELDS = (
     "summary",
@@ -27,6 +35,23 @@ WILDCARD_FIELD_TYPES = {"named_entities"}
 SUMMARY_VECTOR_MIN_SCORE = 0.50
 FIELD_VECTOR_NAMESPACE = "session_summary_fields"
 FIELD_VECTOR_TABLE = "session_summary_field_vectors"
+_SESSION_SUMMARY_LOCKS: dict[tuple[str, str], asyncio.Lock] = {}
+_SESSION_SUMMARY_LOCKS_GUARD = asyncio.Lock()
+
+
+@asynccontextmanager
+async def session_summary_mutation_lock(
+    *, vault_name: str, session_id: str
+) -> AsyncIterator[None]:
+    """Serialize one session's summary row, artifacts, and vector refresh."""
+    key = (vault_name, session_id)
+    async with _SESSION_SUMMARY_LOCKS_GUARD:
+        lock = _SESSION_SUMMARY_LOCKS.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            _SESSION_SUMMARY_LOCKS[key] = lock
+    async with lock:
+        yield
 
 
 class _UnsetValue:
@@ -377,7 +402,13 @@ class SessionSummaryStore:
         }
 
     def delete_session_summary(self, *, vault_name: str, session_id: str) -> bool:
-        """Delete one session summary row and associated artifacts."""
+        """Atomically delete one summary, its FTS row, artifacts, and vectors."""
+        self._field_vector_store()
+        item_ids = tuple(
+            f"{vault_name}:{session_id}:{field_type}"
+            for field_type in VECTOR_FIELD_TYPES
+        )
+        placeholders = ", ".join("?" for _ in item_ids)
         with self._connect() as conn:
             conn.execute(
                 """
@@ -394,9 +425,35 @@ class SessionSummaryStore:
                 (session_id, vault_name),
             )
             deleted = cursor.rowcount > 0
-        if deleted:
-            self._delete_field_vectors(vault_name=vault_name, session_id=session_id)
+            conn.execute(
+                f"""
+                DELETE FROM {FIELD_VECTOR_TABLE}
+                WHERE namespace = ?
+                  AND item_id IN ({placeholders})
+                """,
+                (FIELD_VECTOR_NAMESPACE, *item_ids),
+            )
         return deleted
+
+    def set_session_summary_title(
+        self,
+        *,
+        vault_name: str,
+        session_id: str,
+        title: str | None,
+    ) -> None:
+        """Set a summary title exactly, including restoring a null title."""
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE session_summaries
+                SET title = ?
+                WHERE session_id = ? AND vault_name = ?
+                """,
+                (_clean_text(title), session_id, vault_name),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(f"Unknown session summary: {session_id}")
 
     def search_session_summaries_fts(
         self,
@@ -643,7 +700,16 @@ class SessionSummaryStore:
             if field_type in VECTOR_FIELD_TYPES
             and session_summary.field_value(field_type)
         )
+        item_ids = tuple(
+            f"{vault_name}:{session_id}:{field_type}"
+            for field_type in VECTOR_FIELD_TYPES
+        )
         if not fields:
+            store.replace_items(
+                namespace=FIELD_VECTOR_NAMESPACE,
+                item_ids=item_ids,
+                items=(),
+            )
             return 0
 
         inputs = [
@@ -659,25 +725,30 @@ class SessionSummaryStore:
         embedding_result = await vector_service.embed_documents(
             inputs, model_alias=model_alias
         )
-        self._delete_field_vectors(
-            vault_name=vault_name,
-            session_id=session_id,
-            vector_store=store,
-        )
+        replacement_items: list[VectorStoreItem] = []
         for field_type, embedding in zip(fields, embedding_result.vectors, strict=True):
             value = session_summary.field_value(field_type) or ""
-            store.upsert(
-                namespace=FIELD_VECTOR_NAMESPACE,
-                item_id=f"{session_summary.vault_name}:{session_summary.session_id}:{field_type}",
-                embedding=embedding,
-                metadata={
-                    "session_id": session_summary.session_id,
-                    "vault_name": session_summary.vault_name,
-                    "field_type": field_type,
-                    "field_value": value,
-                    "normalized_value": normalize_field_value(value),
-                },
+            replacement_items.append(
+                VectorStoreItem(
+                    item_id=(
+                        f"{session_summary.vault_name}:"
+                        f"{session_summary.session_id}:{field_type}"
+                    ),
+                    embedding=embedding,
+                    metadata={
+                        "session_id": session_summary.session_id,
+                        "vault_name": session_summary.vault_name,
+                        "field_type": field_type,
+                        "field_value": value,
+                        "normalized_value": normalize_field_value(value),
+                    },
+                )
             )
+        store.replace_items(
+            namespace=FIELD_VECTOR_NAMESPACE,
+            item_ids=item_ids,
+            items=tuple(replacement_items),
+        )
         return len(fields)
 
     def _delete_field_vectors(

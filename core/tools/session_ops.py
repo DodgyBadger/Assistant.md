@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
+from dataclasses import replace
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field
 from pydantic_ai import ModelRetry, RunContext
@@ -39,11 +42,14 @@ from core.memory.session_summary import (
     SESSION_SUMMARY_FIELD_UNSET,
     SUMMARY_VECTOR_MIN_SCORE,
     VECTOR_FIELD_TYPES,
+    SessionSummary,
     SessionSummaryArtifact,
     SessionSummaryStore,
+    session_summary_mutation_lock,
 )
 from core.memory.session_summary_status import session_summary_status
 from core.runtime.state import get_runtime_context
+from core.utils.tokens import estimate_token_count
 from core.vault_state.service import VaultStateService
 from core.vector import VectorService
 
@@ -64,6 +70,52 @@ SESSION_SEARCH_MIN_SCORE = 0.05
 SESSION_WORKSPACE_BOOST = 0.08
 SESSION_SEARCH_FETCH_MULTIPLIER = 20
 SESSION_SEARCH_MIN_FETCH_LIMIT = 100
+MAX_SESSION_SEARCH_LIMIT = 20
+MAX_SESSION_SEARCH_QUERY_CHARS = 2_000
+SESSION_SUMMARY_TOOL_EVENT_LIMIT = 200
+SESSION_SUMMARY_TOOL_ARGUMENT_LIMIT = 800
+SESSION_SUMMARY_TOOL_LOG_LIMIT = 40_000
+SESSION_SUMMARY_TRANSCRIPT_TOKEN_LIMIT = 100_000
+SESSION_SUMMARY_CONTEXT_HEADROOM_RATIO = 0.20
+SESSION_SUMMARY_DETAIL_ARTIFACT_LIMIT = 50
+SESSION_SUMMARY_DETAIL_METADATA_KEYS = frozenset(
+    {
+        "source",
+        "extraction_policy",
+        "summarization_model",
+        "message_count",
+        "history_revision",
+        "tool_event_count",
+    }
+)
+SESSION_SUMMARY_CHECKPOINT_PREFIXES = (
+    "AssistantMD compacted chat history",
+    "AssistantMD session map",
+)
+SESSION_SUMMARY_SOURCE_TOOLS = frozenset(
+    {
+        "browser",
+        "content_import",
+        "file_read",
+        "gmail",
+        "web_crawl",
+        "web_extract",
+        "web_search",
+    }
+)
+SESSION_SUMMARY_SOURCE_ARGUMENTS = frozenset(
+    {
+        "attachment_id",
+        "filename",
+        "message_id",
+        "operation",
+        "path",
+        "thread_id",
+        "url",
+        "urls",
+    }
+)
+_SAFE_SOURCE_ARTIFACT_REF = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*\Z")
 _SESSION_OP_ACTIVITY_NAMES = frozenset(
     {
         "list_sessions",
@@ -75,14 +127,6 @@ _SESSION_OP_ACTIVITY_NAMES = frozenset(
         "search_sessions",
     }
 )
-
-
-class SessionSummaryIndexingError(RuntimeError):
-    """Raised when a durable session summary write cannot refresh vector indexes."""
-
-
-class SessionSummaryEmbeddingPreflightError(RuntimeError):
-    """Raised when session summarization cannot prepare the required embeddings."""
 
 
 class SessionOps(BaseTool):
@@ -136,7 +180,8 @@ class SessionOps(BaseTool):
                 requested_session_id = str(session_id or "").strip() or None
                 op = (operation or "").strip().lower()
                 history_context = ChatHistoryContext.from_deps(deps)
-                active_session_id = requested_session_id or history_context.session_id
+                context_session_id = history_context.session_id
+                active_session_id = requested_session_id or context_session_id
                 active_vault_name = history_context.vault_name
                 store = SessionSummaryStore()
 
@@ -148,16 +193,18 @@ class SessionOps(BaseTool):
                     },
                 )
 
-                resolved_limit = cls._parse_limit(
-                    limit,
-                    default=50 if op == "list_sessions" else 5,
-                )
+                resolved_limit: int | str = 5
+                if op in {"list_sessions", "search_sessions", "search_transcript"}:
+                    resolved_limit = cls._parse_limit(
+                        limit,
+                        default=50 if op == "list_sessions" else 5,
+                    )
                 workspace_filter = None
                 if op in {"list_sessions", "search_sessions"}:
                     workspace_filter = _parse_session_filter(
                         filter,
                         vault_name=active_vault_name,
-                        active_session_id=active_session_id,
+                        active_session_id=context_session_id,
                     )
                 elif filter is not None:
                     raise ModelRetry(
@@ -183,76 +230,36 @@ class SessionOps(BaseTool):
                     active_session_id = _require(
                         active_session_id, "session_id is required"
                     )
+                    target_session = _require_accessible_session(
+                        vault_name=active_vault_name,
+                        session_id=active_session_id,
+                    )
                     summary_data = _upsert_data(data)
-                    summary_metadata = _with_current_history_metadata(
-                        _summary_data_value(summary_data, "metadata"),
+                    parsed_artifacts = _parse_artifacts(
+                        summary_data.get("artifacts"),
                         vault_name=active_vault_name,
-                        session_id=active_session_id,
                     )
-                    previous_summary = store.get_session_summary(
+                    result = await _upsert_session_summary_operation(
+                        store=store,
                         vault_name=active_vault_name,
                         session_id=active_session_id,
-                    )
-                    session_summary = store.upsert_session_summary(
-                        vault_name=active_vault_name,
-                        session_id=active_session_id,
-                        title=_session_title(
-                            vault_name=active_vault_name,
-                            session_id=active_session_id,
+                        title=target_session.title,
+                        summary_data=summary_data,
+                        summary_metadata_input=_summary_data_value(
+                            summary_data, "metadata"
                         ),
-                        summary=_summary_data_value(summary_data, "summary"),
-                        domain=_summary_data_value(summary_data, "domain"),
-                        work_product=_summary_data_value(summary_data, "work_product"),
-                        user_intent=_summary_data_value(summary_data, "user_intent"),
-                        named_entities=_summary_data_value(
-                            summary_data, "named_entities"
-                        ),
-                        source_summary=_summary_data_value(
-                            summary_data, "source_summary"
-                        ),
-                        workspace_path=ChatStore().get_session_workspace_path(
-                            active_session_id,
-                            active_vault_name,
-                        )
-                        or None,
-                        metadata=summary_metadata,
+                        artifacts=parsed_artifacts,
                     )
-                    try:
-                        indexed_fields = await _index_session_summary_fields(
-                            store,
-                            vault_name=active_vault_name,
-                            session_id=active_session_id,
-                        )
-                    except Exception:
-                        _restore_session_summary_after_failed_refresh(
-                            store,
-                            vault_name=active_vault_name,
-                            session_id=active_session_id,
-                            previous_summary=previous_summary,
-                        )
-                        raise
-                    _maybe_add_artifacts(
-                        store,
-                        vault_name=active_vault_name,
-                        session_id=active_session_id,
-                        artifacts=summary_data.get("artifacts"),
-                    )
-                    refreshed = store.get_session_summary(
-                        vault_name=session_summary.vault_name,
-                        session_id=session_summary.session_id,
-                    )
-                    result = {
-                        "status": "ok",
-                        "operation": op,
-                        "indexed_fields": indexed_fields,
-                        "session_summary": refreshed.to_dict() if refreshed else None,
-                    }
                 elif op == "summarize_session":
                     active_vault_name = _require(
                         active_vault_name, "vault_name is required"
                     )
                     active_session_id = _require(
                         active_session_id, "session_id is required"
+                    )
+                    _require_accessible_session(
+                        vault_name=active_vault_name,
+                        session_id=active_session_id,
                     )
                     await _preflight_session_summary_embeddings()
                     extraction = await _summarize_session(
@@ -265,70 +272,19 @@ class SessionOps(BaseTool):
                         domain=extraction["domain"],
                     )
                     extraction["title"] = generated_title
-                    previous_summary = store.get_session_summary(
+                    _require_unchanged_history(
                         vault_name=active_vault_name,
                         session_id=active_session_id,
+                        expected_revision=extraction["history_revision"],
                     )
-                    session_summary = store.upsert_session_summary(
-                        vault_name=active_vault_name,
-                        session_id=active_session_id,
-                        title=generated_title,
-                        summary=extraction["summary"],
-                        domain=extraction["domain"],
-                        work_product=extraction["work_product"],
-                        user_intent=extraction["user_intent"],
-                        named_entities=extraction["named_entities"],
-                        source_summary=extraction["source_summary"],
-                        workspace_path=ChatStore().get_session_workspace_path(
-                            active_session_id,
-                            active_vault_name,
-                        )
-                        or None,
-                        metadata={
-                            "source": "chat_session_extraction",
-                            "extraction_policy": "summary_intent_classification_source_summary",
-                            "summarization_model": summarization_model,
-                            "message_count": extraction["message_count"],
-                            "history_revision": extraction["history_revision"],
-                            "tool_event_count": extraction["tool_event_count"],
-                        },
-                    )
-                    try:
-                        indexed_fields = await _index_session_summary_fields(
-                            store,
-                            vault_name=active_vault_name,
-                            session_id=active_session_id,
-                        )
-                    except Exception:
-                        _restore_session_summary_after_failed_refresh(
-                            store,
-                            vault_name=active_vault_name,
-                            session_id=active_session_id,
-                            previous_summary=previous_summary,
-                        )
-                        raise
-                    artifact_count = _add_chat_mutation_artifacts(
-                        store,
-                        vault_name=active_vault_name,
-                        session_id=active_session_id,
-                    )
-                    _maybe_set_generated_session_title(
+                    result = await _persist_generated_session_summary(
+                        store=store,
                         vault_name=active_vault_name,
                         session_id=active_session_id,
                         title=generated_title,
+                        extraction=extraction,
+                        summarization_model=summarization_model,
                     )
-                    refreshed = store.get_session_summary(
-                        vault_name=session_summary.vault_name,
-                        session_id=session_summary.session_id,
-                    )
-                    result = {
-                        "status": "ok",
-                        "operation": op,
-                        "indexed_fields": indexed_fields,
-                        "artifact_count": artifact_count,
-                        "extraction": extraction,
-                        "session_summary": refreshed.to_dict() if refreshed else None,
-                    }
                 elif op == "get_session_summary":
                     active_vault_name = _require(
                         active_vault_name, "vault_name is required"
@@ -336,9 +292,17 @@ class SessionOps(BaseTool):
                     active_session_id = _require(
                         active_session_id, "session_id is required"
                     )
-                    current_summary = store.get_session_summary(
+                    accessible_session = _accessible_session(
                         vault_name=active_vault_name,
                         session_id=active_session_id,
+                    )
+                    current_summary = (
+                        store.get_session_summary(
+                            vault_name=active_vault_name,
+                            session_id=active_session_id,
+                        )
+                        if accessible_session is not None
+                        else None
                     )
                     result = {
                         "status": "found" if current_summary else "not_found",
@@ -346,7 +310,9 @@ class SessionOps(BaseTool):
                         "vault_name": active_vault_name,
                         "session_id": active_session_id,
                         "session_summary": (
-                            current_summary.to_dict() if current_summary else None
+                            _session_summary_detail_projection(current_summary)
+                            if current_summary
+                            else None
                         ),
                     }
                 elif op == "search_transcript":
@@ -367,11 +333,9 @@ class SessionOps(BaseTool):
                         raise ModelRetry(
                             f"search_transcript limit must be {MAX_SEARCH_LIMIT} or less."
                         )
-                    normalized_query = str(query or "").strip()
-                    if not normalized_query:
-                        raise ModelRetry(
-                            "search_transcript requires a non-empty plain-language query."
-                        )
+                    normalized_query = _validate_search_query(
+                        query, operation="search_transcript"
+                    )
                     retrieval, chat_store = _transcript_retrieval_service()
                     try:
                         hits = retrieval.search(
@@ -471,7 +435,7 @@ class SessionOps(BaseTool):
                         active_vault_name, "vault_name is required"
                     )
                     normalized_mode = str(mode or "")
-                    _validate_search_sessions_request(
+                    normalized_query = _validate_search_sessions_request(
                         mode=normalized_mode,
                         query=query,
                         resolved_limit=resolved_limit,
@@ -483,12 +447,12 @@ class SessionOps(BaseTool):
                         store=store,
                         vault_name=active_vault_name,
                         mode=normalized_mode,
-                        query=query,
+                        query=normalized_query,
                         limit=resolved_search_limit,
                         workspace_filter=workspace_filter,
                         active_workspace_path=_active_workspace_path(
                             vault_name=active_vault_name,
-                            session_id=active_session_id,
+                            session_id=context_session_id,
                         ),
                     )
                 else:
@@ -513,7 +477,7 @@ class SessionOps(BaseTool):
                     for part in (
                         resolved_operation,
                         active_vault_name or "unknown-vault",
-                        active_session_id or "unknown-session",
+                        context_session_id or "unknown-session",
                         error_type,
                     )
                 )
@@ -524,7 +488,8 @@ class SessionOps(BaseTool):
                         "status": "failed",
                         "operation": resolved_operation,
                         "vault_name": active_vault_name,
-                        "session_id": active_session_id,
+                        "session_id": context_session_id,
+                        "explicit_session_requested": requested_session_id is not None,
                         "run_id": ctx.run_id,
                         "tool_call_id": ctx.tool_call_id,
                         "error_type": error_type,
@@ -532,13 +497,18 @@ class SessionOps(BaseTool):
                         "issue": f"session_ops:{issue_scope}",
                     },
                 )
+                classification = replace(
+                    classify_exception(exc, phase="session_ops"),
+                    message="",
+                )
                 return tool_failure_return(
                     tool_name="session_ops",
-                    message=f"Error performing '{operation}' operation",
-                    classification=classify_exception(exc, phase="session_ops"),
+                    message=f"Error performing '{resolved_operation}' operation",
+                    classification=classification,
                     metadata={
-                        "operation": str(operation or "").strip().lower(),
-                        "session_id": str(session_id or "").strip(),
+                        "operation": resolved_operation,
+                        "session_id": context_session_id,
+                        "explicit_session_requested": requested_session_id is not None,
                     },
                 )
 
@@ -554,9 +524,11 @@ class SessionOps(BaseTool):
 
     @staticmethod
     def _parse_limit(value: int | str, *, default: int) -> int | str:
+        if isinstance(value, bool):
+            raise ModelRetry("limit must be a positive integer or 'all'")
         if isinstance(value, int):
             if value <= 0:
-                raise ValueError("limit must be a positive integer or 'all'")
+                raise ModelRetry("limit must be a positive integer or 'all'")
             return value
         normalized = str(value or "").strip().lower()
         if not normalized:
@@ -566,9 +538,9 @@ class SessionOps(BaseTool):
         if normalized.isdigit():
             parsed = int(normalized)
             if parsed <= 0:
-                raise ValueError("limit must be a positive integer or 'all'")
+                raise ModelRetry("limit must be a positive integer or 'all'")
             return parsed
-        raise ValueError("limit must be a positive integer or 'all'")
+        raise ModelRetry("limit must be a positive integer or 'all'")
 
 
 class _SessionSummaryIntent(BaseModel):
@@ -581,15 +553,15 @@ class _SessionSummaryIntent(BaseModel):
 class _SessionClassification(BaseModel):
     """Second-pass session classification."""
 
-    named_entities: str = Field(default="")
-    domain: str = Field(default="")
-    work_product: str = Field(default="")
+    named_entities: str = Field(default="", max_length=500)
+    domain: str = Field(default="", max_length=240)
+    work_product: str = Field(default="", max_length=240)
 
 
 class _SessionSourceSummary(BaseModel):
     """Third-pass session source-summary extraction."""
 
-    source_summary: str = Field(default="")
+    source_summary: str = Field(default="", max_length=1000)
 
 
 def _require[RequiredT](value: RequiredT | None, message: str) -> RequiredT:
@@ -631,6 +603,38 @@ def _transcript_retrieval_service() -> tuple[TranscriptRetrievalService, ChatSto
     )
 
 
+def _accessible_session(
+    *, vault_name: str, session_id: str
+) -> StoredChatSession | None:
+    session = get_runtime_context().chat_session_access.get_session_by_id(session_id)
+    if session is None or session.vault_name != vault_name:
+        return None
+    return session
+
+
+def _require_accessible_session(
+    *, vault_name: str, session_id: str
+) -> StoredChatSession:
+    session = _accessible_session(vault_name=vault_name, session_id=session_id)
+    if session is None:
+        raise LookupError(f"Chat session not found: {session_id}")
+    return session
+
+
+def _require_unchanged_history(
+    *, vault_name: str, session_id: str, expected_revision: int
+) -> None:
+    current_revision = get_runtime_context().chat_store.get_session_history_revision(
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    if current_revision != expected_revision:
+        raise ModelRetry(
+            "The session changed while its summary was being prepared. Retry summarization "
+            "against the current conversation history."
+        )
+
+
 def _serialize_transcript_window_result(window: TranscriptWindow) -> str:
     """Use one complete model-facing envelope for both budgeting and returning."""
     return json.dumps(
@@ -647,11 +651,6 @@ def _serialize_transcript_window_result(window: TranscriptWindow) -> str:
         ensure_ascii=False,
         separators=(",", ":"),
     )
-
-
-def _session_title(*, vault_name: str, session_id: str) -> str | None:
-    session = ChatStore().get_session(session_id=session_id, vault_name=vault_name)
-    return session.title if session is not None else None
 
 
 def _summary_title_or_domain(*, title: str | None, domain: str | None) -> str | None:
@@ -675,6 +674,30 @@ def _maybe_set_generated_session_title(
     if session is None or (session.title or "").strip():
         return
     chat_store.set_session_title(session_id, vault_name, generated_title)
+
+
+def _maybe_set_generated_session_title_best_effort(
+    *, vault_name: str, session_id: str, title: str | None
+) -> None:
+    try:
+        _maybe_set_generated_session_title(
+            vault_name=vault_name,
+            session_id=session_id,
+            title=title,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Session summary title propagation skipped",
+            data={
+                "event": "session_summary_title_propagation_skipped",
+                "status": "skipped",
+                "vault_name": vault_name,
+                "session_id": session_id,
+                "error_type": type(exc).__name__,
+                "error": "The generated title could not be applied to the chat session.",
+                "issue": f"session-summary-title:{vault_name}:{session_id}:{type(exc).__name__}",
+            },
+        )
 
 
 def _clean_generated_title(value: str | None) -> str | None:
@@ -712,12 +735,16 @@ def _parse_session_filter(
         raise ModelRetry("filter.workspace must be a string.")
     normalized = workspace_value.strip()
     if normalized == "current":
-        _require(vault_name, "vault_name is required")
-        _require(
+        resolved_vault_name = _require(vault_name, "vault_name is required")
+        resolved_session_id = _require(
             active_session_id, "session_id is required for filter.workspace='current'"
         )
-        current_path = ChatStore().get_session_workspace_path(
-            active_session_id or "", vault_name or ""
+        _require_accessible_session(
+            vault_name=resolved_vault_name,
+            session_id=resolved_session_id,
+        )
+        current_path = get_runtime_context().chat_store.get_session_workspace_path(
+            resolved_session_id, resolved_vault_name
         )
         if not current_path:
             raise ModelRetry(
@@ -781,7 +808,110 @@ def _session_filter_to_dict(
 def _active_workspace_path(*, vault_name: str | None, session_id: str | None) -> str:
     if not vault_name or not session_id:
         return ""
-    return ChatStore().get_session_workspace_path(session_id, vault_name) or ""
+    if _accessible_session(vault_name=vault_name, session_id=session_id) is None:
+        return ""
+    return (
+        get_runtime_context().chat_store.get_session_workspace_path(
+            session_id, vault_name
+        )
+        or ""
+    )
+
+
+def _resolved_session_workspace(
+    *,
+    vault_name: str,
+    session_id: str,
+    summary_workspace_path: str | None = None,
+) -> str | None:
+    if summary_workspace_path:
+        return summary_workspace_path
+    if _accessible_session(vault_name=vault_name, session_id=session_id) is None:
+        return None
+    return (
+        get_runtime_context().chat_store.get_session_workspace_path(
+            session_id, vault_name
+        )
+        or None
+    )
+
+
+def _session_summary_search_projection(
+    summary: SessionSummary,
+) -> dict[str, Any]:
+    return {
+        "session_id": summary.session_id,
+        "vault_name": summary.vault_name,
+        "title": _preview_text(summary.title, limit=240),
+        "summary": _preview_text(summary.summary, limit=1_000),
+        "domain": _preview_text(summary.domain),
+        "work_product": _preview_text(summary.work_product),
+        "user_intent": _preview_text(summary.user_intent),
+        "named_entities": _preview_text(summary.named_entities, limit=500),
+        "source_summary": _preview_text(summary.source_summary, limit=1_000),
+        "workspace_path": _preview_text(
+            _resolved_session_workspace(
+                vault_name=summary.vault_name,
+                session_id=summary.session_id,
+                summary_workspace_path=summary.workspace_path,
+            ),
+            limit=500,
+        ),
+        "created_at": summary.created_at,
+        "updated_at": summary.updated_at,
+        "artifact_count": len(summary.artifacts),
+    }
+
+
+def _session_summary_detail_projection(summary: SessionSummary) -> dict[str, Any]:
+    """Return a useful bounded summary view without arbitrary stored metadata."""
+    projected = _session_summary_search_projection(summary)
+    projected["metadata"] = {
+        key: _bounded_metadata_value(summary.metadata[key])
+        for key in SESSION_SUMMARY_DETAIL_METADATA_KEYS
+        if key in summary.metadata
+    }
+    projected["artifacts"] = [
+        {
+            "path": _preview_text(artifact.path, limit=500),
+            "artifact_role": _preview_text(artifact.artifact_role, limit=120),
+        }
+        for artifact in summary.artifacts[:SESSION_SUMMARY_DETAIL_ARTIFACT_LIMIT]
+    ]
+    projected["artifacts_truncated"] = (
+        len(summary.artifacts) > SESSION_SUMMARY_DETAIL_ARTIFACT_LIMIT
+    )
+    return projected
+
+
+def _session_summary_extraction_projection(
+    extraction: dict[str, Any],
+) -> dict[str, Any]:
+    """Bound the generated extraction returned to the calling model."""
+    return {
+        "session_id": str(extraction.get("session_id") or ""),
+        "vault_name": str(extraction.get("vault_name") or ""),
+        "title": _preview_text(str(extraction.get("title") or ""), limit=240),
+        "summary": _preview_text(str(extraction.get("summary") or ""), limit=1_000),
+        "domain": _preview_text(str(extraction.get("domain") or "")),
+        "work_product": _preview_text(str(extraction.get("work_product") or "")),
+        "user_intent": _preview_text(str(extraction.get("user_intent") or "")),
+        "named_entities": _preview_text(
+            str(extraction.get("named_entities") or ""), limit=500
+        ),
+        "source_summary": _preview_text(
+            str(extraction.get("source_summary") or ""), limit=1_000
+        ),
+        "message_count": int(extraction.get("message_count") or 0),
+        "history_revision": int(extraction.get("history_revision") or 0),
+        "tool_event_count": int(extraction.get("tool_event_count") or 0),
+    }
+
+
+def _bounded_metadata_value(value: Any) -> str | int | float | bool | None:
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    return _preview_text(str(value), limit=240)
 
 
 def _list_sessions(
@@ -792,12 +922,13 @@ def _list_sessions(
     summary_status: str,
     workspace_filter: _WorkspaceFilter | None = None,
 ) -> dict[str, Any]:
-    chat_store = ChatStore()
+    runtime = get_runtime_context()
+    chat_store = runtime.chat_store
     summary_store = SessionSummaryStore()
     normalized_status = _normalize_summary_status_filter(summary_status)
     offset = _parse_cursor(cursor)
     rows: list[dict[str, Any]] = []
-    for session in chat_store.list_sessions(vault_name):
+    for session in runtime.chat_session_access.list_sessions(vault_name):
         message_count = chat_store.get_message_count(
             session_id=session.session_id,
             vault_name=vault_name,
@@ -823,13 +954,19 @@ def _list_sessions(
             and status["summary_status"] != normalized_status
         ):
             continue
-        workspace_path = session_summary.workspace_path if session_summary else None
+        workspace_path = _resolved_session_workspace(
+            vault_name=vault_name,
+            session_id=session.session_id,
+            summary_workspace_path=(
+                session_summary.workspace_path if session_summary else None
+            ),
+        )
         if not _workspace_matches_filter(workspace_path, workspace_filter):
             continue
         rows.append(
             {
                 "session_id": session.session_id,
-                "title": session.title,
+                "title": _preview_text(session.title, limit=240),
                 "created_at": session.created_at,
                 "last_activity_at": session.last_activity_at,
                 "message_count": message_count,
@@ -842,9 +979,15 @@ def _list_sessions(
                 "new_message_count": status["new_message_count"],
                 "summary_history_revision": status["summary_history_revision"],
                 "history_revision_delta": status["history_revision_delta"],
-                "domain": session_summary.domain if session_summary else None,
-                "user_intent": session_summary.user_intent if session_summary else None,
-                "workspace_path": workspace_path,
+                "domain": (
+                    _preview_text(session_summary.domain) if session_summary else None
+                ),
+                "user_intent": (
+                    _preview_text(session_summary.user_intent)
+                    if session_summary
+                    else None
+                ),
+                "workspace_path": _preview_text(workspace_path, limit=500),
             }
         )
 
@@ -928,6 +1071,175 @@ def _summary_data_value(data: dict[str, Any], key: str) -> Any:
     return data[key]
 
 
+async def _upsert_session_summary_operation(
+    *,
+    store: SessionSummaryStore,
+    vault_name: str,
+    session_id: str,
+    title: str | None,
+    summary_data: dict[str, Any],
+    summary_metadata_input: Any,
+    artifacts: tuple[SessionSummaryArtifact, ...],
+) -> dict[str, Any]:
+    async with session_summary_mutation_lock(
+        vault_name=vault_name,
+        session_id=session_id,
+    ):
+        _require_accessible_session(
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        previous_summary = store.get_session_summary(
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        summary_metadata = _with_current_history_metadata(
+            summary_metadata_input,
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        session_summary = store.upsert_session_summary(
+            vault_name=vault_name,
+            session_id=session_id,
+            title=title,
+            summary=_summary_data_value(summary_data, "summary"),
+            domain=_summary_data_value(summary_data, "domain"),
+            work_product=_summary_data_value(summary_data, "work_product"),
+            user_intent=_summary_data_value(summary_data, "user_intent"),
+            named_entities=_summary_data_value(summary_data, "named_entities"),
+            source_summary=_summary_data_value(summary_data, "source_summary"),
+            workspace_path=get_runtime_context().chat_store.get_session_workspace_path(
+                session_id,
+                vault_name,
+            )
+            or None,
+            metadata=summary_metadata,
+        )
+        try:
+            indexed_fields = await _index_session_summary_fields(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+            )
+        except (Exception, asyncio.CancelledError):
+            _restore_session_summary_after_failed_refresh(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+                previous_summary=previous_summary,
+            )
+            raise
+        artifacts_added = _add_parsed_artifacts_best_effort(
+            store,
+            vault_name=vault_name,
+            session_id=session_id,
+            artifacts=artifacts,
+        )
+        refreshed = store.get_session_summary(
+            vault_name=session_summary.vault_name,
+            session_id=session_summary.session_id,
+        )
+        return {
+            "status": "ok" if artifacts_added else "partial",
+            "operation": "upsert_session_summary",
+            "indexed_fields": indexed_fields,
+            "artifact_status": "completed" if artifacts_added else "failed",
+            "session_summary": (
+                _session_summary_detail_projection(refreshed) if refreshed else None
+            ),
+        }
+
+
+async def _persist_generated_session_summary(
+    *,
+    store: SessionSummaryStore,
+    vault_name: str,
+    session_id: str,
+    title: str | None,
+    extraction: dict[str, Any],
+    summarization_model: str,
+) -> dict[str, Any]:
+    async with session_summary_mutation_lock(
+        vault_name=vault_name,
+        session_id=session_id,
+    ):
+        _require_accessible_session(
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        _require_unchanged_history(
+            vault_name=vault_name,
+            session_id=session_id,
+            expected_revision=extraction["history_revision"],
+        )
+        previous_summary = store.get_session_summary(
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        session_summary = store.upsert_session_summary(
+            vault_name=vault_name,
+            session_id=session_id,
+            title=title,
+            summary=extraction["summary"],
+            domain=extraction["domain"],
+            work_product=extraction["work_product"],
+            user_intent=extraction["user_intent"],
+            named_entities=extraction["named_entities"],
+            source_summary=extraction["source_summary"],
+            workspace_path=get_runtime_context().chat_store.get_session_workspace_path(
+                session_id,
+                vault_name,
+            )
+            or None,
+            metadata={
+                "source": "chat_session_extraction",
+                "extraction_policy": "summary_intent_classification_source_summary",
+                "summarization_model": summarization_model,
+                "message_count": extraction["message_count"],
+                "history_revision": extraction["history_revision"],
+                "tool_event_count": extraction["tool_event_count"],
+            },
+        )
+        try:
+            indexed_fields = await _index_session_summary_fields(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+            )
+        except (Exception, asyncio.CancelledError):
+            _restore_session_summary_after_failed_refresh(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+                previous_summary=previous_summary,
+            )
+            raise
+        artifact_count = _add_chat_mutation_artifacts(
+            store,
+            vault_name=vault_name,
+            session_id=session_id,
+        )
+        _maybe_set_generated_session_title_best_effort(
+            vault_name=vault_name,
+            session_id=session_id,
+            title=title,
+        )
+        refreshed = store.get_session_summary(
+            vault_name=session_summary.vault_name,
+            session_id=session_summary.session_id,
+        )
+        return {
+            "status": "ok",
+            "operation": "summarize_session",
+            "indexed_fields": indexed_fields,
+            "artifact_count": artifact_count,
+            "extraction": _session_summary_extraction_projection(extraction),
+            "session_summary": (
+                _session_summary_detail_projection(refreshed) if refreshed else None
+            ),
+        }
+
+
 def _with_current_history_metadata(
     metadata: Any,
     *,
@@ -959,22 +1271,35 @@ def _validate_search_sessions_request(
     mode: str,
     query: str,
     resolved_limit: int | str,
-) -> None:
+) -> str:
     normalized_mode = (mode or "search").strip().lower()
     if resolved_limit == "all":
         raise ModelRetry(
             "search_sessions requires a positive integer limit. Retry with a numeric limit such as 5 or 10."
         )
+    if isinstance(resolved_limit, int) and resolved_limit > MAX_SESSION_SEARCH_LIMIT:
+        raise ModelRetry(
+            f"search_sessions limit must be {MAX_SESSION_SEARCH_LIMIT} or less."
+        )
     if normalized_mode not in {"search", "deep"}:
         raise ModelRetry("search_sessions mode must be 'search' or 'deep'.")
-    if not str(query or "").strip():
-        raise ModelRetry(
-            "search_sessions requires a plain natural-language query for search and deep modes."
-        )
-    if _has_boolean_operator(query):
+    normalized_query = _validate_search_query(query, operation="search_sessions")
+    if _has_boolean_operator(normalized_query):
         raise ModelRetry(
             "search_sessions query must be a plain search phrase. Retry without AND/OR; combine terms with spaces."
         )
+    return normalized_query
+
+
+def _validate_search_query(value: str, *, operation: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ModelRetry(f"{operation} requires a non-empty plain-language query.")
+    if len(normalized) > MAX_SESSION_SEARCH_QUERY_CHARS:
+        raise ModelRetry(
+            f"{operation} query must be {MAX_SESSION_SEARCH_QUERY_CHARS} characters or less."
+        )
+    return normalized
 
 
 def _has_boolean_operator(query: str) -> bool:
@@ -1090,7 +1415,12 @@ async def _search_session_summary_fields(
     for match in lexical_matches:
         session_summary = match.session_summary
         if not _workspace_matches_filter(
-            session_summary.workspace_path, workspace_filter
+            _resolved_session_workspace(
+                vault_name=vault_name,
+                session_id=session_summary.session_id,
+                summary_workspace_path=session_summary.workspace_path,
+            ),
+            workspace_filter,
         ):
             continue
         weighted_score = round(float(match.score or 0.0) * SESSION_LEXICAL_WEIGHT, 6)
@@ -1100,7 +1430,7 @@ async def _search_session_summary_fields(
                 "session_id": session_summary.session_id,
                 "vault_name": session_summary.vault_name,
                 "field_scores": {},
-                "session_summary": session_summary.to_dict(),
+                "session_summary": _session_summary_search_projection(session_summary),
                 "evidence": [],
             },
         )
@@ -1135,7 +1465,12 @@ async def _search_session_summary_fields(
         for match in matches:
             session_summary = match.session_summary
             if not _workspace_matches_filter(
-                session_summary.workspace_path, workspace_filter
+                _resolved_session_workspace(
+                    vault_name=vault_name,
+                    session_id=session_summary.session_id,
+                    summary_workspace_path=session_summary.workspace_path,
+                ),
+                workspace_filter,
             ):
                 continue
             normalized_score = _normalize_vector_score(float(match.score or 0.0))
@@ -1146,7 +1481,9 @@ async def _search_session_summary_fields(
                     "session_id": session_summary.session_id,
                     "vault_name": session_summary.vault_name,
                     "field_scores": {},
-                    "session_summary": session_summary.to_dict(),
+                    "session_summary": _session_summary_search_projection(
+                        session_summary
+                    ),
                     "evidence": [],
                 },
             )
@@ -1200,7 +1537,13 @@ def _merge_transcript_matches(
                 vault_name=vault_name,
                 session_id=session.session_id,
             )
-            workspace_path = session_summary.workspace_path if session_summary else None
+            workspace_path = _resolved_session_workspace(
+                vault_name=vault_name,
+                session_id=session.session_id,
+                summary_workspace_path=(
+                    session_summary.workspace_path if session_summary else None
+                ),
+            )
             if _workspace_matches_filter(workspace_path, workspace_filter):
                 filtered_sessions.append(session)
         sessions = filtered_sessions
@@ -1230,20 +1573,36 @@ def _merge_transcript_matches(
                 "session_id": session_id,
                 "vault_name": candidate_session.vault_name,
                 "session_summary": (
-                    session_summary.to_dict() if session_summary else None
+                    _session_summary_search_projection(session_summary)
+                    if session_summary
+                    else None
                 ),
                 "chat_session": {
                     "session_id": session_id,
                     "vault_name": candidate_session.vault_name,
-                    "title": candidate_session.title,
+                    "title": _preview_text(candidate_session.title, limit=240),
                     "created_at": candidate_session.created_at,
                     "last_activity_at": candidate_session.last_activity_at,
+                    "workspace_path": _preview_text(
+                        _resolved_session_workspace(
+                            vault_name=vault_name,
+                            session_id=session_id,
+                            summary_workspace_path=(
+                                session_summary.workspace_path
+                                if session_summary
+                                else None
+                            ),
+                        ),
+                        limit=500,
+                    ),
                 },
                 "evidence": [],
             },
         )
         if session_summary is not None and candidate.get("session_summary") is None:
-            candidate["session_summary"] = session_summary.to_dict()
+            candidate["session_summary"] = _session_summary_search_projection(
+                session_summary
+            )
         checkpoint = chat_store.get_latest_compaction_checkpoint(session_id, vault_name)
         compacted_through = (
             checkpoint.last_message_sequence_index if checkpoint is not None else None
@@ -1284,9 +1643,20 @@ def _apply_workspace_boost(
         return
     for candidate in candidates.values():
         session_summary = candidate.get("session_summary")
-        if not isinstance(session_summary, dict):
-            continue
-        workspace_path = str(session_summary.get("workspace_path") or "").strip("/")
+        chat_session = candidate.get("chat_session")
+        workspace_path = str(
+            (
+                session_summary.get("workspace_path")
+                if isinstance(session_summary, dict)
+                else None
+            )
+            or (
+                chat_session.get("workspace_path")
+                if isinstance(chat_session, dict)
+                else None
+            )
+            or ""
+        ).strip("/")
         if workspace_path != normalized_active:
             continue
         candidate["score"] = round(
@@ -1329,10 +1699,14 @@ async def _summarize_session(
     session_id: str,
     summarization_model: str,
 ) -> dict[str, Any]:
-    chat_store = ChatStore()
+    chat_store = get_runtime_context().chat_store
     session = chat_store.get_session(session_id=session_id, vault_name=vault_name)
     if session is None:
         raise ValueError(f"Unknown chat session: {session_id}")
+    source_history_revision = chat_store.get_session_history_revision(
+        session_id=session_id,
+        vault_name=vault_name,
+    )
     history = ChatHistoryService(chat_store=chat_store).get_conversation_history(
         context=ChatHistoryContext(session_id=session_id, vault_name=vault_name),
         scope="session",
@@ -1345,12 +1719,28 @@ async def _summarize_session(
         context=ChatHistoryContext(session_id=session_id, vault_name=vault_name),
         scope="session",
         session_id=session_id,
-        limit="all",
+        limit=SESSION_SUMMARY_TOOL_EVENT_LIMIT,
+    )
+    _require_unchanged_history(
+        vault_name=vault_name,
+        session_id=session_id,
+        expected_revision=source_history_revision,
     )
     if not history.items:
         raise ValueError(f"Chat session has no persisted messages: {session_id}")
+    first_pass_prompt = _build_first_pass_prompt(
+        session=session,
+        messages=history.items,
+    )
+    summary_model = build_model_instance(summarization_model)
+    prompt_token_limit = _session_summary_prompt_token_limit(summary_model)
+    if estimate_token_count(first_pass_prompt) > prompt_token_limit:
+        raise ModelRetry(
+            "The effective session history is too large to summarize safely. Compact the "
+            "session or choose a smaller history before retrying."
+        )
     summary_agent = await create_agent(
-        model=build_model_instance(summarization_model),
+        model=summary_model,
         output_type=_SessionSummaryIntent,
     )
     classification_agent = await create_agent(
@@ -1363,7 +1753,7 @@ async def _summarize_session(
     )
     summary_intent = await generate_response(
         summary_agent,
-        _build_first_pass_prompt(session=session, messages=history.items),
+        first_pass_prompt,
     )
     summary_intent_data = summary_intent.model_dump()
     classification = await generate_response(
@@ -1376,21 +1766,32 @@ async def _summarize_session(
     classification_data = classification.model_dump()
     tool_event_log = _build_tool_event_log(tool_events.items)
     if tool_event_log:
+        source_prompt = _build_source_summary_prompt(
+            session=session,
+            summary_intent=summary_intent_data,
+            tool_event_log=tool_event_log,
+        )
+        if estimate_token_count(source_prompt) > prompt_token_limit:
+            raise ModelRetry(
+                "The session source evidence is too large to summarize safely. "
+                "Reduce the retained source locator history before retrying."
+            )
         source_summary = await generate_response(
             source_agent,
-            _build_source_summary_prompt(
-                session=session,
-                summary_intent=summary_intent_data,
-                tool_event_log=tool_event_log,
-            ),
+            source_prompt,
         )
         source_summary_data = source_summary.model_dump()
     else:
         source_summary_data = {"source_summary": ""}
+    _require_unchanged_history(
+        vault_name=vault_name,
+        session_id=session_id,
+        expected_revision=source_history_revision,
+    )
     return {
         "session_id": session.session_id,
         "vault_name": session.vault_name,
-        "title": session.title,
+        "title": _preview_text(session.title, limit=240),
         "summary": summary_intent_data["summary"],
         "user_intent": summary_intent_data["user_intent"],
         "domain": classification_data["domain"],
@@ -1398,12 +1799,21 @@ async def _summarize_session(
         "named_entities": classification_data["named_entities"],
         "source_summary": source_summary_data["source_summary"],
         "message_count": history.item_count,
-        "history_revision": chat_store.get_session_history_revision(
-            session_id=session_id,
-            vault_name=vault_name,
-        ),
+        "history_revision": source_history_revision,
         "tool_event_count": tool_events.item_count,
     }
+
+
+def _session_summary_prompt_token_limit(model: Any) -> int:
+    """Bound the largest summary prompt with model-specific response headroom."""
+    context_window = getattr(getattr(model, "profile", None), "context_window", None)
+    if not isinstance(context_window, int) or context_window <= 0:
+        return SESSION_SUMMARY_TRANSCRIPT_TOKEN_LIMIT
+    model_input_limit = max(
+        1,
+        int(context_window * (1.0 - SESSION_SUMMARY_CONTEXT_HEADROOM_RATIO)),
+    )
+    return min(SESSION_SUMMARY_TRANSCRIPT_TOKEN_LIMIT, model_input_limit)
 
 
 def _build_first_pass_prompt(
@@ -1411,11 +1821,16 @@ def _build_first_pass_prompt(
     session: StoredChatSession,
     messages: tuple[ConversationHistoryItem, ...],
 ) -> str:
-    transcript = "\n\n".join(
-        f"{message.role.upper()} [{message.sequence_index}]:\n{message.content}"
-        for message in messages
-    )
-    title = session.title or ""
+    transcript_rows = []
+    for message in messages:
+        content = _conversation_text(message)
+        if not content:
+            continue
+        transcript_rows.append(
+            f"{message.role.upper()} [{message.sequence_index}]:\n{content}"
+        )
+    transcript = "\n\n".join(transcript_rows)
+    title = _preview_text(session.title, limit=240) or ""
     return str(
         SESSION_SUMMARY_INTENT_PROMPT.format(
             session_id=session.session_id,
@@ -1428,12 +1843,39 @@ def _build_first_pass_prompt(
     )
 
 
+def _conversation_text(message: ConversationHistoryItem) -> str:
+    """Project only explicit user and assistant prose from one stored message."""
+    payload = message.message
+    if not isinstance(payload, dict):
+        return ""
+    parts = payload.get("parts")
+    if not isinstance(parts, list):
+        return ""
+    text_parts: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        part_kind = str(part.get("part_kind") or "")
+        if part_kind not in {"system-prompt", "text", "user-prompt"}:
+            continue
+        content = part.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        cleaned = content.strip()
+        if part_kind == "system-prompt" and not cleaned.startswith(
+            SESSION_SUMMARY_CHECKPOINT_PREFIXES
+        ):
+            continue
+        text_parts.append(cleaned)
+    return "\n".join(text_parts)
+
+
 def _build_second_pass_prompt(
     *,
     session: StoredChatSession,
     summary_intent: dict[str, str],
 ) -> str:
-    title = session.title or ""
+    title = _preview_text(session.title, limit=240) or ""
     return str(
         SESSION_SUMMARY_CLASSIFICATION_PROMPT.format(
             session_id=session.session_id,
@@ -1450,7 +1892,7 @@ def _build_source_summary_prompt(
     summary_intent: dict[str, str],
     tool_event_log: str,
 ) -> str:
-    title = session.title or ""
+    title = _preview_text(session.title, limit=240) or ""
     return str(
         SESSION_SUMMARY_SOURCE_SUMMARY_PROMPT.format(
             session_id=session.session_id,
@@ -1463,7 +1905,7 @@ def _build_source_summary_prompt(
 
 
 def _build_tool_event_log(events: tuple[ConversationToolEventItem, ...]) -> str:
-    """Build a flat extraction-only log from structured chat tool events."""
+    """Build a bounded locator-only log for source-bearing tool calls."""
     args_by_call_id: dict[str, dict[str, Any] | None] = {}
     rows: list[str] = []
     result_index = 0
@@ -1473,24 +1915,98 @@ def _build_tool_event_log(events: tuple[ConversationToolEventItem, ...]) -> str:
             continue
         if event.event_type != "result":
             continue
+        if event.tool_name not in SESSION_SUMMARY_SOURCE_TOOLS:
+            continue
         args = args_by_call_id.get(event.tool_call_id)
         if _is_virtual_docs_file_call(event, args):
             continue
         if _is_failed_tool_result(event):
             continue
+        source_args = _source_locator_arguments(args)
+        artifact_ref = _safe_source_artifact_ref(event.artifact_ref)
+        if not source_args and not artifact_ref:
+            continue
         result_index += 1
-        args_text = json.dumps(args or {}, ensure_ascii=False, sort_keys=True)
-        result_text = _preview_text(event.result_text, limit=800) or ""
-        rows.append(
-            "\n".join(
-                (
-                    f"{result_index}. Tool: {event.tool_name}",
-                    f"   args: {args_text}",
-                    f"   result: {result_text}",
-                )
+        args_text = (
+            _preview_text(
+                json.dumps(source_args, ensure_ascii=False, sort_keys=True),
+                limit=SESSION_SUMMARY_TOOL_ARGUMENT_LIMIT,
+            )
+            or ""
+        )
+        row = "\n".join(
+            (
+                f"{result_index}. Tool: {event.tool_name}",
+                f"   source_locator: {args_text}",
+                f"   artifact_ref: {artifact_ref or ''}",
             )
         )
+        current_length = sum(len(existing) for existing in rows) + 2 * len(rows)
+        if current_length + len(row) > SESSION_SUMMARY_TOOL_LOG_LIMIT:
+            break
+        rows.append(row)
     return "\n\n".join(rows)
+
+
+def _source_locator_arguments(args: dict[str, Any] | None) -> dict[str, Any]:
+    if not args:
+        return {}
+    locators: dict[str, Any] = {}
+    for key in SESSION_SUMMARY_SOURCE_ARGUMENTS:
+        value = args.get(key)
+        if isinstance(value, str):
+            cleaned = _sanitize_source_locator(key, value)
+            if cleaned:
+                locators[key] = cleaned
+        elif isinstance(value, list):
+            cleaned_items = [
+                cleaned
+                for item in value[:20]
+                if isinstance(item, str)
+                and (cleaned := _sanitize_source_locator(key, item)) is not None
+            ]
+            if cleaned_items:
+                locators[key] = cleaned_items
+    return locators
+
+
+def _sanitize_source_locator(key: str, value: str) -> str | None:
+    cleaned = value.strip()
+    if key in {"url", "urls"}:
+        return _sanitize_http_url(cleaned)
+    try:
+        parsed = urlsplit(cleaned)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() in {"http", "https"}:
+        return _sanitize_http_url(cleaned)
+    return _preview_text(cleaned, limit=400)
+
+
+def _sanitize_http_url(value: str) -> str | None:
+    """Keep a useful source location without credentials or tracking material."""
+    try:
+        parsed = urlsplit(value.strip())
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return None
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = parsed.port
+    except ValueError:
+        return None
+    netloc = f"{host}:{port}" if port is not None else host
+    sanitized = urlunsplit((parsed.scheme.lower(), netloc, parsed.path, "", ""))
+    return _preview_text(sanitized, limit=400)
+
+
+def _safe_source_artifact_ref(value: str | None) -> str | None:
+    cleaned = str(value or "").strip()
+    if not cleaned or len(cleaned) > 400:
+        return None
+    if ".." in cleaned.split("/") or not _SAFE_SOURCE_ARTIFACT_REF.fullmatch(cleaned):
+        return None
+    return cleaned
 
 
 def _is_failed_tool_result(event: ConversationToolEventItem) -> bool:
@@ -1542,7 +2058,7 @@ async def _index_session_summary_fields(
             session_id=session_id,
             vector_service=VectorService(),
         )
-        logger.info(
+        logger.set_sinks(["validation"]).info(
             "session_summary_field_indexing_completed",
             data={
                 "vault_name": vault_name,
@@ -1552,18 +2068,16 @@ async def _index_session_summary_fields(
         )
         return int(indexed_fields)
     except Exception as exc:  # noqa: BLE001
-        logger.error(
+        logger.set_sinks(["validation"]).error(
             "session_summary_field_indexing_failed",
             data={
                 "vault_name": vault_name,
                 "session_id": session_id,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": "Session summary field indexing failed.",
             },
         )
-        raise SessionSummaryIndexingError(
-            f"Failed to index session summary fields for {session_id}: {exc}"
-        ) from exc
+        raise
 
 
 async def _preflight_session_summary_embeddings() -> None:
@@ -1573,23 +2087,20 @@ async def _preflight_session_summary_embeddings() -> None:
             ["session summary embedding preflight"],
             model_alias="embeddings",
         )
-        logger.info(
+        logger.set_sinks(["validation"]).info(
             "session_summary_embedding_preflight_completed",
             data={"model_alias": "embeddings"},
         )
     except Exception as exc:  # noqa: BLE001
-        logger.error(
+        logger.set_sinks(["validation"]).error(
             "session_summary_embedding_preflight_failed",
             data={
                 "model_alias": "embeddings",
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": "The configured embedding model could not be used.",
             },
         )
-        raise SessionSummaryEmbeddingPreflightError(
-            "Session summarization requires a usable embedding model alias "
-            f"'embeddings'; configure the embedding model before summarizing sessions: {exc}"
-        ) from exc
+        raise
 
 
 def _restore_session_summary_after_failed_refresh(
@@ -1615,6 +2126,11 @@ def _restore_session_summary_after_failed_refresh(
         workspace_path=previous_summary.workspace_path,
         metadata=previous_summary.metadata,
     )
+    store.set_session_summary_title(
+        vault_name=vault_name,
+        session_id=session_id,
+        title=previous_summary.title,
+    )
     if previous_summary.artifacts:
         store.add_session_artifacts(
             vault_name=vault_name,
@@ -1623,17 +2139,21 @@ def _restore_session_summary_after_failed_refresh(
         )
 
 
-def _maybe_add_artifacts(
-    store: SessionSummaryStore,
+def _parse_artifacts(
+    artifacts: list[dict[str, Any]] | None,
     *,
     vault_name: str,
-    session_id: str,
-    artifacts: list[dict[str, Any]] | None,
-) -> None:
+) -> tuple[SessionSummaryArtifact, ...]:
+    """Validate the complete artifact payload before any summary mutation."""
     parsed: list[SessionSummaryArtifact] = []
     for raw in artifacts or []:
+        if not isinstance(raw, dict):
+            raise ValueError("Each data.artifacts item must be an object")
         path = str(raw.get("path") or "").strip()
         _require(path, "path is required for each artifact")
+        raw_metadata = raw.get("metadata")
+        if raw_metadata is not None and not isinstance(raw_metadata, dict):
+            raise ValueError("Artifact metadata must be an object")
         parsed.append(
             SessionSummaryArtifact(
                 path=path,
@@ -1641,15 +2161,43 @@ def _maybe_add_artifacts(
                     raw.get("artifact_role") or raw.get("role") or "file_retrieved"
                 ),
                 vault_name=vault_name,
-                metadata=dict(raw.get("metadata") or {}),
+                metadata=dict(raw_metadata or {}),
             )
         )
-    if parsed:
+    return tuple(parsed)
+
+
+def _add_parsed_artifacts_best_effort(
+    store: SessionSummaryStore,
+    *,
+    vault_name: str,
+    session_id: str,
+    artifacts: tuple[SessionSummaryArtifact, ...],
+) -> bool:
+    if not artifacts:
+        return True
+    try:
         store.add_session_artifacts(
             vault_name=vault_name,
             session_id=session_id,
-            artifacts=tuple(parsed),
+            artifacts=artifacts,
         )
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Explicit session summary artifacts were not attached",
+            data={
+                "event": "session_summary_explicit_artifacts_failed",
+                "status": "partial",
+                "vault_name": vault_name,
+                "session_id": session_id,
+                "artifact_count": len(artifacts),
+                "error_type": type(exc).__name__,
+                "error": "The summary was saved, but its explicit artifacts were not attached.",
+                "issue": f"session-summary-explicit-artifacts:{vault_name}:{session_id}:{type(exc).__name__}",
+            },
+        )
+        return False
 
 
 def _add_chat_mutation_artifacts(
@@ -1664,60 +2212,62 @@ def _add_chat_mutation_artifacts(
             vault_name=vault_name,
             session_id=session_id,
         )
+        artifacts_by_key: dict[tuple[str, str], SessionSummaryArtifact] = {}
+        for mutation in mutations:
+            role = _artifact_role_for_mutation(
+                operation=mutation.operation,
+                before_exists=mutation.before_exists,
+                after_exists=mutation.after_exists,
+            )
+            key = (mutation.path, role)
+            metadata = {
+                "source": "vault_mutation",
+                "operation": mutation.operation,
+                "task_id": mutation.task_id,
+                "task_kind": mutation.task_kind,
+                "task_source": mutation.task_source,
+                "task_scope": mutation.task_scope,
+                "task_label": mutation.task_label,
+                "related_path": mutation.related_path,
+                "event_sequence": mutation.event_sequence,
+                "before_exists": mutation.before_exists,
+                "before_hash": mutation.before_hash,
+                "after_exists": mutation.after_exists,
+                "after_hash": mutation.after_hash,
+                "created_at": _datetime_to_text(mutation.created_at),
+            }
+            artifacts_by_key[key] = SessionSummaryArtifact(
+                path=mutation.path,
+                artifact_role=role,
+                vault_name=vault_name,
+                metadata={
+                    key: value for key, value in metadata.items() if value is not None
+                },
+            )
+
+        artifacts = tuple(artifacts_by_key.values())
+        if not artifacts:
+            return 0
+        store.add_session_artifacts(
+            vault_name=vault_name,
+            session_id=session_id,
+            artifacts=artifacts,
+        )
+        return len(artifacts)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "session_summary_artifact_population_skipped",
+            "Session summary artifact population skipped",
             data={
+                "event": "session_summary_artifact_population_skipped",
+                "status": "skipped",
                 "vault_name": vault_name,
                 "session_id": session_id,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": "Vault mutation artifacts could not be attached to the summary.",
+                "issue": f"session-summary-artifacts:{vault_name}:{session_id}:{type(exc).__name__}",
             },
         )
         return 0
-
-    artifacts_by_key: dict[tuple[str, str], SessionSummaryArtifact] = {}
-    for mutation in mutations:
-        role = _artifact_role_for_mutation(
-            operation=mutation.operation,
-            before_exists=mutation.before_exists,
-            after_exists=mutation.after_exists,
-        )
-        key = (mutation.path, role)
-        metadata = {
-            "source": "vault_mutation",
-            "operation": mutation.operation,
-            "task_id": mutation.task_id,
-            "task_kind": mutation.task_kind,
-            "task_source": mutation.task_source,
-            "task_scope": mutation.task_scope,
-            "task_label": mutation.task_label,
-            "related_path": mutation.related_path,
-            "event_sequence": mutation.event_sequence,
-            "before_exists": mutation.before_exists,
-            "before_hash": mutation.before_hash,
-            "after_exists": mutation.after_exists,
-            "after_hash": mutation.after_hash,
-            "created_at": _datetime_to_text(mutation.created_at),
-        }
-        artifacts_by_key[key] = SessionSummaryArtifact(
-            path=mutation.path,
-            artifact_role=role,
-            vault_name=vault_name,
-            metadata={
-                key: value for key, value in metadata.items() if value is not None
-            },
-        )
-
-    artifacts = tuple(artifacts_by_key.values())
-    if not artifacts:
-        return 0
-    store.add_session_artifacts(
-        vault_name=vault_name,
-        session_id=session_id,
-        artifacts=artifacts,
-    )
-    return len(artifacts)
 
 
 def _artifact_role_for_mutation(

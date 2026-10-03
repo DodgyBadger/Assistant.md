@@ -1,5 +1,6 @@
 """Chat-session persistence, summaries, export, and compaction API services."""
 
+import asyncio
 import json
 import re
 from dataclasses import asdict
@@ -35,7 +36,11 @@ from core.memory.session_map.checkpoints import (
     load_session_map_checkpoint,
     load_session_map_observed_through,
 )
-from core.memory.session_summary import SessionSummary, SessionSummaryStore
+from core.memory.session_summary import (
+    SessionSummary,
+    SessionSummaryStore,
+    session_summary_mutation_lock,
+)
 from core.runtime.execution_tasks import ExecutionTaskSnapshot, ExecutionTaskSource
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.settings.store import (
@@ -821,54 +826,66 @@ async def update_chat_session_summary(
 ) -> dict:
     """Manually update one session summary record and refresh search indexes."""
     _require_chat_session_access(vault_name, session_id)
-    store = SessionSummaryStore()
-    existing = store.get_session_summary(vault_name=vault_name, session_id=session_id)
-    if existing is None:
-        raise APIException(
-            status_code=404,
-            error_type="SessionSummaryNotFound",
-            message=f"Session summary not found: {session_id}",
-            details={"session_id": session_id, "vault_name": vault_name},
-        )
-    previous = existing
-    session_summary = store.update_session_summary_fields(
+    async with session_summary_mutation_lock(
         vault_name=vault_name,
         session_id=session_id,
-        summary=data.get("summary"),
-        domain=data.get("domain"),
-        work_product=data.get("work_product"),
-        user_intent=data.get("user_intent"),
-        workspace_path=data.get("workspace_path"),
-        named_entities=data.get("named_entities"),
-        source_summary=data.get("source_summary"),
-        metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
-    )
-    try:
-        indexed_fields = await _index_session_summary_for_api(
-            store,
+    ):
+        store = SessionSummaryStore()
+        existing = store.get_session_summary(
+            vault_name=vault_name, session_id=session_id
+        )
+        if existing is None:
+            raise APIException(
+                status_code=404,
+                error_type="SessionSummaryNotFound",
+                message=f"Session summary not found: {session_id}",
+                details={"session_id": session_id, "vault_name": vault_name},
+            )
+        previous = existing
+        session_summary = store.update_session_summary_fields(
             vault_name=vault_name,
             session_id=session_id,
+            summary=data.get("summary"),
+            domain=data.get("domain"),
+            work_product=data.get("work_product"),
+            user_intent=data.get("user_intent"),
+            workspace_path=data.get("workspace_path"),
+            named_entities=data.get("named_entities"),
+            source_summary=data.get("source_summary"),
+            metadata=(
+                data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+            ),
         )
-    except Exception:
-        _restore_session_summary_for_api(
-            store,
-            vault_name=vault_name,
-            session_id=session_id,
-            previous_summary=previous,
-        )
-        raise
-    response = _session_summary_response(session_summary)
-    response["indexed_fields"] = indexed_fields
-    return response
+        try:
+            indexed_fields = await _index_session_summary_for_api(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+            )
+        except (Exception, asyncio.CancelledError):
+            _restore_session_summary_for_api(
+                store,
+                vault_name=vault_name,
+                session_id=session_id,
+                previous_summary=previous,
+            )
+            raise
+        response = _session_summary_response(session_summary)
+        response["indexed_fields"] = indexed_fields
+        return response
 
 
-def delete_chat_session_summary(vault_name: str, session_id: str) -> dict:
+async def delete_chat_session_summary(vault_name: str, session_id: str) -> dict:
     """Delete one session summary record without deleting the chat session."""
     _require_chat_session_access(vault_name, session_id)
-    deleted = SessionSummaryStore().delete_session_summary(
+    async with session_summary_mutation_lock(
         vault_name=vault_name,
         session_id=session_id,
-    )
+    ):
+        deleted = SessionSummaryStore().delete_session_summary(
+            vault_name=vault_name,
+            session_id=session_id,
+        )
     return {
         "session_id": session_id,
         "vault_name": vault_name,
@@ -888,7 +905,7 @@ async def _index_session_summary_for_api(
             session_id=session_id,
             vector_service=VectorService(),
         )
-        logger.info(
+        logger.set_sinks(["validation"]).info(
             "session_summary_field_indexing_completed",
             data={
                 "source": "api",
@@ -899,14 +916,14 @@ async def _index_session_summary_for_api(
         )
         return indexed_fields
     except Exception as exc:  # noqa: BLE001
-        logger.error(
+        logger.set_sinks(["validation"]).error(
             "session_summary_field_indexing_failed",
             data={
                 "source": "api",
                 "vault_name": vault_name,
                 "session_id": session_id,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": "Session summary field indexing failed.",
             },
         )
         raise APIException(
@@ -917,7 +934,7 @@ async def _index_session_summary_for_api(
                 "session_id": session_id,
                 "vault_name": vault_name,
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": "Session summary field indexing failed.",
             },
         ) from exc
 
@@ -941,6 +958,11 @@ def _restore_session_summary_for_api(
         source_summary=previous_summary.source_summary,
         workspace_path=previous_summary.workspace_path,
         metadata=previous_summary.metadata,
+    )
+    store.set_session_summary_title(
+        vault_name=vault_name,
+        session_id=session_id,
+        title=previous_summary.title,
     )
     if previous_summary.artifacts:
         store.add_session_artifacts(
@@ -1480,16 +1502,26 @@ async def start_chat_session_context_strategy_upgrade(
         ) from exc
 
 
-def delete_chat_session(vault_name: str, session_id: str) -> None:
+async def delete_chat_session(vault_name: str, session_id: str) -> None:
     """Delete one chat session and its session summary."""
     _require_chat_session_access(vault_name, session_id)
-    _chat_store.delete_sessions(vault_name, session_id=session_id)
+    async with session_summary_mutation_lock(
+        vault_name=vault_name,
+        session_id=session_id,
+    ):
+        _delete_chat_session_with_summary(vault_name=vault_name, session_id=session_id)
+
+
+def _delete_chat_session_with_summary(*, vault_name: str, session_id: str) -> list[str]:
+    """Remove derived memory before canonical chat so cleanup failures stay retryable."""
     SessionSummaryStore().delete_session_summary(
-        vault_name=vault_name, session_id=session_id
+        vault_name=vault_name,
+        session_id=session_id,
     )
+    return _chat_store.delete_sessions(vault_name, session_id=session_id)
 
 
-def purge_chat_sessions(
+async def purge_chat_sessions(
     vault_name: str,
     vault_path: str,
     *,
@@ -1508,14 +1540,16 @@ def purge_chat_sessions(
         ]
     deleted_ids: list[str] = []
     for session_id in selected_ids:
-        deleted_ids.extend(
-            _chat_store.delete_sessions(vault_name, session_id=session_id)
-        )
-    summary_store = SessionSummaryStore()
-    for session_id in deleted_ids:
-        summary_store.delete_session_summary(
-            vault_name=vault_name, session_id=session_id
-        )
+        async with session_summary_mutation_lock(
+            vault_name=vault_name,
+            session_id=session_id,
+        ):
+            deleted_ids.extend(
+                _delete_chat_session_with_summary(
+                    vault_name=vault_name,
+                    session_id=session_id,
+                )
+            )
     remove_chat_transcript_exports(vault_path=vault_path, session_ids=deleted_ids)
 
     n = len(deleted_ids)

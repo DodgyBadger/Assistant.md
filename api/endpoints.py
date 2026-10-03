@@ -2659,7 +2659,7 @@ async def delete_chat_session_summary_endpoint(
 ) -> dict[str, Any] | JSONResponse:
     """Delete one session summary record without deleting the chat session."""
     try:
-        return delete_chat_session_summary(vault_name, session_id)
+        return await delete_chat_session_summary(vault_name, session_id)
     except Exception as e:
         return create_error_response(e)
 
@@ -2705,7 +2705,7 @@ async def delete_chat_session_endpoint(
 ) -> dict[str, Any] | JSONResponse:
     """Delete one chat session from the canonical store."""
     try:
-        delete_chat_session(vault_name, session_id)
+        await delete_chat_session(vault_name, session_id)
         return {"session_id": session_id, "deleted": True}
     except Exception as e:
         return create_error_response(e)
@@ -2870,7 +2870,7 @@ async def purge_chat_sessions_endpoint(
     """
     try:
         vault_path = str(resolve_vault_root(request.vault_name))
-        return purge_chat_sessions(
+        return await purge_chat_sessions(
             request.vault_name,
             vault_path,
             older_than_days=request.older_than_days,
