@@ -83,6 +83,28 @@ def tool_reply_cases() -> tuple[ToolReplyCase, ...]:
             2,
         ),
         (
+            "valid-split-return-batch",
+            [
+                ModelResponse(
+                    parts=[
+                        ToolCallPart("probe", {}, "first"),
+                        ToolCallPart("probe", {}, "second"),
+                        ToolCallPart("probe", {}, "third"),
+                    ]
+                ),
+                ModelRequest(parts=[ToolReturnPart("probe", "Done", "first")]),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart("probe", "Done", "second"),
+                        ToolReturnPart("probe", "Done", "third"),
+                    ]
+                ),
+            ],
+            set(),
+            3,
+            3,
+        ),
+        (
             "valid-output-retry",
             [ModelRequest(parts=[RetryPromptPart("Fix output")])],
             set(),

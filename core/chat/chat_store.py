@@ -25,6 +25,7 @@ from pydantic_core import to_jsonable_python
 from core.chat.tool_history import (
     ToolHistoryInvocation,
     ToolHistoryProtocolState,
+    model_message_is_tool_reply_only,
     model_message_tool_invocations,
 )
 from core.database import connect_sqlite_from_system_db
@@ -418,6 +419,7 @@ class ChatStore:
                 while current is not None and int(current[0]) <= candidate:
                     sequence_index = int(current[0])
                     message_index = int(current[1])
+                    reply_only = bool(current[5])
                     calls: list[ToolHistoryInvocation] = []
                     replies: list[ToolHistoryInvocation] = []
                     while current is not None and int(current[0]) == sequence_index:
@@ -431,7 +433,12 @@ class ChatStore:
                         else:
                             replies.append(invocation)
                         current = next(cursor, None)
-                    protocol.record_message(message_index, calls, replies)
+                    protocol.record_message(
+                        message_index,
+                        calls,
+                        replies,
+                        reply_only=reply_only,
+                    )
                     if protocol.issues:
                         break
                 if not protocol.issues and not protocol.pending:
@@ -489,6 +496,7 @@ class ChatStore:
         while cursor < len(rows):
             sequence_index = int(rows[cursor][0])
             message_index = int(rows[cursor][1])
+            reply_only = bool(rows[cursor][5])
             calls: list[ToolHistoryInvocation] = []
             replies: list[ToolHistoryInvocation] = []
             while cursor < len(rows) and int(rows[cursor][0]) == sequence_index:
@@ -505,7 +513,12 @@ class ChatStore:
                 else:
                     replies.append(invocation)
                 cursor += 1
-            protocol.record_message(message_index, calls, replies)
+            protocol.record_message(
+                message_index,
+                calls,
+                replies,
+                reply_only=bool(reply_only),
+            )
 
         return StoredChatHistoryStructure(
             message_count=message_count,
@@ -541,7 +554,19 @@ class ChatStore:
             SELECT message.sequence_index, message.message_index,
                    json_extract(part.value, '$.part_kind'),
                    json_extract(part.value, '$.tool_call_id'),
-                   json_extract(part.value, '$.tool_name')
+                   json_extract(part.value, '$.tool_name'),
+                   message.message_type = 'ModelRequest'
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM json_each(message.message_json, '$.parts') AS other_part
+                           WHERE NOT (
+                               json_extract(other_part.value, '$.part_kind') = 'tool-return'
+                               OR (
+                                   json_extract(other_part.value, '$.part_kind') = 'retry-prompt'
+                                   AND json_extract(other_part.value, '$.tool_name') IS NOT NULL
+                               )
+                           )
+                       ) AS reply_only
             FROM numbered AS message,
                  json_each(message.message_json, '$.parts') AS part
             WHERE (
@@ -2511,7 +2536,12 @@ def canonical_assistant_fork_points(messages: Sequence[StoredChatMessage]) -> se
     fork_points: set[int] = set()
     for index, message in enumerate(messages):
         calls, replies = model_message_tool_invocations(message.message)
-        protocol.record_message(index, calls, replies)
+        protocol.record_message(
+            index,
+            calls,
+            replies,
+            reply_only=model_message_is_tool_reply_only(message.message),
+        )
         if protocol.issues:
             break
         if (

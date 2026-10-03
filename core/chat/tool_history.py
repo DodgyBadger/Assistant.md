@@ -78,14 +78,21 @@ class ToolHistoryProtocolState:
 
     pending: dict[str, tuple[int, str | None]] = field(default_factory=dict)
     issues: list[ToolHistoryIssue] = field(default_factory=list)
+    _last_message_index: int | None = None
+    _last_reply_origins: set[int] = field(default_factory=set)
 
     def record_message(
         self,
         index: int,
         calls: Sequence[ToolHistoryInvocation],
         replies: Sequence[ToolHistoryInvocation],
+        *,
+        reply_only: bool = False,
     ) -> None:
         """Advance through one message without requiring its content or arguments."""
+        prior_message_index = self._last_message_index
+        prior_reply_origins = self._last_reply_origins
+        current_reply_origins: set[int] = set()
         tool_calls = [part.tool_call_id for part in calls]
         tool_replies = [part.tool_call_id for part in replies]
 
@@ -175,7 +182,13 @@ class ToolHistoryProtocolState:
                 if return_part.is_retry:
                     continue
             self.pending.pop(tool_call_id)
-            if index != call_index + 1:
+            current_reply_origins.add(call_index)
+            continues_split_reply_batch = (
+                reply_only
+                and prior_message_index == index - 1
+                and call_index in prior_reply_origins
+            )
+            if index != call_index + 1 and not continues_split_reply_batch:
                 self.issues.append(
                     ToolHistoryIssue(
                         code="non_adjacent_tool_return",
@@ -185,6 +198,8 @@ class ToolHistoryProtocolState:
                         detail="A tool return is not in the message immediately after its call.",
                     )
                 )
+        self._last_message_index = index
+        self._last_reply_origins = current_reply_origins if reply_only else set()
 
     def unmatched_call_issues(self) -> tuple[ToolHistoryIssue, ...]:
         """Report pending calls only when the complete history boundary is known."""
@@ -214,7 +229,12 @@ def analyze_tool_history(messages: Sequence[ModelMessage]) -> ToolHistoryIntegri
         return_count += message_return_count
         multi_call_batch_count += int(len(calls) > 1)
         multi_return_batch_count += int(message_return_count > 1)
-        protocol.record_message(index, calls, replies)
+        protocol.record_message(
+            index,
+            calls,
+            replies,
+            reply_only=model_message_is_tool_reply_only(message),
+        )
     issues = [*protocol.issues, *protocol.unmatched_call_issues()]
 
     return ToolHistoryIntegrity(
@@ -244,6 +264,17 @@ def model_message_tool_invocations(
             )
             for part in _tool_reply_parts(message)
         ],
+    )
+
+
+def model_message_is_tool_reply_only(message: ModelMessage) -> bool:
+    """Return whether a request contains only custom-tool replies or retries."""
+    if not isinstance(message, ModelRequest) or not message.parts:
+        return False
+    return all(
+        isinstance(part, ToolReturnPart)
+        or (isinstance(part, RetryPromptPart) and part.tool_name is not None)
+        for part in message.parts
     )
 
 
