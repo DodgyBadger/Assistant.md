@@ -159,6 +159,27 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 )
             else:
                 raise AssertionError("Decision-only authors cannot start an upgrade")
+        unavailable_activity = self.call_api("/api/system/activity-log?limit=200")
+        assert unavailable_activity.status_code == 200
+        unavailable_rows = [
+            entry["data"]
+            for entry in unavailable_activity.json()["entries"]
+            if entry.get("tag") == "context-strategy-upgrade"
+            and entry.get("data", {}).get("event")
+            == "context_strategy_upgrade_unavailable"
+            and entry.get("data", {}).get("session_id") == session_id
+        ]
+        self.soft_assert(
+            any(
+                row.get("status") == "unavailable"
+                and row.get("vault_name") == vault.name
+                and row.get("source") == "api"
+                and row.get("reason") == "author_model_not_text_capable"
+                and row.get("operation_id")
+                for row in unavailable_rows
+            ),
+            "Rejected upgrade admission should retain safe domain identity and reason",
+        )
 
         authored_ranges: list[tuple[int, int]] = []
         author_parent_tasks: list[str | None] = []

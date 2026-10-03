@@ -35,6 +35,7 @@ from core.llm.thinking import thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.memory.session_map.checkpoints import (
     SessionMapCheckpointResult,
+    build_session_map_context_message,
     commit_session_map_context_checkpoint,
     load_session_map_checkpoint,
     load_session_map_pending_evidence,
@@ -100,6 +101,16 @@ class _CompactionStrategyChangedError(ValueError):
 
 class _RecordedAutomaticCompactionFailure(RuntimeError):
     """An owned automatic compaction task has already published its failure."""
+
+
+@dataclass
+class _SessionMapReductionLogState:
+    """Track the content-safe stage reported if one reduction fails."""
+
+    failure_reason: str = "history_snapshot_failed"
+    unavailable_reason: str = "retained_turn_floor"
+    unavailable_messages: tuple[ModelMessage, ...] = ()
+    unavailable_estimated_tokens: int = 0
 
 
 def _compaction_log_context(
@@ -469,7 +480,26 @@ async def compact_chat_context(
             if readiness.strategy != "session_map":
                 raise
     if not readiness.enabled:
-        raise ValueError(f"Session-map compaction is unavailable: {readiness.reason}.")
+        exc = ValueError(f"Session-map compaction is unavailable: {readiness.reason}.")
+        logger.warning(
+            "session_map_context_reduction_failed",
+            data={
+                **_compaction_log_context(
+                    "session_map_context_reduction_failed",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "failed",
+                "source": source.value,
+                "strategy": "session_map",
+                **_compaction_failure_details(
+                    exc, reason="session_map_readiness_failed"
+                ),
+                "readiness_reason": readiness.reason,
+            },
+        )
+        raise exc
+    reduction_log_state = _SessionMapReductionLogState()
     result = await _run_stepped_session_map_reduction(
         session_id=session_id,
         vault_name=vault_name,
@@ -479,17 +509,17 @@ async def compact_chat_context(
         source=source,
         focus=focus,
         force=force,
+        log_state=reduction_log_state,
     )
     if result is None:
-        messages = (
-            chat_store.get_history(session_id, vault_name, mode="effective") or []
-        )
         return _unavailable_compaction_result(
             session_id=session_id,
             vault_name=vault_name,
             strategy="session_map",
-            messages=messages,
+            messages=list(reduction_log_state.unavailable_messages),
             source=source,
+            reason=reduction_log_state.unavailable_reason,
+            estimated_tokens_before=(reduction_log_state.unavailable_estimated_tokens),
         )
     return result
 
@@ -718,6 +748,22 @@ async def compact_chat_history(
                 },
             )
             return result
+    except asyncio.CancelledError:
+        logger.info(
+            "chat_compaction_cancelled",
+            data={
+                **_compaction_log_context(
+                    "chat_compaction_cancelled",
+                    session_id=session_id,
+                    vault_name=vault_name,
+                ),
+                "status": "cancelled",
+                "source": source_value,
+                "strategy": "recovery_card",
+                "reason": "compaction_cancelled",
+            },
+        )
+        raise
     except _CompactionStrategyChangedError:
         logger.info(
             "chat_compaction_strategy_changed",
@@ -758,15 +804,21 @@ def _unavailable_compaction_result(
     strategy: str,
     messages: list[ModelMessage],
     source: ExecutionTaskSource,
+    reason: str = "retained_turn_floor",
+    estimated_tokens_before: int | None = None,
 ) -> ChatContextCompactionUnavailableResult:
     """Complete an explicit no-op without authoring or mutating session history."""
     result = ChatContextCompactionUnavailableResult(
         session_id=session_id,
         vault_name=vault_name,
         strategy=strategy,
-        reason="retained_turn_floor",
+        reason=reason,
         messages_before=len(messages),
-        estimated_tokens_before=estimate_history_tokens(messages),
+        estimated_tokens_before=(
+            estimated_tokens_before
+            if estimated_tokens_before is not None
+            else estimate_history_tokens(messages)
+        ),
         source=source.value,
     )
     logger.info(
@@ -1281,8 +1333,10 @@ async def _run_stepped_session_map_reduction(
     source: ExecutionTaskSource = ExecutionTaskSource.SYSTEM,
     focus: str | None = None,
     force: bool = False,
+    log_state: _SessionMapReductionLogState | None = None,
 ) -> SessionMapContextReductionResult | None:
     """Own one correlated terminal lifecycle for V2 reduction."""
+    reduction_log_state = log_state or _SessionMapReductionLogState()
     try:
         result = await _execute_stepped_session_map_reduction(
             session_id=session_id,
@@ -1293,22 +1347,8 @@ async def _run_stepped_session_map_reduction(
             source=source,
             focus=focus,
             force=force,
+            log_state=reduction_log_state,
         )
-        if result is None:
-            logger.info(
-                "session_map_context_reduction_skipped",
-                data={
-                    **_compaction_log_context(
-                        "session_map_context_reduction_skipped",
-                        session_id=session_id,
-                        vault_name=vault_name,
-                    ),
-                    "status": "skipped",
-                    "source": source.value,
-                    "strategy": "session_map",
-                    "reason": "no_safe_reduction",
-                },
-            )
         return result
     except asyncio.CancelledError:
         logger.info(
@@ -1339,7 +1379,7 @@ async def _run_stepped_session_map_reduction(
                 "source": source.value,
                 "strategy": "session_map",
                 **_compaction_failure_details(
-                    exc, reason="session_map_reduction_failed"
+                    exc, reason=reduction_log_state.failure_reason
                 ),
             },
         )
@@ -1356,6 +1396,7 @@ async def _execute_stepped_session_map_reduction(
     source: ExecutionTaskSource = ExecutionTaskSource.SYSTEM,
     focus: str | None = None,
     force: bool = False,
+    log_state: _SessionMapReductionLogState,
 ) -> SessionMapContextReductionResult | None:
     """Author and commit one map checkpoint while holding the session lock."""
     if not readiness.enabled or readiness.author_model is None:
@@ -1379,6 +1420,7 @@ async def _execute_stepped_session_map_reduction(
         session_id=session_id,
         vault_name=vault_name,
     ):
+        log_state.failure_reason = "history_snapshot_failed"
         history_revision = store.get_session_history_revision(session_id, vault_name)
         checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
         if checkpoint is None:
@@ -1393,6 +1435,7 @@ async def _execute_stepped_session_map_reduction(
             raise ValueError("Recovery-card history is not eligible for stepped maps")
 
         messages = store.get_history(session_id, vault_name, mode="effective") or []
+        log_state.failure_reason = "reduction_planning_failed"
         plan = plan_session_map_reduction(
             messages,
             high_watermark_tokens=readiness.high_watermark_tokens,
@@ -1404,8 +1447,12 @@ async def _execute_stepped_session_map_reduction(
         )
         if plan.status != "planned":
             if plan.reason in {"below_high_watermark", "minimum_retained_groups"}:
+                log_state.unavailable_reason = plan.reason
+                log_state.unavailable_messages = tuple(messages)
+                log_state.unavailable_estimated_tokens = plan.estimated_tokens_before
                 return None
             raise ValueError(f"Stepped eviction unavailable: {plan.reason}")
+        log_state.failure_reason = "canonical_evidence_resolution_failed"
         evidence = build_canonical_eviction_envelopes(
             store=store,
             session_id=session_id,
@@ -1419,6 +1466,7 @@ async def _execute_stepped_session_map_reduction(
 
         cumulative_envelopes = evidence.envelopes
         if pending_evidence is not None:
+            log_state.failure_reason = "pending_evidence_resolution_failed"
             rehydrated = build_canonical_evidence_range(
                 store=store,
                 session_id=session_id,
@@ -1441,6 +1489,7 @@ async def _execute_stepped_session_map_reduction(
                 )
             cumulative_envelopes = (*rehydrated.envelopes, *evidence.envelopes)
 
+        log_state.failure_reason = "supporting_evidence_resolution_failed"
         retained_evidence = _build_retained_session_map_evidence(
             store=store,
             session_id=session_id,
@@ -1476,6 +1525,7 @@ async def _execute_stepped_session_map_reduction(
                 "estimated_tokens_before": plan.estimated_tokens_before,
             },
         )
+        log_state.failure_reason = "map_authoring_failed"
         authored = await run_session_map_authoring(
             SessionMapAuthoringRequest(
                 session_id=session_id,
@@ -1498,11 +1548,19 @@ async def _execute_stepped_session_map_reduction(
             authority=authority,
             source=source,
         )
+        log_state.failure_reason = "history_revision_changed"
         if (
             store.get_session_history_revision(session_id, vault_name)
             != history_revision
         ):
             raise ValueError("Session history changed during map authoring")
+        log_state.failure_reason = "effective_history_projection_failed"
+        projected_messages_after = [
+            build_session_map_context_message(authored.draft),
+            *messages[plan.eviction_end_index :],
+        ]
+        estimated_after = estimate_history_tokens(projected_messages_after)
+        log_state.failure_reason = "checkpoint_commit_failed"
         committed: SessionMapCheckpointResult = commit_session_map_context_checkpoint(
             store=store,
             session_id=session_id,
@@ -1520,10 +1578,6 @@ async def _execute_stepped_session_map_reduction(
             recent_evidence=retained_evidence,
             retrieved_evidence=retrieved_evidence.messages,
         )
-        messages_after = (
-            store.get_history(session_id, vault_name, mode="effective") or []
-        )
-        estimated_after = estimate_history_tokens(messages_after)
         result = SessionMapContextReductionResult(
             session_id=session_id,
             vault_name=vault_name,
@@ -1534,7 +1588,7 @@ async def _execute_stepped_session_map_reduction(
                 committed.checkpoint.last_message_sequence_index
             ),
             messages_before=plan.message_count_before,
-            messages_after=len(messages_after),
+            messages_after=len(projected_messages_after),
             estimated_tokens_before=plan.estimated_tokens_before,
             estimated_tokens_after=estimated_after,
             source=source.value,
@@ -1548,6 +1602,7 @@ async def _execute_stepped_session_map_reduction(
                     vault_name=vault_name,
                 ),
                 "status": "completed",
+                "strategy": "session_map",
                 **asdict(result),
                 "prompt_contract_version": SESSION_MAP_CONTEXT_PROMPT_VERSION,
                 "entry_count": len(authored.draft.entries),

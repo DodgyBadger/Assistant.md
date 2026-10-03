@@ -600,6 +600,25 @@ class ChatSessionForkLineageScenario(BaseScenario):
             ),
             "Failed fork Activity should retain a distinct lifecycle and failure identity",
         )
+        rejected_forks = [
+            entry
+            for entry in entries
+            if entry.get("data", {}).get("event") == "chat_session_fork_failed"
+            and entry.get("data", {}).get("source_session_id") == protocol_session_id
+        ]
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("status") == "failed"
+                and entry.get("data", {}).get("vault_name") == vault.name
+                and entry.get("data", {}).get("error_type")
+                == "ChatSessionForkPointInvalid"
+                and entry.get("data", {}).get("reason") == "request_rejected"
+                and entry.get("data", {}).get("operation_id")
+                and "protocol-complete" not in json.dumps(entry)
+                for entry in rejected_forks
+            ),
+            "Rejected fork Activity should preserve its semantic error type without exception detail",
+        )
         completed_operation_ids = {
             entry.get("data", {}).get("operation_id") for entry in completed_forks
         }

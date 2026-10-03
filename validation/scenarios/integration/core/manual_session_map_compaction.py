@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from contextlib import ExitStack
@@ -212,7 +213,7 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                 unavailable_response.json().get("status"),
                 unavailable_response.json().get("reason"),
             ),
-            (200, "unavailable", "retained_turn_floor"),
+            (200, "unavailable", "minimum_retained_groups"),
             "A request with no safely evictable group should return a stable no-op",
         )
         self.soft_assert_equal(
@@ -282,6 +283,9 @@ class ManualSessionMapCompactionScenario(BaseScenario):
         )
         await self._check_shared_author_and_no_op_contract(vault.name, str(vault))
         await self._check_compaction_activity_contract(vault.name)
+        await self._check_tool_integrity_activity(vault.name)
+        await self._check_recovery_card_cancellation_activity(vault.name)
+        await self._check_session_map_cancellation_activity(vault.name)
         await self._check_manual_api_failure_projection(vault.name)
         self.assert_no_failures()
 
@@ -520,6 +524,67 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             data={"value": "recovery_card"},
         )
         assert response.status_code == 200
+        completed_session = "activity-v1-completed"
+        store.ensure_session(
+            completed_session,
+            vault_name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            completed_session,
+            vault_name,
+            [
+                _user("Older"),
+                _assistant("Answer"),
+                _user("Recent"),
+                _assistant("Answer"),
+            ],
+        )
+        with patch(
+            "core.chat.compaction._generate_compaction_summary",
+            AsyncMock(return_value="Continue from the retained recovery context."),
+        ):
+            completed_result = await compaction.run_chat_context_compaction(
+                session_id=completed_session,
+                vault_name=vault_name,
+                authority=ExecutionAuthority(LOCAL_USER_PRINCIPAL_ID),
+                store=store,
+            )
+        completed_activity = self.call_api(
+            "/api/system/activity-log", params={"search": completed_session}
+        )
+        assert completed_activity.status_code == 200
+        completed_lifecycle = {
+            entry["data"]["event"]: entry["data"]
+            for entry in completed_activity.json()["entries"]
+            if entry.get("data", {}).get("event", "").startswith("chat_compaction_")
+        }
+        self.soft_assert_equal(
+            {
+                event: entry.get("status")
+                for event, entry in completed_lifecycle.items()
+            },
+            {
+                "chat_compaction_started": "started",
+                "chat_compaction_plan_selected": "selected",
+                "chat_compaction_completed": "completed",
+            },
+            "V1 Activity must expose one start/plan/durable-completion lifecycle",
+        )
+        completed_tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.HISTORY_COMPACTION.value,
+            scope=chat_session_scope(completed_session),
+        )
+        assert len(completed_tasks) == 1
+        completion = completed_lifecycle["chat_compaction_completed"]
+        self.soft_assert(
+            completion.get("task_id") == completed_tasks[0].task_id
+            and completion.get("checkpoint_id")
+            == completed_result.as_api_dict().get("checkpoint_id")
+            and completion.get("vault_name") == vault_name
+            and completion.get("raw_messages_preserved") is True,
+            "V1 completion must identify its task, vault, and durable checkpoint",
+        )
         private_marker = "PRIVATE_COMPACTION_FAILURE_CONTENT"
         session_ids = ("activity-v1-failure-first", "activity-v1-failure-second")
         for session_id in session_ids:
@@ -623,6 +688,225 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             "Failures should project bounded content-safe stage and error diagnostics",
         )
 
+    async def _check_tool_integrity_activity(self, vault_name: str) -> None:
+        import core.chat.compaction as compaction
+
+        runtime = get_runtime_context()
+        store = runtime.chat_store
+        response = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "recovery_card"},
+        )
+        assert response.status_code == 200
+        session_id = "activity-v1-tool-integrity"
+        store.ensure_session(
+            session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        store.add_messages(
+            session_id,
+            vault_name,
+            [
+                _user("Use the probe"),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            tool_name="probe", args={}, tool_call_id="pending-probe"
+                        )
+                    ]
+                ),
+                _user("Continue"),
+                _assistant("Continued"),
+            ],
+        )
+        with patch(
+            "core.chat.compaction._generate_compaction_summary",
+            AsyncMock(return_value="Recovery state"),
+        ):
+            await compaction.run_chat_context_compaction(
+                session_id=session_id,
+                vault_name=vault_name,
+                authority=ExecutionAuthority(LOCAL_USER_PRINCIPAL_ID),
+                store=store,
+            )
+        activity = self.call_api(
+            "/api/system/activity-log", params={"search": session_id}
+        )
+        assert activity.status_code == 200
+        warnings = [
+            entry["data"]
+            for entry in activity.json()["entries"]
+            if entry.get("data", {}).get("event")
+            == "chat_compaction_tool_integrity_issue"
+        ]
+        self.soft_assert(
+            len(warnings) == 1
+            and warnings[0].get("status") == "warning"
+            and warnings[0].get("vault_name") == vault_name
+            and warnings[0].get("tool_history_integrity_status") == "issues"
+            and warnings[0].get("issue_count") == 1
+            and warnings[0].get("issue_codes") == ["orphan_tool_call"]
+            and warnings[0].get("issue"),
+            "Tool-history warnings need compact, searchable Activity diagnostics",
+        )
+
+    async def _check_recovery_card_cancellation_activity(self, vault_name: str) -> None:
+        import core.chat.compaction as compaction
+
+        runtime = get_runtime_context()
+        store = runtime.chat_store
+        response = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "recovery_card"},
+        )
+        assert response.status_code == 200
+        session_id = "activity-v1-cancelled"
+        store.ensure_session(
+            session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        store.add_messages(
+            session_id,
+            vault_name,
+            [
+                _user("Older evidence " * 80),
+                _assistant("Detailed older answer " * 80),
+                _user("Recent"),
+                _assistant("Answer"),
+            ],
+        )
+        with patch(
+            "core.chat.compaction._generate_compaction_summary",
+            AsyncMock(side_effect=asyncio.CancelledError()),
+        ):
+            try:
+                await compaction.run_chat_context_compaction(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    authority=ExecutionAuthority(LOCAL_USER_PRINCIPAL_ID),
+                    store=store,
+                )
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Cancellation must leave the compaction call")
+
+        tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.HISTORY_COMPACTION.value,
+            scope=chat_session_scope(session_id),
+        )
+        assert len(tasks) == 1
+        self.soft_assert_equal(
+            tasks[0].status,
+            "cancelled",
+            "Cancelled recovery-card work must cancel its execution task",
+        )
+        activity = self.call_api(
+            "/api/system/activity-log", params={"search": session_id}
+        )
+        assert activity.status_code == 200
+        domain_events = [
+            entry["data"]
+            for entry in activity.json()["entries"]
+            if entry.get("data", {}).get("event", "").startswith("chat_compaction_")
+        ]
+        lifecycle = {entry["event"]: entry for entry in domain_events}
+        self.soft_assert_equal(
+            {event: entry.get("status") for event, entry in lifecycle.items()},
+            {
+                "chat_compaction_started": "started",
+                "chat_compaction_plan_selected": "selected",
+                "chat_compaction_cancelled": "cancelled",
+            },
+            "V1 cancellation needs one explicit domain terminal outcome",
+        )
+        cancelled = lifecycle["chat_compaction_cancelled"]
+        self.soft_assert(
+            cancelled.get("task_id") == tasks[0].task_id
+            and cancelled.get("vault_name") == vault_name
+            and cancelled.get("reason") == "compaction_cancelled",
+            "V1 cancellation must retain safe task and session correlation",
+        )
+
+    async def _check_session_map_cancellation_activity(self, vault_name: str) -> None:
+        import core.chat.compaction as compaction
+
+        runtime = get_runtime_context()
+        store = runtime.chat_store
+        response = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "session_map"},
+        )
+        assert response.status_code == 200
+        session_id = "activity-v2-cancelled"
+        store.ensure_session(
+            session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+        )
+        store.add_messages(
+            session_id,
+            vault_name,
+            [
+                _user("Older evidence " * 80),
+                _assistant("Detailed older answer " * 80),
+                _user("Recent"),
+                _assistant("Answer"),
+            ],
+        )
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            AsyncMock(side_effect=asyncio.CancelledError()),
+        ):
+            try:
+                await compaction.run_chat_context_compaction(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    authority=ExecutionAuthority(LOCAL_USER_PRINCIPAL_ID),
+                    store=store,
+                )
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Cancellation must leave the compaction call")
+
+        tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.HISTORY_COMPACTION.value,
+            scope=chat_session_scope(session_id),
+        )
+        assert len(tasks) == 1
+        self.soft_assert_equal(
+            tasks[0].status,
+            "cancelled",
+            "Cancelled session-map work must cancel its execution task",
+        )
+        activity = self.call_api(
+            "/api/system/activity-log", params={"search": session_id}
+        )
+        assert activity.status_code == 200
+        lifecycle = {
+            entry["data"]["event"]: entry["data"]
+            for entry in activity.json()["entries"]
+            if entry.get("data", {})
+            .get("event", "")
+            .startswith("session_map_context_reduction_")
+        }
+        self.soft_assert_equal(
+            {event: entry.get("status") for event, entry in lifecycle.items()},
+            {
+                "session_map_context_reduction_started": "started",
+                "session_map_context_reduction_plan_selected": "selected",
+                "session_map_context_reduction_cancelled": "cancelled",
+            },
+            "V2 cancellation needs one explicit domain terminal outcome",
+        )
+        cancelled = lifecycle["session_map_context_reduction_cancelled"]
+        self.soft_assert(
+            cancelled.get("task_id") == tasks[0].task_id
+            and cancelled.get("vault_name") == vault_name
+            and cancelled.get("reason") == "reduction_cancelled",
+            "V2 cancellation must retain safe task and session correlation",
+        )
+
     async def _check_shared_author_and_no_op_contract(
         self, vault_name: str, vault_path: str
     ) -> None:
@@ -639,6 +923,15 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             )
             assert response.status_code == 200
             for message_count in (0, 2):
+                expected_reason = (
+                    "retained_turn_floor"
+                    if strategy == "recovery_card"
+                    else (
+                        "below_high_watermark"
+                        if message_count == 0
+                        else "minimum_retained_groups"
+                    )
+                )
                 session_id = f"manual-no-op-{strategy}-{message_count}"
                 store.ensure_session(
                     session_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
@@ -670,7 +963,7 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                         payload.get("status"),
                         payload.get("reason"),
                     ),
-                    (200, "unavailable", "retained_turn_floor"),
+                    (200, "unavailable", expected_reason),
                     f"{strategy} should treat an empty or retained-only request as a no-op",
                 )
                 self.soft_assert_equal(
@@ -709,12 +1002,22 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                         and entry["data"].get("vault_name") == vault_name
                         and entry["data"].get("strategy") == strategy
                         and entry["data"].get("status") == "unavailable"
-                        and entry["data"].get("reason") == "retained_turn_floor"
+                        and entry["data"].get("reason") == expected_reason
                         and entry["data"].get("task_id") == tasks[0].task_id
                         for entry in activity_response.json()["entries"]
                     ),
                     "System Activity must distinguish a harmless no-op from a failed compaction",
                 )
+                if strategy == "session_map":
+                    self.soft_assert(
+                        not any(
+                            entry.get("data", {}).get("event")
+                            == "session_map_context_reduction_skipped"
+                            and entry["data"].get("session_id") == session_id
+                            for entry in activity_response.json()["entries"]
+                        ),
+                        "A V2 no-op must publish only one domain terminal outcome",
+                    )
 
             session_id = f"manual-author-readiness-{strategy}"
             store.ensure_session(
@@ -807,6 +1110,29 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                     store.get_session_history_revision(session_id, vault_name),
                     revision,
                     "Rejected author readiness must not change session state",
+                )
+
+            if strategy == "session_map":
+                activity_response = self.call_api(
+                    "/api/system/activity-log", params={"search": session_id}
+                )
+                assert activity_response.status_code == 200
+                readiness_failures = [
+                    entry["data"]
+                    for entry in activity_response.json()["entries"]
+                    if entry.get("data", {}).get("event")
+                    == "session_map_context_reduction_failed"
+                ]
+                self.soft_assert(
+                    bool(readiness_failures)
+                    and all(
+                        entry.get("status") == "failed"
+                        and entry.get("reason") == "session_map_readiness_failed"
+                        and entry.get("error_type") == "ValueError"
+                        and entry.get("readiness_reason")
+                        for entry in readiness_failures
+                    ),
+                    "Manual V2 readiness rejection needs a safe domain failure outcome",
                 )
 
             if strategy == "session_map":

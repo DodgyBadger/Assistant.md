@@ -52,6 +52,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         fragment_session_id = "session_ops_transcript_fragment"
         continuation_session_id = "session_ops_transcript_continuation"
         infrastructure_session_id = "session_ops_transcript_infrastructure"
+        untrusted_operation_session_id = "session_ops_untrusted_operation"
         source_session_id = "session_ops_transcript_source"
         chat_store.ensure_session(
             session_id,
@@ -148,6 +149,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             fragment_session_id,
             continuation_session_id,
             infrastructure_session_id,
+            untrusted_operation_session_id,
         ):
             chat_store.ensure_session(
                 controller_id, vault.name, owner_principal_id="local-user"
@@ -190,6 +192,11 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                         "operation": "search_transcript",
                         "query": "private transcript query marker",
                         "limit": 5,
+                    }
+                if current_case["name"] == "untrusted-operation":
+                    return {
+                        "operation": "private-model-supplied-operation-marker",
+                        "limit": "invalid",
                     }
                 if current_case["name"] == "window":
                     return {
@@ -670,14 +677,43 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                     and failure.get("data", {}).get("vault_name") == vault.name
                     and failure.get("data", {}).get("operation") == "search_transcript"
                     and failure.get("data", {}).get("error_type") == "OperationalError"
+                    and failure.get("data", {}).get("tool_call_id")
+                    == results[0].tool_call_id
+                    and failure.get("data", {}).get("run_id")
                     and failure.get("data", {}).get("issue")
                     for failure in retrieval_failures
                 ),
-                "Unexpected active-session retrieval failures should be searchable with resolved identities",
+                "Unexpected active-session retrieval failures should correlate to their chat run and tool call",
             )
             self.soft_assert(
                 "private transcript query marker" not in json.dumps(retrieval_failures),
                 "Retrieval failure activity must not include raw search queries",
+            )
+            current_case["name"] = "untrusted-operation"
+            await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "Attempt an invalid session operation.",
+                    "session_id": untrusted_operation_session_id,
+                    "tools": ["session_ops"],
+                    "model": "test",
+                }
+            )
+            activity_response = self.call_api("/api/system/activity-log?limit=200")
+            assert activity_response.status_code == 200
+            untrusted_failures = [
+                entry
+                for entry in activity_response.json()["entries"]
+                if entry.get("data", {}).get("event") == "session_ops_failed"
+                and entry.get("data", {}).get("session_id")
+                == untrusted_operation_session_id
+            ]
+            self.soft_assert(
+                len(untrusted_failures) == 1
+                and untrusted_failures[0].get("data", {}).get("operation") == "unknown"
+                and "private-model-supplied-operation-marker"
+                not in json.dumps(untrusted_failures),
+                "Activity must not retain an unrecognized model-supplied operation argument",
             )
         finally:
             chat_executor._prepare_agent_config = original_prepare

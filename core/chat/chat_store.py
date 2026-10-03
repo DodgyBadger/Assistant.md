@@ -1660,8 +1660,8 @@ class ChatStore:
         metadata: dict[str, Any] | None = None,
         metadata_update: dict[str, Any] | None = None,
         expected_history_revision: int | None = None,
-    ) -> None:
-        """Atomically record one typed effective-history checkpoint."""
+    ) -> StoredContextCheckpoint:
+        """Atomically record and return one typed effective-history checkpoint."""
         if checkpoint_kind not in {"recovery_card", "session_map"}:
             raise ValueError(f"Unsupported context checkpoint kind: {checkpoint_kind}")
         with self.transaction() as conn:
@@ -1761,6 +1761,22 @@ class ChatStore:
                 metadata_update=metadata_update,
                 advance_history_revision=True,
             )
+            row = conn.execute(
+                """
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE checkpoint_id = ? AND session_id = ? AND vault_name = ?
+                """,
+                (checkpoint_id, session_id, vault_name),
+            ).fetchone()
+            if row is None:  # pragma: no cover - guarded by the insert above
+                raise RuntimeError("Inserted context checkpoint could not be loaded")
+            checkpoint = self._context_checkpoint_from_row(row)
+        return checkpoint
 
     def _fetch_messages(
         self,

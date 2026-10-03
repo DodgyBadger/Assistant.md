@@ -384,6 +384,18 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
             ),
             "Reduction failure must identify its owning task with bounded diagnostics",
         )
+        failure_reasons = {
+            entry.get("session_id"): entry.get("reason") for entry in failures
+        }
+        self.soft_assert_equal(
+            failure_reasons,
+            {
+                successful_session: "map_authoring_failed",
+                failed_session: "map_authoring_failed",
+                commit_failed_session: "checkpoint_commit_failed",
+            },
+            "V2 failures must identify their content-safe reduction stage",
+        )
         completed = [
             entry
             for entry in entries
@@ -392,8 +404,9 @@ class SteppedSessionMapPostTurnScenario(BaseScenario):
         self.soft_assert(
             len(completed) == 1
             and completed[0].get("status") == "completed"
+            and completed[0].get("strategy") == "session_map"
             and completed[0].get("task_id") == compaction_tasks[0].task_id,
-            "Durable reduction completion must identify the outer compaction task",
+            "Durable reduction completion must identify its strategy and outer task",
         )
         success_lifecycle = {
             entry["event"]: entry

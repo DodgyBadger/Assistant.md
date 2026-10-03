@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from collections.abc import AsyncIterator
@@ -218,6 +219,50 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
             "Rejected provenance should emit a domain failure event",
         )
         await self._test_content_safe_distinct_failures(request)
+
+        async def cancel_authoring(**_kwargs: object) -> SessionMapDraft:
+            raise asyncio.CancelledError
+
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            new=cancel_authoring,
+        ):
+            try:
+                await run_session_map_authoring(
+                    request,
+                    authority=LOCAL_USER_AUTHORITY,
+                    source=ExecutionTaskSource.SYSTEM,
+                )
+            except asyncio.CancelledError:
+                pass
+            else:
+                self.soft_assert(False, "Cancelled authoring must leave the call")
+        tasks = await runtime.task_coordinator.list_tasks(
+            kind=ExecutionTaskKind.SESSION_MAP_AUTHORING.value
+        )
+        cancelled_task = tasks[-1]
+        self.soft_assert_equal(
+            cancelled_task.status,
+            "cancelled",
+            "Cancelled authoring must cancel its execution task",
+        )
+        activity = self.call_api(
+            "/api/system/activity-log", params={"search": cancelled_task.task_id}
+        )
+        assert activity.status_code == 200
+        cancelled_events = [
+            entry["data"]
+            for entry in activity.json()["entries"]
+            if entry.get("data", {}).get("event") == "session_map_authoring_cancelled"
+        ]
+        self.soft_assert(
+            len(cancelled_events) == 1
+            and cancelled_events[0].get("status") == "cancelled"
+            and cancelled_events[0].get("session_id") == request.session_id
+            and cancelled_events[0].get("vault_name") == request.vault_name
+            and cancelled_events[0].get("reason") == "authoring_cancelled",
+            "Cancelled authoring needs one safe, correlated domain terminal event",
+        )
 
         structured_calls = 0
 

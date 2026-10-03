@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import asdict, dataclass
 from typing import Literal, cast
+from uuid import uuid4
 
 from core.identity import ExecutionAuthority
 from core.llm.thinking import ThinkingValue
@@ -177,12 +178,28 @@ async def start_session_context_strategy_upgrade(
     authority: ExecutionAuthority,
 ) -> ExecutionTaskSnapshot:
     """Start or reuse one explicitly selected active upgrade."""
-    async with _UPGRADE_ADMISSION_LOCK:
-        return await _admit_session_context_strategy_upgrade(
-            session_id=session_id,
-            vault_name=vault_name,
-            authority=authority,
+    operation_id = uuid4().hex
+    try:
+        async with _UPGRADE_ADMISSION_LOCK:
+            return await _admit_session_context_strategy_upgrade(
+                session_id=session_id,
+                vault_name=vault_name,
+                authority=authority,
+            )
+    except SessionContextStrategyUpgradeUnavailable as exc:
+        logger.info(
+            "context_strategy_upgrade_unavailable",
+            data={
+                "event": "context_strategy_upgrade_unavailable",
+                "status": "unavailable",
+                "operation_id": operation_id,
+                "source": ExecutionTaskSource.API.value,
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "reason": exc.reason,
+            },
         )
+        raise
 
 
 async def _admit_session_context_strategy_upgrade(

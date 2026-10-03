@@ -634,7 +634,9 @@ def fork_chat_session(
             operation_id=operation_id,
         )
     except Exception as exc:
-        error_type = type(exc).__name__
+        error_type = (
+            exc.error_type if isinstance(exc, APIException) else type(exc).__name__
+        )
         logger.warning(
             "chat_session_fork_failed",
             data={
@@ -646,6 +648,11 @@ def fork_chat_session(
                 "source_session_id": source_session_id,
                 "canonical_through_sequence_index": through_sequence_index,
                 "error_type": error_type,
+                "reason": (
+                    "request_rejected"
+                    if isinstance(exc, APIException)
+                    else "fork_execution_failed"
+                ),
                 "error": "The session fork failed; inspect server diagnostics.",
             },
         )

@@ -64,6 +64,17 @@ SESSION_SEARCH_MIN_SCORE = 0.05
 SESSION_WORKSPACE_BOOST = 0.08
 SESSION_SEARCH_FETCH_MULTIPLIER = 20
 SESSION_SEARCH_MIN_FETCH_LIMIT = 100
+_SESSION_OP_ACTIVITY_NAMES = frozenset(
+    {
+        "list_sessions",
+        "upsert_session_summary",
+        "summarize_session",
+        "get_session_summary",
+        "search_transcript",
+        "get_transcript_window",
+        "search_sessions",
+    }
+)
 
 
 class SessionSummaryIndexingError(RuntimeError):
@@ -494,7 +505,9 @@ class SessionOps(BaseTool):
                 raise
             except Exception as exc:  # noqa: BLE001
                 error_type = type(exc).__name__
-                resolved_operation = op or str(operation or "").strip().lower()
+                resolved_operation = (
+                    op if op in _SESSION_OP_ACTIVITY_NAMES else "unknown"
+                )
                 issue_scope = ":".join(
                     part
                     for part in (
@@ -512,6 +525,8 @@ class SessionOps(BaseTool):
                         "operation": resolved_operation,
                         "vault_name": active_vault_name,
                         "session_id": active_session_id,
+                        "run_id": ctx.run_id,
+                        "tool_call_id": ctx.tool_call_id,
                         "error_type": error_type,
                         "error": "The session operation failed; inspect server diagnostics.",
                         "issue": f"session_ops:{issue_scope}",

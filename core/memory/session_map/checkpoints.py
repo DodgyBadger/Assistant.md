@@ -214,7 +214,7 @@ def commit_session_map_context_checkpoint(
     }
     if authoring_task_id:
         metadata["authoring_task_id"] = authoring_task_id
-    store.add_context_checkpoint(
+    checkpoint = store.add_context_checkpoint(
         session_id=session_id,
         vault_name=vault_name,
         checkpoint_id=resolved_checkpoint_id,
@@ -237,9 +237,6 @@ def commit_session_map_context_checkpoint(
         },
         expected_history_revision=expected_history_revision,
     )
-    checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
-    if checkpoint is None or checkpoint.checkpoint_id != resolved_checkpoint_id:
-        raise RuntimeError("Committed session-map checkpoint could not be reloaded")
     return SessionMapCheckpointResult(checkpoint=checkpoint, draft=draft)
 
 

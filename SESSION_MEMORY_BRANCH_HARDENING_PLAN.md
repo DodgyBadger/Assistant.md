@@ -416,6 +416,12 @@ Exit evidence: focused scenarios cover each consequential failure boundary and l
 
 Exit evidence: an operator can locate a failed or skipped operation from user-known session/task identity without inspecting prompts or sensitive content.
 
+#### Stage 4 Results
+
+Repeated fresh-agent review traced retained System Activity across recovery-card and session-map compaction, map authoring, strategy upgrades, forks, transcript retrieval failures, and the shared execution-task spine. Domain lifecycles now publish one correlated terminal outcome for cancellation, no-op, completion, readiness rejection, and failure; V2 failures retain safe stage-specific reasons; expected fork rejections retain their semantic error type; upgrade admission failures remain searchable before task creation; and `session_ops` failures carry run/tool-call correlation while allowlisting the model-supplied operation name. Prompt text, transcript content, query text, tool arguments, provider exception content, and model output remain excluded.
+
+The audit also removed two misleading post-mutation failure edges. Effective-history projection and token estimation now complete before a V2 checkpoint write, and checkpoint materialization is verified inside the same SQLite transaction rather than through a fallible read after commit. Planner no-op reasons survive into the API and Activity result, successful V2 completion identifies its strategy, and retained-Activity regressions cover cancellation, tool-history warnings, readiness failures, semantic fork rejection, and untrusted operation-name redaction. The consolidated focused profile passed 7/7 scenarios in report `validation/runs/reports/20261003_064542_467802.md`, and the settled tree passed all 131 scenarios in the full deterministic profile in report `validation/runs/reports/20261003_064741_359881.md`.
+
 ### Stage 5 — Frontend and Operator Experience
 
 - Manually exercise desktop and mobile session-map inspection, revision and transcript paging, tool detail Back navigation, upgrade state, compaction notice, current/evicted forks, and dashboard polling.
