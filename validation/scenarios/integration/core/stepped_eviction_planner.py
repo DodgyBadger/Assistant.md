@@ -45,7 +45,9 @@ class SteppedEvictionPlannerScenario(BaseScenario):
                     "no_op" if case.issue_codes else "planned"
                 ), case.name
                 if not case.issue_codes:
-                    assert plan.eviction_end_index == len(case.messages) - 2, case.name
+                    assert plan.eviction_end_index == len(case.messages), case.name
+                    assert plan.estimated_tokens_after == 0, case.name
+                    assert plan.retained_group_preference_relaxed is True, case.name
 
         ordinary = [
             _user("first question " * 40),
@@ -185,9 +187,10 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             minimum_retained_groups=1,
         )
         assert oversized_plan.status == "planned"
-        assert oversized_plan.reason == "retained_group_floor_exceeds_low_watermark"
-        assert oversized_plan.eviction_end_index == 2
-        assert oversized_plan.estimated_tokens_after == oversized_recent
+        assert oversized_plan.reason == "low_watermark_reached"
+        assert oversized_plan.eviction_end_index == len(oversized_latest)
+        assert oversized_plan.estimated_tokens_after == 0
+        assert oversized_plan.retained_group_preference_relaxed is True
 
         abandoned_prefix = [
             _user("An unanswered old request."),
@@ -201,10 +204,11 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             minimum_retained_groups=1,
         )
         assert abandoned_plan.status == "planned"
-        assert abandoned_plan.reason == "retained_group_floor_exceeds_low_watermark"
-        assert abandoned_plan.eviction_end_index == 1
-        assert abandoned_plan.evicted_message_count == 1
-        assert abandoned_plan.retained_message_count == 2
+        assert abandoned_plan.reason == "low_watermark_reached"
+        assert abandoned_plan.eviction_end_index == len(abandoned_prefix)
+        assert abandoned_plan.evicted_message_count == len(abandoned_prefix)
+        assert abandoned_plan.retained_message_count == 0
+        assert abandoned_plan.retained_group_preference_relaxed is True
 
         newest_incomplete = [
             _user("An answered old request."),
@@ -218,9 +222,14 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             minimum_retained_groups=1,
         )
         assert newest_incomplete_plan.status == "planned"
+        assert (
+            newest_incomplete_plan.reason
+            == "incomplete_latest_group_exceeds_low_watermark"
+        )
         assert newest_incomplete_plan.eviction_end_index == 2
         assert newest_incomplete_plan.evicted_message_count == 2
         assert newest_incomplete_plan.retained_message_count == 1
+        assert newest_incomplete_plan.retained_group_preference_relaxed is False
 
         malformed_tools = [
             _user("Use a tool."),
@@ -314,11 +323,12 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             minimum_retained_groups=3,
         )
         assert floor_plan.status == "planned"
-        assert floor_plan.reason == "retained_group_floor_exceeds_low_watermark"
-        assert floor_plan.eviction_end_index == 2
-        assert floor_plan.evicted_group_count == 1
-        assert floor_plan.group_count - floor_plan.evicted_group_count == 3
-        assert floor_plan.estimated_tokens_after > floor_plan.low_watermark_tokens
+        assert floor_plan.reason == "low_watermark_reached"
+        assert floor_plan.eviction_end_index == len(long_latest_with_floor)
+        assert floor_plan.evicted_group_count == 4
+        assert floor_plan.group_count - floor_plan.evicted_group_count == 0
+        assert floor_plan.estimated_tokens_after <= floor_plan.low_watermark_tokens
+        assert floor_plan.retained_group_preference_relaxed is True
 
         exactly_floor = compaction.plan_stepped_history_eviction(
             long_latest_with_floor[-6:],
@@ -326,8 +336,10 @@ class SteppedEvictionPlannerScenario(BaseScenario):
             low_watermark_tokens=0,
             minimum_retained_groups=3,
         )
-        assert exactly_floor.status == "no_op"
-        assert exactly_floor.reason == "minimum_retained_groups"
+        assert exactly_floor.status == "planned"
+        assert exactly_floor.reason == "low_watermark_reached"
+        assert exactly_floor.eviction_end_index == 6
+        assert exactly_floor.retained_group_preference_relaxed is True
 
         try:
             compaction.plan_stepped_history_eviction(

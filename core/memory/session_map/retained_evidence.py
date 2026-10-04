@@ -24,7 +24,9 @@ def project_retained_session_map_evidence(
     retained: Sequence[StoredChatMessage],
 ) -> tuple[SessionMapMessageEvidence, ...]:
     """Cite the canonical retained suffix without raw retrieval tool returns."""
-    if not retained or not has_contiguous_canonical_sequences(retained):
+    if not retained:
+        return ()
+    if not has_contiguous_canonical_sequences(retained):
         raise ValueError("Retained session-map evidence is not canonical")
     projected: list[SessionMapMessageEvidence] = []
     for stored in retained:

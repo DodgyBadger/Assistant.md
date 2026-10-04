@@ -981,7 +981,7 @@ def get_compaction_low_watermark_tokens() -> int:
 
 
 def get_compaction_retained_turns() -> int:
-    """Return the minimum newest conversational turns retained verbatim."""
+    """Return the configured newest-turn retention preference."""
     entry = get_general_settings().get("compaction_retained_turns")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(

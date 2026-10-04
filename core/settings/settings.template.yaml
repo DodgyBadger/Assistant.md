@@ -197,12 +197,12 @@ settings:
     restart_required: false
   compaction_low_watermark_tokens:
     value: 20000
-    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. Complete conversational turns and compaction_retained_turns take precedence, so the actual history size can exceed this target. Must be lower than compaction_high_watermark_tokens."
+    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. An incomplete active turn remains verbatim and can cause the actual size to exceed this target. Must be lower than compaction_high_watermark_tokens."
     category: "Chat"
     restart_required: false
   compaction_retained_turns:
     value: 3
-    description: "Minimum number of newest conversational turns preserved verbatim by recovery-card and session-map compaction. A turn includes its user request, assistant response, and any intervening tool exchange. Must be between 1 and 100; for session maps this floor can cause retained history to exceed compaction_low_watermark_tokens."
+    description: "Number of newest conversational turns preferred for verbatim retention. Recovery-card compaction preserves this minimum. Compaction v2 preserves as many as fit within compaction_low_watermark_tokens and moves additional completed turns into the session map. A turn includes its user request, assistant response, and intervening tool exchange. Must be between 1 and 100."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:

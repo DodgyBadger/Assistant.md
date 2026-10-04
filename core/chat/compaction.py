@@ -209,6 +209,7 @@ class SteppedHistoryEvictionPlan:
     eviction_start_index: int
     eviction_end_index: int
     minimum_retained_groups: int
+    retained_group_preference_relaxed: bool
 
 
 @dataclass(frozen=True)
@@ -320,7 +321,7 @@ async def get_compaction_status(
     groups = _group_history_messages(messages[retained_prefix_count:])
     retained_turns = get_compaction_retained_turns()
     low_watermark = get_compaction_low_watermark_tokens()
-    manual_available = len(groups) > retained_turns
+    manual_available = bool(groups)
     if manual_available:
         if strategy == "session_map":
             readiness = evaluate_session_map_compaction_readiness(
@@ -340,7 +341,10 @@ async def get_compaction_status(
                     is None
                 )
         else:
-            manual_available = evaluate_compaction_author_readiness().enabled
+            manual_available = (
+                len(groups) > retained_turns
+                and evaluate_compaction_author_readiness().enabled
+            )
     return ChatHistoryCompactionStatus(
         session_id=session_id,
         vault_name=vault_name,
@@ -927,8 +931,10 @@ def _assess_stepped_history_eviction(
         return estimated, groups, "below_high_watermark"
     if not analyze_tool_history(evictable).ok:
         return estimated, groups, "invalid_tool_history"
-    if len(groups) <= minimum_retained_groups:
-        return estimated, groups, "minimum_retained_groups"
+    if not groups:
+        return estimated, groups, "no_evictable_groups"
+    if len(groups) == 1 and not _history_group_is_complete(evictable, groups[0]):
+        return estimated, groups, "incomplete_latest_group"
     return estimated, groups, None
 
 
@@ -941,7 +947,7 @@ def plan_stepped_history_eviction(
     history_revision: int | None = None,
     retained_prefix_count: int = 0,
 ) -> SteppedHistoryEvictionPlan:
-    """Plan safe oldest-group eviction while preserving a recent group floor."""
+    """Plan safe oldest-group eviction within a preferred recent-turn budget."""
     estimated_before, groups, unavailable_reason = _assess_stepped_history_eviction(
         messages,
         high_watermark_tokens=high_watermark_tokens,
@@ -962,10 +968,18 @@ def plan_stepped_history_eviction(
             minimum_retained_groups=minimum_retained_groups,
         )
 
-    eviction_end_index = 0
+    protected_group_count = (
+        0
+        if _history_group_is_complete(messages[retained_prefix_count:], groups[-1])
+        else 1
+    )
+    evictable_groups = (
+        groups if protected_group_count == 0 else groups[:-protected_group_count]
+    )
+    eviction_end_index = retained_prefix_count
     evicted_group_count = 0
     estimated_after = estimated_before
-    for group in groups[:-minimum_retained_groups]:
+    for group in evictable_groups:
         eviction_end_index = retained_prefix_count + group.end_index
         evicted_group_count += 1
         estimated_after = estimate_history_tokens(
@@ -978,12 +992,18 @@ def plan_stepped_history_eviction(
             break
 
     target_reached = estimated_after <= low_watermark_tokens
+    retained_group_count = len(groups) - evicted_group_count
+    preference_relaxed = retained_group_count < minimum_retained_groups
     return SteppedHistoryEvictionPlan(
         status="planned",
         reason=(
             "low_watermark_reached"
             if target_reached
-            else "retained_group_floor_exceeds_low_watermark"
+            else (
+                "incomplete_latest_group_exceeds_low_watermark"
+                if protected_group_count
+                else "retained_prefix_exceeds_low_watermark"
+            )
         ),
         history_revision=history_revision,
         high_watermark_tokens=high_watermark_tokens,
@@ -1001,6 +1021,7 @@ def plan_stepped_history_eviction(
         eviction_start_index=retained_prefix_count,
         eviction_end_index=eviction_end_index,
         minimum_retained_groups=minimum_retained_groups,
+        retained_group_preference_relaxed=preference_relaxed,
     )
 
 
@@ -1177,6 +1198,15 @@ def _starts_history_group(message: ModelMessage) -> bool:
     )
 
 
+def _history_group_is_complete(
+    messages: list[ModelMessage], group: _HistoryMessageGroup
+) -> bool:
+    """Return whether one protocol-safe group ends with an assistant response."""
+    return group.end_index > group.start_index and isinstance(
+        messages[group.end_index - 1], ModelResponse
+    )
+
+
 def _no_op_eviction_plan(
     *,
     reason: str,
@@ -1206,6 +1236,7 @@ def _no_op_eviction_plan(
         eviction_start_index=retained_prefix_count,
         eviction_end_index=retained_prefix_count,
         minimum_retained_groups=minimum_retained_groups,
+        retained_group_preference_relaxed=False,
     )
 
 
@@ -1446,7 +1477,11 @@ async def _execute_stepped_session_map_reduction(
             force=force,
         )
         if plan.status != "planned":
-            if plan.reason in {"below_high_watermark", "minimum_retained_groups"}:
+            if plan.reason in {
+                "below_high_watermark",
+                "no_evictable_groups",
+                "incomplete_latest_group",
+            }:
                 log_state.unavailable_reason = plan.reason
                 log_state.unavailable_messages = tuple(messages)
                 log_state.unavailable_estimated_tokens = plan.estimated_tokens_before
@@ -1523,6 +1558,13 @@ async def _execute_stepped_session_map_reduction(
                 "evicted_message_count": plan.evicted_message_count,
                 "retained_message_count": plan.retained_message_count,
                 "estimated_tokens_before": plan.estimated_tokens_before,
+                "estimated_tokens_after": plan.estimated_tokens_after,
+                "low_watermark_tokens": plan.low_watermark_tokens,
+                "preferred_retained_groups": plan.minimum_retained_groups,
+                "retained_group_count": (plan.group_count - plan.evicted_group_count),
+                "retained_group_preference_relaxed": (
+                    plan.retained_group_preference_relaxed
+                ),
             },
         )
         log_state.failure_reason = "map_authoring_failed"
@@ -1613,6 +1655,10 @@ async def _execute_stepped_session_map_reduction(
                 ),
                 "minimum_retained_groups": plan.minimum_retained_groups,
                 "retained_group_count": plan.group_count - plan.evicted_group_count,
+                "retained_group_preference_relaxed": (
+                    plan.retained_group_preference_relaxed
+                ),
+                "low_watermark_tokens": plan.low_watermark_tokens,
                 "raw_messages_preserved": True,
                 "focus_provided": bool((focus or "").strip()),
             },
