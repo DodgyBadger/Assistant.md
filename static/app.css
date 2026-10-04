@@ -1578,6 +1578,7 @@ details summary::-webkit-details-marker {
 
 .session-map-sections {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
     margin-top: 1rem;
 }
@@ -1624,6 +1625,7 @@ details summary::-webkit-details-marker {
 
 .session-map-entry-list {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.45rem;
 }
 
@@ -1632,6 +1634,22 @@ details summary::-webkit-details-marker {
     border: 1px solid rgb(var(--border-secondary));
     border-radius: 0.375rem;
     background: rgb(var(--bg-elevated));
+}
+
+#session-map-modal-body {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.session-map-section,
+.session-map-entry,
+.session-map-trajectory,
+.session-map-badges span,
+.session-map-ref {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .session-map-entry-heading {
