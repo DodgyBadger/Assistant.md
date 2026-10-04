@@ -189,6 +189,16 @@
                 if (node && Number.isInteger(start) && Number.isInteger(end)) {
                     node.dataset.canonicalStart = String(start);
                     node.dataset.canonicalEnd = String(end);
+                    const actions = node.querySelector('.message-footer-actions');
+                    if (actions) {
+                        const number = document.createElement('span');
+                        number.className = 'message-sequence-number';
+                        number.textContent = start === end ? `${start}` : `${start}–${end}`;
+                        number.title = start === end
+                            ? `Canonical message ${start}`
+                            : `Canonical messages ${start}–${end}`;
+                        actions.prepend(number);
+                    }
                     rendered.push(node);
                 }
             });

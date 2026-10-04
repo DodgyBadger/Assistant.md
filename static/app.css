@@ -2291,6 +2291,12 @@ details summary::-webkit-details-marker {
     align-items: center;
     gap: 0.5rem;
 }
+.message-sequence-number {
+    color: rgb(var(--text-secondary));
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
 .copy-button {
     border: 1px solid rgb(var(--border-primary));
     border-radius: 9999px;
