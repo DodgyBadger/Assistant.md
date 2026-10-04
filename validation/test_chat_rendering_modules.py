@@ -596,7 +596,7 @@ const controller = ChatHistoryRendering.create({
         session_id: 'session-1',
         context_checkpoint_kind: 'session_map',
         context_checkpoint_id: 'checkpoint-1',
-        context_boundary_sequence_index: 2,
+        context_boundary_sequence_index: 5,
         messages: [
             {
                 role: 'assistant', sequence_index: 3, through_sequence_index: 5,
@@ -618,7 +618,7 @@ const controller = ChatHistoryRendering.create({
         if (node.dataset.sessionMapContextBoundary === 'true') return 'boundary';
         return Number(node.dataset.canonicalStart);
     });
-    assert.deepStrictEqual(ordered, [1, 2, 'boundary', 3, 6]);
+    assert.deepStrictEqual(ordered, [1, 2, 3, 'boundary', 6]);
     assert.strictEqual(assistantNodes.length, 1, 'One assistant turn should produce one bubble.');
     assert.deepStrictEqual(assistantTurns, [{ content: 'The result.', toolIds: ['call-1'] }]);
     assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');

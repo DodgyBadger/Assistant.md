@@ -286,9 +286,6 @@
                 }
                 const payload = await response.json();
                 if (state.sessionId !== requestedSessionId || timelineSessionId !== requestedSessionId) return;
-                const anchor = container.querySelector(
-                    '[data-session-map-context-boundary="true"]'
-                ) || container.querySelector('[data-canonical-start]');
                 const toolCallsById = groupToolCallsById(payload.tool_calls);
                 const nodes = renderCanonicalTimelineRows(
                     payload.messages || [],
@@ -297,7 +294,7 @@
                 );
                 const fragment = document.createDocumentFragment();
                 nodes.forEach(node => fragment.appendChild(node));
-                container.insertBefore(fragment, anchor);
+                container.insertBefore(fragment, viewportAnchor);
                 timelineOlderCursor = Number.isInteger(payload.older_before_sequence_index)
                     ? payload.older_before_sequence_index
                     : null;
