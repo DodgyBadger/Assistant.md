@@ -22,7 +22,7 @@ Keep each evidence envelope's contiguous consumed interval distinct from its cit
 
 Keep the canonical eviction boundary separate from the author observation boundary. Retained messages may inform current-state correction and may be cited when they support a salient map claim, but they remain verbatim in effective history until a later reduction consumes them. Persist a validated map only through the atomic, history-revision-fenced checkpoint contract in ADR 0049.
 
-Expose append-only map revisions, their boundaries, their source references, and bounded canonical transcript pages for inspection. Keep canonical transcript search and bounded window retrieval available for exact wording, disputed provenance, omitted detail, and information outside the sparse map.
+Expose append-only map revisions, their boundaries, and their source references in a map-focused inspector. Keep complete canonical messages available through bounded reverse paging in the ordinary chat timeline, with the active map boundary shown at its canonical position. Keep canonical transcript search and bounded window retrieval available for exact wording, disputed provenance, omitted detail, and information outside the sparse map.
 
 Do not use a classifier as a map-authoring gate. Author a new whole map whenever the configured reduction policy selects a new eviction boundary. Generic decision-model capability remains independent of session-map operation.
 
@@ -38,6 +38,7 @@ Whole-map replacement avoids an ever-growing chain of active, superseded, and cl
 - The session map is derived and lossy. It is not canonical truth, a complete transcript summary, an event ledger, or a cross-session memory index.
 - Map references are evidence routes rather than an exhaustive declaration of relevant history.
 - Canonical messages remain available for retrieval, reauthoring, upgrades, inspection, and safe forks.
+- The ordinary chat timeline remains the single visual home for canonical messages; the map modal does not duplicate transcript paging.
 - Complete replacement bounds model-facing map growth, while append-only checkpoints preserve revision history outside the active context.
 - Schema validation, provenance validation, author retries, checkpoint metadata, transcript inspection, and model inference add complexity and cost at reduction boundaries.
 - A map may omit useful narrative texture or emerging ideas; the retained verbatim tail and canonical transcript retrieval remain part of the architecture rather than temporary compatibility mechanisms.

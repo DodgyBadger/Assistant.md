@@ -1704,137 +1704,16 @@ details summary::-webkit-details-marker {
     height: 0.9rem;
 }
 
-.session-map-content,
-.session-map-transcript {
+.session-map-content {
     margin-top: 1rem;
     border-top: 1px solid rgb(var(--border-primary));
     padding-top: 0.8rem;
 }
 
-.session-map-content > summary,
-.session-map-transcript > summary {
+.session-map-content > summary {
     color: rgb(var(--accent-primary));
     font-weight: 700;
     cursor: pointer;
-}
-
-.session-map-transcript-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.3rem 0.8rem;
-    margin: 0.7rem 0;
-    color: rgb(var(--text-secondary));
-    font-size: 0.72rem;
-}
-
-.session-map-transcript-list {
-    display: grid;
-    gap: 0.5rem;
-}
-
-.session-map-transcript-message {
-    padding: 0.65rem 0.75rem;
-    border: 1px solid rgb(var(--border-secondary));
-    border-radius: 0.375rem;
-    background: rgb(var(--bg-elevated));
-}
-
-.session-map-transcript-message-heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.35rem;
-    color: rgb(var(--text-secondary));
-    font-size: 0.68rem;
-}
-
-.session-map-transcript-message-heading strong {
-    color: rgb(var(--text-primary));
-}
-
-.session-map-transcript-message-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.session-map-transcript-message-actions .copy-button {
-    padding: 2px 6px;
-}
-
-.session-map-transcript-tool-summary {
-    margin: 0;
-    cursor: pointer;
-    list-style: none;
-}
-
-.session-map-transcript-tool-summary::-webkit-details-marker,
-.session-map-transcript-tool-summary::marker {
-    display: none;
-    content: '';
-}
-
-.session-map-transcript-tool-summary strong {
-    display: inline-flex;
-    align-items: center;
-}
-
-.session-map-transcript-tool-summary .tool-status-chevron {
-    transition: transform 0.15s ease;
-}
-
-.session-map-transcript-tools[open] .session-map-transcript-tool-summary {
-    margin-bottom: 0.35rem;
-}
-
-.session-map-transcript-tools[open] .tool-status-chevron {
-    transform: rotate(90deg);
-}
-
-.session-map-transcript-tools .tool-status-list {
-    align-items: flex-start;
-    margin: 0;
-    padding: 0.35rem 0 0;
-    border-top: 1px solid rgb(var(--border-primary) / 0.45);
-}
-
-.session-map-transcript-tools .session-map-checkpoint-link {
-    padding: 0.2rem 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.74rem;
-}
-
-.session-map-transcript-message pre {
-    margin: 0;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-    font-family: inherit;
-    font-size: 0.78rem;
-    line-height: 1.45;
-}
-
-.session-map-transcript-pagination {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.45rem;
-    margin-top: 0.7rem;
-}
-
-.session-map-transcript-pagination button {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid rgb(var(--border-primary));
-    border-radius: 0.375rem;
-    background: rgb(var(--bg-elevated));
-    color: rgb(var(--text-primary));
-    font-size: 0.72rem;
-}
-
-.session-map-transcript-pagination button:disabled {
-    cursor: default;
-    opacity: 0.45;
 }
 
 .session-browser-close-button {

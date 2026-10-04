@@ -240,7 +240,7 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
         assert result is not None
         self.soft_assert_equal(
             observed_ranges,
-            [(2, 3), (4, 5)],
+            [(2, 3), (4, 5), (6, 7)],
             "Unconditional authoring should receive pending and newly evicted evidence",
         )
         latest = store.get_latest_context_checkpoint(session_id, vault.name)
@@ -263,8 +263,8 @@ class SessionMapPendingEvidenceScenario(BaseScenario):
         )
         self.soft_assert_equal(
             (store.get_history(session_id, vault.name) or [])[1:],
-            raw_messages[6:],
-            "Effective history should contain the new map plus the raw tail",
+            [],
+            "The hard low watermark may leave only the new map in effective history",
         )
         author_tasks = await runtime.task_coordinator.list_tasks(
             kind=ExecutionTaskKind.SESSION_MAP_AUTHORING.value

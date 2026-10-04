@@ -1139,19 +1139,6 @@ class ChatSessionMapCheckpointInfo(BaseModel):
     prompt_contract_version: str
 
 
-class ChatSessionMapTranscriptPage(BaseModel):
-    """Bounded canonical messages evicted through one map checkpoint."""
-
-    checkpoint_id: str
-    page: int = Field(..., ge=1)
-    page_size: int = Field(..., ge=1, le=50)
-    page_count: int = Field(..., ge=1)
-    total_entries: int = Field(..., ge=0)
-    has_previous: bool = False
-    has_next: bool = False
-    messages: list[ChatSessionMessageInfo] = Field(default_factory=list)
-
-
 class ChatSessionMapResponse(BaseModel):
     """Current or historical stepped-map checkpoint for inspection."""
 
@@ -1161,7 +1148,21 @@ class ChatSessionMapResponse(BaseModel):
     latest_checkpoint_id: str | None = None
     revisions: list[ChatSessionMapCheckpointInfo] = Field(default_factory=list)
     session_map: SessionMapDraft | None = None
-    transcript: ChatSessionMapTranscriptPage | None = None
+
+
+class ChatSessionTimelinePage(BaseModel):
+    """One reverse-cursor page from the canonical session timeline."""
+
+    session_id: str
+    vault_name: str
+    history_revision: int = Field(..., ge=0)
+    messages: list[ChatSessionMessageInfo] = Field(default_factory=list)
+    tool_calls: list[ChatSessionToolCallInfo] = Field(default_factory=list)
+    older_before_sequence_index: int | None = Field(default=None, ge=0)
+    has_older: bool = False
+    context_boundary_sequence_index: int | None = Field(default=None, ge=0)
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
 
 
 class ChatSessionWorkspaceRequest(BaseModel):
@@ -1464,12 +1465,28 @@ class ChatSessionDetailResponse(BaseModel):
         None, description="Latest unfinished-turn marker"
     )
     messages: list[ChatSessionMessageInfo] = Field(
-        default_factory=list, description="Persisted messages"
+        default_factory=list,
+        description="Persisted display rows, bounded to the newest page when paging is active",
     )
     tool_calls: list[ChatSessionToolCallInfo] = Field(
         default_factory=list,
-        description="Effective tool calls with non-confidential lifecycle metadata",
+        description="Displayed tool calls with non-confidential lifecycle metadata",
     )
+    older_before_sequence_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Exclusive canonical sequence cursor for loading older messages",
+    )
+    has_older_messages: bool = Field(
+        False, description="Whether an older canonical timeline page is available"
+    )
+    context_boundary_sequence_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Newest canonical message represented by the active checkpoint",
+    )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
 
 
 class VaultDirectoryInfo(BaseModel):

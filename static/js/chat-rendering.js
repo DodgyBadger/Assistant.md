@@ -138,7 +138,7 @@
 
         // Loading indicator helpers
 
-        function createAssistantStreamingMessage() {
+        function createAssistantStreamingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';
 
@@ -174,7 +174,9 @@
             contentDiv.appendChild(artifactList);
             messageDiv.appendChild(contentDiv);
 
-            appendChatMessageNode(messageDiv, { forceScroll: true });
+            appendChatMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
 
             return {
                 messageDiv,
@@ -303,7 +305,9 @@
             } else {
                 markdown.schedulePostProcess(context);
             }
-            callbacks.scrollChatToBottom();
+            if (metadata.forceScroll !== false) {
+                callbacks.scrollChatToBottom();
+            }
         }
 
 

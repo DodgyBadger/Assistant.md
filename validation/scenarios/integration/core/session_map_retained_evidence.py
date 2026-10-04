@@ -66,9 +66,9 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             ("compaction_strategy", "session_map"),
             ("compaction_author_model", "test"),
             ("compaction_author_thinking", "low"),
-            ("compaction_low_watermark_tokens", "1"),
+            ("compaction_low_watermark_tokens", "500"),
             ("compaction_retained_turns", "1"),
-            ("compaction_high_watermark_tokens", "2"),
+            ("compaction_high_watermark_tokens", "1000"),
             ("compaction_type", "auto"),
         ):
             response = self.call_api(
@@ -90,8 +90,8 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             session_id,
             vault.name,
             [
-                _user("Create the deployment README."),
-                _assistant("The active next action is to create the README."),
+                _user("Create the deployment README. " * 800),
+                _assistant("The active next action is to create the README. " * 800),
                 _user("The deployment README is now complete."),
                 _assistant("Confirmed; no README work remains."),
             ],
@@ -263,6 +263,7 @@ class SessionMapRetainedEvidenceScenario(BaseScenario):
             eviction_start_index=0,
             eviction_end_index=2,
             minimum_retained_groups=1,
+            retained_group_preference_relaxed=False,
         )
         retained_after_retrieval = _build_retained_session_map_evidence(
             store=store,

@@ -32,7 +32,6 @@ from core.chat.deferred_reviews import (
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
 from core.memory.session_map.checkpoints import (
-    SESSION_MAP_CONTEXT_MARKER,
     load_session_map_checkpoint,
     load_session_map_observed_through,
 )
@@ -66,9 +65,9 @@ from ..models import (
     ChatSessionInfo,
     ChatSessionMapCheckpointInfo,
     ChatSessionMapResponse,
-    ChatSessionMapTranscriptPage,
     ChatSessionMessageInfo,
     ChatSessionsPurgeResponse,
+    ChatSessionTimelinePage,
     ChatSessionToolCallInfo,
     ChatSessionToolEventInfo,
     ChatToolCallDetailResponse,
@@ -334,10 +333,8 @@ def get_chat_session_map(
     session_id: str,
     *,
     checkpoint_id: str | None = None,
-    message_page: int = 1,
-    message_page_size: int = 20,
 ) -> ChatSessionMapResponse:
-    """Return one append-only stepped-map checkpoint and its boundary history."""
+    """Return one append-only stepped-map checkpoint."""
     _require_chat_session_access(vault_name, session_id)
     checkpoints = _chat_store.list_context_checkpoints(
         session_id,
@@ -366,18 +363,6 @@ def get_chat_session_map(
                     "checkpoint_id": checkpoint_id,
                 },
             )
-    if message_page < 1:
-        raise APIException(
-            status_code=400,
-            error_type="InvalidSessionMapTranscriptPage",
-            message="Session map transcript page must be at least 1.",
-        )
-    if message_page_size < 1 or message_page_size > 50:
-        raise APIException(
-            status_code=400,
-            error_type="InvalidSessionMapTranscriptPageSize",
-            message="Session map transcript page size must be between 1 and 50.",
-        )
     revisions = [
         _session_map_checkpoint_info(revision, checkpoint)
         for revision, checkpoint in enumerate(checkpoints, start=1)
@@ -389,17 +374,6 @@ def get_chat_session_map(
         latest_checkpoint_id=(latest.checkpoint_id if latest else None),
         revisions=revisions,
         session_map=load_session_map_checkpoint(selected) if selected else None,
-        transcript=(
-            _session_map_transcript_page(
-                session_id=session_id,
-                vault_name=vault_name,
-                checkpoint=selected,
-                page=message_page,
-                page_size=message_page_size,
-            )
-            if selected
-            else None
-        ),
     )
 
 
@@ -428,179 +402,219 @@ def _session_map_checkpoint_info(
     )
 
 
-def _session_map_transcript_page(
+def get_chat_session_timeline(
+    vault_name: str,
+    session_id: str,
+    *,
+    before_sequence_index: int | None = None,
+    page_size: int = 40,
+) -> ChatSessionTimelinePage:
+    """Return one newest-first cursor page rendered in chronological order."""
+    _require_chat_session_access(vault_name, session_id)
+    if before_sequence_index is not None and before_sequence_index < 0:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidChatTimelineCursor",
+            message="Chat timeline cursor cannot be negative.",
+        )
+    if page_size < 1 or page_size > 100:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidChatTimelinePageSize",
+            message="Chat timeline page size must be between 1 and 100.",
+        )
+    through_sequence_index = _chat_store.get_highest_message_sequence_index(
+        session_id, vault_name
+    )
+    boundaries, has_older = _chat_store.get_canonical_display_rows_before(
+        session_id,
+        vault_name,
+        through_sequence_index=through_sequence_index,
+        before_sequence_index=before_sequence_index,
+        limit=page_size,
+    )
+    messages = _project_canonical_display_boundaries(
+        session_id=session_id,
+        vault_name=vault_name,
+        boundaries=boundaries,
+        projection_id=(
+            f"timeline:{before_sequence_index}"
+            if before_sequence_index is not None
+            else "timeline:latest"
+        ),
+    )
+    tool_calls = list(
+        {
+            tool_call.tool_call_id: tool_call
+            for message in messages
+            for tool_call in message.tool_calls
+        }.values()
+    )
+    checkpoint = _chat_store.get_latest_context_checkpoint(session_id, vault_name)
+    oldest_sequence = boundaries[0][0] if boundaries else None
+    logger.debug(
+        "chat_session_timeline_page_loaded",
+        data={
+            "event": "chat_session_timeline_page_loaded",
+            "session_id": session_id,
+            "vault_name": vault_name,
+            "before_sequence_index": before_sequence_index,
+            "returned_row_count": len(messages),
+            "has_older": has_older,
+        },
+    )
+    return ChatSessionTimelinePage(
+        session_id=session_id,
+        vault_name=vault_name,
+        history_revision=_chat_store.get_session_history_revision(
+            session_id, vault_name
+        ),
+        messages=messages,
+        tool_calls=tool_calls,
+        older_before_sequence_index=(oldest_sequence if has_older else None),
+        has_older=has_older,
+        context_boundary_sequence_index=(
+            checkpoint.last_message_sequence_index if checkpoint is not None else None
+        ),
+        context_checkpoint_kind=(
+            checkpoint.checkpoint_kind if checkpoint is not None else None
+        ),
+        context_checkpoint_id=(checkpoint.checkpoint_id if checkpoint else None),
+    )
+
+
+def _project_canonical_display_boundaries(
     *,
     session_id: str,
     vault_name: str,
-    checkpoint: StoredContextCheckpoint,
-    page: int,
-    page_size: int,
-) -> ChatSessionMapTranscriptPage:
-    """Return one chronological page of canonical history through a checkpoint."""
-    total_entries, page_boundaries = _chat_store.get_canonical_display_row_page(
+    boundaries: list[tuple[int, int, str]],
+    projection_id: str,
+) -> list[ChatSessionMessageInfo]:
+    """Project exact canonical display boundaries without gaps or silent omission."""
+    if not boundaries:
+        return []
+    canonical_messages = _chat_store.get_stored_messages_range(
         session_id,
         vault_name,
-        through_sequence_index=checkpoint.last_message_sequence_index,
-        limit=page_size,
-        offset=(page - 1) * page_size,
+        after_sequence_index=boundaries[0][0] - 1,
+        through_sequence_index=boundaries[-1][1],
     )
-    page_count = max(1, (total_entries + page_size - 1) // page_size)
-    if page > page_count:
-        raise APIException(
-            status_code=404,
-            error_type="SessionMapTranscriptPageNotFound",
-            message=(
-                f"Session map transcript page {page} is beyond the "
-                f"{page_count} available pages."
-            ),
-            details={
-                "session_id": session_id,
-                "vault_name": vault_name,
-                "checkpoint_id": checkpoint.checkpoint_id,
-                "page": page,
-                "page_count": page_count,
-            },
+    tool_call_ids = list(
+        dict.fromkeys(
+            tool_call_id
+            for message in canonical_messages
+            for tool_call_id in message.tool_call_ids
+            if tool_call_id
         )
-    messages: list[ChatSessionMessageInfo] = []
-    if page_boundaries:
-        canonical_messages = _chat_store.get_stored_messages_range(
-            session_id,
-            vault_name,
-            after_sequence_index=page_boundaries[0][0] - 1,
-            through_sequence_index=page_boundaries[-1][1],
+    )
+    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+        session_id, vault_name, tool_call_ids=tool_call_ids
+    )
+    tool_events = [
+        event
+        for tool_call_id in tool_call_ids
+        for event in _chat_store.get_tool_events_for_call(
+            session_id, vault_name, tool_call_id
         )
-        tool_call_ids = list(
-            dict.fromkeys(
-                tool_call_id
+    ]
+    canonical_fork_points = _chat_store.get_canonical_fork_points_for_sequences(
+        session_id,
+        vault_name,
+        [
+            message.sequence_index
+            for message in canonical_messages
+            if message.message_type == "ModelResponse"
+        ],
+    )
+    timeline_items = _canonical_timeline_items(
+        canonical_messages,
+        canonical_fork_points=canonical_fork_points,
+        declaration_counts=declaration_counts,
+        tool_events=tool_events,
+    )
+    items_by_boundary = {
+        _canonical_timeline_item_boundary(item): item for item in timeline_items
+    }
+    projected: list[ChatSessionMessageInfo] = []
+    for boundary in boundaries:
+        item = items_by_boundary.get(boundary)
+        if item is None:
+            scoped_messages = [
+                message
                 for message in canonical_messages
-                for tool_call_id in message.tool_call_ids
-                if tool_call_id
+                if boundary[0] <= message.sequence_index <= boundary[1]
+            ]
+            scoped_items = _canonical_timeline_items(
+                scoped_messages,
+                canonical_fork_points=canonical_fork_points,
+                declaration_counts=declaration_counts,
+                tool_events=tool_events,
             )
-        )
-        declaration_counts = _chat_store.get_tool_call_declaration_counts(
-            session_id, vault_name, tool_call_ids=tool_call_ids
-        )
-        tool_events = [
-            event
-            for tool_call_id in tool_call_ids
-            for event in _chat_store.get_tool_events_for_call(
-                session_id, vault_name, tool_call_id
+            item = next(
+                (
+                    candidate
+                    for candidate in scoped_items
+                    if _canonical_timeline_item_boundary(candidate) == boundary
+                ),
+                None,
             )
-        ]
-        canonical_fork_points = _chat_store.get_canonical_fork_points_for_sequences(
-            session_id,
-            vault_name,
-            [
-                message.sequence_index
-                for message in canonical_messages
-                if message.message_type == "ModelResponse"
-            ],
-        )
-        transcript_items = _session_map_transcript_items(
-            canonical_messages,
-            canonical_fork_points=canonical_fork_points,
-            declaration_counts=declaration_counts,
-            tool_events=tool_events,
-        )
-        items_by_boundary = {
-            _session_map_transcript_item_boundary(item): item
-            for item in transcript_items
-        }
-        messages = []
-        for boundary in page_boundaries:
-            item = items_by_boundary.get(boundary)
             if item is None:
-                scoped_messages = [
-                    message
-                    for message in canonical_messages
-                    if boundary[0] <= message.sequence_index <= boundary[1]
-                ]
-                scoped_items = _session_map_transcript_items(
-                    scoped_messages,
-                    canonical_fork_points=canonical_fork_points,
-                    declaration_counts=declaration_counts,
-                    tool_events=tool_events,
-                )
-                item = next(
-                    (
-                        candidate
-                        for candidate in scoped_items
-                        if _session_map_transcript_item_boundary(candidate) == boundary
-                    ),
-                    None,
-                )
-                if item is None:
-                    logger.warning(
-                        "session_map_transcript_projection_failed",
-                        data={
-                            "event": "session_map_transcript_projection_failed",
-                            "status": "failed",
-                            "reason": "paged_projection_boundary_mismatch",
-                            "issue": (
-                                "session-map-transcript-projection:"
-                                f"{session_id}:{checkpoint.checkpoint_id}:{page}:"
-                                f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
-                            ),
-                            "session_id": session_id,
-                            "vault_name": vault_name,
-                            "checkpoint_id": checkpoint.checkpoint_id,
-                            "page": page,
-                            "boundary_start": boundary[0],
-                            "boundary_end": boundary[1],
-                            "boundary_kind": boundary[2],
-                            "error_type": "SessionMapTranscriptProjectionMismatch",
-                            "error": (
-                                "The canonical transcript page could not be "
-                                "projected safely."
-                            ),
-                        },
-                    )
-                    raise APIException(
-                        status_code=409,
-                        error_type="SessionMapTranscriptProjectionMismatch",
-                        message="The canonical transcript page could not be projected safely.",
-                        details={
-                            "session_id": session_id,
-                            "vault_name": vault_name,
-                            "checkpoint_id": checkpoint.checkpoint_id,
-                            "page": page,
-                            "boundary": list(boundary),
-                        },
-                    )
                 logger.warning(
-                    "session_map_transcript_boundary_reprojected",
+                    "canonical_timeline_projection_failed",
                     data={
-                        "event": "session_map_transcript_boundary_reprojected",
-                        "status": "recovered",
-                        "reason": "paged_projection_boundary_drift",
+                        "event": "canonical_timeline_projection_failed",
+                        "status": "failed",
+                        "reason": "paged_projection_boundary_mismatch",
                         "issue": (
-                            "session-map-transcript-boundary:"
-                            f"{session_id}:{checkpoint.checkpoint_id}:{page}:"
+                            "canonical-timeline-projection:"
+                            f"{session_id}:{projection_id}:"
                             f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
                         ),
                         "session_id": session_id,
                         "vault_name": vault_name,
-                        "checkpoint_id": checkpoint.checkpoint_id,
-                        "page": page,
+                        "projection_id": projection_id,
                         "boundary_start": boundary[0],
                         "boundary_end": boundary[1],
                         "boundary_kind": boundary[2],
+                        "error_type": "CanonicalTimelineProjectionMismatch",
+                        "error": "The canonical timeline page could not be projected safely.",
                     },
                 )
-            messages.append(item)
-    return ChatSessionMapTranscriptPage(
-        checkpoint_id=checkpoint.checkpoint_id,
-        page=page,
-        page_size=page_size,
-        page_count=page_count,
-        total_entries=total_entries,
-        has_previous=page > 1,
-        has_next=page < page_count,
-        messages=messages,
-    )
+                raise APIException(
+                    status_code=409,
+                    error_type="CanonicalTimelineProjectionMismatch",
+                    message="The canonical timeline page could not be projected safely.",
+                    details={
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "projection_id": projection_id,
+                        "boundary": list(boundary),
+                    },
+                )
+            logger.warning(
+                "canonical_timeline_boundary_reprojected",
+                data={
+                    "event": "canonical_timeline_boundary_reprojected",
+                    "status": "recovered",
+                    "reason": "paged_projection_boundary_drift",
+                    "issue": (
+                        "canonical-timeline-boundary:"
+                        f"{session_id}:{projection_id}:"
+                        f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
+                    ),
+                    "session_id": session_id,
+                    "vault_name": vault_name,
+                    "projection_id": projection_id,
+                    "boundary_start": boundary[0],
+                    "boundary_end": boundary[1],
+                    "boundary_kind": boundary[2],
+                },
+            )
+        projected.append(item)
+    return projected
 
 
-def _session_map_transcript_item_boundary(
+def _canonical_timeline_item_boundary(
     item: ChatSessionMessageInfo,
 ) -> tuple[int, int, str]:
     """Return the compact paging identity for one projected transcript row."""
@@ -616,7 +630,7 @@ def _session_map_transcript_item_boundary(
     )
 
 
-def _session_map_transcript_items(
+def _canonical_timeline_items(
     messages: list[StoredChatMessage],
     *,
     canonical_fork_points: set[int],
@@ -1089,16 +1103,30 @@ def get_chat_session_detail(
 ) -> ChatSessionDetailResponse:
     """Return persisted chat messages for one session."""
     _require_chat_session_access(vault_name, session_id)
-    messages = _chat_store.get_stored_messages(session_id, vault_name)
-    canonical_fork_points = canonical_assistant_fork_points(messages)
     latest_checkpoint = _chat_store.get_latest_context_checkpoint(
         session_id, vault_name
     )
-    declaration_counts = _chat_store.get_tool_call_declaration_counts(
-        session_id, vault_name
+    timeline = (
+        get_chat_session_timeline(vault_name, session_id)
+        if latest_checkpoint is not None
+        and latest_checkpoint.checkpoint_kind == "session_map"
+        else None
     )
-    tool_events = _chat_store.get_tool_events(
-        session_id, vault_name, committed_only=True
+    messages = (
+        []
+        if timeline is not None
+        else _chat_store.get_stored_messages(session_id, vault_name)
+    )
+    canonical_fork_points = canonical_assistant_fork_points(messages)
+    declaration_counts = (
+        {}
+        if timeline is not None
+        else _chat_store.get_tool_call_declaration_counts(session_id, vault_name)
+    )
+    tool_events = (
+        []
+        if timeline is not None
+        else _chat_store.get_tool_events(session_id, vault_name, committed_only=True)
     )
     metadata = _chat_store.get_session_metadata(session_id, vault_name)
     latest_failure = _chat_session_failure_info(metadata.get("latest_turn_failure"))
@@ -1121,24 +1149,35 @@ def get_chat_session_detail(
             else None
         ),
         latest_failure=latest_failure,
-        messages=[
-            _chat_session_message_info(
-                message,
-                canonical_fork_points=canonical_fork_points,
-                context_checkpoint=(
-                    latest_checkpoint
-                    if (
-                        index == 0
-                        and latest_checkpoint is not None
-                        and latest_checkpoint.checkpoint_kind == "session_map"
-                        and message.content_text.startswith(SESSION_MAP_CONTEXT_MARKER)
-                    )
-                    else None
-                ),
-            )
-            for index, message in enumerate(messages)
-        ],
-        tool_calls=_effective_tool_call_info(messages, declaration_counts, tool_events),
+        messages=(
+            timeline.messages
+            if timeline is not None
+            else [
+                _chat_session_message_info(
+                    message,
+                    canonical_fork_points=canonical_fork_points,
+                )
+                for message in messages
+            ]
+        ),
+        tool_calls=(
+            timeline.tool_calls
+            if timeline is not None
+            else _effective_tool_call_info(messages, declaration_counts, tool_events)
+        ),
+        older_before_sequence_index=(
+            timeline.older_before_sequence_index if timeline is not None else None
+        ),
+        has_older_messages=timeline.has_older if timeline is not None else False,
+        context_boundary_sequence_index=(
+            timeline.context_boundary_sequence_index if timeline is not None else None
+        ),
+        context_checkpoint_kind=(
+            timeline.context_checkpoint_kind if timeline is not None else None
+        ),
+        context_checkpoint_id=(
+            timeline.context_checkpoint_id if timeline is not None else None
+        ),
     )
 
 
@@ -1152,7 +1191,7 @@ def get_chat_tool_call_detail(
     """Return complete persisted detail for one session-owned tool call."""
     _require_chat_session_access(vault_name, session_id)
     if checkpoint_id is None:
-        messages = _chat_store.get_stored_messages(session_id, vault_name)
+        effective_tool_call_ids = {tool_call_id}
     else:
         checkpoint = next(
             (
@@ -1175,9 +1214,9 @@ def get_chat_tool_call_detail(
             after_sequence_index=-1,
             through_sequence_index=checkpoint.last_message_sequence_index,
         )
-    effective_tool_call_ids = _effective_tool_call_ids(messages)
+        effective_tool_call_ids = set(_effective_tool_call_ids(messages))
     declaration_counts = _chat_store.get_tool_call_declaration_counts(
-        session_id, vault_name
+        session_id, vault_name, tool_call_ids=[tool_call_id]
     )
     if (
         tool_call_id not in effective_tool_call_ids

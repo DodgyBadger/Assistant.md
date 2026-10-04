@@ -1,6 +1,6 @@
 # Compaction V2 Bounded Context and Canonical Timeline Plan
 
-Status: in progress.
+Status: implemented; manual browser and long-session performance validation pending.
 
 ## Objective
 
@@ -61,37 +61,45 @@ Make Compaction v2 recover substantial model-context headroom even when recent t
 
 ### Slice 1 — Enforce the Compaction v2 budget
 
-- Change the stepped eviction planner so the retained-turn count is preferred rather than absolute.
-- Permit complete-group eviction past the preference until the target is reached, including consuming every completed group when none fits.
-- Keep map authoring, checkpoint provenance, history-revision fencing, and canonical persistence unchanged.
-- Add result metadata and logs that make preference relaxation visible.
+- [x] Change the stepped eviction planner so the retained-turn count is preferred rather than absolute.
+- [x] Permit complete-group eviction past the preference until the target is reached, including consuming every completed group when none fits.
+- [x] Keep map authoring, checkpoint provenance, history-revision fencing, and canonical persistence unchanged.
+- [x] Add result metadata and logs that make preference relaxation visible.
 
 ### Slice 2 — General canonical timeline paging
 
-- Extract the map transcript's canonical display-row projection into a reusable service path.
-- Add stable reverse-cursor API models and an endpoint for canonical session timeline pages.
-- Return a bounded newest page from session detail and expose its older cursor and current effective boundary.
-- Keep tool-call summaries and tool-detail authorization correct for canonical rows outside effective provider history.
+- [x] Extract the map transcript's canonical display-row projection into a reusable service path.
+- [x] Add stable reverse-cursor API models and an endpoint for canonical session timeline pages.
+- [x] Return a bounded newest page from session detail and expose its older cursor and current effective boundary.
+- [x] Keep tool-call summaries and tool-detail authorization correct for canonical rows outside effective provider history.
 
 ### Slice 3 — Reverse-paged ordinary chat UI
 
-- Add **Load older messages** above the currently loaded timeline when older rows exist.
-- Prepend pages without rebuilding newer content or changing the reading position.
-- Render the Compaction v2 boundary notice at its canonical location while keeping complete older messages available above it.
-- Preserve fork actions and tool-detail links on canonical historical rows.
+- [x] Add **Load older messages** above the currently loaded timeline when older rows exist.
+- [x] Prepend pages without rebuilding newer content or changing the reading position.
+- [x] Render the Compaction v2 boundary notice at its canonical location while keeping complete older messages available above it.
+- [x] Preserve fork actions and tool-detail links on canonical historical rows.
 
 ### Slice 4 — Make the map modal map-only
 
-- Remove the evicted-transcript section, transcript paging state, transcript tool links, and transcript fork actions from the modal.
-- Retain revision selection, map collapse state, revision metadata, and provenance display.
-- Update labels so the modal and notice describe the canonical timeline as the route to original messages.
+- [x] Remove the evicted-transcript section, transcript paging state, transcript tool links, and transcript fork actions from the modal.
+- [x] Retain revision selection, map collapse state, revision metadata, and provenance display.
+- [x] Update labels so the modal and notice describe the canonical timeline as the route to original messages.
 
 ### Slice 5 — Focused hardening
 
-- Exercise large assistant replies, large successful tool returns, multiple map revisions, forks, active-task reattachment, mobile loading, and sessions without checkpoints.
-- Measure response size, database query time, render time, and DOM growth over repeated older-page loads before deciding whether virtualization belongs in a later branch.
-- Update ADR 0049 and ADR 0050 to record the final bounded-context and canonical-timeline contracts after implementation evidence settles the exact behavior.
+- [x] Cover large complete groups, successful tool exchanges, multiple map revisions, forks, and sessions without checkpoints through focused deterministic scenarios.
+- [x] Add a frontend interaction probe for reverse paging, boundary placement, and scroll-anchor preservation.
+- [ ] Manually exercise active-task reattachment and mobile loading, then measure response size, database query time, render time, and DOM growth on a production-sized long session before deciding whether virtualization belongs in a later branch.
+- [x] Update ADR 0049 and ADR 0050 to record the bounded-context and canonical-timeline contracts.
+
+## Validation Record
+
+- Focused Compaction v2, checkpoint, fork-lineage, tool-replay, upgrade, and persistence scenarios pass.
+- Frontend session-map and chat-rendering smoke tests pass, including an interaction probe for loading older canonical rows without a scroll jump.
+- Production Python quality gates pass: Ruff, Black, and MyPy report no findings.
+- The complete deterministic `integration/core` profile passes: 132 of 132 scenarios.
 
 ## Immediate Next Step
 
-Enter feature development with Slice 1: add the failing tool-heavy planner assertions, make the Compaction v2 low watermark authoritative, and verify map authoring still receives and grounds every newly consumed canonical group.
+Manually verify the paged timeline on mobile and against a production-sized session before deciding whether DOM virtualization or a persisted display-row index warrants a later branch.

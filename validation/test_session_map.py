@@ -37,7 +37,7 @@ for (const name of ['closeModal', 'openModalForSession']) {
     )
 
 
-def test_session_map_escape_focus_and_tool_detail_back_restore_checkpoint() -> None:
+def test_session_map_escape_focus_and_restore_collapsed_map_checkpoint() -> None:
     tool_harness = r"""
 const assert = require('assert');
 const fs = require('fs');
@@ -48,16 +48,12 @@ class Element {
     addEventListener(name, handler) { this.listeners[name] = handler; }
     removeEventListener(name) { delete this.listeners[name]; }
     focus() { document.activeElement = this; }
-    closest(selector) {
-        return selector === '[data-session-map-tool-call]' ? this : null;
-    }
-    getAttribute(name) { return this.attributes?.[name] ?? null; }
+    closest() { return null; }
     remove() { this.isConnected = false; if (activeModal === this) activeModal = null; }
     querySelector(selector) {
         if (selector === '[data-session-map-dialog]') return this.dialog;
         if (selector === '#session-map-modal-body') return this.body;
         if (selector === '.session-map-content') return this.mapDetails;
-        if (selector === '.session-map-transcript') return this.transcriptDetails;
         return null;
     }
 }
@@ -76,7 +72,6 @@ global.document = {
         modal.dialog = new Element();
         modal.body = { innerHTML: '' };
         modal.mapDetails = { open: false };
-        modal.transcriptDetails = { open: false };
         modal.querySelector = Element.prototype.querySelector;
         return modal;
     },
@@ -95,14 +90,6 @@ global.fetch = async (url) => {
                 session_map: { entries: [] },
                 revisions: [{ checkpoint_id: 'cp-1', revision: 1 }],
                 selected_checkpoint_id: 'cp-1',
-                transcript: {
-                    checkpoint_id: 'cp-1', page: 2, page_count: 3, total_entries: 5,
-                    has_previous: true, has_next: true,
-                    messages: [{
-                        is_tool_message: true,
-                        tool_calls: [{ tool_call_id: 'tool-1', tool_name: 'lookup' }],
-                    }],
-                },
             };
         },
     };
@@ -110,12 +97,10 @@ global.fetch = async (url) => {
 global.console = { error() {} };
 vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
 
-let toolOptions = null;
 const controller = SessionMap.create({
     elements: { vaultSelector: { value: 'TestVault' } },
     icons: { MAP_ICON_SVG: '', FORK_ICON_SVG: '', X_ICON_SVG: '', ARROW_LEFT_ICON_SVG: '' },
     utils: { escapeHtml: value => String(value) },
-    callbacks: { openToolCall(options) { toolOptions = options; } },
 });
 
 (async () => {
@@ -128,25 +113,10 @@ const controller = SessionMap.create({
     assert.strictEqual(document.activeElement, trigger, 'Closing should restore focus to the invoker.');
 
     await controller.openModalForSession({ session_id: 'session-1' }, {
-        checkpointId: 'cp-1', messagePage: 2, transcriptOpen: true, mapOpen: false,
+        checkpointId: 'cp-1', mapOpen: false,
     });
-    const toolButton = new HTMLButtonElement();
-    toolButton.attributes = {
-        'data-session-map-tool-call': 'tool-1',
-        'data-session-map-tool-name': 'lookup',
-        'data-session-map-tool-state': 'completed',
-        'data-session-map-tool-tokens': '3',
-        'data-session-map-tool-checkpoint': 'cp-1',
-        'data-session-map-tool-page': '2',
-    };
-    await activeModal.listeners.click({ target: toolButton });
-    assert(toolOptions, 'Selecting transcript tool detail should open the nested detail.');
-    assert.strictEqual(activeModal, null, 'Opening nested detail should replace the map modal.');
-    assert.strictEqual(toolOptions.returnFocusTarget, trigger, 'Closing nested detail should restore the original map invoker.');
-    await toolOptions.onBack();
-    assert.strictEqual(document.activeElement, activeModal.dialog, 'Returning should focus the restored map dialog.');
-    assert.match(requests.at(-1), /checkpoint_id=cp-1&message_page=2/);
-    assert.match(activeModal.body.innerHTML, /<details class="session-map-transcript" open>/);
+    assert.match(requests.at(-1), /checkpoint_id=cp-1/);
+    assert.doesNotMatch(requests.at(-1), /message_page/);
     assert.match(activeModal.body.innerHTML, /<details class="session-map-content">/);
     assert.doesNotMatch(activeModal.body.innerHTML, /<details class="session-map-content" open>/);
     activeModal.listeners.keydown({
@@ -166,7 +136,7 @@ const controller = SessionMap.create({
     )
 
 
-def test_session_map_ignores_out_of_order_checkpoint_and_page_results() -> None:
+def test_session_map_ignores_out_of_order_checkpoint_results() -> None:
     harness = r"""
 const assert = require('assert');
 const fs = require('fs');
@@ -182,14 +152,10 @@ class Element {
         if (selector === '#session-map-modal-body') return this.body;
         if (selector === '[data-session-map-dialog]') return this;
         if (selector === '.session-map-content') return { open: true };
-        if (selector === '.session-map-transcript') return { open: true };
         return null;
     }
 }
-class HTMLButtonElement extends Element {
-    closest(selector) { return selector === '[data-session-map-transcript-page]' ? this : null; }
-    getAttribute(name) { return this.attributes[name] || null; }
-}
+class HTMLButtonElement extends Element {}
 class HTMLSelectElement extends Element {
     matches() { return true; }
 }
@@ -226,25 +192,23 @@ const succeed = (request, marker) => request.resolve({ ok: true, json: async () 
     succeed(requests[0], 'initial');
     await opening;
 
-    const page = new HTMLButtonElement();
-    page.attributes = {
-        'data-session-map-transcript-page': '2',
-        'data-session-map-transcript-checkpoint': 'cp-1',
-    };
-    await modal.listeners.click({ target: page });
+    const staleRevision = new HTMLSelectElement();
+    staleRevision.value = 'cp-stale';
+    modal.listeners.change({ target: staleRevision });
     const revision = new HTMLSelectElement();
     revision.value = 'cp-1';
     modal.listeners.change({ target: revision });
     succeed(requests[2], 'latest revision');
     await Promise.resolve();
     await Promise.resolve();
-    succeed(requests[1], 'stale page');
+    succeed(requests[1], 'stale revision');
     await Promise.resolve();
     await Promise.resolve();
     assert.match(modal.body.innerHTML, /latest revision/);
-    assert.doesNotMatch(modal.body.innerHTML, /stale page/);
+    assert.doesNotMatch(modal.body.innerHTML, /stale revision/);
 
-    await modal.listeners.click({ target: page });
+    staleRevision.value = 'cp-old-error';
+    modal.listeners.change({ target: staleRevision });
     modal.listeners.change({ target: revision });
     succeed(requests[4], 'latest after error');
     await Promise.resolve();
@@ -284,27 +248,17 @@ def test_session_map_renders_narrative_trajectory() -> None:
     assert "humanize(selected?.action)" not in source
 
 
-def test_session_map_exposes_checkpoint_and_transcript_actions() -> None:
+def test_session_map_keeps_transcript_navigation_in_chat_timeline() -> None:
     map_source = _MODULE.read_text(encoding="utf-8")
     history_source = (_PROJECT_ROOT / "static/js/chat-history-rendering.js").read_text(
         encoding="utf-8"
     )
 
-    assert "renderTranscript(payload.transcript" in map_source
-    assert "data-session-map-transcript-page" in map_source
-    assert (
-        "loadCheckpoint(modal, session.session_id, checkpointId, page, true, mapOpen)"
-        in map_source
-    )
-    assert "data-session-map-tool-call" in map_source
-    assert "callbacks.openToolCall" in map_source
-    assert "data-session-map-fork" in map_source
-    assert "callbacks.forkSession" in map_source
-    assert "message?.role === 'assistant'" in map_source
-    assert (
-        '<details class="session-map-transcript-message session-map-transcript-tools">'
-        in map_source
-    )
+    assert "renderTranscript" not in map_source
+    assert "data-session-map-transcript-page" not in map_source
+    assert "payload.transcript" not in map_source
     assert "session-map-checkpoint-link" in history_source
-    assert "message.context_checkpoint_kind === 'session_map'" in history_source
+    assert "payload?.context_checkpoint_kind === 'session_map'" in history_source
+    assert "Load older messages" in history_source
+    assert "/timeline" in history_source
     assert "callbacks.openSessionMap" in history_source

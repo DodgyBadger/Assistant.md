@@ -921,9 +921,8 @@ def _assess_stepped_history_eviction(
     )
     if minimum_retained_groups < 1:
         raise ValueError("Minimum retained groups must be at least one.")
-    if retained_prefix_count < 0 or retained_prefix_count >= len(messages):
-        if retained_prefix_count != 0 or messages:
-            raise ValueError("Retained prefix must leave evictable history")
+    if retained_prefix_count < 0 or retained_prefix_count > len(messages):
+        raise ValueError("Retained prefix must fit within history")
     estimated = estimate_history_tokens(messages)
     evictable = messages[retained_prefix_count:]
     groups = _group_history_messages(evictable)

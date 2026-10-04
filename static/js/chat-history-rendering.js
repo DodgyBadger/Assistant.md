@@ -1,6 +1,12 @@
 (function chatHistoryRenderingModule(window, document) {
     function createChatHistoryRendering({ state, elements, icons, toolDetails, messageControls, callbacks }) {
         const persistedToolEntriesById = new Map();
+        let timelineSessionId = '';
+        let timelineOlderCursor = null;
+        let timelineHasOlder = false;
+        let timelineBoundary = null;
+        let timelineCheckpointId = '';
+        let timelineLoading = false;
 
         function renderPersistedSession(payload, options = {}) {
             toolDetails.close();
@@ -46,6 +52,28 @@
                 pendingToolCallIds.clear();
             }
 
+            if (payload?.context_checkpoint_kind === 'session_map') {
+                timelineSessionId = String(payload.session_id || state.sessionId || '');
+                timelineOlderCursor = Number.isInteger(payload.older_before_sequence_index)
+                    ? payload.older_before_sequence_index
+                    : null;
+                timelineHasOlder = payload.has_older_messages === true;
+                timelineBoundary = Number.isInteger(payload.context_boundary_sequence_index)
+                    ? payload.context_boundary_sequence_index
+                    : null;
+                timelineCheckpointId = String(payload.context_checkpoint_id || '');
+                renderCanonicalTimelineRows(messages, toolCallsById);
+                positionTimelineCheckpointNotice();
+                renderLoadOlderControl();
+                if (messages.length === 0 && !timelineHasOlder) {
+                    callbacks.renderEmptyState('Selected session has no persisted messages.');
+                }
+                renderLatestFailureAction(payload?.latest_failure);
+                reopenPersistedToolCall(options.reopenToolCallId);
+                return;
+            }
+
+            resetTimelineState();
             if (messages.length === 0) {
                 callbacks.renderEmptyState('Selected session has no persisted messages.');
                 renderLatestFailureAction(payload?.latest_failure);
@@ -93,37 +121,186 @@
             flushAssistantTurn();
 
             renderLatestFailureAction(payload?.latest_failure);
-            const reopenEntry = persistedToolEntriesById.get(options.reopenToolCallId || '');
-            if (reopenEntry) {
-                toolDetails.open(reopenEntry);
-            }
+            reopenPersistedToolCall(options.reopenToolCallId);
         }
 
-        function renderSessionMapCheckpoint(message) {
+        function resetTimelineState() {
+            timelineSessionId = '';
+            timelineOlderCursor = null;
+            timelineHasOlder = false;
+            timelineBoundary = null;
+            timelineCheckpointId = '';
+            timelineLoading = false;
+        }
+
+        function reopenPersistedToolCall(toolCallId) {
+            const reopenEntry = persistedToolEntriesById.get(toolCallId || '');
+            if (reopenEntry) toolDetails.open(reopenEntry);
+        }
+
+        function renderCanonicalTimelineRows(messages, toolCallsById, options = {}) {
+            const rendered = [];
+            messages.forEach((message) => {
+                const start = Number.isInteger(message?.sequence_index)
+                    ? message.sequence_index
+                    : null;
+                const end = Number.isInteger(message?.through_sequence_index)
+                    ? message.through_sequence_index
+                    : start;
+                let node = null;
+                if (message?.role === 'tool') {
+                    const ids = new Set();
+                    collectToolIds(message.tool_call_ids, ids);
+                    const embedded = groupToolCallsById(message.tool_calls);
+                    embedded.forEach((toolCall, toolCallId) => {
+                        toolCallsById.set(toolCallId, toolCall);
+                    });
+                    node = renderPersistedAssistantMessage(
+                        '',
+                        toolCallsForIds(toolCallsById, ids),
+                        {
+                            sequenceIndex: message.fork_sequence_index,
+                            forceScroll: options.forceScroll
+                        }
+                    );
+                } else if (message?.role === 'assistant') {
+                    node = renderPersistedAssistantMessage(
+                        message.content || '',
+                        [],
+                        {
+                            sequenceIndex: message.fork_sequence_index,
+                            thinkingText: message.thinking_content || '',
+                            forceScroll: options.forceScroll
+                        }
+                    );
+                } else if (message?.role === 'user') {
+                    node = messageControls.addMessage('user', message.content || '', {
+                        sequenceIndex: start,
+                        forceScroll: options.forceScroll
+                    });
+                }
+                if (node && Number.isInteger(start) && Number.isInteger(end)) {
+                    node.dataset.canonicalStart = String(start);
+                    node.dataset.canonicalEnd = String(end);
+                    rendered.push(node);
+                }
+            });
+            return rendered;
+        }
+
+        function createSessionMapCheckpointNotice() {
             const row = document.createElement('div');
             row.className = 'flex justify-start session-map-checkpoint-row';
+            row.dataset.sessionMapContextBoundary = 'true';
 
             const notice = document.createElement('div');
             notice.className = 'max-w-[80%] px-4 py-3 rounded-lg message-bubble message-assistant shadow-sm session-map-checkpoint-notice';
 
             const text = document.createElement('span');
-            text.textContent = 'Earlier messages were compacted into the session map.';
+            text.textContent = 'Messages above this point are represented in the assistant’s context by the session map.';
 
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'session-map-checkpoint-link';
             button.innerHTML = `${icons.MAP_ICON_SVG}<span>View session map</span>`;
-            button.setAttribute('aria-label', 'View session map and evicted transcript');
+            button.setAttribute('aria-label', 'View session map');
             button.addEventListener('click', () => {
                 callbacks.openSessionMap?.({
-                    checkpointId: message.context_checkpoint_id || ''
+                    checkpointId: timelineCheckpointId
                 });
             });
 
             notice.appendChild(text);
             notice.appendChild(button);
             row.appendChild(notice);
-            callbacks.appendMessageNode(row, { forceScroll: false });
+            return row;
+        }
+
+        function positionTimelineCheckpointNotice() {
+            if (!Number.isInteger(timelineBoundary)) return;
+            const container = elements.chatMessages;
+            let notice = container.querySelector('[data-session-map-context-boundary="true"]');
+            if (!notice) notice = createSessionMapCheckpointNotice();
+            const firstRawNode = Array.from(
+                container.querySelectorAll('[data-canonical-start]')
+            ).find(node => Number(node.dataset.canonicalStart) > timelineBoundary);
+            if (firstRawNode) {
+                container.insertBefore(notice, firstRawNode);
+            } else {
+                const failure = container.querySelector('.message-error')?.parentElement || null;
+                container.insertBefore(notice, failure);
+            }
+        }
+
+        function renderLoadOlderControl() {
+            const container = elements.chatMessages;
+            container.querySelector('[data-load-older-chat-messages]')?.remove();
+            if (!timelineHasOlder || !Number.isInteger(timelineOlderCursor)) return;
+            const row = document.createElement('div');
+            row.className = 'flex justify-center';
+            row.dataset.loadOlderChatMessages = 'true';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ui-button-secondary text-sm';
+            button.textContent = 'Load older messages';
+            button.addEventListener('click', () => loadOlderTimelineMessages(button));
+            row.appendChild(button);
+            container.prepend(row);
+        }
+
+        async function loadOlderTimelineMessages(button) {
+            if (
+                timelineLoading
+                || !timelineSessionId
+                || !Number.isInteger(timelineOlderCursor)
+            ) return;
+            const vault = elements.vaultSelector?.value || '';
+            if (!vault) return;
+            const requestedSessionId = timelineSessionId;
+            const requestedCursor = timelineOlderCursor;
+            timelineLoading = true;
+            button.disabled = true;
+            button.textContent = 'Loading…';
+            const container = elements.chatMessages;
+            const previousHeight = container.scrollHeight;
+            try {
+                const response = await fetch(
+                    `api/chat/sessions/${encodeURIComponent(requestedSessionId)}/timeline` +
+                    `?vault_name=${encodeURIComponent(vault)}` +
+                    `&before_sequence_index=${encodeURIComponent(requestedCursor)}`
+                );
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.message || `HTTP ${response.status}`);
+                }
+                const payload = await response.json();
+                if (state.sessionId !== requestedSessionId || timelineSessionId !== requestedSessionId) return;
+                const anchor = container.querySelector(
+                    '[data-session-map-context-boundary="true"]'
+                ) || container.querySelector('[data-canonical-start]');
+                const toolCallsById = groupToolCallsById(payload.tool_calls);
+                const nodes = renderCanonicalTimelineRows(
+                    payload.messages || [],
+                    toolCallsById,
+                    { forceScroll: false }
+                );
+                const fragment = document.createDocumentFragment();
+                nodes.forEach(node => fragment.appendChild(node));
+                container.insertBefore(fragment, anchor);
+                timelineOlderCursor = Number.isInteger(payload.older_before_sequence_index)
+                    ? payload.older_before_sequence_index
+                    : null;
+                timelineHasOlder = payload.has_older === true;
+                positionTimelineCheckpointNotice();
+                renderLoadOlderControl();
+                container.scrollTop += container.scrollHeight - previousHeight;
+            } catch (error) {
+                console.error('Unable to load older chat messages:', error);
+                button.disabled = false;
+                button.textContent = 'Try loading older messages again';
+            } finally {
+                timelineLoading = false;
+            }
         }
 
         function renderLatestFailureAction(latestFailure) {
@@ -251,7 +428,9 @@
         }
 
         function renderPersistedAssistantMessage(content, toolCalls, options = {}) {
-            const context = callbacks.createAssistantStreamingMessage();
+            const context = callbacks.createAssistantStreamingMessage({
+                forceScroll: options.forceScroll
+            });
             context.fullText = content || '';
             context.thinkingText = options.thinkingText || '';
             context.collapseThinking = Boolean(context.thinkingText);
@@ -263,8 +442,10 @@
                 sessionId: state.sessionId || 'unknown',
                 messageCount: 1,
                 toolCount: Array.isArray(toolCalls) ? toolCalls.length : 0,
-                status: 'done'
+                status: 'done',
+                forceScroll: options.forceScroll
             });
+            return context.messageDiv;
         }
 
         function hydratePersistedToolCalls(context, toolCalls) {
@@ -301,7 +482,10 @@
 
         return Object.freeze({
             renderSession: renderPersistedSession,
-            clear: () => persistedToolEntriesById.clear(),
+            clear: () => {
+                persistedToolEntriesById.clear();
+                resetTimelineState();
+            },
         });
     }
 

@@ -462,7 +462,7 @@ class SessionMapEvidenceAdmissionScenario(BaseScenario):
         assert reduced is not None
         latest = store.get_latest_context_checkpoint(session_id, vault_name)
         assert latest is not None
-        assert latest.last_message_sequence_index == 7
+        assert latest.last_message_sequence_index == 9
         assert latest.observed_through_sequence_index == 9
         assert load_session_map_checkpoint(latest) == valid
         assert store.get_history(session_id, vault_name, mode="raw") == raw_before
@@ -505,7 +505,7 @@ class SessionMapEvidenceAdmissionScenario(BaseScenario):
             assert [
                 (item["source_range"]["start"], item["source_range"]["end"])
                 for item in author_payload["new_evidence_envelopes"]
-            ] == [(4, 7), (8, 9)]
+            ] == [(4, 7), (8, 9), (10, 11)]
             assert [
                 (item["sequence_index"], item["content"])
                 for item in author_payload["retrieved_canonical_evidence"]
@@ -523,7 +523,7 @@ class SessionMapEvidenceAdmissionScenario(BaseScenario):
         assert repaired is not None
         latest = store.get_latest_context_checkpoint(session_id, vault_name)
         assert latest is not None
-        assert latest.last_message_sequence_index == 9
+        assert latest.last_message_sequence_index == 11
         assert latest.observed_through_sequence_index == 11
 
 

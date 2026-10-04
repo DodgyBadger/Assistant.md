@@ -1141,15 +1141,20 @@ def _cumulative_draft(kwargs: dict[str, object]) -> SessionMapDraft:
     prompt = json.loads(str(kwargs["prompt"]))
     ranges = prompt["new_evidence_envelopes"]
     previous = prompt["previous_map"].get("trajectory")
-    start = (
-        previous["sources"][0]["start"]
+    sources = (
+        [SourceRange.model_validate(source) for source in previous["sources"]]
         if previous
-        else ranges[0]["source_range"]["start"]
+        else []
+    )
+    sources.extend(
+        SourceRange.model_validate(source)
+        for envelope in ranges
+        for source in envelope["citable_source_ranges"]
     )
     return SessionMapDraft(
         trajectory=SessionMapTrajectory(
             text="Cumulative reconstruction of canonical history.",
-            sources=(SourceRange(start=start, end=ranges[-1]["source_range"]["end"]),),
+            sources=tuple(sources),
         )
     )
 

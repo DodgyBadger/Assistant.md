@@ -368,55 +368,62 @@ class SessionMapCheckpointScenario(BaseScenario):
             second_map.trajectory.model_dump(mode="json"),
             "Map inspection should expose the source-linked narrative bridge",
         )
-        self.soft_assert_equal(
-            [
-                message["sequence_index"]
-                for message in current_payload["transcript"]["messages"]
-            ],
-            [0, 1, 2, 3],
-            "Map inspection should expose bounded canonical history through the selected eviction boundary",
+        self.soft_assert(
+            "transcript" not in current_payload,
+            "Map inspection should not duplicate the canonical chat timeline",
         )
         detail_response = self.call_api(
             f"/api/chat/sessions/{session_id}?vault_name={vault.name}"
         )
         assert detail_response.status_code == 200
-        detail_messages = detail_response.json()["messages"]
+        detail_payload = detail_response.json()
+        detail_messages = detail_payload["messages"]
         self.soft_assert_equal(
-            detail_messages[0]["context_checkpoint_kind"],
+            detail_payload["context_checkpoint_kind"],
             "session_map",
-            "Session detail should identify the effective map replacement explicitly",
+            "Session detail should identify the effective context boundary explicitly",
         )
         self.soft_assert_equal(
-            detail_messages[0]["context_checkpoint_id"],
+            detail_payload["context_checkpoint_id"],
             "second-map-checkpoint",
-            "Session detail should link the replacement row to the inspectable checkpoint",
+            "Session detail should link the context boundary to the inspectable checkpoint",
         )
         self.soft_assert_equal(
-            detail_messages[0]["content"],
-            "",
-            "Session detail should not project internal map JSON as chat display prose",
+            [message["sequence_index"] for message in detail_messages],
+            [0, 1, 2, 3, 4, 5],
+            "A small mapped session should render complete canonical messages in the chat timeline",
         )
         paged_response = self.call_api(
-            f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
-            "&checkpoint_id=second-map-checkpoint&message_page=2&message_page_size=2"
+            f"/api/chat/sessions/{session_id}/timeline?vault_name={vault.name}"
+            "&page_size=2"
         )
         assert paged_response.status_code == 200
-        paged_transcript = paged_response.json()["transcript"]
+        paged_transcript = paged_response.json()
         self.soft_assert_equal(
             (
-                paged_transcript["page"],
-                paged_transcript["page_count"],
-                paged_transcript["total_entries"],
-                paged_transcript["has_previous"],
-                paged_transcript["has_next"],
+                paged_transcript["has_older"],
+                paged_transcript["older_before_sequence_index"],
             ),
-            (2, 2, 4, True, False),
-            "Canonical checkpoint transcript paging should expose stable boundaries",
+            (True, 4),
+            "Canonical timeline paging should expose a stable reverse cursor",
         )
         self.soft_assert_equal(
             [message["sequence_index"] for message in paged_transcript["messages"]],
+            [4, 5],
+            "The newest canonical timeline page should remain chronological and bounded",
+        )
+        older_response = self.call_api(
+            f"/api/chat/sessions/{session_id}/timeline?vault_name={vault.name}"
+            "&page_size=2&before_sequence_index=4"
+        )
+        assert older_response.status_code == 200
+        self.soft_assert_equal(
+            [
+                message["sequence_index"]
+                for message in older_response.json()["messages"]
+            ],
             [2, 3],
-            "Canonical checkpoint transcript pages should remain chronological and bounded",
+            "Loading older canonical messages should produce no duplicate or missing rows",
         )
         historical_response = self.call_api(
             f"/api/chat/sessions/{session_id}/map?vault_name={vault.name}"
@@ -427,14 +434,6 @@ class SessionMapCheckpointScenario(BaseScenario):
             historical_response.json()["session_map"],
             first_map.model_dump(mode="json"),
             "A historical checkpoint should return its original typed map",
-        )
-        self.soft_assert_equal(
-            [
-                message["sequence_index"]
-                for message in historical_response.json()["transcript"]["messages"]
-            ],
-            [0, 1],
-            "Historical checkpoint inspection should stop at that checkpoint's eviction boundary",
         )
 
         tool_session_id = "session-map-tool-transcript"
@@ -501,22 +500,22 @@ class SessionMapCheckpointScenario(BaseScenario):
                 _assistant("I need a path before I can continue."),
             ],
         )
-        retry_total, retry_boundaries = store.get_canonical_display_row_page(
+        retry_boundaries, retry_has_older = store.get_canonical_display_rows_before(
             retry_session_id,
             vault.name,
             through_sequence_index=3,
+            before_sequence_index=None,
             limit=10,
-            offset=0,
         )
         self.soft_assert_equal(
-            (retry_total, retry_boundaries),
+            (retry_boundaries, retry_has_older),
             (
-                3,
                 [
                     (0, 0, "message"),
                     (1, 2, "tool"),
                     (3, 3, "message"),
                 ],
+                False,
             ),
             "Named retry prompts should remain inside their collapsed tool activity row",
         )
@@ -575,17 +574,24 @@ class SessionMapCheckpointScenario(BaseScenario):
             checkpoint_id="tool-transcript-checkpoint",
         )
         tool_transcript_response = self.call_api(
-            f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
+            f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
+            "&page_size=100"
         )
         assert tool_transcript_response.status_code == 200
-        tool_transcript = tool_transcript_response.json()["transcript"]
+        tool_transcript = tool_transcript_response.json()
         self.soft_assert_equal(
             [
                 (message["sequence_index"], message["role"])
                 for message in tool_transcript["messages"]
             ],
-            [(0, "user"), (1, "tool"), (3, "assistant")],
-            "Map transcript inspection should preserve collapsed tool activity in sequence",
+            [
+                (0, "user"),
+                (1, "tool"),
+                (3, "assistant"),
+                (4, "user"),
+                (5, "assistant"),
+            ],
+            "The canonical chat timeline should preserve collapsed tool activity in sequence",
         )
         self.soft_assert_equal(
             (
@@ -607,60 +613,56 @@ class SessionMapCheckpointScenario(BaseScenario):
         )
         self.soft_assert_equal(
             [message["fork_sequence_index"] for message in tool_transcript["messages"]],
-            [0, 2, 3],
+            [0, 2, 3, 4, 5],
             "Canonical transcript rows should retain their exact sequence boundaries",
         )
         tool_page_response = self.call_api(
-            f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
-            "&checkpoint_id=tool-transcript-checkpoint&message_page=2&message_page_size=1"
+            f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
+            "&before_sequence_index=3&page_size=1"
         )
         assert tool_page_response.status_code == 200
-        tool_page = tool_page_response.json()["transcript"]
+        tool_page = tool_page_response.json()
         self.soft_assert_equal(
-            (
-                tool_page["total_entries"],
-                tool_page["page_count"],
-                [
-                    (item["sequence_index"], item["through_sequence_index"])
-                    for item in tool_page["messages"]
-                ],
-            ),
-            (3, 3, [(1, 2)]),
-            "One transcript page should retain a complete collapsed tool run",
+            [
+                (item["sequence_index"], item["through_sequence_index"])
+                for item in tool_page["messages"]
+            ],
+            [(1, 2)],
+            "One timeline page should retain a complete collapsed tool run",
         )
         with patch.object(
             ChatStore,
-            "get_canonical_display_row_page",
-            return_value=(2, [(1, 1, "tool"), (2, 2, "tool")]),
+            "get_canonical_display_rows_before",
+            return_value=([(1, 1, "tool"), (2, 2, "tool")], False),
         ):
             drift_response = self.call_api(
-                f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
-                "&checkpoint_id=tool-transcript-checkpoint&message_page_size=2"
+                f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
+                "&page_size=2"
             )
         assert drift_response.status_code == 200, drift_response.text
         self.soft_assert_equal(
             [
                 (item["sequence_index"], item["through_sequence_index"])
-                for item in drift_response.json()["transcript"]["messages"]
+                for item in drift_response.json()["messages"]
             ],
             [(1, 1), (2, 2)],
             "A compact paging boundary should remain renderable when broader hydration would merge adjacent tool rows",
         )
         with patch.object(
             ChatStore,
-            "get_canonical_display_row_page",
-            return_value=(1, [(1, 2, "message")]),
+            "get_canonical_display_rows_before",
+            return_value=([(1, 2, "message")], False),
         ):
             mismatch_response = self.call_api(
-                f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
-                "&checkpoint_id=tool-transcript-checkpoint&message_page_size=1"
+                f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
+                "&page_size=1"
             )
         self.soft_assert_equal(
             (
                 mismatch_response.status_code,
                 mismatch_response.json().get("error"),
             ),
-            (409, "SessionMapTranscriptProjectionMismatch"),
+            (409, "CanonicalTimelineProjectionMismatch"),
             "An irreconcilable compact boundary should fail with a stable API contract",
         )
         projection_activity = self.call_api("/api/system/activity-log?limit=200")
@@ -668,15 +670,14 @@ class SessionMapCheckpointScenario(BaseScenario):
         self.soft_assert(
             any(
                 entry.get("data", {}).get("event")
-                == "session_map_transcript_projection_failed"
+                == "canonical_timeline_projection_failed"
                 and entry["data"].get("status") == "failed"
                 and entry["data"].get("session_id") == tool_session_id
-                and entry["data"].get("checkpoint_id") == "tool-transcript-checkpoint"
                 and entry["data"].get("boundary_start") == 1
                 and entry["data"].get("boundary_end") == 2
                 and entry["data"].get("boundary_kind") == "message"
                 and entry["data"].get("error_type")
-                == "SessionMapTranscriptProjectionMismatch"
+                == "CanonicalTimelineProjectionMismatch"
                 for entry in projection_activity.json()["entries"]
             ),
             "System Activity should identify the exact irreconcilable transcript boundary",
@@ -703,8 +704,8 @@ class SessionMapCheckpointScenario(BaseScenario):
         )
         self.soft_assert_equal(
             active_tool_response.status_code,
-            404,
-            "Evicted tool details should require an authorized checkpoint scope",
+            200,
+            "Canonical timeline tool details should remain inspectable after compaction",
         )
 
         recovery_session_id = "corrupted-recovery-checkpoint"

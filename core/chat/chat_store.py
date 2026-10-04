@@ -293,21 +293,23 @@ class ChatStore:
             through_sequence_index=through_sequence_index,
         )
 
-    def get_canonical_display_row_page(
+    def get_canonical_display_rows_before(
         self,
         session_id: str,
         vault_name: str,
         *,
         through_sequence_index: int,
+        before_sequence_index: int | None,
         limit: int,
-        offset: int,
-    ) -> tuple[int, list[tuple[int, int, str]]]:
-        """Count display rows and return one page of raw sequence boundaries.
-
-        SQLite scans compact message metadata to count collapsed tool runs. Only
-        the selected boundaries cross into Python; message JSON is hydrated by
-        the caller for that page alone.
-        """
+    ) -> tuple[list[tuple[int, int, str]], bool]:
+        """Return the newest canonical display rows before a stable sequence cursor."""
+        if limit < 1:
+            raise ValueError("Canonical display-row limit must be positive")
+        cursor = (
+            through_sequence_index + 1
+            if before_sequence_index is None
+            else before_sequence_index
+        )
         conn = self._connect()
         try:
             rows = conn.execute(
@@ -381,25 +383,29 @@ class ChatStore:
                            min(kind) AS kind
                     FROM grouped GROUP BY group_id HAVING kind != 'separator'
                 )
-                SELECT totals.total_entries, page.first_sequence_index,
-                       page.last_sequence_index, page.kind
-                FROM (SELECT count(*) AS total_entries FROM display_rows) totals
-                LEFT JOIN (
-                    SELECT first_sequence_index, last_sequence_index, kind
-                    FROM display_rows ORDER BY group_id LIMIT ? OFFSET ?
-                ) page ON 1 = 1
+                SELECT first_sequence_index, last_sequence_index, kind
+                FROM display_rows
+                WHERE first_sequence_index < ?
+                ORDER BY group_id DESC
+                LIMIT ?
                 """,
-                (session_id, vault_name, through_sequence_index, limit, offset),
+                (
+                    session_id,
+                    vault_name,
+                    through_sequence_index,
+                    cursor,
+                    limit + 1,
+                ),
             ).fetchall()
         finally:
             conn.close()
-        total_entries = int(rows[0][0]) if rows else 0
-        boundaries = [
-            (int(first), int(last), str(kind))
-            for _, first, last, kind in rows
-            if first is not None and last is not None and kind is not None
-        ]
-        return total_entries, boundaries
+        has_older = len(rows) > limit
+        selected = rows[:limit]
+        selected.reverse()
+        return (
+            [(int(first), int(last), str(kind)) for first, last, kind in selected],
+            has_older,
+        )
 
     def get_canonical_fork_points_for_sequences(
         self,

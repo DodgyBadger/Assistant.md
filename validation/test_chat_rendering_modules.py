@@ -352,6 +352,164 @@ assert.deepStrictEqual(
     )
 
 
+def test_session_map_timeline_prepends_older_canonical_rows_without_scroll_jump() -> (
+    None
+):
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+class Element {
+    constructor(tag = 'div') {
+        this.tag = tag;
+        this.children = [];
+        this.dataset = {};
+        this.listeners = {};
+        this.parentElement = null;
+        this.disabled = false;
+        this.textContent = '';
+        this.scrollTop = 20;
+    }
+    set innerHTML(_value) { this.children = []; }
+    get innerHTML() { return ''; }
+    get scrollHeight() { return this.children.length * 10; }
+    addEventListener(name, listener) { this.listeners[name] = listener; }
+    setAttribute(name, value) { this[name] = value; }
+    appendChild(child) {
+        if (child.isFragment) {
+            for (const nested of [...child.children]) this.appendChild(nested);
+            return child;
+        }
+        child.remove();
+        child.parentElement = this;
+        this.children.push(child);
+        return child;
+    }
+    insertBefore(child, anchor) {
+        if (child.isFragment) {
+            for (const nested of [...child.children]) this.insertBefore(nested, anchor);
+            return child;
+        }
+        child.remove();
+        child.parentElement = this;
+        const index = anchor ? this.children.indexOf(anchor) : -1;
+        if (index < 0) this.children.push(child);
+        else this.children.splice(index, 0, child);
+        return child;
+    }
+    prepend(child) { return this.insertBefore(child, this.children[0] || null); }
+    remove() {
+        if (!this.parentElement) return;
+        const index = this.parentElement.children.indexOf(this);
+        if (index >= 0) this.parentElement.children.splice(index, 1);
+        this.parentElement = null;
+    }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    querySelectorAll(selector) {
+        const descendants = [];
+        const visit = node => {
+            for (const child of node.children) {
+                descendants.push(child);
+                visit(child);
+            }
+        };
+        visit(this);
+        if (selector === '[data-session-map-context-boundary="true"]') {
+            return descendants.filter(node => node.dataset.sessionMapContextBoundary === 'true');
+        }
+        if (selector === '[data-canonical-start]') {
+            return descendants.filter(node => node.dataset.canonicalStart !== undefined);
+        }
+        if (selector === '[data-load-older-chat-messages]') {
+            return descendants.filter(node => node.dataset.loadOlderChatMessages === 'true');
+        }
+        if (selector === '.message-error') return [];
+        return [];
+    }
+}
+class Fragment extends Element { constructor() { super('fragment'); this.isFragment = true; } }
+
+global.window = global;
+global.document = {
+    createElement: tag => new Element(tag),
+    createDocumentFragment: () => new Fragment(),
+};
+const container = new Element('main');
+const state = { sessionId: 'session-1' };
+const requests = [];
+global.fetch = async url => {
+    requests.push(url);
+    return {
+        ok: true,
+        json: async () => ({
+            session_id: 'session-1',
+            messages: [
+                { role: 'user', sequence_index: 1, content: 'one' },
+                { role: 'user', sequence_index: 2, content: 'two' },
+            ],
+            tool_calls: [],
+            has_older: false,
+            older_before_sequence_index: null,
+        }),
+    };
+};
+global.console = { error() {} };
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+
+const controller = ChatHistoryRendering.create({
+    state,
+    elements: { chatMessages: container, vaultSelector: { value: 'Vault' } },
+    icons: { MAP_ICON_SVG: '' },
+    toolDetails: { close() {} },
+    messageControls: {
+        addMessage(_role, _content, options) {
+            const node = new Element('message');
+            node.sequenceIndex = options.sequenceIndex;
+            container.appendChild(node);
+            return node;
+        },
+    },
+    callbacks: {
+        renderEmptyState() {},
+        openSessionMap() {},
+    },
+});
+
+(async () => {
+    controller.renderSession({
+        session_id: 'session-1',
+        context_checkpoint_kind: 'session_map',
+        context_checkpoint_id: 'checkpoint-1',
+        context_boundary_sequence_index: 2,
+        messages: [
+            { role: 'user', sequence_index: 3, content: 'three' },
+            { role: 'user', sequence_index: 4, content: 'four' },
+        ],
+        tool_calls: [],
+        has_older_messages: true,
+        older_before_sequence_index: 3,
+    });
+    const loadRow = container.querySelector('[data-load-older-chat-messages]');
+    assert.ok(loadRow, 'The newest page should offer older history.');
+    await loadRow.children[0].listeners.click();
+    assert.match(requests[0], /before_sequence_index=3/);
+    const ordered = container.children.map(node => {
+        if (node.dataset.sessionMapContextBoundary === 'true') return 'boundary';
+        return Number(node.dataset.canonicalStart);
+    });
+    assert.deepStrictEqual(ordered, [1, 2, 'boundary', 3, 4]);
+    assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');
+    assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), null);
+})().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_HISTORY_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_terminal_stream_event_sets_live_fork_origin() -> None:
     harness = r"""
 const assert = require('assert');

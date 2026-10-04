@@ -87,6 +87,7 @@ from .models import (
     ChatSessionsPurgeResponse,
     ChatSessionSummaryResponse,
     ChatSessionSummaryUpdateRequest,
+    ChatSessionTimelinePage,
     ChatSessionTitleRequest,
     ChatSessionWorkspaceRequest,
     ChatTaskReplaySnapshotResponse,
@@ -204,6 +205,7 @@ from .services import (
     get_chat_session_detail,
     get_chat_session_map,
     get_chat_session_summary,
+    get_chat_session_timeline,
     get_chat_tool_call_detail,
     get_configurable_models,
     get_configurable_providers,
@@ -2564,8 +2566,6 @@ async def chat_session_map(
     session_id: str,
     vault_name: str,
     checkpoint_id: str | None = None,
-    message_page: int = Query(1, ge=1),
-    message_page_size: int = Query(20, ge=1, le=50),
 ) -> ChatSessionMapResponse | JSONResponse:
     """Return the current or selected historical stepped-map checkpoint."""
     try:
@@ -2573,8 +2573,6 @@ async def chat_session_map(
             vault_name,
             session_id,
             checkpoint_id=checkpoint_id,
-            message_page=message_page,
-            message_page_size=message_page_size,
         )
     except Exception as e:
         return create_error_response(e)
@@ -2676,6 +2674,29 @@ async def chat_session_detail(
             get_chat_session_detail,
             vault_name,
             session_id,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/chat/sessions/{session_id}/timeline",
+    response_model=ChatSessionTimelinePage,
+)
+async def chat_session_timeline(
+    session_id: str,
+    vault_name: str,
+    before_sequence_index: int | None = Query(None, ge=0),
+    page_size: int = Query(40, ge=1, le=100),
+) -> ChatSessionTimelinePage | JSONResponse:
+    """Load one bounded reverse-cursor page of canonical session history."""
+    try:
+        return await run_in_threadpool(
+            get_chat_session_timeline,
+            vault_name,
+            session_id,
+            before_sequence_index=before_sequence_index,
+            page_size=page_size,
         )
     except Exception as e:
         return create_error_response(e)

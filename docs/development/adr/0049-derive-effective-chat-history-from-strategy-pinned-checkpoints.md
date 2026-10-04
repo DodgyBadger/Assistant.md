@@ -16,7 +16,7 @@ Keep canonical chat messages intact and derive effective history from the latest
 
 Treat checkpoints as append-only revisions. Each checkpoint records the canonical prefix governed by its replacement, its strategy kind, replacement history, author observation boundary, source-history revision, and strategy-specific metadata. The consumed boundary determines the governed canonical prefix and where the raw suffix resumes; origin-linked messages carried inside the replacement retain their canonical identity. The observation boundary records the newest canonical message available to the author and may extend into the retained suffix; the distinction prevents later-message knowledge from crossing an earlier fork.
 
-Plan reduction over complete protocol-safe conversational groups. Trigger automatic reduction at a configurable high token watermark and preserve at least the configured number of recent conversational turns. Session-map reduction advances its consumed boundary toward a configurable low token watermark; recovery-card reduction summarizes every complete group older than the retained-turn floor. Protocol integrity and the retained-turn floor take precedence over the session-map low-watermark target when a recent group is unusually large.
+Plan reduction over complete protocol-safe conversational groups. Trigger automatic reduction at a configurable high token watermark. For session-map reduction, advance the consumed boundary toward a configurable low token watermark and treat the configured recent-turn count as a retention preference, relaxing it from oldest to newest when necessary to meet the target. Preserve an incomplete newest group because it may represent the active user turn; a complete unusually large group may be represented by the map without remaining verbatim in effective history. Recovery-card reduction continues to summarize every complete group older than its retained-turn floor.
 
 Resolve a reduction plan against canonical storage and fence authoring and commit with the source-history revision. Authoring runs through the governed execution-task path. Persist the replacement and checkpoint metadata atomically only after the author result and its evidence contract validate. Authoring, validation, cancellation, staleness, or commit failure preserves the prior effective history and does not fall back to another strategy. A strategy change detected before authoring begins may be re-resolved once inside the same governed task.
 
@@ -25,6 +25,8 @@ Use `recovery_card` as the default strategy and make `session_map` optional. Ins
 Use one optional compaction-author model setting for both strategies, falling back to the default chat model when it is unset. Allow an explicit per-session upgrade from a recovery-card checkpoint to a session-map checkpoint. The upgrade reconstructs one honest current map from canonical history and does not fabricate historical maps that never informed later turns. Do not automatically downgrade or bulk-convert sessions.
 
 Keep canonical transcript search and bounded window retrieval available through `session_ops`. Recovery guidance may cue retrieval when exact wording, provenance, or omitted detail matters.
+
+Keep the canonical browser timeline distinct from effective provider history. For session-map sessions, load only a bounded newest page into the browser and expose stable reverse-cursor paging over complete canonical display rows. Place the active session-map boundary in that timeline so users can distinguish messages represented through the map from the raw suffix sent verbatim to the model. Keep session-map inspection focused on map revisions and provenance rather than maintaining a second transcript viewer.
 
 ## Rationale
 
@@ -38,7 +40,8 @@ Pinning prevents an installation-wide settings change from silently changing the
 - Effective context can remain substantially smaller than the canonical transcript without presenting generated continuity text as canonical conversation.
 - A session's context semantics remain stable across installation-setting changes.
 - Sessions below the high watermark may have no checkpoint or session map.
-- Very large recent turns may keep session-map effective history above the low watermark to preserve conversational and provider-protocol continuity.
+- Session-map reduction can relax the recent-turn preference to meet its low watermark; only an incomplete newest group may keep effective history above the target.
+- Canonical history remains visible as complete messages through bounded reverse paging even when those messages are absent from effective provider context.
 - Recovery cards and session maps remain lossy, so agents may need canonical transcript retrieval for source verification.
 - The explicit recovery-card-to-session-map upgrade spends inference only for sessions selected by the user and preserves the existing recovery checkpoint if authoring or commit fails.
 - Cross-session discovery, fork-family ranking, vault linkage, and replacement of nightly session summaries remain separate memory-system decisions.

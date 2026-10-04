@@ -213,7 +213,7 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                 unavailable_response.json().get("status"),
                 unavailable_response.json().get("reason"),
             ),
-            (200, "unavailable", "minimum_retained_groups"),
+            (200, "unavailable", "no_evictable_groups"),
             "A request with no safely evictable group should return a stable no-op",
         )
         self.soft_assert_equal(
@@ -923,14 +923,13 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             )
             assert response.status_code == 200
             for message_count in (0, 2):
+                map_reduction_expected = (
+                    strategy == "session_map" and message_count == 2
+                )
                 expected_reason = (
                     "retained_turn_floor"
                     if strategy == "recovery_card"
-                    else (
-                        "below_high_watermark"
-                        if message_count == 0
-                        else "minimum_retained_groups"
-                    )
+                    else "below_high_watermark"
                 )
                 session_id = f"manual-no-op-{strategy}-{message_count}"
                 store.ensure_session(
@@ -948,8 +947,8 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                 )
                 self.soft_assert_equal(
                     status.manual_compaction_available,
-                    False,
-                    "Empty or retained-only history must not advertise manual work",
+                    map_reduction_expected,
+                    "Manual availability should reflect whether a complete V2 group can be reduced",
                 )
                 response = self.call_api(
                     f"/api/chat/sessions/{session_id}/compact",
@@ -963,23 +962,32 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                         payload.get("status"),
                         payload.get("reason"),
                     ),
-                    (200, "unavailable", expected_reason),
-                    f"{strategy} should treat an empty or retained-only request as a no-op",
+                    (
+                        (200, "completed", None)
+                        if map_reduction_expected
+                        else (200, "unavailable", expected_reason)
+                    ),
+                    f"{strategy} should honor its explicit reduction contract",
                 )
                 self.soft_assert_equal(
                     (payload.get("messages_before"), payload.get("messages_after")),
-                    (message_count, message_count),
-                    "A no-op should report unchanged effective history",
+                    (
+                        (message_count, 1)
+                        if map_reduction_expected
+                        else (message_count, message_count)
+                    ),
+                    "Manual reduction should report the resulting effective history",
                 )
                 self.soft_assert_equal(
                     store.get_session_history_revision(session_id, vault_name),
-                    revision,
-                    "A no-op must not advance the durable history revision",
+                    revision + (1 if map_reduction_expected else 0),
+                    "Only a completed reduction should advance durable history revision",
                 )
+                checkpoints = store.list_context_checkpoints(session_id, vault_name)
                 self.soft_assert_equal(
-                    store.list_context_checkpoints(session_id, vault_name),
-                    [],
-                    "A no-op must not create a checkpoint or pin a strategy",
+                    [checkpoint.checkpoint_kind for checkpoint in checkpoints],
+                    ["session_map"] if map_reduction_expected else [],
+                    "Only a completed reduction should create and pin a checkpoint",
                 )
                 tasks = await runtime.task_coordinator.list_tasks(
                     kind=ExecutionTaskKind.HISTORY_COMPACTION.value,
@@ -989,35 +997,50 @@ class ManualSessionMapCompactionScenario(BaseScenario):
                     len(tasks) == 1
                     and tasks[0].status == "completed"
                     and tasks[0].result is not None
-                    and tasks[0].result.get("status") == "unavailable",
-                    "An explicit no-op must complete its governed task with its result",
+                    and tasks[0].result.get("status")
+                    == ("completed" if map_reduction_expected else "unavailable"),
+                    "An explicit request must complete its governed task with its result",
                 )
                 activity_response = self.call_api("/api/system/activity-log?limit=200")
                 assert activity_response.status_code == 200
-                self.soft_assert(
-                    any(
-                        entry.get("data", {}).get("event")
-                        == "chat_compaction_unavailable"
-                        and entry["data"].get("session_id") == session_id
-                        and entry["data"].get("vault_name") == vault_name
-                        and entry["data"].get("strategy") == strategy
-                        and entry["data"].get("status") == "unavailable"
-                        and entry["data"].get("reason") == expected_reason
-                        and entry["data"].get("task_id") == tasks[0].task_id
-                        for entry in activity_response.json()["entries"]
-                    ),
-                    "System Activity must distinguish a harmless no-op from a failed compaction",
-                )
-                if strategy == "session_map":
+                if map_reduction_expected:
                     self.soft_assert(
-                        not any(
+                        any(
                             entry.get("data", {}).get("event")
-                            == "session_map_context_reduction_skipped"
+                            == "session_map_context_reduction_completed"
                             and entry["data"].get("session_id") == session_id
+                            and entry["data"].get("vault_name") == vault_name
+                            and entry["data"].get("status") == "completed"
+                            and entry["data"].get("task_id") == tasks[0].task_id
                             for entry in activity_response.json()["entries"]
                         ),
-                        "A V2 no-op must publish only one domain terminal outcome",
+                        "System Activity must record a completed manual V2 reduction",
                     )
+                else:
+                    self.soft_assert(
+                        any(
+                            entry.get("data", {}).get("event")
+                            == "chat_compaction_unavailable"
+                            and entry["data"].get("session_id") == session_id
+                            and entry["data"].get("vault_name") == vault_name
+                            and entry["data"].get("strategy") == strategy
+                            and entry["data"].get("status") == "unavailable"
+                            and entry["data"].get("reason") == expected_reason
+                            and entry["data"].get("task_id") == tasks[0].task_id
+                            for entry in activity_response.json()["entries"]
+                        ),
+                        "System Activity must distinguish a harmless no-op from a failed compaction",
+                    )
+                    if strategy == "session_map":
+                        self.soft_assert(
+                            not any(
+                                entry.get("data", {}).get("event")
+                                == "session_map_context_reduction_skipped"
+                                and entry["data"].get("session_id") == session_id
+                                for entry in activity_response.json()["entries"]
+                            ),
+                            "A V2 no-op must publish only one domain terminal outcome",
+                        )
 
             session_id = f"manual-author-readiness-{strategy}"
             store.ensure_session(

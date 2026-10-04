@@ -172,6 +172,17 @@ class SteppedEvictionPlannerScenario(BaseScenario):
         assert map_plan.retained_message_count == 3
         assert map_plan.estimated_tokens_after <= map_target
 
+        fully_replaced_plan = compaction.plan_stepped_history_eviction(
+            [pinned_map],
+            high_watermark_tokens=1,
+            low_watermark_tokens=0,
+            minimum_retained_groups=1,
+            retained_prefix_count=1,
+        )
+        assert fully_replaced_plan.status == "no_op"
+        assert fully_replaced_plan.reason == "no_evictable_groups"
+        assert fully_replaced_plan.retained_prefix_count == 1
+
         oversized_latest = [
             _user("old question"),
             _assistant("old answer"),

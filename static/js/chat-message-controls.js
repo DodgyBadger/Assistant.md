@@ -13,7 +13,9 @@
             </div>`;
 
             messageDiv.appendChild(contentDiv);
-            callbacks.appendMessageNode(messageDiv, { forceScroll: true });
+            callbacks.appendMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
             return messageDiv;
         }
 
@@ -89,6 +91,7 @@
             contentDiv.appendChild(footerDiv);
             messageDiv.appendChild(contentDiv);
             callbacks.appendMessageNode(messageDiv, { forceScroll: true });
+            return messageDiv;
         }
 
         function createCopyButton(getText, extraClass = '') {
