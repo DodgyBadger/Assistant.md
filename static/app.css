@@ -2384,23 +2384,6 @@ details summary::-webkit-details-marker {
     border: 1px solid rgb(var(--border-primary));
     color: rgb(var(--text-primary));
 }
-.message-bubble.message-assistant.message-tool-activity {
-    gap: 0;
-    padding: 0.2rem 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-}
-.message-tool-activity .message-body,
-.message-tool-activity .message-artifact-list:empty,
-.message-tool-activity .message-copy-button {
-    display: none;
-}
-.message-bubble.message-tool-activity .message-footer {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
-}
 .message-bubble.message-assistant.message-has-pending-review {
     width: 100%;
     max-width: 100% !important;

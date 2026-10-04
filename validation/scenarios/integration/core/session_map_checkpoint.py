@@ -513,12 +513,11 @@ class SessionMapCheckpointScenario(BaseScenario):
             (
                 [
                     (0, 0, "message"),
-                    (1, 2, "tool"),
-                    (3, 3, "message"),
+                    (1, 3, "message"),
                 ],
                 False,
             ),
-            "Named retry prompts should remain inside their collapsed tool activity row",
+            "Named retry prompts should remain inside their complete assistant turn",
         )
         store.add_tool_event(
             session_id=tool_session_id,
@@ -587,12 +586,11 @@ class SessionMapCheckpointScenario(BaseScenario):
             ],
             [
                 (0, "user"),
-                (1, "tool"),
-                (3, "assistant"),
+                (1, "assistant"),
                 (4, "user"),
                 (5, "assistant"),
             ],
-            "The canonical chat timeline should preserve collapsed tool activity in sequence",
+            "The canonical chat timeline should keep each tool exchange with its assistant turn",
         )
         self.soft_assert(
             all(
@@ -605,10 +603,12 @@ class SessionMapCheckpointScenario(BaseScenario):
         self.soft_assert_equal(
             (
                 tool_transcript["messages"][1]["through_sequence_index"],
+                tool_transcript["messages"][1]["content"],
                 tool_transcript["messages"][1]["tool_calls"],
             ),
             (
-                2,
+                3,
+                "The planning file is current.",
                 [
                     {
                         "tool_call_id": "call-map-transcript",
@@ -618,12 +618,12 @@ class SessionMapCheckpointScenario(BaseScenario):
                     }
                 ],
             ),
-            "Collapsed tool activity should expose only safe, inspectable summaries",
+            "The assistant turn should retain its answer and safe, inspectable tool summaries",
         )
         self.soft_assert_equal(
             [message["fork_sequence_index"] for message in tool_transcript["messages"]],
-            [0, 2, 3, 4, 5],
-            "Canonical transcript rows should retain their exact sequence boundaries",
+            [0, 3, 4, 5],
+            "Canonical transcript turns should fork from their final safe sequence",
         )
         tool_page_response = self.call_api(
             f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
@@ -636,13 +636,13 @@ class SessionMapCheckpointScenario(BaseScenario):
                 (item["sequence_index"], item["through_sequence_index"])
                 for item in tool_page["messages"]
             ],
-            [(1, 2)],
-            "One timeline page should retain a complete collapsed tool run",
+            [(1, 3)],
+            "One timeline page should retain a complete assistant turn",
         )
         with patch.object(
             ChatStore,
             "get_canonical_display_rows_before",
-            return_value=([(1, 1, "tool"), (2, 2, "tool")], False),
+            return_value=([(1, 1, "message"), (2, 3, "message")], False),
         ):
             drift_response = self.call_api(
                 f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
@@ -654,13 +654,13 @@ class SessionMapCheckpointScenario(BaseScenario):
                 (item["sequence_index"], item["through_sequence_index"])
                 for item in drift_response.json()["messages"]
             ],
-            [(1, 1), (2, 2)],
-            "A compact paging boundary should remain renderable when broader hydration would merge adjacent tool rows",
+            [(1, 1), (2, 3)],
+            "A compact paging boundary should remain renderable when broader hydration would merge adjacent assistant rows",
         )
         with patch.object(
             ChatStore,
             "get_canonical_display_rows_before",
-            return_value=([(1, 2, "message")], False),
+            return_value=([(1, 4, "message")], False),
         ):
             mismatch_response = self.call_api(
                 f"/api/chat/sessions/{tool_session_id}/timeline?vault_name={vault.name}"
@@ -683,7 +683,7 @@ class SessionMapCheckpointScenario(BaseScenario):
                 and entry["data"].get("status") == "failed"
                 and entry["data"].get("session_id") == tool_session_id
                 and entry["data"].get("boundary_start") == 1
-                and entry["data"].get("boundary_end") == 2
+                and entry["data"].get("boundary_end") == 4
                 and entry["data"].get("boundary_kind") == "message"
                 and entry["data"].get("error_type")
                 == "CanonicalTimelineProjectionMismatch"

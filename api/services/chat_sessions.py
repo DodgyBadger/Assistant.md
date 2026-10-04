@@ -637,7 +637,7 @@ def _canonical_timeline_items(
     declaration_counts: dict[str, int],
     tool_events: list[StoredChatToolEvent],
 ) -> list[ChatSessionMessageInfo]:
-    """Preserve canonical sequence while collapsing adjacent provider tool traffic."""
+    """Project canonical history into user messages and complete assistant turns."""
     displayed: list[ChatSessionMessageInfo] = []
     summaries = {
         item.tool_call_id: item
@@ -647,15 +647,15 @@ def _canonical_timeline_items(
             tool_events,
         )
     }
-    group: list[ChatSessionMessageInfo] = []
+    assistant_turn: list[ChatSessionMessageInfo] = []
 
-    def flush_tool_group() -> None:
-        if not group:
+    def flush_assistant_turn() -> None:
+        if not assistant_turn:
             return
         call_ids = list(
             dict.fromkeys(
                 tool_call_id
-                for item in group
+                for item in assistant_turn
                 for tool_call_id in item.tool_call_ids
                 if tool_call_id
             )
@@ -663,22 +663,40 @@ def _canonical_timeline_items(
         return_ids = list(
             dict.fromkeys(
                 tool_call_id
-                for item in group
+                for item in assistant_turn
                 for tool_call_id in item.tool_return_ids
                 if tool_call_id
             )
         )
+        content = "\n\n".join(
+            item.content.strip() for item in assistant_turn if item.content.strip()
+        )
+        thinking_content = "\n\n".join(
+            item.thinking_content.strip()
+            for item in assistant_turn
+            if item.thinking_content.strip()
+        )
+        if not content and not thinking_content and not call_ids:
+            assistant_turn.clear()
+            return
         displayed.append(
             ChatSessionMessageInfo(
-                sequence_index=group[0].sequence_index,
-                through_sequence_index=group[-1].sequence_index,
-                fork_sequence_index=group[-1].fork_sequence_index,
-                role="tool",
-                content="",
-                thinking_content="",
-                message_type="ToolActivity",
-                direction="activity",
-                is_tool_message=True,
+                sequence_index=assistant_turn[0].sequence_index,
+                through_sequence_index=assistant_turn[-1].sequence_index,
+                fork_sequence_index=next(
+                    (
+                        item.fork_sequence_index
+                        for item in reversed(assistant_turn)
+                        if item.fork_sequence_index is not None
+                    ),
+                    None,
+                ),
+                role="assistant",
+                content=content,
+                thinking_content=thinking_content,
+                message_type="AssistantTurn",
+                direction="response",
+                is_tool_message=False,
                 tool_call_ids=call_ids,
                 tool_return_ids=return_ids,
                 tool_call_count=len(call_ids),
@@ -687,31 +705,20 @@ def _canonical_timeline_items(
                 context_checkpoint_id=None,
             )
         )
-        group.clear()
+        assistant_turn.clear()
 
     for message in messages:
         projected = _chat_session_message_info(
             message, canonical_fork_points=canonical_fork_points
         )
-        if projected.is_tool_message:
-            if projected.role == "assistant" and projected.content:
-                flush_tool_group()
-                displayed.append(
-                    projected.model_copy(
-                        update={
-                            "is_tool_message": False,
-                            "tool_call_ids": [],
-                            "tool_return_ids": [],
-                        }
-                    )
-                )
-            group.append(projected)
+        if projected.is_tool_message or projected.role == "assistant":
+            assistant_turn.append(projected)
             continue
-        flush_tool_group()
-        if projected.role not in {"user", "assistant"}:
+        flush_assistant_turn()
+        if projected.role != "user":
             continue
         displayed.append(projected)
-    flush_tool_group()
+    flush_assistant_turn()
     return displayed
 
 

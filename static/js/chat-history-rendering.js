@@ -155,24 +155,31 @@
                     embedded.forEach((toolCall, toolCallId) => {
                         toolCallsById.set(toolCallId, toolCall);
                     });
-                    const toolCalls = toolCallsForIds(toolCallsById, ids);
-                    if (toolCalls.length > 0) {
-                        node = renderPersistedAssistantMessage('', toolCalls, {
+                    node = renderPersistedAssistantMessage(
+                        '',
+                        toolCallsForIds(toolCallsById, ids),
+                        {
                             sequenceIndex: message.fork_sequence_index,
-                            forceScroll: options.forceScroll,
-                            toolActivityOnly: true
-                        });
-                    }
-                } else if (message?.role === 'assistant') {
-                    const content = String(message.content || '').trim();
-                    const thinkingText = String(message.thinking_content || '').trim();
-                    if (content || thinkingText) {
-                        node = renderPersistedAssistantMessage(content, [], {
-                            sequenceIndex: message.fork_sequence_index,
-                            thinkingText,
                             forceScroll: options.forceScroll
-                        });
-                    }
+                        }
+                    );
+                } else if (message?.role === 'assistant') {
+                    const ids = new Set();
+                    collectToolIds(message.tool_call_ids, ids);
+                    collectToolIds(message.tool_return_ids, ids);
+                    const embedded = groupToolCallsById(message.tool_calls);
+                    embedded.forEach((toolCall, toolCallId) => {
+                        toolCallsById.set(toolCallId, toolCall);
+                    });
+                    node = renderPersistedAssistantMessage(
+                        message.content || '',
+                        toolCallsForIds(toolCallsById, ids),
+                        {
+                            sequenceIndex: message.fork_sequence_index,
+                            thinkingText: message.thinking_content || '',
+                            forceScroll: options.forceScroll
+                        }
+                    );
                 } else if (message?.role === 'user') {
                     node = messageControls.addMessage('user', message.content || '', {
                         sequenceIndex: start,
@@ -431,9 +438,6 @@
             const context = callbacks.createAssistantStreamingMessage({
                 forceScroll: options.forceScroll
             });
-            if (options.toolActivityOnly) {
-                context.contentDiv?.classList?.add('message-tool-activity');
-            }
             context.fullText = content || '';
             context.thinkingText = options.thinkingText || '';
             context.collapseThinking = Boolean(context.thinkingText);

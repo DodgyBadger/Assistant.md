@@ -360,17 +360,14 @@ class ChatStore:
                       AND sequence_index <= ?
                 ), pieces AS (
                     SELECT sequence_index, 0 AS piece_order,
-                           CASE WHEN is_tool = 0 AND role NOT IN ('user', 'assistant')
-                                THEN 'separator' ELSE 'message' END AS kind
-                    FROM classified WHERE is_tool = 0
-                    UNION ALL
-                    SELECT sequence_index, 0, 'message'
+                           CASE
+                               WHEN is_tool = 0 AND role = 'user' THEN 'user'
+                               WHEN is_tool = 1
+                                    OR (role = 'assistant' AND has_text = 1)
+                                   THEN 'assistant'
+                               ELSE 'separator'
+                           END AS kind
                     FROM classified
-                    WHERE is_tool = 1 AND role = 'assistant'
-                      AND message_type = 'ModelResponse' AND has_text = 1
-                    UNION ALL
-                    SELECT sequence_index, 1, 'tool'
-                    FROM classified WHERE is_tool = 1
                 ), adjacent AS (
                     SELECT sequence_index, piece_order, kind,
                            lag(kind) OVER (
@@ -379,8 +376,12 @@ class ChatStore:
                     FROM pieces
                 ), grouped AS (
                     SELECT sequence_index, kind,
-                           sum(CASE WHEN kind = 'tool' AND previous_kind = 'tool'
-                                    THEN 0 ELSE 1 END) OVER (
+                           sum(CASE
+                                   WHEN kind = 'assistant'
+                                        AND previous_kind = 'assistant'
+                                       THEN 0
+                                   ELSE 1
+                               END) OVER (
                                ORDER BY sequence_index, piece_order
                            ) AS group_id
                     FROM adjacent
@@ -390,7 +391,7 @@ class ChatStore:
                            min(kind) AS kind
                     FROM grouped GROUP BY group_id HAVING kind != 'separator'
                 )
-                SELECT first_sequence_index, last_sequence_index, kind
+                SELECT first_sequence_index, last_sequence_index, 'message'
                 FROM display_rows
                 WHERE first_sequence_index < ?
                 ORDER BY group_id DESC
