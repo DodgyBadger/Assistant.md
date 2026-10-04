@@ -1,6 +1,6 @@
 (function chatMessageControlsModule(window, document) {
     function createChatMessageControls({ state, elements, icons, utils, markdown, callbacks }) {
-        function addLoadingMessage() {
+        function addLoadingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';
             messageDiv.id = 'loading-message';
@@ -90,7 +90,9 @@
             footerDiv.appendChild(actionsDiv);
             contentDiv.appendChild(footerDiv);
             messageDiv.appendChild(contentDiv);
-            callbacks.appendMessageNode(messageDiv, { forceScroll: true });
+            callbacks.appendMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
             return messageDiv;
         }
 

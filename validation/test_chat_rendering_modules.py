@@ -219,6 +219,53 @@ if (!button) throw new Error('Expected a fork button.');
     )
 
 
+def test_persisted_user_message_respects_scroll_suppression() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {
+    createElement() {
+        return {
+            children: [], className: '', innerHTML: '', title: '', type: '',
+            classList: { add() {} },
+            appendChild(child) { this.children.push(child); return child; },
+            addEventListener() {}, setAttribute() {},
+        };
+    },
+};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const appendOptions = [];
+const controller = ChatMessageControls.create({
+    state: {}, elements: {}, icons: { COPY_ICON_SVG: '' },
+    utils: { getCopyableText() { return ''; } },
+    markdown: {},
+    callbacks: {
+        appendMessageNode(_node, options) { appendOptions.push(options); },
+    },
+});
+controller.addMessage('user', 'An older persisted message.', {
+    sequenceIndex: 3,
+    forceScroll: false,
+});
+assert.deepStrictEqual(
+    appendOptions,
+    [{ forceScroll: false }],
+    'Prepending a persisted user message must not scroll the chat to the bottom.'
+);
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MESSAGE_CONTROLS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_persisted_assistant_fork_requires_explicit_canonical_origin() -> None:
     harness = r"""
 const assert = require('assert');

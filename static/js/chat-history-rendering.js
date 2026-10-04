@@ -269,7 +269,11 @@
             button.disabled = true;
             button.textContent = 'Loading…';
             const container = elements.chatMessages;
+            const previousScrollTop = container.scrollTop;
             const previousHeight = container.scrollHeight;
+            const viewportAnchor = container.querySelector('[data-canonical-start]')
+                || container.querySelector('[data-session-map-context-boundary="true"]');
+            const previousAnchorTop = viewportAnchor?.getBoundingClientRect?.().top;
             try {
                 const response = await fetch(
                     `api/chat/sessions/${encodeURIComponent(requestedSessionId)}/timeline` +
@@ -300,7 +304,12 @@
                 timelineHasOlder = payload.has_older === true;
                 positionTimelineCheckpointNotice();
                 renderLoadOlderControl();
-                container.scrollTop += container.scrollHeight - previousHeight;
+                const currentAnchorTop = viewportAnchor?.getBoundingClientRect?.().top;
+                const scrollDelta = Number.isFinite(previousAnchorTop)
+                    && Number.isFinite(currentAnchorTop)
+                    ? currentAnchorTop - previousAnchorTop
+                    : container.scrollHeight - previousHeight;
+                container.scrollTop = previousScrollTop + scrollDelta;
             } catch (error) {
                 console.error('Unable to load older chat messages:', error);
                 button.disabled = false;
