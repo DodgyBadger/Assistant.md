@@ -6,6 +6,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -573,6 +574,24 @@ class SessionMapCheckpointScenario(BaseScenario):
             ),
             (3, 3, [(1, 2)]),
             "One transcript page should retain a complete collapsed tool run",
+        )
+        with patch.object(
+            ChatStore,
+            "get_canonical_display_row_page",
+            return_value=(2, [(1, 1, "tool"), (2, 2, "tool")]),
+        ):
+            drift_response = self.call_api(
+                f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
+                "&checkpoint_id=tool-transcript-checkpoint&message_page_size=2"
+            )
+        assert drift_response.status_code == 200, drift_response.text
+        self.soft_assert_equal(
+            [
+                (item["sequence_index"], item["through_sequence_index"])
+                for item in drift_response.json()["transcript"]["messages"]
+            ],
+            [(1, 1), (2, 2)],
+            "A compact paging boundary should remain renderable when broader hydration would merge adjacent tool rows",
         )
         scoped_tool_response = self.call_api(
             f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"

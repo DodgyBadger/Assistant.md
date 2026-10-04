@@ -503,14 +503,66 @@ def _session_map_transcript_page(
             tool_events=tool_events,
         )
         items_by_boundary = {
-            (
-                item.sequence_index,
-                item.through_sequence_index,
-                "tool" if item.role == "tool" else "message",
-            ): item
+            _session_map_transcript_item_boundary(item): item
             for item in transcript_items
         }
-        messages = [items_by_boundary[boundary] for boundary in page_boundaries]
+        messages = []
+        for boundary in page_boundaries:
+            item = items_by_boundary.get(boundary)
+            if item is None:
+                scoped_messages = [
+                    message
+                    for message in canonical_messages
+                    if boundary[0] <= message.sequence_index <= boundary[1]
+                ]
+                scoped_items = _session_map_transcript_items(
+                    scoped_messages,
+                    canonical_fork_points=canonical_fork_points,
+                    declaration_counts=declaration_counts,
+                    tool_events=tool_events,
+                )
+                item = next(
+                    (
+                        candidate
+                        for candidate in scoped_items
+                        if _session_map_transcript_item_boundary(candidate) == boundary
+                    ),
+                    None,
+                )
+                if item is None:
+                    raise APIException(
+                        status_code=409,
+                        error_type="SessionMapTranscriptProjectionMismatch",
+                        message="The canonical transcript page could not be projected safely.",
+                        details={
+                            "session_id": session_id,
+                            "vault_name": vault_name,
+                            "checkpoint_id": checkpoint.checkpoint_id,
+                            "page": page,
+                            "boundary": list(boundary),
+                        },
+                    )
+                logger.warning(
+                    "session_map_transcript_boundary_reprojected",
+                    data={
+                        "event": "session_map_transcript_boundary_reprojected",
+                        "status": "recovered",
+                        "reason": "paged_projection_boundary_drift",
+                        "issue": (
+                            "session-map-transcript-boundary:"
+                            f"{session_id}:{checkpoint.checkpoint_id}:{page}:"
+                            f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
+                        ),
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "checkpoint_id": checkpoint.checkpoint_id,
+                        "page": page,
+                        "boundary_start": boundary[0],
+                        "boundary_end": boundary[1],
+                        "boundary_kind": boundary[2],
+                    },
+                )
+            messages.append(item)
     return ChatSessionMapTranscriptPage(
         checkpoint_id=checkpoint.checkpoint_id,
         page=page,
@@ -520,6 +572,22 @@ def _session_map_transcript_page(
         has_previous=page > 1,
         has_next=page < page_count,
         messages=messages,
+    )
+
+
+def _session_map_transcript_item_boundary(
+    item: ChatSessionMessageInfo,
+) -> tuple[int, int, str]:
+    """Return the compact paging identity for one projected transcript row."""
+    through_sequence_index = (
+        item.through_sequence_index
+        if item.through_sequence_index is not None
+        else item.sequence_index
+    )
+    return (
+        item.sequence_index,
+        through_sequence_index,
+        "tool" if item.role == "tool" else "message",
     )
 
 

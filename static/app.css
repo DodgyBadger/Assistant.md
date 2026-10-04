@@ -3246,6 +3246,23 @@ summary.connection-card-summary .summary-title {
     overflow-wrap: anywhere;
     word-break: break-word;
 }
+.activity-log-detail {
+    flex-basis: 100%;
+    min-width: 0;
+}
+.activity-log-detail summary {
+    cursor: pointer;
+    list-style-position: outside;
+}
+.activity-log-detail pre {
+    max-height: 24rem;
+    margin-top: 0.35rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    color: rgb(var(--text-primary));
+}
 @media (max-width: 760px) {
     .activity-log-row {
         grid-template-columns: 1fr;
