@@ -297,7 +297,7 @@
         }
 
         function renderAssistantMarkdown(context, options = {}) {
-            const { finalize = false } = options;
+            const { finalize = false, forceScroll = true } = options;
             renderAssistantThinking(context);
             markdown.renderHtml(context.bodyDiv, context.fullText);
             if (finalize) {
@@ -305,7 +305,7 @@
             } else {
                 markdown.schedulePostProcess(context);
             }
-            if (metadata.forceScroll !== false) {
+            if (forceScroll) {
                 callbacks.scrollChatToBottom();
             }
         }
@@ -510,7 +510,7 @@
             return entry;
         }
 
-        function finalizeAssistantMessage(context, metadata) {
+        function finalizeAssistantMessage(context, metadata = {}) {
             stopToolElapsedTimer(context);
             context.toolStatusMap.forEach((entry) => {
                 if (entry.state === 'running') {
@@ -518,7 +518,10 @@
                 }
             });
             updateToolCallsSummary(context);
-            renderAssistantMarkdown(context, { finalize: true });
+            renderAssistantMarkdown(context, {
+                finalize: true,
+                forceScroll: metadata.forceScroll !== false
+            });
 
             const hasError = context.errorMessages.length > 0;
             const endedEarly = metadata.status && metadata.status !== 'done' && !hasError;
@@ -570,7 +573,9 @@
             footerDiv.appendChild(actionsDiv);
             context.contentDiv.appendChild(footerDiv);
 
-            callbacks.scrollChatToBottom();
+            if (metadata.forceScroll !== false) {
+                callbacks.scrollChatToBottom();
+            }
         }
 
         function reconcileToolCallPersistence(context, toolCalls) {

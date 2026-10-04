@@ -75,6 +75,49 @@ if (controller.getActiveToolDetailId() !== '') {
     )
 
 
+def test_assistant_markdown_scroll_option_is_defined_and_respected() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {};
+global.ChatMarkdown = { create: () => ({
+    renderHtml() {}, flushPostProcess() {}, schedulePostProcess() {}, renderPreview() {},
+}) };
+global.ChatMessageControls = { create: () => ({
+    addMessage() {}, addLoadingMessage() {}, removeLoadingMessage() {},
+    createCopyButton() {}, createForkButton() {}, forkSession() {},
+}) };
+global.ChatToolDetails = { create: () => ({
+    close() {}, getActiveId() { return ''; }, openPersisted() {},
+}) };
+global.ChatStartPanel = { create: () => ({ render() {}, refresh() {} }) };
+global.ChatThinking = { create: () => ({ render() {} }) };
+global.ChatHistoryRendering = { create: () => ({ renderSession() {}, clear() {} }) };
+
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+let scrollCount = 0;
+const controller = ChatRendering.create({
+    state: {}, elements: {}, icons: {}, utils: {},
+    callbacks: {
+        scrollChatToBottom() { scrollCount += 1; },
+    },
+});
+const context = { bodyDiv: {}, fullText: '', thinkingText: '' };
+controller.renderAssistantMarkdown(context);
+assert.strictEqual(scrollCount, 1, 'Normal rendering should follow the live response.');
+controller.renderAssistantMarkdown(context, { forceScroll: false });
+assert.strictEqual(scrollCount, 1, 'Historical prepending must not force a scroll.');
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_RENDERING_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_tool_details_load_before_chat_rendering() -> None:
     markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
 

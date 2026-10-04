@@ -436,7 +436,10 @@
             context.collapseThinking = Boolean(context.thinkingText);
             context.thinkingExpanded = false;
             context.sequenceIndex = Number.isInteger(options.sequenceIndex) ? options.sequenceIndex : null;
-            callbacks.renderAssistantMarkdown(context, { finalize: true });
+            callbacks.renderAssistantMarkdown(context, {
+                finalize: true,
+                forceScroll: options.forceScroll !== false
+            });
             hydratePersistedToolCalls(context, toolCalls);
             callbacks.finalizeAssistantMessage(context, {
                 sessionId: state.sessionId || 'unknown',
