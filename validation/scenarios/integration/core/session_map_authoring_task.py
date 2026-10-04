@@ -112,7 +112,7 @@ class SessionMapAuthoringTaskScenario(BaseScenario):
                 result.evidence_source_start,
                 result.evidence_source_end,
             ),
-            ("gpt-mini", None, "eviction-map-v10", 1, 2, 10, 11),
+            ("gpt-mini", None, "eviction-map-v11", 1, 2, 10, 11),
             "The author should return enough provenance for any persistence adapter",
         )
         self.soft_assert_equal(

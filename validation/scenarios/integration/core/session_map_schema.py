@@ -123,7 +123,12 @@ class SessionMapSchemaScenario(BaseScenario):
                 new_evidence=envelopes,
             )
         )
-        assert prompt_payload["prompt_contract_version"] == "eviction-map-v10"
+        assert prompt_payload["prompt_contract_version"] == "eviction-map-v11"
+        assert "durable throughline" in prompt_payload["instruction"]
+        assert "rather than resetting the trajectory" in prompt_payload["instruction"]
+        assert (
+            "do not manufacture a pivot or alternative" in prompt_payload["instruction"]
+        )
         assert prompt_payload["user_focus"] is None
         assert prompt_payload["previous_map"] == previous.model_dump(mode="json")
         assert [
