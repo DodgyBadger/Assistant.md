@@ -446,11 +446,12 @@ class SessionMapCheckpointScenario(BaseScenario):
             _user("Inspect the planning file."),
             ModelResponse(
                 parts=[
+                    TextPart("<think>\n\n"),
                     ToolCallPart(
                         tool_name="file_read",
                         args={"operation": "read", "path": "plan.md"},
                         tool_call_id="call-map-transcript",
-                    )
+                    ),
                 ]
             ),
             ModelRequest(
@@ -592,6 +593,14 @@ class SessionMapCheckpointScenario(BaseScenario):
                 (5, "assistant"),
             ],
             "The canonical chat timeline should preserve collapsed tool activity in sequence",
+        )
+        self.soft_assert(
+            all(
+                message["content"].strip()
+                for message in tool_transcript["messages"]
+                if message["role"] == "assistant"
+            ),
+            "Provider control markers must not produce empty standalone assistant rows",
         )
         self.soft_assert_equal(
             (

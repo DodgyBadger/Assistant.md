@@ -341,6 +341,13 @@ class ChatStore:
                                SELECT 1 FROM json_each(message_json, '$.parts') part
                                WHERE json_extract(part.value, '$.part_kind') = 'text'
                                  AND trim(coalesce(json_extract(part.value, '$.content'), '')) != ''
+                                 AND lower(
+                                     trim(
+                                         json_extract(part.value, '$.content'),
+                                         char(9) || char(10) || char(13) || ' '
+                                     )
+                                 )
+                                     NOT IN ('<think>', '</think>')
                            ) OR (
                                NOT EXISTS (
                                    SELECT 1 FROM json_each(message_json, '$.parts') part

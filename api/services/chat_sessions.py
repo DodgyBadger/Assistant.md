@@ -1447,7 +1447,7 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
     for part in getattr(message.message, "parts", []) or []:
         if isinstance(part, TextPart) and isinstance(part.content, str):
             content = part.content.strip()
-            if content:
+            if content and not _is_provider_reasoning_marker(content):
                 text_parts.append(content)
 
     if not text_parts and message.tool_call_ids:
@@ -1456,6 +1456,11 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
         return str(message.content_text)
 
     return "\n\n".join(text_parts)
+
+
+def _is_provider_reasoning_marker(content: str) -> bool:
+    """Identify standalone provider control tags that contain no visible answer text."""
+    return re.fullmatch(r"</?think>", content, flags=re.IGNORECASE) is not None
 
 
 def _chat_message_thinking_content(message: StoredChatMessage) -> str:
