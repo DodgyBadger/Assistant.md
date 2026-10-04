@@ -319,8 +319,20 @@ class ChatStore:
                                AND instr(ltrim(coalesce(content_text, '')), ']') > 0
                            ) OR EXISTS (
                                SELECT 1 FROM json_each(message_json, '$.parts') part
-                               WHERE json_extract(part.value, '$.part_kind')
-                                   IN ('tool-call', 'tool-return')
+                               WHERE (
+                                   json_extract(part.value, '$.part_kind')
+                                       IN (
+                                           'tool-call',
+                                           'tool-return',
+                                           'builtin-tool-return'
+                                       )
+                                   OR (
+                                       json_extract(part.value, '$.part_kind')
+                                           = 'retry-prompt'
+                                       AND json_extract(part.value, '$.tool_name')
+                                           IS NOT NULL
+                                   )
+                               )
                                  AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
                            ) THEN 1 ELSE 0 END AS is_tool,
                            CASE WHEN EXISTS (

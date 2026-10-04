@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from pydantic_ai.messages import (  # noqa: E402
     ModelRequest,
     ModelResponse,
+    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -467,6 +468,58 @@ class SessionMapCheckpointScenario(BaseScenario):
             _assistant("I will continue."),
         ]
         store.add_messages(tool_session_id, vault.name, tool_messages)
+
+        retry_session_id = "session-map-retry-transcript"
+        store.ensure_session(
+            retry_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            retry_session_id,
+            vault.name,
+            [
+                _user("Run the requested operation."),
+                ModelResponse(
+                    parts=[
+                        ToolCallPart(
+                            tool_name="file_read",
+                            args={},
+                            tool_call_id="call-map-retry",
+                        )
+                    ]
+                ),
+                ModelRequest(
+                    parts=[
+                        RetryPromptPart(
+                            "The path is required.",
+                            tool_name="file_read",
+                            tool_call_id="call-map-retry",
+                        )
+                    ]
+                ),
+                _assistant("I need a path before I can continue."),
+            ],
+        )
+        retry_total, retry_boundaries = store.get_canonical_display_row_page(
+            retry_session_id,
+            vault.name,
+            through_sequence_index=3,
+            limit=10,
+            offset=0,
+        )
+        self.soft_assert_equal(
+            (retry_total, retry_boundaries),
+            (
+                3,
+                [
+                    (0, 0, "message"),
+                    (1, 2, "tool"),
+                    (3, 3, "message"),
+                ],
+            ),
+            "Named retry prompts should remain inside their collapsed tool activity row",
+        )
         store.add_tool_event(
             session_id=tool_session_id,
             vault_name=vault.name,
@@ -592,6 +645,41 @@ class SessionMapCheckpointScenario(BaseScenario):
             ],
             [(1, 1), (2, 2)],
             "A compact paging boundary should remain renderable when broader hydration would merge adjacent tool rows",
+        )
+        with patch.object(
+            ChatStore,
+            "get_canonical_display_row_page",
+            return_value=(1, [(1, 2, "message")]),
+        ):
+            mismatch_response = self.call_api(
+                f"/api/chat/sessions/{tool_session_id}/map?vault_name={vault.name}"
+                "&checkpoint_id=tool-transcript-checkpoint&message_page_size=1"
+            )
+        self.soft_assert_equal(
+            (
+                mismatch_response.status_code,
+                mismatch_response.json().get("error"),
+            ),
+            (409, "SessionMapTranscriptProjectionMismatch"),
+            "An irreconcilable compact boundary should fail with a stable API contract",
+        )
+        projection_activity = self.call_api("/api/system/activity-log?limit=200")
+        assert projection_activity.status_code == 200
+        self.soft_assert(
+            any(
+                entry.get("data", {}).get("event")
+                == "session_map_transcript_projection_failed"
+                and entry["data"].get("status") == "failed"
+                and entry["data"].get("session_id") == tool_session_id
+                and entry["data"].get("checkpoint_id") == "tool-transcript-checkpoint"
+                and entry["data"].get("boundary_start") == 1
+                and entry["data"].get("boundary_end") == 2
+                and entry["data"].get("boundary_kind") == "message"
+                and entry["data"].get("error_type")
+                == "SessionMapTranscriptProjectionMismatch"
+                for entry in projection_activity.json()["entries"]
+            ),
+            "System Activity should identify the exact irreconcilable transcript boundary",
         )
         scoped_tool_response = self.call_api(
             f"/api/chat/sessions/{tool_session_id}/tools/call-map-transcript"

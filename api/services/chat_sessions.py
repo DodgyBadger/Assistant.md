@@ -530,6 +530,31 @@ def _session_map_transcript_page(
                     None,
                 )
                 if item is None:
+                    logger.warning(
+                        "session_map_transcript_projection_failed",
+                        data={
+                            "event": "session_map_transcript_projection_failed",
+                            "status": "failed",
+                            "reason": "paged_projection_boundary_mismatch",
+                            "issue": (
+                                "session-map-transcript-projection:"
+                                f"{session_id}:{checkpoint.checkpoint_id}:{page}:"
+                                f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
+                            ),
+                            "session_id": session_id,
+                            "vault_name": vault_name,
+                            "checkpoint_id": checkpoint.checkpoint_id,
+                            "page": page,
+                            "boundary_start": boundary[0],
+                            "boundary_end": boundary[1],
+                            "boundary_kind": boundary[2],
+                            "error_type": "SessionMapTranscriptProjectionMismatch",
+                            "error": (
+                                "The canonical transcript page could not be "
+                                "projected safely."
+                            ),
+                        },
+                    )
                     raise APIException(
                         status_code=409,
                         error_type="SessionMapTranscriptProjectionMismatch",
