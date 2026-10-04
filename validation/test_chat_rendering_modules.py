@@ -413,6 +413,8 @@ class Element {
         this.disabled = false;
         this.textContent = '';
         this.scrollTop = 20;
+        this.classes = new Set();
+        this.classList = { add: (...names) => names.forEach(name => this.classes.add(name)) };
     }
     set innerHTML(_value) { this.children = []; }
     get innerHTML() { return ''; }
@@ -481,6 +483,7 @@ global.document = {
 const container = new Element('main');
 const state = { sessionId: 'session-1' };
 const requests = [];
+const assistantNodes = [];
 global.fetch = async url => {
     requests.push(url);
     return {
@@ -504,7 +507,7 @@ const controller = ChatHistoryRendering.create({
     state,
     elements: { chatMessages: container, vaultSelector: { value: 'Vault' } },
     icons: { MAP_ICON_SVG: '' },
-    toolDetails: { close() {} },
+    toolDetails: { close() {}, setEntryTokenCount() {} },
     messageControls: {
         addMessage(_role, _content, options) {
             const node = new Element('message');
@@ -516,6 +519,24 @@ const controller = ChatHistoryRendering.create({
     callbacks: {
         renderEmptyState() {},
         openSessionMap() {},
+        createAssistantStreamingMessage() {
+            const messageDiv = new Element('message');
+            const contentDiv = new Element('content');
+            messageDiv.appendChild(contentDiv);
+            container.appendChild(messageDiv);
+            assistantNodes.push({ messageDiv, contentDiv });
+            return { messageDiv, contentDiv, toolStatusMap: new Map() };
+        },
+        renderAssistantMarkdown() {},
+        ensureToolCallsSection() {},
+        createToolStatusEntry(context, toolId, payload) {
+            const entry = { toolId, toolName: payload.tool_name, state: 'running' };
+            context.toolStatusMap.set(toolId, entry);
+            return entry;
+        },
+        setToolEntryState(entry, state) { entry.state = state; },
+        updateToolCallsSummary() {},
+        finalizeAssistantMessage() {},
     },
 });
 
@@ -526,8 +547,13 @@ const controller = ChatHistoryRendering.create({
         context_checkpoint_id: 'checkpoint-1',
         context_boundary_sequence_index: 2,
         messages: [
-            { role: 'user', sequence_index: 3, content: 'three' },
-            { role: 'user', sequence_index: 4, content: 'four' },
+            {
+                role: 'tool', sequence_index: 3, through_sequence_index: 4,
+                fork_sequence_index: 4, tool_call_ids: ['call-1'],
+                tool_calls: [{ tool_call_id: 'call-1', tool_name: 'search', status: 'completed' }],
+            },
+            { role: 'assistant', sequence_index: 5, content: '' },
+            { role: 'user', sequence_index: 6, content: 'six' },
         ],
         tool_calls: [],
         has_older_messages: true,
@@ -541,7 +567,12 @@ const controller = ChatHistoryRendering.create({
         if (node.dataset.sessionMapContextBoundary === 'true') return 'boundary';
         return Number(node.dataset.canonicalStart);
     });
-    assert.deepStrictEqual(ordered, [1, 2, 'boundary', 3, 4]);
+    assert.deepStrictEqual(ordered, [1, 2, 'boundary', 3, 6]);
+    assert.strictEqual(assistantNodes.length, 1, 'Empty assistant rows must not create bubbles.');
+    assert.ok(
+        assistantNodes[0].contentDiv.classes.has('message-tool-activity'),
+        'Canonical tool activity should use its compact non-bubble treatment.'
+    );
     assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');
     assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), null);
 })().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });

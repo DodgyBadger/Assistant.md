@@ -155,24 +155,24 @@
                     embedded.forEach((toolCall, toolCallId) => {
                         toolCallsById.set(toolCallId, toolCall);
                     });
-                    node = renderPersistedAssistantMessage(
-                        '',
-                        toolCallsForIds(toolCallsById, ids),
-                        {
+                    const toolCalls = toolCallsForIds(toolCallsById, ids);
+                    if (toolCalls.length > 0) {
+                        node = renderPersistedAssistantMessage('', toolCalls, {
                             sequenceIndex: message.fork_sequence_index,
-                            forceScroll: options.forceScroll
-                        }
-                    );
+                            forceScroll: options.forceScroll,
+                            toolActivityOnly: true
+                        });
+                    }
                 } else if (message?.role === 'assistant') {
-                    node = renderPersistedAssistantMessage(
-                        message.content || '',
-                        [],
-                        {
+                    const content = String(message.content || '').trim();
+                    const thinkingText = String(message.thinking_content || '').trim();
+                    if (content || thinkingText) {
+                        node = renderPersistedAssistantMessage(content, [], {
                             sequenceIndex: message.fork_sequence_index,
-                            thinkingText: message.thinking_content || '',
+                            thinkingText,
                             forceScroll: options.forceScroll
-                        }
-                    );
+                        });
+                    }
                 } else if (message?.role === 'user') {
                     node = messageControls.addMessage('user', message.content || '', {
                         sequenceIndex: start,
@@ -190,11 +190,11 @@
 
         function createSessionMapCheckpointNotice() {
             const row = document.createElement('div');
-            row.className = 'flex justify-start session-map-checkpoint-row';
+            row.className = 'session-map-checkpoint-row';
             row.dataset.sessionMapContextBoundary = 'true';
 
             const notice = document.createElement('div');
-            notice.className = 'max-w-[80%] px-4 py-3 rounded-lg message-bubble message-assistant shadow-sm session-map-checkpoint-notice';
+            notice.className = 'session-map-checkpoint-notice';
 
             const text = document.createElement('span');
             text.textContent = 'Messages above this point are represented in the assistant’s context by the session map.';
@@ -431,6 +431,9 @@
             const context = callbacks.createAssistantStreamingMessage({
                 forceScroll: options.forceScroll
             });
+            if (options.toolActivityOnly) {
+                context.contentDiv?.classList?.add('message-tool-activity');
+            }
             context.fullText = content || '';
             context.thinkingText = options.thinkingText || '';
             context.collapseThinking = Boolean(context.thinkingText);
