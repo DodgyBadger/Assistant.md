@@ -1716,12 +1716,6 @@ details summary::-webkit-details-marker {
     padding-top: 0.8rem;
 }
 
-.session-map-content > summary {
-    color: rgb(var(--accent-primary));
-    font-weight: 700;
-    cursor: pointer;
-}
-
 .session-browser-close-button {
     width: 2rem;
     height: 2rem;

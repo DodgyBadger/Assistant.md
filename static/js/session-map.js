@@ -120,7 +120,7 @@
             return revisions.find(item => item.checkpoint_id === payload.selected_checkpoint_id) || null;
         }
 
-        function renderMap(payload, options = {}) {
+        function renderMap(payload) {
             const sessionMap = payload?.session_map;
             if (!sessionMap) {
                 return '<p class="text-sm text-txt-secondary">No stepped session map exists for this session.</p>';
@@ -155,21 +155,19 @@
                 <div class="session-map-provenance">
                     <span>${escapeHtml(formatDate(selected?.created_at))}</span>
                 </div>
-                <details class="session-map-content"${options.mapOpen === false ? '' : ' open'}>
-                    <summary>View session map</summary>
+                <div class="session-map-content">
                     ${renderTrajectory(sessionMap.trajectory)}
                     <div class="session-map-sections">
                         ${sections || '<p class="text-sm text-txt-secondary">This checkpoint contains no map entries.</p>'}
                     </div>
-                </details>
+                </div>
             `;
         }
 
         async function loadCheckpoint(
             modal,
             sessionId,
-            checkpointId = '',
-            mapOpen = true
+            checkpointId = ''
         ) {
             const body = modal.querySelector('#session-map-modal-body');
             if (!body) return;
@@ -180,7 +178,7 @@
             try {
                 const payload = await fetchMap(sessionId, checkpointId);
                 if (isCurrent()) {
-                    body.innerHTML = renderMap(payload, { mapOpen });
+                    body.innerHTML = renderMap(payload);
                 }
             } catch (error) {
                 if (!isCurrent()) return;
@@ -238,8 +236,7 @@
             modal.addEventListener('change', event => {
                 const target = event.target;
                 if (!(target instanceof HTMLSelectElement) || !target.matches('[data-session-map-checkpoint]')) return;
-                const mapOpen = modal.querySelector('.session-map-content')?.open !== false;
-                loadCheckpoint(modal, session.session_id, target.value, mapOpen);
+                loadCheckpoint(modal, session.session_id, target.value);
             });
             document.body.appendChild(modal);
             activeModal = modal;
@@ -248,8 +245,7 @@
             await loadCheckpoint(
                 modal,
                 session.session_id,
-                String(options.checkpointId || ''),
-                options.mapOpen !== false
+                String(options.checkpointId || '')
             );
         }
 

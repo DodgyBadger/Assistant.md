@@ -37,7 +37,7 @@ for (const name of ['closeModal', 'openModalForSession']) {
     )
 
 
-def test_session_map_escape_focus_and_restore_collapsed_map_checkpoint() -> None:
+def test_session_map_escape_focus_and_restore_map_checkpoint() -> None:
     tool_harness = r"""
 const assert = require('assert');
 const fs = require('fs');
@@ -113,12 +113,11 @@ const controller = SessionMap.create({
     assert.strictEqual(document.activeElement, trigger, 'Closing should restore focus to the invoker.');
 
     await controller.openModalForSession({ session_id: 'session-1' }, {
-        checkpointId: 'cp-1', mapOpen: false,
+        checkpointId: 'cp-1',
     });
     assert.match(requests.at(-1), /checkpoint_id=cp-1/);
     assert.doesNotMatch(requests.at(-1), /message_page/);
-    assert.match(activeModal.body.innerHTML, /<details class="session-map-content">/);
-    assert.doesNotMatch(activeModal.body.innerHTML, /<details class="session-map-content" open>/);
+    assert.match(activeModal.body.innerHTML, /<div class="session-map-content">/);
     activeModal.listeners.keydown({
         key: 'Escape', preventDefault() {}, stopPropagation() {},
     });
@@ -241,8 +240,7 @@ def test_session_map_renders_narrative_trajectory() -> None:
 
     assert "How We Got Here" in source
     assert "renderSources(trajectory)" in source
-    assert '<details class="session-map-content"' in source
-    assert "options.mapOpen === false" in source
+    assert '<div class="session-map-content"' in source
     assert "formatDate(selected?.created_at)" in source
     assert "selected?.prompt_contract_version" not in source
     assert "humanize(selected?.action)" not in source
