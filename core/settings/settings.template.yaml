@@ -202,7 +202,7 @@ settings:
     restart_required: false
   compaction_retained_turns:
     value: 3
-    description: "Number of newest conversational turns preferred for verbatim retention. Recovery-card compaction preserves this minimum. Compaction v2 preserves as many as fit within compaction_low_watermark_tokens and moves additional completed turns into the session map. A turn includes its user request, assistant response, and intervening tool exchange. Must be between 1 and 100."
+    description: "Minimum number of newest conversational turns retained verbatim by Compaction v1 (recovery_card). Has no effect under Compaction v2 (session_map), which uses compaction_low_watermark_tokens to determine retention. A turn includes its user request, assistant response, and intervening tool exchange. Must be between 1 and 100."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:
