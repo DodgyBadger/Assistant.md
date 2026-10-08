@@ -1,5 +1,12 @@
 # Session Memory Branch Hardening Plan
 
+## Open live regression: Stop followed by unresolved tool-call history
+
+- Investigate session `Ashley_NCC_20261008_120834_479_m4ys`, whose next chat task failed with Pydantic AI's unprocessed-tool-calls admission error after Stop. Do not delete transcript messages or replay potentially effectful pending calls as a repair.
+- Strengthen `integration/core/chat_cancellation` to stop a real Pydantic AI tool execution rather than a fake idle stream, verify vault rollback, and verify a successful next turn with protocol-valid persisted history. This case passes in `validation/runs/reports/20261008_233516_550845.md` and does not reproduce the reported failure.
+- Inspect the affected canonical tail, effective checkpoint replacement, deferred-review state, and task lifecycle when a current production database copy is available. The existing `system/tmp` copy predates the affected session. Cancellation of a resumed deferred review is a separate candidate because its pending calls are already durable; this is not yet a confirmed diagnosis.
+- Once reproduced, add the failing boundary case before implementing the fix, preserve canonical evidence, and validate both cancellation and subsequent chat admission.
+
 ## Purpose
 
 This document is the Stage 1 scope and contract map for hardening `dev/live-session-memory` before review and merge. It maps the surviving product design, its module owners, the boundaries where invariants can drift, the deterministic validation that currently protects those boundaries, and the order in which the branch should be hardened.

@@ -6,39 +6,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from pydantic_ai import Agent
+from pydantic_ai.models.test import TestModel
+
 from core.chat.executor import PreparedChatExecution
+from core.chat.tool_history import analyze_tool_history
 from core.runtime.execution_tasks import chat_session_scope
 from core.runtime.state import get_runtime_context
 from core.utils.messages import extract_role_and_text
 from core.vault_state.file_mutations import write_vault_file
 from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
-
-
-class _HangingAgent:
-    """Fake agent that stays active until its asyncio task is cancelled."""
-
-    def __init__(self, vault_path: Path):
-        self._vault_path = vault_path
-
-    async def run(self, *args, **kwargs):
-        write_vault_file(
-            vault_path=self._vault_path,
-            path="notes/cancelled-chat-write.md",
-            content="created before cancellation\n",
-        )
-        await asyncio.Event().wait()
-
-    @stream_events_context
-    async def run_stream_events(self, *args, **kwargs):
-        write_vault_file(
-            vault_path=self._vault_path,
-            path="notes/cancelled-chat-write.md",
-            content="created before cancellation\n",
-        )
-        await asyncio.Event().wait()
-        if False:
-            yield None
 
 
 class ChatCancellationScenario(BaseScenario):
@@ -49,13 +26,25 @@ class ChatCancellationScenario(BaseScenario):
 
         await self.start_system()
 
-        from pydantic_ai.models.test import TestModel
-
         import core.chat.executor as chat_executor
+
+        tool_started = asyncio.Event()
+
+        async def hanging_tool() -> str:
+            write_vault_file(
+                vault_path=vault,
+                path="notes/cancelled-chat-write.md",
+                content="created before cancellation\n",
+            )
+            tool_started.set()
+            await asyncio.Event().wait()
+            return "unreachable"
 
         async def _prepared_hanging_chat(*args, **kwargs):
             return PreparedChatExecution(
-                agent=_HangingAgent(vault),
+                agent=Agent(
+                    TestModel(call_tools=["hanging_tool"]), tools=[hanging_tool]
+                ),
                 message_history=None,
                 prompt_for_history="Cancel this chat.",
                 user_prompt="Cancel this chat.",
@@ -111,6 +100,9 @@ class ChatCancellationScenario(BaseScenario):
             assert (
                 written_path.exists()
             ), "Hanging chat should write the rollback probe before cancellation"
+            assert (
+                tool_started.is_set()
+            ), "Stop must interrupt an actual model tool call"
 
             active_response = self.call_api(
                 f"/api/chat/sessions/{session_id}/active-task"
@@ -221,6 +213,10 @@ class ChatCancellationScenario(BaseScenario):
             assert captured_preflight_history == [
                 ("user", "Cancel this chat.")
             ], "The next turn should load the cancelled user prompt from persisted session history"
+            history = chat_executor._CHAT_STORE.get_history(session_id, vault.name)
+            assert analyze_tool_history(
+                history or []
+            ).ok, "Stop and follow-up must not leave unresolved tool calls in model history"
         finally:
             chat_executor._prepare_chat_execution = original_prepare_chat_execution
             chat_executor._prepare_agent_config = original_prepare_agent_config
