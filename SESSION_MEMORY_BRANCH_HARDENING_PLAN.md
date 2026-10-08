@@ -1,11 +1,15 @@
 # Session Memory Branch Hardening Plan
 
-## Open live regression: Stop followed by unresolved tool-call history
+## Resolved live regression: Stop followed by unresolved tool-call history
 
 - Investigate session `Ashley_NCC_20261008_120834_479_m4ys`, whose next chat task failed with Pydantic AI's unprocessed-tool-calls admission error after Stop. Do not delete transcript messages or replay potentially effectful pending calls as a repair.
 - Strengthen `integration/core/chat_cancellation` to stop a real Pydantic AI tool execution rather than a fake idle stream, verify vault rollback, and verify a successful next turn with protocol-valid persisted history. This case passes in `validation/runs/reports/20261008_233516_550845.md` and does not reproduce the reported failure.
-- Inspect the affected canonical tail, effective checkpoint replacement, deferred-review state, and task lifecycle when a current production database copy is available. The existing `system/tmp` copy predates the affected session. Cancellation of a resumed deferred review is a separate candidate because its pending calls are already durable; this is not yet a confirmed diagnosis.
-- Once reproduced, add the failing boundary case before implementing the fix, preserve canonical evidence, and validate both cancellation and subsequent chat admission.
+- Logfire confirms that an approved inline-edit resume was cancelled at 23:30:11 UTC, its review became cancelled, and the next prompt loaded the same 146-message history and failed. The deferred-review terminal hook updates review status without resolving the already-persisted pending calls. This is independent of compaction.
+- Add `integration/core/deferred_review_interruption` using real Pydantic AI approval/tool execution, cancelled and failed resume paths, vault rollback, interrupted-result semantics, no tool replay, and successful subsequent chat admission.
+- Atomically append explicit interrupted tool replies and change the review status for cancelled/failed resumes. Only unanswered calls belonging to that review may be closed; preserve existing results and canonical evidence, and reject unrelated protocol damage. Completed resumes must not acquire synthetic results.
+- Emit `chat_deferred_review_history_closed` after commit, with `session_id`, `vault_name`, `artifact_ref`, `status`, and `closed_call_count`. The synthesized result records lack of a durable outcome, not a claim that the tool succeeded or had no effects.
+- Validate atomic rollback and repeated terminal-hook behavior as well as ordinary cancellation, deferred-review completion, and stream retry. Existing broken sessions with later prompts require a separate evidence-preserving repair decision; do not silently rewrite canonical history or replay their tools.
+- Implemented in the shared deferred-review terminal boundary, including failed resume admission. The focused four-scenario profile passed in `validation/runs/reports/20261008_234330_769772.md`; the expanded settlement checks cover partial results, portable provider call IDs, duplicate hooks, transaction failure, and unrelated unresolved calls. The complete deterministic profile passed 133/133 in `validation/runs/reports/20261008_234442_538284.md`. Ruff, Black, and MyPy passed against the final production changes. No production session or fork was modified.
 
 ## Purpose
 

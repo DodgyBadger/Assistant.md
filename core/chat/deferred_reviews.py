@@ -10,7 +10,12 @@ from typing import Any
 
 from pydantic import TypeAdapter
 from pydantic_ai import DeferredToolRequests, DeferredToolResults
-from pydantic_ai.messages import ModelMessage, ToolCallPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolCallPart,
+    ToolReturnPart,
+)
 
 from core.database import connect_sqlite_from_system_db
 from core.identity import LOCAL_USER_PRINCIPAL_ID
@@ -21,7 +26,9 @@ from core.vault_state.pathing import (
     resolve_vault_relative_path,
 )
 
+from .chat_store import ChatStore
 from .schema import DB_NAME, ensure_chat_sessions_schema
+from .tool_history import analyze_tool_history
 
 logger = UnifiedLogger(tag="chat-deferred-reviews")
 
@@ -336,17 +343,49 @@ def mark_deferred_review_terminal(
     status: str,
     error: dict[str, Any] | None = None,
 ) -> StoredDeferredReview:
-    """Persist the terminal outcome of one resumed review task."""
+    """Atomically settle a review and any calls abandoned by its resume task."""
     if status not in {"completed", "failed", "cancelled"}:
         raise ValueError(f"Invalid deferred review terminal status: {status}")
-    review = _update_deferred_review_state(
-        vault_name=vault_name,
-        session_id=session_id,
-        artifact_ref=artifact_ref,
-        expected_statuses=("resuming",),
-        status=status,
-        error=error,
-    )
+    store = ChatStore()
+    closed_call_count = 0
+    with store.transaction() as connection:
+        review = _update_deferred_review_state(
+            vault_name=vault_name,
+            session_id=session_id,
+            artifact_ref=artifact_ref,
+            expected_statuses=("resuming",),
+            status=status,
+            error=error,
+            connection=connection,
+        )
+        if status in {"cancelled", "failed"}:
+            history = [
+                item.message
+                for item in store.get_stored_messages(
+                    session_id, vault_name, connection=connection
+                )
+            ]
+            replies = _interrupted_review_replies(history, review)
+            if replies:
+                store.add_messages(
+                    session_id,
+                    vault_name,
+                    [ModelRequest(parts=list(replies))],
+                    connection=connection,
+                )
+                closed_call_count = len(replies)
+    if closed_call_count:
+        logger.add_sink("validation").info(
+            "chat_deferred_review_history_closed",
+            data={
+                "event": "chat_deferred_review_history_closed",
+                "artifact_ref": artifact_ref,
+                "vault_name": vault_name,
+                "session_id": session_id,
+                "status": status,
+                "closed_call_count": closed_call_count,
+            },
+        )
     logger.info(
         "chat_deferred_review_terminal",
         data={
@@ -361,6 +400,50 @@ def mark_deferred_review_terminal(
     return review
 
 
+def _interrupted_review_replies(
+    history: list[ModelMessage], review: StoredDeferredReview
+) -> list[ToolReturnPart]:
+    """Close only this review's unanswered calls, without asserting tool effects."""
+    integrity = analyze_tool_history(history)
+    calls = {
+        identity: call
+        for call in [*review.requests.approvals, *review.requests.calls]
+        # Portable stored responses may omit OpenAI's provider-item suffix.
+        for identity in {call.tool_call_id, call.tool_call_id.split("|", 1)[0]}
+    }
+    replies: list[ToolReturnPart] = []
+    for issue in integrity.issues:
+        call = calls.get(issue.tool_call_id)
+        if issue.code != "orphan_tool_call" or call is None:
+            raise DeferredReviewError(
+                "DeferredReviewHistoryConflict",
+                "Interrupted review history contains unrelated tool protocol damage.",
+                details={"artifact_ref": review.artifact_ref, "issue_code": issue.code},
+            )
+        replies.append(
+            ToolReturnPart(
+                tool_name=call.tool_name,
+                tool_call_id=issue.tool_call_id,
+                outcome="interrupted",
+                content=(
+                    f"The inline-review resume was {review.status} before a tool result "
+                    "was durably recorded. Execution may have begun; this is not a success "
+                    "result. Check current files or external state before retrying the operation."
+                ),
+            )
+        )
+    if (
+        replies
+        and not analyze_tool_history([*history, ModelRequest(parts=list(replies))]).ok
+    ):
+        raise DeferredReviewError(
+            "DeferredReviewHistoryConflict",
+            "Interrupted review calls are not at a safe tool-reply boundary.",
+            details={"artifact_ref": review.artifact_ref},
+        )
+    return replies
+
+
 def has_pending_deferred_review(*, vault_name: str, session_id: str) -> bool:
     """Return whether a session is paused on an unresolved deferred review."""
     ensure_chat_sessions_schema()
@@ -369,7 +452,7 @@ def has_pending_deferred_review(*, vault_name: str, session_id: str) -> bool:
         row = conn.execute(
             """
             SELECT 1 FROM chat_deferred_reviews
-            WHERE vault_name = ? AND session_id = ? AND status = 'pending'
+            WHERE vault_name = ? AND session_id = ? AND status IN ('pending', 'resuming')
             LIMIT 1
             """,
             (vault_name, session_id),
@@ -457,9 +540,12 @@ def _update_deferred_review_state(
     resumed_task_id: str | None = None,
     error: dict[str, Any] | None = None,
     preserve_status: bool = False,
+    connection: sqlite3.Connection | None = None,
 ) -> StoredDeferredReview:
-    ensure_chat_sessions_schema()
-    conn = connect_sqlite_from_system_db(DB_NAME)
+    if connection is None:
+        ensure_chat_sessions_schema()
+    conn = connection or connect_sqlite_from_system_db(DB_NAME)
+    previous_row_factory = conn.row_factory
     conn.row_factory = _dict_row_factory
     try:
         placeholders = ", ".join("?" for _ in expected_statuses)
@@ -505,9 +591,12 @@ def _update_deferred_review_state(
             """,
             (artifact_ref, session_id, vault_name),
         ).fetchone()
-        conn.commit()
+        if connection is None:
+            conn.commit()
     finally:
-        conn.close()
+        conn.row_factory = previous_row_factory
+        if connection is None:
+            conn.close()
     return _review_from_row(row)
 
 

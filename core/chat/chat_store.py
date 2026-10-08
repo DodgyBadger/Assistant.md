@@ -252,6 +252,7 @@ class ChatStore:
         *,
         limit: int | None = None,
         mode: HistoryMode = "effective",
+        connection: sqlite3.Connection | None = None,
     ) -> list[StoredChatMessage]:
         """Return stored chat messages with persistence metadata."""
         return self._fetch_messages(
@@ -259,6 +260,7 @@ class ChatStore:
             vault_name=vault_name,
             limit=limit,
             mode=mode,
+            connection=connection,
         )
 
     def get_stored_messages_range(
@@ -1945,9 +1947,10 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
         mode: HistoryMode = "effective",
+        connection: sqlite3.Connection | None = None,
     ) -> list[StoredChatMessage]:
         _validate_history_mode(mode)
-        conn = self._connect()
+        conn = connection or self._connect()
         try:
             if mode == "raw":
                 return self._fetch_raw_messages_from_conn(
@@ -1963,7 +1966,8 @@ class ChatStore:
                 limit=limit,
             )
         finally:
-            conn.close()
+            if connection is None:
+                conn.close()
 
     def _fetch_effective_messages_from_conn(
         self,
