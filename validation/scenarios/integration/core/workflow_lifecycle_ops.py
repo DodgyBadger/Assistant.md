@@ -276,6 +276,25 @@ class WorkflowLifecycleOpsScenario(BaseScenario):
             "Rejected workflow requests should expose structured failure status",
         )
 
+        activity = self.call_api("/api/system/activity-log?limit=200").json()
+        job_events = [
+            entry["data"]
+            for entry in activity["entries"]
+            if entry.get("data", {}).get("event")
+            in {
+                "workflow_job_created",
+                "workflow_job_replaced",
+                "workflow_job_removed",
+                "workflow_scheduler_sync_completed",
+            }
+        ]
+        assert {row["event"] for row in job_events} == {
+            "workflow_job_created",
+            "workflow_job_replaced",
+            "workflow_job_removed",
+            "workflow_scheduler_sync_completed",
+        }
+        assert all(row["status"] == "completed" for row in job_events)
         await self.stop_system()
         self.teardown_scenario()
 

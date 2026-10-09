@@ -86,6 +86,7 @@ def _log_scheduler_change(message: str, record: dict[str, Any]) -> None:
         message,
         data={
             "event": f"workflow_job_{record['action']}",
+            "status": "completed",
             **record,
         },
     )
@@ -295,6 +296,7 @@ async def setup_scheduler_jobs(
                 "Removed job for disabled workflow",
                 data={
                     "event": "workflow_job_removed",
+                    "status": "completed",
                     "job_id": job_id,
                     "job_name": snapshot.get("job_name"),
                     "workflow_id": workflow_id,
@@ -308,6 +310,7 @@ async def setup_scheduler_jobs(
     if scheduler is not None:
         summary_data = {
             "event": "workflow_scheduler_sync_completed",
+            "status": "completed",
             "manual_reload": manual_reload,
             "vaults_discovered": vaults_discovered,
             "workflows_loaded": workflows_loaded,

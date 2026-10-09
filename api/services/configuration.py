@@ -288,6 +288,15 @@ def repair_settings_from_template() -> SystemSettingsResponse:
         ) from exc
 
     reload_configuration()
+    logger.info(
+        "Settings repair completed",
+        data={
+            "event": "settings_repair_completed",
+            "status": "completed",
+            "settings_path": str(active_path),
+            "backup_path": str(backup_path),
+        },
+    )
     return _build_settings_response(active_path)
 
 

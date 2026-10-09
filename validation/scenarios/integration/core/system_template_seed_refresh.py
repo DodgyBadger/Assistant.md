@@ -121,6 +121,16 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "Settings repair should complete through the system API",
         )
         repaired_settings = yaml.safe_load(repair_response.json()["content"])
+        activity = self.call_api("/api/system/activity-log?limit=200").json()
+        repair_events = [
+            entry["data"]
+            for entry in activity["entries"]
+            if entry.get("data", {}).get("event") == "settings_repair_completed"
+        ]
+        assert len(repair_events) == 1
+        assert repair_events[0]["status"] == "completed"
+        assert Path(repair_events[0]["backup_path"]).is_file()
+        assert Path(repair_events[0]["settings_path"]).is_file()
         self.soft_assert_equal(
             repaired_settings["providers"]["openrouter"].get("provider"),
             {"require_parameters": True},

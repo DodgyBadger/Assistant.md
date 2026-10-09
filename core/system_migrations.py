@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from core.access_store import (
     ACCESS_MIGRATIONS,
@@ -62,6 +63,7 @@ from core.memory.retirement import (
     retire_session_summary_data,
 )
 from core.migration_backups import (
+    MIGRATION_BACKUP_DIRECTORY,
     organize_legacy_migration_backups,
     prepare_migration_backup_path,
 )
@@ -210,59 +212,99 @@ def run_system_migrations(
 ) -> SystemMigrationStatus:
     """Apply all registered system database migrations and return final status."""
     root = _resolve_system_root(system_root)
-    organized_backup_count = organize_legacy_migration_backups(root)
-    before = get_system_migration_status(root)
-    if not backup:
-        for target in MIGRATION_TARGETS:
-            status = next(t for t in before.targets if t.db_name == target.db_name)
-            if target.requires_backup and status.exists and status.pending_versions:
-                raise ValueError(f"Migration of {target.db_name} requires backup=True.")
-    secrets_status = get_secrets_bootstrap_status()
-    excluded_db_names = (
-        frozenset({ACCESS_DB_NAME})
-        if secrets_status is not None and not secrets_status.ready
-        else frozenset()
-    )
-    backup_paths = (
-        _backup_pending_databases(before, excluded_db_names=excluded_db_names)
-        if backup
-        else {}
-    )
-
-    for target in MIGRATION_TARGETS:
-        if target.db_name in excluded_db_names:
-            continue
-        target.ensure_schema(str(root))
-
-    after = get_system_migration_status(root)
-    targets = tuple(
-        SystemMigrationTargetStatus(
-            db_name=target_status.db_name,
-            namespace=target_status.namespace,
-            db_path=target_status.db_path,
-            exists=target_status.exists,
-            applied_versions=target_status.applied_versions,
-            pending_versions=target_status.pending_versions,
-            backup_path=backup_paths.get(target_status.db_name),
-            inspection_error=target_status.inspection_error,
-        )
-        for target_status in after.targets
-    )
-    result = SystemMigrationStatus(system_root=after.system_root, targets=targets)
-
+    operation_id = uuid4().hex
+    phase = "inspect"
+    database_name: str | None = None
     logger.info(
-        "System database migrations completed",
+        "System database migrations started",
         data={
-            "system_root": result.system_root,
-            "pending_before": before.pending_count,
-            "pending_after": result.pending_count,
-            "backups_created": len(backup_paths),
-            "backup_paths": backup_paths,
-            "legacy_backups_organized": organized_backup_count,
-            "excluded_locked_databases": sorted(excluded_db_names),
+            "event": "system_database_migrations_started",
+            "status": "started",
+            "operation_id": operation_id,
+            "system_root": str(root),
+            "backup_requested": backup,
         },
     )
-    return result
+    try:
+        organized_backup_count = organize_legacy_migration_backups(root)
+        before = get_system_migration_status(root)
+        if not backup:
+            for target in MIGRATION_TARGETS:
+                status = next(t for t in before.targets if t.db_name == target.db_name)
+                if target.requires_backup and status.exists and status.pending_versions:
+                    raise ValueError(
+                        f"Migration of {target.db_name} requires backup=True."
+                    )
+        secrets_status = get_secrets_bootstrap_status()
+        excluded_db_names = (
+            frozenset({ACCESS_DB_NAME})
+            if secrets_status is not None and not secrets_status.ready
+            else frozenset()
+        )
+        phase = "backup"
+        backup_paths = (
+            _backup_pending_databases(before, excluded_db_names=excluded_db_names)
+            if backup
+            else {}
+        )
+
+        phase = "apply"
+        for target in MIGRATION_TARGETS:
+            database_name = target.db_name
+            if target.db_name in excluded_db_names:
+                continue
+            target.ensure_schema(str(root))
+
+        phase = "verify"
+        database_name = None
+        after = get_system_migration_status(root)
+        targets = tuple(
+            SystemMigrationTargetStatus(
+                db_name=target_status.db_name,
+                namespace=target_status.namespace,
+                db_path=target_status.db_path,
+                exists=target_status.exists,
+                applied_versions=target_status.applied_versions,
+                pending_versions=target_status.pending_versions,
+                backup_path=backup_paths.get(target_status.db_name),
+                inspection_error=target_status.inspection_error,
+            )
+            for target_status in after.targets
+        )
+        result = SystemMigrationStatus(system_root=after.system_root, targets=targets)
+
+        logger.info(
+            "System database migrations completed",
+            data={
+                "event": "system_database_migrations_completed",
+                "status": "completed",
+                "operation_id": operation_id,
+                "system_root": result.system_root,
+                "pending_before": before.pending_count,
+                "pending_after": result.pending_count,
+                "backups_created": len(backup_paths),
+                "backup_paths": backup_paths,
+                "legacy_backups_organized": organized_backup_count,
+                "excluded_locked_databases": sorted(excluded_db_names),
+            },
+        )
+        return result
+    except Exception as exc:
+        logger.error(
+            "System database migrations failed",
+            data={
+                "event": "system_database_migrations_failed",
+                "status": "failed",
+                "operation_id": operation_id,
+                "system_root": str(root),
+                "database_name": database_name,
+                "backup_directory": str(root / MIGRATION_BACKUP_DIRECTORY),
+                "phase": phase,
+                "error_type": type(exc).__name__,
+                "error": "Migration did not complete; inspect the identified phase and database backups.",
+            },
+        )
+        raise
 
 
 def _resolve_system_root(system_root: str | Path | None) -> Path:

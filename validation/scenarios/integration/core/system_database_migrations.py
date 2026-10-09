@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -29,6 +32,7 @@ from core.ingestion.service import IngestionService  # noqa: E402
 from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
 from core.runtime.paths import set_bootstrap_roots  # noqa: E402
 from core.system_migrations import (  # noqa: E402
+    MIGRATION_TARGETS,
     get_system_migration_status,
     run_system_migrations,
 )
@@ -293,6 +297,71 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             all(target.backup_path is None for target in second.targets),
             "Second run should not create backups when no migrations are pending",
         )
+        private_marker = "PRIVATE_MIGRATION_FAILURE_SENTINEL"
+        with patch(
+            "core.system_migrations._backup_pending_databases",
+            side_effect=OSError(private_marker),
+        ):
+            try:
+                run_system_migrations(system_root)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("A migration backup failure must propagate")
+        target = next(
+            target for target in MIGRATION_TARGETS if target.db_name == "chat_sessions"
+        )
+
+        def fail_schema(_root):
+            raise ValueError(private_marker)
+
+        with patch(
+            "core.system_migrations.MIGRATION_TARGETS",
+            (replace(target, ensure_schema=fail_schema),),
+        ):
+            try:
+                run_system_migrations(system_root)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("A migration apply failure must propagate")
+        rows = [
+            json.loads(line)["data"]
+            for line in (system_root / "activity.log").read_text().splitlines()
+        ]
+        migration_rows = [
+            row
+            for row in rows
+            if row.get("event", "").startswith("system_database_migrations_")
+        ]
+        assert migration_rows
+        assert all(
+            row.get("operation_id") and row.get("status") for row in migration_rows
+        )
+        completed = [row for row in migration_rows if row["status"] == "completed"]
+        failed = [row for row in migration_rows if row["status"] == "failed"]
+        assert completed and len(failed) == 2
+        backup_failure = next(row for row in failed if row["phase"] == "backup")
+        apply_failure = next(row for row in failed if row["phase"] == "apply")
+        assert backup_failure["error_type"] == "OSError" and backup_failure["error"]
+        assert apply_failure["database_name"] == "chat_sessions"
+        assert apply_failure["error_type"] == "ValueError" and apply_failure["error"]
+        for operation_id in {row["operation_id"] for row in migration_rows}:
+            operation = [
+                row for row in migration_rows if row["operation_id"] == operation_id
+            ]
+            assert len([row for row in operation if row["status"] == "started"]) == 1
+            assert (
+                len(
+                    [
+                        row
+                        for row in operation
+                        if row["status"] in {"completed", "failed"}
+                    ]
+                )
+                == 1
+            )
+        assert private_marker not in json.dumps(rows)
         self.teardown_scenario()
         self.assert_no_failures()
 
