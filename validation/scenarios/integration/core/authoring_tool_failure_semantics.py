@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from pydantic_ai.messages import ToolReturn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-import core.tools.session_ops as session_ops_module
 from core.identity import LOCAL_USER_AUTHORITY
+from core.memory.session_discovery import SessionDiscoveryService
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
 from core.tools.file_read import FileRead
@@ -34,8 +35,8 @@ class AuthoringToolFailureSemanticsScenario(BaseScenario):
         )
         self.create_file(
             vault,
-            "AssistantMD/Authoring/session_model_failure.md",
-            SESSION_MODEL_FAILURE_WORKFLOW,
+            "AssistantMD/Authoring/session_search_failure.md",
+            SESSION_SEARCH_FAILURE_WORKFLOW,
         )
 
         await self.start_system()
@@ -65,32 +66,20 @@ class AuthoringToolFailureSemanticsScenario(BaseScenario):
             authority=LOCAL_USER_AUTHORITY,
         )
 
-        original_preflight = session_ops_module._preflight_session_summary_embeddings
-        original_summarize = session_ops_module._summarize_session
-
-        async def successful_preflight() -> None:
-            return None
-
-        async def configured_model_failure(**kwargs):
-            del kwargs
-            raise ValueError("Configured summarization model is unavailable")
-
-        session_ops_module._preflight_session_summary_embeddings = successful_preflight
-        session_ops_module._summarize_session = configured_model_failure
         session_failure = None
-        try:
-            await runtime.workflow_governor.execute_workflow(
-                global_id=f"{vault.name}/session_model_failure",
-                source=ExecutionTaskSource.API,
-                authority=LOCAL_USER_AUTHORITY,
-            )
-        except Exception as exc:  # noqa: BLE001
-            session_failure = exc
-        finally:
-            session_ops_module._preflight_session_summary_embeddings = (
-                original_preflight
-            )
-            session_ops_module._summarize_session = original_summarize
+        with patch.object(
+            SessionDiscoveryService,
+            "search",
+            side_effect=ValueError("private search backend failure"),
+        ):
+            try:
+                await runtime.workflow_governor.execute_workflow(
+                    global_id=f"{vault.name}/session_search_failure",
+                    source=ExecutionTaskSource.API,
+                    authority=LOCAL_USER_AUTHORITY,
+                )
+            except Exception as exc:  # noqa: BLE001
+                session_failure = exc
 
         caught_run = runtime.workflow_run_store.get_latest_run(
             f"{vault.name}/caught_probe"
@@ -99,7 +88,7 @@ class AuthoringToolFailureSemanticsScenario(BaseScenario):
             f"{vault.name}/explicit_failure"
         )
         session_run = runtime.workflow_run_store.get_latest_run(
-            f"{vault.name}/session_model_failure"
+            f"{vault.name}/session_search_failure"
         )
 
         self.soft_assert_equal(
@@ -138,17 +127,15 @@ class AuthoringToolFailureSemanticsScenario(BaseScenario):
         self.soft_assert_equal(
             session_run.status if session_run else None,
             "failed",
-            "Uncaught session_ops model failure should be durable",
+            "Uncaught session_ops search failure should be durable",
         )
         durable_session_reason = str(session_run.reason if session_run else "")
         self.soft_assert(
-            "session_ops operation 'summarize_session' failed"
-            in durable_session_reason,
+            "session_ops operation 'search_sessions' failed" in durable_session_reason,
             "Durable workflow failure should retain stable tool and operation context",
         )
         self.soft_assert(
-            "Configured summarization model is unavailable"
-            not in durable_session_reason,
+            "private search backend failure" not in durable_session_reason,
             "Durable workflow failure should not retain raw provider or model error text",
         )
 
@@ -186,13 +173,13 @@ await finish(status="failed", reason="intentional validation failure")
 """
 
 
-SESSION_MODEL_FAILURE_WORKFLOW = """---
+SESSION_SEARCH_FAILURE_WORKFLOW = """---
 run_type: workflow
 enabled: false
-description: Propagate one mandatory session summarization failure
+description: Propagate one mandatory session discovery failure
 ---
 
 ```python
-await session_ops(operation="summarize_session", session_id="validation-session", summarization_model="unavailable-model")
+await session_ops(operation="search_sessions", query="private search query")
 ```
 """

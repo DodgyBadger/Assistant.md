@@ -67,7 +67,7 @@ Available helpers and reserved inputs:
 
 - direct tool functions such as `file_read(...)`, `file_write(...)`, `delegate(...)`, `web_extract(...)`, or `browser(...)`: invoke a tool by name with keyword arguments
 - `pending_files(...)`: filter a file result set to the pending (unprocessed) subset and explicitly complete the items you finished
-- `retrieve_sessions(...)`: select current-vault chat session metadata, such as sessions pending summarization
+- `session_ops(...)`: browse canonical sessions, discover lexical evidence across sessions, and inspect map checkpoints or transcript windows
 - `retrieve_history(...)`: read broker-owned conversation history as safe atomic units
 - `assemble_context(...)`: build structured message history for downstream chat-style generation
 - `read_cache(...)`: open one cached oversized tool result by cache ref inside the current runtime context
@@ -117,13 +117,6 @@ Use ordinary Python for filtering, sorting, selection, and control flow around t
 - in context assembly scripts, use read-only `latest_message` only to decide what prior history, files, or instructions to include
 - do not add `latest_message` to `history` or `context_messages`; the chat runtime appends it exactly once after your assembled context
 - use `latest_message.exists`, `latest_message.role`, `latest_message.content`, and `latest_message.text` when context selection should depend on the active request
-
-### `retrieve_sessions`
-
-- `retrieve_sessions(selection="pending_or_stale_summary")` returns current-vault chat sessions that do not yet have a stored summary or whose summary is stale
-- returned items contain session metadata only, including `session_id`, `title`, `created_at`, `last_activity_at`, `message_count`, `history_revision`, `has_summary`, `summary_status`, `summary_updated_at`, `summary_message_count`, `message_count_delta`, `new_message_count`, `summary_history_revision`, and `history_revision_delta`
-- stale summary selection compares the current persisted history revision with the history revision recorded when the summary was extracted
-- use this helper to select sessions, then call `session_ops(operation="summarize_session", session_id=...)` when a workflow should summarize selected sessions
 
 ### `parse_markdown`
 

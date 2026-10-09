@@ -7,6 +7,7 @@ manages the WorkflowLoader used by the runtime scheduler.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 from collections.abc import Callable
@@ -14,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from apscheduler.triggers.base import BaseTrigger
 
@@ -37,6 +39,63 @@ from core.utils.markdown import parse_markdown_sections
 logger = UnifiedLogger(tag="workflow-loader")
 
 SEED_TEMPLATE_DIR = Path(__file__).parent / "seed_templates"
+
+# Released packaged copies, normalized only for the user-controlled enabled flag.
+_RETIRED_SUMMARY_TEMPLATE_HASHES = frozenset(
+    {
+        "e289a7adb309273a564e2b20d6018643609e6516e037525b324f5e59421fe18f",
+        "92407f0ac9a0e12c2e329cdf1b4cd7843b9c17fa3337479af558329ffebff016",
+        "50bab832927f46166ba595e0f533d6d9717c5cba71e666a82028bff572033abf",
+        "a73acba271efd43677a8af9bc1fd0a03496fb0607c4f4161fc45aa96a1b96b7d",
+        "1e4de7ed67f159c8602f1b1b6acd382f3177d0e41357103b6a42e57b92b24f3b",
+    }
+)
+
+
+def _retire_packaged_summary_workflow(system_root: Path) -> str | None:
+    """Archive an exact packaged copy; never rewrite an authored workflow."""
+    source = system_root / AUTHORING_DIR / "nightly-session-summarization.md"
+    if not source.exists():
+        return None
+    digest = ""
+    if not source.is_symlink():
+        lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+        closing = next(
+            (index for index, line in enumerate(lines[1:], 1) if line.strip() == "---"),
+            0,
+        )
+        if lines and lines[0].strip() == "---" and closing:
+            normalized = "".join(
+                line
+                for index, line in enumerate(lines)
+                if not (0 < index < closing and line.startswith("enabled:"))
+            )
+            digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    if digest not in _RETIRED_SUMMARY_TEMPLATE_HASHES:
+        logger.warning(
+            "Authored workflow uses a retired packaged filename; manual review required",
+            data={
+                "event": "session_summary_workflow_retirement_requires_review",
+                "status": "preserved",
+                "workflow_path": str(source),
+                "issue": "retired-session-summary-workflow",
+            },
+        )
+        return None
+    backup_dir = system_root / "backups" / "retired_workflows"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup = backup_dir / f"{source.stem}-{uuid4().hex}.md"
+    source.replace(backup)
+    logger.info(
+        "Packaged session summary workflow archived",
+        data={
+            "event": "session_summary_workflow_retired",
+            "status": "archived",
+            "workflow_path": str(source),
+            "backup_path": str(backup),
+        },
+    )
+    return str(backup)
 
 
 # ---------------------------------------------------------------------------
@@ -554,6 +613,7 @@ def seed_system_templates(
         "created": [],
         "updated": [],
         "skipped": [],
+        "retired": [],
         "errors": [],
     }
     try:
@@ -572,6 +632,9 @@ def seed_system_templates(
 
     target_dir = Path(sys_root) / AUTHORING_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
+    retired = _retire_packaged_summary_workflow(Path(sys_root))
+    if retired is not None:
+        result["retired"].append(retired)
 
     for subfolder in ("context", "workflows"):
         source_dir = SEED_TEMPLATE_DIR / subfolder

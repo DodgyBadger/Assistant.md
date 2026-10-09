@@ -1110,9 +1110,6 @@ class ChatSessionInfo(BaseModel):
     chat_mode: Literal["normal", "inline_edit"] = Field(
         "normal", description="Selected session chat mode"
     )
-    has_summary: bool = Field(
-        False, description="Whether a session summary record exists"
-    )
     has_session_map: bool = Field(
         False, description="Whether the session has a stepped-map checkpoint"
     )
@@ -1213,53 +1210,6 @@ class ChatSessionForkResponse(BaseModel):
     )
     copied_message_count: int = Field(
         ..., description="Number of messages copied into the fork"
-    )
-
-
-class ChatSessionSummaryResponse(BaseModel):
-    """Lightweight session summary payload for UI previews."""
-
-    session_id: str = Field(..., description="Session identifier")
-    vault_name: str = Field(..., description="Owning vault name")
-    has_summary: bool = Field(
-        ..., description="Whether a session summary record exists"
-    )
-    summary: str | None = Field(None, description="Extracted session summary")
-    user_intent: str | None = Field(None, description="Extracted user intent")
-    created_at: str | None = Field(
-        None, description="Session summary creation timestamp"
-    )
-    updated_at: str | None = Field(None, description="Session summary update timestamp")
-    domain: str | None = Field(None, description="Extracted domain")
-    work_product: str | None = Field(None, description="Extracted work product")
-    workspace_path: str | None = Field(
-        None, description="Workspace path stored for this session summary"
-    )
-    named_entities: str | None = Field(None, description="Extracted named entities")
-    source_summary: str | None = Field(None, description="Extracted source summary")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Summary metadata"
-    )
-    artifacts: list[dict[str, Any]] = Field(
-        default_factory=list, description="Linked summary artifacts"
-    )
-    vector_index: dict[str, Any] = Field(
-        default_factory=dict, description="Vector index coverage"
-    )
-
-
-class ChatSessionSummaryUpdateRequest(BaseModel):
-    """Request to manually update a session summary record."""
-
-    summary: str | None = Field(None, description="Replacement summary")
-    domain: str | None = Field(None, description="Replacement domain")
-    work_product: str | None = Field(None, description="Replacement work product")
-    user_intent: str | None = Field(None, description="Replacement user intent")
-    workspace_path: str | None = Field(None, description="Replacement workspace path")
-    named_entities: str | None = Field(None, description="Replacement named entities")
-    source_summary: str | None = Field(None, description="Replacement source summary")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Replacement summary metadata"
     )
 
 

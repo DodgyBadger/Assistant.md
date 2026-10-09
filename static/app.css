@@ -1384,7 +1384,6 @@ details summary::-webkit-details-marker {
 .session-dropdown-action:focus-visible {
     box-shadow: 0 0 0 2px rgb(var(--accent-primary));
 }
-.session-dropdown-action.is-summary,
 .session-dropdown-action.is-map {
     color: rgb(var(--accent-primary));
     opacity: 0.82;
@@ -1412,7 +1411,6 @@ details summary::-webkit-details-marker {
     outline-offset: 1px;
 }
 .chat-topbar-icon-button,
-.session-summary-trigger,
 .session-browser-trigger {
     width: 2.5rem;
     height: 2.5rem;
@@ -1427,23 +1425,17 @@ details summary::-webkit-details-marker {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
-.session-summary-trigger.is-visible {
-    display: inline-flex;
-}
 .chat-topbar-icon-button,
 .session-browser-trigger {
     display: inline-flex;
 }
 .chat-topbar-icon-button:disabled,
-.session-summary-trigger:disabled,
 .session-browser-trigger:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
 .chat-topbar-icon-button:hover,
 .chat-topbar-icon-button:focus-visible,
-.session-summary-trigger:hover,
-.session-summary-trigger:focus-visible,
 .session-browser-trigger:hover,
 .session-browser-trigger:focus-visible {
     color: rgb(var(--accent-primary));
@@ -1452,44 +1444,9 @@ details summary::-webkit-details-marker {
     outline: none;
 }
 .chat-topbar-icon-button svg,
-.session-summary-trigger svg,
 .session-browser-trigger svg {
     width: 1.1rem;
     height: 1.1rem;
-}
-.session-summary-preview-popover {
-    position: fixed;
-    z-index: 70;
-    width: min(22rem, calc(100vw - 2rem));
-    overflow: hidden;
-    pointer-events: none;
-    border: 1px solid rgb(var(--border-primary));
-    border-radius: 0.375rem;
-    background: rgb(var(--bg-card));
-    box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
-    padding: 0.75rem;
-    color: rgb(var(--text-primary));
-}
-.session-summary-preview-title {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: rgb(var(--text-secondary));
-}
-.session-summary-preview-text {
-    margin-top: 0.25rem;
-    font-size: 0.8rem;
-    line-height: 1.35;
-    color: rgb(var(--text-primary));
-    white-space: pre-wrap;
-}
-.session-summary-preview-workspace {
-    margin-top: 0.75rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgb(var(--border-secondary));
-    font-size: 0.72rem;
-    color: rgb(var(--text-secondary));
-    word-break: break-word;
 }
 .app-modal-title-icon {
     width: 1.5rem;

@@ -1,6 +1,5 @@
-"""Chat-session persistence, summaries, export, and compaction API services."""
+"""Chat-session persistence, export, and compaction API services."""
 
-import asyncio
 import json
 import re
 from dataclasses import asdict
@@ -35,11 +34,6 @@ from core.memory.session_map.checkpoints import (
     load_session_map_checkpoint,
     load_session_map_observed_through,
 )
-from core.memory.session_summary import (
-    SessionSummary,
-    SessionSummaryStore,
-    session_summary_mutation_lock,
-)
 from core.runtime.execution_tasks import ExecutionTaskSnapshot, ExecutionTaskSource
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.settings.store import (
@@ -52,7 +46,6 @@ from core.vault_state.pathing import (
     resolve_configured_vault_root,
     resolve_vault_relative_path,
 )
-from core.vector import VectorService
 
 from ..exceptions import APIException
 from ..models import (
@@ -286,16 +279,11 @@ def set_chat_session_mode(
 def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
-    summary_store = SessionSummaryStore()
-    return [
-        _chat_session_info(session, summary_store=summary_store) for session in sessions
-    ]
+    return [_chat_session_info(session) for session in sessions]
 
 
 def _chat_session_info(
     session: StoredChatSession,
-    *,
-    summary_store: SessionSummaryStore,
 ) -> ChatSessionInfo:
     """Project one persisted session consistently across listing and fork replies."""
     vault_name = session.vault_name
@@ -315,13 +303,6 @@ def _chat_session_info(
             _chat_store.get_session_workspace_path(session_id, vault_name),
         ),
         chat_mode=_chat_store.get_session_chat_mode(session_id, vault_name),
-        has_summary=(
-            summary_store.get_session_summary(
-                vault_name=vault_name,
-                session_id=session_id,
-            )
-            is not None
-        ),
         has_session_map=strategy_status.strategy == "session_map",
         context_strategy=strategy_status.strategy,
         can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
@@ -868,7 +849,7 @@ def _fork_chat_session(
         },
     )
     return ChatSessionForkResponse(
-        session=_chat_session_info(new_session, summary_store=SessionSummaryStore()),
+        session=_chat_session_info(new_session),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
         copied_message_count=copied_message_count,
@@ -890,219 +871,6 @@ def _forked_session_title(source_session: StoredChatSession) -> str:
     if title:
         return f"{title} (fork)"
     return f"Fork of {source_session.session_id}"
-
-
-def get_chat_session_summary(vault_name: str, session_id: str) -> dict:
-    """Return a lightweight summary preview for one chat session."""
-    _require_chat_session_access(vault_name, session_id)
-    session_summary = SessionSummaryStore().get_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
-    if session_summary is None:
-        return {
-            "session_id": session_id,
-            "vault_name": vault_name,
-            "has_summary": False,
-            "summary": None,
-            "user_intent": None,
-            "created_at": None,
-            "updated_at": None,
-            "domain": None,
-            "work_product": None,
-            "workspace_path": _chat_store.get_session_workspace_path(
-                session_id, vault_name
-            )
-            or None,
-            "named_entities": None,
-            "source_summary": None,
-            "metadata": {},
-            "artifacts": [],
-            "vector_index": {
-                "indexed_fields": 0,
-                "expected_fields": 0,
-                "indexed_field_types": [],
-                "missing_field_types": [],
-            },
-        }
-    return _session_summary_response(session_summary)
-
-
-async def update_chat_session_summary(
-    *,
-    vault_name: str,
-    session_id: str,
-    data: dict[str, Any],
-) -> dict:
-    """Manually update one session summary record and refresh search indexes."""
-    _require_chat_session_access(vault_name, session_id)
-    async with session_summary_mutation_lock(
-        vault_name=vault_name,
-        session_id=session_id,
-    ):
-        store = SessionSummaryStore()
-        existing = store.get_session_summary(
-            vault_name=vault_name, session_id=session_id
-        )
-        if existing is None:
-            raise APIException(
-                status_code=404,
-                error_type="SessionSummaryNotFound",
-                message=f"Session summary not found: {session_id}",
-                details={"session_id": session_id, "vault_name": vault_name},
-            )
-        previous = existing
-        session_summary = store.update_session_summary_fields(
-            vault_name=vault_name,
-            session_id=session_id,
-            summary=data.get("summary"),
-            domain=data.get("domain"),
-            work_product=data.get("work_product"),
-            user_intent=data.get("user_intent"),
-            workspace_path=data.get("workspace_path"),
-            named_entities=data.get("named_entities"),
-            source_summary=data.get("source_summary"),
-            metadata=(
-                data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
-            ),
-        )
-        try:
-            indexed_fields = await _index_session_summary_for_api(
-                store,
-                vault_name=vault_name,
-                session_id=session_id,
-            )
-        except (Exception, asyncio.CancelledError):
-            _restore_session_summary_for_api(
-                store,
-                vault_name=vault_name,
-                session_id=session_id,
-                previous_summary=previous,
-            )
-            raise
-        response = _session_summary_response(session_summary)
-        response["indexed_fields"] = indexed_fields
-        return response
-
-
-async def delete_chat_session_summary(vault_name: str, session_id: str) -> dict:
-    """Delete one session summary record without deleting the chat session."""
-    _require_chat_session_access(vault_name, session_id)
-    async with session_summary_mutation_lock(
-        vault_name=vault_name,
-        session_id=session_id,
-    ):
-        deleted = SessionSummaryStore().delete_session_summary(
-            vault_name=vault_name,
-            session_id=session_id,
-        )
-    return {
-        "session_id": session_id,
-        "vault_name": vault_name,
-        "deleted": deleted,
-    }
-
-
-async def _index_session_summary_for_api(
-    store: SessionSummaryStore,
-    *,
-    vault_name: str,
-    session_id: str,
-) -> int:
-    try:
-        indexed_fields = await store.index_session_summary_fields(
-            vault_name=vault_name,
-            session_id=session_id,
-            vector_service=VectorService(),
-        )
-        logger.set_sinks(["validation"]).info(
-            "session_summary_field_indexing_completed",
-            data={
-                "source": "api",
-                "vault_name": vault_name,
-                "session_id": session_id,
-                "indexed_fields": indexed_fields,
-            },
-        )
-        return indexed_fields
-    except Exception as exc:  # noqa: BLE001
-        logger.set_sinks(["validation"]).error(
-            "session_summary_field_indexing_failed",
-            data={
-                "source": "api",
-                "vault_name": vault_name,
-                "session_id": session_id,
-                "error_type": type(exc).__name__,
-                "error": "Session summary field indexing failed.",
-            },
-        )
-        raise APIException(
-            status_code=500,
-            error_type="SessionSummaryIndexingFailed",
-            message=f"Failed to refresh session summary vector index for {session_id}",
-            details={
-                "session_id": session_id,
-                "vault_name": vault_name,
-                "error_type": type(exc).__name__,
-                "error": "Session summary field indexing failed.",
-            },
-        ) from exc
-
-
-def _restore_session_summary_for_api(
-    store: SessionSummaryStore,
-    *,
-    vault_name: str,
-    session_id: str,
-    previous_summary: SessionSummary,
-) -> None:
-    store.upsert_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-        title=previous_summary.title,
-        summary=previous_summary.summary,
-        domain=previous_summary.domain,
-        work_product=previous_summary.work_product,
-        user_intent=previous_summary.user_intent,
-        named_entities=previous_summary.named_entities,
-        source_summary=previous_summary.source_summary,
-        workspace_path=previous_summary.workspace_path,
-        metadata=previous_summary.metadata,
-    )
-    store.set_session_summary_title(
-        vault_name=vault_name,
-        session_id=session_id,
-        title=previous_summary.title,
-    )
-    if previous_summary.artifacts:
-        store.add_session_artifacts(
-            vault_name=vault_name,
-            session_id=session_id,
-            artifacts=tuple(previous_summary.artifacts),
-        )
-
-
-def _session_summary_response(session_summary: SessionSummary) -> dict[str, Any]:
-    return {
-        "session_id": session_summary.session_id,
-        "vault_name": session_summary.vault_name,
-        "has_summary": True,
-        "summary": session_summary.summary,
-        "user_intent": session_summary.user_intent,
-        "created_at": session_summary.created_at,
-        "updated_at": session_summary.updated_at,
-        "domain": session_summary.domain,
-        "work_product": session_summary.work_product,
-        "workspace_path": session_summary.workspace_path,
-        "named_entities": session_summary.named_entities,
-        "source_summary": session_summary.source_summary,
-        "metadata": session_summary.metadata,
-        "artifacts": [artifact.to_dict() for artifact in session_summary.artifacts],
-        "vector_index": SessionSummaryStore().get_session_summary_vector_index_status(
-            vault_name=session_summary.vault_name,
-            session_id=session_summary.session_id,
-        ),
-    }
 
 
 def get_chat_session_detail(
@@ -1551,16 +1319,11 @@ def export_chat_session_markdown(
 ) -> ChatSessionExportResponse:
     """Export one chat session transcript to the vault on demand."""
     _require_chat_session_access(vault_name, session_id)
-    session_summary = SessionSummaryStore().get_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
     exported = export_chat_transcript(
         store=_chat_store,
         vault_path=vault_path,
         vault_name=vault_name,
         session_id=session_id,
-        session_summary=session_summary.summary if session_summary else None,
     )
     return ChatSessionExportResponse(
         session_id=session_id,
@@ -1643,22 +1406,9 @@ async def start_chat_session_context_strategy_upgrade(
 
 
 async def delete_chat_session(vault_name: str, session_id: str) -> None:
-    """Delete one chat session and its session summary."""
+    """Delete one authorized canonical session and its derived chat indexes."""
     _require_chat_session_access(vault_name, session_id)
-    async with session_summary_mutation_lock(
-        vault_name=vault_name,
-        session_id=session_id,
-    ):
-        _delete_chat_session_with_summary(vault_name=vault_name, session_id=session_id)
-
-
-def _delete_chat_session_with_summary(*, vault_name: str, session_id: str) -> list[str]:
-    """Remove derived memory before canonical chat so cleanup failures stay retryable."""
-    SessionSummaryStore().delete_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
-    return _chat_store.delete_sessions(vault_name, session_id=session_id)
+    _chat_store.delete_sessions(vault_name, session_id=session_id)
 
 
 async def purge_chat_sessions(
@@ -1680,16 +1430,9 @@ async def purge_chat_sessions(
         ]
     deleted_ids: list[str] = []
     for session_id in selected_ids:
-        async with session_summary_mutation_lock(
-            vault_name=vault_name,
-            session_id=session_id,
-        ):
-            deleted_ids.extend(
-                _delete_chat_session_with_summary(
-                    vault_name=vault_name,
-                    session_id=session_id,
-                )
-            )
+        deleted_ids.extend(
+            _chat_store.delete_sessions(vault_name, session_id=session_id)
+        )
     remove_chat_transcript_exports(vault_path=vault_path, session_ids=deleted_ids)
 
     n = len(deleted_ids)

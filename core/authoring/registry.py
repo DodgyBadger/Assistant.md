@@ -46,6 +46,11 @@ class AuthoringCapabilityRegistry:
         """Resolve one capability definition by name."""
         definition = self._definitions.get(name)
         if definition is None:
+            if name == "retrieve_sessions":
+                raise UnknownAuthoringCapabilityError(
+                    "retrieve_sessions is retired. Use session_ops with list_sessions "
+                    "or search_sessions for canonical session discovery."
+                )
             raise UnknownAuthoringCapabilityError(f"Unknown capability '{name}'")
         return definition
 

@@ -1,8 +1,4 @@
 const {
-    SESSION_SUMMARY_ICON_SVG,
-} = window.AssistantMDIcons;
-
-const {
     truncateText,
     formatShortDate,
 } = window.AssistantMDUtils;
@@ -25,8 +21,6 @@ const state = {
     activeChatTaskId: null,
     activeChatAbortController: null,
     systemStatus: null,
-    sessionSummaryPreviewCache: {},
-    sessionSummaryPreviewInFlight: {},
     vaultActivity: {},
     selectedActivityVault: '',
     dashboardVaultSort: { column: 'name', direction: 'asc' },
@@ -166,17 +160,6 @@ const {
 
 let sessionControls;
 
-const sessionSummary = window.SessionSummary.create({
-    state,
-    elements: chatElements,
-    icons: window.AssistantMDIcons,
-    utils: window.AssistantMDUtils,
-    callbacks: {
-        renderSessionSelector: () => sessionControls.renderSelector(),
-        fetchSessions,
-    },
-});
-
 const sessionMap = window.SessionMap.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
@@ -257,7 +240,6 @@ sessionControls = window.SessionControls.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
-    sessionSummary,
     sessionMap,
     callbacks: {
         fetchSessions,

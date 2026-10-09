@@ -292,6 +292,15 @@ class SessionOps(BaseTool):
                             session_id=context_session_id,
                         ),
                     )
+                elif op in {
+                    "summarize_session",
+                    "get_session_summary",
+                    "upsert_session_summary",
+                }:
+                    raise ModelRetry(
+                        "Session summary operations are retired. Use search_sessions "
+                        "for discovery or get_session_map to inspect a checkpoint."
+                    )
                 else:
                     return (
                         "Unknown operation. Available: list_sessions, search_sessions, "

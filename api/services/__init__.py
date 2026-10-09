@@ -65,7 +65,6 @@ from core.llm.openai_oauth import (
     start_openai_oauth as start_openai_oauth_attempt,
 )
 from core.llm.thinking import ThinkingValue, normalize_thinking_value
-from core.memory.session_summary import SessionSummaryStore
 from core.runtime.execution_tasks import (
     ExecutionTaskKind,
     ExecutionTaskSource,
@@ -152,7 +151,6 @@ from core.vault_state.pathing import (
     resolve_vault_relative_path,
 )
 from core.vault_state.service import VaultStateService
-from core.vector import VectorService
 from core.workflow_runs import WorkflowRunRecord
 
 from ..exceptions import APIException, SystemConfigurationError
@@ -229,13 +227,11 @@ from .chat_sessions import (
     _normalize_workspace_path,
     compact_chat_session_history,
     delete_chat_session,
-    delete_chat_session_summary,
     export_chat_session_markdown,
     fork_chat_session,
     get_chat_history_compaction_status,
     get_chat_session_detail,
     get_chat_session_map,
-    get_chat_session_summary,
     get_chat_session_timeline,
     get_chat_tool_call_detail,
     get_enabled_chat_tool_names,
@@ -246,7 +242,6 @@ from .chat_sessions import (
     set_chat_session_title,
     set_chat_session_workspace,
     start_chat_session_context_strategy_upgrade,
-    update_chat_session_summary,
 )
 from .configuration import (
     check_openai_oauth_device_connection,

@@ -85,8 +85,6 @@ from .models import (
     ChatSessionRetryRequest,
     ChatSessionsPurgeRequest,
     ChatSessionsPurgeResponse,
-    ChatSessionSummaryResponse,
-    ChatSessionSummaryUpdateRequest,
     ChatSessionTimelinePage,
     ChatSessionTitleRequest,
     ChatSessionWorkspaceRequest,
@@ -189,7 +187,6 @@ from .services import (
     complete_openai_oauth_callback,
     complete_openai_oauth_manual,
     delete_chat_session,
-    delete_chat_session_summary,
     delete_configurable_model,
     delete_configurable_provider,
     delete_secret_entry,
@@ -204,7 +201,6 @@ from .services import (
     get_chat_history_compaction_status,
     get_chat_session_detail,
     get_chat_session_map,
-    get_chat_session_summary,
     get_chat_session_timeline,
     get_chat_tool_call_detail,
     get_configurable_models,
@@ -262,7 +258,6 @@ from .services import (
     start_openai_oauth_device_connection,
     submit_chat_deferred_review,
     trigger_import_queue_now,
-    update_chat_session_summary,
     update_general_setting_value,
     update_secret,
     update_system_settings,
@@ -2611,53 +2606,6 @@ async def cancel_chat_session(
     """Request cancellation for the active process-local task in a chat session."""
     try:
         return await cancel_chat_session_task(session_id)
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.get(
-    "/chat/sessions/{session_id}/summary", response_model=ChatSessionSummaryResponse
-)
-async def chat_session_summary(
-    session_id: str, vault_name: str
-) -> ChatSessionSummaryResponse | JSONResponse:
-    """Return a lightweight summary preview for one chat session."""
-    try:
-        return ChatSessionSummaryResponse.model_validate(
-            get_chat_session_summary(vault_name, session_id)
-        )
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.put(
-    "/chat/sessions/{session_id}/summary", response_model=ChatSessionSummaryResponse
-)
-async def update_chat_session_summary_endpoint(
-    session_id: str,
-    vault_name: str,
-    request: ChatSessionSummaryUpdateRequest,
-) -> ChatSessionSummaryResponse | JSONResponse:
-    """Manually update one session summary record."""
-    try:
-        return ChatSessionSummaryResponse.model_validate(
-            await update_chat_session_summary(
-                vault_name=vault_name,
-                session_id=session_id,
-                data=request.model_dump(mode="python"),
-            )
-        )
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.delete("/chat/sessions/{session_id}/summary", response_model=None)
-async def delete_chat_session_summary_endpoint(
-    session_id: str, vault_name: str
-) -> dict[str, Any] | JSONResponse:
-    """Delete one session summary record without deleting the chat session."""
-    try:
-        return await delete_chat_session_summary(vault_name, session_id)
     except Exception as e:
         return create_error_response(e)
 

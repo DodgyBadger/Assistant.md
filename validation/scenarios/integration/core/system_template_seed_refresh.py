@@ -25,7 +25,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         target = system_root / "Authoring" / "default.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("STALE GENERATED DEFAULT", encoding="utf-8")
-        workflow_target = system_root / "Authoring" / "nightly-session-summarization.md"
+        workflow_target = system_root / "Authoring" / "nightly-user-notes-compaction.md"
         workflow_target.write_text(
             "\n".join(
                 [
@@ -46,7 +46,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         seed = Path("core/authoring/seed_templates/context/default.md")
         expected = seed.read_text(encoding="utf-8")
         workflow_seed = Path(
-            "core/authoring/seed_templates/workflows/nightly-session-summarization.md"
+            "core/authoring/seed_templates/workflows/nightly-user-notes-compaction.md"
         )
         expected_workflow = workflow_seed.read_text(encoding="utf-8").replace(
             "enabled: false", "enabled: true", 1

@@ -1,5 +1,5 @@
 (function sessionControlsModule(window) {
-    function createSessionControlsController({ state, elements, icons, utils, sessionSummary, sessionMap, callbacks }) {
+    function createSessionControlsController({ state, elements, icons, utils, sessionMap, callbacks }) {
         const { escapeHtml } = utils;
         let editingSessionId = '';
         let sessionBrowserFilter = '';
@@ -181,7 +181,6 @@
             const modal = sessionBrowserModal();
             restoreSettingsControlsFromModal(modal);
             modal?.remove();
-            sessionSummary.closePreview();
         }
 
         function filteredBrowserSessions() {
@@ -223,20 +222,15 @@
             if (sessionId && editingSessionId === sessionId) {
                 return renderSessionBrowserEditingRow(session, isActive);
             }
-            const hasSummary = Boolean(session?.has_summary);
-            const previewAttribute = hasSummary ? ` data-session-summary-preview-id="${escapeHtml(sessionId)}"` : '';
-            const previewFocusAttribute = hasSummary ? ` data-session-summary-preview-focus-id="${escapeHtml(sessionId)}"` : '';
             const meta = activityLabel(session);
             return `
                 <div
                     class="session-browser-row${isActive ? ' is-active' : ''}"
                     data-session-browser-row-id="${escapeHtml(sessionId)}"
-                    ${previewFocusAttribute}
                 >
-                    <div class="session-browser-row-main"${previewAttribute}>
+                    <div class="session-browser-row-main">
                         <span class="session-dropdown-title-wrap">
                             <span class="session-dropdown-title">${escapeHtml(title(session))}</span>
-                            ${renderSessionBrowserSummaryAction(session)}
                             ${renderSessionBrowserMapAction(session)}
                         </span>
                         ${meta ? `<span class="session-browser-row-meta">${escapeHtml(meta)}</span>` : ''}
@@ -244,12 +238,6 @@
                     ${renderSessionActions(session)}
                 </div>
             `;
-        }
-
-        function renderSessionBrowserSummaryAction(session) {
-            const sessionId = session?.session_id || '';
-            if (!session?.has_summary || !sessionId) return '';
-            return renderRowActionButton('summary', sessionId, 'Open summary', icons.SESSION_SUMMARY_ICON_SVG, 'is-summary');
         }
 
         function renderSessionBrowserMapAction(session) {
@@ -335,10 +323,6 @@
             overlay.addEventListener('click', handleSessionBrowserClick);
             overlay.addEventListener('input', handleSessionBrowserInput);
             overlay.addEventListener('keydown', handleSessionBrowserKeydown);
-            overlay.addEventListener('mouseover', handleSummaryPreviewMouseover);
-            overlay.addEventListener('mouseout', handleSummaryPreviewMouseout);
-            overlay.addEventListener('focusin', handleSummaryPreviewFocusin);
-            overlay.addEventListener('focusout', handleSummaryPreviewFocusout);
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
             renderSessionBrowserList();
@@ -535,16 +519,6 @@
                 await saveTitle(sessionId, titleValue, button);
                 return;
             }
-            if (action === 'summary') {
-                const session = state.sessions.find((item) => item.session_id === sessionId);
-                if (!session) return;
-                closeSessionBrowserModal();
-                sessionSummary.openModalForSession(session, {
-                    backLabel: 'Sessions',
-                    onBack: openSessionBrowserModal,
-                });
-                return;
-            }
             if (action === 'map') {
                 const session = state.sessions.find((item) => item.session_id === sessionId);
                 if (!session) return;
@@ -628,52 +602,6 @@
             if (event.key === 'Escape') {
                 closeSessionBrowserModal();
             }
-        }
-
-        function handleSummaryPreviewMouseover(event) {
-            if (!shouldShowSummaryPreview()) return;
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const related = event.relatedTarget;
-            if (related instanceof Element && previewTarget.contains(related)) return;
-            const sessionId = previewTarget.dataset.sessionSummaryPreviewId || '';
-            const session = state.sessions.find((item) => item.session_id === sessionId);
-            sessionSummary.openPreview(previewTarget, session);
-        }
-
-        function handleSummaryPreviewMouseout(event) {
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const related = event.relatedTarget;
-            if (related instanceof Element && previewTarget.contains(related)) return;
-            sessionSummary.closePreview();
-        }
-
-        function handleSummaryPreviewFocusin(event) {
-            if (!shouldShowSummaryPreview()) return;
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-focus-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const sessionId = previewTarget.dataset.sessionSummaryPreviewFocusId || '';
-            const session = state.sessions.find((item) => item.session_id === sessionId);
-            sessionSummary.openPreview(previewTarget, session);
-        }
-
-        function handleSummaryPreviewFocusout(event) {
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            if (target.closest('[data-session-summary-preview-focus-id]')) {
-                sessionSummary.closePreview();
-            }
-        }
-
-        function shouldShowSummaryPreview() {
-            return !window.matchMedia?.('(hover: none), (pointer: coarse)').matches;
         }
 
         function cssEscape(value) {
