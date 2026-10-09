@@ -51,8 +51,8 @@ SYSTEM_DATABASES: dict[str, SystemDatabaseDefinition] = {
     ),
     "session_summaries": SystemDatabaseDefinition(
         name="session_summaries",
-        owner="core.memory",
-        description="Session summary records, fields, and artifacts.",
+        owner="core.memory.retirement",
+        description="Legacy derived-memory database retained for managed retirement bookkeeping.",
     ),
     "goal_ops": SystemDatabaseDefinition(
         name="goal_ops",

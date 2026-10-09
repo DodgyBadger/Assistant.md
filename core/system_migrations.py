@@ -51,15 +51,15 @@ from core.ingestion.schema import (
     MIGRATION_NAMESPACE as INGESTION_JOBS_MIGRATION_NAMESPACE,
 )
 from core.logger import UnifiedLogger
-from core.memory.schema import (
+from core.memory.retirement import (
     DB_NAME as SESSION_SUMMARIES_DB_NAME,
 )
-from core.memory.schema import (
+from core.memory.retirement import (
     MIGRATION_NAMESPACE as SESSION_SUMMARIES_MIGRATION_NAMESPACE,
 )
-from core.memory.schema import (
-    SESSION_SUMMARY_MIGRATIONS,
-    ensure_session_summary_schema,
+from core.memory.retirement import (
+    SESSION_SUMMARY_RETIREMENT_MIGRATIONS,
+    retire_session_summary_data,
 )
 from core.migration_backups import (
     organize_legacy_migration_backups,
@@ -99,6 +99,8 @@ class SystemMigrationTarget:
     namespace: str
     migrations: Sequence[SQLiteMigration]
     ensure_schema: Callable[[str | None], None]
+    create_if_missing: bool = True
+    requires_backup: bool = False
 
 
 @dataclass(frozen=True)
@@ -148,11 +150,10 @@ MIGRATION_TARGETS: tuple[SystemMigrationTarget, ...] = (
     SystemMigrationTarget(
         db_name=SESSION_SUMMARIES_DB_NAME,
         namespace=SESSION_SUMMARIES_MIGRATION_NAMESPACE,
-        migrations=SESSION_SUMMARY_MIGRATIONS,
-        ensure_schema=lambda system_root: ensure_session_summary_schema(
-            system_root,
-            apply_migrations=True,
-        ),
+        migrations=SESSION_SUMMARY_RETIREMENT_MIGRATIONS,
+        ensure_schema=retire_session_summary_data,
+        create_if_missing=False,
+        requires_backup=True,
     ),
     SystemMigrationTarget(
         db_name=GOAL_OPS_DB_NAME,
@@ -211,6 +212,11 @@ def run_system_migrations(
     root = _resolve_system_root(system_root)
     organized_backup_count = organize_legacy_migration_backups(root)
     before = get_system_migration_status(root)
+    if not backup:
+        for target in MIGRATION_TARGETS:
+            status = next(t for t in before.targets if t.db_name == target.db_name)
+            if target.requires_backup and status.exists and status.pending_versions:
+                raise ValueError(f"Migration of {target.db_name} requires backup=True.")
     secrets_status = get_secrets_bootstrap_status()
     excluded_db_names = (
         frozenset({ACCESS_DB_NAME})
@@ -251,6 +257,7 @@ def run_system_migrations(
             "pending_before": before.pending_count,
             "pending_after": result.pending_count,
             "backups_created": len(backup_paths),
+            "backup_paths": backup_paths,
             "legacy_backups_organized": organized_backup_count,
             "excluded_locked_databases": sorted(excluded_db_names),
         },
@@ -295,8 +302,10 @@ def _target_status(
         for migration in sorted(target.migrations, key=lambda item: item.version)
     )
     applied_set = set(applied_versions)
-    pending_versions = tuple(
-        version for version in declared_versions if version not in applied_set
+    pending_versions = (
+        tuple(version for version in declared_versions if version not in applied_set)
+        if db_path.exists() or target.create_if_missing
+        else ()
     )
     return SystemMigrationTargetStatus(
         db_name=target.db_name,

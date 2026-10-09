@@ -109,7 +109,11 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         )
         self.soft_assert(
             summary_target.backup_path is None,
-            "New summary DB should not create an empty backup",
+            "Absent retired summary DB should not create a backup",
+        )
+        self.soft_assert(
+            not summary_target.exists and not summary_target.pending_versions,
+            "Fresh installations must not create a retired summary database",
         )
         self.soft_assert(
             goal_target.backup_path is None,
@@ -176,13 +180,6 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                 owner[0] if owner else None,
                 "local-user",
                 "Legacy chat sessions should be assigned to the local user",
-            )
-
-        with sqlite3.connect(system_root / "session_summaries.db") as conn:
-            self.soft_assert_equal(
-                self._migration_versions(conn, "session_summaries"),
-                [1, 2, 3],
-                "Session summary migration versions should be recorded",
             )
 
         with sqlite3.connect(system_root / "goal_ops.db") as conn:
