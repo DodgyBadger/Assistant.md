@@ -149,7 +149,8 @@ class SessionDiscoveryService:
             if (
                 not workspace
                 and active_workspace
-                and candidate["workspace_path"] == active_workspace
+                and session_workspace(sessions[candidate["session_id"]])
+                == active_workspace
             ):
                 candidate["score"] += 0.002
             candidate["score"] = round(candidate["score"], 6)

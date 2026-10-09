@@ -60,7 +60,7 @@ class SystemStartupMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 "Startup should record chat migration versions",
             )
             self.soft_assert(
@@ -77,23 +77,29 @@ class SystemStartupMigrationsScenario(BaseScenario):
             )
 
         with sqlite3.connect(system_root / "session_summaries.db") as conn:
-            summary_columns = self._table_columns(conn, "session_summaries")
             self.soft_assert(
-                "source_summary" in summary_columns,
-                "Startup should migrate summary source text",
+                not self._table_exists(conn, "session_summaries"),
+                "Startup should retire legacy summary data",
             )
             self.soft_assert(
-                "workspace_path" in summary_columns,
-                "Startup should migrate summary workspace paths",
-            )
-            self.soft_assert(
-                self._table_exists(conn, "session_summaries_fts"),
-                "Startup should ensure summary FTS storage",
+                not self._table_exists(conn, "session_summaries_fts"),
+                "Startup should retire legacy summary indexes",
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "session_summaries"),
-                [1, 2, 3],
-                "Startup should record summary migration versions",
+                [4],
+                "Startup should record summary retirement without recreating prior schemas",
+            )
+        backups = list(
+            (system_root / "migration_backups").glob("session_summaries.db.backup-*")
+        )
+        self.soft_assert_equal(
+            len(backups), 1, "Startup should back up legacy summaries"
+        )
+        with sqlite3.connect(backups[0]) as conn:
+            self.soft_assert(
+                self._table_exists(conn, "session_summaries"),
+                "The automatic backup should preserve the retired schema",
             )
 
         with sqlite3.connect(system_root / "goal_ops.db") as conn:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import inspect
 from collections.abc import Iterable
 from typing import Any
@@ -13,6 +14,42 @@ from core.authoring.contracts import (
     AuthoringExecutionContext,
     UnknownAuthoringCapabilityError,
 )
+
+_RETIRED_HELPERS = {
+    "retrieve_sessions": (
+        "retrieve_sessions is retired. Use session_ops with list_sessions "
+        "or search_sessions for canonical session discovery."
+    )
+}
+
+
+def reject_retired_helper_dependencies(code: str) -> None:
+    """Diagnose removed external helpers without rejecting authored local names."""
+    try:
+        module = ast.parse(code)
+    except SyntaxError:
+        return  # Syntax diagnostics belong to the parser or Monty.
+    local_names = (
+        {
+            node.id
+            for node in ast.walk(module)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+        }
+        | {
+            node.name
+            for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        }
+        | {node.arg for node in ast.walk(module) if isinstance(node, ast.arg)}
+    )
+    for node in ast.walk(module):
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id in _RETIRED_HELPERS
+            and node.id not in local_names
+        ):
+            raise UnknownAuthoringCapabilityError(_RETIRED_HELPERS[node.id])
 
 
 class AuthoringCapabilityRegistry:
@@ -46,11 +83,8 @@ class AuthoringCapabilityRegistry:
         """Resolve one capability definition by name."""
         definition = self._definitions.get(name)
         if definition is None:
-            if name == "retrieve_sessions":
-                raise UnknownAuthoringCapabilityError(
-                    "retrieve_sessions is retired. Use session_ops with list_sessions "
-                    "or search_sessions for canonical session discovery."
-                )
+            if name in _RETIRED_HELPERS:
+                raise UnknownAuthoringCapabilityError(_RETIRED_HELPERS[name])
             raise UnknownAuthoringCapabilityError(f"Unknown capability '{name}'")
         return definition
 

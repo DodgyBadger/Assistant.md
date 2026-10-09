@@ -25,14 +25,18 @@ from core.chat.transcript_retrieval import (
     TranscriptWindow,
 )
 from core.logger import UnifiedLogger
-from core.memory.session_discovery import SessionDiscoveryService, session_workspace
+from core.memory.session_discovery import (
+    MAX_DISCOVERY_LIMIT,
+    SessionDiscoveryService,
+    session_workspace,
+)
 from core.runtime.state import get_runtime_context
 
 from .base import BaseTool, ToolRecoveryPolicy
 from .failures import classify_exception, tool_failure_return
 
 logger = UnifiedLogger(tag="session-ops-tool")
-MAX_SESSION_SEARCH_LIMIT = 20
+MAX_SESSION_SEARCH_LIMIT = MAX_DISCOVERY_LIMIT
 MAX_SESSION_SEARCH_QUERY_CHARS = 2_000
 _SESSION_OP_ACTIVITY_NAMES = frozenset(
     {
@@ -306,8 +310,6 @@ class SessionOps(BaseTool):
                         "Unknown operation. Available: list_sessions, search_sessions, "
                         "search_transcript, get_transcript_window, get_session_map"
                     )
-                if hasattr(result, "to_dict"):
-                    result = result.to_dict()
                 return json.dumps(result, ensure_ascii=False, indent=2)
             except ModelRetry:
                 raise

@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.authoring.contracts import UnknownAuthoringCapabilityError
 from core.authoring.helpers import get_builtin_helper_definitions
 from core.authoring.registry import AuthoringCapabilityRegistry
+from core.authoring.service import compile_candidate_workflow
 from core.authoring.template_discovery import seed_system_templates
 from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime.execution_tasks import ExecutionTaskSource
@@ -61,6 +62,26 @@ class SessionDiscoveryCutoverScenario(BaseScenario):
                 assert "retired" in str(exc) and "session_ops" in str(exc)
             else:
                 raise AssertionError("Retired helper must fail explicitly")
+            compiled = compile_candidate_workflow(
+                workflow_id=f"{vault.name}/retired_helper",
+                content=RETIRED_OPERATION_WORKFLOW.replace(
+                    'session_ops(operation="summarize_session")', "retrieve_sessions()"
+                ),
+            )
+            assert compiled.ok is False
+            assert any(
+                "retired" in diagnostic.message and "session_ops" in diagnostic.message
+                for diagnostic in compiled.diagnostics
+            )
+            # An authored local function is not a dependency on a removed helper.
+            local = compile_candidate_workflow(
+                workflow_id=f"{vault.name}/local_function",
+                content=RETIRED_OPERATION_WORKFLOW.replace(
+                    'await session_ops(operation="summarize_session")',
+                    "def retrieve_sessions():\n    return []\nretrieve_sessions()",
+                ),
+            )
+            assert local.ok is True
 
             runtime = get_runtime_context()
             try:

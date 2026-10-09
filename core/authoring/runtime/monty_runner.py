@@ -23,7 +23,10 @@ from core.authoring.helpers.runtime_common import (
     invoke_bound_tool,
     normalize_tool_result,
 )
-from core.authoring.registry import AuthoringCapabilityRegistry
+from core.authoring.registry import (
+    AuthoringCapabilityRegistry,
+    reject_retired_helper_dependencies,
+)
 from core.authoring.shared.tool_binding import resolve_tool_binding
 from core.logger import UnifiedLogger
 from core.settings.store import get_enabled_tools_config
@@ -68,6 +71,7 @@ async def run_authoring_monty(
     registry: AuthoringCapabilityRegistry | None = None,
 ) -> AuthoringMontyExecutionResult:
     """Execute one experimental authoring artifact with Monty."""
+    reject_retired_helper_dependencies(code)
     runtime_registry = registry or create_builtin_registry()
     context = AuthoringExecutionContext(
         workflow_id=workflow_id,
