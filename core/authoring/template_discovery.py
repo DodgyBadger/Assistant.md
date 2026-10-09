@@ -58,8 +58,13 @@ def _retire_packaged_summary_workflow(system_root: Path) -> str | None:
     if not source.exists():
         return None
     digest = ""
-    if not source.is_symlink():
-        lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    read_error_type = None
+    if not source.is_symlink() and source.is_file():
+        try:
+            lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+        except (OSError, UnicodeError) as exc:
+            lines = []
+            read_error_type = type(exc).__name__
         closing = next(
             (index for index, line in enumerate(lines[1:], 1) if line.strip() == "---"),
             0,
@@ -78,7 +83,8 @@ def _retire_packaged_summary_workflow(system_root: Path) -> str | None:
                 "event": "session_summary_workflow_retirement_requires_review",
                 "status": "preserved",
                 "workflow_path": str(source),
-                "issue": "retired-session-summary-workflow",
+                "issue": f"retired-session-summary-workflow:{read_error_type or 'unrecognized'}",
+                "error_type": read_error_type,
             },
         )
         return None

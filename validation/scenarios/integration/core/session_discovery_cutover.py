@@ -54,6 +54,29 @@ class SessionDiscoveryCutoverScenario(BaseScenario):
             assert result["retired"] == []
             assert source.read_text(encoding="utf-8") == customized
 
+            # Unrecognizable authored files must not abort unrelated startup seeding.
+            invalid = b"private custom workflow\xff\xfe"
+            source.write_bytes(invalid)
+            result = seed_system_templates(system_root, overwrite=True)
+            assert result["retired"] == []
+            assert source.read_bytes() == invalid
+            source.unlink()
+            source.mkdir()
+            result = seed_system_templates(system_root, overwrite=True)
+            assert result["retired"] == [] and source.is_dir()
+            source.rmdir()
+            activity = self.call_api("/api/system/activity-log?limit=200")
+            assert activity.status_code == 200
+            review = [
+                entry["data"]
+                for entry in activity.json()["entries"]
+                if entry.get("data", {}).get("event")
+                == "session_summary_workflow_retirement_requires_review"
+                and entry.get("data", {}).get("error_type") == "UnicodeDecodeError"
+            ]
+            assert len(review) == 1 and review[0]["status"] == "preserved"
+            assert "private custom workflow" not in str(review)
+
             registry = AuthoringCapabilityRegistry(get_builtin_helper_definitions())
             assert "retrieve_sessions" not in registry.list_names()
             try:
