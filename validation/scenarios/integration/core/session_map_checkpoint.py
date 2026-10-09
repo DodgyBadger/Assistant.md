@@ -746,7 +746,60 @@ class SessionMapCheckpointScenario(BaseScenario):
             )
 
         self._assert_checkpoint_boundary_contract(store=store, vault_name=vault.name)
+        self._assert_corrupt_map_diagnostics(
+            store=store, session_id=session_id, vault_name=vault.name
+        )
         self.assert_no_failures()
+
+    def _assert_corrupt_map_diagnostics(self, *, store, session_id, vault_name):
+        checkpoint = store.get_latest_context_checkpoint(session_id, vault_name)
+        assert checkpoint is not None
+        original = checkpoint.metadata_json
+        private_marker = "PRIVATE_CORRUPT_MAP_SENTINEL"
+        cases = [
+            {**json.loads(original), "map": {"trajectory": private_marker}},
+            [private_marker],
+        ]
+        database_path = Path(store.system_root) / "chat_sessions.db"
+        try:
+            for payload in cases:
+                with sqlite3.connect(database_path) as conn:
+                    conn.execute(
+                        "UPDATE chat_compaction_checkpoints SET metadata_json = ? WHERE checkpoint_id = ?",
+                        (json.dumps(payload), checkpoint.checkpoint_id),
+                    )
+                response = self.call_api(
+                    f"/api/chat/sessions/{session_id}/map?vault_name={vault_name}"
+                )
+                assert response.status_code == 500
+                assert response.json()["error"] == "SessionMapCheckpointCorrupt"
+                assert (
+                    response.json()["details"]["checkpoint_id"]
+                    == checkpoint.checkpoint_id
+                )
+                assert private_marker not in response.text
+        finally:
+            with sqlite3.connect(database_path) as conn:
+                conn.execute(
+                    "UPDATE chat_compaction_checkpoints SET metadata_json = ? WHERE checkpoint_id = ?",
+                    (original, checkpoint.checkpoint_id),
+                )
+        activity = self.call_api("/api/system/activity-log?limit=200").json()
+        assert private_marker not in json.dumps(activity)
+        failures = [
+            entry["data"]
+            for entry in activity["entries"]
+            if entry.get("data", {}).get("event")
+            == "session_map_checkpoint_load_failed"
+        ]
+        assert failures and all(
+            row["status"] == "failed"
+            and row["session_id"] == session_id
+            and row["checkpoint_id"] == checkpoint.checkpoint_id
+            and row["vault_name"] == vault_name
+            and row["error"]
+            for row in failures
+        )
 
     def _assert_checkpoint_boundary_contract(
         self, *, store: ChatStore, vault_name: str

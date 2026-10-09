@@ -31,6 +31,10 @@ from .models import SessionMapDraft, validate_session_map_provenance
 SESSION_MAP_CONTEXT_MARKER = "AssistantMD session map"
 
 
+class SessionMapCheckpointCorrupt(ValueError):
+    """A stored map cannot be read; its private payload is excluded from errors."""
+
+
 @dataclass(frozen=True)
 class SessionMapCheckpointResult:
     """One committed map revision and its effective-history boundary."""
@@ -246,12 +250,15 @@ def load_session_map_checkpoint(
     """Load and validate the typed map payload from one stored checkpoint."""
     if checkpoint.checkpoint_kind != "session_map":
         raise ValueError("Context checkpoint is not a session map")
-    metadata = _load_session_map_metadata(checkpoint)
     try:
-        map_payload = metadata["map"]
-    except (KeyError, TypeError) as exc:
-        raise ValueError("Session-map checkpoint metadata is invalid") from exc
-    return SessionMapDraft.model_validate(map_payload)
+        metadata = _load_session_map_metadata(checkpoint)
+        return SessionMapDraft.model_validate(metadata["map"])
+    except (KeyError, TypeError, ValueError):
+        # Pydantic failures contain input values. Suppress their exception chain
+        # as well as their text before any caller can serialize the traceback.
+        raise SessionMapCheckpointCorrupt(
+            "Stored session map is invalid; inspect the identified checkpoint."
+        ) from None
 
 
 def load_session_map_pending_evidence(

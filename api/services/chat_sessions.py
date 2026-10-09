@@ -395,25 +395,54 @@ def _session_map_checkpoint_info(
     revision: int,
     checkpoint: StoredContextCheckpoint,
 ) -> ChatSessionMapCheckpointInfo:
-    metadata = json.loads(checkpoint.metadata_json or "{}")
-    classification = metadata.get("classification")
-    classification_payload = classification if isinstance(classification, dict) else {}
-    action: Literal["authored", "deferred"] = (
-        "deferred" if classification_payload.get("action") == "deferred" else "authored"
-    )
-    draft = load_session_map_checkpoint(checkpoint)
-    return ChatSessionMapCheckpointInfo(
-        revision=revision,
-        checkpoint_id=checkpoint.checkpoint_id,
-        created_at=checkpoint.created_at,
-        consumed_through_sequence_index=checkpoint.last_message_sequence_index,
-        map_observed_through_sequence_index=load_session_map_observed_through(
-            checkpoint
-        ),
-        entry_count=len(draft.entries),
-        action=action,
-        prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
-    )
+    try:
+        draft = load_session_map_checkpoint(checkpoint)
+        metadata = json.loads(checkpoint.metadata_json or "{}")
+        classification = metadata.get("classification")
+        classification_payload = (
+            classification if isinstance(classification, dict) else {}
+        )
+        action: Literal["authored", "deferred"] = (
+            "deferred"
+            if classification_payload.get("action") == "deferred"
+            else "authored"
+        )
+        return ChatSessionMapCheckpointInfo(
+            revision=revision,
+            checkpoint_id=checkpoint.checkpoint_id,
+            created_at=checkpoint.created_at,
+            consumed_through_sequence_index=checkpoint.last_message_sequence_index,
+            map_observed_through_sequence_index=load_session_map_observed_through(
+                checkpoint
+            ),
+            entry_count=len(draft.entries),
+            action=action,
+            prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
+        )
+    except (ValueError, TypeError):
+        details = {
+            "session_id": checkpoint.session_id,
+            "vault_name": checkpoint.vault_name,
+            "checkpoint_id": checkpoint.checkpoint_id,
+        }
+        message = "Stored session map is invalid; inspect the identified checkpoint."
+        logger.error(
+            "Session map checkpoint could not be loaded",
+            data={
+                "event": "session_map_checkpoint_load_failed",
+                "status": "failed",
+                "reason": "invalid_stored_checkpoint",
+                "error_type": "SessionMapCheckpointCorrupt",
+                "error": message,
+                **details,
+            },
+        )
+        raise APIException(
+            status_code=500,
+            error_type="SessionMapCheckpointCorrupt",
+            message=message,
+            details=details,
+        ) from None
 
 
 def get_chat_session_timeline(
