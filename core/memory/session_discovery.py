@@ -157,7 +157,7 @@ class SessionDiscoveryService:
         results = sorted(
             candidates.values(), key=lambda row: (-row["score"], row["session_id"])
         )[:limit]
-        logger.add_sink("validation").info(
+        logger.set_sinks(["validation"]).info(
             "session_discovery_completed",
             data={
                 "event": "session_discovery_completed",

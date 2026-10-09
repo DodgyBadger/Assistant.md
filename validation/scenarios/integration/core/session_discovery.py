@@ -209,6 +209,16 @@ class SessionDiscoveryScenario(BaseScenario):
             assert "private" not in json.dumps(
                 discovery.search(vault_name=vault.name, query="otter")
             )
+            activity = self.call_api("/api/system/activity-log?limit=200").json()
+            assert not any(
+                entry.get("data", {}).get("event") == "session_discovery_completed"
+                for entry in activity["entries"]
+            ), "Typing/search reads must not fill System Activity with helper successes"
+            self.assert_event_contains(
+                self.events_since(0),
+                name="session_discovery_completed",
+                expected={"status": "completed", "vault_name": vault.name},
+            )
         finally:
             await self.stop_system()
             self.teardown_scenario()
