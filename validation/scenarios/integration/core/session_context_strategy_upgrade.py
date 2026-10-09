@@ -524,9 +524,9 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                     raw_before,
                     "Tool-reply upgrades must preserve canonical history",
                 )
-        session_id = "strategy-upgrade-retained-floor"
+        session_id = "strategy-upgrade-retained-setting"
         _seed_v1(store, session_id, vault_name)
-        for floor, eligible in ((10, False), (2, True)):
+        for floor in (10, 2):
             response = self.call_api(
                 "/api/system/settings/general/compaction_retained_turns",
                 method="PUT",
@@ -564,50 +564,106 @@ class SessionContextStrategyUpgradeScenario(BaseScenario):
                 )
             self.soft_assert_equal(
                 status.can_upgrade_to_v2,
-                eligible,
-                "Upgrade status must respect the canonical retained floor",
+                True,
+                "V1 retained turns must not block V2 upgrade eligibility",
             )
-            if not eligible:
-                forked = self.call_api(
-                    f"/api/chat/sessions/{session_id}/fork",
-                    method="POST",
-                    data={"vault_name": vault_name, "through_sequence_index": 11},
-                )
-                assert forked.status_code == 200
-                child = forked.json()["session"]
-                self.soft_assert_equal(
-                    (child["context_strategy"], child["can_upgrade_to_v2"]),
-                    ("recovery_card", False),
-                    "A V1 fork must inherit truthful upgrade eligibility",
-                )
-                listed = self.call_api(f"/api/chat/sessions?vault_name={vault_name}")
-                assert listed.status_code == 200
-                rows = {row["session_id"]: row for row in listed.json()}
-                self.soft_assert(
-                    not rows[session_id]["can_upgrade_to_v2"]
-                    and not rows[child["session_id"]]["can_upgrade_to_v2"],
-                    "Session listing must agree with source and fork upgrade readiness",
-                )
+            forked = self.call_api(
+                f"/api/chat/sessions/{session_id}/fork",
+                method="POST",
+                data={"vault_name": vault_name, "through_sequence_index": 11},
+            )
+            assert forked.status_code == 200
+            child = forked.json()["session"]
+            self.soft_assert_equal(
+                (child["context_strategy"], child["can_upgrade_to_v2"]),
+                ("recovery_card", True),
+                "A V1 fork must inherit truthful upgrade eligibility",
+            )
+            listed = self.call_api(f"/api/chat/sessions?vault_name={vault_name}")
+            assert listed.status_code == 200
+            rows = {row["session_id"]: row for row in listed.json()}
+            self.soft_assert(
+                rows[session_id]["can_upgrade_to_v2"]
+                and rows[child["session_id"]]["can_upgrade_to_v2"],
+                "Session listing must agree with source and fork upgrade readiness",
+            )
+
+        assert (
+            self.call_api(
+                "/api/system/settings/general/compaction_retained_turns",
+                method="PUT",
+                data={"value": "10"},
+            ).status_code
+            == 200
+        )
+        with patch(
+            "core.memory.session_map.service._invoke_session_map_model",
+            new=reply_author,
+        ):
+            upgraded_child = await _start_upgrade(child["session_id"], vault_name)
+            terminal = await _wait_for_terminal_task(upgraded_child.task_id)
+        assert terminal.status == "completed"
+
+        for label, messages, reason in (
+            ("empty", [], "canonical_history_empty"),
+            (
+                "incomplete",
+                [_user("Unanswered")],
+                "upgrade_plan_incomplete_latest_group",
+            ),
+            ("complete", [_user("Question"), _assistant("Answer")], "ready"),
+            (
+                "incomplete-tail",
+                [_user("Question"), _assistant("Answer"), _user("Unanswered")],
+                "ready",
+            ),
+        ):
+            shape_id = f"strategy-upgrade-shape-{label}"
+            store.ensure_session(
+                shape_id, vault_name, owner_principal_id=LOCAL_USER_PRINCIPAL_ID
+            )
+            if messages:
+                store.add_messages(shape_id, vault_name, messages)
+            _add_recovery_checkpoint(
+                store=store,
+                session_id=shape_id,
+                vault_name=vault_name,
+                checkpoint_id=f"{shape_id}-recovery",
+                boundary=len(messages) - 1,
+            )
+            status = get_session_context_strategy_status(
+                store=store, session_id=shape_id, vault_name=vault_name
+            )
+            assert (status.can_upgrade_to_v2, status.reason) == (
+                reason == "ready",
+                reason,
+            )
+            if reason != "ready":
                 rejected = self.call_api(
-                    f"/api/chat/sessions/{session_id}/upgrade-context-strategy",
+                    f"/api/chat/sessions/{shape_id}/upgrade-context-strategy",
                     method="POST",
                     data={"vault_name": vault_name},
                 )
-                self.soft_assert_equal(
-                    (
-                        rejected.status_code,
-                        rejected.json().get("details", {}).get("reason"),
-                    ),
-                    (409, "upgrade_plan_minimum_retained_groups"),
-                    "An impossible upgrade must be rejected at admission",
+                assert (
+                    rejected.status_code == 409
+                    and rejected.json()["details"]["reason"] == reason
                 )
-                tasks = await runtime.task_coordinator.list_tasks(
+                assert not await runtime.task_coordinator.list_tasks(
                     kind=ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
-                    scope=chat_session_scope(session_id),
+                    scope=chat_session_scope(shape_id),
                 )
-                self.soft_assert_equal(
-                    tasks, [], "Rejected upgrade must not create a task"
-                )
+                continue
+            raw_before = store.get_history(shape_id, vault_name, mode="raw")
+            with patch(
+                "core.memory.session_map.service._invoke_session_map_model",
+                new=reply_author,
+            ):
+                task = await _start_upgrade(shape_id, vault_name)
+                terminal = await _wait_for_terminal_task(task.task_id)
+            assert terminal.status == "completed"
+            assert store.get_history(shape_id, vault_name, mode="raw") == raw_before
+            if label == "incomplete-tail":
+                assert store.get_history(shape_id, vault_name)[-1] == messages[-1]
 
         store.add_messages(
             session_id,

@@ -151,8 +151,8 @@ def _evaluate_session_context_strategy_upgrade_readiness(
             reason = "canonical_history_empty"
         elif not structure.tool_history_ok:
             reason = "upgrade_plan_invalid_tool_history"
-        elif structure.group_count <= configuration.minimum_retained_groups:
-            reason = "upgrade_plan_minimum_retained_groups"
+        elif structure.group_count == 1 and not structure.latest_group_complete:
+            reason = "upgrade_plan_incomplete_latest_group"
     return _SessionContextStrategyUpgradeReadiness(
         status=SessionContextStrategyStatus(
             strategy="recovery_card",

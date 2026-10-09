@@ -141,6 +141,7 @@ class StoredChatHistoryStructure:
     message_count: int
     group_count: int
     tool_history_ok: bool
+    latest_group_complete: bool
 
 
 @dataclass(frozen=True)
@@ -515,7 +516,8 @@ class ChatStore:
                                    WHERE json_extract(part.value, '$.part_kind')
                                        IN ('user-prompt', 'system-prompt')
                                ) THEN 1 ELSE 0 END), 0)
-                       END
+                       END,
+                       (SELECT message_type FROM ordered ORDER BY position DESC LIMIT 1)
                 FROM ordered
                 """,
                 (session_id, vault_name),
@@ -563,6 +565,7 @@ class ChatStore:
         return StoredChatHistoryStructure(
             message_count=message_count,
             group_count=group_count,
+            latest_group_complete=bool(count_row and count_row[2] == "ModelResponse"),
             tool_history_ok=not protocol.issues
             and not protocol.unmatched_call_issues(),
         )
