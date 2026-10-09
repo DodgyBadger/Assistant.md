@@ -20,6 +20,8 @@ Retire summary generation, summary-selection helpers, summary API/UI surfaces, n
 
 Embedding model aliases and vector dimensions have no supported consumer and are excluded from model configuration. The packaged settings contain no embedding alias; existing embedding-capable aliases are omitted from active configuration and removed by backed-up settings repair. Shared providers, secrets, and supported chat/decision mappings remain intact.
 
+Custom foreign-key dependencies on retired tables block retirement before any drop and emit an actionable diagnostic; dependent rows and migration bookkeeping remain unchanged. Unreadable or unrecognizable authored workflow files are preserved with review diagnostics without preventing unrelated template seeding.
+
 ## Consequences
 
 - Core session discovery requires neither a model call nor an embedding API key.
