@@ -7,8 +7,11 @@ tool path and use active chat session/vault context for session summaries.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -25,6 +28,7 @@ class SessionOpsChatToolScenario(BaseScenario):
 
         await self.start_system()
 
+        from pydantic_ai.messages import ModelResponse, ToolCallPart
         from pydantic_ai.models.test import TestModel
 
         import core.chat.executor as chat_executor
@@ -44,6 +48,26 @@ class SessionOpsChatToolScenario(BaseScenario):
         class _SessionOpsToolModel(TestModel):
             def __init__(self):
                 super().__init__(call_tools=["session_ops"])
+                self.tool_requested = False
+
+            def _request(self, messages, model_settings, model_request_parameters):
+                # TestModel otherwise skips tools when any prior response exists.
+                # Drive a fresh real tool call on every chat turn in this scenario.
+                if not self.tool_requested:
+                    self.tool_requested = True
+                    tool_def = model_request_parameters.function_tools[0]
+                    return ModelResponse(
+                        parts=[
+                            ToolCallPart(
+                                "session_ops",
+                                self.gen_tool_args(tool_def),
+                                tool_call_id=uuid4().hex,
+                            )
+                        ]
+                    )
+                return super()._request(
+                    messages, model_settings, model_request_parameters
+                )
 
             def gen_tool_args(self, tool_def):
                 if getattr(tool_def, "name", "") != "session_ops":
@@ -60,6 +84,8 @@ class SessionOpsChatToolScenario(BaseScenario):
                     }
                 if current_case["name"] == "get":
                     return {"operation": "get_session_summary"}
+                if current_case["name"] == "summarize_failure":
+                    return {"operation": "summarize_session"}
                 raise AssertionError(
                     f"Unexpected session_ops case: {current_case['name']}"
                 )
@@ -318,6 +344,65 @@ class SessionOpsChatToolScenario(BaseScenario):
                 "done",
                 "Fetch chat should succeed",
             )
+
+            # Failed preflight must remain visible in durable activity, while
+            # neither diagnostics nor chat tool results expose exception values.
+            current_case["name"] = "summarize_failure"
+            from core.vector import VectorService
+
+            for error, diagnostic_code in (
+                (
+                    TypeError("process() takes no keyword arguments"),
+                    "brotli_decoder_incompatible",
+                ),
+                (RuntimeError("private-embedding-error-payload"), None),
+            ):
+                with patch.object(
+                    VectorService, "embed_documents", AsyncMock(side_effect=error)
+                ):
+                    failed = await self.run_chat_task(
+                        {
+                            "vault_name": vault.name,
+                            "prompt": "Refresh the current session summary.",
+                            "session_id": session_id,
+                            "tools": ["session_ops"],
+                            "model": "test",
+                        }
+                    )
+                assert failed["terminal_event"].get("event") == "done"
+                activity = self.call_api("/api/system/activity-log?limit=200")
+                assert activity.status_code == 200
+                entries = activity.json()["entries"]
+                for event_name in (
+                    "session_ops_failed",
+                    "session_summary_embedding_preflight_failed",
+                ):
+                    matching = [
+                        entry["data"]
+                        for entry in entries
+                        if entry.get("data", {}).get("event") == event_name
+                        and entry.get("data", {}).get("error_type")
+                        == type(error).__name__
+                    ]
+                    assert matching
+                    assert all(
+                        row["status"] == "failed" and row["traceback"]
+                        for row in matching
+                    )
+                    assert all(
+                        row.get("diagnostic_code") == diagnostic_code
+                        for row in matching
+                    )
+                assert "private-embedding-error-payload" not in json.dumps(entries)
+                assert "private-embedding-error-payload" not in str(
+                    chat_store.get_stored_messages(session_id, vault.name)
+                )
+                assert (
+                    store.get_session_summary(
+                        vault_name=vault.name, session_id=session_id
+                    ).summary
+                    == "Wetland grant planning notes from manual workspace."
+                )
 
             deleted = self.call_api(
                 f"/api/chat/sessions/{session_id}",

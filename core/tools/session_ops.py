@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import traceback
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -493,7 +495,7 @@ class SessionOps(BaseTool):
                         "run_id": ctx.run_id,
                         "tool_call_id": ctx.tool_call_id,
                         "error_type": error_type,
-                        "error": "The session operation failed; inspect server diagnostics.",
+                        **_session_failure_diagnostics(exc),
                         "issue": f"session_ops:{issue_scope}",
                     },
                 )
@@ -2092,15 +2094,37 @@ async def _preflight_session_summary_embeddings() -> None:
             data={"model_alias": "embeddings"},
         )
     except Exception as exc:  # noqa: BLE001
-        logger.set_sinks(["validation"]).error(
+        logger.add_sink("validation").error(
             "session_summary_embedding_preflight_failed",
             data={
+                "event": "session_summary_embedding_preflight_failed",
+                "status": "failed",
                 "model_alias": "embeddings",
                 "error_type": type(exc).__name__,
-                "error": "The configured embedding model could not be used.",
+                **_session_failure_diagnostics(exc),
             },
         )
         raise
+
+
+def _session_failure_diagnostics(exc: Exception) -> dict[str, str]:
+    """Expose bounded stack locations, never exception payloads or source text."""
+    diagnostics = {
+        "error": "The session operation failed; inspect the stack locations in server diagnostics.",
+        "traceback": "\n".join(
+            f"{Path(frame.filename).name}:{frame.lineno} in {frame.name}"
+            for frame in traceback.extract_tb(exc.__traceback__, limit=-12)
+        ),
+    }
+    if (
+        isinstance(exc, TypeError)
+        and str(exc) == "process() takes no keyword arguments"
+    ):
+        diagnostics.update(
+            diagnostic_code="brotli_decoder_incompatible",
+            error="The HTTP Brotli decoder is incompatible. Install Brotli >=1.2.0 and rebuild the application.",
+        )
+    return diagnostics
 
 
 def _restore_session_summary_after_failed_refresh(
