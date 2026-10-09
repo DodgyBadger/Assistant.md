@@ -1800,29 +1800,9 @@ details summary::-webkit-details-marker {
     font-size: 0.74rem;
     color: rgb(var(--text-secondary));
 }
-.session-browser-filter {
-    width: 100%;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid rgb(var(--border-secondary));
-    border-radius: 0.375rem;
-    background: rgb(var(--bg-card));
-    color: rgb(var(--text-primary));
-    font-size: 0.9rem;
-}
-.session-browser-filter:focus {
-    outline: 2px solid rgb(var(--accent-primary));
-    outline-offset: 1px;
-}
 .session-browser-search-control {
     flex: 0 0 auto;
     min-width: 0;
-}
-.session-browser-search-control .session-browser-filter {
-    padding-right: 6rem;
-}
-.session-browser-search-control select {
-    background: rgb(var(--bg-card));
-    max-width: 5.5rem;
 }
 .session-browser-row-excerpt {
     font-size: 0.75rem;

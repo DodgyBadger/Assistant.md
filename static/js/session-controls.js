@@ -32,6 +32,12 @@
             const modal = sessionBrowserModal();
             const input = modal?.querySelector('#session-browser-filter');
             if (input) input.placeholder = sessionBrowserSearchMode === 'content' ? 'Search session contents...' : 'Filter sessions...';
+            const toggle = modal?.querySelector('[data-session-browser-search-mode-toggle]');
+            if (toggle) toggle.textContent = sessionBrowserSearchMode === 'content' ? 'Contents' : 'Names';
+            const menu = modal?.querySelector('[data-session-browser-search-mode-menu]');
+            menu?.querySelectorAll('[data-session-browser-search-mode-option]').forEach((option) => {
+                option.setAttribute('aria-checked', String(option.dataset.sessionBrowserSearchModeOption === sessionBrowserSearchMode));
+            });
             if (!modal || !vault || !query || sessionBrowserSearchMode !== 'content') {
                 renderSessionBrowserList();
                 return;
@@ -214,6 +220,15 @@
 
         function sessionBrowserModal() {
             return document.getElementById('session-browser-modal');
+        }
+
+        function closeSessionBrowserSearchMenu(restoreFocus = false) {
+            const modal = sessionBrowserModal();
+            const menu = modal?.querySelector('[data-session-browser-search-mode-menu]');
+            const toggle = modal?.querySelector('[data-session-browser-search-mode-toggle]');
+            if (menu) menu.hidden = true;
+            toggle?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus) toggle?.focus();
         }
 
         function modalControlsSource() {
@@ -401,18 +416,21 @@
                         <div class="vault-explorer-search-control session-browser-search-control">
                             <input
                                 id="session-browser-filter"
-                                type="text"
-                                class="session-browser-filter"
+                                type="search"
+                                class="file-reference-search"
                                 placeholder="Filter sessions..."
                                 value="${escapeHtml(sessionBrowserFilter)}"
                                 autocomplete="off"
                                 maxlength="2000"
                                 aria-label="Find sessions"
                             />
-                            <select id="session-browser-search-mode" class="vault-explorer-search-mode-toggle" aria-label="Session search mode">
-                                <option value="name" ${sessionBrowserSearchMode === 'name' ? 'selected' : ''}>Names</option>
-                                <option value="content" ${sessionBrowserSearchMode === 'content' ? 'selected' : ''}>Contents</option>
-                            </select>
+                            <button type="button" class="vault-explorer-search-mode-toggle"
+                                data-session-browser-search-mode-toggle aria-haspopup="menu" aria-expanded="false"
+                                aria-label="Session search mode" title="Search mode">${sessionBrowserSearchMode === 'content' ? 'Contents' : 'Names'}</button>
+                            <div class="vault-explorer-search-mode-menu" data-session-browser-search-mode-menu role="menu" hidden>
+                                <button type="button" data-session-browser-search-mode-option="name" role="menuitemradio" aria-checked="${sessionBrowserSearchMode === 'name'}">Names</button>
+                                <button type="button" data-session-browser-search-mode-option="content" role="menuitemradio" aria-checked="${sessionBrowserSearchMode === 'content'}">Contents</button>
+                            </div>
                         </div>
                         <div id="session-browser-list" class="session-browser-list"></div>
                     </div>
@@ -420,11 +438,6 @@
             `;
             overlay.addEventListener('click', handleSessionBrowserClick);
             overlay.addEventListener('input', handleSessionBrowserInput);
-            overlay.addEventListener('change', (event) => {
-                if (event.target.id !== 'session-browser-search-mode') return;
-                sessionBrowserSearchMode = event.target.value === 'content' ? 'content' : 'name';
-                scheduleSessionBrowserSearch();
-            });
             overlay.addEventListener('keydown', handleSessionBrowserKeydown);
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
@@ -653,6 +666,24 @@
             const target = event.target;
             if (!(target instanceof Element)) return;
 
+            const modeOption = target.closest('[data-session-browser-search-mode-option]');
+            if (modeOption instanceof HTMLButtonElement) {
+                sessionBrowserSearchMode = modeOption.dataset.sessionBrowserSearchModeOption === 'content' ? 'content' : 'name';
+                closeSessionBrowserSearchMenu(true);
+                scheduleSessionBrowserSearch();
+                return;
+            }
+            const modeToggle = target.closest('[data-session-browser-search-mode-toggle]');
+            if (modeToggle instanceof HTMLButtonElement) {
+                const menu = sessionBrowserModal()?.querySelector('[data-session-browser-search-mode-menu]');
+                if (!menu) return;
+                menu.hidden = !menu.hidden;
+                modeToggle.setAttribute('aria-expanded', String(!menu.hidden));
+                if (!menu.hidden) menu.querySelector('[aria-checked="true"]')?.focus();
+                return;
+            }
+            closeSessionBrowserSearchMenu();
+
             const closeTarget = target.closest('[data-session-browser-close]');
             if (closeTarget) {
                 closeSessionBrowserModal();
@@ -693,6 +724,23 @@
 
         async function handleSessionBrowserKeydown(event) {
             const target = event.target;
+            const menu = target instanceof Element ? target.closest('[data-session-browser-search-mode-menu]') : null;
+            if (menu && event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSessionBrowserSearchMenu(true);
+                return;
+            }
+            if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                const options = Array.from(menu.querySelectorAll('[data-session-browser-search-mode-option]'));
+                const index = options.indexOf(target);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault();
+                options[next]?.focus();
+                return;
+            }
+            if (event.key === 'Tab') closeSessionBrowserSearchMenu();
             if (target instanceof HTMLInputElement && target.dataset.sessionTitleInput) {
                 const sessionId = target.dataset.sessionTitleInput || '';
                 if (event.key === 'Enter') {

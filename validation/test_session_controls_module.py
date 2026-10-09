@@ -14,7 +14,11 @@ def test_session_browser_content_search_lifecycle() -> None:
 const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
-class Element { closest() { return null; } }
+class Element {
+    closest(selector) { return this.matches?.[selector] || null; }
+    setAttribute(name, value) { this[name] = value; }
+    focus() { this.focused = true; }
+}
 class HTMLInputElement extends Element { focus() {} select() {} }
 class HTMLButtonElement extends Element {}
 class HTMLElement extends Element {}
@@ -30,7 +34,19 @@ const count = { textContent: '' };
 const input = new HTMLInputElement();
 input.id = 'session-browser-filter';
 input.dataset = {};
-const mode = { id: 'session-browser-search-mode', value: 'name' };
+const toggle = new HTMLButtonElement();
+toggle.matches = {'[data-session-browser-search-mode-toggle]':toggle};
+const menu = new HTMLElement();
+menu.hidden = true;
+const modeOptions = ['name', 'content'].map((value) => {
+    const option = new HTMLButtonElement();
+    option.dataset = {sessionBrowserSearchModeOption:value};
+    option.matches = {'[data-session-browser-search-mode-option]':option,
+        '[data-session-browser-search-mode-menu]':menu};
+    return option;
+});
+menu.querySelectorAll = () => modeOptions;
+menu.querySelector = () => modeOptions.find((option) => option['aria-checked'] === 'true');
 global.document = {
     body: { appendChild(node) { modal = node; } },
     createElement() {
@@ -39,7 +55,9 @@ global.document = {
             addEventListener(name, fn) { this.listeners[name] = fn; },
             querySelector(selector) {
                 return { '#session-browser-list': list, '#session-browser-count': count,
-                    '#session-browser-filter': input }[selector] || null;
+                    '#session-browser-filter': input,
+                    '[data-session-browser-search-mode-menu]':menu,
+                    '[data-session-browser-search-mode-toggle]':toggle }[selector] || null;
             },
             remove() { modal = null; },
         };
@@ -57,7 +75,7 @@ const elements = { vaultSelector: { value: 'Vault' } };
 const escapeHtml = (s) => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const controller = SessionControls.create({ state, elements, icons:{}, utils:{escapeHtml}, sessionMap:{}, callbacks:{} });
 const type = (value) => { input.value = value; modal.listeners.input({target:input}); };
-const changeMode = (value) => { mode.value = value; modal.listeners.change({target:mode}); };
+const changeMode = (value) => { modal.listeners.click({target:modeOptions.find((option) => option.dataset.sessionBrowserSearchModeOption === value)}); };
 const startRequest = () => {
     assert.strictEqual(timers.size, 1);
     const [id, fn] = timers.entries().next().value;
@@ -74,7 +92,19 @@ const finish = async (index, session, excerpt = '') => {
     type('First');
     assert(list.innerHTML.includes('First session') && !list.innerHTML.includes('Second session'));
     assert.strictEqual(requests.length, 0, 'Names filtering must stay local');
+    await modal.listeners.click({target:toggle});
+    assert.strictEqual(menu.hidden, false);
+    assert.strictEqual(toggle['aria-expanded'], 'true');
+    assert(modeOptions[0].focused);
+    await modal.listeners.keydown({target:modeOptions[0], key:'ArrowDown', preventDefault(){}});
+    assert(modeOptions[1].focused);
+    await modal.listeners.keydown({target:modeOptions[1], key:'Escape', preventDefault(){}, stopPropagation(){}});
+    assert.strictEqual(menu.hidden, true);
+    assert(modal, 'Escape closes the mode menu without closing the browser');
+    assert(toggle.focused);
     changeMode('content');
+    assert.strictEqual(toggle.textContent, 'Contents');
+    assert.strictEqual(modeOptions[1]['aria-checked'], 'true');
     assert(count.textContent.includes('Searching'));
     const stale = startRequest();
     type('old');
@@ -107,7 +137,7 @@ const finish = async (index, session, excerpt = '') => {
     assert(list.innerHTML.includes('First session') && list.innerHTML.includes('Second session'));
     type('closing');
     const closed = startRequest();
-    modal.listeners.keydown({target:mode, key:'Escape'});
+    modal.listeners.keydown({target:input, key:'Escape'});
     assert(requests[4].options.signal.aborted);
     controller.openSessionBrowserModal();
     const reopened = startRequest();
