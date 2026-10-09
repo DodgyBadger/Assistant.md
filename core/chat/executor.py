@@ -563,7 +563,10 @@ def _log_chat_lifecycle(
 ) -> None:
     """Emit structured lifecycle logs for chat session execution."""
     event = _chat_event_for_message(message)
+    task = get_current_execution_task()
     payload: dict[str, Any] = {
+        "task_id": task.task_id if task else None,
+        "parent_task_id": task.parent_task_id if task else None,
         "vault_name": vault_name,
         "session_id": session_id,
         "streaming": streaming,
@@ -611,6 +614,13 @@ def _log_chat_failure(
 ) -> None:
     """Emit structured failure logs for chat session execution."""
     payload = _serialize_exception(exc)
+    task = get_current_execution_task()
+    payload.update(
+        {
+            "task_id": task.task_id if task else None,
+            "parent_task_id": task.parent_task_id if task else None,
+        }
+    )
     if isinstance(exc, Exception):
         payload.update(classify_exception(exc, phase=phase).to_metadata())
     else:

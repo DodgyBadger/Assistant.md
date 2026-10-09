@@ -425,7 +425,9 @@ async def start_deferred_review_resume_task(
     runtime = get_runtime_context()
     buffer = event_buffer or CHAT_TASK_EVENT_BUFFER
 
-    async def _mark_terminal(status: str, error: BaseException | None = None) -> None:
+    async def _mark_terminal(
+        status: str, error: BaseException | None = None, *, task_id: str
+    ) -> None:
         try:
             mark_deferred_review_terminal(
                 vault_name=vault_name,
@@ -443,11 +445,16 @@ async def start_deferred_review_resume_task(
                 "Deferred review terminal state could not be recorded",
                 data={
                     "event": "deferred_review_terminal_record_failed",
+                    "vault_name": vault_name,
+                    "session_id": session_id,
+                    "task_id": task_id,
+                    "originating_task_id": review.originating_task_id,
                     "status": "failed",
                     "artifact_ref": review.artifact_ref,
                     "requested_status": status,
                     "error_type": type(exc).__name__,
-                    "error": str(exc)[:500],
+                    "reason": exc.code,
+                    "error": "Review settlement could not be recorded; inspect the review artifact and execution task.",
                     "issue": f"deferred_review_terminal:{review.artifact_ref}",
                 },
             )
@@ -476,7 +483,7 @@ async def start_deferred_review_resume_task(
                 event_buffer=buffer,
                 persist_user_request=False,
             )
-            await _mark_terminal("completed")
+            await _mark_terminal("completed", task_id=tracked_task.task_id)
 
         await runtime.task_runner.run_with_gate(
             tracked_task,
@@ -508,9 +515,11 @@ async def start_deferred_review_resume_task(
         _run,
         hooks=ExecutionTaskHooks(
             on_cancelled=lambda task_id: _mark_review_cancelled(
-                buffer, task_id, _mark_terminal
+                buffer, task_id, lambda status: _mark_terminal(status, task_id=task_id)
             ),
-            on_failed=lambda _task_id, exc: _mark_terminal("failed", exc),
+            on_failed=lambda task_id, exc: _mark_terminal(
+                "failed", exc, task_id=task_id
+            ),
         ),
         start_immediately=False,
     )

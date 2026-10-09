@@ -217,6 +217,23 @@ class ChatCancellationScenario(BaseScenario):
             assert analyze_tool_history(
                 history or []
             ).ok, "Stop and follow-up must not leave unresolved tool calls in model history"
+            activity = self.call_api("/api/system/activity-log?limit=200").json()
+            rows = [
+                entry["data"]
+                for entry in activity["entries"]
+                if entry.get("data", {}).get("session_id") == session_id
+            ]
+            assert any(
+                row.get("event") == "chat_turn_cancelled"
+                and row.get("task_id") == task_id
+                for row in rows
+            )
+            assert any(
+                row.get("event") == "chat_turn_completed"
+                and row.get("task_id")
+                and row["task_id"] != task_id
+                for row in rows
+            )
         finally:
             chat_executor._prepare_chat_execution = original_prepare_chat_execution
             chat_executor._prepare_agent_config = original_prepare_agent_config

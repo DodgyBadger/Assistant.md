@@ -211,16 +211,33 @@ class DeferredReviewInterruptionScenario(BaseScenario):
                 call_ids = [call["tool_call_id"] for call in review_event["approvals"]]
                 assert not executions, "Approval must precede tool execution"
                 checkpoint = self.event_checkpoint()
-                submitted = self.call_api(
-                    f"/api/vaults/{vault.name}/chat/{session_id}/deferred-reviews/{artifact_ref}/submit",
-                    method="POST",
-                    data={
-                        "decisions": [
-                            {"tool_call_id": call_id, "decision": "approve"}
-                            for call_id in call_ids
-                        ]
-                    },
-                )
+                runtime = get_runtime_context()
+                original_start = runtime.task_runner.start_background
+                resume_hooks = {}
+
+                async def capture_resume_hooks(
+                    *args,
+                    _original_start=original_start,
+                    _resume_hooks=resume_hooks,
+                    **kwargs,
+                ):
+                    task = await _original_start(*args, **kwargs)
+                    _resume_hooks[task.task_id] = kwargs["hooks"]
+                    return task
+
+                with patch.object(
+                    runtime.task_runner, "start_background", capture_resume_hooks
+                ):
+                    submitted = self.call_api(
+                        f"/api/vaults/{vault.name}/chat/{session_id}/deferred-reviews/{artifact_ref}/submit",
+                        method="POST",
+                        data={
+                            "decisions": [
+                                {"tool_call_id": call_id, "decision": "approve"}
+                                for call_id in call_ids
+                            ]
+                        },
+                    )
                 assert submitted.status_code == 200
                 task_id = submitted.json()["task"]["task_id"]
                 await asyncio.wait_for(started.wait(), timeout=10)
@@ -272,6 +289,64 @@ class DeferredReviewInterruptionScenario(BaseScenario):
                         "closed_call_count": len(call_ids),
                     },
                 )
+                activity = self.call_api("/api/system/activity-log?limit=200").json()
+                review_rows = {
+                    entry["data"]["event"]: entry["data"]
+                    for entry in activity["entries"]
+                    if entry.get("data", {}).get("artifact_ref") == artifact_ref
+                    and entry["data"]
+                    .get("event", "")
+                    .startswith("chat_deferred_review_")
+                }
+                assert (
+                    review_rows["chat_deferred_review_created"]["status"] == "pending"
+                )
+                assert (
+                    review_rows["chat_deferred_review_claimed"]["status"] == "resuming"
+                )
+                for event in (
+                    "chat_deferred_review_history_closed",
+                    "chat_deferred_review_terminal",
+                ):
+                    row = review_rows[event]
+                    assert row["task_id"] == task_id
+                    assert row["resumed_task_id"] == task_id
+                    assert row["originating_task_id"] == review.originating_task_id
+                    assert row["status"] == terminal_status
+                if terminal_status == "failed":
+                    assert review_rows["chat_deferred_review_terminal"]["error"]
+                    assert (
+                        review_rows["chat_deferred_review_terminal"]["reason"]
+                        == "review_resume_failed"
+                    )
+                    # Invoke the real captured failure hook after task context has
+                    # unwound. Force persistence failure without changing history.
+                    private_marker = "PRIVATE_REVIEW_SETTLEMENT_FAILURE"
+                    with patch(
+                        "core.chat.task_execution.mark_deferred_review_terminal",
+                        side_effect=DeferredReviewError(
+                            "FixtureSettlementFailure", private_marker
+                        ),
+                    ):
+                        await resume_hooks[task_id].on_failed(
+                            task_id, RuntimeError(private_marker)
+                        )
+                    activity = self.call_api(
+                        "/api/system/activity-log?limit=200"
+                    ).json()
+                    warnings = [
+                        entry["data"]
+                        for entry in activity["entries"]
+                        if entry.get("data", {}).get("event")
+                        == "deferred_review_terminal_record_failed"
+                        and entry["data"].get("artifact_ref") == artifact_ref
+                    ]
+                    assert len(warnings) == 1
+                    assert warnings[0]["task_id"] == task_id
+                    assert warnings[0]["session_id"] == session_id
+                    assert warnings[0]["vault_name"] == vault.name
+                    assert warnings[0]["reason"] == "FixtureSettlementFailure"
+                    assert private_marker not in str(activity)
 
                 def followup_config(*args, **kwargs):
                     return ("", "", TestModel(call_tools=[]), [])

@@ -166,6 +166,8 @@ def log_deferred_review_created(review: StoredDeferredReview) -> None:
         "chat_deferred_review_created",
         data={
             "event": "chat_deferred_review_created",
+            "status": review.status,
+            "task_id": review.originating_task_id,
             "artifact_ref": review.artifact_ref,
             "vault_name": review.vault_name,
             "session_id": review.session_id,
@@ -312,6 +314,10 @@ def mark_deferred_review_submitted(
         "chat_deferred_review_claimed",
         data={
             "event": "chat_deferred_review_claimed",
+            "status": review.status,
+            "originating_task_id": review.originating_task_id,
+            "resumed_task_id": review.resumed_task_id,
+            "task_id": review.resumed_task_id,
             "artifact_ref": artifact_ref,
             "vault_name": vault_name,
             "session_id": session_id,
@@ -379,6 +385,9 @@ def mark_deferred_review_terminal(
             "chat_deferred_review_history_closed",
             data={
                 "event": "chat_deferred_review_history_closed",
+                "task_id": review.resumed_task_id,
+                "originating_task_id": review.originating_task_id,
+                "resumed_task_id": review.resumed_task_id,
                 "artifact_ref": artifact_ref,
                 "vault_name": vault_name,
                 "session_id": session_id,
@@ -390,11 +399,24 @@ def mark_deferred_review_terminal(
         "chat_deferred_review_terminal",
         data={
             "event": "chat_deferred_review_terminal",
+            "task_id": review.resumed_task_id,
+            "originating_task_id": review.originating_task_id,
+            "resumed_task_id": review.resumed_task_id,
             "artifact_ref": artifact_ref,
             "vault_name": vault_name,
             "session_id": session_id,
             "status": status,
             "error_type": str((error or {}).get("error_type") or ""),
+            "reason": f"review_resume_{status}",
+            "error": (
+                (
+                    "The resumed review failed; inspect the correlated execution task."
+                    if review.resumed_task_id
+                    else "Review resume failed before its task was linked; inspect the review and preceding API failure."
+                )
+                if status == "failed"
+                else None
+            ),
         },
     )
     return review
