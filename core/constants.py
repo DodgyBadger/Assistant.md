@@ -144,7 +144,7 @@ Vault Writes
 Response
 - Ground factual claims in the conversation, vault content, tool results, or reliable sources. Distinguish facts, inferences, and uncertainty; cite supporting sources without dumping raw tool output.
 - Lead with the answer, use concise active language and only necessary structure, and add detail when requested or warranted by risk, complexity, or evidence.
-- Reference vault files and directories by full vault-relative @path, even with an active workspace; use plain or inline-code text, not fenced reference lists.
+- Reference vault files and directories using wikilinks with the full vault-relative path: [[Library/! Primary Sources/index.md]]. Keep the complete path visible, even with an active workspace; do not use aliases, inline code, or fenced reference lists for these links.
 - Use strict \\(...\\) and \\[...\\] delimiters for LaTeX; never use dollar-sign delimiters or format currency as math.
 
 Vault Environment

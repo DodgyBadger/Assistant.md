@@ -214,10 +214,10 @@ const fileReferences = window.FileReferences.create({
         closePathPicker: () => vaultPathPicker.close(),
         syncPathPickerLocks: () => vaultPathPicker.syncInteractionLocks(),
         setWorkspace: (path) => workspacePicker.setPath(path),
-        renderMarkdownPreview: (container, content) => chatRendering.renderMarkdownPreview(
+        renderMarkdownPreview: (container, content, referenceContext) => chatRendering.renderMarkdownPreview(
             container,
             content,
-            { softBreaks: true }
+            { softBreaks: true, referenceContext }
         ),
     },
 });
@@ -230,7 +230,7 @@ const editProposals = window.EditProposals.create({
     callbacks: {
         openFile: (path) => fileReferences.openFile(path),
         openPathPicker: (options) => vaultPathPicker.open(options),
-        enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
+        enhanceFileLinks: (container, context) => fileReferences.enhanceFileLinks(container, context),
     },
 });
 
@@ -287,7 +287,7 @@ const chatRendering = window.ChatRendering.create({
             { checkpointId }
         ),
         retryLatestFailure: (button) => chatTaskActions.retryLatestFailure(button),
-        enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
+        enhanceFileLinks: (container, context) => fileReferences.enhanceFileLinks(container, context),
         renderEditProposalArtifact: (container, artifactRef, options) => editProposals.renderArtifact(container, artifactRef, options),
     },
 });

@@ -16,6 +16,57 @@ _RENDERING_MODULE = _PROJECT_ROOT / "static/js/chat-rendering.js"
 _TASK_STREAM_MODULE = _PROJECT_ROOT / "static/js/chat-task-stream.js"
 
 
+def test_shared_markdown_wikilinks_and_preview_source_context() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+global.window = global;
+global.document = { createTreeWalker() { return { nextNode() { return false; } }; } };
+global.NodeFilter = { SHOW_TEXT: 4 };
+global.DOMPurify = { sanitize(html) { return html; } };
+global.marked = require(process.argv[1]);
+for (const file of process.argv.slice(2)) vm.runInThisContext(fs.readFileSync(file, 'utf8'));
+const contexts = [];
+const controller = ChatMarkdown.create({
+    utils: { escapeHtml(value) { return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); } },
+    callbacks: { attachCodeCopyButtons() {}, enhanceFileLinks(body, context) { contexts.push(context); } },
+});
+const body = { innerHTML: '', querySelectorAll() { return []; } };
+controller.renderHtml(body, 'See [[Library/! Primary Sources/a_b.md]] and [Label](<Library/a b.md>).');
+assert(body.innerHTML.includes('data-vault-wikilink="Library/! Primary Sources/a_b.md"'));
+assert(!body.innerHTML.includes('<em>'), 'Underscores inside paths must not become emphasis.');
+assert(body.innerHTML.includes('>Library/! Primary Sources/a_b.md</span>'));
+assert(body.innerHTML.includes('>Label</a>'));
+controller.renderHtml(body, '`[[Library/a.md]]`\n\n```text\n[[Library/b.md]]\n```');
+assert(!body.innerHTML.includes('data-vault-wikilink'), 'Code must remain literal.');
+controller.renderHtml(body, '[[Library/a.md|Alias]]');
+assert(!body.innerHTML.includes('data-vault-wikilink'), 'Aliases are outside the full-path contract.');
+controller.renderHtml(body, '[[Library/<img src=x onerror=alert(1)>.md]]');
+assert(!body.innerHTML.includes('<img'), 'Wikilink text and attributes must be escaped before sanitization.');
+function link(href) {
+    return { attrs: { href }, getAttribute(name) { return this.attrs[name]; }, setAttribute(name, value) { this.attrs[name] = value; }, removeAttribute(name) { delete this.attrs[name]; } };
+}
+const external = link('https://example.com'), fragment = link('#heading');
+body.querySelectorAll = selector => selector === 'a[href]' ? [external, fragment] : [];
+controller.renderPreview(body, '[[Library/a.md]]', { referenceContext: { vaultName: 'OtherVault', sourcePath: 'Folder/note.md' } });
+assert.deepStrictEqual(contexts[0], { vaultName: 'OtherVault', sourcePath: 'Folder/note.md' });
+assert.strictEqual(external.attrs.target, '_blank');
+assert.strictEqual(fragment.attrs.target, undefined, 'Fragment navigation stays in the same document.');
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_PROJECT_ROOT / "static/vendor/marked.min.js"),
+            str(_MARKDOWN_MODULE),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_chat_rendering_composes_tool_details_controller() -> None:
     harness = r"""
 const fs = require('fs');

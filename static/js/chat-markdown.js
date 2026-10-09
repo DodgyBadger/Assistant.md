@@ -2,13 +2,38 @@
 (function chatMarkdownModule(window, document) {
     function createChatMarkdownController({ utils, callbacks }) {
         let mathTypesetQueue = Promise.resolve();
+        let parser = null;
+        function markdownParser() {
+            if (!parser) {
+                parser = new marked.Marked({ extensions: [{
+                    name: 'vaultWikilink',
+                    level: 'inline',
+                    start(src) { return src.indexOf('[['); },
+                    tokenizer(src) {
+                        const match = /^\[\[([^\]\n|]+)\]\]/.exec(src);
+                        if (match) return { type: 'vaultWikilink', raw: match[0], path: match[1] };
+                    },
+                    renderer(token) {
+                        const path = utils.escapeHtml(token.path);
+                        return `<span data-vault-wikilink="${path}">${path}</span>`;
+                    },
+                }] });
+            }
+            return parser;
+        }
 
             function enforceExternalLinkBehavior(container) {
                 if (!container) return;
                 const links = container.querySelectorAll('a[href]');
                 links.forEach(link => {
-                    link.setAttribute('target', '_blank');
-                    link.setAttribute('rel', 'noopener noreferrer');
+                    const href = link.getAttribute('href') || '';
+                    if (/^(?:https?:\/\/|\/\/)/i.test(href)) {
+                        link.setAttribute('target', '_blank');
+                        link.setAttribute('rel', 'noopener noreferrer');
+                    } else {
+                        link.removeAttribute('target');
+                        link.removeAttribute('rel');
+                    }
                 });
             }
 
@@ -17,7 +42,7 @@
                 const content = (markdownContent || '').trim();
                 const protectedContent = protectLatexForMarkdown(content);
                 const renderedHtml = content
-                    ? marked.parse(protectedContent.markdown, { breaks: softBreaks })
+                    ? markdownParser().parse(protectedContent.markdown, { breaks: softBreaks })
                     : '';
                 const restoredHtml = restoreLatexPlaceholders(renderedHtml, protectedContent.segments);
                 const sanitizedHtml = sanitizeAssistantHtml(restoredHtml);
@@ -30,7 +55,7 @@
 
             function renderMarkdownPreview(container, markdownContent = '', options = {}) {
                 renderAssistantHtml(container, markdownContent, options);
-                postProcessAssistantBody(container, { decorateVaultTags: true });
+                postProcessAssistantBody(container, { decorateVaultTags: true, referenceContext: options.referenceContext });
             }
 
             function protectLatexForMarkdown(markdown) {
@@ -100,7 +125,7 @@
                 });
             }
 
-            function postProcessAssistantBody(bodyDiv, { decorateVaultTags = false } = {}) {
+            function postProcessAssistantBody(bodyDiv, { decorateVaultTags = false, referenceContext } = {}) {
                 if (!bodyDiv) return;
                 enforceExternalLinkBehavior(bodyDiv);
                 renderAssistantMath(bodyDiv);
@@ -108,7 +133,7 @@
                 if (decorateVaultTags) {
                     decorateVaultMarkdownTags(bodyDiv);
                 }
-                callbacks.enhanceFileLinks?.(bodyDiv);
+                callbacks.enhanceFileLinks?.(bodyDiv, referenceContext);
             }
 
             function decorateVaultMarkdownTags(container) {
@@ -117,7 +142,7 @@
                     acceptNode(node) {
                         const parent = node.parentElement;
                         if (!parent || parent.closest(
-                            'a, button, code, pre, textarea, .assistant-latex-segment, .vault-markdown-tag'
+                            'a, button, code, pre, textarea, [data-vault-wikilink], .assistant-latex-segment, .vault-markdown-tag'
                         )) {
                             return NodeFilter.FILTER_REJECT;
                         }

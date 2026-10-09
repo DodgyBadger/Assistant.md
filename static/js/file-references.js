@@ -6,10 +6,10 @@
 
         const linkResolver = window.FileReferenceLinks.create({
             callbacks: {
-                openDirectory,
                 openFile,
                 selectedVault,
                 workspacePath,
+                openExplorer,
             },
         });
 
@@ -29,7 +29,7 @@
             const input = elements.chatInput;
             if (interactionLocked() || !(input instanceof HTMLTextAreaElement) || !path) return;
 
-            const token = `@${path}`;
+            const token = `[[${path}]]`;
             const start = input.selectionStart ?? input.value.length;
             const end = input.selectionEnd ?? start;
             const before = input.value.slice(0, start);
@@ -252,7 +252,7 @@
             function renderPreview() {
                 if (!(preview instanceof HTMLElement) || !(editor instanceof HTMLTextAreaElement)) return;
                 const parts = splitMarkdownFrontmatter(editor.value);
-                callbacks.renderMarkdownPreview?.(preview, parts.body);
+                callbacks.renderMarkdownPreview?.(preview, parts.body, { vaultName: vault, sourcePath: path });
                 if (propertiesContent instanceof HTMLElement) {
                     propertiesContent.textContent = parts.frontmatter;
                 }
@@ -501,7 +501,7 @@
                         `;
                         const revisionMarkdown = historyPreview.querySelector('[data-vault-file-revision-markdown]');
                         if (revisionMarkdown instanceof HTMLElement) {
-                            callbacks.renderMarkdownPreview?.(revisionMarkdown, parts.body);
+                            callbacks.renderMarkdownPreview?.(revisionMarkdown, parts.body, { vaultName: vault, sourcePath: path });
                         }
                     } else {
                         historyPreview.innerHTML = `${renderRestoreAction(button)}<pre>${escapeHtml(content)}</pre>`;
@@ -594,11 +594,6 @@
                 frontmatter: lines.slice(1, closingIndex).join('\n').trim(),
                 body: lines.slice(closingIndex + 1).join('\n').replace(/^\n+/, ''),
             };
-        }
-
-        function openDirectory(path) {
-            if (!path) return;
-            openExplorer({ revealPath: path });
         }
 
         async function mutatePath(payload, vaultName = '') {
@@ -698,8 +693,8 @@
             );
         }
 
-        function enhanceFileLinks(container) {
-            linkResolver.enhanceFileLinks(container);
+        function enhanceFileLinks(container, context) {
+            return linkResolver.enhanceFileLinks(container, context);
         }
 
         function isPreviewableTextMediaType(value) {

@@ -50,6 +50,12 @@ are read-only until the interactive mutation surface is idle. Advanced editing
 and knowledge-management features remain the responsibility of external vault
 editors unless a concrete AssistantMD workflow requires them.
 
+### Vault link resolution
+
+Chat and vault previews share Markdown rendering and vault-link enhancement. Full-path wikilinks (`[[Library/! Primary Sources/index.md]]`) identify files or directories relative to the vault root and display the complete path. They do not use aliases or basename guessing. The flight card requests this form and the reference picker inserts it. Plain and inline-code `@path` references are also supported.
+
+Ordinary Markdown links preserve their authored labels. Local destinations in chat resolve from the vault root; destinations in a vault preview resolve from the source document's directory, with a leading slash selecting the vault root. Preview rendering supplies both the source path and its vault, including historical file previews. Markdown URL destinations are decoded once; wikilink paths are literal filenames. External schemes and same-document fragment links are not sent to vault lookup. Local targets cannot escape the vault or navigate to application routes while lookup is pending or when resolution fails. File existence and access remain enforced by the shared vault API; no alternative file-access path is introduced. Fenced code and ordinary inline code remain literal except for supported standalone `@path` references.
+
 ## Rationale
 
 A shared modal preserves the minimal chat workspace while removing unnecessary
