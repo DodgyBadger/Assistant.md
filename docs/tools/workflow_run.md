@@ -77,3 +77,4 @@ Returns plain text results for discovery, execution, or lifecycle operations. In
 - `start` is asynchronous and returns immediately with a `task_id`; use `status` before claiming the workflow is complete
 - `cancel` requests cancellation for a workflow task in the current vault; mutated files are rolled back by the shared task lifecycle
 - lifecycle operations only apply to `run_type: workflow`
+- scheduled workflows have a 60-second start grace period for brief scheduler delays; starts delayed beyond that window are missed

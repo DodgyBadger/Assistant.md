@@ -5,10 +5,18 @@ Validates enable/disable idempotency, target resolution, and scheduler side effe
 """
 
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from apscheduler.events import EVENT_JOB_EXECUTED
+from apscheduler.executors.base import run_coroutine_job
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from core.runtime.state import get_runtime_context
+from core.scheduling.jobs import setup_scheduler_jobs
 from core.tools.workflow_run import WorkflowRun
 from validation.core.base_scenario import BaseScenario
 
@@ -87,6 +95,45 @@ class WorkflowLifecycleOpsScenario(BaseScenario):
                 "action": "created",
             },
         )
+
+        # Admission policy applies to new, persisted, and replaced workflow jobs.
+        scheduler = get_runtime_context().scheduler
+        job_id = "WorkflowLifecycleVault__daily"
+        job = scheduler.get_job(job_id)
+        assert job.misfire_grace_time == 60
+        original_next_run = job.next_run_time
+        scheduler.modify_job(job_id, misfire_grace_time=1)
+        await setup_scheduler_jobs(scheduler)
+        job = scheduler.get_job(job_id)
+        assert job.misfire_grace_time == 60
+        assert job.next_run_time == original_next_run
+        scheduler.modify_job(job_id, trigger=CronTrigger(hour=23, minute=59))
+        await setup_scheduler_jobs(scheduler)
+        assert scheduler.get_job(job_id).misfire_grace_time == 60
+
+        # Exercise APScheduler's real admission check without waiting on a clock
+        # or executing the workflow's model calls.
+        called = []
+
+        async def probe():
+            called.append(True)
+
+        probe_scheduler = AsyncIOScheduler()
+        probe_scheduler.start(paused=True)
+        try:
+            probe_job = probe_scheduler.add_job(
+                probe, "date", misfire_grace_time=job.misfire_grace_time
+            )
+            execution_events = await run_coroutine_job(
+                probe_job,
+                "default",
+                [datetime.now(UTC) - timedelta(seconds=2)],
+                "validation.scheduler",
+            )
+            assert called == [True]
+            assert [event.code for event in execution_events] == [EVENT_JOB_EXECUTED]
+        finally:
+            probe_scheduler.shutdown()
 
         # Idempotent enable.
         checkpoint = self.event_checkpoint()
