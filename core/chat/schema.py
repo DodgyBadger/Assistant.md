@@ -58,6 +58,11 @@ CHAT_SESSION_MIGRATIONS = (
         name="add_checkpoint_replacement_origins",
         apply=lambda conn: _migrate_checkpoint_replacement_origins(conn),
     ),
+    SQLiteMigration(
+        version=10,
+        name="add_session_discovery_fts",
+        apply=lambda conn: _migrate_session_discovery_fts(conn),
+    ),
 )
 
 
@@ -218,6 +223,7 @@ def ensure_chat_sessions_schema(
             """
         )
         _migrate_compaction_checkpoints(conn)
+        _migrate_session_discovery_fts(conn)
         _migrate_session_owners(conn)
         conn.commit()
         if apply_migrations:
@@ -227,6 +233,67 @@ def ensure_chat_sessions_schema(
             conn.commit()
     finally:
         conn.close()
+
+
+def _migrate_session_discovery_fts(conn: sqlite3.Connection) -> None:
+    """Maintain rebuildable lexical projections beside their canonical owners."""
+    safe_metadata = "CASE WHEN json_valid({row}.metadata_json) THEN {row}.metadata_json ELSE '{}' END"
+    map_text = (
+        "coalesce(json_extract("
+        + safe_metadata
+        + ", '$.map.trajectory.text'), '') || char(10) || "
+        "coalesce((SELECT group_concat(json_extract(CASE WHEN json_valid(value) "
+        "THEN value ELSE '{}' END, '$.text'), char(10)) FROM json_each("
+        + safe_metadata
+        + ", '$.map.entries')), '')"
+    )
+    metadata_text = (
+        "coalesce({row}.title, '') || char(10) || coalesce(json_extract("
+        + safe_metadata
+        + ", '$.workspace.path'), '')"
+    )
+    for index, source, expression, condition in (
+        ("chat_session_metadata_fts", "chat_sessions", metadata_text, "1"),
+        (
+            "chat_session_maps_fts",
+            "chat_compaction_checkpoints",
+            map_text,
+            "{row}.checkpoint_kind = 'session_map'",
+        ),
+    ):
+        existed = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE name = ? AND type = 'table'", (index,)
+        ).fetchone()
+        if existed:
+            continue
+        conn.execute(
+            f"CREATE VIRTUAL TABLE {index} USING fts5(text, tokenize='unicode61')"
+        )
+        for operation in ("insert", "update", "delete"):
+            delete = (
+                f"DELETE FROM {index} WHERE rowid = OLD.rowid;"
+                if operation != "insert"
+                else ""
+            )
+            insert = (
+                f"INSERT INTO {index}(rowid, text) SELECT NEW.rowid, {expression.replace('{row}', 'NEW')} WHERE {condition.replace('{row}', 'NEW')};"
+                if operation != "delete"
+                else ""
+            )
+            # Triggers keep forks/deletes and direct canonical writes atomic.
+            # Their inputs contain only existing columns and pure SQLite JSON.
+            changed = (
+                f"WHEN ({expression.replace('{row}', 'OLD')}) IS NOT ({expression.replace('{row}', 'NEW')}) "
+                f"OR ({condition.replace('{row}', 'OLD')}) IS NOT ({condition.replace('{row}', 'NEW')})"
+                if operation == "update"
+                else ""
+            )
+            conn.execute(
+                f"CREATE TRIGGER IF NOT EXISTS {index}_{operation} AFTER {operation.upper()} ON {source} {changed} BEGIN {delete} {insert} END"
+            )
+        conn.execute(
+            f"INSERT INTO {index}(rowid, text) SELECT source.rowid, {expression.replace('{row}', 'source')} FROM {source} AS source WHERE {condition.replace('{row}', 'source')}"
+        )
 
 
 def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:

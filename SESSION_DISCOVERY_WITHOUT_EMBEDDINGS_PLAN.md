@@ -1,0 +1,37 @@
+# Session Discovery Without Summaries or Embeddings
+
+## Outcome
+
+Replace the session-summary subsystem with lexical discovery over canonical transcripts, session titles/workspaces, and all session-map checkpoints. Remove stored summaries rather than retaining a compatibility index. Retire nightly summary generation, summary-specific tool operations, API/UI surfaces, helper selection, prompts, storage, and vector integration. Implementation is authorized. No short-session map authoring, semantic search, embedding switch, or duplicate summary projection is needed.
+
+Canonical chats, existing titles/workspaces, compaction strategies, map authoring, map revisions, and provenance remain intact. Legacy summary data will be intentionally removed by a scoped, backed-up migration, never by deleting runtime roots. Do not migrate live runtime state during development tests.
+
+## Evidence and boundaries
+
+`SessionSummaryStore` already maintains FTS5/BM25 summary search, but `session_ops.search_sessions` still performs vector queries in addition to lexical search. Its deep mode already merges authorized canonical transcript hits. Summary generation and API summary writes also invoke vector indexing, so removing only the preflight or search vector loop would not retire the embedding dependency. Session maps currently reside in strategy-pinned context checkpoints, not in a cross-session search index; new turns after the latest map and sessions without checkpoints require transcript coverage.
+
+## Testable slices
+
+1. Build a rebuildable lexical discovery foundation. Add title and checkpoint-text FTS projections in the chat DB, owned by chat schema/storage and consumed by a focused memory-layer discovery service. Map text means trajectory and entry text, not serialized prompts/schema keys. Backfill without inference and maintain indexes across title changes, checkpoint commits, forks, and deletion. Admit only authorized/workspace-filtered sessions and one bounded best hit per source/session so revision count does not boost ranking. Reuse canonical transcript search and its retrieval-return exclusion. No work is added to ordinary session-list rendering.
+2. Cut over `session_ops.search_sessions` and list canonical sessions without summary status. Return session identity/title/workspace and bounded evidence identifying transcript anchors or map checkpoints. Provide an authorized map-read operation if needed to inspect discovery hits. Remove summarize/upsert/get-summary operations, summary-only parameters, generation prompts, and vector scoring. Preserve active-session transcript retrieval and failure/privacy contracts. Commit the validated replacement before the remaining subsystem teardown.
+3. Remove summary API models/routes/services, twinkle/modal UI, summary response fields, summary mutations during fork/delete/rename, summary-only authoring helpers, seed workflow, and prompts. Keep map inspection intact. Retire the owned built-in template through its lifecycle without silently rewriting arbitrary authored workflows. Report retired dependencies explicitly rather than keeping dead operations. Local dependency inventory finds only `system/Authoring/nightly-session-summarization.md`; live installations may have additional authored dependencies.
+4. Retire data and unused vector integration. Use a final idempotent retirement migration and the existing system migration backup mechanism to drop only known summary/artifact/FTS/vector tables. Do not create a legacy summary DB on fresh installations or touch canonical chat/map storage. Remove runtime recreation paths and obsolete modules/exports/tests. Do not delete generic provider/model/secret records solely because this feature no longer consumes embeddings; retain infrastructure only where a remaining consumer or explicit product contract justifies it.
+5. Harden and align documentation/ADRs. Run targeted tests per slice, Ruff/Black/MyPy before Python commits, frontend controller/syntax tests for UI teardown, and the complete deterministic core profile after cutover stabilizes. Check bounded output/query latency on larger synthetic histories. Commit coherent slices locally; pushing requires an explicit request.
+
+## Invariants and validation
+
+Discovery never changes a session's pinned strategy, advances an eviction boundary, or creates a fabricated compaction checkpoint. FTS indexes are rebuildable derived state; index maintenance failures must not invalidate an already committed map. Canonical transcripts remain authoritative, and old map hits are identified as historical evidence rather than current decisions. Search results stay bounded and access-filtered, including before source documents/snippets are exposed. Existing checkpoint backfill uses no model inference and must avoid adding work to ordinary session-list rendering.
+
+Add discovery cases for a no-map short session, title-only query, multiple map revisions with an old-only topic, post-checkpoint messages, missing embedding configuration, workspace/authority exclusion, restart/backfill, deletion, and fork indexing. Exercise actual chat-tool calls, bounded provenance, and existing transcript/window privacy contracts. Remove or rewrite summary-only scenarios rather than preserving dead paths for tests. Cover populated legacy DB retirement with backup, repeat startup, fresh install without legacy DB creation, and canonical-history preservation. Verify retired UI/routes/tool/helper/template dependencies and explicit authored-workflow failures. No semantic recall experiment or live model quota is required for this accepted lexical direction.
+
+## Event contracts and rollout
+
+Discovery completion reports context/vault identity, candidate/returned counts, and source counts, not raw queries or transcript text. Preserve `session_ops_failed` run/tool correlation and safe diagnostics. Migration diagnostics identify retired tables and backup location, not summary contents. Retired authored dependencies identify the operation/helper and workflow without exposing private document contents. Report exactly what the migration removes and how its automatic backup can recover it. No populated production database or authored file will be changed by development checks.
+
+## Deferred
+
+If experiments show short sessions need authored orientation rather than transcript-only discovery, reuse the map author/schema for a separate discovery snapshot through the task executor. Such a snapshot must not masquerade as a compaction revision or affect chat context. Broader fork-family deduplication, semantic search, vault/session graph linking, and automatic background map maintenance remain separate follow-ups.
+
+## Progress
+
+Slice 1 is implemented: chat-owned title/workspace and map-text FTS indexes, migration/backfill, atomic insert/update/delete maintenance, one best map hit per session, and a memory-layer lexical discovery service using existing canonical retrieval. Unchanged metadata does not rewrite the FTS projection. The new discovery, checkpoint, and migration scenarios passed 3/3 (`20261009_204250_582628`), and Ruff/Black/MyPy passed. A disposable synthetic storage probe queried 1,500 map checkpoints across 150 sessions in 18.4 ms and returned 50 distinct-session hits. Runtime summary storage and the old tool/API/UI are still present at this checkpoint; slices 2–5 remain required.

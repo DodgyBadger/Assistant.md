@@ -32,6 +32,7 @@ from core.database import connect_sqlite_from_system_db
 from core.identity import normalize_principal_id
 from core.logger import UnifiedLogger
 from core.settings import get_persist_model_reasoning_parts
+from core.utils.fts import build_fts_query
 from core.utils.messages import extract_role_and_text
 
 from .schema import DB_NAME, ensure_chat_sessions_schema
@@ -198,6 +199,17 @@ class StoredChatSession:
     last_activity_at: str
     title: str | None = None
     metadata_json: str | None = None
+
+
+@dataclass(frozen=True)
+class StoredDiscoveryHit:
+    """A bounded best lexical hit from one derived session projection."""
+
+    session_id: str
+    source: Literal["session_metadata", "session_map"]
+    excerpt: str
+    checkpoint_id: str | None = None
+    historical: bool = False
 
 
 class ChatStore:
@@ -1481,6 +1493,68 @@ class ChatStore:
                 metadata_json=None if metadata_json is None else str(metadata_json),
             )
             for session_id, session_vault_name, owner_principal_id, created_at, last_activity_at, title, metadata_json in rows
+        ]
+
+    def search_discovery_text(
+        self,
+        *,
+        vault_name: str,
+        session_ids: set[str],
+        query: str,
+        source: Literal["session_metadata", "session_map"],
+        limit: int,
+    ) -> list[StoredDiscoveryHit]:
+        """Read each authorized session's best indexed metadata or map match."""
+        fts_query = build_fts_query(query)
+        if not session_ids or not fts_query:
+            return []
+        if not 1 <= limit <= 200:
+            raise ValueError("Discovery candidate limit must be between 1 and 200")
+        if source == "session_metadata":
+            index, table = "chat_session_metadata_fts", "chat_sessions"
+            checkpoint = "NULL"
+            historical = "0"
+        elif source == "session_map":
+            index, table = "chat_session_maps_fts", "chat_compaction_checkpoints"
+            checkpoint = "canonical.checkpoint_id"
+            historical = "canonical.id != (SELECT max(id) FROM chat_compaction_checkpoints WHERE session_id = canonical.session_id AND vault_name = canonical.vault_name AND checkpoint_kind = 'session_map')"
+        else:
+            raise ValueError("Unsupported discovery source")
+        ids = sorted(session_ids)
+        placeholders = ",".join("?" for _ in ids)
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                f"""
+                WITH hits AS MATERIALIZED (
+                    SELECT canonical.session_id, canonical.rowid AS source_rowid,
+                           {checkpoint} AS checkpoint_id, {historical} AS historical,
+                           snippet({index}, 0, '[', ']', '...', 32) AS excerpt,
+                           bm25({index}) AS lexical_rank
+                    FROM {index} JOIN {table} AS canonical ON canonical.rowid = {index}.rowid
+                    WHERE {index} MATCH ? AND canonical.vault_name = ?
+                      AND canonical.session_id IN ({placeholders})
+                ), ranked AS (
+                    SELECT *, row_number() OVER (
+                        PARTITION BY session_id ORDER BY lexical_rank, source_rowid DESC
+                    ) AS source_rank FROM hits
+                )
+                SELECT session_id, excerpt, checkpoint_id, historical FROM ranked
+                WHERE source_rank = 1 ORDER BY lexical_rank, session_id LIMIT ?
+                """,
+                (fts_query, vault_name, *ids, limit),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [
+            StoredDiscoveryHit(
+                session_id=str(row[0]),
+                source=source,
+                excerpt=str(row[1] or "")[:600],
+                checkpoint_id=None if row[2] is None else str(row[2]),
+                historical=bool(row[3]),
+            )
+            for row in rows
         ]
 
     def get_session(self, session_id: str, vault_name: str) -> StoredChatSession | None:
