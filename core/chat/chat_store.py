@@ -1517,7 +1517,7 @@ class ChatStore:
         elif source == "session_map":
             index, table = "chat_session_maps_fts", "chat_compaction_checkpoints"
             checkpoint = "canonical.checkpoint_id"
-            historical = "canonical.id != (SELECT max(id) FROM chat_compaction_checkpoints WHERE session_id = canonical.session_id AND vault_name = canonical.vault_name AND checkpoint_kind = 'session_map')"
+            historical = "canonical.id != (SELECT max(id) FROM chat_compaction_checkpoints WHERE session_id = canonical.session_id AND vault_name = canonical.vault_name)"
         else:
             raise ValueError("Unsupported discovery source")
         ids = sorted(session_ids)
@@ -1799,6 +1799,31 @@ class ChatStore:
         finally:
             conn.close()
         return checkpoint
+
+    def get_context_checkpoint(
+        self,
+        session_id: str,
+        vault_name: str,
+        checkpoint_id: str,
+    ) -> StoredContextCheckpoint | None:
+        """Return one checkpoint scoped to its canonical session and vault."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ? AND checkpoint_id = ?
+                """,
+                (session_id, vault_name, checkpoint_id),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._context_checkpoint_from_row(row) if row is not None else None
 
     def list_context_checkpoints(
         self,

@@ -19,13 +19,7 @@ from pydantic_ai.messages import (  # noqa: E402
 from pydantic_ai.models.test import TestModel  # noqa: E402
 
 from core.authoring.shared.tool_binding import resolve_tool_binding  # noqa: E402
-from core.chat.history_service import ConversationToolEventItem  # noqa: E402
 from core.chat.transcript_retrieval import TranscriptRetrievalService  # noqa: E402
-from core.memory.session_summary import (  # noqa: E402
-    SessionSummaryArtifact,
-    SessionSummarySearchResult,
-    SessionSummaryStore,
-)
 from core.runtime.state import get_runtime_context  # noqa: E402
 from core.utils.tokens import estimate_token_count  # noqa: E402
 from validation.core.base_scenario import (  # noqa: E402
@@ -53,7 +47,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
         structured_session_id = "session_ops_transcript_structured"
         mixed_session_id = "session_ops_transcript_mixed"
         mixed_controller_session_id = "session_ops_transcript_mixed_controller"
-        bounded_summary_controller_id = "session_ops_bounded_summary_controller"
         echo_starvation_session_id = "session_ops_transcript_echo_starvation"
         compact_list_session_id = "session_ops_compact_list_projection"
         budget_session_id = "session_ops_transcript_budget"
@@ -170,41 +163,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             vault.name,
             "oversized title " * 100,
         )
-        summary_store = SessionSummaryStore()
-        summary_store.upsert_session_summary(
-            vault_name=vault.name,
-            session_id=session_id,
-            workspace_path="oversized-workspace/" * 100,
-        )
-        summary_store.upsert_session_summary(
-            vault_name=vault.name,
-            session_id=compact_list_session_id,
-            summary="oversized summary " * 200,
-            domain="oversized domain " * 100,
-            work_product="oversized work product " * 100,
-            user_intent="oversized intent " * 100,
-            named_entities="oversized entities " * 100,
-            source_summary="oversized source summary " * 200,
-            workspace_path="oversized-list-workspace/" * 100,
-            metadata={
-                "source": "validation",
-                "history_revision": 7,
-                "private_unbounded_metadata": "do-not-return " * 100,
-            },
-        )
-        summary_store.add_session_artifacts(
-            vault_name=vault.name,
-            session_id=compact_list_session_id,
-            artifacts=tuple(
-                SessionSummaryArtifact(
-                    path=f"references/source-{index}.md",
-                    artifact_role="file_retrieved",
-                    vault_name=vault.name,
-                    metadata={"private": "do-not-return"},
-                )
-                for index in range(55)
-            ),
-        )
         chat_store.ensure_session(
             window_session_id,
             vault.name,
@@ -255,10 +213,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             infrastructure_session_id,
             untrusted_operation_session_id,
             "session_ops_foreign_list_controller",
-            "session_ops_foreign_get_controller",
-            "session_ops_foreign_upsert_controller",
-            "session_ops_foreign_summarize_controller",
-            bounded_summary_controller_id,
         ):
             chat_store.ensure_session(
                 controller_id, vault.name, owner_principal_id="local-user"
@@ -274,13 +228,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             vault.name,
             [_message("The aurora-covenant private record must remain inaccessible.")],
         )
-        SessionSummaryStore().upsert_session_summary(
-            vault_name=vault.name,
-            session_id=inaccessible_session_id,
-            summary="The aurora covenant is recorded in this private summary.",
-            domain="private validation",
-        )
-
         current_case = {"name": "search"}
 
         class _TranscriptToolModel(TestModel):
@@ -357,36 +304,12 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 if current_case["name"] == "deep":
                     return {
                         "operation": "search_sessions",
-                        "mode": "deep",
                         "query": "aurora covenant",
                         "limit": 5,
                     }
                 if current_case["name"] == "foreign-list":
                     return {
                         "operation": "list_sessions",
-                        "summary_status": "any",
-                    }
-                if current_case["name"] == "foreign-get":
-                    return {
-                        "operation": "get_session_summary",
-                        "session_id": inaccessible_session_id,
-                    }
-                if current_case["name"] == "bounded-get":
-                    return {
-                        "operation": "get_session_summary",
-                        "session_id": compact_list_session_id,
-                    }
-                if current_case["name"] == "foreign-upsert":
-                    return {
-                        "operation": "upsert_session_summary",
-                        "session_id": inaccessible_session_id,
-                        "data": {"summary": "illicit replacement"},
-                    }
-                if current_case["name"] == "foreign-summarize":
-                    return {
-                        "operation": "summarize_session",
-                        "session_id": inaccessible_session_id,
-                        "summarization_model": "must-not-be-called",
                     }
                 raise AssertionError(
                     f"Unexpected transcript retrieval case: {current_case['name']}"
@@ -561,11 +484,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
 
             from core.tools.session_ops import (
                 MAX_SESSION_SEARCH_QUERY_CHARS,
-                _build_first_pass_prompt,
-                _build_source_summary_prompt,
-                _build_tool_event_log,
                 _list_sessions,
-                _session_summary_extraction_projection,
                 _validate_search_query,
             )
 
@@ -573,7 +492,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 vault_name=vault.name,
                 limit=100,
                 cursor="",
-                summary_status="any",
             )
             compact_row = next(
                 row
@@ -581,157 +499,12 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 if row["session_id"] == compact_list_session_id
             )
             self.soft_assert(
-                all(
-                    len(str(compact_row[field] or "")) <= 243
-                    for field in ("title", "domain", "user_intent")
-                ),
+                all(len(str(compact_row[field] or "")) <= 243 for field in ("title",)),
                 "list_sessions compact fields must remain bounded",
             )
             self.soft_assert(
                 len(str(compact_row.get("workspace_path") or "")) <= 503,
                 "list_sessions workspace paths must remain bounded",
-            )
-            current_case["name"] = "bounded-get"
-            bounded_get = await self._run_case(
-                vault_name=vault.name,
-                session_id=bounded_summary_controller_id,
-                prompt="Inspect the selected session summary.",
-                chat_store=chat_store,
-            )
-            bounded_summary = bounded_get.get("session_summary") or {}
-            self.soft_assert(
-                all(
-                    len(str(bounded_summary.get(field) or "")) <= limit
-                    for field, limit in {
-                        "title": 243,
-                        "summary": 1_003,
-                        "domain": 243,
-                        "work_product": 243,
-                        "user_intent": 243,
-                        "named_entities": 503,
-                        "source_summary": 1_003,
-                    }.items()
-                ),
-                "Full model-facing session summaries must bound every prose field",
-            )
-            self.soft_assert_equal(
-                len(bounded_summary.get("artifacts", [])),
-                50,
-                "Full model-facing summaries must cap artifact projections",
-            )
-            self.soft_assert_equal(
-                bounded_summary.get("artifacts_truncated"),
-                True,
-                "A capped artifact projection should disclose truncation",
-            )
-            self.soft_assert(
-                "private_unbounded_metadata" not in bounded_summary.get("metadata", {}),
-                "Full model-facing summaries must expose only useful metadata fields",
-            )
-            projected_extraction = _session_summary_extraction_projection(
-                {
-                    "session_id": compact_list_session_id,
-                    "vault_name": vault.name,
-                    "title": "title " * 100,
-                    "summary": "summary " * 500,
-                    "domain": "domain " * 100,
-                    "work_product": "product " * 100,
-                    "user_intent": "intent " * 100,
-                    "named_entities": "entities " * 200,
-                    "source_summary": "source " * 500,
-                    "message_count": 20,
-                    "history_revision": 10,
-                    "tool_event_count": 5,
-                }
-            )
-            self.soft_assert(
-                all(
-                    len(str(projected_extraction.get(field) or "")) <= limit
-                    for field, limit in {
-                        "title": 243,
-                        "summary": 1_003,
-                        "domain": 243,
-                        "work_product": 243,
-                        "user_intent": 243,
-                        "named_entities": 503,
-                        "source_summary": 1_003,
-                    }.items()
-                ),
-                "summarize_session extraction output must use the same bounded prose contract",
-            )
-            oversized_session = chat_store.get_session(
-                compact_list_session_id, vault.name
-            )
-            assert oversized_session is not None
-            first_prompt = _build_first_pass_prompt(
-                session=oversized_session,
-                messages=(),
-            )
-            source_prompt = _build_source_summary_prompt(
-                session=oversized_session,
-                summary_intent={"summary": "summary", "user_intent": "intent"},
-                tool_event_log="source",
-            )
-            self.soft_assert(
-                "oversized title " * 20 not in first_prompt
-                and "oversized title " * 20 not in source_prompt,
-                "All session-summary author prompts must bound the stored title",
-            )
-            locator_log = _build_tool_event_log(
-                (
-                    ConversationToolEventItem(
-                        tool_call_id="credential-source",
-                        tool_name="web_extract",
-                        event_type="call",
-                        args={
-                            "url": (
-                                "https://source-user:source-password@example.com/"
-                                "evidence?api_key=private-token#private-fragment"
-                            )
-                        },
-                    ),
-                    ConversationToolEventItem(
-                        tool_call_id="credential-source",
-                        tool_name="web_extract",
-                        event_type="result",
-                        result_text="ok",
-                        artifact_ref=(
-                            "https://cache-user:cache-password@example.com/"
-                            "artifact?token=private#fragment"
-                        ),
-                    ),
-                    ConversationToolEventItem(
-                        tool_call_id="malformed-source",
-                        tool_name="web_extract",
-                        event_type="call",
-                        args={"url": "http://["},
-                    ),
-                    ConversationToolEventItem(
-                        tool_call_id="malformed-source",
-                        tool_name="web_extract",
-                        event_type="result",
-                        result_text="ok",
-                    ),
-                )
-            )
-            self.soft_assert(
-                "https://example.com/evidence" in locator_log,
-                "Source locator prompts should retain a useful sanitized URL",
-            )
-            self.soft_assert(
-                all(
-                    secret not in locator_log
-                    for secret in (
-                        "source-user",
-                        "source-password",
-                        "api_key",
-                        "private-token",
-                        "private-fragment",
-                        "cache-user",
-                        "cache-password",
-                    )
-                ),
-                "Source locator prompts must strip credentials, queries, fragments, and unsafe artifact refs",
             )
             for operation in ("search_transcript", "search_sessions"):
                 try:
@@ -798,41 +571,13 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 "An explicit same-vault session should be searchable through the real tool",
             )
 
-            original_vector_search = (
-                SessionSummaryStore.search_session_summaries_by_field
+            current_case["name"] = "deep"
+            deep_result = await self._run_case(
+                vault_name=vault.name,
+                session_id=deep_controller_session_id,
+                prompt="Find the compacted design decision in prior sessions.",
+                chat_store=chat_store,
             )
-
-            async def _inaccessible_vector_match(self, **kwargs):
-                private_summary = self.get_session_summary(
-                    vault_name=kwargs["vault_name"],
-                    session_id=inaccessible_session_id,
-                )
-                if private_summary is None:
-                    return ()
-                return (
-                    SessionSummarySearchResult(
-                        session_summary=private_summary,
-                        match_type="semantic",
-                        matched_fields=(),
-                        score=1.0,
-                    ),
-                )
-
-            SessionSummaryStore.search_session_summaries_by_field = (
-                _inaccessible_vector_match
-            )
-            try:
-                current_case["name"] = "deep"
-                deep_result = await self._run_case(
-                    vault_name=vault.name,
-                    session_id=deep_controller_session_id,
-                    prompt="Find the compacted design decision in prior sessions.",
-                    chat_store=chat_store,
-                )
-            finally:
-                SessionSummaryStore.search_session_summaries_by_field = (
-                    original_vector_search
-                )
             deep_matches = deep_result.get("matches", [])
             deep_match = next(
                 (
@@ -849,7 +594,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
             transcript_evidence = [
                 evidence
                 for evidence in (deep_match or {}).get("evidence", [])
-                if evidence.get("source") == "chat_transcript"
+                if evidence.get("source") == "transcript"
             ]
             self.soft_assert_equal(
                 [evidence.get("sequence_index") for evidence in transcript_evidence],
@@ -864,15 +609,7 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 "Deep search evidence should remain excerpt-bounded",
             )
             self.soft_assert(
-                len(
-                    str(
-                        ((deep_match or {}).get("chat_session") or {}).get(
-                            "workspace_path"
-                        )
-                        or ""
-                    )
-                )
-                <= 503,
+                len(str((deep_match or {}).get("workspace_path") or "")) <= 503,
                 "Deep-search workspace paths must remain bounded",
             )
             self.soft_assert(
@@ -902,62 +639,6 @@ class SessionOpsTranscriptRetrievalScenario(BaseScenario):
                 ),
                 "list_sessions must exclude same-vault sessions owned by another principal",
             )
-            current_case["name"] = "foreign-get"
-            foreign_get = await self._run_case(
-                vault_name=vault.name,
-                session_id="session_ops_foreign_get_controller",
-                prompt="Fetch a selected session summary.",
-                chat_store=chat_store,
-            )
-            self.soft_assert_equal(
-                (foreign_get.get("status"), foreign_get.get("session_summary")),
-                ("not_found", None),
-                "get_session_summary must conceal a same-vault foreign summary",
-            )
-            foreign_failures = []
-            for case_name in ("foreign-upsert", "foreign-summarize"):
-                current_case["name"] = case_name
-                foreign_mutation = await self._run_case(
-                    vault_name=vault.name,
-                    session_id=f"session_ops_{case_name.replace('-', '_')}_controller",
-                    prompt="Attempt a selected-session summary operation.",
-                    chat_store=chat_store,
-                )
-                self.soft_assert_equal(
-                    foreign_mutation.get("metadata", {}).get("status"),
-                    "failed",
-                    f"{case_name} must fail closed for a same-vault foreign session",
-                )
-                foreign_failures.append(foreign_mutation)
-            self.soft_assert(
-                inaccessible_session_id not in json.dumps(foreign_failures),
-                "Structured failure returns must not repeat a caller-supplied inaccessible session id",
-            )
-            foreign_activity_response = self.call_api(
-                "/api/system/activity-log?limit=200"
-            )
-            assert foreign_activity_response.status_code == 200
-            foreign_failure_activity = [
-                entry
-                for entry in foreign_activity_response.json()["entries"]
-                if entry.get("data", {}).get("event") == "session_ops_failed"
-                and entry.get("data", {}).get("operation")
-                in {"upsert_session_summary", "summarize_session"}
-            ]
-            self.soft_assert(
-                inaccessible_session_id not in json.dumps(foreign_failure_activity),
-                "Durable failure activity must correlate to context without exposing the requested inaccessible id",
-            )
-            private_summary = SessionSummaryStore().get_session_summary(
-                vault_name=vault.name,
-                session_id=inaccessible_session_id,
-            )
-            self.soft_assert_equal(
-                private_summary.summary if private_summary else None,
-                "The aurora covenant is recorded in this private summary.",
-                "Foreign summary operations must not mutate the protected summary",
-            )
-
             long_text = "oversized-evidence " + ("granite detail " * 1500)
             chat_store.add_messages(
                 source_session_id,

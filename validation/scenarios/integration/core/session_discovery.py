@@ -88,6 +88,21 @@ class SessionDiscoveryScenario(BaseScenario):
             assert len(old) == 1 and old[0]["session_id"] == "long"
             assert old[0]["evidence"][0]["checkpoint_id"] == "old-map"
             assert old[0]["evidence"][0]["historical"] is True
+            old_map = discovery.get_map(
+                vault_name=vault.name, session_id="long", checkpoint_id="old-map"
+            )
+            assert old_map is not None and old_map["historical"] is True
+            assert old_map["map"]["trajectory"]["sources"] == [{"start": 0, "end": 1}]
+            assert discovery.get_map(vault_name=vault.name, session_id="hidden") is None
+            assert (
+                discovery.get_map(vault_name="another-vault", session_id="long") is None
+            )
+            assert (
+                discovery.get_map(
+                    vault_name=vault.name, session_id="short", checkpoint_id="old-map"
+                )
+                is None
+            )
             assert (
                 discovery.search(vault_name=vault.name, query="kestrel")[0][
                     "session_id"

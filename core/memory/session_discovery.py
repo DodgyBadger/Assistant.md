@@ -9,6 +9,7 @@ from core.chat.chat_store import ChatStore, StoredChatSession
 from core.chat.session_access import ChatSessionAccessService
 from core.chat.transcript_retrieval import TranscriptRetrievalService
 from core.logger import UnifiedLogger
+from core.memory.session_map.checkpoints import load_session_map_checkpoint
 from core.utils.fts import build_fts_query
 
 logger = UnifiedLogger(tag="session-discovery")
@@ -29,6 +30,33 @@ class SessionDiscoveryService:
         self._store = store
         self._access = access
         self._transcripts = TranscriptRetrievalService(store, access)
+
+    def get_map(
+        self, *, vault_name: str, session_id: str, checkpoint_id: str = ""
+    ) -> dict[str, Any] | None:
+        """Read a bounded typed map only after authorizing the canonical session."""
+        session = self._access.get_session_by_id(session_id)
+        if session is None or session.vault_name != vault_name:
+            return None
+        latest = self._store.get_latest_context_checkpoint(session_id, vault_name)
+        checkpoint = (
+            self._store.get_context_checkpoint(session_id, vault_name, checkpoint_id)
+            if checkpoint_id
+            else latest
+        )
+        if checkpoint is None or checkpoint.checkpoint_kind != "session_map":
+            return None
+        draft = load_session_map_checkpoint(checkpoint)
+        return {
+            "session_id": session_id,
+            "checkpoint_id": checkpoint.checkpoint_id,
+            "created_at": checkpoint.created_at,
+            "historical": latest is None
+            or latest.checkpoint_id != checkpoint.checkpoint_id,
+            "observed_through_sequence_index": checkpoint.observed_through_sequence_index,
+            "compacted_through_sequence_index": checkpoint.last_message_sequence_index,
+            "map": draft.model_dump(mode="json"),
+        }
 
     def search(
         self,
@@ -64,8 +92,8 @@ class SessionDiscoveryService:
                 {
                     "session_id": session_id,
                     "vault_name": vault_name,
-                    "title": session.title,
-                    "workspace_path": session_workspace(session) or None,
+                    "title": (session.title or "")[:240] or None,
+                    "workspace_path": session_workspace(session)[:500] or None,
                     "last_activity_at": session.last_activity_at,
                     "score": 0.0,
                     "evidence": [],
