@@ -35,7 +35,7 @@ Whole-map replacement avoids an ever-growing chain of active, superseded, and cl
 ## Consequences
 
 - Compaction V2 supplies compact, structured orientation with explicit options, open questions, supersession, causal trajectory, and inspectable provenance.
-- The session map is derived and lossy. It is not canonical truth, a complete transcript summary, an event ledger, or a cross-session memory index.
+- The session map is derived and lossy. It is not canonical truth, a complete transcript summary, or an event ledger. Its text can supply candidate evidence for cross-session lexical discovery under [ADR 0051](0051-lexical-session-discovery-over-canonical-evidence.md).
 - Map references are evidence routes rather than an exhaustive declaration of relevant history.
 - Canonical messages remain available for retrieval, reauthoring, upgrades, inspection, and safe forks.
 - The ordinary chat timeline remains the single visual home for canonical messages; the map modal does not duplicate transcript paging.

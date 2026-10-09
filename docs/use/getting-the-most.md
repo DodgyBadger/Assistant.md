@@ -104,13 +104,11 @@ Describe the process to the chat agent and ask it to draft the workflow. Test it
 
 ## Search past sessions
 
-Session summaries let chat search for relevant past work without loading entire transcripts. The `session_ops` tool can search existing summaries or refresh them when you want earlier decisions, research, or project history brought into the current conversation.
-
-Assistant.md includes an optional nightly workflow that keeps these summaries up to date. Enable `system/nightly-session-summarization` under **Dashboard → Workflows** if you want automatic summary extraction. Session-summary search currently requires the default OpenAI embedding model and an `OPENAI_API_KEY` configured under **System → Secrets**.
+The `session_ops` tool searches session titles, workspaces, map checkpoints, and canonical transcripts for words and phrases from past work. It returns compact evidence rather than loading entire transcripts, and can inspect map provenance or exact source messages when needed. Short sessions and new messages are searchable even when no map exists. Discovery does not require a nightly workflow or embedding API key.
 
 ## Customize context only when needed
 
-A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine recent messages, selected files, skills, project guidance, and summary records.
+A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine effective history, selected files, skills, project guidance, and explicitly retrieved evidence.
 
 Most users do not need to change the default context script. Workspace files, playbooks, skills, connections, and workflows cover the common customization needs with less complexity. Consider a custom context script only when you need a distinctly different context strategy, such as selecting project material according to custom rules or supporting separate working styles.
 

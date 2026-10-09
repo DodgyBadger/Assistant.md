@@ -150,7 +150,7 @@ Most context scripts use three core pieces: `retrieve_history()` to read complet
 
 The packaged default context script loads `AssistantMD/soul.md`, `AssistantMD/playbook.md`, lightweight user notes configured by `AssistantMD/Skills/save_user_note.md`, and the skill catalog from `AssistantMD/Skills/` when those files are present. These are vault-owned markdown files; customize or replace the context script when you want a different loading policy. The default script bounds each soul, vault playbook, workspace README, and workspace playbook to 6,000 characters; the Save User Note skill controls the user-notes limit.
 
-Workflows can use `retrieve_sessions(selection="pending_or_stale_summary")` to select current-vault chat sessions that lack a stored summary or whose summary is stale. It returns session metadata only; use `retrieve_history()` or `session_ops` when a workflow needs to process a specific session. Stale selection compares the current persisted history revision with the revision recorded when the summary was extracted.
+Workflows can use `session_ops(operation="list_sessions")` to browse canonical session metadata or `session_ops(operation="search_sessions", query=...)` to discover bounded lexical evidence. Inspect a selected checkpoint with `get_session_map`, or verify exact source details with `search_transcript` and `get_transcript_window`. Discovery needs no embedding configuration or scheduled summarization.
 
 Select which script to use in the Chat UI. Set a default in **System → Application Settings**.
 

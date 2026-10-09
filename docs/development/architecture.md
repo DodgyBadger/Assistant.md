@@ -42,7 +42,7 @@ Interactive chat enters through `core/chat/`. A session has an immutable owner a
 
 A session fork is an independently owned physical copy of canonical messages through one assistant response. Applicable compaction checkpoints and structured tool events cross the branch with child-owned identities, while lineage metadata records the immediate parent and original root. A checkpoint crosses only when its author observed no message after the branch point.
 
-Chat storage separates canonical history from the effective history sent to a model. Canonical user, assistant, and tool messages remain intact and searchable. A compaction checkpoint supplies a derived replacement for an older canonical prefix while the newest complete conversational turns remain verbatim. The default recovery-card strategy produces an unstructured continuity summary; the optional session-map strategy produces a structured, provenance-linked map and evicts toward a configurable low watermark. Both preserve at least the configured retained-turn floor, so a single large recent turn may leave effective history above the token target.
+Chat storage separates canonical history from the effective history sent to a model. Canonical user, assistant, and tool messages remain intact and searchable. A compaction checkpoint supplies a derived replacement for an older canonical prefix. The recovery-card strategy produces an unstructured continuity summary and preserves the configured newest-turn floor. The session-map strategy produces a structured, provenance-linked map and evicts complete older conversational groups toward a configurable low watermark; the retained-turn setting does not control V2. An incomplete active turn remains verbatim and can leave effective history above the token target.
 
 The installation setting chooses a strategy only for sessions that do not yet have a compaction checkpoint. The first successful reduction pins that session to its strategy so later settings changes cannot silently reinterpret its history. An explicit per-session upgrade may replace a safe recovery-card boundary with a session map; there is no automatic downgrade or bulk conversion. Sessions below the high watermark can therefore remain on canonical history alone and need not have a map. Recovery cards and session maps share an optional compaction-author model, which falls back to the default chat model when no separate alias is configured. A session map is a bounded, sparse whole-map replacement: typed entries distinguish current state, supersession, and evidentiary basis, while one concise trajectory preserves causal orientation. Every authored claim cites admitted canonical message ranges, but those references are evidence routes rather than an exhaustive index of the conversation.
 
@@ -106,7 +106,7 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 | Chats, messages, checkpoints, and fork lineage | Principal-owned canonical conversation state | chat subsystem databases |
 | Workflow outcomes | Principal-owned durable domain history | workflow-run database |
 | Vault activity and recovery | Attributed activities, revisions, and snapshots | vault-state databases and snapshot storage |
-| Session summaries | Rebuildable derived memory indexes | memory subsystem state |
+| Session discovery indexes | Rebuildable lexical projections of canonical metadata, transcript text, and map checkpoints | chat database; memory-layer discovery service |
 | Goals | Lightweight durable state with provenance | goals subsystem state |
 | Active execution coordination | Task owner, parent-child links, progress, bounded results, waits, cancellation, and checkpoints | bounded process memory |
 | Advanced-shell files | Deployment shell user; agent-accessible | Docker home and workspace volumes |
@@ -124,7 +124,7 @@ Web retrieval exposes stable model-facing capabilities while provider strategies
 
 Multimodal input is admitted only when both product policy and the selected model support it. Image markers and attachment references are normalized before model requests; chunking and buffering keep large payloads out of ordinary text context.
 
-Session summaries are derived memory, not canonical chat history. Goals are a small durable coordination ledger, not a second workflow or task system.
+Session discovery combines bounded lexical evidence from authorized titles/workspaces, map checkpoints, and canonical transcripts. It works for sessions without maps and for recent turns after a checkpoint, without embedding credentials, background summarization, or inference. Historical maps are candidate orientation, not canonical truth. Goals are a small durable coordination ledger, not a second workflow or task system.
 
 ## Where new work belongs
 
@@ -157,7 +157,7 @@ ADRs under [`docs/development/adr/`](adr/) are append-oriented records of durabl
 Start with these groups when investigating a boundary:
 
 - runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, 0047, and 0049–0050;
-- vaults, ingestion, memory, and goals: ADRs 0005–0006, 0011–0018, 0024–0025, and 0029–0030;
+- vaults, ingestion, memory, and goals: ADRs 0005, 0011–0018, 0024–0025, 0029–0030, and 0051;
 - tools, models, and external capabilities: ADRs 0007–0010, 0021–0023, 0027, 0035, 0037, 0039, 0042, and 0045;
 - identity, storage, connections, and OAuth: ADRs 0015, 0028, and 0034–0041;
 - deployment and advanced execution security: ADRs 0036 and 0042–0044.

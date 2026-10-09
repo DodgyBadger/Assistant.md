@@ -47,7 +47,7 @@ workflow_run(
 ```
 
 ```python
-started = workflow_run(operation="start", workflow_name="nightly-session-summarization")
+started = workflow_run(operation="start", workflow_name="nightly-user-notes-compaction")
 ```
 
 ```python

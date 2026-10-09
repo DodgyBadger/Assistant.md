@@ -78,7 +78,7 @@ Failures should include `error_type` and a concise `error`. Add tracebacks only 
 - Authoring/context: log context-template run started/completed/failed; keep successful helper calls validation-only.
 - Scheduler/workflows: log sync decisions and terminal scheduled/manual workflow outcomes with searchable workflow names.
 - Chat: log chat turn started/completed/failed/cancelled with session, workspace, model, context template, and compact tool counts.
-- Session summaries: log user-visible summary mutations and summarize-session terminal outcomes.
+- Session memory: log compact discovery outcomes and correlated retrieval failures; report managed retirement backups without logging historical contents.
 - LLM/tools: persist per-tool chat events structurally; activity should summarize long-running/external tool outcomes and failures.
 - Multimodal: log compact attach/fallback counts and reason codes, never image bytes.
 - Ingestion: log batch scan/enqueue decisions and per-file terminal summaries, including selected strategy and OCR fallback details.

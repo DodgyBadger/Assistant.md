@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, backfilled.
+Superseded by [ADR 0051](0051-lexical-session-discovery-over-canonical-evidence.md).
 
 ## Context
 

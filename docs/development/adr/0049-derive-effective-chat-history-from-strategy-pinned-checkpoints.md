@@ -44,7 +44,7 @@ Pinning prevents an installation-wide settings change from silently changing the
 - Canonical history remains visible as complete messages through bounded reverse paging even when those messages are absent from effective provider context.
 - Recovery cards and session maps remain lossy, so agents may need canonical transcript retrieval for source verification.
 - The explicit recovery-card-to-session-map upgrade spends inference only for sessions selected by the user and preserves the existing recovery checkpoint if authoring or commit fails.
-- Cross-session discovery, fork-family ranking, vault linkage, and replacement of nightly session summaries remain separate memory-system decisions.
+- Cross-session discovery follows the separate lexical-evidence contract in [ADR 0051](0051-lexical-session-discovery-over-canonical-evidence.md); fork-family ranking and vault linkage remain separate memory-system decisions.
 
 ## Evidence
 
