@@ -367,7 +367,6 @@ def _build_model_info(
         provider=config.provider,
         model_string=config.model_string,
         capabilities=capabilities,
-        dimensions=config.dimensions,
         available=availability.get(name, True),
         chat_selectable="text" in capabilities,
         user_editable=config.user_editable,
@@ -533,11 +532,10 @@ def upsert_configurable_model(
             provider=payload.provider,
             model_string=payload.model_string,
             capabilities=payload.capabilities,
-            dimensions=payload.dimensions,
             description=payload.description,
         )
     except SettingsError as exc:
-        raise SystemConfigurationError(str(exc)) from exc
+        raise InvalidSystemSettingError(model_name, str(exc)) from exc
 
     reload_result = reload_configuration()
     config_status = reload_result.status

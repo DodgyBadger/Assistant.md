@@ -38,11 +38,33 @@ RETIRED_SETTINGS = frozenset(
 )
 
 
+def retire_embedding_models(models: dict[str, Any]) -> dict[str, Any]:
+    """Exclude retired aliases while preserving shared providers and credentials."""
+    retained: dict[str, Any] = {}
+    for name, model in models.items():
+        capabilities = (
+            model.get("capabilities", [])
+            if isinstance(model, dict)
+            else getattr(model, "capabilities", [])
+        )
+        if isinstance(capabilities, str):
+            capabilities = [capabilities]
+        if isinstance(capabilities, list) and any(
+            str(cap).strip().lower() == "embedding" for cap in capabilities
+        ):
+            continue
+        retained[name] = model
+    return retained
+
+
 def upgrade_settings_mapping(
     active: dict[str, Any], template: dict[str, Any]
 ) -> dict[str, Any]:
     """Upgrade known settings contracts while preserving custom sections."""
     upgraded = deepcopy(active)
+    models = upgraded.get("models")
+    if isinstance(models, dict):
+        upgraded["models"] = retire_embedding_models(models)
     settings = upgraded.setdefault("settings", {})
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):

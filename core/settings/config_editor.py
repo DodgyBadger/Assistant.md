@@ -235,7 +235,6 @@ def upsert_model_mapping(
     provider: str,
     model_string: str,
     capabilities: list[str] | None = None,
-    dimensions: int | None = None,
     description: str | None = None,
 ) -> ModelConfig:
     """
@@ -246,7 +245,6 @@ def upsert_model_mapping(
         provider: Provider name the model depends on
         model_string: Provider-specific model identifier
         capabilities: Optional model capability list
-        dimensions: Optional embedding vector dimensions
         description: Optional human-readable description
 
     Returns:
@@ -265,6 +263,11 @@ def upsert_model_mapping(
     if provider not in settings_file.providers:
         raise SettingsError(f"Provider '{provider}' is not defined in settings.yaml.")
 
+    if capabilities and any(
+        str(cap).strip().lower() == "embedding" for cap in capabilities
+    ):
+        raise SettingsError("Embedding models are not supported.")
+
     user_editable = getattr(existing, "user_editable", True) if existing else True
     resolved_capabilities = (
         capabilities
@@ -276,11 +279,6 @@ def upsert_model_mapping(
         provider=provider,
         model_string=model_string,
         capabilities=resolved_capabilities,
-        dimensions=(
-            dimensions
-            if dimensions is not None
-            else getattr(existing, "dimensions", None)
-        ),
         description=description,
         user_editable=user_editable,
     )

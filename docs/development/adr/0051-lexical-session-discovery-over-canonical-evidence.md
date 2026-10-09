@@ -18,6 +18,8 @@ Compaction remains independent of discovery. Search does not author maps, change
 
 Retire summary generation, summary-selection helpers, summary API/UI surfaces, nightly summary seeding, and unused vector integration. Archive only recognizable packaged workflow copies; preserve authored customizations with a review warning and reject retired dependencies explicitly. A mandatory integrity-checked migration backup precedes scoped removal of known legacy summary tables. Preserve unknown tables, migration bookkeeping, canonical history, maps, and configured provider/model/secret records. Do not create the retired database on fresh installations.
 
+Embedding model aliases and vector dimensions have no supported consumer and are excluded from model configuration. The packaged settings contain no embedding alias; existing embedding-capable aliases are omitted from active configuration and removed by backed-up settings repair. Shared providers, secrets, and supported chat/decision mappings remain intact.
+
 ## Consequences
 
 - Core session discovery requires neither a model call nor an embedding API key.

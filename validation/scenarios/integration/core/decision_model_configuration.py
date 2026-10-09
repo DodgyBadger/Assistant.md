@@ -81,6 +81,25 @@ class DecisionModelConfigurationScenario(BaseScenario):
         refresh_model_cache()
 
         models_response = self.call_api("/api/system/models")
+        self.soft_assert(
+            all(
+                "embedding" not in model["capabilities"] and "dimensions" not in model
+                for model in models_response.json()
+            ),
+            "Model setup must expose no embedding aliases or vector dimensions",
+        )
+        rejected_embedding = self.call_api(
+            "/api/system/models/unused-embedding",
+            method="PUT",
+            data={
+                "provider": "openai",
+                "model_string": "text-embedding-3-small",
+                "capabilities": ["embedding"],
+            },
+        )
+        self.soft_assert_equal(
+            rejected_embedding.status_code, 400, "Embedding aliases are unsupported"
+        )
         self.soft_assert_equal(
             models_response.status_code,
             200,
@@ -221,6 +240,13 @@ class DecisionModelConfigurationScenario(BaseScenario):
 
         settings_response = self.call_api("/api/system/settings")
         settings = yaml.safe_load(settings_response.json()["content"])
+        settings["models"]["legacy-vector"] = {
+            "provider": "openai",
+            "model_string": "text-embedding-3-small",
+            "capabilities": [" Embedding "],
+            "dimensions": 1536,
+            "user_editable": True,
+        }
         settings["models"].pop("jev")
         settings["providers"].pop("typesafe")
         for key, value in _RETIRED_SETTING_FIXTURE.items():
@@ -247,8 +273,30 @@ class DecisionModelConfigurationScenario(BaseScenario):
             ),
             "All retired compaction and live-memory settings should stay out of the settings API",
         )
+        self.soft_assert(
+            "legacy-vector"
+            not in {
+                model["name"] for model in self.call_api("/api/system/models").json()
+            },
+            "Legacy embedding aliases must not be offered",
+        )
         repair = self.call_api("/api/system/settings/repair", method="POST")
         repaired = yaml.safe_load(repair.json()["content"])
+        self.soft_assert(
+            "legacy-vector" not in repaired["models"],
+            "Settings repair must retire embedding aliases",
+        )
+        backup_paths = list(
+            (self._get_system_controller()._system_root / "migration_backups").rglob(
+                "settings.yaml.bak*"
+            )
+        )
+        assert len(backup_paths) == 1
+        backup = yaml.safe_load(backup_paths[0].read_text(encoding="utf-8"))
+        self.soft_assert(
+            "legacy-vector" in backup["models"],
+            "Settings repair backup preserves retired configuration",
+        )
         self.soft_assert_equal(
             repaired["models"]["jev"]["capabilities"],
             ["decision"],

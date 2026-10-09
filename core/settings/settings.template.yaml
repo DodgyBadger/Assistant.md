@@ -454,13 +454,6 @@ models:
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
-  embeddings:
-    provider: openai
-    model_string: text-embedding-3-small
-    capabilities: ["embedding"]
-    dimensions: 1536
-    description: "Default embedding model for vector search"
-    user_editable: true
   jev:
     provider: typesafe
     model_string: jev-latest

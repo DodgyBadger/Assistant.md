@@ -920,10 +920,6 @@ class ModelInfo(BaseModel):
         default_factory=lambda: ["text"],
         description="Declared model capabilities (e.g. text, vision, decision)",
     )
-    dimensions: int | None = Field(
-        None,
-        description="Embedding vector dimensions when this is an embedding model alias",
-    )
     available: bool = Field(
         True, description="Whether required credentials are configured"
     )
@@ -1593,11 +1589,7 @@ class ModelConfigRequest(BaseModel):
     model_string: str = Field(..., description="Provider-specific model identifier")
     capabilities: list[str] | None = Field(
         None,
-        description='Optional model capabilities list (e.g. ["text", "vision"], ["embedding"], or ["decision"])',
-    )
-    dimensions: int | None = Field(
-        None,
-        description="Embedding vector dimensions for embedding-capable model aliases",
+        description='Optional model capabilities list (e.g. ["text", "vision"] or ["decision"])',
     )
     description: str | None = Field(
         None, description="Optional description for UI display"

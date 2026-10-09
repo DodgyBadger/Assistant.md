@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from core.connections import ConnectionRequirement
 from core.runtime.paths import get_system_root
+from core.settings.upgrades import retire_embedding_models
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
 RETIRED_BUILTIN_TOOL_NAMES = frozenset(
@@ -75,7 +76,6 @@ class ModelConfig(BaseModel):
     provider: str
     model_string: str
     capabilities: list[str] = Field(default_factory=lambda: ["text"])
-    dimensions: int | None = None
     description: str | None = None
     user_editable: bool = True
 
@@ -102,7 +102,9 @@ class ModelConfig(BaseModel):
             seen.add(cap)
             normalized.append(cap)
 
-        if "text" not in seen and not seen.intersection({"embedding", "decision"}):
+        if "embedding" in seen:
+            raise ValueError("Embedding models are not supported.")
+        if "text" not in seen and "decision" not in seen:
             normalized.insert(0, "text")
         return normalized
 
@@ -114,6 +116,11 @@ class SettingsFile(BaseModel):
     models: dict[str, ModelConfig] = Field(default_factory=dict)
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     tools: dict[str, ToolConfig] = Field(default_factory=dict)
+
+    @field_validator("models", mode="before")
+    @classmethod
+    def _retire_embedding_models(cls, value: Any) -> Any:
+        return retire_embedding_models(value) if isinstance(value, dict) else value
 
 
 def _resolve_system_root() -> Path:
