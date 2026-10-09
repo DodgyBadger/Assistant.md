@@ -3,6 +3,67 @@
         const { escapeHtml } = utils;
         let editingSessionId = '';
         let sessionBrowserFilter = '';
+        let sessionBrowserSearchMode = 'name';
+        let sessionBrowserSearchMatches = [];
+        let sessionBrowserSearchLimit = 20;
+        let sessionBrowserSearchVault = '';
+        let sessionBrowserSearchLoading = false;
+        let sessionBrowserSearchError = '';
+        let sessionBrowserSearchTimer = null;
+        let sessionBrowserSearchController = null;
+        let sessionBrowserSearchGeneration = 0;
+
+        function cancelSessionBrowserSearch() {
+            window.clearTimeout(sessionBrowserSearchTimer);
+            sessionBrowserSearchTimer = null;
+            sessionBrowserSearchController?.abort();
+            sessionBrowserSearchController = null;
+            sessionBrowserSearchGeneration += 1;
+            sessionBrowserSearchLoading = false;
+        }
+
+        function scheduleSessionBrowserSearch() {
+            cancelSessionBrowserSearch();
+            sessionBrowserSearchMatches = [];
+            sessionBrowserSearchError = '';
+            const vault = elements.vaultSelector?.value || '';
+            sessionBrowserSearchVault = vault;
+            const query = sessionBrowserFilter.trim();
+            const modal = sessionBrowserModal();
+            const input = modal?.querySelector('#session-browser-filter');
+            if (input) input.placeholder = sessionBrowserSearchMode === 'content' ? 'Search session contents...' : 'Filter sessions...';
+            if (!modal || !vault || !query || sessionBrowserSearchMode !== 'content') {
+                renderSessionBrowserList();
+                return;
+            }
+            sessionBrowserSearchLoading = true;
+            renderSessionBrowserList();
+            const generation = sessionBrowserSearchGeneration;
+            sessionBrowserSearchTimer = window.setTimeout(async () => {
+                const controller = new AbortController();
+                sessionBrowserSearchController = controller;
+                const isCurrent = () => generation === sessionBrowserSearchGeneration
+                    && sessionBrowserModal() === modal && elements.vaultSelector?.value === vault;
+                try {
+                    const params = new URLSearchParams({ vault_name: vault, query });
+                    const response = await fetch(`api/chat/sessions/search?${params}`, { signal: controller.signal });
+                    if (!response.ok) throw new Error(`Search failed (HTTP ${response.status}).`);
+                    const payload = await response.json();
+                    if (!isCurrent()) return;
+                    sessionBrowserSearchMatches = payload.matches;
+                    sessionBrowserSearchLimit = payload.limit;
+                } catch (error) {
+                    if (!isCurrent() || error.name === 'AbortError') return;
+                    sessionBrowserSearchError = 'Unable to search session contents. Please try again.';
+                } finally {
+                    if (isCurrent()) {
+                        sessionBrowserSearchLoading = false;
+                        sessionBrowserSearchController = null;
+                        renderSessionBrowserList();
+                    }
+                }
+            }, 300);
+        }
 
         function title(session) {
             if (!session || !session.session_id) {
@@ -178,6 +239,7 @@
         }
 
         function closeSessionBrowserModal() {
+            cancelSessionBrowserSearch();
             const modal = sessionBrowserModal();
             restoreSettingsControlsFromModal(modal);
             modal?.remove();
@@ -186,6 +248,11 @@
         function filteredBrowserSessions() {
             const filter = sessionBrowserFilter.trim().toLowerCase();
             if (!filter) return state.sessions;
+            if (sessionBrowserSearchMode === 'content') {
+                return sessionBrowserSearchMatches.map((hit) =>
+                    state.sessions.find((session) => session.session_id === hit.session.session_id) || hit.session
+                );
+            }
             return state.sessions.filter((session) => {
                 const haystack = [
                     title(session),
@@ -203,9 +270,22 @@
             const count = modal?.querySelector('#session-browser-count');
             if (!list) return;
 
+            if (sessionBrowserSearchMode === 'content' && sessionBrowserSearchVault !== (elements.vaultSelector?.value || '')) {
+                scheduleSessionBrowserSearch();
+                return;
+            }
+            const searchingContents = sessionBrowserSearchMode === 'content' && sessionBrowserFilter.trim();
+            if (searchingContents && (sessionBrowserSearchLoading || sessionBrowserSearchError)) {
+                if (count) count.textContent = sessionBrowserSearchLoading ? 'Searching contents...' : 'Search unavailable';
+                list.innerHTML = `<p class="session-browser-empty" role="status">${escapeHtml(sessionBrowserSearchError || 'Searching session contents...')}</p>`;
+                return;
+            }
+
             const sessions = filteredBrowserSessions();
             if (count) {
-                count.textContent = `${sessions.length} of ${state.sessions.length} sessions`;
+                count.textContent = searchingContents
+                    ? `${sessions.length} matches · up to ${sessionBrowserSearchLimit} best matches shown`
+                    : `${sessions.length} of ${state.sessions.length} sessions`;
             }
             if (sessions.length === 0) {
                 list.innerHTML = '<p class="session-browser-empty">No sessions match this filter.</p>';
@@ -223,6 +303,15 @@
                 return renderSessionBrowserEditingRow(session, isActive);
             }
             const meta = activityLabel(session);
+            const evidence = sessionBrowserSearchMode === 'content' && sessionBrowserFilter.trim()
+                ? sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId)?.evidence || []
+                : [];
+            const excerpts = evidence.map((hit) => {
+                const label = hit.source === 'session_map'
+                    ? (hit.historical ? 'Earlier map' : 'Map')
+                    : hit.source === 'transcript' ? 'Transcript' : 'Session details';
+                return `<span class="session-browser-row-excerpt"><span class="session-browser-row-meta">${label}:</span> ${escapeHtml(hit.excerpt)}</span>`;
+            }).join('');
             return `
                 <div
                     class="session-browser-row${isActive ? ' is-active' : ''}"
@@ -234,6 +323,7 @@
                             ${renderSessionBrowserMapAction(session)}
                         </span>
                         ${meta ? `<span class="session-browser-row-meta">${escapeHtml(meta)}</span>` : ''}
+                        ${excerpts}
                     </div>
                     ${renderSessionActions(session)}
                 </div>
@@ -308,24 +398,37 @@
                                 ${icons.PLUS_ICON_SVG}
                             </button>
                         </div>
-                        <input
-                            id="session-browser-filter"
-                            type="text"
-                            class="session-browser-filter"
-                            placeholder="Filter sessions..."
-                            value="${escapeHtml(sessionBrowserFilter)}"
-                            autocomplete="off"
-                        />
+                        <div class="vault-explorer-search-control session-browser-search-control">
+                            <input
+                                id="session-browser-filter"
+                                type="text"
+                                class="session-browser-filter"
+                                placeholder="Filter sessions..."
+                                value="${escapeHtml(sessionBrowserFilter)}"
+                                autocomplete="off"
+                                maxlength="2000"
+                                aria-label="Find sessions"
+                            />
+                            <select id="session-browser-search-mode" class="vault-explorer-search-mode-toggle" aria-label="Session search mode">
+                                <option value="name" ${sessionBrowserSearchMode === 'name' ? 'selected' : ''}>Names</option>
+                                <option value="content" ${sessionBrowserSearchMode === 'content' ? 'selected' : ''}>Contents</option>
+                            </select>
+                        </div>
                         <div id="session-browser-list" class="session-browser-list"></div>
                     </div>
                 </section>
             `;
             overlay.addEventListener('click', handleSessionBrowserClick);
             overlay.addEventListener('input', handleSessionBrowserInput);
+            overlay.addEventListener('change', (event) => {
+                if (event.target.id !== 'session-browser-search-mode') return;
+                sessionBrowserSearchMode = event.target.value === 'content' ? 'content' : 'name';
+                scheduleSessionBrowserSearch();
+            });
             overlay.addEventListener('keydown', handleSessionBrowserKeydown);
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
-            renderSessionBrowserList();
+            scheduleSessionBrowserSearch();
             const filterInput = overlay.querySelector('#session-browser-filter');
             if (filterInput instanceof HTMLInputElement) {
                 filterInput.focus();
@@ -349,6 +452,8 @@
 
                 const session = state.sessions.find((s) => s.session_id === sessionId);
                 if (session) session.title = nextTitle;
+                const match = sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId);
+                if (match) match.session.title = nextTitle;
                 editingSessionId = '';
                 renderSelector();
                 renderSessionBrowserList();
@@ -475,6 +580,7 @@
 
                 const deletedActiveSession = state.sessionId === sessionId;
                 state.sessions = state.sessions.filter((s) => s.session_id !== sessionId);
+                sessionBrowserSearchMatches = sessionBrowserSearchMatches.filter((hit) => hit.session.session_id !== sessionId);
                 if (deletedActiveSession) {
                     state.sessionId = null;
                 }
@@ -520,7 +626,8 @@
                 return;
             }
             if (action === 'map') {
-                const session = state.sessions.find((item) => item.session_id === sessionId);
+                const session = state.sessions.find((item) => item.session_id === sessionId)
+                    || sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId)?.session;
                 if (!session) return;
                 closeSessionBrowserModal();
                 sessionMap.openModalForSession(session, {
@@ -581,7 +688,7 @@
             if (!(target instanceof HTMLInputElement)) return;
             if (target.id !== 'session-browser-filter') return;
             sessionBrowserFilter = target.value;
-            renderSessionBrowserList();
+            scheduleSessionBrowserSearch();
         }
 
         async function handleSessionBrowserKeydown(event) {

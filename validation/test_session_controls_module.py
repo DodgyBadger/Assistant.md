@@ -9,6 +9,129 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _SESSION_CONTROLS_MODULE = _PROJECT_ROOT / "static/js/session-controls.js"
 
 
+def test_session_browser_content_search_lifecycle() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+class Element { closest() { return null; } }
+class HTMLInputElement extends Element { focus() {} select() {} }
+class HTMLButtonElement extends Element {}
+class HTMLElement extends Element {}
+Object.assign(global, { Element, HTMLInputElement, HTMLButtonElement, HTMLElement });
+global.window = global;
+let modal = null;
+let timerId = 0;
+const timers = new Map();
+window.setTimeout = (fn) => { timers.set(++timerId, fn); return timerId; };
+window.clearTimeout = (id) => timers.delete(id);
+const list = { innerHTML: '' };
+const count = { textContent: '' };
+const input = new HTMLInputElement();
+input.id = 'session-browser-filter';
+input.dataset = {};
+const mode = { id: 'session-browser-search-mode', value: 'name' };
+global.document = {
+    body: { appendChild(node) { modal = node; } },
+    createElement() {
+        return {
+            listeners: {},
+            addEventListener(name, fn) { this.listeners[name] = fn; },
+            querySelector(selector) {
+                return { '#session-browser-list': list, '#session-browser-count': count,
+                    '#session-browser-filter': input }[selector] || null;
+            },
+            remove() { modal = null; },
+        };
+    },
+    getElementById(id) { return id === 'session-browser-modal' ? modal : null; },
+    querySelector() { return null; },
+};
+const requests = [];
+global.fetch = (url, options) => new Promise((resolve) => requests.push({url, options, resolve}));
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'));
+const state = { sessions: [
+    {session_id:'one', title:'First session'}, {session_id:'two', title:'Second session'},
+] };
+const elements = { vaultSelector: { value: 'Vault' } };
+const escapeHtml = (s) => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const controller = SessionControls.create({ state, elements, icons:{}, utils:{escapeHtml}, sessionMap:{}, callbacks:{} });
+const type = (value) => { input.value = value; modal.listeners.input({target:input}); };
+const changeMode = (value) => { mode.value = value; modal.listeners.change({target:mode}); };
+const startRequest = () => {
+    assert.strictEqual(timers.size, 1);
+    const [id, fn] = timers.entries().next().value;
+    timers.delete(id);
+    return fn();
+};
+const finish = async (index, session, excerpt = '') => {
+    requests[index].resolve({ok:true, json:async () => ({limit:20, matches:[{
+        session, evidence:[{source:'transcript', excerpt}], score:1,
+    }]})});
+};
+(async () => {
+    controller.openSessionBrowserModal();
+    type('First');
+    assert(list.innerHTML.includes('First session') && !list.innerHTML.includes('Second session'));
+    assert.strictEqual(requests.length, 0, 'Names filtering must stay local');
+    changeMode('content');
+    assert(count.textContent.includes('Searching'));
+    const stale = startRequest();
+    type('old');
+    type('new & topic');
+    assert.strictEqual(timers.size, 1, 'Debounce replaces queued searches');
+    assert(requests[0].options.signal.aborted);
+    const current = startRequest();
+    assert.strictEqual(new URL(requests[1].url, 'http://test/').searchParams.get('query'), 'new & topic');
+    await finish(1, state.sessions[1], '<script>unsafe</script>');
+    await current;
+    assert(list.innerHTML.includes('Second session') && !list.innerHTML.includes('First session'));
+    assert(list.innerHTML.includes('&lt;script&gt;') && !list.innerHTML.includes('<script>'));
+    assert(count.textContent.includes('20'));
+    await finish(0, state.sessions[0], 'stale');
+    await stale;
+    assert(!list.innerHTML.includes('stale'), 'Late responses must not replace newer results');
+    type('scope');
+    const oldVault = startRequest();
+    elements.vaultSelector.value = 'OtherVault';
+    controller.renderSelector();
+    const newVault = startRequest();
+    assert.strictEqual(new URL(requests[3].url, 'http://test/').searchParams.get('vault_name'), 'OtherVault');
+    await finish(2, state.sessions[0], 'wrong-vault');
+    await oldVault;
+    assert(!list.innerHTML.includes('wrong-vault'));
+    await finish(3, state.sessions[1], 'correct-vault');
+    await newVault;
+    type('');
+    assert.strictEqual(timers.size, 0);
+    assert(list.innerHTML.includes('First session') && list.innerHTML.includes('Second session'));
+    type('closing');
+    const closed = startRequest();
+    modal.listeners.keydown({target:mode, key:'Escape'});
+    assert(requests[4].options.signal.aborted);
+    controller.openSessionBrowserModal();
+    const reopened = startRequest();
+    await finish(4, state.sessions[0], 'closed-result');
+    await closed;
+    assert(!list.innerHTML.includes('closed-result'));
+    requests[5].resolve({ok:false, status:503});
+    await reopened;
+    assert(list.innerHTML.includes('Unable to search'));
+    type('First');
+    const wrongMode = startRequest();
+    changeMode('name');
+    await finish(6, state.sessions[1], 'wrong-mode');
+    await wrongMode;
+    assert(list.innerHTML.includes('First session') && !list.innerHTML.includes('wrong-mode'));
+})().catch((error) => { console.error(error); process.exit(1); });
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_SESSION_CONTROLS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_completed_session_upgrade_remains_successful_if_refresh_fails() -> None:
     harness = r"""
 const assert = require('assert');

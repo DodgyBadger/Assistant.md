@@ -72,6 +72,34 @@ class SessionDiscoveryScenario(BaseScenario):
             store.add_messages("hidden", vault.name, [_user("Private otter study.")])
             discovery = SessionDiscoveryService(store, runtime.chat_session_access)
 
+            found = self.call_api(
+                f"/api/chat/sessions/search?vault_name={vault.name}&query=otter"
+            ).json()
+            assert found["limit"] == 20
+            assert [hit["session"]["session_id"] for hit in found["matches"]] == [
+                "short"
+            ]
+            assert found["matches"][0]["evidence"][0]["source"] == "transcript"
+            historical = self.call_api(
+                f"/api/chat/sessions/search?vault_name={vault.name}&query=quokka"
+            ).json()
+            assert historical["matches"][0]["evidence"][0]["checkpoint_id"] == "old-map"
+            assert historical["matches"][0]["evidence"][0]["historical"] is True
+            assert (
+                self.call_api(
+                    f"/api/chat/sessions/search?vault_name={vault.name}&query=otter&limit=21"
+                ).status_code
+                == 422
+            )
+            assert (
+                self.call_api(
+                    f"/api/chat/sessions/search?vault_name={vault.name}&query=%20"
+                ).status_code
+                == 400
+            )
+            listed = self.call_api(f"/api/chat/sessions?vault_name={vault.name}").json()
+            assert {row["session_id"] for row in listed} == {"short", "long"}
+
             assert (
                 discovery.search(vault_name=vault.name, query="albatross")[0][
                     "session_id"

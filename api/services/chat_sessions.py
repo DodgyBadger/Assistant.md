@@ -30,6 +30,7 @@ from core.chat.deferred_reviews import (
 )
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
+from core.memory.session_discovery import SessionDiscoveryService
 from core.memory.session_map.checkpoints import (
     load_session_map_checkpoint,
     load_session_map_observed_through,
@@ -59,6 +60,9 @@ from ..models import (
     ChatSessionMapCheckpointInfo,
     ChatSessionMapResponse,
     ChatSessionMessageInfo,
+    ChatSessionSearchEvidence,
+    ChatSessionSearchMatch,
+    ChatSessionSearchResponse,
     ChatSessionsPurgeResponse,
     ChatSessionTimelinePage,
     ChatSessionToolCallInfo,
@@ -280,6 +284,35 @@ def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
     return [_chat_session_info(session) for session in sessions]
+
+
+def search_chat_sessions(
+    vault_name: str, query: str, limit: int
+) -> ChatSessionSearchResponse:
+    """Adapt the shared authorized discovery results to session browser rows."""
+    runtime = get_runtime_context()
+    try:
+        hits = SessionDiscoveryService(
+            runtime.chat_store, runtime.chat_session_access
+        ).search(vault_name=vault_name, query=query, limit=limit)
+    except ValueError as exc:
+        raise APIException(400, "InvalidSessionSearch", str(exc)) from exc
+    matches: list[ChatSessionSearchMatch] = []
+    for hit in hits:
+        session = runtime.chat_session_access.get_session_by_id(hit["session_id"])
+        if session is None or session.vault_name != vault_name:
+            continue
+        matches.append(
+            ChatSessionSearchMatch(
+                session=_chat_session_info(session),
+                evidence=[
+                    ChatSessionSearchEvidence.model_validate(evidence)
+                    for evidence in hit["evidence"]
+                ],
+                score=hit["score"],
+            )
+        )
+    return ChatSessionSearchResponse(matches=matches, limit=limit)
 
 
 def _chat_session_info(

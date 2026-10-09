@@ -1813,6 +1813,23 @@ details summary::-webkit-details-marker {
     outline: 2px solid rgb(var(--accent-primary));
     outline-offset: 1px;
 }
+.session-browser-search-control {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+.session-browser-search-control .session-browser-filter {
+    padding-right: 6rem;
+}
+.session-browser-search-control select {
+    background: rgb(var(--bg-card));
+    max-width: 5.5rem;
+}
+.session-browser-row-excerpt {
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    color: rgb(var(--text-secondary));
+}
 .session-browser-list {
     min-height: 0;
     overflow-y: auto;

@@ -238,6 +238,7 @@ from .chat_sessions import (
     list_chat_sessions,
     purge_chat_sessions,
     resolve_chat_session_for_request,
+    search_chat_sessions,
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,

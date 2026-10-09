@@ -1119,6 +1119,27 @@ class ChatSessionInfo(BaseModel):
     )
 
 
+class ChatSessionSearchEvidence(BaseModel):
+    """Bounded lexical evidence; historical interpretation is not canonical truth."""
+
+    source: Literal["session_metadata", "session_map", "transcript"]
+    excerpt: str
+    checkpoint_id: str | None = None
+    historical: bool | None = None
+    sequence_index: int | None = None
+
+
+class ChatSessionSearchMatch(BaseModel):
+    session: ChatSessionInfo
+    evidence: list[ChatSessionSearchEvidence]
+    score: float
+
+
+class ChatSessionSearchResponse(BaseModel):
+    matches: list[ChatSessionSearchMatch]
+    limit: int
+
+
 class ChatSessionMapCheckpointInfo(BaseModel):
     """Read-only metadata for one append-only stepped-map checkpoint."""
 

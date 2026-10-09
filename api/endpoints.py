@@ -48,6 +48,7 @@ from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.mcp.oauth import resolve_mcp_oauth_redirect
+from core.memory.session_discovery import MAX_DISCOVERY_LIMIT
 from core.runtime.execution_tasks import TERMINAL_STATUS_VALUES
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.settings import (
@@ -83,6 +84,7 @@ from .models import (
     ChatSessionModeRequest,
     ChatSessionModeResponse,
     ChatSessionRetryRequest,
+    ChatSessionSearchResponse,
     ChatSessionsPurgeRequest,
     ChatSessionsPurgeResponse,
     ChatSessionTimelinePage,
@@ -248,6 +250,7 @@ from .services import (
     rollback_vault_activity,
     run_system_database_migrations,
     scan_import_folder,
+    search_chat_sessions,
     search_vault_text,
     set_chat_session_mode,
     set_chat_session_title,
@@ -2545,6 +2548,19 @@ async def chat_sessions(vault_name: str) -> list[ChatSessionInfo] | JSONResponse
         return await run_in_threadpool(list_chat_sessions, vault_name)
     except Exception as e:
         return create_error_response(e)
+
+
+@router.get("/chat/sessions/search", response_model=ChatSessionSearchResponse)
+async def chat_session_search(
+    vault_name: str,
+    query: str = Query(..., min_length=1, max_length=2000),
+    limit: int = Query(MAX_DISCOVERY_LIMIT, ge=1, le=MAX_DISCOVERY_LIMIT),
+) -> ChatSessionSearchResponse | JSONResponse:
+    """Discover authorized sessions without model inference."""
+    try:
+        return await run_in_threadpool(search_chat_sessions, vault_name, query, limit)
+    except Exception as exc:
+        return create_error_response(exc)
 
 
 @router.get("/chat/sessions/{session_id}/active-task", response_model=ExecutionTaskInfo)

@@ -106,6 +106,8 @@ Describe the process to the chat agent and ask it to draft the workflow. Test it
 
 The `session_ops` tool searches session titles, workspaces, map checkpoints, and canonical transcripts for words and phrases from past work. It returns compact evidence rather than loading entire transcripts, and can inspect map provenance or exact source messages when needed. Short sessions and new messages are searchable even when no map exists. Discovery does not require a nightly workflow or embedding API key.
 
+In the Chat Settings session browser, use **Names** to filter session metadata or switch to **Contents** to search the selected vault's transcripts and map revisions. Contents shows up to 20 best matching sessions with short evidence excerpts. An earlier-map match may describe superseded work; open the session to inspect its history. Clear the search field to browse all sessions again.
+
 ## Customize context only when needed
 
 A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine effective history, selected files, skills, project guidance, and explicitly retrieved evidence.
