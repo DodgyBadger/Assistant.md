@@ -9,6 +9,65 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _SESSION_CONTROLS_MODULE = _PROJECT_ROOT / "static/js/session-controls.js"
 
 
+def test_compaction_pressure_updates_map_only_context_and_rejects_stale_responses() -> (
+    None
+):
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+global.window = global;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'));
+const classes = new Set();
+const fill = { style: {}, classList: {
+    add(name) { classes.add(name); },
+    remove(...names) { names.forEach(name => classes.delete(name)); },
+} };
+const elements = { vaultSelector: { value: 'Vault' }, compactionFill: fill, compactionTrack: {} };
+const state = { sessionId: 'session', compactionStatusRequestId: 0 };
+const controls = SessionControls.create({ state, elements, icons: {}, utils: {}, callbacks: {} });
+const status = tokens => ({ compaction_type: 'auto', compaction_high_watermark_tokens: 100,
+    estimated_tokens_before: tokens, retained_message_count: 0 });
+const response = tokens => ({ ok: true, json: async () => status(tokens) });
+(async () => {
+    global.fetch = async (_url, options) => { assert.strictEqual(options.cache, 'no-store'); return response(120); };
+    await controls.refreshCompactionProgress();
+    assert.strictEqual(fill.style.width, '100%');
+    assert(classes.has('compaction-hot'));
+    global.fetch = async () => response(5);
+    await controls.refreshCompactionProgress();
+    assert.strictEqual(fill.style.width, '5%');
+    assert(!classes.has('compaction-hot'), 'Map-only context must clear the red indicator.');
+
+    for (const change of ['session', 'vault', 'request', 'abort']) {
+        state.sessionId = 'session'; elements.vaultSelector.value = 'Vault';
+        let resolveJson;
+        const observer = new AbortController();
+        global.fetch = async () => ({ ok: true, json: () => new Promise(resolve => { resolveJson = resolve; }) });
+        const pending = controls.refreshCompactionProgress({ signal: observer.signal });
+        await new Promise(resolve => setImmediate(resolve));
+        if (change === 'session') state.sessionId = 'other';
+        if (change === 'vault') elements.vaultSelector.value = 'Other';
+        if (change === 'abort') observer.abort();
+        if (change === 'request') {
+            global.fetch = async () => response(10);
+            await controls.refreshCompactionProgress();
+        }
+        const currentWidth = fill.style.width;
+        resolveJson(status(120));
+        await pending;
+        assert.strictEqual(fill.style.width, currentWidth, `Stale ${change} response changed pressure.`);
+        assert(!classes.has('compaction-hot'));
+    }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_SESSION_CONTROLS_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_session_browser_content_search_lifecycle() -> None:
     harness = r"""
 const assert = require('assert');

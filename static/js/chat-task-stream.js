@@ -443,9 +443,9 @@
             return true;
         }
 
-        async function waitForChatTaskTerminal(taskId, signal) {
+        async function waitForChatTaskTerminal(taskId, signal, { isCurrent = () => true } = {}) {
             let pollFailures = 0;
-            while (!signal.aborted) {
+            while (!signal.aborted && isCurrent()) {
                 try {
                     const response = await fetch(`api/tasks/${encodeURIComponent(taskId)}`, {
                         cache: 'no-store',
@@ -455,8 +455,12 @@
                         throw new Error(`Could not read background chat task: HTTP ${response.status}`);
                     }
                     const task = await response.json();
+                    if (signal.aborted || !isCurrent()) return false;
+                    if (['completed', 'failed', 'cancelled', 'timed_out', 'skipped'].includes(task.status)) return true;
+                    if (!['queued', 'running'].includes(task.status)) {
+                        throw new Error('Invalid background chat task status.');
+                    }
                     pollFailures = 0;
-                    if (!['queued', 'running'].includes(task.status)) return;
                 } catch (error) {
                     if (signal.aborted) throw error;
                     pollFailures += 1;
@@ -466,12 +470,14 @@
                 }
                 await waitForChatStreamReconnect(2, signal);
             }
+            return false;
         }
 
         return Object.freeze({
             consumeEvents: consumeChatTaskEvents,
             hydrateReplaySnapshot: hydrateChatTaskReplaySnapshot,
             releaseActiveStream: releaseActiveChatStream,
+            waitForTerminal: waitForChatTaskTerminal,
         });
     }
 

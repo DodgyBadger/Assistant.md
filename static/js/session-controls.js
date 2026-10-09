@@ -187,7 +187,7 @@
             renderCompactionProgress(null);
         }
 
-        async function refreshCompactionProgress() {
+        async function refreshCompactionProgress({ signal } = {}) {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId || '';
             if (!vault || !sessionId) {
@@ -197,17 +197,22 @@
 
             const requestId = state.compactionStatusRequestId + 1;
             state.compactionStatusRequestId = requestId;
+            const isCurrent = () => !signal?.aborted && requestId === state.compactionStatusRequestId
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault;
             try {
                 const response = await fetch(
-                    `api/chat/sessions/${encodeURIComponent(sessionId)}/compaction-status?vault_name=${encodeURIComponent(vault)}`
+                    `api/chat/sessions/${encodeURIComponent(sessionId)}/compaction-status?vault_name=${encodeURIComponent(vault)}`,
+                    { cache: 'no-store', signal }
                 );
-                if (requestId !== state.compactionStatusRequestId) return;
+                if (!isCurrent()) return;
                 if (!response.ok) {
                     throw new Error('Failed to fetch chat compaction status');
                 }
-                renderCompactionProgress(await response.json());
+                const status = await response.json();
+                if (!isCurrent()) return;
+                renderCompactionProgress(status);
             } catch (error) {
-                if (requestId === state.compactionStatusRequestId) {
+                if (isCurrent()) {
                     console.error('Error fetching chat compaction status:', error);
                     renderCompactionProgress(null);
                 }

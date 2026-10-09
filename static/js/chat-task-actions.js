@@ -11,12 +11,42 @@
         workspacePicker,
         callbacks,
     }) {
+        let postTurnRefreshController = null;
+
+        async function refreshPressureAfterTask(taskId, vault, sessionId, streamController) {
+            postTurnRefreshController?.abort();
+            const controller = new AbortController();
+            postTurnRefreshController = controller;
+            const isCurrent = () => postTurnRefreshController === controller
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && (!state.activeChatAbortController || state.activeChatAbortController === streamController);
+            // This bounds a UI observer only; it never cancels the execution task.
+            const deadline = window.setTimeout(() => {
+                console.warn('Timed out waiting to refresh context pressure after chat completion.', { taskId, sessionId });
+                controller.abort();
+            }, 5 * 60 * 1000);
+            try {
+                const completed = await chatTaskStream.waitForTerminal(taskId, controller.signal, { isCurrent });
+                if (completed && isCurrent()) {
+                    await sessionControls.refreshCompactionProgress({ signal: controller.signal });
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.warn('Could not refresh context pressure after chat completion.', error);
+                }
+            } finally {
+                window.clearTimeout(deadline);
+                if (postTurnRefreshController === controller) postTurnRefreshController = null;
+            }
+        }
+
         async function streamStartedChatTask(
             started,
             vault,
             abortController,
             { hydrateReplay = false } = {}
         ) {
+            postTurnRefreshController?.abort();
             if (started.session_id) {
                 state.sessionId = started.session_id;
                 callbacks.syncChatControlLocks();
@@ -29,6 +59,7 @@
                 throw new Error('Chat task did not return a task id.');
             }
             state.activeChatTaskId = taskId;
+            const sessionId = state.sessionId;
 
             const assistantMessage = chatRendering.createAssistantStreamingMessage();
             let hydrated = null;
@@ -54,6 +85,14 @@
                 abortController,
                 hydrated || {}
             );
+
+            if (streamResult.finished && streamResult.finishReason === 'stop'
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && state.activeChatAbortController === abortController) {
+                // "done" closes the response stream before post-turn compaction.
+                // Keep answer finalization independent of its durable completion.
+                void refreshPressureAfterTask(state.activeChatTaskId || taskId, vault, sessionId, abortController);
+            }
 
             const emptyDuplicateReviewMessage = (
                 streamResult.finishReason === 'tool_review_required'

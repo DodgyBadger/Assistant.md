@@ -154,6 +154,12 @@ const chatRendering = {
     setAssistantStatus() {},
 };
 const chatTaskStream = {
+    waitForTerminal(taskId, signal) {
+        return new Promise((resolve, reject) => {
+            pendingTerminals.push({ taskId, signal, resolve, reject });
+            signal.addEventListener('abort', () => resolve(false), { once: true });
+        });
+    },
     async consumeEvents() {
         return { finishReason: 'stop', finished: true, messageCount: 1 };
     },
@@ -167,6 +173,13 @@ const chatTaskStream = {
     },
 };
 const noop = () => {};
+const pendingTerminals = [];
+let pressureRefreshes = 0;
+const deadlines = new Map();
+let deadlineId = 0;
+global.setTimeout = (callback) => { deadlines.set(++deadlineId, callback); return deadlineId; };
+global.clearTimeout = (id) => deadlines.delete(id);
+const flush = () => new Promise(resolve => setImmediate(resolve));
 const controller = ChatTaskActions.create({
     state,
     composeState: { pendingAttachments: [] },
@@ -175,7 +188,7 @@ const controller = ChatTaskActions.create({
     chatRendering,
     chatTaskStream,
     sessionControls: {
-        refreshCompactionProgress: noop,
+        refreshCompactionProgress() { pressureRefreshes += 1; },
         renderSelector: noop,
         updateTitleRow: noop,
     },
@@ -215,6 +228,45 @@ global.fetch = async (url, options) => {
     if (state.isLoading || state.activeChatAbortController !== null) {
         throw new Error('Chat task request did not release active state.');
     }
+    if (pendingTerminals.length !== 1) throw new Error('No post-turn completion observer.');
+    const beforeCompletion = pressureRefreshes;
+    pendingTerminals[0].resolve(true);
+    await flush();
+    if (pressureRefreshes !== beforeCompletion + 1) throw new Error('Pressure did not refresh after compaction.');
+    if (deadlines.size) throw new Error('Completion observer deadline was not cleaned up.');
+
+    async function sendAgain() {
+        state.sessionId = null;
+        elements.chatInput.value = 'Hello';
+        if (!await controller.sendMessage()) throw new Error('Repeat turn did not finish immediately.');
+        return pendingTerminals.at(-1);
+    }
+    const navigated = await sendAgain();
+    state.sessionId = 'another-session';
+    const beforeNavigation = pressureRefreshes;
+    navigated.resolve(true);
+    await flush();
+    if (pressureRefreshes !== beforeNavigation) throw new Error('Old completion refreshed a different session.');
+
+    const previous = await sendAgain();
+    const newer = await sendAgain();
+    if (!previous.signal.aborted) throw new Error('A newer turn did not cancel the old UI observer.');
+    const beforeNewer = pressureRefreshes;
+    previous.resolve(true);
+    newer.resolve(true);
+    await flush();
+    if (pressureRefreshes !== beforeNewer + 1) throw new Error('Superseded completion refreshed pressure.');
+    const timedOut = await sendAgain();
+    deadlines.values().next().value();
+    await flush();
+    if (!timedOut.signal.aborted || deadlines.size) throw new Error('Completion observer was not bounded/cleaned up.');
+    if (state.isLoading || state.activeChatAbortController !== null) throw new Error('Observer changed chat control state.');
+    const unavailable = await sendAgain();
+    const beforeUnavailable = pressureRefreshes;
+    unavailable.reject(new Error('Task status unavailable'));
+    await flush();
+    if (pressureRefreshes !== beforeUnavailable || deadlines.size) throw new Error('Observer failure changed pressure or leaked its deadline.');
+    if (state.isLoading || state.activeChatAbortController !== null) throw new Error('Observer failure locked chat.');
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;
@@ -222,6 +274,62 @@ global.fetch = async (url, options) => {
 """
     subprocess.run(
         ["node", "-e", harness, str(_ACTIONS_MODULE_PATH)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
+def test_terminal_waiter_handles_post_turn_delay_stale_context_and_failures() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+global.window = global;
+global.setTimeout = callback => setImmediate(callback);
+global.clearTimeout = clearImmediate;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'));
+const stream = ChatTaskStream.create({ state: {}, chatRendering: {}, callbacks: {} });
+const signal = new AbortController().signal;
+(async () => {
+    let calls = 0;
+    const statuses = ['queued', 'running', 'completed'];
+    global.fetch = async (url, options) => {
+        assert.strictEqual(url, 'api/tasks/task-1');
+        assert.strictEqual(options.cache, 'no-store');
+        assert.strictEqual(options.signal, signal);
+        return { ok: true, json: async () => ({ status: statuses[calls++] }) };
+    };
+    assert.strictEqual(await stream.waitForTerminal('task-1', signal), true);
+    assert.strictEqual(calls, 3);
+    for (const status of ['failed', 'cancelled', 'timed_out', 'skipped']) {
+        global.fetch = async () => ({ ok: true, json: async () => ({ status }) });
+        assert.strictEqual(await stream.waitForTerminal('task-1', signal), true);
+    }
+    let current = true;
+    global.fetch = async () => ({ ok: true, json: async () => {
+        current = false;
+        return { status: 'completed' };
+    } });
+    assert.strictEqual(await stream.waitForTerminal('task-1', signal, { isCurrent: () => current }), false);
+    global.fetch = async () => { throw new Error('Stale observer must not fetch'); };
+    assert.strictEqual(await stream.waitForTerminal('task-1', signal, { isCurrent: () => false }), false);
+    for (const response of [{ ok: false, status: 404 }, { ok: true, json: async () => ({}) }]) {
+        calls = 0;
+        global.fetch = async () => { calls++; return response; };
+        await assert.rejects(stream.waitForTerminal('task-1', signal));
+        assert.strictEqual(calls, 3, 'Failure retries must be bounded, including malformed task status.');
+    }
+    const cancelled = new AbortController();
+    global.fetch = async (_url, { signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Cancelled', 'AbortError')));
+    });
+    const pending = stream.waitForTerminal('task-1', cancelled.signal);
+    cancelled.abort();
+    await assert.rejects(pending, { name: 'AbortError' });
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE_PATH)],
         check=True,
         cwd=_PROJECT_ROOT,
     )
