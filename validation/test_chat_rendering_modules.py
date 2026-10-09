@@ -512,7 +512,10 @@ class Element {
         this.textContent = '';
         this.scrollTop = 20;
     }
-    set innerHTML(_value) { this.children = []; }
+    set innerHTML(_value) {
+        this.children.forEach(child => { child.parentElement = null; });
+        this.children = [];
+    }
     get innerHTML() { return ''; }
     get scrollHeight() { return this.children.length * 10; }
     addEventListener(name, listener) { this.listeners[name] = listener; }
@@ -528,6 +531,7 @@ class Element {
         return child;
     }
     insertBefore(child, anchor) {
+        if (anchor && anchor.parentElement !== this) throw new Error('NotFoundError');
         if (child.isFragment) {
             for (const nested of [...child.children]) this.insertBefore(nested, anchor);
             return child;
@@ -581,6 +585,7 @@ const state = { sessionId: 'session-1' };
 const requests = [];
 const assistantNodes = [];
 const assistantTurns = [];
+const vaultSelector = { value: 'Vault' };
 global.fetch = async url => {
     requests.push(url);
     return {
@@ -602,7 +607,7 @@ vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: proces
 
 const controller = ChatHistoryRendering.create({
     state,
-    elements: { chatMessages: container, vaultSelector: { value: 'Vault' } },
+    elements: { chatMessages: container, vaultSelector },
     icons: { MAP_ICON_SVG: '' },
     toolDetails: { close() {}, setEntryTokenCount() {} },
     messageControls: {
@@ -674,6 +679,51 @@ const controller = ChatHistoryRendering.create({
     assert.deepStrictEqual(assistantTurns, [{ content: 'The result.', toolIds: ['call-1'] }]);
     assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');
     assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), null);
+
+    // A stale request must not touch a re-rendered session, even if its ID matches.
+    const newestPage = {
+        session_id: 'session-1',
+        context_checkpoint_kind: 'session_map',
+        context_boundary_sequence_index: 5,
+        messages: [{ role: 'user', sequence_index: 6, content: 'newest' }],
+        has_older_messages: true,
+        older_before_sequence_index: 6,
+    };
+    const response = { ok: true, json: async () => ({
+        messages: [{ role: 'user', sequence_index: 1, content: 'stale' }],
+        has_older: false,
+    }) };
+    for (const transition of ['same-session', 'away-and-back', 'vault-change', 'stale-error']) {
+        const pending = [];
+        global.fetch = () => new Promise((resolve, reject) => pending.push({ resolve, reject }));
+        controller.renderSession(newestPage);
+        const oldButton = container.querySelector('[data-load-older-chat-messages]').children[0];
+        const oldRequest = oldButton.listeners.click();
+        if (transition === 'away-and-back') {
+            state.sessionId = 'session-2';
+            controller.renderSession({ ...newestPage, session_id: 'session-2' });
+            state.sessionId = 'session-1';
+        }
+        if (transition === 'vault-change') vaultSelector.value = 'OtherVault';
+        controller.renderSession(newestPage);
+        const newButton = container.querySelector('[data-load-older-chat-messages]').children[0];
+        const newRequest = newButton.listeners.click();
+        assert.strictEqual(pending.length, 2, 'New renders must reset older-page loading.');
+        if (transition === 'stale-error') pending[0].reject(new Error('stale failure'));
+        else pending[0].resolve(response);
+        await oldRequest;
+        assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]').map(
+            node => Number(node.dataset.canonicalStart)
+        ), [6]);
+        assert.strictEqual(newButton.disabled, true, 'Stale completion must not reset newer loading.');
+        assert.strictEqual(oldButton.textContent, 'Loading…', 'Stale errors must not update detached controls.');
+        pending[1].resolve(response);
+        await newRequest;
+        assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]').map(
+            node => Number(node.dataset.canonicalStart)
+        ), [1, 6]);
+        vaultSelector.value = 'Vault';
+    }
 })().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });
 """
     subprocess.run(

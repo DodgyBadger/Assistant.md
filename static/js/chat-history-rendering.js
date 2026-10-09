@@ -7,8 +7,10 @@
         let timelineBoundary = null;
         let timelineCheckpointId = '';
         let timelineLoading = false;
+        let timelineGeneration = 0;
 
         function renderPersistedSession(payload, options = {}) {
+            resetTimelineState();
             toolDetails.close();
             persistedToolEntriesById.clear();
             elements.chatMessages.innerHTML = '';
@@ -73,7 +75,6 @@
                 return;
             }
 
-            resetTimelineState();
             if (messages.length === 0) {
                 callbacks.renderEmptyState('Selected session has no persisted messages.');
                 renderLatestFailureAction(payload?.latest_failure);
@@ -87,11 +88,6 @@
                 const displaySequenceIndex = Number.isInteger(message.sequence_index)
                     ? message.sequence_index
                     : null;
-                if (message.context_checkpoint_kind === 'session_map') {
-                    flushAssistantTurn();
-                    renderSessionMapCheckpoint(message);
-                    return;
-                }
                 if (message.is_tool_message) {
                     collectToolIds(message.tool_call_ids, pendingToolCallIds);
                     collectToolIds(message.tool_return_ids, pendingToolCallIds);
@@ -125,6 +121,7 @@
         }
 
         function resetTimelineState() {
+            timelineGeneration += 1;
             timelineSessionId = '';
             timelineOlderCursor = null;
             timelineHasOlder = false;
@@ -275,6 +272,13 @@
             if (!vault) return;
             const requestedSessionId = timelineSessionId;
             const requestedCursor = timelineOlderCursor;
+            const requestedGeneration = timelineGeneration;
+            const isCurrentRequest = () => (
+                timelineGeneration === requestedGeneration
+                && state.sessionId === requestedSessionId
+                && timelineSessionId === requestedSessionId
+                && elements.vaultSelector?.value === vault
+            );
             timelineLoading = true;
             button.disabled = true;
             button.textContent = 'Loading…';
@@ -295,7 +299,7 @@
                     throw new Error(payload.message || `HTTP ${response.status}`);
                 }
                 const payload = await response.json();
-                if (state.sessionId !== requestedSessionId || timelineSessionId !== requestedSessionId) return;
+                if (!isCurrentRequest()) return;
                 const toolCallsById = groupToolCallsById(payload.tool_calls);
                 const nodes = renderCanonicalTimelineRows(
                     payload.messages || [],
@@ -318,11 +322,12 @@
                     : container.scrollHeight - previousHeight;
                 container.scrollTop = previousScrollTop + scrollDelta;
             } catch (error) {
+                if (!isCurrentRequest()) return;
                 console.error('Unable to load older chat messages:', error);
                 button.disabled = false;
                 button.textContent = 'Try loading older messages again';
             } finally {
-                timelineLoading = false;
+                if (isCurrentRequest()) timelineLoading = false;
             }
         }
 
