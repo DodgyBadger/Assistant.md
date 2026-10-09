@@ -266,10 +266,31 @@ class TranscriptRetrievalService:
                       )
                   )
               )
-            ORDER BY lexical_rank ASC, messages.session_id ASC,
-                     messages.sequence_index ASC
-            LIMIT ?
         """
+        if one_hit_per_session:
+            # Consider each session's best match before spending the bounded
+            # projection budget on more messages from the same session. Later
+            # rounds preserve fallbacks when mixed retrieval echoes are rejected.
+            query_sql = f"""
+                WITH candidates AS MATERIALIZED ({query_sql}),
+                ranked AS (
+                    SELECT *, row_number() OVER (
+                        PARTITION BY session_id
+                        ORDER BY lexical_rank ASC, sequence_index ASC
+                    ) AS session_position
+                    FROM candidates
+                )
+                SELECT * FROM ranked
+                ORDER BY session_position ASC, lexical_rank ASC, session_id ASC,
+                         sequence_index ASC
+                LIMIT ?
+            """
+        else:
+            query_sql += """
+                ORDER BY lexical_rank ASC, messages.session_id ASC,
+                         messages.sequence_index ASC
+                LIMIT ?
+            """
 
         conn = self._connect()
         conn.row_factory = sqlite3.Row

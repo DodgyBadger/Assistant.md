@@ -309,6 +309,58 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
                 "A mismatched vault should be concealed as a missing session",
             )
 
+        # One long session must not exhaust the cross-session candidate budget.
+        for identity, count, principal in (
+            ("aaa-long", 105, owner.principal_id),
+            ("zzz-short", 1, owner.principal_id),
+            ("hidden-match", 105, attacker.principal_id),
+        ):
+            store.ensure_session(identity, vault_name, owner_principal_id=principal)
+            store.add_messages(
+                identity, vault_name, [_message("wetland") for _ in range(count)]
+            )
+        with use_execution_authority(owner):
+            balanced = retrieval.search_vault(
+                vault_name=vault_name, query="wetland", limit=2
+            )
+            assert [hit.anchor.session_id for hit in balanced] == [
+                "aaa-long",
+                "zzz-short",
+            ]
+            assert all(hit.anchor.sequence_index == 0 for hit in balanced)
+            assert [
+                hit.anchor.session_id
+                for hit in retrieval.search_vault(
+                    vault_name=vault_name,
+                    query="wetland",
+                    limit=2,
+                    session_ids={"zzz-short"},
+                )
+            ] == ["zzz-short"]
+            # Mixed retrieval echoes can be SQL matches without matching primary
+            # content. Later candidates from that session must remain available.
+            store.add_messages(
+                "aaa-long",
+                vault_name,
+                [
+                    ModelRequest(
+                        parts=[
+                            UserPromptPart(content="unrelated primary text"),
+                            ToolReturnPart(
+                                tool_name="session_ops",
+                                tool_call_id="echo",
+                                content="fallbackneedle " * 20,
+                            ),
+                        ]
+                    ),
+                    _message("fallbackneedle"),
+                ],
+            )
+            fallback = retrieval.search_vault(
+                vault_name=vault_name, query="fallbackneedle", limit=2
+            )
+            assert len(fallback) == 1 and fallback[0].anchor.sequence_index == 106
+
         with use_execution_authority(attacker):
             self._assert_lookup_error(
                 lambda: retrieval.search(
