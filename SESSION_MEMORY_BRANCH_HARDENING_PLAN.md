@@ -513,3 +513,9 @@ These directions may influence data portability and naming, but they must not ex
 ## Immediate Next Step
 
 Run the remaining responsive and dark-mode rendering checks in a conventional browser, then decide which completed root implementation plans should be archived externally or removed from the product branch before final merge preparation.
+
+## Explicit File Reference Punctuation Follow-up
+
+The reported `@Library/! Primary Sources/Lehmann Springs/index.md` reference was split at `!`, leaving only a suffix for existence resolution. Preserve exclamation marks inside explicit file candidates without changing adjacent-reference boundaries, standalone inline-code handling, or server path safety. Add the exact sentence to the frontend candidate-parser regression and verify the matching file resolves through the vault API with spaces and punctuation intact. Validate the file-reference and chat-rendering module tests, JavaScript syntax, and the deterministic vault-file-reference scenario before committing this narrow fix.
+
+Completed: the exact frontend regression failed before the parser change and passed afterward. The file-reference and chat-rendering module suite passed 12/12, JavaScript syntax validation passed, and `integration/core/vault_file_reference_api` passed (`20261009_183851_404832`). Ruff, Black, and MyPy are clean. No backend production behavior changed; the full deterministic profile was not rerun for this frontend-only correction.

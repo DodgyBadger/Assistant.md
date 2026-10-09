@@ -144,6 +144,17 @@ assert.deepStrictEqual(
         },
     ]
 );
+
+// Punctuation inside a real vault path is not sentence punctuation. Keep the
+// complete candidate so existence resolution can distinguish files from prose.
+const punctuationText = 'Done. Start your proposal research at @Library/! Primary Sources/Lehmann Springs/index.md.';
+assert.deepStrictEqual(
+    global.__candidateMatches(punctuationText).map(({ raw, candidate }) => ({ raw, candidate })),
+    [{
+        raw: '@Library/! Primary Sources/Lehmann Springs/index.md',
+        candidate: 'Library/! Primary Sources/Lehmann Springs/index.md',
+    }]
+);
 """
     subprocess.run(
         ["node", "-e", harness, str(_LINKS_MODULE)],

@@ -14,6 +14,8 @@ class VaultFileReferenceApiScenario(BaseScenario):
 
     async def test_scenario(self):
         vault = self.create_vault("VaultFileReferenceApiVault")
+        punctuation_path = "Library/! Primary Sources/Lehmann Springs/index.md"
+        self.create_file(vault, punctuation_path, "# Primary sources\n")
         self.create_file(vault, "Projects/Alpha/README.md", "# Alpha\n\nStart here.\n")
         self.create_file(vault, "Projects/Alpha/notes.txt", "plain notes\n")
         self.create_file(vault, "Projects/Alpha/Nested/plan.md", "# Plan\n")
@@ -143,6 +145,7 @@ class VaultFileReferenceApiScenario(BaseScenario):
                     "missing.md",
                     ".hidden/secret.md",
                     "README.md",
+                    "@" + punctuation_path,
                 ],
             },
         )
@@ -150,6 +153,12 @@ class VaultFileReferenceApiScenario(BaseScenario):
         resolutions = {
             item["requested_path"]: item for item in resolved.json().get("items", [])
         }
+        assert resolutions[punctuation_path] == {
+            "requested_path": punctuation_path,
+            "path": punctuation_path,
+            "kind": "file",
+            "source": "vault",
+        }, "Punctuation and spaces in explicit file references must resolve intact"
         assert resolutions["README.md"] == {
             "requested_path": "README.md",
             "path": "Projects/Alpha/README.md",
@@ -166,7 +175,7 @@ class VaultFileReferenceApiScenario(BaseScenario):
         assert resolutions["missing.md"]["kind"] == "missing"
         assert resolutions[".hidden/secret.md"]["kind"] == "missing"
         assert (
-            len(resolutions) == 7
+            len(resolutions) == 8
         ), "Duplicate normalized candidates should resolve once"
 
         invalid_resolution = self.call_api(
