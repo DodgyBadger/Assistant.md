@@ -2,24 +2,18 @@
 
 ## Unreleased
 
-### Long-running chat continuity and inspection
+This release introduces a new session compaction strategy, Compaction v2, which aims to help long-running conversations stay coherent as older messages leave the model's context. It uses a concise session map to carry forward current work, open questions and how the conversation developed, with references back to the original messages. The map is still a lossy summary, but you and the assistant can inspect and retrieve the underlying conversation rather than relying on the summary alone.
 
-- Optional Compaction v2 uses source-linked session maps to preserve current work, uncertainty and conversation trajectory. Tune its effective-history target independently of V1's retained-turn count; V2 can continue with map-only context while keeping the complete canonical transcript available for inspection and retrieval.
-- Inspect map revisions from the session browser and load older complete messages directly in chat. Paging preserves the reading position, ignores stale responses after reload, and keeps tool details available on demand.
-- Sessions retain their chosen compaction strategy. Eligible recovery-card sessions can be upgraded individually to V2 without replaying chat actions; failed upgrades preserve the existing context.
-- Interrupted tool approvals leave subsequent chat turns usable without replaying tool effects. Review, chat and compaction diagnostics include clearer task identities and safe failure guidance.
-- The token-pressure indicator refreshes after post-turn compaction settles without delaying the visible answer or keeping chat controls locked.
+- Control when compaction happens and how much context remains afterward with configurable token watermarks. Compaction v2 is optional; the existing recovery-card strategy remains available.
+- Inspect the session map and its earlier revisions from the session browser. In V2 chats, original messages remain visible through **Load older messages**, including tool details and the ability to fork from older assistant messages.
+- Ask the assistant to search earlier messages in the current session and retrieve the original wording or surrounding discussion, including history no longer in its active context.
+- Find past conversations using **Names** or **Contents** in the session browser. Content search covers transcripts and map revisions, including sessions that have never been compacted. Discovery uses text search rather than semantic similarity and requires no embedding credentials or nightly summarization workflow.
+- Upgrade eligible recovery-card sessions individually to Compaction v2. Existing sessions keep their compaction strategy until explicitly upgraded; changing the default does not silently convert them.
+- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer.
 
-### Discover sessions without embedding setup
+The separate session-summary subsystem and its nightly workflow are retired. Legacy summary data is backed up before removal; original conversations and session maps are preserved. Custom workflows that depend on retired summary operations need updating.
 
-- Search past sessions by title, workspace, map revisions and canonical transcript text without an embedding model or nightly summarization workflow. The session browser offers **Names** and **Contents** search modes with bounded evidence previews.
-- Cross-session search balances transcript candidates so repeated hits in one long conversation do not crowd out other matching sessions. Historical map matches remain identifiable as earlier states.
-- Retired summary data is backed up before removal. Custom foreign-key dependencies block removal without losing dependent rows, and customized or unreadable authoring files are preserved with review diagnostics. Settings repair preserves supported models, providers and secrets while removing unsupported embedding aliases.
-
-### Clearer, quieter diagnostics
-
-- Invalid stored maps return an identified error without exposing private map input through validation messages or tracebacks.
-- System Activity records migration phases and backup locations, settings-repair outcomes and correlated review/task lifecycles. Successful search reads stay out of the log, and expanded diagnostic values are fully inspectable.
+This release also improves interrupted-chat recovery and makes System Activity failures easier to follow, with fuller diagnostic details and clearer task and backup information.
 
 ## v0.8.3
 
