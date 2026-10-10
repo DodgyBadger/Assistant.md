@@ -27,8 +27,16 @@ Existing summary data is backed up before removal; original conversations and se
 
 ### Other
 
-- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer.
-- Improved interrupted-chat recovery and System Activity diagnostics make failures easier to follow, with fuller details and clearer task and backup information.
+- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer. Existing `@path` references also handle adjacent paths and filenames containing `!` more reliably.
+- System Activity failures are easier to follow, with fuller diagnostic details and clearer task and backup information.
+
+### Bug fixes
+
+- New tasks now appear automatically in the dashboard even when its task list was initially empty.
+- Stopping or failing a resumed tool approval no longer leaves unanswered tool calls that prevent the next chat turn.
+- Forking a compacted session preserves original messages through the fork point and applicable compaction checkpoints, rather than copying only the shortened history.
+- Scheduled workflows tolerate brief start delays instead of being skipped after exceeding a one-second grace period.
+- Older session-loading responses no longer overwrite newer navigation or display stale errors after switching sessions or vaults.
 
 ## v0.8.3
 
