@@ -4,9 +4,9 @@
 
 ### Compaction v2
 
-This release introduces a new session compaction strategy, Compaction v2, which aims to reduce a subtle drift we noticed after repeated recovery-card compactions: the main facts could survive while their emphasis, interpretation and the story of how the conversation reached its current state gradually shifted. V2 uses a structured session map to carry forward current work, uncertainty and the conversation's trajectory. It remains a lossy summary, not a guarantee against drift.
+This release introduces a new session compaction strategy, Compaction v2, which aims to reduce a subtle drift we noticed across repeated recovery-card summaries: facts could survive while their emphasis or interpretation gradually shifted. V2 makes those interpretations more explicit in a structured session map, distinguishing options from commitments and preserving uncertainty alongside the story of how the conversation reached its current state.
 
-Alongside this, the release makes compaction much more inspectable. Message references in the map, a revision viewer, searchable older messages and full transcript visibility in V2 chats let you and the assistant check what the summary preserved against what was actually said.
+Better prompts can improve a summary, but cannot recover nuance once it has dropped out of successive summaries. V2 therefore pairs the map with references to original messages and tools for searching and retrieving older history. The map viewer and full transcript visibility let you inspect that history too. The goal is less implicit interpretation and a way back to the evidence when it matters—not an infallible summary, or one that must preserve everything on its own.
 
 - Control when compaction happens and how much context remains afterward with configurable token watermarks. Compaction v2 is optional; the existing recovery-card strategy remains available.
 - Inspect the session map and its earlier revisions from the session browser. In V2 chats, original messages remain visible through **Load older messages**, including tool details and the ability to fork from older assistant messages.
