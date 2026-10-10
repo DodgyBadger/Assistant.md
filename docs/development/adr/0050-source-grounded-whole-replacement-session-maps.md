@@ -12,21 +12,17 @@ Compaction V2 needs a representation that remains small enough to replace an old
 
 ## Decision
 
-Represent Compaction V2 continuity as a bounded, sparse session map containing an optional set of typed current-state entries and, when entries exist, one concise session-level narrative trajectory. Preserve the durable throughline and major causal pivots needed to understand current work across whole-map replacements; update that longer arc rather than resetting it around each new evidence interval. Describe pivots, displaced alternatives, and changed interpretations only when canonical evidence establishes them rather than forcing every revision into a dramatic causal shape. Entries may describe orientation, goals, options, next actions, decisions, constraints, findings, open questions, and artifacts. Each entry records its lifecycle state and evidentiary basis so active, superseded, and closed state remains distinct and assistant proposals do not silently become user commitments.
+Represent V2 continuity as a bounded, sparse map of typed current-state entries with a concise session-level trajectory when entries exist. Preserve the conversation's throughline across revisions, not just the newest interval. Distinguish exploration, proposals and commitments, and retain uncertainty rather than forcing every conversation into a project ledger.
 
-Treat each authored revision as a complete replacement map rather than a patch log. Author from the previous map plus newly evicted canonical evidence, retained recent canonical evidence, and any bounded transcript evidence explicitly retrieved and mechanically verified for the active session. Stable semantic entry identifiers support reconciliation across revisions, but the author may revise, supersede, close, or omit entries as the conversation changes.
+Author each revision as a complete replacement from the previous map and eligible canonical evidence, rather than accumulating a patch log. Carry forward relevant state and provenance while allowing entries to change or disappear as the conversation develops.
 
-Require every trajectory and entry claim to cite one or more canonical message ranges available through the prior map or admitted authoring evidence. Validate the bounded schema, conservative entry admission, source availability, and provenance before persistence. A source range proves that evidence was available; it does not by itself prove semantic entailment, make the references exhaustive, or elevate the map above the canonical transcript.
+Require canonical message references for trajectory and entry claims. References provide a route to evidence, not proof of semantic correctness or an exhaustive account of relevant history. Validate maps before persistence and on read; malformed maps must not replace usable context or expose private input through diagnostics.
 
-Validate stored map payloads when reading checkpoints as well as when authoring them. Invalid metadata fails explicitly without changing canonical history or the pinned strategy. Corruption responses and operational diagnostics identify the session and checkpoint using controlled error text; do not serialize private map input through validation messages or chained exceptions.
+Exclude retrieval-tool envelopes from source evidence so repeated search results cannot become self-reinforcing memory. Retrieved original transcript fragments are admissible only when verified against canonical messages.
 
-Keep each evidence envelope's contiguous consumed interval distinct from its citable ranges. Remove `session_ops` retrieval returns from author-visible message projections while preserving eligible parts of mixed messages. Admit bounded original transcript fragments only after verifying their canonical identity and exact content. Record the verified evidence-admission version in checkpoint metadata so sanitized mixed-message citations remain durable. A prior-map citation from a checkpoint without verified admission requires fresh eligible evidence when its message contains a retrieval return; retrieval-only messages are never citable. Persistence independently enforces the same provenance boundary.
+Use the checkpoint and canonical-history contract in [ADR 0049](0049-derive-effective-chat-history-from-strategy-pinned-checkpoints.md). Keep map revisions and provenance inspectable, with transcript retrieval available for omitted detail or disputed claims.
 
-Keep the canonical eviction boundary separate from the author observation boundary. Retained messages may inform current-state correction and may be cited when they support a salient map claim, but they remain verbatim in effective history until a later reduction consumes them. Persist a validated map only through the atomic, history-revision-fenced checkpoint contract in ADR 0049.
-
-Expose append-only map revisions, their boundaries, and their source references in a map-focused inspector. Keep complete canonical messages available through bounded reverse paging in the ordinary chat timeline, with the active map boundary shown at its canonical position. Keep canonical transcript search and bounded window retrieval available for exact wording, disputed provenance, omitted detail, and information outside the sparse map.
-
-Do not use a classifier as a map-authoring gate. Author a new whole map whenever the configured reduction policy selects a new eviction boundary. Generic decision-model capability remains independent of session-map operation.
+Author when the reduction policy selects a new eviction boundary, without a classifier gate. Experiments did not establish enough benefit from that extra decision layer to justify its dependency and tuning complexity.
 
 ## Rationale
 
@@ -36,14 +32,11 @@ Whole-map replacement avoids an ever-growing chain of active, superseded, and cl
 
 ## Consequences
 
-- Compaction V2 supplies compact, structured orientation with explicit options, open questions, supersession, causal trajectory, and inspectable provenance.
 - The session map is derived and lossy. It is not canonical truth, a complete transcript summary, or an event ledger. Its text can supply candidate evidence for cross-session lexical discovery under [ADR 0051](0051-lexical-session-discovery-over-canonical-evidence.md).
 - Map references are evidence routes rather than an exhaustive declaration of relevant history.
-- Canonical messages remain available for retrieval, reauthoring, upgrades, inspection, and safe forks.
-- The ordinary chat timeline remains the single visual home for canonical messages; the map modal does not duplicate transcript paging.
 - Complete replacement bounds model-facing map growth, while append-only checkpoints preserve revision history outside the active context.
-- Schema validation, provenance validation, author retries, checkpoint metadata, transcript inspection, and model inference add complexity and cost at reduction boundaries.
-- A map may omit useful narrative texture or emerging ideas; the retained verbatim tail and canonical transcript retrieval remain part of the architecture rather than temporary compatibility mechanisms.
+- Structured authoring, validation and model inference add complexity and cost at reduction boundaries.
+- A map may omit narrative texture or emerging ideas, or misinterpret evidence; canonical retrieval remains necessary even when the map validates.
 - Session maps have no runtime dependency on Jev or another classifier service.
 
 ## Evidence

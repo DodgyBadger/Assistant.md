@@ -25,7 +25,7 @@ This decision does not remove non-streaming model calls from the system.
 Non-chat domains may still use awaited model calls when their execution contract
 does not require chat task streaming semantics.
 
-Response-stream completion and execution-task completion are distinct. A successful response `done` event marks the committed assistant answer, while the owning chat task can still be running automatic post-turn compaction. Clients may finalize the visible answer immediately, but refresh effective-context indicators after the task reaches terminal state. Such observation must remain independent of chat controls and task cancellation, bounded, and guarded against session navigation or a newer turn. Deferred-review response completion does not imply approval has been granted or the reviewed operation has run.
+Response completion is not task completion: a visible answer can precede post-turn compaction, and a review response does not imply approval or execution. Clients must distinguish answer delivery from the owning task's lifecycle without making background observation own task cancellation.
 
 ## Rationale
 

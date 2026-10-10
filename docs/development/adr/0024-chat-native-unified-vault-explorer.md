@@ -52,9 +52,9 @@ editors unless a concrete AssistantMD workflow requires them.
 
 ### Vault link resolution
 
-Chat and vault previews share Markdown rendering and vault-link enhancement. Full-path wikilinks (`[[Library/! Primary Sources/index.md]]`) identify files or directories relative to the vault root and display the complete path. They do not use aliases or basename guessing. The flight card requests this form and the reference picker inserts it. Plain and inline-code `@path` references are also supported.
+Chat and vault previews share rendering and vault-link resolution rather than maintaining separate path policies. Prefer full vault-relative wikilinks with visible paths over aliases or basename guessing; retain ordinary Markdown links and supported `@path` references.
 
-Ordinary Markdown links preserve their authored labels. Local destinations in chat resolve from the vault root; destinations in a vault preview resolve from the source document's directory, with a leading slash selecting the vault root. Preview rendering supplies both the source path and its vault, including historical file previews. Markdown URL destinations are decoded once; wikilink paths are literal filenames. External schemes and same-document fragment links are not sent to vault lookup. Local targets cannot escape the vault or navigate to application routes while lookup is pending or when resolution fails. File existence and access remain enforced by the shared vault API; no alternative file-access path is introduced. Fenced code and ordinary inline code remain literal except for supported standalone `@path` references.
+Resolve local Markdown destinations relative to their source document in vault previews and the vault root in chat. Preserve authored labels and external links. All local references remain within the shared vault-access boundary, including unresolved links; rendering must not create an alternative access path.
 
 ## Rationale
 
