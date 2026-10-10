@@ -1,4 +1,4 @@
-# 0051 - Discover Sessions Through Lexical Canonical Evidence
+# 0051 - Replace Session Summaries with Canonical and Map-Based Discovery
 
 ## Status
 
@@ -6,33 +6,31 @@ Accepted. Supersedes [ADR 0006](0006-session-summaries-derived-memory-indexes.md
 
 ## Context
 
-Cross-session discovery should work without embedding credentials or a scheduled summarization workflow. Canonical transcripts already cover short sessions and recent turns, while compaction maps provide concise, source-linked orientation and preserve earlier topics across checkpoint revisions. Maintaining a separate authored summary creates another inference, storage, indexing, and lifecycle path without being necessary for lexical discovery.
+Session summaries were a means to cross-session discovery, not an end in themselves. Their nightly workflow and embedding setup added operational dependencies and a separate representation of conversations to maintain. Canonical transcripts and compaction-map checkpoints already provide searchable evidence, so discovery need not depend on another generated summary.
 
 ## Decision
 
-Use a memory-layer discovery service to compose lexical hits from canonical session titles/workspaces, every session-map checkpoint, and canonical transcripts. Keep FTS projections beside their owning chat records, backfill without inference, and maintain them atomically with canonical changes. Index map narrative and entry text rather than serialized schema or author prompts.
+Use lexical search over session metadata, canonical transcripts and map checkpoints for cross-session discovery. Retire the separate session-summary subsystem, nightly summary generation and unused embedding machinery.
 
-Filter sessions by execution authority and optional workspace before exposing candidate evidence. Admit at most one hit per source per session, combine source ranks, and return bounded session identities and evidence. Identify historical map hits explicitly. Read maps through an authorized checkpoint operation and verify exact details through canonical transcript anchors.
+Keep discovery independent of compaction: sessions without maps and messages after the latest checkpoint remain searchable. Maps provide concise orientation, including earlier topics through historical revisions; canonical messages remain the source for verification.
 
-Balance the bounded transcript candidate pool across eligible matching sessions before hydration and per-source deduplication. Repeated hits from one long transcript must not exhaust the pool before other sessions can contribute. Candidate retrieval and result payloads remain bounded; lexical discovery is not an exhaustive listing of every matching message.
+Retirement must protect canonical history, maps and user customizations, with backed-up removal of retired data rather than silent destructive cleanup.
 
-Compaction remains independent of discovery. Search does not author maps, change pinned strategies, advance eviction boundaries, or synthesize checkpoints for short sessions. Sessions without maps and messages after the latest checkpoint remain discoverable through canonical text.
+## Alternatives
 
-Retire summary generation, summary-selection helpers, summary API/UI surfaces, nightly summary seeding, and unused vector integration. Archive only recognizable packaged workflow copies; preserve authored customizations with a review warning and reject retired dependencies explicitly. A mandatory integrity-checked migration backup precedes scoped removal of known legacy summary tables. Preserve unknown tables, migration bookkeeping, canonical history, maps, and configured provider/model/secret records. Do not create the retired database on fresh installations.
+- Retain summaries alongside maps: preserves the existing semantic-search path but keeps duplicate memory representations and their maintenance burden without a demonstrated need.
 
-Embedding model aliases and vector dimensions have no supported consumer and are excluded from model configuration. The packaged settings contain no embedding alias; existing embedding-capable aliases are omitted from active configuration and removed by backed-up settings repair. Shared providers, secrets, and supported chat/decision mappings remain intact.
+- Generate maps nightly for discovery: reuses the schema but still makes discoverability depend on scheduled inference. Transcript search already covers sessions that have not needed compaction.
 
-Custom foreign-key dependencies on retired tables, including the shadow tables owned by retired virtual FTS tables, block retirement before any drop and emit an actionable diagnostic; dependent rows and migration bookkeeping remain unchanged regardless of foreign-key delete action. Unreadable, invalidly encoded, non-regular or unrecognizable authored workflow files are preserved with review diagnostics without preventing unrelated template seeding.
+- Retain embeddings as a required discovery dependency: offers semantic recall, but the observed need does not justify the additional setup and lifecycle complexity.
 
 ## Consequences
 
-- Core session discovery requires neither a model call nor an embedding API key.
+- Core session discovery requires no model call, embedding API key or nightly workflow.
 - Lexical search does not promise semantic similarity, synonyms, or paraphrase recall.
 - Maps supply candidate orientation, not canonical truth or exhaustive evidence; historical hits may describe superseded work.
-- Checkpoint count does not contribute extra source votes. Fork-family deduplication remains a separate policy.
 - Search indexes are rebuildable derived state, while chat records and checkpoint provenance remain authoritative.
-- No nightly workflow is required to make short or newly active sessions discoverable.
-- Future semantic retrieval, vault/session links, and background discovery snapshots can extend the focused discovery boundary without changing compaction.
+- This trades semantic recall for simpler setup and fewer failure paths; it does not rule out optional semantic retrieval or broader vault/session memory later.
 
 ## Evidence
 
