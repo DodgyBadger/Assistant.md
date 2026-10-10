@@ -14,13 +14,19 @@ Better prompts can improve a summary, but cannot recover nuance once it has drop
 
 Compaction v2 is optional and is not enabled by default. To use it, set `compaction_strategy` to `session_map` in Settings; new sessions will then use V2 when they compact. Existing sessions already compacted under V1 keep their recovery-card strategy and must be upgraded individually using **Upgrade to Compaction v2** in the session browser. Changing the setting does not convert them automatically, and the V1 strategy remains available as `recovery_card`.
 
-### Session summaries
+### Simpler cross-session discovery
 
-The separate session-summary subsystem and its nightly workflow are retired. Legacy summary data is backed up before removal; original conversations and session maps are preserved. Custom workflows that depend on retired summary operations need updating.
+Compaction v2’s session maps also provide useful summaries for discovering past conversations, making a separate nightly session-summary system increasingly redundant. This release brings discovery onto the same maps and original transcripts used for session continuity. Transcript search covers sessions without maps, recent messages and details the maps leave out.
+
+We also retired embedding-based session search: its practical value in our use did not justify retaining the additional setup and machinery. Discovery now uses lexical text search, trading semantic and paraphrase matching for a simpler system with no embedding credentials or nightly summarization workflow.
+
+- Find past conversations using **Names** or **Contents** in the session browser.
+- Search session maps and original transcripts without waiting for a summary to be generated.
+
+Existing summary data is backed up before removal; original conversations and session maps are preserved. Custom workflows using retired summary operations need updating.
 
 ### Other
 
-- Find past conversations using **Names** or **Contents** in the session browser. Content search covers transcripts and map revisions, including sessions that have never been compacted. Discovery uses text search rather than semantic similarity and requires no embedding credentials or nightly summarization workflow.
 - Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer.
 - Improved interrupted-chat recovery and System Activity diagnostics make failures easier to follow, with fuller details and clearer task and backup information.
 
