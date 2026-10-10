@@ -28,8 +28,6 @@ Mount one or more Markdown vaults when you install Assistant.md, and they become
 
 Assistant.md is useful with its default setup, but its behavior is deliberately composable. Edit Markdown guidance for simple customization, or use sandboxed Python when you need custom context assembly and repeatable workflows. See [Getting the Most from Assistant.md](docs/use/getting-the-most.md) to get started.
 
-Session discovery works without embedding credentials or a scheduled summarization workflow.
-
 ## Documentation
 
 ### Using Assistant.md
