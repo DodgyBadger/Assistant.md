@@ -14,13 +14,15 @@ Use a memory-layer discovery service to compose lexical hits from canonical sess
 
 Filter sessions by execution authority and optional workspace before exposing candidate evidence. Admit at most one hit per source per session, combine source ranks, and return bounded session identities and evidence. Identify historical map hits explicitly. Read maps through an authorized checkpoint operation and verify exact details through canonical transcript anchors.
 
+Balance the bounded transcript candidate pool across eligible matching sessions before hydration and per-source deduplication. Repeated hits from one long transcript must not exhaust the pool before other sessions can contribute. Candidate retrieval and result payloads remain bounded; lexical discovery is not an exhaustive listing of every matching message.
+
 Compaction remains independent of discovery. Search does not author maps, change pinned strategies, advance eviction boundaries, or synthesize checkpoints for short sessions. Sessions without maps and messages after the latest checkpoint remain discoverable through canonical text.
 
 Retire summary generation, summary-selection helpers, summary API/UI surfaces, nightly summary seeding, and unused vector integration. Archive only recognizable packaged workflow copies; preserve authored customizations with a review warning and reject retired dependencies explicitly. A mandatory integrity-checked migration backup precedes scoped removal of known legacy summary tables. Preserve unknown tables, migration bookkeeping, canonical history, maps, and configured provider/model/secret records. Do not create the retired database on fresh installations.
 
 Embedding model aliases and vector dimensions have no supported consumer and are excluded from model configuration. The packaged settings contain no embedding alias; existing embedding-capable aliases are omitted from active configuration and removed by backed-up settings repair. Shared providers, secrets, and supported chat/decision mappings remain intact.
 
-Custom foreign-key dependencies on retired tables block retirement before any drop and emit an actionable diagnostic; dependent rows and migration bookkeeping remain unchanged. Unreadable or unrecognizable authored workflow files are preserved with review diagnostics without preventing unrelated template seeding.
+Custom foreign-key dependencies on retired tables, including the shadow tables owned by retired virtual FTS tables, block retirement before any drop and emit an actionable diagnostic; dependent rows and migration bookkeeping remain unchanged regardless of foreign-key delete action. Unreadable, invalidly encoded, non-regular or unrecognizable authored workflow files are preserved with review diagnostics without preventing unrelated template seeding.
 
 ## Consequences
 

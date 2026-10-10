@@ -108,6 +108,18 @@ The `session_ops` tool searches session titles, workspaces, map checkpoints, and
 
 In the Chat Settings session browser, use **Names** to filter session metadata or switch to **Contents** to search the selected vault's transcripts and map revisions. Contents shows up to 20 best matching sessions with short evidence excerpts. An earlier-map match may describe superseded work; open the session to inspect its history. Clear the search field to browse all sessions again.
 
+## Keep continuity in long chats
+
+`compaction_strategy` selects `recovery_card` (V1) or `session_map` (V2) for sessions without a checkpoint. The first successful compaction pins the session to that strategy. Eligible recovery-card sessions offer an explicit **Upgrade to Compaction v2** action in the session browser; changing the installation setting does not convert existing sessions automatically.
+
+Both strategies use `compaction_high_watermark_tokens` to trigger automatic reduction under the `auto` policy. V1 keeps at least `compaction_retained_turns` newest turns verbatim. V2 uses `compaction_low_watermark_tokens` to target the combined map and retained-history size; the retained-turn setting has no effect. V2 can retain only the map when no complete raw turn fits, but never removes an incomplete active turn. These budgets describe effective chat history, not the full model context with instructions, tools and the active prompt. `compaction_author_model` applies to both strategies and uses the default chat model when unset.
+
+In V2, complete canonical messages remain in the chat timeline. Use **Load older messages** to page backward without loading the entire session at once, and use the session's map icon to inspect map revisions and their source references. A map is a lossy guide to current work, not an exhaustive account of everything discussed; ask the agent to search the transcript when exact wording or omitted details matter. The token-pressure bar can remain high briefly after the answer finishes while automatic compaction runs, then refreshes when the owning task settles.
+
+## Inspect operational activity
+
+Use System Activity to inspect failures, compaction, upgrades and other important operations. Filter by a session, task or workflow identity to connect related records. Interrupted review diagnostics include the originating and resumed task identities when available; a review can fail before a resume task is created. Migration failures identify the failing phase, known database and backup location, and settings repair records its backup path. Successful search/page reads stay out of System Activity so routine browsing does not obscure meaningful events. Invalid stored maps produce a checkpoint-identified error rather than exposing private map text in diagnostics.
+
 ## Customize context only when needed
 
 A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine effective history, selected files, skills, project guidance, and explicitly retrieved evidence.

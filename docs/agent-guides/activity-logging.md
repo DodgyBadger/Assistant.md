@@ -69,6 +69,10 @@ logger.info(
 
 Failures should include `error_type` and a concise `error`. Add tracebacks only when the log is already an error diagnostic path and the traceback is useful to maintainers.
 
+Exception text is not inherently safe: validation errors and their chained causes can include private stored input. Translate such failures at the owning boundary into controlled error text and source identities before a generic handler can serialize them. Truncating a private exception message does not sanitize it. Invalid stored-map diagnostics identify the checkpoint/session without including map text or validation inputs.
+
+Use explicit callback task identities for terminal hooks that run after execution context has unwound; the current task ContextVar may be empty or refer to a parent. Deferred-review creation and claim records include durable status and available originating/resumed task identities, but a claim before task admission must not invent a resume-task ID. Failed settlement guidance should identify the review and task when linked, or the preceding admission failure otherwise.
+
 ## Subsystem Guidance
 
 - Runtime: log bootstrap, reload, migration, scheduler, and configuration-health summaries.
@@ -82,6 +86,8 @@ Failures should include `error_type` and a concise `error`. Add tracebacks only 
 - LLM/tools: persist per-tool chat events structurally; activity should summarize long-running/external tool outcomes and failures.
 - Multimodal: log compact attach/fallback counts and reason codes, never image bytes.
 - Ingestion: log batch scan/enqueue decisions and per-file terminal summaries, including selected strategy and OCR fallback details.
+
+System database migration start and terminal events share an operation ID. Failures identify the inspect/backup/apply/verify phase, the database when known, and a backup directory without copying exception contents. Completion reports remaining pending work and explicitly excluded locked databases. Settings repair emits its completed outcome only after backed-up repair and successful reload; scheduler change and sync summaries carry explicit terminal status, while detailed workflow inventories remain validation-only.
 
 ## Review Checklist
 

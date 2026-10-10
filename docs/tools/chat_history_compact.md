@@ -11,6 +11,8 @@ Parameters:
 
 The compact operation uses the strategy pinned to the session by its latest context checkpoint, or the configured default when the session has no checkpoint. Recovery-card sessions produce a replacement summary plus the configured newest raw turns. Session-map sessions author a new source-linked map revision and evict complete older conversational groups toward the low watermark. V2 does not use the retained-turn setting; an incomplete active turn remains verbatim.
 
+A session-map compaction can leave only the map in active history. Original messages remain retrievable with `session_ops`.
+
 Manual compaction can run below the automatic high watermark. The `suggested` policy reports when compaction is recommended but waits for an explicit request. The `none` policy disables automatic compaction and proactive suggestions but does not block an explicitly approved manual request.
 
 If a session-map request has no safely evictable complete conversational group, it returns `status="unavailable"` and does not author or commit a new revision.
