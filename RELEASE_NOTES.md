@@ -8,10 +8,11 @@ This release introduces a new session compaction strategy, Compaction v2, which 
 
 Better prompts can improve a summary, but cannot recover nuance once it has dropped out of successive summaries. V2 therefore pairs the map with references to original messages and tools for searching and retrieving older history. The map viewer and full transcript visibility let you inspect that history too. The goal is less implicit interpretation and a way back to the evidence when it matters—not an infallible summary, or one that must preserve everything on its own.
 
-- Control when compaction happens and how much context remains afterward with configurable token watermarks. Compaction v2 is optional; the existing recovery-card strategy remains available.
+- Control when compaction happens and how much context remains afterward with configurable token watermarks.
 - Inspect the session map and its earlier revisions from the session browser. In V2 chats, original messages remain visible through **Load older messages**, including tool details and the ability to fork from older assistant messages.
 - Ask the assistant to search earlier messages in the current session and retrieve the original wording or surrounding discussion, including history no longer in its active context.
-- Upgrade eligible recovery-card sessions individually to Compaction v2. Existing sessions keep their compaction strategy until explicitly upgraded; changing the default does not silently convert them.
+
+Compaction v2 is optional and is not enabled by default. To use it, set `compaction_strategy` to `session_map` in Settings; new sessions will then use V2 when they compact. Existing sessions already compacted under V1 keep their recovery-card strategy and must be upgraded individually using **Upgrade to Compaction v2** in the session browser. Changing the setting does not convert them automatically, and the V1 strategy remains available as `recovery_card`.
 
 ### Session summaries
 
