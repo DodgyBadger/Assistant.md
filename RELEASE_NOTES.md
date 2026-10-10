@@ -2,18 +2,26 @@
 
 ## Unreleased
 
-This release introduces a new session compaction strategy, Compaction v2, which aims to help long-running conversations stay coherent as older messages leave the model's context. It uses a concise session map to carry forward current work, open questions and how the conversation developed, with references back to the original messages. The map is still a lossy summary, but you and the assistant can inspect and retrieve the underlying conversation rather than relying on the summary alone.
+### Compaction v2
+
+This release introduces a new session compaction strategy, Compaction v2, which aims to reduce a subtle drift we noticed after repeated recovery-card compactions: the main facts could survive while their emphasis, interpretation and the story of how the conversation reached its current state gradually shifted. V2 uses a structured session map to carry forward current work, uncertainty and the conversation's trajectory. It remains a lossy summary, not a guarantee against drift.
+
+Alongside this, the release makes compaction much more inspectable. Message references in the map, a revision viewer, searchable older messages and full transcript visibility in V2 chats let you and the assistant check what the summary preserved against what was actually said.
 
 - Control when compaction happens and how much context remains afterward with configurable token watermarks. Compaction v2 is optional; the existing recovery-card strategy remains available.
 - Inspect the session map and its earlier revisions from the session browser. In V2 chats, original messages remain visible through **Load older messages**, including tool details and the ability to fork from older assistant messages.
 - Ask the assistant to search earlier messages in the current session and retrieve the original wording or surrounding discussion, including history no longer in its active context.
-- Find past conversations using **Names** or **Contents** in the session browser. Content search covers transcripts and map revisions, including sessions that have never been compacted. Discovery uses text search rather than semantic similarity and requires no embedding credentials or nightly summarization workflow.
 - Upgrade eligible recovery-card sessions individually to Compaction v2. Existing sessions keep their compaction strategy until explicitly upgraded; changing the default does not silently convert them.
-- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer.
+
+### Session summaries
 
 The separate session-summary subsystem and its nightly workflow are retired. Legacy summary data is backed up before removal; original conversations and session maps are preserved. Custom workflows that depend on retired summary operations need updating.
 
-This release also improves interrupted-chat recovery and makes System Activity failures easier to follow, with fuller diagnostic details and clearer task and backup information.
+### Other
+
+- Find past conversations using **Names** or **Contents** in the session browser. Content search covers transcripts and map revisions, including sessions that have never been compacted. Discovery uses text search rather than semantic similarity and requires no embedding credentials or nightly summarization workflow.
+- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer.
+- Improved interrupted-chat recovery and System Activity diagnostics make failures easier to follow, with fuller details and clearer task and backup information.
 
 ## v0.8.3
 
