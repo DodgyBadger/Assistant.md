@@ -186,6 +186,8 @@ The frontend regression first failed against the unpatched actions module with n
 
 ### Documentation alignment after hardening
 
+Agent-guide follow-up: clarify ADR scope in `docs/agent-guides/cleanup-before-merge.md`. Records capture durable choices, rationale, alternatives and trade-offs rather than architecture inventories; wiring and small design changes require no ADR edit unless the decision, justification or essential boundaries change. Keep implementation mechanics in current-contract documentation. This documentation-only clarification is checked for Markdown rendering and diff cleanliness before committing.
+
 Recent-ADR concision review: inspect new ADRs 0048–0051 and recently touched ADRs 0012, 0020, 0024, 0033 and 0047. Trim duplicated planner, metadata, validation and UI mechanics from 0049/0050 and the new lifecycle/link paragraphs in 0020/0024, retaining the durable decisions and rationale. Keep 0048 and the other focused records unchanged. Preserve stable filenames, source evidence pointers and safety boundaries; this documentation-only review does not change runtime contracts. Validate Markdown and local links before committing.
 
 ADR follow-up: retitle ADR 0051 as “Replace Session Summaries with Canonical and Map-Based Discovery” and keep the record focused on motivation, the decision, alternatives and trade-offs. Remove implementation-level ranking, migration and settings mechanics from the ADR narrative; their contracts remain in architectural guidance, the logging guide and this hardening plan. Keep the existing filename and ADR number so inbound links remain stable. Validate the documentation-only edit before its local checkpoint.
