@@ -188,15 +188,11 @@
             overlay.innerHTML = `
                 <div class="absolute inset-0" data-vault-file-close="true"></div>
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="vault-file-modal-title">
-                    <div class="app-modal-header flex-none">
+                    <div class="app-modal-header vault-file-modal-header flex-none">
                         ${fileHistory.length || typeof returnToOrigin === 'function' ? `
                             <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
                         ` : ''}
                         <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
-                        <div class="app-modal-title-block">
-                            <h2 id="vault-file-modal-title" class="text-lg font-semibold text-txt-primary">${escapeHtml(path.split('/').pop() || path)}</h2>
-                            <p id="vault-file-modal-path" class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(path)}</p>
-                        </div>
                         <div class="app-modal-actions">
                             <div class="vault-file-mode-toggle hidden" data-vault-file-mode-toggle role="group" aria-label="File view">
                                 <button type="button" data-vault-file-mode="preview" aria-label="Preview Markdown" title="Preview Markdown">${icons.EYE_ICON_SVG}</button>
@@ -205,6 +201,10 @@
                             </div>
                             <button type="button" class="ui-icon-button is-primary is-compact hidden" data-vault-file-save="true" aria-label="Save file" title="Save file" disabled>${icons.SAVE_ICON_SVG}</button>
                             <button type="button" class="ui-icon-button is-compact" data-vault-file-close="true" aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
+                        </div>
+                        <div class="app-modal-title-block">
+                            <h2 id="vault-file-modal-title" class="text-lg font-semibold text-txt-primary">${escapeHtml(path.split('/').pop() || path)}</h2>
+                            <p id="vault-file-modal-path" class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(path)}</p>
                         </div>
                     </div>
                     <div class="vault-file-modal-content flex-1 min-h-0 flex flex-col">

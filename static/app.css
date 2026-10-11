@@ -1910,6 +1910,15 @@ details summary::-webkit-details-marker {
     min-width: 0;
     overflow-wrap: anywhere;
 }
+.vault-file-modal-header {
+    flex-wrap: wrap;
+}
+.vault-file-modal-header > .app-modal-title-block {
+    flex: 0 0 100%;
+}
+.vault-file-modal-header > .app-modal-actions {
+    margin-left: auto;
+}
 .app-modal-actions {
     flex: 0 0 auto;
     display: flex;

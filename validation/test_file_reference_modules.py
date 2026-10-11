@@ -471,3 +471,20 @@ run().catch(error => { console.error(error); process.exitCode = 1; });
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_file_modal_information_uses_full_width_row_below_controls() -> None:
+    source = (_PROJECT_ROOT / "static/js/file-references.js").read_text(
+        encoding="utf-8"
+    )
+    header = source.split('class="app-modal-header vault-file-modal-header', 1)[1]
+    header = header.split('class="vault-file-modal-content', 1)[0]
+    assert header.index('class="app-modal-actions"') < header.index(
+        'class="app-modal-title-block"'
+    )
+    stylesheet = (_PROJECT_ROOT / "static/app.css").read_text(encoding="utf-8")
+    assert ".vault-file-modal-header {\n    flex-wrap: wrap;\n}" in stylesheet
+    assert (
+        ".vault-file-modal-header > .app-modal-title-block {\n    flex: 0 0 100%;\n}"
+        in stylesheet
+    )
