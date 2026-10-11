@@ -28,4 +28,4 @@ Record logical lineage in session metadata with the immediate parent, canonical 
 
 - `validation/scenarios/integration/core/chat_session_fork_lineage.py`
 - `validation/scenarios/integration/core/chat_history_compaction.py`
-- `SESSION_FORK_LINEAGE_IMPLEMENTATION_PLAN.md`
+- `core/chat/chat_store.py` and `core/chat/schema.py`
