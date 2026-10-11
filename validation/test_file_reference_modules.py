@@ -17,7 +17,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 global.window = global;
-global.document = {};
+global.document = { getElementById() { return null; } };
 global.HTMLTextAreaElement = class {
     constructor() { this.value = 'See '; this.selectionStart = 4; this.selectionEnd = 4; }
     focus() {}
@@ -118,6 +118,107 @@ def test_file_reference_links_load_before_controller() -> None:
     )
 
     assert links_position < references_position
+
+
+def test_file_modal_back_history_and_tree_navigation() -> None:
+    harness = r"""
+const assert = require('assert'), fs = require('fs'), vm = require('vm');
+global.window = global;
+let overlay = null, picker = null, discard = true;
+class Element {
+    constructor() {
+        this.value = ''; this.scrollTop = 0; this.dataset = {}; this.events = {}; this.nodes = new Map();
+        const classes = new Set();
+        this.classList = { add:name=>classes.add(name), remove:name=>classes.delete(name),
+            toggle(name, enabled){if(enabled)classes.add(name);else classes.delete(name);}, contains:name=>classes.has(name) };
+    }
+    querySelector(selector) {
+        if (selector === '[data-vault-file-back]' && !this.innerHTML?.includes('data-vault-file-back')) return null;
+        if (selector === '[data-vault-file-tree]' && !this.innerHTML?.includes('data-vault-file-tree')) return null;
+        if (!this.nodes.has(selector)) this.nodes.set(selector, selector.includes('editor') ? new Textarea() : selector.includes('button') || selector.includes('save') ? new Button() : new Element());
+        return this.nodes.get(selector);
+    }
+    querySelectorAll() { return []; }
+    addEventListener(name, callback) { this.events[name] = callback; }
+    remove() { if (overlay === this) overlay = null; }
+    setAttribute() {}
+}
+class Textarea extends Element {}
+class Button extends Element {}
+global.Element = global.HTMLElement = Element;
+global.HTMLTextAreaElement = Textarea; global.HTMLButtonElement = Button;
+global.document = { createElement:()=>new Element(), getElementById:()=>overlay, body:{appendChild(node){overlay=node;}} };
+global.confirm = () => discard;
+global.requestAnimationFrame = callback => callback();
+global.fetch = async url => ({ok:true,json:async()=>({content:`Body ${url}`,sha256:'hash'})});
+for (const file of process.argv.slice(1)) vm.runInThisContext(fs.readFileSync(file,'utf8'));
+const vaultSelector = {value:'OriginalVault'};
+const controller = FileReferences.create({state:{}, elements:{vaultSelector}, icons:{},
+    utils:{escapeHtml:value=>String(value),formatShortDate:value=>value},
+    callbacks:{openPathPicker(options){picker=options;},renderMarkdownPreview(){}}});
+const editor = () => overlay.querySelector('#vault-file-modal-editor');
+const preview = () => overlay.querySelector('#vault-file-modal-preview');
+async function click(selector, dataset = {}) {
+    const current = overlay;
+    const button = Object.assign(new Button(), {dataset});
+    await current.events.click({target:Object.assign(new Element(),{closest:value=>value===selector ? button : null})});
+}
+async function run() {
+    await controller.openFile('A.md');
+    assert(!overlay.querySelector('[data-vault-file-back]'), 'Direct chat open has no previous view.');
+    assert(overlay.querySelector('[data-vault-file-tree]'), 'A separate tree action is always available.');
+    preview().scrollTop=240;
+    await controller.openFile('B.md', {vaultName:'OriginalVault'});
+    preview().scrollTop=90;
+    await controller.openFile('C.md', {vaultName:'OriginalVault'});
+    vaultSelector.value='ChangedVault';
+    await click('[data-vault-file-back="true"]');
+    assert(editor().value.includes('path=B.md'), 'Back restores the previous file, not the tree.');
+    assert.strictEqual(preview().scrollTop,90);
+    editor().value='Unsaved'; discard=false;
+    await click('[data-vault-file-back="true"]');
+    assert.strictEqual(editor().value,'Unsaved', 'Declined departure must preserve view and history.');
+    await click('[data-vault-file-tree="true"]');
+    assert.strictEqual(picker,null, 'Tree navigation also respects unsaved changes.');
+    discard=true;
+    await click('[data-vault-file-back="true"]');
+    assert(editor().value.includes('OriginalVault') && editor().value.includes('path=A.md'));
+    assert.strictEqual(preview().scrollTop,240);
+    assert(!overlay.querySelector('[data-vault-file-back]'));
+    await click('[data-vault-file-tree="true"]');
+    assert.strictEqual(picker.vaultName,'OriginalVault');
+    assert.strictEqual(picker.revealInitialPath,'A.md');
+    await picker.onOpenFile('D.md');
+    assert(overlay.querySelector('[data-vault-file-back]'), 'Opening from a tree records that origin.');
+    await controller.openFile('E.md',{vaultName:'OriginalVault'});
+    await click('[data-vault-file-back="true"]');
+    assert(editor().value.includes('path=D.md'));
+    await click('[data-vault-file-back="true"]');
+    assert.strictEqual(overlay,null, 'Back from first tree-opened file reveals the original tree.');
+    await controller.openFile('Direct.md',{vaultName:'OriginalVault'});
+    await controller.openFile('Direct.md',{vaultName:'OriginalVault'});
+    assert(!overlay.querySelector('[data-vault-file-back]'), 'Refreshing a file must not create a duplicate history entry.');
+    await click('[data-vault-file-mode]', {vaultFileMode:'edit'});
+    editor().scrollTop=55;
+    await controller.openFile('Next.md',{vaultName:'OriginalVault'});
+    await click('[data-vault-file-back="true"]');
+    assert(!editor().classList.contains('hidden'), 'Back restores edit mode as well as preview mode.');
+    assert.strictEqual(editor().scrollTop,55);
+    let release;
+    global.fetch = () => new Promise(resolve=>{release=resolve;});
+    const pending=controller.openFile('Late.md',{vaultName:'OriginalVault'});
+    controller.closeFileModal();
+    release({ok:true,json:async()=>({content:'Late',sha256:'late'})});
+    await pending;
+    assert.strictEqual(overlay,null, 'A late load cannot reopen a closed view.');
+}
+run().catch(error=>{console.error(error);process.exitCode=1;});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_LINKS_MODULE), str(_REFERENCES_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
 
 
 def test_adjacent_at_path_references_do_not_merge_across_prose() -> None:
@@ -258,8 +359,7 @@ async function run() {
     assert(!(root.children[7] instanceof Anchor));
     root.children[0].events.click({ preventDefault() {} });
     assert.strictEqual(opened[0].vaultName, 'NotesVault');
-    opened[0].onBack();
-    assert.strictEqual(directories[0].vaultName, 'NotesVault');
+    assert.strictEqual(opened[0].onBack, undefined, 'File navigation history belongs to the modal, not the link resolver.');
     await controller.enhanceFileLinks(root, { vaultName: 'NotesVault', sourcePath: 'Projects/Plan/index.md' });
     assert.strictEqual(requests.length, 1, 'Repeated enhancement must not relink resolved paths.');
 
@@ -269,7 +369,8 @@ async function run() {
     assert.strictEqual(requests[1].workspace_path, '', 'Explicit chat links are vault-root-relative.');
     assert(!(chat.children[2] instanceof Anchor));
     chat.children[1].events.click({ preventDefault() {} });
-    assert.strictEqual(directories[1].revealPath, 'Library');
+    assert.strictEqual(directories[0].revealPath, 'Library');
+    assert.strictEqual(directories[0].vaultName, 'ChatVault');
 
     const legacy = new Element('@README.md');
     legacy.dataset.vaultReferenceCandidate = 'README.md';

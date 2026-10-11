@@ -146,6 +146,11 @@
                 <path d="M2 10h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        FOLDER_TREE_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1ZM20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1ZM3 5a2 2 0 0 0 2 2h3M3 3v13a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
         BRIEFCASE_BUSINESS_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
@@ -305,6 +310,7 @@
         eye: icons.EYE_ICON_SVG,
         fileDown: icons.FILE_DOWN_ICON_SVG,
         folder: icons.FOLDER_ICON_SVG,
+        folderTree: icons.FOLDER_TREE_ICON_SVG,
         briefcaseBusiness: icons.BRIEFCASE_BUSINESS_ICON_SVG,
         import: icons.IMPORT_ICON_SVG,
         link: icons.LINK_ICON_SVG,

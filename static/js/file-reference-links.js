@@ -154,7 +154,7 @@
                         if (resolution.kind === 'directory') {
                             browseDirectory();
                         } else {
-                            openFile(resolution.path, { vaultName, onBack: browseDirectory });
+                            openFile(resolution.path, { vaultName });
                         }
                     });
                     element.replaceWith(link);

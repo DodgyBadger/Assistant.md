@@ -3,6 +3,8 @@
         const { escapeHtml, formatShortDate } = utils;
         let pickerOpen = false;
         let activeFileCanClose = null;
+        let activeFileView = null;
+        let fileHistory = [];
 
         const linkResolver = window.FileReferenceLinks.create({
             callbacks: {
@@ -51,6 +53,7 @@
             vaultName = '',
             workspaceSelection = false,
         } = {}) {
+            if (!closeFileModal()) return;
             const vault = vaultName || selectedVault();
             const contextBound = vault === selectedVault();
             const savedWorkspace = contextBound ? workspacePath() : '';
@@ -166,10 +169,19 @@
             vaultName = '',
             initialMode = '',
             initialRevisionId = '',
+            navigationAction = 'push',
+            restoredView = null,
         } = {}) {
             const vault = vaultName || selectedVault();
             if (!vault || !path) return;
-            if (!closeFileModal()) return;
+            const previousView = activeFileView?.snapshot();
+            if (!closeFileModal({ preserveNavigation: true })) return;
+            if (navigationAction === 'back') fileHistory.pop();
+            else if (previousView && navigationAction !== 'replace'
+                && (previousView.path !== path || previousView.vaultName !== vault)) {
+                fileHistory.push(previousView);
+            }
+            const returnToOrigin = previousView ? previousView.onBack : onBack;
             const overlay = document.createElement('div');
             overlay.id = 'vault-file-modal';
             overlay.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
@@ -177,9 +189,10 @@
                 <div class="absolute inset-0" data-vault-file-close="true"></div>
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="vault-file-modal-title">
                     <div class="app-modal-header flex-none">
-                        ${typeof onBack === 'function' ? `
-                            <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back to files" title="Back to files">${icons.ARROW_LEFT_ICON_SVG}</button>
+                        ${fileHistory.length || typeof returnToOrigin === 'function' ? `
+                            <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
                         ` : ''}
+                        <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
                         <div class="app-modal-title-block">
                             <h2 id="vault-file-modal-title" class="text-lg font-semibold text-txt-primary">${escapeHtml(path.split('/').pop() || path)}</h2>
                             <p id="vault-file-modal-path" class="mt-1 text-xs text-txt-secondary cell-mono">${escapeHtml(path)}</p>
@@ -235,6 +248,8 @@
             let savedContent = '';
             let mode = 'edit';
             let historyLoaded = false;
+            let historyLoadPromise = null;
+            let selectedRevisionId = initialRevisionId;
             let currentFileExists = false;
             let currentFileHashKnown = false;
             const supportsPreview = /\.(md|markdown)$/i.test(path);
@@ -248,6 +263,27 @@
                 return !isDirty() || window.confirm('Discard unsaved changes to this file?');
             }
             activeFileCanClose = confirmDiscard;
+            activeFileView = {
+                snapshot: () => ({
+                    path, vaultName: vault, onBack: returnToOrigin, allowCreate,
+                    initialMode: mode, initialRevisionId: selectedRevisionId,
+                    previewScroll: preview?.scrollTop || 0, editorScroll: editor?.scrollTop || 0,
+                    historyListScroll: historyList?.scrollTop || 0, historyPreviewScroll: historyPreview?.scrollTop || 0,
+                }),
+            };
+
+            function restoreScroll() {
+                if (!restoredView) return;
+                window.requestAnimationFrame(() => {
+                    if (document.getElementById('vault-file-modal') !== overlay) return;
+                    if (preview) preview.scrollTop = restoredView.previewScroll;
+                    if (editor) editor.scrollTop = restoredView.editorScroll;
+                    if (historyList) historyList.scrollTop = restoredView.historyListScroll;
+                    if (historyPreview) historyPreview.scrollTop = restoredView.historyPreviewScroll;
+                    const navigationButton = overlay.querySelector('[data-vault-file-back]') || overlay.querySelector('[data-vault-file-tree]');
+                    navigationButton?.focus?.({ preventScroll: true });
+                });
+            }
 
             function renderPreview() {
                 if (!(preview instanceof HTMLElement) || !(editor instanceof HTMLTextAreaElement)) return;
@@ -275,7 +311,7 @@
                     ? 'history'
                     : (supportsPreview && nextMode === 'preview' ? 'preview' : 'edit');
                 if (mode === 'preview') renderPreview();
-                if (mode === 'history' && !historyLoaded) loadRevisionHistory();
+                if (mode === 'history' && !historyLoaded) historyLoadPromise = loadRevisionHistory();
                 preview?.classList.toggle('hidden', mode !== 'preview');
                 if (mode !== 'preview') properties?.classList.add('hidden');
                 editor?.classList.toggle('hidden', mode !== 'edit');
@@ -314,11 +350,19 @@
             overlay.addEventListener('vault-explorer-lock-change', applyInteractionLock);
 
             overlay.addEventListener('click', async (event) => {
+                if (document.getElementById('vault-file-modal') !== overlay) return;
                 const target = event.target;
                 if (!(target instanceof Element)) return;
                 if (target.closest('[data-vault-file-back="true"]')) {
+                    const prior = fileHistory.at(-1);
+                    if (prior) {
+                        await openFile(prior.path, { ...prior, navigationAction: 'back', restoredView: prior });
+                    } else if (closeFileModal()) returnToOrigin?.();
+                    return;
+                }
+                if (target.closest('[data-vault-file-tree="true"]')) {
                     if (!closeFileModal()) return;
-                    onBack?.();
+                    openExplorer({ vaultName: vault, revealPath: path });
                     return;
                 }
                 if (target.closest('[data-vault-file-close="true"]')) {
@@ -366,6 +410,7 @@
 
             try {
                 const data = await fetchVaultFile(path, vault);
+                if (document.getElementById('vault-file-modal') !== overlay) return;
                 sha256 = data.sha256 || '';
                 currentFileExists = true;
                 currentFileHashKnown = true;
@@ -380,14 +425,19 @@
                 }
                 modeToggle?.classList.remove('hidden');
                 modeToggle?.querySelector('[data-vault-file-mode="preview"]')?.classList.toggle('hidden', !supportsPreview);
-                setMode(initialMode === 'history' ? 'history' : (supportsPreview ? 'preview' : 'edit'));
+                setMode(initialMode === 'history' ? 'history' : (initialMode === 'edit' ? 'edit' : (supportsPreview ? 'preview' : 'edit')));
                 applyInteractionLock();
+                if (historyLoadPromise) await historyLoadPromise;
+                restoreScroll();
             } catch (error) {
+                if (document.getElementById('vault-file-modal') !== overlay) return;
                 if (error.errorType === 'VaultFileNotFound') {
                     currentFileExists = false;
                     currentFileHashKnown = true;
                     if (initialMode === 'history') {
                         showHistoryOnly(`${path} no longer exists.`);
+                        if (historyLoadPromise) await historyLoadPromise;
+                        restoreScroll();
                         return;
                     }
                     if (!allowCreate) {
@@ -419,6 +469,8 @@
                     currentFileHashKnown = false;
                     if (initialMode === 'history') {
                         showHistoryOnly('This file is not editable as plain text.');
+                        if (historyLoadPromise) await historyLoadPromise;
+                        restoreScroll();
                         return;
                     }
                     if (statusLabel) statusLabel.textContent = 'This file is not editable as plain text.';
@@ -436,6 +488,7 @@
                     const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/files/revisions?path=${encodeURIComponent(path)}&limit=100`);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
+                    if (document.getElementById('vault-file-modal') !== overlay) return;
                     const revisions = data.revisions || [];
                     historyLoaded = true;
                     if (!revisions.length) {
@@ -467,6 +520,8 @@
 
             async function previewRevision(button) {
                 if (!(historyPreview instanceof HTMLElement)) return;
+                const snapshotId = button.dataset.vaultFileRevision || '';
+                selectedRevisionId = snapshotId;
                 historyList?.querySelectorAll('[data-vault-file-revision]').forEach((row) => {
                     row.classList.toggle('is-active', row === button);
                 });
@@ -483,8 +538,8 @@
                 }
                 historyPreview.innerHTML = '<p class="text-sm text-txt-secondary">Loading revision...</p>';
                 try {
-                    const snapshotId = button.dataset.vaultFileRevision || '';
                     const response = await fetch(`api/vault-state/snapshots/${encodeURIComponent(snapshotId)}/content`);
+                    if (document.getElementById('vault-file-modal') !== overlay || selectedRevisionId !== snapshotId) return;
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const mediaType = response.headers.get('content-type') || '';
                     if (mediaType && !isPreviewableTextMediaType(mediaType)) {
@@ -492,6 +547,7 @@
                         return;
                     }
                     const content = await response.text();
+                    if (document.getElementById('vault-file-modal') !== overlay || selectedRevisionId !== snapshotId) return;
                     if (supportsPreview) {
                         const parts = splitMarkdownFrontmatter(content);
                         historyPreview.innerHTML = `
@@ -507,6 +563,7 @@
                         historyPreview.innerHTML = `${renderRestoreAction(button)}<pre>${escapeHtml(content)}</pre>`;
                     }
                 } catch (error) {
+                    if (document.getElementById('vault-file-modal') !== overlay || selectedRevisionId !== snapshotId) return;
                     historyPreview.innerHTML = `<p class="state-error text-sm">Unable to load revision: ${escapeHtml(error.message)}</p>`;
                 }
             }
@@ -556,6 +613,7 @@
                         throw new Error(errorData.message || `HTTP ${response.status}`);
                     }
                     const result = await response.json();
+                    if (document.getElementById('vault-file-modal') !== overlay) return;
                     if (editor instanceof HTMLTextAreaElement) {
                         savedContent = editor.value;
                     }
@@ -563,6 +621,7 @@
                         vaultName: vault,
                         onBack,
                         initialMode: result.exists && supportsPreview ? 'preview' : 'history',
+                        navigationAction: 'replace',
                     });
                 } catch (error) {
                     button.disabled = false;
@@ -679,10 +738,12 @@
             }
         }
 
-        function closeFileModal({ force = false } = {}) {
+        function closeFileModal({ force = false, preserveNavigation = false } = {}) {
             if (!force && activeFileCanClose && !activeFileCanClose()) return false;
             document.getElementById('vault-file-modal')?.remove();
             activeFileCanClose = null;
+            activeFileView = null;
+            if (!preserveNavigation) fileHistory = [];
             return true;
         }
 

@@ -228,9 +228,7 @@ const deferredReviews = window.DeferredReviews.create({
             state.pendingDeferredReview = null;
             syncChatControlLocks();
         },
-        openFile: (path) => fileReferences.openFile(path, {
-            onBack: () => fileReferences.openExplorer({ revealPath: path }),
-        }),
+        openFile: (path) => fileReferences.openFile(path),
         openPathPicker: (options) => vaultPathPicker.open(options),
     },
 });
@@ -341,7 +339,6 @@ const vaultActivity = window.VaultActivity.create({
             vaultName,
             initialMode: 'history',
             initialRevisionId: snapshotId,
-            onBack: () => fileReferences.openExplorer({ vaultName, revealPath: path }),
         }),
     },
 });

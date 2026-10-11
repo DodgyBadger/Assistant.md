@@ -31,6 +31,8 @@ Chat and Vault Explorer previews support full vault-relative wikilinks such as `
 
 Use explicit paths instead of relying on recursive short-name lookup. Obsidian heading/block navigation and embedded-note previews are not implemented; code blocks and inline code remain literal. Missing or inaccessible targets remain non-navigable rather than creating notes automatically.
 
+In the file modal, **Back** returns through previously opened files and restores your reading position. The separate **Browse vault tree** button reveals the current file in the explorer. Closing the file modal or returning to the tree clears file-navigation history; both actions ask before discarding unsaved edits.
+
 ## Make chat project-aware
 
 When work belongs to a particular project, set that project folder as the chat workspace. A workspace gives the agent a useful starting point without preventing it from working elsewhere in the vault when needed.
