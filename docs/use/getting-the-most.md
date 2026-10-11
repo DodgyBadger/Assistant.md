@@ -25,6 +25,12 @@ With no additional customization, Chat and Vault Explorer let you:
 
 Describe the outcome you want, important constraints, and where useful work should be saved. For a substantial task, ask the agent to establish a goal so it can track the objective and continue working until it is resolved.
 
+## Follow vault links
+
+Chat and Vault Explorer previews support full vault-relative wikilinks such as `[[Projects/Brief.md]]` or `[[Projects/Brief|Project brief]]`. An alias changes the displayed text, not the target. Markdown notes may omit `.md`: an exact file or directory wins, otherwise the resolver tries that same path with `.md` appended when the name has no extension. Spaces, punctuation and Unicode remain literal rather than URL-decoded inside wikilinks. Ordinary Markdown links use URL-encoded destinations and resolve relative to the source document in vault previews.
+
+Use explicit paths instead of relying on recursive short-name lookup. Obsidian heading/block navigation and embedded-note previews are not implemented; code blocks and inline code remain literal. Missing or inaccessible targets remain non-navigable rather than creating notes automatically.
+
 ## Make chat project-aware
 
 When work belongs to a particular project, set that project folder as the chat workspace. A workspace gives the agent a useful starting point without preventing it from working elsewhere in the vault when needed.

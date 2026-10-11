@@ -275,6 +275,93 @@ async function run() {
     legacy.dataset.vaultReferenceCandidate = 'README.md';
     await controller.enhanceFileLinks(container([legacy]));
     assert.strictEqual(requests[2].workspace_path, 'Workspace', 'Legacy basename fallback remains compatible.');
+
+    const regional = 'Library/! Primary Sources/Gates Creek/Sources/Background/Regional significance';
+    const lookup = new Map([
+        [regional + '.md', 'file'], ['Library/Exact note', 'file'], ['Library/Exact note.md', 'file'],
+        ['Library/Directory', 'directory'], ['Library/Directory.md', 'file'],
+        ['Library/Été (2026), 100%20 & notes.md', 'file'],
+    ]);
+    const wikiRequests = [];
+    global.fetch = async (url, options) => {
+        const body = JSON.parse(options.body);
+        assert(body.paths.length <= 100, 'Resolution requests must stay within the API limit.');
+        wikiRequests.push({ url, ...body });
+        return { ok: true, json: async () => ({ items: body.paths.map(path => ({
+            requested_path: path, path, kind: lookup.get(path) || 'missing',
+        })) }) };
+    };
+    function wikilink(path, label = path) {
+        const node = new Element(label);
+        node.dataset.vaultWikilink = path;
+        return node;
+    }
+    const original = container([
+        wikilink(regional, 'Regional significance'), wikilink('Library/Exact note', 'Exact'),
+        wikilink('Library/Directory', 'Folder'), wikilink('Library/Été (2026), 100%20 & notes', 'Literal'),
+        wikilink('../outside', 'Unsafe'), wikilink('javascript:alert(1)', 'Scheme'),
+        wikilink('Library/missing', 'Missing'), wikilink('Library/explicit.txt', 'Text'),
+    ]);
+    await controller.enhanceFileLinks(original, { vaultName: 'NotesVault', sourcePath: 'Different/index.md' });
+    assert(original.children[0] instanceof Anchor, 'An extensionless aliased wikilink must resolve a Markdown note.');
+    assert.strictEqual(original.children[0].textContent, 'Regional significance');
+    assert.strictEqual(original.children[0].dataset.vaultFilePath, regional + '.md');
+    assert.strictEqual(original.children[1].dataset.vaultFilePath, 'Library/Exact note', 'Exact file wins over Markdown fallback.');
+    assert.strictEqual(original.children[2].dataset.vaultFileKind, 'directory', 'Exact directory wins over Markdown fallback.');
+    assert.strictEqual(original.children[3].dataset.vaultFilePath, 'Library/Été (2026), 100%20 & notes.md');
+    for (const index of [4, 5, 6, 7]) assert(!(original.children[index] instanceof Anchor));
+    assert(wikiRequests.every(request => request.workspace_path === '' && request.url.includes('NotesVault')));
+    assert(!wikiRequests.flatMap(request => request.paths).includes('Library/explicit.txt.md'), 'Explicit extensions are never rewritten.');
+    original.children[0].events.click({ preventDefault() {} });
+    assert.strictEqual(opened.at(-1).path, regional + '.md');
+    assert.strictEqual(opened.at(-1).vaultName, 'NotesVault');
+
+    const plain = container([new Anchor('Ordinary Markdown', { href: regional })]);
+    await controller.enhanceFileLinks(plain, { vaultName: 'NotesVault' });
+    assert(!(plain.children[0] instanceof Anchor), 'Wikilink fallback must not change ordinary Markdown lookup through cache reuse.');
+
+    const large = container(Array.from({ length: 105 }, (_, index) => {
+        const path = `Library/Batch ${index}`;
+        lookup.set(path + '.md', 'file');
+        return wikilink(path);
+    }));
+    await controller.enhanceFileLinks(large, { vaultName: 'NotesVault' });
+    assert(large.children.every(node => node instanceof Anchor));
+    const count = wikiRequests.length;
+    await controller.enhanceFileLinks(large, { vaultName: 'NotesVault' });
+    assert.strictEqual(wikiRequests.length, count, 'Resolved links must not be enhanced twice.');
+
+    lookup.set('Library/missing.md', 'file');
+    await controller.enhanceFileLinks(original, { vaultName: 'NotesVault' });
+    assert(original.children[6] instanceof Anchor, 'Missing targets must be retried rather than negatively cached.');
+
+    let release;
+    global.fetch = () => new Promise(resolve => { release = resolve; });
+    const detached = container([wikilink('Library/Late')]);
+    const pending = controller.enhanceFileLinks(detached, { vaultName: 'NotesVault' });
+    detached.children = [];
+    release({ ok: true, json: async () => ({ items: [{ requested_path: 'Library/Late.md', path: 'Library/Late.md', kind: 'file' }] }) });
+    await pending;
+    assert.strictEqual(detached.children.length, 0, 'Late responses must not restore replaced preview content.');
+
+    const retry = container([wikilink('Library/Retry', 'Retry')]);
+    const errors = [];
+    const originalError = console.error;
+    console.error = (...args) => errors.push(args);
+    try {
+        global.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+        await controller.enhanceFileLinks(retry, { vaultName: 'NotesVault' });
+        assert(!(retry.children[0] instanceof Anchor), 'Failed resolution must leave no navigable application URL.');
+        assert.strictEqual(errors.length, 1, 'Resolution failure must remain diagnosable.');
+        global.fetch = async () => ({ ok: true, json: async () => ({ items: [
+            { requested_path: 'Library/Retry', path: 'Library/Retry', kind: 'missing' },
+            { requested_path: 'Library/Retry.md', path: 'Library/Retry.md', kind: 'file' },
+        ] }) });
+        await controller.enhanceFileLinks(retry, { vaultName: 'NotesVault' });
+        assert(retry.children[0] instanceof Anchor, 'Failed resolution must be retryable.');
+    } finally {
+        console.error = originalError;
+    }
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
 """

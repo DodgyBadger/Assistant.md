@@ -10,12 +10,15 @@
                     level: 'inline',
                     start(src) { return src.indexOf('[['); },
                     tokenizer(src) {
-                        const match = /^\[\[([^\]\n|]+)\]\]/.exec(src);
-                        if (match) return { type: 'vaultWikilink', raw: match[0], path: match[1] };
+                        const match = /^\[\[([^\]\r\n|]+)(?:\|([^\]\r\n|]*))?\]\]/.exec(src);
+                        if (match && match[1].trim()) {
+                            return { type: 'vaultWikilink', raw: match[0], path: match[1], label: match[2] || match[1] };
+                        }
                     },
                     renderer(token) {
                         const path = utils.escapeHtml(token.path);
-                        return `<span data-vault-wikilink="${path}">${path}</span>`;
+                        const label = utils.escapeHtml(token.label);
+                        return `<span data-vault-wikilink="${path}">${label}</span>`;
                     },
                 }] });
             }

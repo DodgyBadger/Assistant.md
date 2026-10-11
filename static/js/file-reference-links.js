@@ -28,6 +28,9 @@
                     element.dataset.vaultReferenceCandidate = candidate;
                     element.dataset.vaultReferenceRoot = 'true';
                     element.dataset.vaultReferenceLabel = element.textContent;
+                    if (!element.dataset.vaultWikilink.trim().endsWith('/') && markdownFallbackPath(candidate)) {
+                        element.dataset.vaultReferenceMarkdownFallback = 'true';
+                    }
                 }
             });
             markStandaloneCandidates(container);
@@ -107,12 +110,17 @@
                 container.querySelectorAll('[data-vault-reference-candidate]')
             ).filter((element) => element instanceof HTMLElement);
             if (!marked.length) return;
-            for (const vaultRoot of [true, false]) {
+            for (const { vaultRoot, markdownFallback } of [
+                { vaultRoot: true, markdownFallback: true },
+                { vaultRoot: true, markdownFallback: false },
+                { vaultRoot: false, markdownFallback: false },
+            ]) {
                 const group = marked.filter((element) =>
                     (element.dataset.vaultReferenceRoot === 'true') === vaultRoot
+                    && (element.dataset.vaultReferenceMarkdownFallback === 'true') === markdownFallback
                 );
                 const paths = group.map((element) => element.dataset.vaultReferenceCandidate || '');
-                const resolutions = await resolveCandidates(paths, context, vaultRoot);
+                const resolutions = await resolveCandidates(paths, context, { vaultRoot, markdownFallback });
                 group.forEach((element) => {
                     if (!container.contains(element)) return;
                     const candidate = element.dataset.vaultReferenceCandidate || '';
@@ -154,13 +162,21 @@
             }
         }
 
-        async function resolveCandidates(paths, context, vaultRoot) {
+        function markdownFallbackPath(path) {
+            const basename = path.split('/').at(-1) || '';
+            return basename && !basename.includes('.') && path.length + 3 <= 1000 ? `${path}.md` : '';
+        }
+
+        async function resolveCandidates(paths, context, { vaultRoot, markdownFallback }) {
             const vault = context.vaultName || selectedVault();
             const workspace = vaultRoot || context.sourcePath ? '' : context.workspacePath;
             const normalized = [...new Set(paths.filter(Boolean))];
+            const lookupPaths = markdownFallback
+                ? [...new Set([...normalized, ...normalized.map(markdownFallbackPath).filter(Boolean)])]
+                : normalized;
             const resolved = new Map();
             const unresolved = [];
-            normalized.forEach((path) => {
+            lookupPaths.forEach((path) => {
                 const cached = resolutionCache.get(resolutionCacheKey(vault, workspace, path));
                 if (cached) {
                     resolved.set(path, cached);
@@ -168,33 +184,44 @@
                     unresolved.push(path);
                 }
             });
-            if (!vault || !unresolved.length) return resolved;
-            const response = await fetch(
-                `api/vaults/${encodeURIComponent(vault)}/file-refs/resolve`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paths: unresolved, workspace_path: workspace }),
+            for (let offset = 0; vault && offset < unresolved.length; offset += 100) {
+                const batch = unresolved.slice(offset, offset + 100);
+                const response = await fetch(
+                    `api/vaults/${encodeURIComponent(vault)}/file-refs/resolve`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paths: batch, workspace_path: workspace }),
+                    }
+                );
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
-            );
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `HTTP ${response.status}`);
+                const payload = await response.json();
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                items.forEach((item) => {
+                    const requestedPath = item.requested_path || '';
+                    if (!requestedPath) return;
+                    resolved.set(requestedPath, item);
+                    if (item.kind !== 'missing') {
+                        resolutionCache.set(
+                            resolutionCacheKey(vault, workspace, requestedPath),
+                            item
+                        );
+                    }
+                });
             }
-            const payload = await response.json();
-            const items = Array.isArray(payload.items) ? payload.items : [];
-            items.forEach((item) => {
-                const requestedPath = item.requested_path || '';
-                if (!requestedPath) return;
-                resolved.set(requestedPath, item);
-                if (item.kind !== 'missing') {
-                    resolutionCache.set(
-                        resolutionCacheKey(vault, workspace, requestedPath),
-                        item
-                    );
-                }
+            // Cache only exact API lookups, never a fallback under the original path.
+            // Ordinary Markdown destinations must not inherit wikilink-only behavior.
+            const result = new Map();
+            normalized.forEach((path) => {
+                const exact = resolved.get(path);
+                const fallback = markdownFallback ? resolved.get(markdownFallbackPath(path)) : null;
+                result.set(path, exact && exact.kind !== 'missing'
+                    ? exact : fallback?.kind === 'file' ? fallback : exact);
             });
-            return resolved;
+            return result;
         }
 
         function resolutionCacheKey(vault, workspace, path) {

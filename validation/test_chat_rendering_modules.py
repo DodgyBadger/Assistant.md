@@ -41,7 +41,21 @@ assert(body.innerHTML.includes('>Label</a>'));
 controller.renderHtml(body, '`[[Library/a.md]]`\n\n```text\n[[Library/b.md]]\n```');
 assert(!body.innerHTML.includes('data-vault-wikilink'), 'Code must remain literal.');
 controller.renderHtml(body, '[[Library/a.md|Alias]]');
-assert(!body.innerHTML.includes('data-vault-wikilink'), 'Aliases are outside the full-path contract.');
+assert(body.innerHTML.includes('data-vault-wikilink="Library/a.md">Alias</span>'));
+controller.renderHtml(body, '- [[Library/! Primary Sources/Gates Creek/Sources/Background/Regional significance|Regional significance]] · Fraser West landscape.');
+assert(body.innerHTML.includes('data-vault-wikilink="Library/! Primary Sources/Gates Creek/Sources/Background/Regional significance">Regional significance</span>'));
+controller.renderHtml(body, '| Note |\n| --- |\n| [[Library/Regional significance\\|Regional significance]] |');
+assert(body.innerHTML.includes('data-vault-wikilink="Library/Regional significance">Regional significance</span>'), 'Escaped table separators must preserve aliases.');
+controller.renderHtml(body, '[[Library/Été (2026), 100%20 & notes|A "label" & <img src=x onerror=alert(1)>]]');
+assert(body.innerHTML.includes('Été (2026), 100%20 &amp; notes'));
+assert(body.innerHTML.includes('A &quot;label&quot; &amp; &lt;img'));
+assert(!body.innerHTML.includes('<img'), 'Alias labels must be plain, escaped text.');
+controller.renderHtml(body, '`[[Library/a|Alias]]`\n\n~~~text\n[[Library/b|Alias]]\n~~~\n\n    [[Library/c|Alias]]');
+assert(!body.innerHTML.includes('data-vault-wikilink'), 'All Markdown code forms must remain literal.');
+for (const value of ['[[|Empty target]]', '[[  |Whitespace target]]', '[[Library/a|one|two]]', '[[Library/a\n|broken]]', '\\[[Library/a|escaped]]']) {
+    controller.renderHtml(body, value);
+    assert(!body.innerHTML.includes('data-vault-wikilink'), `Invalid or escaped wikilinks must remain literal: ${value}`);
+}
 controller.renderHtml(body, '[[Library/<img src=x onerror=alert(1)>.md]]');
 assert(!body.innerHTML.includes('<img'), 'Wikilink text and attributes must be escaped before sanitization.');
 function link(href) {
