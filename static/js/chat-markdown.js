@@ -40,9 +40,9 @@
                 });
             }
 
-            function renderAssistantHtml(bodyDiv, markdownContent = '', { softBreaks = false } = {}) {
+            function renderAssistantHtml(bodyDiv, markdownContent = '', { softBreaks = false, preserveWhitespace = false } = {}) {
                 if (!bodyDiv) return;
-                const content = (markdownContent || '').trim();
+                const content = preserveWhitespace ? (markdownContent || '') : (markdownContent || '').trim();
                 const protectedContent = protectLatexForMarkdown(content);
                 const renderedHtml = content
                     ? markdownParser().parse(protectedContent.markdown, { breaks: softBreaks })

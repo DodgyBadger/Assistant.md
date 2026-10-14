@@ -2369,12 +2369,12 @@ details summary::-webkit-details-marker {
     width: 100%;
     max-width: 100% !important;
 }
-.message-bubble.message-assistant .message-body,
-.message-bubble.message-assistant .message-body p,
-.message-bubble.message-assistant .message-body li,
-.message-bubble.message-assistant .message-body code,
-.message-bubble.message-assistant .message-body strong,
-.message-bubble.message-assistant .message-body em {
+.message-bubble:is(.message-assistant, .message-user) .message-body,
+.message-bubble:is(.message-assistant, .message-user) .message-body p,
+.message-bubble:is(.message-assistant, .message-user) .message-body li,
+.message-bubble:is(.message-assistant, .message-user) .message-body code,
+.message-bubble:is(.message-assistant, .message-user) .message-body strong,
+.message-bubble:is(.message-assistant, .message-user) .message-body em {
     color: rgb(var(--text-primary));
 }
 .message-bubble.message-assistant .assistant-thinking {
@@ -2443,61 +2443,61 @@ details summary::-webkit-details-marker {
 .message-bubble.message-assistant .assistant-thinking.is-expanded .assistant-thinking-text {
     white-space: pre-wrap;
 }
-.message-bubble.message-assistant .message-body h1,
-.message-bubble.message-assistant .message-body h2,
-.message-bubble.message-assistant .message-body h3,
-.message-bubble.message-assistant .message-body h4,
-.message-bubble.message-assistant .message-body h5,
-.message-bubble.message-assistant .message-body h6 {
+.message-bubble:is(.message-assistant, .message-user) .message-body h1,
+.message-bubble:is(.message-assistant, .message-user) .message-body h2,
+.message-bubble:is(.message-assistant, .message-user) .message-body h3,
+.message-bubble:is(.message-assistant, .message-user) .message-body h4,
+.message-bubble:is(.message-assistant, .message-user) .message-body h5,
+.message-bubble:is(.message-assistant, .message-user) .message-body h6 {
     color: rgb(var(--text-primary));
 }
-.message-bubble.message-assistant .message-body a {
+.message-bubble:is(.message-assistant, .message-user) .message-body a {
     color: rgb(var(--accent-primary));
 }
-.message-bubble.message-assistant .message-body a:hover {
+.message-bubble:is(.message-assistant, .message-user) .message-body a:hover {
     color: rgb(var(--accent-hover));
 }
-.message-bubble.message-assistant .message-body hr {
+.message-bubble:is(.message-assistant, .message-user) .message-body hr {
     border-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body blockquote {
+.message-bubble:is(.message-assistant, .message-user) .message-body blockquote {
     color: rgb(var(--text-primary));
     border-inline-start-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body table {
+.message-bubble:is(.message-assistant, .message-user) .message-body table {
     color: rgb(var(--text-primary));
 }
-.message-bubble.message-assistant .message-body thead {
+.message-bubble:is(.message-assistant, .message-user) .message-body thead {
     border-bottom-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body tfoot {
+.message-bubble:is(.message-assistant, .message-user) .message-body tfoot {
     border-top-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body tbody tr {
+.message-bubble:is(.message-assistant, .message-user) .message-body tbody tr {
     border-bottom-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body th,
-.message-bubble.message-assistant .message-body td {
+.message-bubble:is(.message-assistant, .message-user) .message-body th,
+.message-bubble:is(.message-assistant, .message-user) .message-body td {
     color: rgb(var(--text-primary));
     border-color: rgb(var(--border-primary));
 }
-.message-bubble.message-assistant .message-body ul > li::marker,
-.message-bubble.message-assistant .message-body ol > li::marker {
+.message-bubble:is(.message-assistant, .message-user) .message-body ul > li::marker,
+.message-bubble:is(.message-assistant, .message-user) .message-body ol > li::marker {
     color: rgb(var(--text-secondary));
 }
-.message-bubble.message-assistant .message-body figcaption {
+.message-bubble:is(.message-assistant, .message-user) .message-body figcaption {
     color: rgb(var(--text-secondary));
 }
-.message-bubble.message-assistant .message-body kbd {
+.message-bubble:is(.message-assistant, .message-user) .message-body kbd {
     color: rgb(var(--text-primary));
     box-shadow: 0 0 0 1px rgb(var(--border-primary));
 }
-.message-bubble.message-assistant pre {
+.message-bubble:is(.message-assistant, .message-user) pre {
     background: rgb(var(--bg-elevated));
     border: 1px solid rgb(var(--border-primary));
     color: rgb(var(--text-primary));
 }
-.message-bubble.message-assistant pre code {
+.message-bubble:is(.message-assistant, .message-user) pre code {
     color: inherit;
 }
 .stream-progress {

@@ -33,6 +33,8 @@ Use explicit paths instead of relying on recursive short-name lookup. Obsidian h
 
 In the file modal, **Back** returns through previously opened files and restores your reading position. The separate **Browse vault tree** button reveals the current file in the explorer. Closing the file modal or returning to the tree clears file-navigation history; both actions ask before discarding unsaved edits.
 
+User chat messages support Markdown and clickable vault links, including references added from the explorer. Single line breaks remain visible, and the message's Copy button copies your original prompt with its Markdown and link syntax intact.
+
 Refreshing the vault explorer keeps expanded folders, selected items, search settings and your scroll position. After creating or moving an item, the explorer reveals its resulting location.
 
 ## Make chat project-aware

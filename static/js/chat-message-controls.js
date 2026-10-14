@@ -39,10 +39,13 @@
             }`;
 
             const bodyDiv = document.createElement('div');
-            bodyDiv.className = 'message-body';
+            bodyDiv.className = `message-body${role === 'user' ? ' prose prose-sm max-w-none' : ''}`;
 
-            if (role === 'assistant') {
-                markdown.renderHtml(bodyDiv, content);
+            if (role === 'assistant' || role === 'user') {
+                markdown.renderHtml(bodyDiv, content, {
+                    softBreaks: role === 'user',
+                    preserveWhitespace: role === 'user',
+                });
                 markdown.postProcess(bodyDiv);
             } else {
                 const escapedContent = content
@@ -73,7 +76,7 @@
             }
 
             actionsDiv.appendChild(createCopyButton(
-                () => utils.getCopyableText(bodyDiv),
+                () => role === 'user' ? content : utils.getCopyableText(bodyDiv),
                 'message-copy-button'
             ));
             const forkButton = role === 'assistant' ? createForkButton(options.sequenceIndex) : null;

@@ -33,6 +33,11 @@ const controller = ChatMarkdown.create({
     callbacks: { attachCodeCopyButtons() {}, enhanceFileLinks(body, context) { contexts.push(context); } },
 });
 const body = { innerHTML: '', querySelectorAll() { return []; } };
+controller.renderHtml(body, 'First line\nSecond line', { softBreaks: true, preserveWhitespace: true });
+assert(body.innerHTML.includes('<br>'), 'User-entered line breaks should survive Markdown rendering.');
+controller.renderHtml(body, '    [[Library/a.md]]', { softBreaks: true, preserveWhitespace: true });
+assert(body.innerHTML.includes('<pre><code>'), 'Leading indentation remains Markdown code.');
+assert(!body.innerHTML.includes('data-vault-wikilink'), 'User code is not linkified.');
 controller.renderHtml(body, 'See [[Library/! Primary Sources/a_b.md]] and [Label](<Library/a b.md>).');
 assert(body.innerHTML.includes('data-vault-wikilink="Library/! Primary Sources/a_b.md"'));
 assert(!body.innerHTML.includes('<em>'), 'Underscores inside paths must not become emphasis.');
@@ -294,10 +299,10 @@ global.window = global;
 global.document = {
     createElement() {
         return {
-            children: [], className: '', innerHTML: '', title: '', type: '',
+            children: [], events: {}, className: '', innerHTML: '', title: '', type: '',
             classList: { add() {} },
             appendChild(child) { this.children.push(child); return child; },
-            addEventListener() {}, setAttribute() {},
+            addEventListener(name, callback) { this.events[name] = callback; }, setAttribute() {},
         };
     },
 };
@@ -306,15 +311,26 @@ vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
 });
 
 const appendOptions = [];
+const rendered = [];
+const processed = [];
+let copied = null;
 const controller = ChatMessageControls.create({
     state: {}, elements: {}, icons: { COPY_ICON_SVG: '' },
-    utils: { getCopyableText() { return ''; } },
-    markdown: {},
+    utils: {
+        getCopyableText() { return 'rendered text'; },
+        async handleCopy(text) { copied = text; return true; },
+        flashCopyFeedback() {},
+    },
+    markdown: {
+        renderHtml(body, content, options) { rendered.push({body, content, options}); body.innerHTML = '<p>Rendered</p>'; },
+        postProcess(body) { processed.push(body); },
+    },
     callbacks: {
         appendMessageNode(_node, options) { appendOptions.push(options); },
     },
 });
-controller.addMessage('user', 'An older persisted message.', {
+const originalPrompt = '**Research** [[Library/a.md|Note]]\nNext line';
+const userMessage = controller.addMessage('user', originalPrompt, {
     sequenceIndex: 3,
     forceScroll: false,
 });
@@ -323,6 +339,16 @@ assert.deepStrictEqual(
     [{ forceScroll: false }],
     'Prepending a persisted user message must not scroll the chat to the bottom.'
 );
+assert.strictEqual(rendered.length, 1, 'User messages must reuse shared sanitized Markdown.');
+assert.strictEqual(rendered[0].options.softBreaks, true, 'User-entered line breaks remain visible.');
+assert.strictEqual(processed[0], rendered[0].body, 'User Markdown must activate the shared file-link resolver.');
+const error = controller.addMessage('error', '<img src=x onerror=alert(1)>\nFailed');
+assert.strictEqual(rendered.length, 1, 'Errors stay escaped plain text.');
+assert(error.children[0].children[0].innerHTML.includes('&lt;img'));
+const copyButton = userMessage.children[0].children[1].children[0].children[0];
+copyButton.events.click({ stopPropagation() {} }).then(() => {
+    assert.strictEqual(copied, originalPrompt, 'Copy must retain the exact original prompt, including Markdown/link syntax.');
+}).catch(error => { console.error(error); process.exitCode = 1; });
 """
     subprocess.run(
         ["node", "-e", harness, str(_MESSAGE_CONTROLS_MODULE)],
