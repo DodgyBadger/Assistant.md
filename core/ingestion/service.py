@@ -47,6 +47,7 @@ from core.logger import UnifiedLogger
 from core.runtime.paths import get_data_root
 from core.settings.secrets_store import secret_has_value
 from core.settings.store import get_general_settings
+from core.utils.provider_errors import provider_exception_details
 from core.vault_state.file_mutations import (
     delete_vault_file,
     write_vault_file,
@@ -354,7 +355,7 @@ class IngestionService:
                     "extractor_option_keys": sorted(extractor_opts.keys()),
                 },
             )
-            extracted, warnings, attempts = self._run_strategies(
+            extracted, warnings, attempts, failures = self._run_strategies(
                 raw_doc,
                 strategies,
                 ingestion_settings,
@@ -382,7 +383,11 @@ class IngestionService:
                         "issue": f"ingestion_job_failed:{job_id}",
                         "reason": msg,
                         "error_type": "ExtractionUnavailableError",
-                        "error": msg,
+                        "error": self._truncate_log_value(
+                            f"{msg}: {failures[-1]['error']}" if failures else msg
+                        ),
+                        "extractor_failures": failures[:5],
+                        "extractor_failures_truncated": len(failures) > 5,
                         "strategies": strategies,
                         **self._strategy_warning_summary(warnings),
                     },
@@ -453,6 +458,8 @@ class IngestionService:
                     "status": "completed",
                     "selected_strategy": extracted.strategy_id,
                     "strategies": strategies,
+                    "extractor_failures": failures[:5],
+                    "extractor_failures_truncated": len(failures) > 5,
                     **self._strategy_warning_summary(warnings),
                     "primary_output": outputs[0] if outputs else None,
                     "outputs_count": len(outputs),
@@ -1043,12 +1050,15 @@ class IngestionService:
         options: dict[str, Any] | None = None,
         *,
         log_context: dict[str, Any] | None = None,
-    ) -> tuple[ExtractedDocument | None, list[str] | None, list[str]]:
+    ) -> tuple[
+        ExtractedDocument | None, list[str] | None, list[str], list[dict[str, object]]
+    ]:
         """
         Try extractors in order; return first non-empty result.
         """
         warnings: list[str] = []
         attempts: list[str] = []
+        failures: list[dict[str, object]] = []
         extractor_options = options or {}
         base_log_context = log_context or {}
         for strat in strategies:
@@ -1094,6 +1104,14 @@ class IngestionService:
             except Exception as exc:
                 warning = f"{strat}:error:{exc}"
                 warnings.append(warning)
+                failures.append(
+                    {
+                        "strategy": strat,
+                        "error_type": type(exc).__name__,
+                        "error": "Extractor failed; inspect validation diagnostics.",
+                        **provider_exception_details(exc),
+                    }
+                )
                 self.logger.set_sinks(["validation"]).info(
                     "ingestion_strategy_failed",
                     data={
@@ -1121,7 +1139,7 @@ class IngestionService:
                         **self._strategy_warning_summary(warnings),
                     },
                 )
-                return result, warnings if warnings else None, attempts
+                return result, warnings if warnings else None, attempts, failures
             warning = f"{strat}:empty"
             warnings.append(warning)
             self.logger.info(
@@ -1134,7 +1152,7 @@ class IngestionService:
                 },
             )
 
-        return None, warnings if warnings else None, attempts
+        return None, warnings if warnings else None, attempts, failures
 
     def _job_log_context(self, job: IngestionJob) -> dict[str, Any]:
         options: dict[str, Any] = job.options if isinstance(job.options, dict) else {}

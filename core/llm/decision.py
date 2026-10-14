@@ -29,6 +29,7 @@ from core.logger import UnifiedLogger
 from core.secrets import require_secrets_ready
 from core.settings import get_default_api_timeout
 from core.settings.secrets_store import get_secret_value
+from core.utils.provider_errors import provider_exception_details
 from core.utils.value_parser import DirectiveValueParser
 
 logger = UnifiedLogger(tag="decision-model")
@@ -296,5 +297,6 @@ def _log_decision_failure(
             "error_category": category,
             "error_type": type(exc).__name__,
             "issue": f"decision_model:{model_alias}:{category}",
+            **provider_exception_details(exc),
         },
     )

@@ -69,6 +69,8 @@ logger.info(
 
 Failures should include `error_type` and a concise `error`. Add tracebacks only when the log is already an error diagnostic path and the traceback is useful to maintainers.
 
+Provider rejections should retain the HTTP status and the provider's specific reason, not just an enclosing operation's generic failure message. Use the shared provider-error projection for structured message/type/code fields, with request-specific credential and payload redactions at API boundaries. Do not copy complete response bodies or validation inputs into retained logs; unstructured responses retain their status with a controlled diagnostic. Ingestion terminal events include bounded extractor-failure details even when a later strategy succeeds.
+
 Exception text is not inherently safe: validation errors and their chained causes can include private stored input. Translate such failures at the owning boundary into controlled error text and source identities before a generic handler can serialize them. Truncating a private exception message does not sanitize it. Invalid stored-map diagnostics identify the checkpoint/session without including map text or validation inputs.
 
 Use explicit callback task identities for terminal hooks that run after execution context has unwound; the current task ContextVar may be empty or refer to a parent. Deferred-review creation and claim records include durable status and available originating/resumed task identities, but a claim before task admission must not invent a resume-task ID. Failed settlement guidance should identify the review and task when linked, or the preceding admission failure otherwise.

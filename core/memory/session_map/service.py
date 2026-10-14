@@ -25,6 +25,7 @@ from core.runtime.execution_tasks import (
 )
 from core.runtime.state import get_runtime_context
 from core.runtime.task_runner import ExecutionTaskSpec
+from core.utils.provider_errors import provider_exception_details
 
 from .authoring import build_session_map_authoring_prompt
 from .evidence import SessionMapEvidence, SessionMapMessageEvidence
@@ -257,6 +258,7 @@ async def _execute_session_map_authoring(
                 "error_type": type(exc).__name__,
                 "reason": reason,
                 "error": reason.replace("_", " "),
+                **provider_exception_details(exc),
             },
         )
         raise

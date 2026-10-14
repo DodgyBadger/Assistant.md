@@ -83,6 +83,7 @@ from core.settings import (
     get_compaction_retained_turns,
     get_compaction_type,
 )
+from core.utils.provider_errors import provider_exception_details
 from core.utils.tokens import estimate_token_count
 
 from .chat_store import ChatStore
@@ -129,8 +130,8 @@ def _compaction_log_context(
     }
 
 
-def _compaction_failure_details(exc: Exception, *, reason: str) -> dict[str, str]:
-    """Project controlled diagnostics without exposing provider or transcript text."""
+def _compaction_failure_details(exc: Exception, *, reason: str) -> dict[str, object]:
+    """Retain structured API rejections without exposing raw validation/transcript text."""
     return {
         "reason": reason,
         "error_type": type(exc).__name__[:100],
@@ -138,6 +139,7 @@ def _compaction_failure_details(exc: Exception, *, reason: str) -> dict[str, str
             f"Compaction did not complete ({reason}); "
             "inspect the correlated execution task."
         ),
+        **provider_exception_details(exc),
     }
 
 
