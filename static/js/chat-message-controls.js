@@ -76,7 +76,7 @@
             }
 
             actionsDiv.appendChild(createCopyButton(
-                () => role === 'user' ? content : utils.getCopyableText(bodyDiv),
+                () => content,
                 'message-copy-button'
             ));
             const forkButton = role === 'assistant' ? createForkButton(options.sequenceIndex) : null;

@@ -152,13 +152,17 @@ const fs = require('fs');
 const vm = require('vm');
 
 global.window = global;
-global.document = {};
+global.document = { createElement() { return {
+    childElementCount: 0, classList: { add() {} },
+    appendChild() { this.childElementCount += 1; },
+}; } };
+const copySources = [];
 global.ChatMarkdown = { create: () => ({
     renderHtml() {}, flushPostProcess() {}, schedulePostProcess() {}, renderPreview() {},
 }) };
 global.ChatMessageControls = { create: () => ({
     addMessage() {}, addLoadingMessage() {}, removeLoadingMessage() {},
-    createCopyButton() {}, createForkButton() {}, forkSession() {},
+    createCopyButton(getText) { copySources.push(getText); return {}; }, createForkButton() {}, forkSession() {},
 }) };
 global.ChatToolDetails = { create: () => ({
     close() {}, getActiveId() { return ''; }, openPersisted() {},
@@ -180,6 +184,14 @@ controller.renderAssistantMarkdown(context);
 assert.strictEqual(scrollCount, 1, 'Normal rendering should follow the live response.');
 controller.renderAssistantMarkdown(context, { forceScroll: false });
 assert.strictEqual(scrollCount, 1, 'Historical prepending must not force a scroll.');
+context.toolStatusMap = new Map();
+context.errorMessages = [];
+context.contentDiv = document.createElement('div');
+context.fullText = '**Answer** [[Library/Note.md|Note]]';
+controller.finalizeAssistantMessage(context, {forceScroll:false});
+assert.strictEqual(copySources[0](), context.fullText, 'Live and loaded assistant footers must copy source, not rendered DOM.');
+context.fullText = '*Updated canonical text*';
+assert.strictEqual(copySources[0](), context.fullText, 'Copy must read the latest context source.');
 """
     subprocess.run(
         ["node", "-e", harness, str(_RENDERING_MODULE)],
@@ -346,9 +358,15 @@ const error = controller.addMessage('error', '<img src=x onerror=alert(1)>\nFail
 assert.strictEqual(rendered.length, 1, 'Errors stay escaped plain text.');
 assert(error.children[0].children[0].innerHTML.includes('&lt;img'));
 const copyButton = userMessage.children[0].children[1].children[0].children[0];
-copyButton.events.click({ stopPropagation() {} }).then(() => {
+(async () => {
+    await copyButton.events.click({ stopPropagation() {} });
     assert.strictEqual(copied, originalPrompt, 'Copy must retain the exact original prompt, including Markdown/link syntax.');
-}).catch(error => { console.error(error); process.exitCode = 1; });
+    const source = '**Assistant** [link](https://example.org)';
+    const assistant = controller.addMessage('assistant', source);
+    const assistantCopy = assistant.children[0].children[1].children[0].children[0];
+    await assistantCopy.events.click({ stopPropagation() {} });
+    assert.strictEqual(copied, source, 'Direct assistant bubbles must copy their source too.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
 """
     subprocess.run(
         ["node", "-e", harness, str(_MESSAGE_CONTROLS_MODULE)],

@@ -28,7 +28,10 @@ Existing summary data is backed up before removal; original conversations and se
 ### Other
 
 - Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer. Existing `@path` references also handle adjacent paths and filenames containing `!` more reliably.
+- User messages render Markdown and clickable vault links too. Message Copy buttons preserve the original Markdown source, including link destinations; selecting text lets you copy the rendered version.
+- Browse linked vault files with Back navigation that restores your reading position, plus a separate vault-tree button. File names and paths have their own full-width row below the viewer controls, and refreshing the explorer preserves open folders, selection and your place in loaded results.
 - System Activity failures are easier to follow, with fuller diagnostic details and clearer task and backup information.
+- Import and model-provider failures now show the API's specific rejection reason and HTTP status rather than only a generic failure, with sensitive details redacted.
 
 ### Bug fixes
 
