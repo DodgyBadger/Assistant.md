@@ -1560,6 +1560,9 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     manual_compaction_available: bool = Field(
         ..., description="Whether enough history exists for a manual compaction"
     )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
+    context_boundary_sequence_index: int | None = Field(default=None, ge=0)
 
 
 class ChatHistoryCompactionResponse(BaseModel):

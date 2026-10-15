@@ -13,7 +13,7 @@
     }) {
         let postTurnRefreshController = null;
 
-        async function refreshPressureAfterTask(taskId, vault, sessionId, streamController) {
+        async function refreshSessionAfterTask(taskId, vault, sessionId, streamController) {
             postTurnRefreshController?.abort();
             const controller = new AbortController();
             postTurnRefreshController = controller;
@@ -22,17 +22,17 @@
                 && (!state.activeChatAbortController || state.activeChatAbortController === streamController);
             // This bounds a UI observer only; it never cancels the execution task.
             const deadline = window.setTimeout(() => {
-                console.warn('Timed out waiting to refresh context pressure after chat completion.', { taskId, sessionId });
+                console.warn('Timed out waiting to refresh compaction state after chat completion.', { taskId, sessionId });
                 controller.abort();
             }, 5 * 60 * 1000);
             try {
                 const completed = await chatTaskStream.waitForTerminal(taskId, controller.signal, { isCurrent });
                 if (completed && isCurrent()) {
-                    await sessionControls.refreshCompactionProgress({ signal: controller.signal });
+                    await sessionControls.refreshCompactionState({ signal: controller.signal, isCurrent });
                 }
             } catch (error) {
                 if (!controller.signal.aborted) {
-                    console.warn('Could not refresh context pressure after chat completion.', error);
+                    console.warn('Could not refresh compaction state after chat completion.', error);
                 }
             } finally {
                 window.clearTimeout(deadline);
@@ -52,7 +52,7 @@
                 callbacks.syncChatControlLocks();
                 sessionControls.renderSelector();
                 sessionControls.updateTitleRow();
-                sessionControls.refreshCompactionProgress();
+                sessionControls.refreshCompactionState();
             }
             const taskId = started.task?.task_id;
             if (!taskId) {
@@ -86,14 +86,6 @@
                 hydrated || {}
             );
 
-            if (streamResult.finished && streamResult.finishReason === 'stop'
-                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
-                && state.activeChatAbortController === abortController) {
-                // "done" closes the response stream before post-turn compaction.
-                // Keep answer finalization independent of its durable completion.
-                void refreshPressureAfterTask(state.activeChatTaskId || taskId, vault, sessionId, abortController);
-            }
-
             const emptyDuplicateReviewMessage = (
                 streamResult.finishReason === 'tool_review_required'
                 && !assistantMessage.fullText
@@ -124,6 +116,13 @@
                     const reopenToolCallId = chatRendering.getActiveToolDetailId();
                     await callbacks.loadSession(state.sessionId, { reopenToolCallId });
                 }
+            }
+            if (streamResult.finished && streamResult.finishReason === 'stop'
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && state.activeChatAbortController === abortController) {
+                // Render the answer first. Its initial history load must not overwrite
+                // the later checkpoint snapshot when post-turn compaction finishes.
+                void refreshSessionAfterTask(state.activeChatTaskId || taskId, vault, sessionId, abortController);
             }
         }
 
@@ -161,7 +160,7 @@
                     elements.sendBtn.disabled = false;
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }
@@ -212,7 +211,7 @@
                     }
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }
@@ -258,7 +257,7 @@
             state.sessionId = requestSessionId;
             sessionControls.renderSelector();
             sessionControls.updateTitleRow();
-            sessionControls.refreshCompactionProgress();
+            sessionControls.refreshCompactionState();
             callbacks.syncChatControlLocks();
             state.activeChatSessionId = requestSessionId;
             const abortController = new AbortController();
@@ -336,7 +335,7 @@
                     elements.sendBtn.disabled = false;
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }

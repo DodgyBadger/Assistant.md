@@ -20,8 +20,17 @@
             const pendingToolCallIds = new Set();
             const pendingAssistantText = [];
             const pendingAssistantThinking = [];
+            let pendingStart = null;
+            let pendingEnd = null;
+
+            function trackPendingRange(message) {
+                if (!Number.isInteger(message.sequence_index)) return;
+                pendingStart ??= message.sequence_index;
+                pendingEnd = message.sequence_index;
+            }
 
             function collectAssistantContent(message) {
+                trackPendingRange(message);
                 const content = String(message?.content || '').trim();
                 const thinking = String(message?.thinking_content || '').trim();
                 if (content) pendingAssistantText.push(content);
@@ -39,9 +48,10 @@
                     )
                 ) {
                     pendingToolCallIds.clear();
+                    pendingStart = pendingEnd = null;
                     return;
                 }
-                renderPersistedAssistantMessage(
+                const node = renderPersistedAssistantMessage(
                     pendingAssistantText.join('\n\n'),
                     toolCalls,
                     {
@@ -49,9 +59,11 @@
                         thinkingText: pendingAssistantThinking.join('\n\n')
                     }
                 );
+                markCanonicalRange(node, pendingStart, pendingEnd);
                 pendingAssistantText.length = 0;
                 pendingAssistantThinking.length = 0;
                 pendingToolCallIds.clear();
+                pendingStart = pendingEnd = null;
             }
 
             if (payload?.context_checkpoint_kind === 'session_map') {
@@ -89,6 +101,7 @@
                     ? message.sequence_index
                     : null;
                 if (message.is_tool_message) {
+                    trackPendingRange(message);
                     collectToolIds(message.tool_call_ids, pendingToolCallIds);
                     collectToolIds(message.tool_return_ids, pendingToolCallIds);
                     if (message.role === 'assistant') collectAssistantContent(message);
@@ -110,9 +123,10 @@
                 }
 
                 flushAssistantTurn();
-                messageControls.addMessage('user', message.content || '', {
+                const node = messageControls.addMessage('user', message.content || '', {
                     sequenceIndex: displaySequenceIndex
                 });
+                markCanonicalRange(node, displaySequenceIndex, displaySequenceIndex);
             });
             flushAssistantTurn();
 
@@ -128,6 +142,35 @@
             timelineBoundary = null;
             timelineCheckpointId = '';
             timelineLoading = false;
+        }
+
+        function markCanonicalRange(node, start, end) {
+            if (!node || !Number.isInteger(start) || !Number.isInteger(end)) return;
+            node.dataset.canonicalStart = String(start);
+            node.dataset.canonicalEnd = String(end);
+        }
+
+        function updateCompactionState(status) {
+            if (status.session_id !== state.sessionId
+                || status.vault_name !== elements.vaultSelector?.value
+                || status.context_checkpoint_kind !== 'session_map'
+                || !Number.isInteger(status.context_boundary_sequence_index)) return;
+            const container = elements.chatMessages;
+            const previousScrollTop = container.scrollTop;
+            const atBottom = container.scrollHeight - container.clientHeight - previousScrollTop <= 2;
+            const viewportTop = container.getBoundingClientRect().top;
+            const anchor = Array.from(container.querySelectorAll('[data-canonical-start]'))
+                .find(node => node.getBoundingClientRect().bottom > viewportTop);
+            const anchorTop = anchor?.getBoundingClientRect().top;
+            timelineSessionId = status.session_id;
+            timelineBoundary = status.context_boundary_sequence_index;
+            timelineCheckpointId = status.context_checkpoint_id || '';
+            positionTimelineCheckpointNotice();
+            const nextAnchorTop = anchor?.getBoundingClientRect().top;
+            if (atBottom) container.scrollTop = container.scrollHeight - container.clientHeight;
+            else if (Number.isFinite(anchorTop) && Number.isFinite(nextAnchorTop)) {
+                container.scrollTop = previousScrollTop + nextAnchorTop - anchorTop;
+            } else container.scrollTop = previousScrollTop;
         }
 
         function reopenPersistedToolCall(toolCallId) {
@@ -184,8 +227,7 @@
                     });
                 }
                 if (node && Number.isInteger(start) && Number.isInteger(end)) {
-                    node.dataset.canonicalStart = String(start);
-                    node.dataset.canonicalEnd = String(end);
+                    markCanonicalRange(node, start, end);
                     const actions = node.querySelector('.message-footer-actions');
                     if (actions) {
                         const number = document.createElement('span');
@@ -513,6 +555,7 @@
 
         return Object.freeze({
             renderSession: renderPersistedSession,
+            updateCompactionState,
             clear: () => {
                 persistedToolEntriesById.clear();
                 resetTimelineState();

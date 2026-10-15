@@ -159,6 +159,9 @@ class ChatHistoryCompactionStatus:
     recommended: bool
     already_compacted: bool
     manual_compaction_available: bool
+    context_checkpoint_kind: str | None = None
+    context_checkpoint_id: str | None = None
+    context_boundary_sequence_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -360,6 +363,11 @@ async def get_compaction_status(
         recommended=estimated_tokens >= threshold,
         already_compacted=checkpoint is not None,
         manual_compaction_available=manual_available,
+        context_checkpoint_kind=checkpoint.checkpoint_kind if checkpoint else None,
+        context_checkpoint_id=checkpoint.checkpoint_id if checkpoint else None,
+        context_boundary_sequence_index=(
+            checkpoint.last_message_sequence_index if checkpoint else None
+        ),
     )
 
 

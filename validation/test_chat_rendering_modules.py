@@ -569,6 +569,11 @@ class Element {
         this.disabled = false;
         this.textContent = '';
         this.scrollTop = 20;
+        this.clientHeight = 10;
+    }
+    getBoundingClientRect() {
+        const top = this.parentElement ? this.parentElement.children.indexOf(this) * 10 - this.parentElement.scrollTop : 0;
+        return {top, bottom:top + 10};
     }
     set innerHTML(_value) {
         this.children.forEach(child => { child.parentElement = null; });
@@ -641,6 +646,7 @@ global.document = {
 const container = new Element('main');
 const state = { sessionId: 'session-1' };
 const requests = [];
+const openedCheckpoints = [];
 const assistantNodes = [];
 const assistantTurns = [];
 const vaultSelector = { value: 'Vault' };
@@ -678,7 +684,7 @@ const controller = ChatHistoryRendering.create({
     },
     callbacks: {
         renderEmptyState() {},
-        openSessionMap() {},
+        openSessionMap(options) { openedCheckpoints.push(options.checkpointId); },
         createAssistantStreamingMessage() {
             const messageDiv = new Element('message');
             const contentDiv = new Element('content');
@@ -726,6 +732,10 @@ const controller = ChatHistoryRendering.create({
     });
     const loadRow = container.querySelector('[data-load-older-chat-messages]');
     assert.ok(loadRow, 'The newest page should offer older history.');
+    const originalRows = [...container.querySelectorAll('[data-canonical-start]')];
+    controller.updateCompactionState({session_id:'session-1',vault_name:'Vault',context_checkpoint_kind:'session_map',context_checkpoint_id:'checkpoint-2',context_boundary_sequence_index:5});
+    assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), loadRow, 'Refreshing compaction must not reset loaded-page controls.');
+    assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]'), originalRows, 'Refreshing compaction must retain message DOM identities.');
     await loadRow.children[0].listeners.click();
     assert.match(requests[0], /before_sequence_index=3/);
     const ordered = container.children.map(node => {
@@ -733,9 +743,19 @@ const controller = ChatHistoryRendering.create({
         return Number(node.dataset.canonicalStart);
     });
     assert.deepStrictEqual(ordered, [1, 2, 3, 'boundary', 6]);
+    assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');
+    const loadedRows = [...container.querySelectorAll('[data-canonical-start]')];
+    container.scrollTop = 10;
+    controller.updateCompactionState({session_id:'session-1',vault_name:'Vault',context_checkpoint_kind:'session_map',context_checkpoint_id:'checkpoint-3',context_boundary_sequence_index:6});
+    assert.strictEqual(container.scrollTop, 10, 'Moving the boundary must preserve the visible reading anchor.');
+    assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]'), loadedRows, 'Previously loaded older messages must remain mounted.');
+    assert.strictEqual(container.querySelectorAll('[data-session-map-context-boundary="true"]').length, 1);
+    assert.strictEqual(container.children.at(-1).dataset.sessionMapContextBoundary, 'true', 'An empty retained tail puts the boundary after the transcript.');
+    const notice = container.children.at(-1);
+    notice.children[0].children[1].listeners.click();
+    assert.strictEqual(openedCheckpoints.at(-1), 'checkpoint-3', 'The existing link must open the latest committed map.');
     assert.strictEqual(assistantNodes.length, 1, 'One assistant turn should produce one bubble.');
     assert.deepStrictEqual(assistantTurns, [{ content: 'The result.', toolIds: ['call-1'] }]);
-    assert.strictEqual(container.scrollTop, 30, 'Prepending must preserve the reading anchor.');
     assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), null);
 
     // A stale request must not touch a re-rendered session, even if its ID matches.
@@ -781,6 +801,17 @@ const controller = ChatHistoryRendering.create({
             node => Number(node.dataset.canonicalStart)
         ), [1, 6]);
         vaultSelector.value = 'Vault';
+    }
+    controller.renderSession({session_id:'session-1',messages:[{role:'user',sequence_index:0,content:'Start'},{role:'assistant',sequence_index:1,fork_sequence_index:1,content:'Answer'}]});
+    const firstRows = [...container.querySelectorAll('[data-canonical-start]')];
+    assert.strictEqual(firstRows.length, 2, 'Pre-checkpoint rows need canonical anchors for the first live boundary.');
+    controller.updateCompactionState({session_id:'session-1',vault_name:'Vault',context_checkpoint_kind:'session_map',context_checkpoint_id:'first-checkpoint',context_boundary_sequence_index:0});
+    assert.deepStrictEqual(container.children.map(node => node.dataset.sessionMapContextBoundary || node.dataset.canonicalStart), ['0','true','1']);
+    assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]'), firstRows);
+    const currentNodes = [...container.children];
+    for (const stale of [{session_id:'other',vault_name:'Vault'},{session_id:'session-1',vault_name:'Other'}]) {
+        controller.updateCompactionState({...stale,context_checkpoint_kind:'session_map',context_checkpoint_id:'stale',context_boundary_sequence_index:100});
+        assert.deepStrictEqual(container.children, currentNodes, 'A stale session/vault snapshot cannot move the current boundary.');
     }
 })().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });
 """

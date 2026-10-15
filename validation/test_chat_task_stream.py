@@ -155,6 +155,7 @@ const chatRendering = {
 };
 const chatTaskStream = {
     waitForTerminal(taskId, signal) {
+        if (!loadedSession) throw new Error('Completion observation must follow the initial history render.');
         return new Promise((resolve, reject) => {
             pendingTerminals.push({ taskId, signal, resolve, reject });
             signal.addEventListener('abort', () => resolve(false), { once: true });
@@ -188,7 +189,7 @@ const controller = ChatTaskActions.create({
     chatRendering,
     chatTaskStream,
     sessionControls: {
-        refreshCompactionProgress() { pressureRefreshes += 1; },
+        refreshCompactionState() { pressureRefreshes += 1; },
         renderSelector: noop,
         updateTitleRow: noop,
     },

@@ -31,7 +31,7 @@
                     state.sessionId = preferredSessionId;
                     sessionControls.renderSelector();
                 }
-                await sessionControls.refreshCompactionProgress();
+                await sessionControls.refreshCompactionState();
             } catch (error) {
                 if (isCurrent()) console.error('Error fetching chat sessions:', error);
             }
@@ -54,7 +54,7 @@
                 state.pendingDeferredReview = null;
                 state.sessionId = sessionId;
                 sessionControls.renderSelector();
-                void sessionControls.refreshCompactionProgress();
+                void sessionControls.refreshCompactionState();
                 state.isLoading = true;
                 callbacks.syncControls();
                 const response = await fetch(

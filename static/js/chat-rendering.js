@@ -622,6 +622,7 @@
             refreshEmptyState,
             addErrorMessage: addChatErrorMessage,
             renderPersistedSession: historyRendering.renderSession,
+            updateCompactionState: historyRendering.updateCompactionState,
             addMessage: messageControls.addMessage,
             addLoadingMessage: messageControls.addLoadingMessage,
             removeLoadingMessage: messageControls.removeLoadingMessage,

@@ -276,6 +276,24 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             "Each map-authoring task should be nested under its compaction task",
         )
         checkpoints = store.list_context_checkpoints(session_id, vault.name)
+        current_status = self.call_api(
+            f"/api/chat/sessions/{session_id}/compaction-status?vault_name={vault.name}"
+        ).json()
+        latest_checkpoint = store.get_latest_context_checkpoint(session_id, vault.name)
+        assert latest_checkpoint is not None
+        self.soft_assert_equal(
+            (
+                current_status["context_checkpoint_kind"],
+                current_status["context_checkpoint_id"],
+                current_status["context_boundary_sequence_index"],
+            ),
+            (
+                "session_map",
+                latest_checkpoint.checkpoint_id,
+                latest_checkpoint.last_message_sequence_index,
+            ),
+            "Compaction status must expose the committed checkpoint used by every live UI indicator",
+        )
         self.soft_assert_equal(
             [checkpoint.checkpoint_kind for checkpoint in checkpoints],
             ["session_map", "session_map"],

@@ -63,7 +63,7 @@ const controller = ChatSessions.create({
     sessionControls: {
         renderSelector() {},
         clearCompactionProgress() {},
-        async refreshCompactionProgress() {},
+        async refreshCompactionState() {},
     },
     chatRendering: {
         closeToolCallDetails() {},

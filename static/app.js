@@ -245,6 +245,7 @@ sessionControls = window.SessionControls.create({
         clearSession,
         clearPendingAttachments,
         renderChatEmptyState,
+        updateCompactionState: status => chatRendering.updateCompactionState(status),
         resetChatModeToDefault,
         syncChatControlLocks,
         updateStatus,

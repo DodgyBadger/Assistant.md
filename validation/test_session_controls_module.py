@@ -17,6 +17,7 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 global.window = global;
+global.document = { getElementById() { return null; } };
 vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'));
 const classes = new Set();
 const fill = { style: {}, classList: {
@@ -24,40 +25,53 @@ const fill = { style: {}, classList: {
     remove(...names) { names.forEach(name => classes.delete(name)); },
 } };
 const elements = { vaultSelector: { value: 'Vault' }, compactionFill: fill, compactionTrack: {} };
-const state = { sessionId: 'session', compactionStatusRequestId: 0 };
-const controls = SessionControls.create({ state, elements, icons: {}, utils: {}, callbacks: {} });
+const state = { sessionId: 'session', compactionStatusRequestId: 0, sessions: [{session_id:'session',has_session_map:false}] };
+const snapshots = [];
+const controls = SessionControls.create({ state, elements, icons: {}, utils: {}, callbacks: { updateCompactionState(status) { snapshots.push(status); } } });
 const status = tokens => ({ compaction_type: 'auto', compaction_high_watermark_tokens: 100,
-    estimated_tokens_before: tokens, retained_message_count: 0 });
+    estimated_tokens_before: tokens, retained_message_count: 0,
+    session_id:'session', vault_name:'Vault',
+    context_checkpoint_kind:tokens < 100 ? 'session_map' : null,
+    context_checkpoint_id:tokens < 100 ? 'checkpoint' : null,
+    context_boundary_sequence_index:tokens < 100 ? 42 : null });
 const response = tokens => ({ ok: true, json: async () => status(tokens) });
 (async () => {
     global.fetch = async (_url, options) => { assert.strictEqual(options.cache, 'no-store'); return response(120); };
-    await controls.refreshCompactionProgress();
+    await controls.refreshCompactionState();
     assert.strictEqual(fill.style.width, '100%');
     assert(classes.has('compaction-hot'));
     global.fetch = async () => response(5);
-    await controls.refreshCompactionProgress();
+    await controls.refreshCompactionState();
     assert.strictEqual(fill.style.width, '5%');
     assert(!classes.has('compaction-hot'), 'Map-only context must clear the red indicator.');
+    assert.strictEqual(state.sessions[0].has_session_map, true, 'The same accepted snapshot must enable the picker map icon.');
+    assert.strictEqual(snapshots.at(-1).context_checkpoint_id, 'checkpoint');
 
-    for (const change of ['session', 'vault', 'request', 'abort']) {
+    for (const change of ['session', 'vault', 'request', 'abort', 'new-turn']) {
         state.sessionId = 'session'; elements.vaultSelector.value = 'Vault';
         let resolveJson;
         const observer = new AbortController();
         global.fetch = async () => ({ ok: true, json: () => new Promise(resolve => { resolveJson = resolve; }) });
-        const pending = controls.refreshCompactionProgress({ signal: observer.signal });
+        let currentTurn = true;
+        const pending = controls.refreshCompactionState({ signal: observer.signal, isCurrent: () => currentTurn });
         await new Promise(resolve => setImmediate(resolve));
         if (change === 'session') state.sessionId = 'other';
         if (change === 'vault') elements.vaultSelector.value = 'Other';
         if (change === 'abort') observer.abort();
+        if (change === 'new-turn') currentTurn = false;
         if (change === 'request') {
             global.fetch = async () => response(10);
-            await controls.refreshCompactionProgress();
+            await controls.refreshCompactionState();
         }
         const currentWidth = fill.style.width;
+        const acceptedCount = snapshots.length;
+        const hasMap = state.sessions[0].has_session_map;
         resolveJson(status(120));
         await pending;
         assert.strictEqual(fill.style.width, currentWidth, `Stale ${change} response changed pressure.`);
         assert(!classes.has('compaction-hot'));
+        assert.strictEqual(snapshots.length, acceptedCount, 'Stale snapshots must not move the boundary.');
+        assert.strictEqual(state.sessions[0].has_session_map, hasMap, 'Stale snapshots must not change the map icon.');
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """

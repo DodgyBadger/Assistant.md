@@ -187,7 +187,7 @@
             renderCompactionProgress(null);
         }
 
-        async function refreshCompactionProgress({ signal } = {}) {
+        async function refreshCompactionState({ signal, isCurrent: acceptsSnapshot = () => true } = {}) {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId || '';
             if (!vault || !sessionId) {
@@ -198,7 +198,8 @@
             const requestId = state.compactionStatusRequestId + 1;
             state.compactionStatusRequestId = requestId;
             const isCurrent = () => !signal?.aborted && requestId === state.compactionStatusRequestId
-                && state.sessionId === sessionId && elements.vaultSelector?.value === vault;
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && acceptsSnapshot();
             try {
                 const response = await fetch(
                     `api/chat/sessions/${encodeURIComponent(sessionId)}/compaction-status?vault_name=${encodeURIComponent(vault)}`,
@@ -211,6 +212,16 @@
                 const status = await response.json();
                 if (!isCurrent()) return;
                 renderCompactionProgress(status);
+                const session = state.sessions?.find(item => item.session_id === sessionId);
+                if (session) {
+                    session.has_session_map = status.context_checkpoint_kind === 'session_map';
+                    if (session.has_session_map) {
+                        session.context_strategy = 'session_map';
+                        session.can_upgrade_to_v2 = false;
+                    }
+                    renderSelector();
+                }
+                callbacks.updateCompactionState?.(status);
             } catch (error) {
                 if (isCurrent()) {
                     console.error('Error fetching chat compaction status:', error);
@@ -788,7 +799,7 @@
             formatOptionLabel,
             renderSelector,
             clearCompactionProgress,
-            refreshCompactionProgress,
+            refreshCompactionState,
             updateTitleRow,
             attachEventListeners,
             saveTitle,
