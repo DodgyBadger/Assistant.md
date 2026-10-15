@@ -35,6 +35,7 @@ Existing summary data is backed up before removal; original conversations and se
 
 ### Bug fixes
 
+- Embedded images, including pasted file icons, no longer prevent the packaged default context script from loading README, playbook or other standing context files.
 - New tasks now appear automatically in the dashboard even when its task list was initially empty.
 - Stopping or failing a resumed tool approval no longer leaves unanswered tool calls that prevent the next chat turn.
 - Forking a compacted session preserves original messages through the fork point and applicable compaction checkpoints, rather than copying only the shortened history.

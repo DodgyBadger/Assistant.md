@@ -100,6 +100,8 @@ if notes.metadata.get("status") == "not_found":
     await finish(status="skipped", reason="optional-notes.md does not exist")
 ```
 
+For text-only standing context, use `file_read(operation="read", path="README.md", start_line=1)`. With no line-count limit, this reads the entire file as text without attaching images embedded in Markdown. The default context script uses this for its optional instruction and workspace files. An ordinary full-file read can return multimodal content rather than a string.
+
 Catch a failure narrowly when the script has a real fallback:
 
 ```python

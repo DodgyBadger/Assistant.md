@@ -6,7 +6,9 @@ instructions and bounds user-controlled context sources without depending on
 their internal Markdown structure.
 """
 
+import base64
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -102,7 +104,40 @@ This workspace intentionally has no README.
 """,
         )
 
+        # Pasted file-link icons must not turn standing context into multimodal data.
+        icon_path = vault / "assets" / "file-icon.png"
+        icon_path.parent.mkdir(parents=True, exist_ok=True)
+        icon_path.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
+            )
+        )
+        for source in (
+            "AssistantMD/soul.md",
+            "AssistantMD/PlayBook.md",
+            "AssistantMD/user.md",
+            "Projects/WorkspaceA/readme.md",
+            "Projects/WorkspaceA/PLAYBOOK.md",
+        ):
+            path = vault / source
+            path.write_text(
+                f"![File icon]({os.path.relpath(icon_path, path.parent)})\n\n"
+                + path.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
         await self.start_system()
+
+        from core.vault_state.file_operations import read_vault_file_operation
+
+        image_read = read_vault_file_operation(
+            vault_path=str(vault), path="Projects/WorkspaceA/readme.md"
+        )
+        assert image_read.metadata["status"] == "completed"
+        assert image_read.metadata["media_mode"] == "markdown+images"
+        assert isinstance(
+            image_read.return_value, list
+        ), "Ordinary chat file reads should retain multimodal behavior"
 
         from core.authoring.context_manager import (
             build_context_manager_history_processor,
@@ -134,6 +169,14 @@ This workspace intentionally has no README.
             for part in getattr(message, "parts", ())
             if getattr(part, "part_kind", None) == "system-prompt"
         )
+        assert (
+            "![File icon]" in system_text
+        ), "Keep source Markdown text without embedding image data"
+        assert not any(
+            isinstance(getattr(part, "content", None), list)
+            for message in processed
+            for part in getattr(message, "parts", ())
+        ), "Automatic standing context should not attach multimodal content"
 
         self.soft_assert(
             "Use the validation soul instruction." in system_text,

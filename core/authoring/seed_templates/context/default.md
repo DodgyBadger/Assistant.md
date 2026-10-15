@@ -73,7 +73,9 @@ history_result = await retrieve_history(scope="session", limit="all")
 history = list(history_result.items)
 
 # `soul.md` is optional. It is a good place for broad assistant tone and stance.
-soul_result = await file_read(operation="read", path="AssistantMD/soul.md")
+# An open-ended line read keeps standing context text-only, even when Markdown
+# contains pasted icons or other images. Ordinary file reads can be multimodal.
+soul_result = await file_read(operation="read", path="AssistantMD/soul.md", start_line=1)
 soul_instructions = (
     bounded_text(soul_result.return_value, SOUL_CHAR_LIMIT, "Soul")
     if soul_result.metadata.get("status") == "completed"
@@ -93,7 +95,7 @@ def split_parent_filename(path):
 async def read_convention_file(path):
     # First try the exact path. If that fails, list the parent folder and accept
     # a single case-insensitive filename match such as README.md vs readme.md.
-    exact_result = await file_read(operation="read", path=path)
+    exact_result = await file_read(operation="read", path=path, start_line=1)
     if exact_result.metadata.get("status") == "completed":
         return path, exact_result
 
@@ -113,7 +115,7 @@ async def read_convention_file(path):
         return path, exact_result
 
     matched_path = matches[0]
-    matched_result = await file_read(operation="read", path=matched_path)
+    matched_result = await file_read(operation="read", path=matched_path, start_line=1)
     if matched_result.metadata.get("status") == "completed":
         return matched_path, matched_result
     return path, exact_result
@@ -193,7 +195,7 @@ USER_NOTES_char_limit = parse_positive_int(
     DEFAULT_USER_NOTES_CHAR_LIMIT,
 )
 
-USER_NOTES_result = await file_read(operation="read", path=USER_NOTES_file)
+USER_NOTES_result = await file_read(operation="read", path=USER_NOTES_file, start_line=1)
 USER_NOTES_instructions = ""
 if USER_NOTES_result.metadata.get("status") == "completed":
     # User notes are editable memory. They should guide the agent, but they are
