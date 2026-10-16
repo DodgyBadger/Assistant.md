@@ -1,46 +1,42 @@
 # Release Notes
 
-## Unreleased
+## v0.9.0
 
 ### Compaction v2
 
-This release introduces a new session compaction strategy, Compaction v2, which aims to reduce a subtle drift we noticed across repeated recovery-card summaries: facts could survive while their emphasis or interpretation gradually shifted. V2 makes those interpretations more explicit in a structured session map, distinguishing options from commitments and preserving uncertainty alongside the story of how the conversation reached its current state.
+This release introduces a new session compaction strategy, Compaction v2, which aims to reduce salience drift across repeated recovery-card summaries. Facts could survive while their emphasis or interpretation gradually shifted. V2 makes interpretation more explicit by using a structured schema (called a session map) rather than a single free-form narrative. Additionally, entries in the session map include pointers to the original messages they are grounded in so that the chat agent can retrieve them as evidence when needed.
 
-Better prompts can improve a summary, but cannot recover nuance once it has dropped out of successive summaries. V2 therefore pairs the map with references to original messages and tools for searching and retrieving older history. The map viewer and full transcript visibility let you inspect that history too. The goal is less implicit interpretation and a way back to the evidence when it matters—not an infallible summary, or one that must preserve everything on its own.
+Session maps can also be inspected by the user and full message history is retained in the chat window, with message numbers for cross-referencing with the session map and markers indicating where compaction has occurred.
 
 - Control when compaction happens and how much context remains afterward with configurable token watermarks.
 - Inspect the session map and its earlier revisions from the session browser. In V2 chats, original messages remain visible through **Load older messages**, including tool details and the ability to fork from older assistant messages.
 - Ask the assistant to search earlier messages in the current session and retrieve the original wording or surrounding discussion, including history no longer in its active context.
 
-Compaction v2 is optional and is not enabled by default. To use it, set `compaction_strategy` to `session_map` in Settings; new sessions will then use V2 when they compact. Existing sessions already compacted under V1 keep their recovery-card strategy and must be upgraded individually using **Upgrade to Compaction v2** in the session browser. Changing the setting does not convert them automatically, and the V1 strategy remains available as `recovery_card`.
+Compaction v2 is optional and is not enabled by default. To use it, set `compaction_strategy` to `session_map` in Settings; new sessions will then use V2 when they compact. Existing sessions already compacted under V1 keep their recovery-card strategy and must be upgraded individually. An upgrade icon is shown in the session list for eligible sessions. Please note that there is currently no conversion path from V2 to V1. The aim is for V2 to fully replace V1.
 
 ### Simpler cross-session discovery
 
-Compaction v2’s session maps also provide useful summaries for discovering past conversations, making a separate nightly session-summary system increasingly redundant. This release brings discovery onto the same maps and original transcripts used for session continuity. Transcript search covers sessions without maps, recent messages and details the maps leave out.
-
-We also retired embedding-based session search: its practical value in our use did not justify retaining the additional setup and machinery. Discovery now uses lexical text search, trading semantic and paraphrase matching for a simpler system with no embedding credentials or nightly summarization workflow.
+Session summaries and the optional nightly workflow have been retired. Upgrading to v0.9.0 backs up the existing session-summary database in `system/migration_backups`, then removes its summary and embedding data. This has been done because the new session map provides a similar foundation for cross-session discovery without reliance on enabling an optional workflow or setting up an embedding provider. Sessions which haven't yet reached the compaction threshold are still searchable using full-text search.
 
 - Find past conversations using **Names** or **Contents** in the session browser.
 - Search session maps and original transcripts without waiting for a summary to be generated.
 
-Existing summary data is backed up before removal; original conversations and session maps are preserved. Custom workflows using retired summary operations need updating.
+Custom workflows using retired session-summary operations need updating.
 
 ### Other
 
-- Follow full-path wikilinks and ordinary Markdown links to vault files from chat and vault previews, using the same Vault Explorer. Existing `@path` references also handle adjacent paths and filenames containing `!` more reliably.
-- User messages render Markdown and clickable vault links too. Message Copy buttons preserve the original Markdown source, including link destinations; selecting text lets you copy the rendered version.
-- Browse linked vault files with Back navigation that restores your reading position, plus a separate vault-tree button. File names and paths have their own full-width row below the viewer controls, and refreshing the explorer preserves open folders, selection and your place in loaded results.
-- System Activity failures are easier to follow, with fuller diagnostic details and clearer task and backup information.
-- Import and model-provider failures now show the API's specific rejection reason and HTTP status rather than only a generic failure, with sensitive details redacted.
+- The Vault Explorer now supports following Markdown and wikilinks and live-links in chat messages now also use wikilink syntax. The previous `@path` live-link syntax will be supported for several releases so that your older chats remain useful.
+- User messages now also render Markdown. Message copy button copies the original Markdown source.
+- Improved Vault Explorer navigation. Back now takes you back to the previous file, plus a separate tree-view button. Refreshing the tree-view preserves open folders, selection and your place in loaded results.
 
 ### Bug fixes
 
-- Embedded images, including pasted file icons, no longer prevent the packaged default context script from loading README, playbook or other standing context files.
-- New tasks now appear automatically in the dashboard even when its task list was initially empty.
-- Stopping or failing a resumed tool approval no longer leaves unanswered tool calls that prevent the next chat turn.
-- Forking a compacted session preserves original messages through the fork point and applicable compaction checkpoints, rather than copying only the shortened history.
-- Scheduled workflows tolerate brief start delays instead of being skipped after exceeding a one-second grace period.
-- Older session-loading responses no longer overwrite newer navigation or display stale errors after switching sessions or vaults.
+- Fixed: Embedded images in files loaded by the default context script would crash the chat session.
+- Fixed: Running tasks were not automatically visible in the dashboard.
+- Fixed: Stopping or failing a tool approval could corrupt the chat session by leaving unanswered tool calls.
+- Fixed: Forking a compacted session retained only the active turns. It now preserves original history and applicable compaction checkpoints through the selected message.
+- Fixed: Scheduled workflows could be skipped after brief start delays due to an overly short grace period.
+- Fixed: Several observability gaps in the System Activity log.
 
 ## v0.8.3
 
