@@ -40,7 +40,10 @@ _APPROVAL_CHECK = r"""(async () => {
     assert(elements.fileApprovalToggle.disabled && requests.length === count, 'Active run prevents mode changes');
     state.isLoading = false; elements.chatModeSelector.value = 'normal'; controller.syncFileApprovalToggle();
     assert(elements.fileApprovalToggle.getAttribute('aria-pressed') === 'false', 'Loading another session updates the visible toggle');
-    return 7;
+    state.sessions = []; fail = true;
+    await controller.toggleFileApprovals();
+    assert(elements.chatModeSelector.value === 'normal', 'Failed toggle restores the actual mode even before the session list refreshes');
+    return 8;
 })()"""
 
 
