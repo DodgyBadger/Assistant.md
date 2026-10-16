@@ -39,6 +39,7 @@
 
         async function loadSession(sessionId, options = {}) {
             const requestId = ++sessionLoadRequestId;
+            const chatModeRevision = state.chatModeRevision;
             const vault = elements.vaultSelector?.value || '';
             if (!vault || !sessionId) return;
             const isCurrent = () => (
@@ -74,7 +75,13 @@
                 loadedHistoryRevision = Number.isInteger(payload.history_revision)
                     ? payload.history_revision
                     : null;
-                if (elements.chatModeSelector) {
+                const modeSavePending = state.chatModeSavePending?.sessionId === sessionId
+                    && state.chatModeSavePending?.vault === vault;
+                // A history snapshot can predate a newer approval preference save.
+                const modeChanged = chatModeRevision !== state.chatModeRevision
+                    && state.chatModeRevision?.sessionId === sessionId
+                    && state.chatModeRevision?.vault === vault;
+                if (elements.chatModeSelector && !modeSavePending && !modeChanged) {
                     elements.chatModeSelector.value = payload.chat_mode === 'inline_edit'
                         ? 'inline_edit'
                         : 'normal';

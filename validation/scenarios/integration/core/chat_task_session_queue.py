@@ -87,6 +87,7 @@ class ChatTaskSessionQueueScenario(BaseScenario):
         release_cancel_blocker = asyncio.Event()
         slow_preflight_started = asyncio.Event()
         prepare_history_counts: dict[str, int] = {}
+        prepared_modes: dict[str, str] = {}
         original_prepare = chat_executor._prepare_chat_execution
 
         async def fake_prepare_chat_execution(
@@ -104,6 +105,7 @@ class ChatTaskSessionQueueScenario(BaseScenario):
             chat_mode="normal",
             display_prompt=None,
         ):
+            prepared_modes[prompt] = chat_mode
             del (
                 vault_path,
                 image_paths,
@@ -197,9 +199,27 @@ class ChatTaskSessionQueueScenario(BaseScenario):
                 "Session active-task lookup should prefer the running task over queued work",
             )
 
+            # A preference change after acceptance must survive queued execution,
+            # while both accepted turns retain their original approval policy.
+            store.set_session_chat_mode(
+                session_id="queued-chat-session",
+                vault_name=vault.name,
+                chat_mode="inline_edit",
+            )
             release_first.set()
             first_terminal = await self._wait_for_task_terminal(first.task.task_id)
             second_terminal = await self._wait_for_task_terminal(second.task.task_id)
+
+            self.soft_assert_equal(
+                store.get_session_chat_mode("queued-chat-session", vault.name),
+                "inline_edit",
+                "Queued execution must preserve a newer session approval preference",
+            )
+            self.soft_assert_equal(
+                prepared_modes.get("second prompt"),
+                "normal",
+                "Queued execution must retain its accepted approval mode",
+            )
 
             cancel_blocker = await start_queued_chat_stream_task(
                 vault_name=vault.name,

@@ -124,6 +124,7 @@ global.document = {
     body: { appendChild(node) { modal = node; } },
     createElement() {
         return {
+            querySelectorAll() { return []; },
             listeners: {},
             addEventListener(name, fn) { this.listeners[name] = fn; },
             querySelector(selector) {
@@ -266,6 +267,7 @@ global.document = {
     createElement() {
         return {
             addEventListener(name, listener) { this.listeners[name] = listener; },
+            querySelectorAll() { return []; },
             listeners: {},
             querySelector(selector) {
                 if (selector === '#session-browser-list') return list;

@@ -59,6 +59,7 @@
                 throw new Error('Chat task did not return a task id.');
             }
             state.activeChatTaskId = taskId;
+            callbacks.syncChatControlLocks();
             const sessionId = state.sessionId;
 
             const assistantMessage = chatRendering.createAssistantStreamingMessage();
@@ -229,8 +230,8 @@
             const hasPromptOverride = hasStringPromptOverride;
             const message = hasPromptOverride ? promptOverride.trim() : elements.chatInput.value.trim();
             const pendingUploads = includeAttachments ? composeState.pendingAttachments.slice() : [];
-            if ((!message && pendingUploads.length === 0) || state.isLoading || state.pendingDeferredReview) {
-                onStartError?.(new Error('Wait for the active response or review to finish.'));
+            if ((!message && pendingUploads.length === 0) || state.isLoading || state.pendingDeferredReview || state.chatModeSavePending) {
+                onStartError?.(new Error('Wait for the active response, review, or settings save to finish.'));
                 return false;
             }
             const effectivePrompt = message || 'Please analyze the attached image(s).';

@@ -1826,6 +1826,13 @@ details summary::-webkit-details-marker {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
+.session-browser-row[data-session-switch-locked="true"] {
+    cursor: default;
+}
+.session-browser-new-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 .session-browser-row:hover,
 .session-browser-row:focus-visible,
 .session-browser-row.is-active {
