@@ -269,11 +269,7 @@
                     }
                     return callbacks.sendSelectionPrompt(block, options);
                 },
-                onAccepted: () => {
-                    closeFileModal({ force: true });
-                    closePicker();
-                    elements.chatInput?.focus({ preventScroll: true });
-                },
+                onAccepted: () => closeExplorer({ force: true }),
             });
             activeSelectionPrompt = selectionPrompt;
 
@@ -390,7 +386,7 @@
                     return;
                 }
                 if (target.closest('[data-vault-file-close="true"]')) {
-                    closeFileModal();
+                    closeExplorer();
                     return;
                 }
                 const modeButton = target.closest('[data-vault-file-mode]');
@@ -770,6 +766,13 @@
             activeFileCanClose = null;
             activeFileView = null;
             if (!preserveNavigation) fileHistory = [];
+            return true;
+        }
+
+        function closeExplorer({ force = false } = {}) {
+            if (!closeFileModal({ force })) return false;
+            closePicker();
+            elements.chatInput?.focus({ preventScroll: true });
             return true;
         }
 
