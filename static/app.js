@@ -89,6 +89,7 @@ const dashElements = {
 
 // DOM elements - Configuration
 const configElements = {
+    applicationVersion: document.getElementById('application-version'),
     statusBanner: document.getElementById('config-status-banner'),
     statusMessages: document.getElementById('config-status-messages'),
     publicUrl: document.getElementById('configured-public-url'),

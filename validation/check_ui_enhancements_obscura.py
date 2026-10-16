@@ -44,6 +44,21 @@ _APPROVAL_CHECK = r"""(async () => {
 })()"""
 
 
+_VERSION_CHECK = r"""(async () => {
+    document.body.innerHTML = '<span id="version"></span>';
+    const state = {};
+    window.fetch = async url => ({ok:true,json:async () => url === 'api/status' ? {system:{app_version:'3.2.1'}} : {tasks:[]}});
+    const noop = () => {};
+    const controller = SystemStatus.create({state, chatElements:{}, dashElements:{},
+        configElements:{applicationVersion:document.querySelector('#version'),advancedShellCoordinates:[]},
+        dashboardView:{syncExecutionTaskPolling:noop,displaySystemStatus:noop},
+        callbacks:{syncRestartFlag:noop,updateStatus:noop,refreshChatEmptyState:noop}});
+    await controller.fetchSystemStatus();
+    if (document.querySelector('#version').textContent !== '3.2.1') throw new Error('System tab must show the API application version');
+    return 1;
+})()"""
+
+
 async def run(url: str) -> None:
     async with connect(url, max_size=16 * 1024 * 1024) as websocket:
         request_id = 0
@@ -88,6 +103,9 @@ async def run(url: str) -> None:
             await evaluate((_ROOT / "static/js/chat-selection.js").read_text())
             count = await evaluate(_APPROVAL_CHECK)
             print(f"Obscura CDP: {count} approval-toggle checks passed")
+            await evaluate((_ROOT / "static/js/system-status.js").read_text())
+            count = await evaluate(_VERSION_CHECK)
+            print(f"Obscura CDP: {count} version-display checks passed")
         finally:
             await command("Target.closeTarget", {"targetId": target["targetId"]})
 

@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import tempfile
+import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -96,6 +97,16 @@ class ApiEndpointsScenario(BaseScenario):
         status_response = self.call_api("/api/status")
         assert status_response.status_code == 200, "Status endpoint succeeds"
         status_payload = status_response.json()
+        project = tomllib.loads(
+            (Path(__file__).resolve().parents[4] / "pyproject.toml").read_text()
+        )
+        assert (
+            status_payload["system"]["app_version"] == project["project"]["version"]
+        ), "System version matches application metadata"
+        openapi = self.call_api("/openapi.json")
+        assert (
+            openapi.json()["info"]["version"] == project["project"]["version"]
+        ), "OpenAPI version matches the application"
         assert status_payload.get("total_vaults") == 1, "One vault discovered"
         assert status_payload.get("total_workflows") == 2, "Seeded workflows counted"
 
