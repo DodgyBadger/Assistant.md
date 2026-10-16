@@ -9,9 +9,7 @@
 - Remove temporary debug code, comments, probes, and dead helpers.
 - Confirm no secrets or runtime-state artifacts are being committed:
   never commit real API keys, populated `system/secrets.yaml`, or unintended changes under persistent runtime state.
-- Make sure docs match the final behavior: update user-facing docs and examples;
-  update `docs/development/architecture.md` only when subsystem ownership,
-  trust boundaries, or major execution flows change.
+- Review whether docs match the final behavior. For changes anywhere under `docs/`, including agent guides and ADRs, or to the root `README.md` or `RELEASE_NOTES.md`, follow the [user approval requirement](../../AGENTS.md#always-true): discuss the affected files, present the proposed text or diff in chat, and obtain explicit approval of that draft before applying it. Recommend an architecture update only when subsystem ownership, trust boundaries, or major execution flows change. Report unapproved drafts as pending documentation work in the handoff.
 - Recommend a new ADR when the final implementation establishes or changes a
   durable architecture decision:
   cross-subsystem boundaries, persistence ownership, user-data ownership,
@@ -19,7 +17,7 @@
   Do not create ADRs for temporary implementation choices or decisions that are
   still likely to change; call out the recommendation in the handoff when the
   maintainer should decide.
-- Draft the next `RELEASE_NOTES.md` entry for the change.
+- Draft the next `RELEASE_NOTES.md` entry in chat and obtain explicit user approval of that draft before editing the file.
   Keep the entry user-oriented:
   describe what changed for users, operators, or template authors, not internal architecture churn unless it changes how they use or upgrade the system.
   Source it in this order:
@@ -39,7 +37,7 @@ Underlying wiring, module decomposition and small design choices may change with
 
 ## Common Mistakes
 - Leaving behind session-only helpers or debug instrumentation.
-- Updating implementation without updating docs or examples.
+- Silently updating protected documentation as part of implementation or cleanup, or failing to report documentation changes awaiting draft approval.
 - Treating every plan change as an ADR candidate; ADRs should capture durable
   decisions that survived the work.
 - Turning ADRs into architecture inventories or freezing incidental implementation details as permanent decisions.
