@@ -38,13 +38,19 @@ _APPROVAL_CHECK = r"""(async () => {
     assert(elements.fileApprovalToggle.disabled && requests.length === count, 'Pending review prevents mode changes');
     state.pendingDeferredReview = null; state.isLoading = true; controller.syncFileApprovalToggle();
     await controller.toggleFileApprovals();
-    assert(elements.fileApprovalToggle.disabled && requests.length === count, 'Active run prevents mode changes');
+    assert(elements.fileApprovalToggle.disabled && requests.length === count, 'Startup prevents premature mode changes');
+    state.activeChatTaskId = 'accepted-task'; fail = false; controller.syncFileApprovalToggle();
+    assert(!elements.fileApprovalToggle.disabled && elements.fileApprovalToggle.title.includes('next message'), 'Accepted response allows next-message approval changes');
+    await controller.toggleFileApprovals();
+    assert(elements.chatModeSelector.value === 'normal' && requests.length === count+1, 'In-flight approval change persists');
+    fail = true; await controller.toggleFileApprovals();
+    assert(elements.chatModeSelector.value === 'normal', 'Failed in-flight save rolls back');
     state.isLoading = false; elements.chatModeSelector.value = 'normal'; controller.syncFileApprovalToggle();
     assert(elements.fileApprovalToggle.getAttribute('aria-pressed') === 'false', 'Loading another session updates the visible toggle');
     state.sessions = []; fail = true;
     await controller.toggleFileApprovals();
     assert(elements.chatModeSelector.value === 'normal', 'Failed toggle restores the actual mode even before the session list refreshes');
-    return 8;
+    return 11;
 })()"""
 
 
@@ -156,6 +162,71 @@ _MODAL_APPROVAL_CHECK = r"""(async () => {
 })()"""
 
 
+_FLIGHT_CHECK = r"""(async () => {
+    const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+    const state={isLoading:true,activeChatTaskId:'task',sessionId:'active',metadata:{settings:{}},sessions:[
+        {session_id:'active',title:'Active',chat_mode:'inline_edit',can_upgrade_to_v2:true},
+        {session_id:'other',title:'Other'}]};
+    const ids={vaultSelector:'vault-selector',modelSelector:'model-selector',thinkingSelector:'thinking-selector',sendBtn:'send-btn',chatInput:'chat-input',
+        templateSelector:'template-selector',chatModeSelector:'chat-mode-selector',fileApprovalToggle:'file-approval-toggle',
+        sessionBrowserTrigger:'session-browser-trigger',newSessionTrigger:'new-session-trigger',
+        workspacePathInput:'workspace-path-input',workspacePickerBtn:'workspace-picker-btn',workspaceClearBtn:'workspace-clear-btn'};
+    const chatElements=Object.fromEntries(Object.entries(ids).map(([key,id])=>[key,document.getElementById(id)]));
+    chatElements.vaultSelector.innerHTML='<option value="Vault">Vault</option>';
+    chatElements.chatModeSelector.value='inline_edit';
+    chatElements.modelSelector.innerHTML='<option value="first">First</option><option value="next">Next</option>';
+    chatElements.templateSelector.innerHTML='<option value="">None</option><option value="Next">Next</option>';
+    const utils={escapeHtml:value=>String(value)};
+    let switches=0,requests=[];
+    window.fetch=async(url,options)=>{requests.push({url,options});return{ok:true};};
+    const sessionControls=SessionControls.create({state,elements:chatElements,icons:AssistantMDIcons,utils,callbacks:{
+        clearSession:async()=>switches++,loadSession:async()=>switches++}});
+    const chatSelection=ChatSelection.create({state,elements:chatElements,sessionControls,callbacks:{
+        syncControls:()=>syncLocks(),addErrorMessage:message=>{throw new Error(message);}}});
+    const workspacePicker=WorkspacePicker.create({state,elements:chatElements,callbacks:{}});
+    const fileReferences={syncInteractionLocks(){}},vaultActivity={syncInteractionLocks(){}};
+    const syncSendButtonState=eval('('+window.sendButtonStateSource+')');
+    const syncLocks=eval('('+window.chatControlLocksSource+')');
+    sessionControls.attachEventListeners();
+    chatElements.fileApprovalToggle.addEventListener('click',()=>chatSelection.toggleFileApprovals());
+    syncLocks();
+    assert(!chatElements.sessionBrowserTrigger.disabled,'Modal opener stays available during a response');
+    chatElements.sessionBrowserTrigger.click();
+    let modal=document.querySelector('#session-browser-modal');
+    assert(modal && !modal.querySelector('[data-chat-settings-flight-notice]').hidden,'In-flight modal explains next-message scope');
+    assert(!chatElements.fileApprovalToggle.disabled && !chatElements.thinkingSelector.disabled && !chatElements.modelSelector.disabled && !chatElements.templateSelector.disabled,'Next-message controls are editable');
+    assert(chatElements.vaultSelector.disabled && chatElements.workspacePathInput.disabled && chatElements.workspacePickerBtn.disabled && chatElements.workspaceClearBtn.disabled,'Vault and workspace stay locked');
+    const newButton=modal.querySelector('[data-session-browser-new]');
+    assert(newButton.disabled && chatElements.newSessionTrigger.disabled,'Both new-session controls stay locked');
+    const row=modal.querySelector('[data-session-browser-row-id="other"]');
+    row.querySelector('.session-dropdown-title').click();newButton.click();
+    assert(switches===0 && document.querySelector('#session-browser-modal')===modal,'Session switching stays blocked without closing settings');
+    const action=name=>modal.querySelector(`[data-session-action="${name}"][data-session-action-id="active"]`);
+    assert(action('delete').disabled && action('upgrade-v2').disabled && !action('export').disabled,'Active-session mutations stay locked and export remains available');
+    await sessionControls.deleteCurrent('active');
+    assert(requests.length===0,'Programmatic active-session deletion is guarded');
+    chatElements.modelSelector.value='next';chatElements.thinkingSelector.value='high';chatElements.templateSelector.value='Next';
+    await chatSelection.toggleFileApprovals();
+    assert(requests.length===1 && JSON.parse(requests[0].options.body).chat_mode==='normal','Approval changes persist during a response');
+    modal.querySelector('[data-session-browser-close]').click();chatElements.sessionBrowserTrigger.click();
+    modal=document.querySelector('#session-browser-modal');
+    assert(chatElements.modelSelector.value==='next' && chatElements.thinkingSelector.value==='high' && chatElements.templateSelector.value==='Next' && chatElements.chatModeSelector.value==='normal','Reopening preserves next-message settings');
+    const filter=modal.querySelector('#session-browser-filter');filter.value='Other';filter.dispatchEvent(new Event('input',{bubbles:true}));
+    assert(modal.querySelectorAll('[data-session-browser-row-id]').length===1 && !filter.disabled,'Session filtering remains available');
+    state.pendingDeferredReview={};syncLocks();
+    assert(chatElements.fileApprovalToggle.disabled,'Pending review still locks approvals');
+    state.pendingDeferredReview=null;state.chatModeSavePending={vault:'Vault',sessionId:'active'};syncLocks();
+    assert(!chatElements.sendBtn.disabled && chatElements.sendBtn.title.includes('Stop'),'Saving next-message mode must keep Stop available');
+    state.isLoading=false;syncLocks();
+    assert(chatElements.sendBtn.disabled && !chatElements.chatInput.disabled,'A pending save blocks sending but permits drafting');
+    state.chatModeSavePending=null;syncLocks();
+    assert(!modal.querySelector('[data-session-browser-new]').disabled && modal.querySelector('[data-chat-settings-flight-notice]').hidden,'Completion restores session controls and removes scope notice');
+    modal.querySelector('[data-session-browser-row-id="other"]').click();await Promise.resolve();
+    assert(switches===1 && !document.querySelector('#session-browser-modal'),'Session switching works again after completion');
+    return 16;
+})()"""
+
+
 async def run(url: str) -> None:
     async with connect(url, max_size=16 * 1024 * 1024) as websocket:
         request_id = 0
@@ -212,6 +283,20 @@ async def run(url: str) -> None:
             )
             await evaluate((_ROOT / "static/js/icons.js").read_text())
             await evaluate((_ROOT / "static/js/session-controls.js").read_text())
+            await evaluate((_ROOT / "static/js/workspace-picker.js").read_text())
+            app = (_ROOT / "static/app.js").read_text()
+            locks = app[
+                app.index("function syncChatControlLocks() {") : app.index(
+                    "function syncVaultExplorerButtons() {"
+                )
+            ].strip()
+            await evaluate("window.chatControlLocksSource = " + json.dumps(locks))
+            send_state = app[
+                app.index("function syncSendButtonState() {") : app.index(
+                    "function syncChatControlLocks() {"
+                )
+            ].strip()
+            await evaluate("window.sendButtonStateSource = " + json.dumps(send_state))
             styles = (
                 (_ROOT / "static/output.css").read_text()
                 + "\n"
@@ -241,6 +326,12 @@ async def run(url: str) -> None:
                 ):
                     print(
                         "Obscura does not render CSS filters; verified glow declaration and theme colors."
+                    )
+                if width in (390, 1024):
+                    await evaluate("document.body.innerHTML = " + json.dumps(markup))
+                    count = await evaluate(_FLIGHT_CHECK)
+                    print(
+                        f"Obscura CDP: {count} in-flight settings checks passed at {width}px"
                     )
         finally:
             await command("Target.closeTarget", {"targetId": target["targetId"]})

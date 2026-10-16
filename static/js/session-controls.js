@@ -118,6 +118,36 @@
             `;
         }
 
+        function isSessionActionLocked(action, sessionId) {
+            return Boolean(state.isLoading && sessionId === state.sessionId
+                && ['delete', 'upgrade-v2'].includes(action));
+        }
+
+        function syncModalControls() {
+            const modal = sessionBrowserModal();
+            if (!modal) return;
+            const notice = modal.querySelector('[data-chat-settings-flight-notice]');
+            if (notice) notice.hidden = !state.isLoading;
+            const newButton = modal.querySelector('[data-session-browser-new]');
+            if (newButton) newButton.disabled = Boolean(state.isLoading);
+            modal.querySelectorAll('[data-session-browser-row-id]').forEach(row => {
+                row.dataset.sessionSwitchLocked = String(Boolean(state.isLoading));
+                const main = row.querySelector('.session-browser-row-main');
+                if (main) main.title = state.isLoading ? 'Session switching is unavailable while a response is running.' : '';
+            });
+            modal.querySelectorAll('[data-session-action]').forEach(button => {
+                if (['delete', 'upgrade-v2'].includes(button.dataset.sessionAction)) {
+                    if (isSessionActionLocked(button.dataset.sessionAction, button.dataset.sessionActionId)) {
+                        button.dataset.responseLocked = 'true';
+                        button.disabled = true;
+                    } else if (button.dataset.responseLocked) {
+                        delete button.dataset.responseLocked;
+                        button.disabled = false;
+                    }
+                }
+            });
+        }
+
         function renderRowActionButton(action, sessionId, label, icon, extraClass = '') {
             const classes = ['session-dropdown-action', extraClass].filter(Boolean).join(' ');
             return `
@@ -126,6 +156,7 @@
                     class="${classes}"
                     data-session-action="${action}"
                     data-session-action-id="${escapeHtml(sessionId)}"
+                    ${isSessionActionLocked(action, sessionId) ? 'disabled' : ''}
                     title="${escapeHtml(label)}"
                     aria-label="${escapeHtml(label)}"
                 >${icon}</button>
@@ -144,6 +175,7 @@
         }
 
         async function selectSession(sessionId) {
+            if (state.isLoading) return;
             editingSessionId = '';
             if (!sessionId) {
                 await callbacks.clearSession(false);
@@ -302,6 +334,7 @@
 
         function renderSessionBrowserList() {
             const modal = sessionBrowserModal();
+            syncModalControls();
             const list = modal?.querySelector('#session-browser-list');
             const count = modal?.querySelector('#session-browser-count');
             if (!list) return;
@@ -331,6 +364,7 @@
                 .map((session) => renderSessionBrowserRow(session, session.session_id === state.sessionId))
                 .join('');
             focusEditingInput();
+            syncModalControls();
         }
 
         function renderSessionBrowserRow(session, isActive) {
@@ -419,6 +453,7 @@
                         </div>
                     </div>
                     <div class="session-browser-body flex-1">
+                        <p data-chat-settings-flight-notice hidden class="mb-3 text-xs text-txt-secondary">Setting changes apply to your next message. The current response keeps its settings.</p>
                         <details class="chat-settings-options">
                             <summary class="chat-settings-options-summary">
                                 <span>Options</span>
@@ -528,7 +563,7 @@
         async function upgradeContextStrategy(sessionId, btn = null) {
             const vault = elements.vaultSelector?.value || '';
             const session = state.sessions.find((item) => item.session_id === sessionId);
-            if (!sessionId || !vault || !session?.can_upgrade_to_v2) return;
+            if (!sessionId || !vault || !session?.can_upgrade_to_v2 || isSessionActionLocked('upgrade-v2', sessionId)) return;
             if (!confirm(
                 `Upgrade "${title(session)}" to Compaction v2? This will use the configured map-author model. Canonical chat history will be preserved.`
             )) return;
@@ -600,6 +635,7 @@
         }
 
         async function deleteCurrent(sessionId = state.sessionId, btn = null) {
+            if (isSessionActionLocked('delete', sessionId)) return;
             const vault = elements.vaultSelector?.value || '';
             if (!sessionId || !vault) return;
 
@@ -642,7 +678,7 @@
             const action = button.dataset.sessionAction || '';
             const sessionId = button.dataset.sessionActionId || '';
             if (!sessionId) return;
-            if (action === 'delete' && state.isLoading && sessionId === state.sessionId) return;
+            if (isSessionActionLocked(action, sessionId)) return;
 
             if (action === 'edit-title') {
                 editingSessionId = sessionId;
@@ -716,6 +752,7 @@
 
             const newTarget = target.closest('[data-session-browser-new]');
             if (newTarget) {
+                if (state.isLoading) return;
                 closeSessionBrowserModal();
                 await selectSession('');
                 return;
@@ -731,6 +768,7 @@
 
             const row = target.closest('[data-session-browser-row-id]');
             if (row instanceof HTMLElement) {
+                if (state.isLoading) return;
                 event.preventDefault();
                 const sessionId = row.dataset.sessionBrowserRowId || '';
                 closeSessionBrowserModal();
@@ -793,6 +831,7 @@
         function attachEventListeners() {
             if (elements.newSessionTrigger) {
                 elements.newSessionTrigger.addEventListener('click', () => {
+                    if (state.isLoading) return;
                     closeSessionBrowserModal();
                     selectSession('');
                 });
@@ -804,6 +843,7 @@
         }
 
         return Object.freeze({
+            syncModalControls,
             formatOptionLabel,
             renderSelector,
             clearCompactionProgress,

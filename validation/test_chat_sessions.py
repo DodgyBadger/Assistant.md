@@ -142,6 +142,34 @@ const succeed = (request, payload) => request.resolve({ ok: true, json: async ()
     await firstTaskLoad;
     assert.strictEqual(state.activeChatTaskId, undefined);
     assert.strictEqual(state.isLoading, false);
+
+    elements.chatModeSelector = {value:'inline_edit'};
+    const staleModeLoad = controller.loadSession('new', {skipActiveTaskCheck:true});
+    state.chatModeRevision = {vault:'vault-b',sessionId:'new'};
+    elements.chatModeSelector.value = 'normal';
+    succeed(requests.at(-1), {session_id:'new',chat_mode:'inline_edit'});
+    await staleModeLoad;
+    assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A history response predating a preference change must not reset it.');
+
+    state.chatModeSavePending = {vault:'vault-b',sessionId:'new'};
+    const pendingModeLoad = controller.loadSession('new', {skipActiveTaskCheck:true});
+    succeed(requests.at(-1), {session_id:'new',chat_mode:'inline_edit'});
+    await pendingModeLoad;
+    assert.strictEqual(elements.chatModeSelector.value, 'normal', 'History reload must preserve a preference while its save is pending.');
+
+    state.chatModeSavePending = null;
+    const savedModeLoad = controller.loadSession('new', {skipActiveTaskCheck:true});
+    succeed(requests.at(-1), {session_id:'new',chat_mode:'inline_edit'});
+    await savedModeLoad;
+    assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Without a racing save, history loads restore the persisted mode.');
+
+    const otherSessionSaveLoad = controller.loadSession('new', {skipActiveTaskCheck:true});
+    state.chatModeRevision = {vault:'vault-b',sessionId:'other'};
+    succeed(requests.at(-1), {session_id:'new',chat_mode:'normal'});
+    await otherSessionSaveLoad;
+    assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A save finishing for another session must not suppress this session’s persisted preference.');
+
+
 })().catch(error => { process.stderr.write(String(error.stack || error)); process.exit(1); });
 """
     subprocess.run(

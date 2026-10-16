@@ -37,6 +37,8 @@ const state = {
     chatComposerResize: null,
     workspaceExists: null,
     modelSelectionTouched: false,
+    chatModeSavePending: null,
+    chatModeRevision: null,
     pendingDeferredReview: null
 };
 const chatComposeState = {
@@ -435,6 +437,7 @@ function syncSendButtonState() {
     if (!btn) return;
 
     const reviewPending = Boolean(state.pendingDeferredReview) && !state.isLoading;
+    const modeSaving = Boolean(state.chatModeSavePending) && !state.isLoading;
     btn.classList.toggle('chat-stop-btn', state.isLoading);
     btn.innerHTML = state.isLoading
         ? window.AssistantMDIcons.STOP_ICON_SVG
@@ -443,16 +446,16 @@ function syncSendButtonState() {
         ? 'Tool review is pending. Resolve the review card before sending another message.'
         : state.isLoading
         ? (state.isCancellingChat ? 'Stopping active response' : 'Stop the active response')
-        : 'Send message';
+        : modeSaving ? 'Saving file approvals…' : 'Send message';
     btn.setAttribute(
         'aria-label',
         reviewPending
             ? 'Tool review is pending. Resolve the review card before sending another message.'
             : state.isLoading
             ? (state.isCancellingChat ? 'Stopping active response' : 'Stop the active response')
-            : 'Send message'
+            : modeSaving ? 'Saving file approvals…' : 'Send message'
     );
-    btn.disabled = reviewPending || (state.isLoading && state.isCancellingChat);
+    btn.disabled = reviewPending || modeSaving || (state.isLoading && state.isCancellingChat);
     if (chatElements.chatInput) {
         chatElements.chatInput.disabled = reviewPending;
         chatElements.chatInput.title = reviewPending
@@ -471,15 +474,16 @@ function syncChatControlLocks() {
         : '';
 
     if (chatElements.thinkingSelector) {
-        chatElements.thinkingSelector.disabled = state.isLoading;
+        chatElements.thinkingSelector.disabled = false;
     }
     chatSelection.syncFileApprovalToggle();
     if (chatElements.sessionBrowserTrigger) {
-        chatElements.sessionBrowserTrigger.disabled = state.isLoading;
+        chatElements.sessionBrowserTrigger.disabled = false;
     }
     if (chatElements.newSessionTrigger) {
         chatElements.newSessionTrigger.disabled = state.isLoading;
     }
+    sessionControls.syncModalControls();
     workspacePicker.syncControls();
     fileReferences.syncInteractionLocks();
     vaultActivity.syncInteractionLocks();

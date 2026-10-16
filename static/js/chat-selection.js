@@ -94,9 +94,14 @@
             syncFileApprovalToggle();
         }
 
+        function isChatModeLocked() {
+            return Boolean((state.isLoading && !state.activeChatTaskId)
+                || state.pendingDeferredReview || savingChatMode);
+        }
+
         function syncFileApprovalToggle() {
             const enabled = elements.chatModeSelector?.value === 'inline_edit';
-            const locked = state.isLoading || Boolean(state.pendingDeferredReview) || savingChatMode;
+            const locked = isChatModeLocked();
             if (elements.chatModeSelector) elements.chatModeSelector.disabled = locked;
             const toggle = elements.fileApprovalToggle;
             if (!toggle) return;
@@ -106,13 +111,14 @@
             toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             toggle.disabled = locked || !elements.vaultSelector?.value;
             const hint = savingChatMode ? 'Saving file approval mode…'
-                : locked ? 'Available after the active response or review finishes.'
+                : locked ? 'Available after response startup or the pending review finishes.'
+                : state.isLoading ? 'Applies to your next message; the current response keeps its file approval mode.'
                 : 'Toggle inline review of file changes for this chat session.';
             toggle.title = `${label}. ${hint}`;
         }
 
         async function toggleFileApprovals() {
-            if (state.isLoading || state.pendingDeferredReview || savingChatMode
+            if (isChatModeLocked()
                 || !elements.vaultSelector?.value || !elements.chatModeSelector) return;
             const previousMode = elements.chatModeSelector.value;
             elements.chatModeSelector.value = previousMode === 'inline_edit' ? 'normal' : 'inline_edit';
@@ -126,11 +132,13 @@
         async function persistSelectedChatMode(previousMode = null) {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId;
-            if (!elements.chatModeSelector || state.isLoading || state.pendingDeferredReview || savingChatMode) return;
+            if (!elements.chatModeSelector || isChatModeLocked()) return;
             if (!vault || !sessionId) { syncFileApprovalToggle(); return; }
             const savedMode = previousMode || state.sessions.find(item => item.session_id === sessionId)?.chat_mode || configuredDefaultChatMode();
             const chatMode = elements.chatModeSelector.value === 'inline_edit' ? 'inline_edit' : 'normal';
             savingChatMode = true;
+            state.chatModeSavePending = { vault, sessionId };
+            state.chatModeRevision = { vault, sessionId };
             callbacks.syncControls();
             try {
                 const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/mode`, {
@@ -149,6 +157,8 @@
                 callbacks.addErrorMessage('Could not save the selected chat mode.');
             } finally {
                 savingChatMode = false;
+                state.chatModeSavePending = null;
+                state.chatModeRevision = { vault, sessionId };
                 callbacks.syncControls();
             }
         }
