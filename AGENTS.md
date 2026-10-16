@@ -14,6 +14,7 @@ This codebase will outlive any single contributor. Every shortcut becomes future
 - Validation-first delivery: follow [Testing and Validation](docs/agent-guides/testing-and-validation.md#validation-first-workflow).
 - Planning output is required: planning work must end with a root-level markdown implementation plan, either by creating a new file or updating the existing one for that effort.
 - Documentation should describe the current contract only. Do not document behavior as “instead of the old way” or teach migrations inside product docs unless the task explicitly calls for migration guidance.
+- Before creating, editing, deleting, or moving anything under `docs/`, or the root `README.md` or `RELEASE_NOTES.md`, discuss the affected files, present the proposed text or diff in chat, and obtain explicit user approval of that draft. This includes agent guides and ADRs. General approval to implement, proceed, clean up, or prepare a release does not authorize documentation changes. Report unapproved documentation work as pending.
 - Markdown prose must not use arbitrary source line breaks. Keep each paragraph and list item on one source line and let the viewer wrap it; retain line breaks only when Markdown structure or intentional rendering requires them.
 - Never commit real API keys or populated `system/secrets.yaml`.
 - Treat the configured data and system roots as persistent runtime state during local testing. `scripts/dev run` defaults them to repository `data/` and `system/`; production containers use `/app/data` and `/app/system`.
