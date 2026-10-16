@@ -44,7 +44,6 @@ from core.settings import (
 from core.settings.config_editor import (
     delete_model_mapping,
     delete_provider_config,
-    general_setting_controls,
     list_general_settings,
     update_general_setting,
     upsert_model_mapping,
@@ -62,7 +61,6 @@ from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
     ProviderConfig,
-    SettingControl,
     SettingsEntry,
     get_active_settings_path,
     get_disabled_tool_names,
@@ -322,12 +320,9 @@ def _format_setting_value(value: Any) -> str:
     return str(value)
 
 
-def _build_setting_info(
-    key: str, entry: SettingsEntry, control: SettingControl
-) -> SettingInfo:
+def _build_setting_info(key: str, entry: SettingsEntry) -> SettingInfo:
     return SettingInfo(
         key=key,
-        control=control,
         value=_format_setting_value(getattr(entry, "value", None)),
         description=getattr(entry, "description", None),
         category=getattr(entry, "category", None),
@@ -338,11 +333,7 @@ def _build_setting_info(
 def get_general_settings_config() -> list[SettingInfo]:
     """Return serialized general settings metadata."""
     settings_map = list_general_settings()
-    controls = general_setting_controls(settings_map)
-    return [
-        _build_setting_info(key, entry, controls[key])
-        for key, entry in settings_map.items()
-    ]
+    return [_build_setting_info(key, entry) for key, entry in settings_map.items()]
 
 
 def update_general_setting_value(
@@ -355,8 +346,7 @@ def update_general_setting_value(
         raise InvalidSystemSettingError(setting_name, str(exc)) from exc
 
     reload_result = reload_configuration(restart_required=updated.restart_required)
-    control = general_setting_controls({setting_name: updated})[setting_name]
-    setting_info = _build_setting_info(setting_name, updated, control)
+    setting_info = _build_setting_info(setting_name, updated)
     setting_info.restart_required = (
         setting_info.restart_required or reload_result.restart_required
     )

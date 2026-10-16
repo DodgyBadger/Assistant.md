@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection, Explorer dismissal, the approval toggle, version display, settings controls, and mkdir path editing are implemented. Mobile upload remains conditional on a concrete reproduction; documentation drafts for the latest changes await explicit approval. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
+Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection, Explorer dismissal, the approval toggle, version display, and mkdir path editing are implemented. Type-aware settings were reverted at the user’s request and require a new specification on a future branch. Mobile upload remains conditional on a concrete reproduction; documentation drafts for the latest changes await explicit approval. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
 
 ## First feature: quote selected text
 
@@ -79,7 +79,6 @@ The new To Do item requests that X and clicking outside the modal exit the entir
 | Faster per-session approval toggle | Make the existing normal/inline-edit mode easier to reach and understand, with a visible current state. | `static/js/chat-selection.js`, `static/js/session-controls.js`, `static/app.js`, `static/index.html`; reuse existing session mode persistence and busy/pending-review restrictions. This controls interactive file-write review, not every approval mechanism. | Browser smoke test: toggle, reload and reopen session, verify retained mode and disabled controls during a run or pending review. |
 | App/build version on System tab | Show an authoritative application version; include build identity only if supplied by existing packaging or a small metadata addition. | System UI and a narrow read-only metadata addition if needed. `pyproject.toml` and `package.json` have different version values; choose the application source explicitly rather than treating the npm package version as authoritative. Exclude release automation redesign. | Check displayed value against its chosen source, including behavior when optional build identity is unavailable. |
 | Quote selected vault Markdown into chat | Select text in a Markdown preview, reveal a floating chat action, collect a prompt, and submit the selected text as a quote with that prompt. | Shared Vault Explorer, preview rendering, composer, CSS; reuse existing chat submission. Preserve the quote when focus moves, retain document context, escape content, and respect active-run restrictions. No new chat payload or server-side selection storage. | Browser smoke test: mouse and touch selection, multiline quote, prompt submission, dismissal, keyboard access, busy state, and selection isolation from other UI text. |
-| Type-aware general settings controls | Render booleans, supported choices, and numbers with appropriate controls; retain explicit text/JSON fallbacks. | `static/js/configuration/settings.js`, settings models/service. Current `SettingInfo.value` is a string and `SettingsEntry` has no type/choice metadata. Include a small explicit metadata contract sourced from authoritative setting definitions; preserve string update payloads and current persistence. Do not infer types solely from string contents or redesign settings storage. | Verify boolean false, numeric zero, supported choices, text that looks numeric, JSON fallback, invalid input, save/reload, and restart notices. |
 | Editable mkdir paths in live review cards | Add a folder-path input and optionally reuse the shared path picker for mkdir review. | `static/js/deferred-reviews.js` plus a narrow operation-specific exception in `api/services/deferred_reviews.py`. The current override allowlist rejects changed mkdir paths; retain operation/policy immutability, ordinary path validation, and restrictions for other operations. Update ADR 0023 to describe the resulting contract. | Extend `file_ops_inline_edit_policy` to verify edited mkdir execution, invalid/out-of-vault path rejection, and unchanged immutable-field restrictions; browser smoke test editing and locked cards. |
 
 ## Conditional candidate
@@ -90,6 +89,7 @@ The new To Do item requests that X and clicking outside the modal exit the entir
 
 - Vault Explorer move/copy choice: the current UI action named copy copies a path, while the mutation API supports create, move, and delete without a copy operation. A real file-copy feature needs backend operation semantics, access validation, tracked mutations, and conflict handling.
 - Binary PDF and `/exchange` support in `file_write`: tool and filesystem capability work.
+- Type-aware general settings controls: deferred by the user for a future branch after more specification.
 - Settings persistence/migration model: lifecycle and storage architecture work.
 - Model aliases and fallback profiles: model resolution, validation, execution, and persistence work.
 - JSON URL ingestion: ingestion behavior and artifact policy work.
@@ -109,20 +109,18 @@ No secrets or configured runtime roots need changes. Settings UI changes continu
 
 ## Remaining branch implementation
 
-The user authorized completing the remaining scoped tasks one at a time without another planning cycle: a visible per-session file approval toggle, application version on System, type-aware settings controls, editable mkdir review paths, and a bounded mobile-upload investigation. Keep substantive backend work excluded. Documentation edits under `docs/`, `README.md`, and `RELEASE_NOTES.md` require approval of the actual draft under the current AGENTS.md; hold those edits until approved. Browser checks use Obscura through CDP as requested by the user.
+The user authorized completing the remaining scoped tasks one at a time without another planning cycle: a visible per-session file approval toggle, application version on System, editable mkdir review paths, and a bounded mobile-upload investigation. Keep substantive backend work excluded. Documentation edits under `docs/`, `README.md`, and `RELEASE_NOTES.md` require approval of the actual draft under the current AGENTS.md; hold those edits until approved. Browser checks use Obscura through CDP as requested by the user.
 
 - Approval toggle: reuse the existing session mode API and selector as canonical state; show the toggle next to the main composer, synchronize session/default loads, lock during active runs/reviews/saves, and restore the persisted state if a PATCH fails. Validate via Obscura CDP and the existing session mode scenario.
 - Approval toggle completed: seven Obscura CDP behavior checks and `file_ops_inline_edit_policy` passed. CSS build, JS syntax, targeted Ruff/Black, and whitespace checks passed. Focus layout reserves space for the always-visible toggle.
 - Version display: read the authoritative application version from shipped `pyproject.toml`, expose it in System status and FastAPI/OpenAPI metadata, and display it at the top of System. No build identity is invented and no release-pipeline change is required. Validate API values against project metadata and display through Obscura CDP.
 - Version display completed: the expanded `api_endpoints` scenario passed, including API/OpenAPI agreement with project metadata. Obscura confirms display of the API version. Full Ruff, Black, and MyPy gates passed.
-- Settings controls: add non-persisted editor metadata using packaged default types and standard mode choices. Keep string PUT values and existing server-side coercion/validation. The UI renders checkbox, number, selector, and JSON textarea controls, preserves uncommon choices, and offers a raw-text editor. No YAML schema migration or storage changes.
-- Settings controls completed: eleven Obscura CDP checks, eight existing configuration module checks, and the expanded `api_endpoints` save/reload scenario passed. Full Ruff, Black, and MyPy gates passed. Standard choices are UI metadata with raw fallback; existing server validation remains authoritative.
 - Mkdir review: add a folder-path input to the existing deferred review card and allow only the mkdir path to change in approval overrides. Execute through the same file-write tool and vault path validation; preserve operation/policy immutability and non-mkdir target immutability. Validate persisted review overrides, actual corrected directory creation, traversal rejection, locked-card rendering, and submitted UI payload. ADR 0023 needs a narrowly scoped text update; hold that draft for user approval.
 - Mkdir review completed: three Obscura CDP checks and the expanded `file_ops_inline_edit_policy` plus `deferred_review_task_skeleton` scenarios passed. Corrected paths create the intended directory, traversal attempts fail, and operation/policy and other-operation targets remain immutable. Full Ruff, Black, and MyPy gates passed. ADR prose remains pending explicit draft approval.
 
 ## Final hardening and pending input
 
-- The approval toggle now restores the actual pre-toggle mode even if the session list has not refreshed yet; the added Obscura check passes. Current focused results: 23 Obscura CDP checks, 21 existing module checks, and 3 Node quote/draft checks pass. Full Ruff, Black, MyPy, and CSS build pass. The final deterministic `integration/core` profile passed 134/134 scenarios with zero failures or errors (run `20261016_193914_264287`; report `validation/runs/reports/20261016_193914_264287.md`).
+- The approval toggle now restores the actual pre-toggle mode even if the session list has not refreshed yet; the added Obscura check passes. Before the settings rollback, focused results were 23 Obscura CDP checks, 21 existing module checks, and 3 Node quote/draft checks pass. Full Ruff, Black, MyPy, and CSS build pass. The final deterministic `integration/core` profile passed 134/134 scenarios with zero failures or errors (run `20261016_193914_264287`; report `validation/runs/reports/20261016_193914_264287.md`).
 - Mobile upload investigation found a client guard that silently discards files without a MIME type. This is a candidate cause, not a reproduction of the user's mobile failure. No upload behavior or contract was changed. Obtain the phone/browser, image/file type, picker source, and whether the failure occurs during selection, Send, or response processing before implementing a fix.
 - No edits were made under docs in this batch because the current AGENTS.md requires approval of the actual documentation draft. Proposed drafts to present in chat are below.
 
@@ -134,10 +132,16 @@ Use **File approvals** beside the chat entry to turn inline review of file chang
 
 #### System settings
 
-System shows the application version. Application Settings uses checkboxes, numeric fields, selectors for standard modes, and multiline JSON fields for lists and objects. Use **Edit as text** when a typed control does not suit a value.
+System shows the application version.
 
 ### Pending ADR draft
 
 For `docs/development/adr/0023-split-file-tools-and-inline-edit-review.md`, replace the review override restriction sentence with:
 
 Review overrides may edit operation content, a move destination, or a mkdir directory path. Other operation targets and overwrite policy remain immutable.
+
+## Type-aware settings rollback
+
+The user requested rolling back type-aware settings and reserving that work for a future branch with a fuller specification. Revert commit `fb9debf` while preserving the later approval-toggle fix, application version, quote selection, Explorer dismissal, and mkdir path editing. Restore the plain-text settings editor and original settings API, remove editor metadata and feature-specific validation, and remove type-aware settings from the pending documentation draft. No runtime settings or persisted user values need changes. Validate with the existing settings/API checks and Python quality gate; remaining UI checks use Obscura CDP.
+
+Rollback completed: settings implementation files and their API scenario match `fb9debf^` exactly. The targeted `api_endpoints` scenario passed (run `20261016_195305_233128`), eight existing configuration checks passed, and twelve remaining Obscura CDP checks passed. Full Ruff, Black, and MyPy gates passed. The earlier full-profile result predates this rollback; this branch-development change was validated with the focused checks above.

@@ -125,25 +125,6 @@
         `;
     }
 
-    function renderSettingInput(setting, draftValue) {
-        const attributes = `data-field="setting-value" aria-label="${escapeHtml(setting.key)}" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent font-mono text-sm bg-app-card text-txt-primary"`;
-        const control = setting.control || {};
-        if (!state.settingRawEditor && control.value_type === 'boolean' && ['true', 'false'].includes(draftValue)) {
-            return `<label class="flex items-center gap-2"><input type="checkbox" data-field="setting-value" aria-label="${escapeHtml(setting.key)}" ${draftValue === 'true' ? 'checked' : ''} /><span>Enabled</span></label>`;
-        }
-        if (!state.settingRawEditor && control.choices?.length) {
-            const choices = control.choices.includes(draftValue) ? control.choices : [draftValue, ...control.choices];
-            return `<select ${attributes}>${choices.map(value => `<option value="${escapeHtml(value)}" ${value === draftValue ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select>`;
-        }
-        if (!state.settingRawEditor && ['integer', 'number'].includes(control.value_type)) {
-            return `<input type="number" step="${control.value_type === 'integer' ? '1' : 'any'}" ${attributes} value="${escapeHtml(draftValue)}" required />`;
-        }
-        if (control.value_type === 'json') {
-            return `<textarea ${attributes} rows="4" spellcheck="false">${escapeHtml(draftValue)}</textarea>`;
-        }
-        return `<input type="text" ${attributes} value="${escapeHtml(draftValue)}" />`;
-    }
-
     function renderSettingEditCard(setting) {
         const description = setting.description
             ? `<div class="text-xs text-txt-secondary mt-1">${escapeHtml(setting.description)}</div>`
@@ -159,9 +140,8 @@
                         ${description}
                     </div>
                     <div class="space-y-2">
-                        ${renderSettingInput(setting, draftValue)}
-                        ${setting.control && setting.control.value_type !== 'string' && setting.control.value_type !== 'json' || setting.control?.choices?.length ? `<button type="button" data-action="toggle-setting-raw" class="ui-button-secondary">${state.settingRawEditor ? 'Use typed control' : 'Edit as text'}</button>` : ''}
-                        <p class="text-xs text-txt-secondary">${setting.control?.value_type === 'json' ? 'Enter a JSON list or object.' : 'Changes are validated when saved.'}</p>
+                        <input data-field="setting-value" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent font-mono text-sm bg-app-card text-txt-primary transition-colors" value="${escapeHtml(draftValue)}" />
+                        <p class="text-xs text-txt-secondary">Values are stored as plain text; lists/objects use JSON.</p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <button data-action="cancel-setting" ${iconButton('circleX', 'Cancel setting edit')}>${iconSvg('circleX')}</button>
@@ -188,17 +168,13 @@
             cancelSettingEdit();
         } else if (action === 'save-setting') {
             saveSettingValue(settingKey);
-        } else if (action === 'toggle-setting-raw') {
-            state.settingRawEditor = !state.settingRawEditor;
-            renderSettings();
-            focusSettingInput();
         }
     }
 
     function handleSettingsInputChange(event) {
         if (!state.settingEditKey) return;
         if (event.target.dataset.field === 'setting-value') {
-            state.settingDraftValue = event.target.type === 'checkbox' ? String(event.target.checked) : event.target.value;
+            state.settingDraftValue = event.target.value;
         }
     }
 
@@ -214,12 +190,7 @@
         if (!setting) return;
 
         state.settingEditKey = setting.key;
-        const value = setting.value ?? '';
-        const valueType = setting.control?.value_type;
-        state.settingRawEditor = valueType === 'boolean' && !['true', 'false'].includes(value)
-            || ['integer', 'number'].includes(valueType) && (!value.trim() || !Number.isFinite(Number(value))
-                || valueType === 'integer' && !Number.isInteger(Number(value)));
-        state.settingDraftValue = value;
+        state.settingDraftValue = setting.value ?? '';
         renderSettings();
         setStatus(elements.settingsFeedback, `Editing '${setting.key}'.`, 'info');
         focusSettingInput();
@@ -245,19 +216,6 @@
         if (state.isSavingSetting || !state.settingEditKey) return;
 
         const value = state.settingDraftValue ?? '';
-        const setting = state.settings.find(item => item.key === settingKey);
-        const valueType = setting?.control?.value_type;
-        if (!state.settingRawEditor && ['integer', 'number'].includes(valueType)) {
-            const number = Number(value);
-            if (!value.trim() || !Number.isFinite(number) || valueType === 'integer' && !Number.isInteger(number)) {
-                setStatus(elements.settingsFeedback, valueType === 'integer' ? 'Enter a whole number.' : 'Enter a number.', 'error');
-                return;
-            }
-        }
-        if (valueType === 'json') {
-            try { JSON.parse(value); }
-            catch { setStatus(elements.settingsFeedback, 'Enter valid JSON.', 'error'); return; }
-        }
         state.isSavingSetting = true;
         setStatus(elements.settingsFeedback, 'Saving setting…', 'info');
 
