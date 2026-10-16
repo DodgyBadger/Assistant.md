@@ -125,6 +125,10 @@ def test_file_modal_back_history_and_tree_navigation() -> None:
 const assert = require('assert'), fs = require('fs'), vm = require('vm');
 global.window = global;
 let overlay = null, picker = null, discard = true;
+// The selection controller has browser coverage; isolate navigation here.
+global.VaultSelectionPrompt = { create: () => ({
+    canLeave: () => true, deactivate: () => true, syncLocks() {}, destroy() {},
+}) };
 class Element {
     constructor() {
         this.value = ''; this.scrollTop = 0; this.dataset = {}; this.events = {}; this.nodes = new Map();

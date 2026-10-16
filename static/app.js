@@ -192,6 +192,10 @@ const fileReferences = window.FileReferences.create({
     utils: window.AssistantMDUtils,
     callbacks: {
         isInteractionLocked: vaultMutationInteractionLocked,
+        appendPromptBlock: (block) => chatComposer.appendPromptBlock(block),
+        sendSelectionPrompt: (block, options) => chatTaskActions.sendMessage(block, {
+            ...options, includeAttachments: false, focusComposerOnFinish: false,
+        }),
         addChatErrorMessage,
         openPathPicker: (options) => vaultPathPicker.open(options),
         closePathPicker: () => vaultPathPicker.close(),

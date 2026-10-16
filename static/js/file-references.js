@@ -4,6 +4,7 @@
         let pickerOpen = false;
         let activeFileCanClose = null;
         let activeFileView = null;
+        let activeSelectionPrompt = null;
         let fileHistory = [];
 
         const linkResolver = window.FileReferenceLinks.create({
@@ -255,12 +256,33 @@
             const supportsPreview = /\.(md|markdown)$/i.test(path);
             const lockMessage = 'Available when the active response finishes.';
 
+            const selectionPrompt = window.VaultSelectionPrompt.create({
+                overlay, preview, path, vault, icons,
+                getContext: () => ({ vault: selectedVault(), sessionId: state.sessionId || '' }),
+                isActive: () => supportsPreview && mode === 'preview',
+                isLocked: interactionLocked,
+                onAppend: (block) => callbacks.appendPromptBlock(block),
+                onSend: (block, options) => {
+                    if (isDirty() && !window.confirm('Discard unsaved file changes and send this selection?')) {
+                        options.onStartError(new Error('Send cancelled. Your file changes and selection prompt are intact.'));
+                        return false;
+                    }
+                    return callbacks.sendSelectionPrompt(block, options);
+                },
+                onAccepted: () => {
+                    closeFileModal({ force: true });
+                    closePicker();
+                    elements.chatInput?.focus({ preventScroll: true });
+                },
+            });
+            activeSelectionPrompt = selectionPrompt;
+
             function isDirty() {
                 return editor instanceof HTMLTextAreaElement && editor.value !== savedContent;
             }
 
             function confirmDiscard() {
-                return !isDirty() || window.confirm('Discard unsaved changes to this file?');
+                return selectionPrompt.canLeave() && (!isDirty() || window.confirm('Discard unsaved changes to this file?'));
             }
             activeFileCanClose = confirmDiscard;
             activeFileView = {
@@ -304,6 +326,7 @@
             }
 
             function setMode(nextMode) {
+                if (nextMode !== mode && !selectionPrompt.deactivate()) return;
                 if (supportsPreview && nextMode === 'edit' && interactionLocked()) {
                     nextMode = 'preview';
                 }
@@ -324,6 +347,7 @@
             }
 
             function applyInteractionLock() {
+                selectionPrompt.syncLocks();
                 const locked = interactionLocked();
                 if (editor instanceof HTMLTextAreaElement) {
                     editor.readOnly = locked;
@@ -740,6 +764,8 @@
 
         function closeFileModal({ force = false, preserveNavigation = false } = {}) {
             if (!force && activeFileCanClose && !activeFileCanClose()) return false;
+            activeSelectionPrompt?.destroy();
+            activeSelectionPrompt = null;
             document.getElementById('vault-file-modal')?.remove();
             activeFileCanClose = null;
             activeFileView = null;
