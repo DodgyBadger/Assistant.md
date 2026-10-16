@@ -379,6 +379,8 @@ body.chat-focus-mode #chat-messages {
     min-height: 8rem;
 }
 body.chat-focus-mode #chat-composer {
+    display: flex;
+    flex-direction: column;
     height: var(--chat-compose-height, 18rem);
     min-height: 8rem;
     max-height: min(70vh, 42rem);
@@ -386,7 +388,8 @@ body.chat-focus-mode #chat-composer {
     padding: 0.75rem;
 }
 body.chat-focus-mode .chat-composer-row {
-    height: 100%;
+    height: auto;
+    flex: 1 1 auto;
     min-height: 0;
     align-items: stretch;
 }
@@ -3876,3 +3879,7 @@ summary.connection-card-summary .summary-title {
     .vault-selection-panel textarea { font-size: 16px; }
     .vault-selection-actions button { min-height: 44px; }
 }
+
+.chat-composer-options { display: flex; justify-content: flex-end; margin-top: 6px; }
+.chat-composer-options button { font-size: 12px; }
+.chat-composer-options button[aria-pressed="true"] { border-color: rgb(var(--accent-primary)); color: rgb(var(--accent-primary)); }

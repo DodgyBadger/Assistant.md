@@ -1,5 +1,6 @@
 (function chatSelectionModule(window, document) {
     function createChatSelection({ state, elements, sessionControls, callbacks }) {
+        let savingChatMode = false;
         function populateThinkingSelector() {
             if (!elements.thinkingSelector) return;
             const defaultThinking = state.metadata?.settings?.default_model_thinking || 'default';
@@ -90,6 +91,28 @@
             if (elements.chatModeSelector) {
                 elements.chatModeSelector.value = configuredDefaultChatMode();
             }
+            syncFileApprovalToggle();
+        }
+
+        function syncFileApprovalToggle() {
+            const enabled = elements.chatModeSelector?.value === 'inline_edit';
+            const locked = state.isLoading || Boolean(state.pendingDeferredReview) || savingChatMode;
+            if (elements.chatModeSelector) elements.chatModeSelector.disabled = locked;
+            const toggle = elements.fileApprovalToggle;
+            if (!toggle) return;
+            toggle.textContent = `File approvals: ${enabled ? 'On' : 'Off'}`;
+            toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            toggle.disabled = locked || !elements.vaultSelector?.value;
+            toggle.title = savingChatMode ? 'Saving file approval mode…'
+                : locked ? 'Available after the active response or review finishes.'
+                : 'Toggle inline review of file changes for this chat session.';
+        }
+
+        async function toggleFileApprovals() {
+            if (state.isLoading || state.pendingDeferredReview || savingChatMode
+                || !elements.vaultSelector?.value || !elements.chatModeSelector) return;
+            elements.chatModeSelector.value = elements.chatModeSelector.value === 'inline_edit' ? 'normal' : 'inline_edit';
+            return persistSelectedChatMode();
         }
 
         function isChatSelectableModel(model) {
@@ -99,8 +122,12 @@
         async function persistSelectedChatMode() {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId;
-            if (!vault || !sessionId || !elements.chatModeSelector) return;
+            if (!elements.chatModeSelector || state.isLoading || state.pendingDeferredReview || savingChatMode) return;
+            if (!vault || !sessionId) { syncFileApprovalToggle(); return; }
+            const previousMode = state.sessions.find(item => item.session_id === sessionId)?.chat_mode || configuredDefaultChatMode();
             const chatMode = elements.chatModeSelector.value === 'inline_edit' ? 'inline_edit' : 'normal';
+            savingChatMode = true;
+            callbacks.syncControls();
             try {
                 const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/mode`, {
                     method: 'PATCH',
@@ -109,10 +136,16 @@
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const session = state.sessions.find(item => item.session_id === sessionId);
-                if (session) session.chat_mode = chatMode;
+                if (session && elements.vaultSelector?.value === vault) session.chat_mode = chatMode;
             } catch (error) {
+                if (elements.vaultSelector?.value === vault && state.sessionId === sessionId) {
+                    elements.chatModeSelector.value = previousMode;
+                }
                 console.error('Failed to persist chat mode:', error);
                 callbacks.addErrorMessage('Could not save the selected chat mode.');
+            } finally {
+                savingChatMode = false;
+                callbacks.syncControls();
             }
         }
 
@@ -178,6 +211,8 @@
             resetChatModeToDefault,
             isChatSelectableModel,
             persistSelectedChatMode,
+            syncFileApprovalToggle,
+            toggleFileApprovals,
             handleVaultChange,
             fetchTemplates,
         });
