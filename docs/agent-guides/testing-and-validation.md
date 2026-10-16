@@ -35,6 +35,10 @@ python validation/run_validation.py run integration/core
 
 Experimental scenarios are opt-in and are not part of that profile. During active branch development, run the relevant individual scenarios for fast feedback. Once the branch is stable, run the complete `integration/core` profile during either the hardening pass or merge preparation. Do not duplicate the full run in both phases when it already passed against the same effective behavior.
 
+### npm security audit
+
+Run `node scripts/audit-npm.cjs` after `npm ci --include=dev` to use the same high/critical audit policy as CI. Temporary exceptions live in `scripts/npm-audit-exceptions.json`, scoped to an exact advisory and package version in development-only dependency paths, with a rationale and UTC review deadline. CI warns on accepted exceptions and fails once their deadline arrives or they are no longer applicable. Review upstream fixes and the dependency chain before extending a deadline; remove exceptions when updating to patched dependencies. Do not exclude all development dependencies or bypass the audit. Run the deterministic policy checks with `node --test validation/test_npm_audit_policy.cjs` when changing this policy.
+
 ## Integration Scenario Assertions
 - Never assert on non-deterministic LLM prose in integration scenarios.
 - Prefer deterministic artifacts: API responses, file contents, persisted state, validation events, tool calls, exact helper outputs, and structured fields.

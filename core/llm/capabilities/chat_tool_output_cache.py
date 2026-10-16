@@ -22,7 +22,7 @@ from pydantic_ai.messages import (
 from core.authoring.cache import purge_expired_cache_artifacts, upsert_cache_artifact
 from core.logger import UnifiedLogger
 from core.settings import get_auto_cache_max_tokens
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 
 logger = UnifiedLogger(tag="chat-executor")
 

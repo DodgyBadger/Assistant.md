@@ -172,17 +172,37 @@ settings:
     restart_required: false
   compaction_type:
     value: auto
-    description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_token_threshold first."
+    description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_high_watermark_tokens first."
     category: "Chat"
     restart_required: false
-  compaction_keep_recent:
-    value: 8
-    description: "Target number of recent raw chat messages to preserve verbatim when compacting history."
-    category: "Chat"
-    restart_required: false
-  compaction_token_threshold:
+  compaction_high_watermark_tokens:
     value: 80000
-    description: "Estimated chat-history token threshold for suggested or automatic compaction. Increase this first if automatic compaction happens too often."
+    description: "Estimated effective-history size that triggers suggested or automatic compaction. Increase this high watermark if compaction happens too often."
+    category: "Chat"
+    restart_required: false
+  compaction_strategy:
+    value: recovery_card
+    description: "Default compaction strategy for sessions without a checkpoint: recovery_card (Compaction v1) or session_map (Compaction v2). After the first reduction, each session remains pinned to its selected strategy until an explicit upgrade changes it."
+    category: "Chat"
+    restart_required: false
+  compaction_author_model:
+    value: none
+    description: "Optional model alias for authoring recovery cards and session maps. When unset or set to none, it uses default_model."
+    category: "Chat"
+    restart_required: false
+  compaction_author_thinking:
+    value: low
+    description: "Thinking effort for authoring recovery cards and session maps. Use default, on, off, minimal, low, medium, high, or xhigh."
+    category: "Chat"
+    restart_required: false
+  compaction_low_watermark_tokens:
+    value: 20000
+    description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. An incomplete active turn remains verbatim and can cause the actual size to exceed this target. Must be lower than compaction_high_watermark_tokens."
+    category: "Chat"
+    restart_required: false
+  compaction_retained_turns:
+    value: 3
+    description: "Minimum number of newest conversational turns retained verbatim by Compaction v1 (recovery_card). Has no effect under Compaction v2 (session_map), which uses compaction_low_watermark_tokens to determine retention. A turn includes its user request, assistant response, and intervening tool exchange. Must be between 1 and 100."
     category: "Chat"
     restart_required: false
   file_search_timeout_seconds:
@@ -434,13 +454,12 @@ models:
     capabilities: ["text", "vision"]
     description: null
     user_editable: true
-  embeddings:
-    provider: openai
-    model_string: text-embedding-3-small
-    capabilities: ["embedding"]
-    dimensions: 1536
-    description: "Default embedding model for vector search"
-    user_editable: true
+  jev:
+    provider: typesafe
+    model_string: jev-latest
+    capabilities: ["decision"]
+    description: "Default Jev decision model for classification workloads"
+    user_editable: false
 
 providers:
   google:
@@ -470,6 +489,10 @@ providers:
     base_url: null
     provider:
       require_parameters: true
+    user_editable: false
+  typesafe:
+    api_key: TYPESAFE_API_KEY
+    base_url: null
     user_editable: false
   lm_studio:
     api_key: LM_STUDIO_API_KEY

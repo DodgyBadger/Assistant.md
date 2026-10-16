@@ -343,11 +343,24 @@
         }
 
         return fields
-            .map(([key, value]) => {
-                const rendered = typeof value === 'string' ? value : JSON.stringify(value);
-                return `<span>${escapeHtml(key)}=${escapeHtml(truncateActivityLogValue(rendered))}</span>`;
-            })
+            .map(([key, value]) => renderActivityLogField(key, value))
             .join('');
+    }
+
+    function renderActivityLogField(key, value) {
+        const rendered = typeof value === 'string' ? value : JSON.stringify(value);
+        const escapedKey = escapeHtml(key);
+        const escapedValue = escapeHtml(rendered);
+        if (rendered.length <= 140 && !rendered.includes('\n')) {
+            return `<span>${escapedKey}=${escapedValue}</span>`;
+        }
+        const preview = truncateActivityLogValue(rendered.replace(/\s+/g, ' '));
+        return `
+            <details class="activity-log-detail">
+                <summary><span>${escapedKey}=${escapeHtml(preview)}</span></summary>
+                <pre>${escapedValue}</pre>
+            </details>
+        `;
     }
 
     function truncateActivityLogValue(value, limit = 140) {
@@ -377,6 +390,7 @@
         activityLogLevelClass,
         formatActivityLogTimestamp,
         summarizeActivityLogData,
+        renderActivityLogField,
         truncateActivityLogValue
     });
 }(window, document));

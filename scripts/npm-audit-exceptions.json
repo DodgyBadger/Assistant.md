@@ -1,0 +1,9 @@
+[
+  {
+    "advisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+    "package": "braces",
+    "version": "3.0.3",
+    "review_by": "2026-10-30",
+    "reason": "Unpatched transitive dependency of Tailwind 3's build tooling. CSS builds use repository-controlled patterns; this dependency is not shipped in the browser or used by the Python app. Review upstream fixes or migrate the build tooling before extending this exception."
+  }
+]

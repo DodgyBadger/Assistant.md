@@ -25,7 +25,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         target = system_root / "Authoring" / "default.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("STALE GENERATED DEFAULT", encoding="utf-8")
-        workflow_target = system_root / "Authoring" / "nightly-session-summarization.md"
+        workflow_target = system_root / "Authoring" / "nightly-user-notes-compaction.md"
         workflow_target.write_text(
             "\n".join(
                 [
@@ -46,7 +46,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         seed = Path("core/authoring/seed_templates/context/default.md")
         expected = seed.read_text(encoding="utf-8")
         workflow_seed = Path(
-            "core/authoring/seed_templates/workflows/nightly-session-summarization.md"
+            "core/authoring/seed_templates/workflows/nightly-user-notes-compaction.md"
         )
         expected_workflow = workflow_seed.read_text(encoding="utf-8").replace(
             "enabled: false", "enabled: true", 1
@@ -121,6 +121,16 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "Settings repair should complete through the system API",
         )
         repaired_settings = yaml.safe_load(repair_response.json()["content"])
+        activity = self.call_api("/api/system/activity-log?limit=200").json()
+        repair_events = [
+            entry["data"]
+            for entry in activity["entries"]
+            if entry.get("data", {}).get("event") == "settings_repair_completed"
+        ]
+        assert len(repair_events) == 1
+        assert repair_events[0]["status"] == "completed"
+        assert Path(repair_events[0]["backup_path"]).is_file()
+        assert Path(repair_events[0]["settings_path"]).is_file()
         self.soft_assert_equal(
             repaired_settings["providers"]["openrouter"].get("provider"),
             {"require_parameters": True},

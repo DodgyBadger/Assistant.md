@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
+    NativeToolCallPart,
+    NativeToolReturnPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -16,6 +18,7 @@ from pydantic_ai.messages import (
 )
 
 from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.core.tool_history_fixtures import tool_reply_cases
 
 
 class ToolHistoryIntegrityScenario(BaseScenario):
@@ -23,6 +26,8 @@ class ToolHistoryIntegrityScenario(BaseScenario):
 
     @with_local_user_authority
     async def test_scenario(self):
+        self._check_invocation_identity()
+        await self._check_agent_retry()
         vault = self.create_vault("ToolHistoryIntegrityVault")
 
         await self.start_system()
@@ -111,6 +116,124 @@ class ToolHistoryIntegrityScenario(BaseScenario):
         await self.stop_system()
         self.teardown_scenario()
         self.assert_no_failures()
+
+    async def _check_agent_retry(self) -> None:
+        """A recoverable real tool failure must produce an admissible transcript."""
+        from pydantic_ai import Agent, ModelRetry
+        from pydantic_ai.models.function import FunctionModel
+
+        from core.chat.tool_history import analyze_tool_history
+
+        response_count = 0
+        invocation_count = 0
+
+        def provider(_messages: object, _info: object) -> ModelResponse:
+            nonlocal response_count
+            response_count += 1
+            if response_count <= 2:
+                return ModelResponse(
+                    parts=[ToolCallPart("probe", {}, f"call-{response_count}")]
+                )
+            return ModelResponse(parts=[TextPart("Recovered")])
+
+        agent = Agent(FunctionModel(provider), retries=1)
+
+        @agent.tool_plain
+        def probe() -> str:
+            nonlocal invocation_count
+            invocation_count += 1
+            if invocation_count == 1:
+                raise ModelRetry("Retry this tool")
+            return "Succeeded"
+
+        result = await agent.run("Try the tool")
+        integrity = analyze_tool_history(result.all_messages())
+        assert invocation_count == 2
+        assert integrity.ok, integrity.to_dict()
+        assert (integrity.tool_call_count, integrity.tool_return_count) == (2, 1)
+
+    def _check_invocation_identity(self) -> None:
+        from core.chat.tool_history import analyze_tool_history
+
+        for case in tool_reply_cases():
+            integrity = analyze_tool_history(case.messages)
+            assert {
+                issue.code for issue in integrity.issues
+            } == case.issue_codes, case.name
+            assert integrity.ok == (not case.issue_codes), case.name
+            assert (integrity.tool_call_count, integrity.tool_return_count) == (
+                case.call_count,
+                case.return_count,
+            ), case.name
+            if case.name == "valid-mixed-batch":
+                assert integrity.multi_call_batch_count == 1
+                assert integrity.multi_return_batch_count == 0
+
+        for tool_call_id in ("", " \t "):
+            integrity = analyze_tool_history(
+                [
+                    ModelResponse(
+                        parts=[
+                            ToolCallPart(
+                                tool_name="probe", args={}, tool_call_id=tool_call_id
+                            )
+                        ]
+                    ),
+                    ModelRequest(
+                        parts=[
+                            ToolReturnPart(
+                                tool_name="probe",
+                                content="result",
+                                tool_call_id=tool_call_id,
+                            )
+                        ]
+                    ),
+                ]
+            )
+            assert {issue.code for issue in integrity.issues} == {
+                "missing_tool_call_id",
+                "missing_tool_return_id",
+            }
+            assert (integrity.tool_call_count, integrity.tool_return_count) == (1, 1)
+            assert all(issue.severity == "error" for issue in integrity.issues)
+
+        mismatched = analyze_tool_history(
+            [
+                ModelResponse(
+                    parts=[ToolCallPart(tool_name="alpha", args={}, tool_call_id="id")]
+                ),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_name="beta", content="result", tool_call_id="id"
+                        )
+                    ]
+                ),
+            ]
+        )
+        assert [issue.code for issue in mismatched.issues] == [
+            "tool_return_name_mismatch"
+        ]
+        assert mismatched.issues[0].message_index == 1
+        assert mismatched.issues[0].tool_call_id == "id"
+        assert not mismatched.ok
+        assert analyze_tool_history(_batch_history()).ok
+        assert analyze_tool_history(
+            [
+                ModelResponse(
+                    parts=[
+                        NativeToolCallPart(
+                            tool_name="web_search", args={}, tool_call_id="native-id"
+                        ),
+                        NativeToolReturnPart(
+                            tool_name="web_search",
+                            content="native result",
+                            tool_call_id="native-id",
+                        ),
+                    ]
+                )
+            ]
+        ).ok
 
 
 def _batch_history():

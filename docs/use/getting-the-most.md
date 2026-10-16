@@ -25,6 +25,18 @@ With no additional customization, Chat and Vault Explorer let you:
 
 Describe the outcome you want, important constraints, and where useful work should be saved. For a substantial task, ask the agent to establish a goal so it can track the objective and continue working until it is resolved.
 
+## Follow vault links
+
+Chat and Vault Explorer previews support full vault-relative wikilinks such as `[[Projects/Brief.md]]` or `[[Projects/Brief|Project brief]]`. An alias changes the displayed text, not the target. Markdown notes may omit `.md`: an exact file or directory wins, otherwise the resolver tries that same path with `.md` appended when the name has no extension. Spaces, punctuation and Unicode remain literal rather than URL-decoded inside wikilinks. Ordinary Markdown links use URL-encoded destinations and resolve relative to the source document in vault previews.
+
+Use explicit paths instead of relying on recursive short-name lookup. Obsidian heading/block navigation and embedded-note previews are not implemented; code blocks and inline code remain literal. Missing or inaccessible targets remain non-navigable rather than creating notes automatically.
+
+In the file modal, **Back** returns through previously opened files and restores your reading position. The separate **Browse vault tree** button reveals the current file in the explorer. Closing the file modal or returning to the tree clears file-navigation history; both actions ask before discarding unsaved edits.
+
+User chat messages support Markdown and clickable vault links, including references added from the explorer. Single line breaks remain visible. The Copy button on user and assistant messages copies the original source with its Markdown and link syntax intact; selecting text and copying uses the rendered text.
+
+Refreshing the vault explorer keeps expanded folders, selected items, search settings and your scroll position. After creating or moving an item, the explorer reveals its resulting location.
+
 ## Make chat project-aware
 
 When work belongs to a particular project, set that project folder as the chat workspace. A workspace gives the agent a useful starting point without preventing it from working elsewhere in the vault when needed.
@@ -104,13 +116,25 @@ Describe the process to the chat agent and ask it to draft the workflow. Test it
 
 ## Search past sessions
 
-Session summaries let chat search for relevant past work without loading entire transcripts. The `session_ops` tool can search existing summaries or refresh them when you want earlier decisions, research, or project history brought into the current conversation.
+The `session_ops` tool searches session titles, workspaces, map checkpoints, and canonical transcripts for words and phrases from past work. It returns compact evidence rather than loading entire transcripts, and can inspect map provenance or exact source messages when needed. Short sessions and new messages are searchable even when no map exists. Discovery does not require a nightly workflow or embedding API key.
 
-Assistant.md includes an optional nightly workflow that keeps these summaries up to date. Enable `system/nightly-session-summarization` under **Dashboard → Workflows** if you want automatic summary extraction. Session-summary search currently requires the default OpenAI embedding model and an `OPENAI_API_KEY` configured under **System → Secrets**.
+In the Chat Settings session browser, use **Names** to filter session metadata or switch to **Contents** to search the selected vault's transcripts and map revisions. Contents shows up to 20 best matching sessions with short evidence excerpts. An earlier-map match may describe superseded work; open the session to inspect its history. Clear the search field to browse all sessions again.
+
+## Keep continuity in long chats
+
+`compaction_strategy` selects `recovery_card` (V1) or `session_map` (V2) for sessions without a checkpoint. The first successful compaction pins the session to that strategy. Eligible recovery-card sessions offer an explicit **Upgrade to Compaction v2** action in the session browser; changing the installation setting does not convert existing sessions automatically.
+
+Both strategies use `compaction_high_watermark_tokens` to trigger automatic reduction under the `auto` policy. V1 keeps at least `compaction_retained_turns` newest turns verbatim. V2 uses `compaction_low_watermark_tokens` to target the combined map and retained-history size; the retained-turn setting has no effect. V2 can retain only the map when no complete raw turn fits, but never removes an incomplete active turn. These budgets describe effective chat history, not the full model context with instructions, tools and the active prompt. `compaction_author_model` applies to both strategies and uses the default chat model when unset.
+
+In V2, complete canonical messages remain in the chat timeline. Use **Load older messages** to page backward without loading the entire session at once, and use the session's map icon to inspect map revisions and their source references. A map is a lossy guide to current work, not an exhaustive account of everything discussed; ask the agent to search the transcript when exact wording or omitted details matter. The token-pressure bar can remain high briefly after the answer finishes while automatic compaction runs, then refreshes when the owning task settles.
+
+## Inspect operational activity
+
+Use System Activity to inspect failures, compaction, upgrades and other important operations. Filter by a session, task or workflow identity to connect related records. Interrupted review diagnostics include the originating and resumed task identities when available; a review can fail before a resume task is created. Migration failures identify the failing phase, known database and backup location, and settings repair records its backup path. Successful search/page reads stay out of System Activity so routine browsing does not obscure meaningful events. Invalid stored maps produce a checkpoint-identified error rather than exposing private map text in diagnostics.
 
 ## Customize context only when needed
 
-A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine recent messages, selected files, skills, project guidance, and summary records.
+A context assembly script controls what the chat agent receives at the beginning of a conversation. It can combine effective history, selected files, skills, project guidance, and explicitly retrieved evidence.
 
 Most users do not need to change the default context script. Workspace files, playbooks, skills, connections, and workflows cover the common customization needs with less complexity. Consider a custom context script only when you need a distinctly different context strategy, such as selecting project material according to custom rules or supporting separate working styles.
 

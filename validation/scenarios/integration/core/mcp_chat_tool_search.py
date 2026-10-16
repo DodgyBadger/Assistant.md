@@ -130,10 +130,14 @@ class MCPChatToolSearchScenario(BaseScenario):
             nonlocal turn
             turn += 1
             definitions = {tool.name: tool for tool in info.function_tools}
+            authored_definitions = {
+                tool.name: tool for tool in info.model_request_parameters.function_tools
+            }
             if turn == 1:
                 assert not definitions["read_note"].defer_loading
-                assert definitions["gmail_search_messages"].defer_loading
-                metadata = definitions["gmail_search_messages"].metadata or {}
+                assert "gmail_search_messages" not in definitions
+                assert authored_definitions["gmail_search_messages"].defer_loading
+                metadata = authored_definitions["gmail_search_messages"].metadata or {}
                 assert metadata.get("assistantmd") == {
                     "source": "mcp",
                     "connection_id": "gmail-connection",
@@ -149,7 +153,11 @@ class MCPChatToolSearchScenario(BaseScenario):
                     ]
                 )
             if turn == 2:
-                assert not definitions["gmail_search_messages"].defer_loading
+                assert definitions["gmail_search_messages"].defer_loading
+                assert (
+                    info.model_request_parameters.visibility_of("gmail_search_messages")
+                    == "visible"
+                )
                 return ModelResponse(
                     parts=[
                         ToolCallPart(

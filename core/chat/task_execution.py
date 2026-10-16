@@ -24,7 +24,7 @@ from pydantic_ai import (
     ThinkingPartDelta,
 )
 from pydantic_ai.exceptions import UsageLimitExceeded
-from pydantic_ai.messages import ModelMessage, TextPart, ToolReturnPart
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolReturnPart
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from core.authoring.context_manager import ContextTemplateExecutionError
@@ -70,7 +70,7 @@ from core.tools.failures import (
     classify_exception,
     classify_tool_result_state,
 )
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 from core.vault_state.rollback import rollback_task_file_mutations
 
 _CHAT_STORE = ChatStore()
@@ -425,7 +425,9 @@ async def start_deferred_review_resume_task(
     runtime = get_runtime_context()
     buffer = event_buffer or CHAT_TASK_EVENT_BUFFER
 
-    async def _mark_terminal(status: str, error: BaseException | None = None) -> None:
+    async def _mark_terminal(
+        status: str, error: BaseException | None = None, *, task_id: str
+    ) -> None:
         try:
             mark_deferred_review_terminal(
                 vault_name=vault_name,
@@ -443,11 +445,16 @@ async def start_deferred_review_resume_task(
                 "Deferred review terminal state could not be recorded",
                 data={
                     "event": "deferred_review_terminal_record_failed",
+                    "vault_name": vault_name,
+                    "session_id": session_id,
+                    "task_id": task_id,
+                    "originating_task_id": review.originating_task_id,
                     "status": "failed",
                     "artifact_ref": review.artifact_ref,
                     "requested_status": status,
                     "error_type": type(exc).__name__,
-                    "error": str(exc)[:500],
+                    "reason": exc.code,
+                    "error": "Review settlement could not be recorded; inspect the review artifact and execution task.",
                     "issue": f"deferred_review_terminal:{review.artifact_ref}",
                 },
             )
@@ -476,7 +483,7 @@ async def start_deferred_review_resume_task(
                 event_buffer=buffer,
                 persist_user_request=False,
             )
-            await _mark_terminal("completed")
+            await _mark_terminal("completed", task_id=tracked_task.task_id)
 
         await runtime.task_runner.run_with_gate(
             tracked_task,
@@ -508,9 +515,11 @@ async def start_deferred_review_resume_task(
         _run,
         hooks=ExecutionTaskHooks(
             on_cancelled=lambda task_id: _mark_review_cancelled(
-                buffer, task_id, _mark_terminal
+                buffer, task_id, lambda status: _mark_terminal(status, task_id=task_id)
             ),
-            on_failed=lambda _task_id, exc: _mark_terminal("failed", exc),
+            on_failed=lambda task_id, exc: _mark_terminal(
+                "failed", exc, task_id=task_id
+            ),
         ),
         start_immediately=False,
     )
@@ -1120,22 +1129,50 @@ async def _run_prepared_chat_stream_task_inner(
                     )
                     await asyncio.sleep(delay_seconds)
 
+            terminal_fork_sequence_index: int | None = None
             if final_result:
                 deferred_requests = getattr(final_result, "output", None)
+                committed_messages = (
+                    chat_executor._messages_after_accepted_user_request(
+                        messages_for_canonical_commit or final_result.new_messages()
+                    )
+                )
+                final_response_offset = next(
+                    (
+                        offset
+                        for offset in range(len(committed_messages) - 1, -1, -1)
+                        if isinstance(committed_messages[offset], ModelResponse)
+                    ),
+                    None,
+                )
+                final_response_sequence_index: int | None = None
                 async with chat_session_history_lock(
                     session_id=session_id,
                     vault_name=vault_name,
                 ):
                     with _CHAT_STORE.transaction() as connection:
-                        _CHAT_STORE.add_messages(
+                        committed_sequence_indexes = _CHAT_STORE.add_messages(
                             session_id,
                             vault_name,
-                            chat_executor._messages_after_accepted_user_request(
-                                messages_for_canonical_commit
-                                or final_result.new_messages()
-                            ),
+                            committed_messages,
                             connection=connection,
                         )
+                        if final_response_offset is not None:
+                            final_response_sequence_index = committed_sequence_indexes[
+                                final_response_offset
+                            ]
+                            safe_fork_points = (
+                                _CHAT_STORE.get_canonical_fork_points_for_sequences(
+                                    session_id,
+                                    vault_name,
+                                    [final_response_sequence_index],
+                                    connection=connection,
+                                )
+                            )
+                            if final_response_sequence_index in safe_fork_points:
+                                terminal_fork_sequence_index = (
+                                    final_response_sequence_index
+                                )
                         chat_executor._clear_latest_turn_failure(
                             session_id=session_id,
                             vault_name=vault_name,
@@ -1214,9 +1251,9 @@ async def _run_prepared_chat_stream_task_inner(
                         }
                     ],
                     "tool_summary": tool_activity,
+                    "fork_sequence_index": terminal_fork_sequence_index,
                 },
             )
-
         except asyncio.CancelledError as exc:
             chat_executor._log_chat_failure(
                 "Streaming chat execution cancelled",
@@ -1441,12 +1478,12 @@ async def _run_prepared_chat_stream_task_inner(
             )
             raise
 
-    if final_result and deferred_review is None:
-        await chat_executor._try_auto_compact_after_turn(
-            session_id=session_id,
-            vault_name=vault_name,
-            vault_path=vault_path,
-        )
+        if final_result and deferred_review is None:
+            await chat_executor._try_auto_compact_after_turn(
+                session_id=session_id,
+                vault_name=vault_name,
+                vault_path=vault_path,
+            )
 
 
 async def _collect_chat_stream_attempt(

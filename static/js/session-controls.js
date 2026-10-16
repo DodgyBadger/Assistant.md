@@ -1,8 +1,75 @@
 (function sessionControlsModule(window) {
-    function createSessionControlsController({ state, elements, icons, utils, sessionSummary, callbacks }) {
+    function createSessionControlsController({ state, elements, icons, utils, sessionMap, callbacks }) {
         const { escapeHtml } = utils;
         let editingSessionId = '';
         let sessionBrowserFilter = '';
+        let sessionBrowserSearchMode = 'name';
+        let sessionBrowserSearchMatches = [];
+        let sessionBrowserSearchLimit = 20;
+        let sessionBrowserSearchVault = '';
+        let sessionBrowserSearchLoading = false;
+        let sessionBrowserSearchError = '';
+        let sessionBrowserSearchTimer = null;
+        let sessionBrowserSearchController = null;
+        let sessionBrowserSearchGeneration = 0;
+
+        function cancelSessionBrowserSearch() {
+            window.clearTimeout(sessionBrowserSearchTimer);
+            sessionBrowserSearchTimer = null;
+            sessionBrowserSearchController?.abort();
+            sessionBrowserSearchController = null;
+            sessionBrowserSearchGeneration += 1;
+            sessionBrowserSearchLoading = false;
+        }
+
+        function scheduleSessionBrowserSearch() {
+            cancelSessionBrowserSearch();
+            sessionBrowserSearchMatches = [];
+            sessionBrowserSearchError = '';
+            const vault = elements.vaultSelector?.value || '';
+            sessionBrowserSearchVault = vault;
+            const query = sessionBrowserFilter.trim();
+            const modal = sessionBrowserModal();
+            const input = modal?.querySelector('#session-browser-filter');
+            if (input) input.placeholder = sessionBrowserSearchMode === 'content' ? 'Search session contents...' : 'Filter sessions...';
+            const toggle = modal?.querySelector('[data-session-browser-search-mode-toggle]');
+            if (toggle) toggle.textContent = sessionBrowserSearchMode === 'content' ? 'Contents' : 'Names';
+            const menu = modal?.querySelector('[data-session-browser-search-mode-menu]');
+            menu?.querySelectorAll('[data-session-browser-search-mode-option]').forEach((option) => {
+                option.setAttribute('aria-checked', String(option.dataset.sessionBrowserSearchModeOption === sessionBrowserSearchMode));
+            });
+            if (!modal || !vault || !query || sessionBrowserSearchMode !== 'content') {
+                renderSessionBrowserList();
+                return;
+            }
+            sessionBrowserSearchLoading = true;
+            renderSessionBrowserList();
+            const generation = sessionBrowserSearchGeneration;
+            sessionBrowserSearchTimer = window.setTimeout(async () => {
+                const controller = new AbortController();
+                sessionBrowserSearchController = controller;
+                const isCurrent = () => generation === sessionBrowserSearchGeneration
+                    && sessionBrowserModal() === modal && elements.vaultSelector?.value === vault;
+                try {
+                    const params = new URLSearchParams({ vault_name: vault, query });
+                    const response = await fetch(`api/chat/sessions/search?${params}`, { signal: controller.signal });
+                    if (!response.ok) throw new Error(`Search failed (HTTP ${response.status}).`);
+                    const payload = await response.json();
+                    if (!isCurrent()) return;
+                    sessionBrowserSearchMatches = payload.matches;
+                    sessionBrowserSearchLimit = payload.limit;
+                } catch (error) {
+                    if (!isCurrent() || error.name === 'AbortError') return;
+                    sessionBrowserSearchError = 'Unable to search session contents. Please try again.';
+                } finally {
+                    if (isCurrent()) {
+                        sessionBrowserSearchLoading = false;
+                        sessionBrowserSearchController = null;
+                        renderSessionBrowserList();
+                    }
+                }
+            }, 300);
+        }
 
         function title(session) {
             if (!session || !session.session_id) {
@@ -37,9 +104,13 @@
             focusEditingInput();
         }
 
-        function renderSessionActions(sessionId) {
+        function renderSessionActions(session) {
+            const sessionId = session?.session_id || '';
             return `
                 <div class="session-dropdown-row-actions" aria-label="Session actions">
+                    ${session?.can_upgrade_to_v2
+                        ? renderRowActionButton('upgrade-v2', sessionId, 'Upgrade to Compaction v2', icons.REFRESH_ICON_SVG)
+                        : ''}
                     ${renderRowActionButton('edit-title', sessionId, 'Edit title', icons.EDIT_ICON_SVG)}
                     ${renderRowActionButton('export', sessionId, 'Export transcript', icons.DOWNLOAD_ICON_SVG)}
                     ${renderRowActionButton('delete', sessionId, 'Delete session', icons.TRASH_ICON_SVG, 'is-danger')}
@@ -87,7 +158,7 @@
             if (!fill || !track) return;
 
             fill.classList.remove('compaction-warm', 'compaction-hot');
-            if (!status || !status.compaction_token_threshold || status.compaction_type === 'none') {
+            if (!status || !status.compaction_high_watermark_tokens || status.compaction_type === 'none') {
                 fill.style.width = '0%';
                 track.title = status && status.compaction_type === 'none'
                     ? 'Chat history compaction is disabled'
@@ -95,7 +166,7 @@
                 return;
             }
 
-            const threshold = Math.max(Number(status.compaction_token_threshold) || 0, 1);
+            const threshold = Math.max(Number(status.compaction_high_watermark_tokens) || 0, 1);
             const tokens = Math.max(Number(status.estimated_tokens_before) || 0, 0);
             const percent = Math.round((tokens / threshold) * 100);
             const boundedPercent = tokens > 0 ? Math.max(2, Math.min(percent, 100)) : 0;
@@ -116,7 +187,7 @@
             renderCompactionProgress(null);
         }
 
-        async function refreshCompactionProgress() {
+        async function refreshCompactionState({ signal, isCurrent: acceptsSnapshot = () => true } = {}) {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId || '';
             if (!vault || !sessionId) {
@@ -126,17 +197,33 @@
 
             const requestId = state.compactionStatusRequestId + 1;
             state.compactionStatusRequestId = requestId;
+            const isCurrent = () => !signal?.aborted && requestId === state.compactionStatusRequestId
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && acceptsSnapshot();
             try {
                 const response = await fetch(
-                    `api/chat/sessions/${encodeURIComponent(sessionId)}/compaction-status?vault_name=${encodeURIComponent(vault)}`
+                    `api/chat/sessions/${encodeURIComponent(sessionId)}/compaction-status?vault_name=${encodeURIComponent(vault)}`,
+                    { cache: 'no-store', signal }
                 );
-                if (requestId !== state.compactionStatusRequestId) return;
+                if (!isCurrent()) return;
                 if (!response.ok) {
                     throw new Error('Failed to fetch chat compaction status');
                 }
-                renderCompactionProgress(await response.json());
+                const status = await response.json();
+                if (!isCurrent()) return;
+                renderCompactionProgress(status);
+                const session = state.sessions?.find(item => item.session_id === sessionId);
+                if (session) {
+                    session.has_session_map = status.context_checkpoint_kind === 'session_map';
+                    if (session.has_session_map) {
+                        session.context_strategy = 'session_map';
+                        session.can_upgrade_to_v2 = false;
+                    }
+                    renderSelector();
+                }
+                callbacks.updateCompactionState?.(status);
             } catch (error) {
-                if (requestId === state.compactionStatusRequestId) {
+                if (isCurrent()) {
                     console.error('Error fetching chat compaction status:', error);
                     renderCompactionProgress(null);
                 }
@@ -149,6 +236,15 @@
 
         function sessionBrowserModal() {
             return document.getElementById('session-browser-modal');
+        }
+
+        function closeSessionBrowserSearchMenu(restoreFocus = false) {
+            const modal = sessionBrowserModal();
+            const menu = modal?.querySelector('[data-session-browser-search-mode-menu]');
+            const toggle = modal?.querySelector('[data-session-browser-search-mode-toggle]');
+            if (menu) menu.hidden = true;
+            toggle?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus) toggle?.focus();
         }
 
         function modalControlsSource() {
@@ -174,15 +270,20 @@
         }
 
         function closeSessionBrowserModal() {
+            cancelSessionBrowserSearch();
             const modal = sessionBrowserModal();
             restoreSettingsControlsFromModal(modal);
             modal?.remove();
-            sessionSummary.closePreview();
         }
 
         function filteredBrowserSessions() {
             const filter = sessionBrowserFilter.trim().toLowerCase();
             if (!filter) return state.sessions;
+            if (sessionBrowserSearchMode === 'content') {
+                return sessionBrowserSearchMatches.map((hit) =>
+                    state.sessions.find((session) => session.session_id === hit.session.session_id) || hit.session
+                );
+            }
             return state.sessions.filter((session) => {
                 const haystack = [
                     title(session),
@@ -200,9 +301,22 @@
             const count = modal?.querySelector('#session-browser-count');
             if (!list) return;
 
+            if (sessionBrowserSearchMode === 'content' && sessionBrowserSearchVault !== (elements.vaultSelector?.value || '')) {
+                scheduleSessionBrowserSearch();
+                return;
+            }
+            const searchingContents = sessionBrowserSearchMode === 'content' && sessionBrowserFilter.trim();
+            if (searchingContents && (sessionBrowserSearchLoading || sessionBrowserSearchError)) {
+                if (count) count.textContent = sessionBrowserSearchLoading ? 'Searching contents...' : 'Search unavailable';
+                list.innerHTML = `<p class="session-browser-empty" role="status">${escapeHtml(sessionBrowserSearchError || 'Searching session contents...')}</p>`;
+                return;
+            }
+
             const sessions = filteredBrowserSessions();
             if (count) {
-                count.textContent = `${sessions.length} of ${state.sessions.length} sessions`;
+                count.textContent = searchingContents
+                    ? `${sessions.length} matches · up to ${sessionBrowserSearchLimit} best matches shown`
+                    : `${sessions.length} of ${state.sessions.length} sessions`;
             }
             if (sessions.length === 0) {
                 list.innerHTML = '<p class="session-browser-empty">No sessions match this filter.</p>';
@@ -219,32 +333,38 @@
             if (sessionId && editingSessionId === sessionId) {
                 return renderSessionBrowserEditingRow(session, isActive);
             }
-            const hasSummary = Boolean(session?.has_summary);
-            const previewAttribute = hasSummary ? ` data-session-summary-preview-id="${escapeHtml(sessionId)}"` : '';
-            const previewFocusAttribute = hasSummary ? ` data-session-summary-preview-focus-id="${escapeHtml(sessionId)}"` : '';
             const meta = activityLabel(session);
+            const evidence = sessionBrowserSearchMode === 'content' && sessionBrowserFilter.trim()
+                ? sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId)?.evidence || []
+                : [];
+            const excerpts = evidence.map((hit) => {
+                const label = hit.source === 'session_map'
+                    ? (hit.historical ? 'Earlier map' : 'Map')
+                    : hit.source === 'transcript' ? 'Transcript' : 'Session details';
+                return `<span class="session-browser-row-excerpt"><span class="session-browser-row-meta">${label}:</span> ${escapeHtml(hit.excerpt)}</span>`;
+            }).join('');
             return `
                 <div
                     class="session-browser-row${isActive ? ' is-active' : ''}"
                     data-session-browser-row-id="${escapeHtml(sessionId)}"
-                    ${previewFocusAttribute}
                 >
-                    <div class="session-browser-row-main"${previewAttribute}>
+                    <div class="session-browser-row-main">
                         <span class="session-dropdown-title-wrap">
                             <span class="session-dropdown-title">${escapeHtml(title(session))}</span>
-                            ${renderSessionBrowserSummaryAction(session)}
+                            ${renderSessionBrowserMapAction(session)}
                         </span>
                         ${meta ? `<span class="session-browser-row-meta">${escapeHtml(meta)}</span>` : ''}
+                        ${excerpts}
                     </div>
-                    ${renderSessionActions(sessionId)}
+                    ${renderSessionActions(session)}
                 </div>
             `;
         }
 
-        function renderSessionBrowserSummaryAction(session) {
+        function renderSessionBrowserMapAction(session) {
             const sessionId = session?.session_id || '';
-            if (!session?.has_summary || !sessionId) return '';
-            return renderRowActionButton('summary', sessionId, 'Open summary', icons.SESSION_SUMMARY_ICON_SVG, 'is-summary');
+            if (!session?.has_session_map || !sessionId) return '';
+            return renderRowActionButton('map', sessionId, 'Open session map', icons.MAP_ICON_SVG, 'is-map');
         }
 
         function renderSessionBrowserEditingRow(session, isActive) {
@@ -279,7 +399,7 @@
                     <div class="app-modal-header flex-none">
                         <div class="app-modal-title-block">
                             <h2 id="session-browser-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
-                                <span class="session-summary-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
+                                <span class="app-modal-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
                                 <span>Chat Settings</span>
                             </h2>
                             <p id="session-browser-count" class="mt-1 text-xs text-txt-secondary"></p>
@@ -303,20 +423,31 @@
                         <div class="session-browser-section-header">
                             <div>
                                 <h3 class="session-browser-section-title">Sessions</h3>
-                                <p class="session-browser-section-subtitle">Filter, open, summarize, export, or delete chat sessions.</p>
+                                <p class="session-browser-section-subtitle">Filter, open, upgrade, export, or delete chat sessions.</p>
                             </div>
                             <button type="button" class="session-browser-new-button" data-session-browser-new="true" aria-label="New session" title="New session">
                                 ${icons.PLUS_ICON_SVG}
                             </button>
                         </div>
-                        <input
-                            id="session-browser-filter"
-                            type="text"
-                            class="session-browser-filter"
-                            placeholder="Filter sessions..."
-                            value="${escapeHtml(sessionBrowserFilter)}"
-                            autocomplete="off"
-                        />
+                        <div class="vault-explorer-search-control session-browser-search-control">
+                            <input
+                                id="session-browser-filter"
+                                type="search"
+                                class="file-reference-search"
+                                placeholder="Filter sessions..."
+                                value="${escapeHtml(sessionBrowserFilter)}"
+                                autocomplete="off"
+                                maxlength="2000"
+                                aria-label="Find sessions"
+                            />
+                            <button type="button" class="vault-explorer-search-mode-toggle"
+                                data-session-browser-search-mode-toggle aria-haspopup="menu" aria-expanded="false"
+                                aria-label="Session search mode" title="Search mode">${sessionBrowserSearchMode === 'content' ? 'Contents' : 'Names'}</button>
+                            <div class="vault-explorer-search-mode-menu" data-session-browser-search-mode-menu role="menu" hidden>
+                                <button type="button" data-session-browser-search-mode-option="name" role="menuitemradio" aria-checked="${sessionBrowserSearchMode === 'name'}">Names</button>
+                                <button type="button" data-session-browser-search-mode-option="content" role="menuitemradio" aria-checked="${sessionBrowserSearchMode === 'content'}">Contents</button>
+                            </div>
+                        </div>
                         <div id="session-browser-list" class="session-browser-list"></div>
                     </div>
                 </section>
@@ -324,13 +455,9 @@
             overlay.addEventListener('click', handleSessionBrowserClick);
             overlay.addEventListener('input', handleSessionBrowserInput);
             overlay.addEventListener('keydown', handleSessionBrowserKeydown);
-            overlay.addEventListener('mouseover', handleSummaryPreviewMouseover);
-            overlay.addEventListener('mouseout', handleSummaryPreviewMouseout);
-            overlay.addEventListener('focusin', handleSummaryPreviewFocusin);
-            overlay.addEventListener('focusout', handleSummaryPreviewFocusout);
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
-            renderSessionBrowserList();
+            scheduleSessionBrowserSearch();
             const filterInput = overlay.querySelector('#session-browser-filter');
             if (filterInput instanceof HTMLInputElement) {
                 filterInput.focus();
@@ -354,6 +481,8 @@
 
                 const session = state.sessions.find((s) => s.session_id === sessionId);
                 if (session) session.title = nextTitle;
+                const match = sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId);
+                if (match) match.session.title = nextTitle;
                 editingSessionId = '';
                 renderSelector();
                 renderSessionBrowserList();
@@ -388,6 +517,80 @@
             }
         }
 
+        async function upgradeContextStrategy(sessionId, btn = null) {
+            const vault = elements.vaultSelector?.value || '';
+            const session = state.sessions.find((item) => item.session_id === sessionId);
+            if (!sessionId || !vault || !session?.can_upgrade_to_v2) return;
+            if (!confirm(
+                `Upgrade "${title(session)}" to Compaction v2? This will use the configured map-author model. Canonical chat history will be preserved.`
+            )) return;
+
+            if (btn) btn.disabled = true;
+            try {
+                const response = await fetch(
+                    `api/chat/sessions/${encodeURIComponent(sessionId)}/upgrade-context-strategy`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vault_name: vault }),
+                    }
+                );
+                const started = await response.json();
+                if (!response.ok) {
+                    throw new Error(started?.message || `HTTP ${response.status}`);
+                }
+                const taskId = started?.task?.task_id || '';
+                if (!taskId) throw new Error('Upgrade task did not return an ID');
+
+                let task = started.task;
+                for (let attempt = 0; attempt < 1200; attempt += 1) {
+                    if (!['queued', 'running'].includes(task?.status)) break;
+                    await new Promise((resolve) => window.setTimeout(resolve, 500));
+                    const taskResponse = await fetch(
+                        `api/tasks/${encodeURIComponent(taskId)}`,
+                        { cache: 'no-store' }
+                    );
+                    if (!taskResponse.ok) {
+                        throw new Error(`Task status HTTP ${taskResponse.status}`);
+                    }
+                    task = await taskResponse.json();
+                }
+                if (task?.status !== 'completed') {
+                    throw new Error(
+                        task?.terminal_reason
+                        || `Upgrade ended with status ${task?.status || 'unknown'}`
+                    );
+                }
+
+                let refreshError = null;
+                try {
+                    await callbacks.fetchSessions(vault, state.sessionId || '');
+                    if (state.sessionId === sessionId) {
+                        await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
+                    }
+                } catch (error) {
+                    refreshError = error;
+                    console.warn('Session upgrade succeeded, but the session view could not refresh:', error);
+                }
+                if (refreshError) {
+                    alert(`Session upgraded to Compaction v2, but the view could not refresh: ${refreshError.message}. Reload the session to see the updated context.`);
+                } else {
+                    alert('Session upgraded to Compaction v2.');
+                }
+            } catch (error) {
+                console.error('Failed to upgrade session context strategy:', error);
+                alert(`Failed to upgrade session: ${error.message}`);
+                try {
+                    await callbacks.fetchSessions(vault, state.sessionId || '');
+                } catch (refreshError) {
+                    console.warn('Could not refresh sessions after upgrade failure:', refreshError);
+                }
+            } finally {
+                if (btn) btn.disabled = false;
+                renderSessionBrowserList();
+            }
+        }
+
         async function deleteCurrent(sessionId = state.sessionId, btn = null) {
             const vault = elements.vaultSelector?.value || '';
             if (!sessionId || !vault) return;
@@ -406,6 +609,7 @@
 
                 const deletedActiveSession = state.sessionId === sessionId;
                 state.sessions = state.sessions.filter((s) => s.session_id !== sessionId);
+                sessionBrowserSearchMatches = sessionBrowserSearchMatches.filter((hit) => hit.session.session_id !== sessionId);
                 if (deletedActiveSession) {
                     state.sessionId = null;
                 }
@@ -450,11 +654,12 @@
                 await saveTitle(sessionId, titleValue, button);
                 return;
             }
-            if (action === 'summary') {
-                const session = state.sessions.find((item) => item.session_id === sessionId);
+            if (action === 'map') {
+                const session = state.sessions.find((item) => item.session_id === sessionId)
+                    || sessionBrowserSearchMatches.find((hit) => hit.session.session_id === sessionId)?.session;
                 if (!session) return;
                 closeSessionBrowserModal();
-                sessionSummary.openModalForSession(session, {
+                sessionMap.openModalForSession(session, {
                     backLabel: 'Sessions',
                     onBack: openSessionBrowserModal,
                 });
@@ -462,6 +667,10 @@
             }
             if (action === 'export') {
                 await exportCurrent(sessionId, button);
+                return;
+            }
+            if (action === 'upgrade-v2') {
+                await upgradeContextStrategy(sessionId, button);
                 return;
             }
             if (action === 'delete') {
@@ -472,6 +681,24 @@
         async function handleSessionBrowserClick(event) {
             const target = event.target;
             if (!(target instanceof Element)) return;
+
+            const modeOption = target.closest('[data-session-browser-search-mode-option]');
+            if (modeOption instanceof HTMLButtonElement) {
+                sessionBrowserSearchMode = modeOption.dataset.sessionBrowserSearchModeOption === 'content' ? 'content' : 'name';
+                closeSessionBrowserSearchMenu(true);
+                scheduleSessionBrowserSearch();
+                return;
+            }
+            const modeToggle = target.closest('[data-session-browser-search-mode-toggle]');
+            if (modeToggle instanceof HTMLButtonElement) {
+                const menu = sessionBrowserModal()?.querySelector('[data-session-browser-search-mode-menu]');
+                if (!menu) return;
+                menu.hidden = !menu.hidden;
+                modeToggle.setAttribute('aria-expanded', String(!menu.hidden));
+                if (!menu.hidden) menu.querySelector('[aria-checked="true"]')?.focus();
+                return;
+            }
+            closeSessionBrowserSearchMenu();
 
             const closeTarget = target.closest('[data-session-browser-close]');
             if (closeTarget) {
@@ -508,11 +735,28 @@
             if (!(target instanceof HTMLInputElement)) return;
             if (target.id !== 'session-browser-filter') return;
             sessionBrowserFilter = target.value;
-            renderSessionBrowserList();
+            scheduleSessionBrowserSearch();
         }
 
         async function handleSessionBrowserKeydown(event) {
             const target = event.target;
+            const menu = target instanceof Element ? target.closest('[data-session-browser-search-mode-menu]') : null;
+            if (menu && event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSessionBrowserSearchMenu(true);
+                return;
+            }
+            if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                const options = Array.from(menu.querySelectorAll('[data-session-browser-search-mode-option]'));
+                const index = options.indexOf(target);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                event.preventDefault();
+                options[next]?.focus();
+                return;
+            }
+            if (event.key === 'Tab') closeSessionBrowserSearchMenu();
             if (target instanceof HTMLInputElement && target.dataset.sessionTitleInput) {
                 const sessionId = target.dataset.sessionTitleInput || '';
                 if (event.key === 'Enter') {
@@ -529,52 +773,6 @@
             if (event.key === 'Escape') {
                 closeSessionBrowserModal();
             }
-        }
-
-        function handleSummaryPreviewMouseover(event) {
-            if (!shouldShowSummaryPreview()) return;
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const related = event.relatedTarget;
-            if (related instanceof Element && previewTarget.contains(related)) return;
-            const sessionId = previewTarget.dataset.sessionSummaryPreviewId || '';
-            const session = state.sessions.find((item) => item.session_id === sessionId);
-            sessionSummary.openPreview(previewTarget, session);
-        }
-
-        function handleSummaryPreviewMouseout(event) {
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const related = event.relatedTarget;
-            if (related instanceof Element && previewTarget.contains(related)) return;
-            sessionSummary.closePreview();
-        }
-
-        function handleSummaryPreviewFocusin(event) {
-            if (!shouldShowSummaryPreview()) return;
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            const previewTarget = target.closest('[data-session-summary-preview-focus-id]');
-            if (!(previewTarget instanceof HTMLElement)) return;
-            const sessionId = previewTarget.dataset.sessionSummaryPreviewFocusId || '';
-            const session = state.sessions.find((item) => item.session_id === sessionId);
-            sessionSummary.openPreview(previewTarget, session);
-        }
-
-        function handleSummaryPreviewFocusout(event) {
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            if (target.closest('[data-session-summary-preview-focus-id]')) {
-                sessionSummary.closePreview();
-            }
-        }
-
-        function shouldShowSummaryPreview() {
-            return !window.matchMedia?.('(hover: none), (pointer: coarse)').matches;
         }
 
         function cssEscape(value) {
@@ -601,7 +799,7 @@
             formatOptionLabel,
             renderSelector,
             clearCompactionProgress,
-            refreshCompactionProgress,
+            refreshCompactionState,
             updateTitleRow,
             attachEventListeners,
             saveTitle,

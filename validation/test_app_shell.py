@@ -36,6 +36,56 @@ for (const name of ['init', 'switchTab']) {
     )
 
 
+def test_app_shell_tracks_dashboard_polling_lifecycle() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+const elements = new Map();
+for (const id of [
+    'chat-tab',
+    'chat-content',
+    'dashboard-tab',
+    'dashboard-content',
+    'configuration-tab',
+    'configuration-content',
+]) {
+    elements.set(id, {
+        classList: { toggle() {} },
+        addEventListener() {},
+    });
+}
+global.document = {
+    documentElement: { setAttribute() {} },
+    getElementById(id) { return elements.get(id) || null; },
+};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+
+const pollingStates = [];
+let refreshCount = 0;
+const controller = AppShell.create({
+    browserStorage: { getItem() { return 'light'; }, setItem() {} },
+    callbacks: {
+        refreshStatus() { refreshCount += 1; },
+        setDashboardActive(active) { pollingStates.push(active); },
+    },
+});
+
+controller.switchTab('dashboard');
+controller.switchTab('chat');
+
+assert.deepStrictEqual(pollingStates, [true, false]);
+assert.strictEqual(refreshCount, 1);
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_app_shell_loads_before_application() -> None:
     markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
 

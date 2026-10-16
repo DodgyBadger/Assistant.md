@@ -91,7 +91,7 @@ class SystemController:
         self._api_client = TestClient(self._api_app)
 
     def _seed_validation_settings(self) -> None:
-        """Seed validation settings with deterministic embedding configuration."""
+        """Seed validation settings with the deterministic model provider."""
         settings_path = self._system_root / "settings.yaml"
         if settings_path.exists():
             return
@@ -101,14 +101,6 @@ class SystemController:
         )
         raw_settings.setdefault("models", {})
         raw_settings.setdefault("providers", {})
-        raw_settings["models"]["embeddings"] = {
-            "provider": "test",
-            "model_string": "test-embedding",
-            "capabilities": ["embedding"],
-            "dimensions": 1536,
-            "description": "Validation embedding model for deterministic vector search",
-            "user_editable": True,
-        }
         raw_settings["providers"]["test"] = {
             "api_key": None,
             "base_url": None,

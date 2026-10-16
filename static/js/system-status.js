@@ -1,5 +1,7 @@
 (function systemStatusModule(window) {
     function createSystemStatus({ state, chatElements, dashElements, configElements, dashboardView, callbacks }) {
+        let executionTasksRequestId = 0;
+
         async function fetchSystemStatus() {
             try {
                 const response = await fetch('api/status', { cache: 'no-store' });
@@ -67,20 +69,24 @@
         }
 
         async function fetchExecutionTasks({ render = true } = {}) {
+            const requestId = ++executionTasksRequestId;
             try {
                 const response = await fetch('api/tasks?include_terminal=false', { cache: 'no-store' });
                 if (!response.ok) throw new Error('Failed to fetch execution tasks');
                 const data = await response.json();
+                if (requestId !== executionTasksRequestId) return;
                 state.executionTasks = data.tasks || [];
+                state.executionTasksError = null;
                 dashboardView.syncExecutionTaskPolling();
                 if (render) display();
             } catch (error) {
+                if (requestId !== executionTasksRequestId) return;
                 console.error('Error fetching execution tasks:', error);
-                state.executionTasks = [];
+                state.executionTasksError = error instanceof Error
+                    ? error.message
+                    : 'Failed to fetch execution tasks';
                 dashboardView.syncExecutionTaskPolling();
-                if (render && dashElements.executeWorkflowResult) {
-                    dashElements.executeWorkflowResult.innerHTML = `<p class="state-error">❌ Error: ${error.message}</p>`;
-                }
+                if (render) display();
             }
         }
 

@@ -288,6 +288,15 @@ def repair_settings_from_template() -> SystemSettingsResponse:
         ) from exc
 
     reload_configuration()
+    logger.info(
+        "Settings repair completed",
+        data={
+            "event": "settings_repair_completed",
+            "status": "completed",
+            "settings_path": str(active_path),
+            "backup_path": str(backup_path),
+        },
+    )
     return _build_settings_response(active_path)
 
 
@@ -360,14 +369,15 @@ def _build_model_info(
     status_message = None
     if issue_messages:
         status_message = issue_messages.get(name)
+    capabilities = list(config.capabilities or ["text"])
 
     return ModelInfo(
         name=name,
         provider=config.provider,
         model_string=config.model_string,
-        capabilities=list(config.capabilities or ["text"]),
-        dimensions=config.dimensions,
+        capabilities=capabilities,
         available=availability.get(name, True),
+        chat_selectable="text" in capabilities,
         user_editable=config.user_editable,
         description=config.description,
         status_message=status_message,
@@ -531,11 +541,10 @@ def upsert_configurable_model(
             provider=payload.provider,
             model_string=payload.model_string,
             capabilities=payload.capabilities,
-            dimensions=payload.dimensions,
             description=payload.description,
         )
     except SettingsError as exc:
-        raise SystemConfigurationError(str(exc)) from exc
+        raise InvalidSystemSettingError(model_name, str(exc)) from exc
 
     reload_result = reload_configuration()
     config_status = reload_result.status

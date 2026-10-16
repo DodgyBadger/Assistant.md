@@ -25,6 +25,8 @@ This decision does not remove non-streaming model calls from the system.
 Non-chat domains may still use awaited model calls when their execution contract
 does not require chat task streaming semantics.
 
+Response completion is not task completion: a visible answer can precede post-turn compaction, and a review response does not imply approval or execution. Clients must distinguish answer delivery from the owning task's lifecycle without making background observation own task cancellation.
+
 ## Rationale
 
 A single chat execution path prevents drift in queueing, cancellation, timeout

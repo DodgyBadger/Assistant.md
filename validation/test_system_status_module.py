@@ -127,3 +127,66 @@ const controller = SystemStatus.create({
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_execution_task_refresh_preserves_state_and_ignores_stale_responses() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const pending = [];
+global.fetch = () => new Promise((resolve, reject) => pending.push({ resolve, reject }));
+let renders = 0;
+let pollSyncs = 0;
+const state = { executionTasks: [{ task_id: 'last-known' }] };
+const controller = SystemStatus.create({
+    state,
+    chatElements: {},
+    dashElements: {},
+    configElements: { advancedShellCoordinates: [] },
+    dashboardView: {
+        displaySystemStatus() { renders += 1; },
+        syncExecutionTaskPolling() { pollSyncs += 1; },
+    },
+    callbacks: {},
+});
+
+(async () => {
+    const olderRequest = controller.fetchExecutionTasks();
+    const newerRequest = controller.fetchExecutionTasks();
+    pending[1].resolve({
+        ok: true,
+        async json() { return { tasks: [{ task_id: 'newer' }] }; },
+    });
+    await newerRequest;
+    pending[0].resolve({
+        ok: true,
+        async json() { return { tasks: [{ task_id: 'stale' }] }; },
+    });
+    await olderRequest;
+    assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);
+    assert.strictEqual(state.executionTasksError, null);
+
+    const failedRequest = controller.fetchExecutionTasks();
+    pending[2].reject(new Error('temporary outage'));
+    await failedRequest;
+    assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);
+    assert.strictEqual(state.executionTasksError, 'temporary outage');
+    assert.strictEqual(renders, 2);
+    assert.strictEqual(pollSyncs, 2);
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

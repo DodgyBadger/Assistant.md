@@ -50,6 +50,12 @@ are read-only until the interactive mutation surface is idle. Advanced editing
 and knowledge-management features remain the responsibility of external vault
 editors unless a concrete AssistantMD workflow requires them.
 
+### Vault link resolution
+
+Chat and vault previews share rendering and vault-link resolution rather than maintaining separate path policies. Prefer full vault-relative wikilinks with visible paths over aliases or basename guessing; retain ordinary Markdown links and supported `@path` references.
+
+Resolve local Markdown destinations relative to their source document in vault previews and the vault root in chat. Preserve authored labels and external links. All local references remain within the shared vault-access boundary, including unresolved links; rendering must not create an alternative access path.
+
 ## Rationale
 
 A shared modal preserves the minimal chat workspace while removing unnecessary

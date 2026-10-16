@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -29,6 +32,7 @@ from core.ingestion.service import IngestionService  # noqa: E402
 from core.migration_backups import MIGRATION_BACKUP_DIRECTORY  # noqa: E402
 from core.runtime.paths import set_bootstrap_roots  # noqa: E402
 from core.system_migrations import (  # noqa: E402
+    MIGRATION_TARGETS,
     get_system_migration_status,
     run_system_migrations,
 )
@@ -109,7 +113,11 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         )
         self.soft_assert(
             summary_target.backup_path is None,
-            "New summary DB should not create an empty backup",
+            "Absent retired summary DB should not create a backup",
+        )
+        self.soft_assert(
+            not summary_target.exists and not summary_target.pending_versions,
+            "Fresh installations must not create a retired summary database",
         )
         self.soft_assert(
             goal_target.backup_path is None,
@@ -144,8 +152,30 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
             )
             self.soft_assert_equal(
                 self._migration_versions(conn, "chat_sessions"),
-                [1, 2],
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
                 "Chat migration version should be recorded",
+            )
+            checkpoint_columns = {
+                str(row[1])
+                for row in conn.execute(
+                    "PRAGMA table_info(chat_compaction_checkpoints)"
+                )
+            }
+            self.soft_assert(
+                "replacement_source_sequence_indexes_json" in checkpoint_columns,
+                "Chat checkpoint migration should add replacement origins",
+            )
+            self.soft_assert(
+                not self._table_exists(conn, "chat_session_map_revisions"),
+                "Retired session-map revision storage should be absent after migration",
+            )
+            self.soft_assert(
+                not self._table_exists(conn, "chat_session_map_maintenance"),
+                "Retired session-map maintenance storage should be absent after migration",
+            )
+            self.soft_assert(
+                not self._table_exists(conn, "chat_session_map_attempts"),
+                "Retired session-map attempt storage should be absent after migration",
             )
             owner = conn.execute(
                 "SELECT owner_principal_id FROM chat_sessions WHERE session_id = 'legacy'"
@@ -154,13 +184,6 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                 owner[0] if owner else None,
                 "local-user",
                 "Legacy chat sessions should be assigned to the local user",
-            )
-
-        with sqlite3.connect(system_root / "session_summaries.db") as conn:
-            self.soft_assert_equal(
-                self._migration_versions(conn, "session_summaries"),
-                [1, 2, 3],
-                "Session summary migration versions should be recorded",
             )
 
         with sqlite3.connect(system_root / "goal_ops.db") as conn:
@@ -216,10 +239,129 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
         self.soft_assert_equal(
             second.pending_count, 0, "Second run should remain fully applied"
         )
+
+        retired_map_root = self.artifacts_dir / "retired-map-system"
+        retired_map_root.mkdir()
+        retired_map_db = retired_map_root / "chat_sessions.db"
+        self._create_pre_retirement_chat_sessions_db(retired_map_db)
+        retired_map_migrations = run_system_migrations(
+            retired_map_root,
+            backup=True,
+        )
+        retired_map_chat_target = next(
+            target
+            for target in retired_map_migrations.targets
+            if target.db_name == "chat_sessions"
+        )
+        self.soft_assert(
+            retired_map_chat_target.backup_path is not None,
+            "A pre-retirement chat database should be backed up before map teardown",
+        )
+        if retired_map_chat_target.backup_path is not None:
+            backup_path = Path(retired_map_chat_target.backup_path)
+            self.soft_assert(
+                backup_path.exists(), "The pre-retirement backup should exist"
+            )
+            with sqlite3.connect(backup_path) as backup_conn:
+                for table_name in (
+                    "chat_session_map_revisions",
+                    "chat_session_map_maintenance",
+                    "chat_session_map_attempts",
+                ):
+                    row = backup_conn.execute(
+                        f"SELECT sentinel FROM {table_name} WHERE id = 1"
+                    ).fetchone()
+                    self.soft_assert_equal(
+                        row[0] if row else None,
+                        f"retired:{table_name}",
+                        f"The backup should preserve representative {table_name} data",
+                    )
+        with sqlite3.connect(retired_map_db) as conn:
+            self.soft_assert_equal(
+                self._migration_versions(conn, "chat_sessions"),
+                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                "A database already at map migration 4 should apply current migrations",
+            )
+            self.soft_assert(
+                all(
+                    not self._table_exists(conn, table_name)
+                    for table_name in (
+                        "chat_session_map_revisions",
+                        "chat_session_map_maintenance",
+                        "chat_session_map_attempts",
+                    )
+                ),
+                "The teardown migration should remove every retired map table",
+            )
         self.soft_assert(
             all(target.backup_path is None for target in second.targets),
             "Second run should not create backups when no migrations are pending",
         )
+        private_marker = "PRIVATE_MIGRATION_FAILURE_SENTINEL"
+        with patch(
+            "core.system_migrations._backup_pending_databases",
+            side_effect=OSError(private_marker),
+        ):
+            try:
+                run_system_migrations(system_root)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("A migration backup failure must propagate")
+        target = next(
+            target for target in MIGRATION_TARGETS if target.db_name == "chat_sessions"
+        )
+
+        def fail_schema(_root):
+            raise ValueError(private_marker)
+
+        with patch(
+            "core.system_migrations.MIGRATION_TARGETS",
+            (replace(target, ensure_schema=fail_schema),),
+        ):
+            try:
+                run_system_migrations(system_root)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("A migration apply failure must propagate")
+        rows = [
+            json.loads(line)["data"]
+            for line in (system_root / "activity.log").read_text().splitlines()
+        ]
+        migration_rows = [
+            row
+            for row in rows
+            if row.get("event", "").startswith("system_database_migrations_")
+        ]
+        assert migration_rows
+        assert all(
+            row.get("operation_id") and row.get("status") for row in migration_rows
+        )
+        completed = [row for row in migration_rows if row["status"] == "completed"]
+        failed = [row for row in migration_rows if row["status"] == "failed"]
+        assert completed and len(failed) == 2
+        backup_failure = next(row for row in failed if row["phase"] == "backup")
+        apply_failure = next(row for row in failed if row["phase"] == "apply")
+        assert backup_failure["error_type"] == "OSError" and backup_failure["error"]
+        assert apply_failure["database_name"] == "chat_sessions"
+        assert apply_failure["error_type"] == "ValueError" and apply_failure["error"]
+        for operation_id in {row["operation_id"] for row in migration_rows}:
+            operation = [
+                row for row in migration_rows if row["operation_id"] == operation_id
+            ]
+            assert len([row for row in operation if row["status"] == "started"]) == 1
+            assert (
+                len(
+                    [
+                        row
+                        for row in operation
+                        if row["status"] in {"completed", "failed"}
+                    ]
+                )
+                == 1
+            )
+        assert private_marker not in json.dumps(rows)
         self.teardown_scenario()
         self.assert_no_failures()
 
@@ -245,6 +387,45 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                 VALUES ('legacy', 'MigrationVault')
                 """
             )
+
+    @staticmethod
+    def _create_pre_retirement_chat_sessions_db(db_path: Path) -> None:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE schema_migrations (
+                    namespace TEXT NOT NULL,
+                    version INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (namespace, version)
+                )
+                """
+            )
+            conn.executemany(
+                """
+                INSERT INTO schema_migrations (namespace, version, name)
+                VALUES ('chat_sessions', ?, ?)
+                """,
+                (
+                    (1, "add_compaction_checkpoints"),
+                    (2, "add_session_owner_principal"),
+                    (3, "add_live_session_map_storage"),
+                    (4, "add_live_session_map_attempt_audit"),
+                ),
+            )
+            for table_name in (
+                "chat_session_map_revisions",
+                "chat_session_map_maintenance",
+                "chat_session_map_attempts",
+            ):
+                conn.execute(
+                    f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY, sentinel TEXT NOT NULL)"
+                )
+                conn.execute(
+                    f"INSERT INTO {table_name} (id, sentinel) VALUES (1, ?)",
+                    (f"retired:{table_name}",),
+                )
 
     @staticmethod
     def _create_legacy_ingestion_jobs_db(db_path: Path) -> None:

@@ -133,6 +133,7 @@ class AppSettings(BaseSettings):
         "GROK_API_KEY",
         "MISTRAL_API_KEY",
         "DEEPSEEK_API_KEY",
+        "TYPESAFE_API_KEY",
     ]
 
     @field_validator("vaults_root_path", mode="before")
@@ -915,30 +916,111 @@ def get_compaction_type() -> str:
     return normalized if normalized in {"none", "suggested", "auto"} else "auto"
 
 
-def get_compaction_keep_recent() -> int:
-    """Return the target recent message count to preserve when compacting."""
-    entry = get_general_settings().get("compaction_keep_recent")
-    value = getattr(entry, "value", None) if entry is not None else None
-    template_default = _get_template_setting_positive_int("compaction_keep_recent", 8)
-    try:
-        parsed = _setting_int(value)
-    except (TypeError, ValueError):
-        return template_default
-    return parsed if parsed > 0 else template_default
-
-
-def get_compaction_token_threshold() -> int:
-    """Return the estimated token threshold for chat-history compaction."""
-    entry = get_general_settings().get("compaction_token_threshold")
+def get_compaction_high_watermark_tokens() -> int:
+    """Return the effective-history size that triggers compaction."""
+    entry = get_general_settings().get("compaction_high_watermark_tokens")
     value = getattr(entry, "value", None) if entry is not None else None
     template_default = _get_template_setting_positive_int(
-        "compaction_token_threshold", 80_000
+        "compaction_high_watermark_tokens", 80_000
     )
     try:
         parsed = _setting_int(value)
     except (TypeError, ValueError):
         return template_default
     return parsed if parsed > 0 else template_default
+
+
+def get_compaction_strategy() -> str:
+    """Return the configured compaction strategy."""
+    entry = get_general_settings().get("compaction_strategy")
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or "recovery_card").strip().lower()
+    if normalized in {"session_map", "stepped_session_map"}:
+        return "session_map"
+    return "recovery_card"
+
+
+def get_compaction_author_model() -> str | None:
+    """Return the compaction author alias, inheriting the default model."""
+    settings = get_general_settings()
+    entry = settings.get("compaction_author_model")
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or "").strip()
+    if normalized and normalized.lower() != "none":
+        return normalized
+
+    default_entry = settings.get("default_model")
+    default_value = (
+        getattr(default_entry, "value", None) if default_entry is not None else None
+    )
+    normalized_default = str(default_value or "").strip()
+    if not normalized_default or normalized_default.lower() == "none":
+        return None
+    return normalized_default
+
+
+def get_compaction_author_thinking() -> ThinkingValue:
+    """Return the thinking policy for compaction authoring."""
+    entry = get_general_settings().get("compaction_author_thinking")
+    value = getattr(entry, "value", None) if entry is not None else None
+    return normalize_thinking_value(value, source_name="compaction_author_thinking")
+
+
+def get_compaction_low_watermark_tokens() -> int:
+    """Return the target token size after one stepped-map eviction."""
+    entry = get_general_settings().get("compaction_low_watermark_tokens")
+    value = getattr(entry, "value", None) if entry is not None else None
+    template_default = _get_template_setting_positive_int(
+        "compaction_low_watermark_tokens", 20_000
+    )
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return template_default
+    return parsed if parsed > 0 else template_default
+
+
+def get_compaction_retained_turns() -> int:
+    """Return the configured newest-turn retention preference."""
+    entry = get_general_settings().get("compaction_retained_turns")
+    value = getattr(entry, "value", None) if entry is not None else None
+    template_default = _get_template_setting_positive_int(
+        "compaction_retained_turns", 3
+    )
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return template_default
+    return parsed if 1 <= parsed <= 100 else template_default
+
+
+def _get_nonempty_setting_string(setting_key: str, default: str) -> str:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    normalized = str(value or default).strip()
+    return normalized or default
+
+
+def _get_bounded_positive_int_setting(
+    setting_key: str, *, default: int, maximum: int
+) -> int:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if 0 < parsed <= maximum else default
+
+
+def _get_probability_setting(setting_key: str, *, default: float) -> float:
+    entry = get_general_settings().get(setting_key)
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        parsed = _setting_float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if 0.0 <= parsed <= 1.0 else default
 
 
 def get_file_search_timeout_seconds() -> float:

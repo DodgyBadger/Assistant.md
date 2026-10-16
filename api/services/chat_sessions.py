@@ -1,10 +1,11 @@
-"""Chat-session persistence, summaries, export, and compaction API services."""
+"""Chat-session persistence, export, and compaction API services."""
 
 import json
 import re
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart
 
@@ -13,34 +14,39 @@ from core.chat.chat_store import (
     StoredChatMessage,
     StoredChatSession,
     StoredChatToolEvent,
+    StoredContextCheckpoint,
+    canonical_assistant_fork_points,
+    tool_call_events_are_unambiguous,
 )
-from core.chat.compaction import compact_chat_history, get_compaction_status
+from core.chat.compaction import get_compaction_status, run_chat_context_compaction
+from core.chat.context_strategy_upgrade import (
+    SessionContextStrategyUpgradeUnavailable,
+    get_session_context_strategy_status,
+    start_session_context_strategy_upgrade,
+)
 from core.chat.deferred_reviews import (
     StoredDeferredReview,
     get_pending_deferred_review,
 )
 from core.chat.workspace import normalize_workspace_path
 from core.identity import require_current_execution_authority
-from core.memory.session_summary import SessionSummary, SessionSummaryStore
-from core.runtime.execution_tasks import (
-    ExecutionTaskKind,
-    ExecutionTaskSource,
-    chat_session_scope,
-    compaction_task_label,
+from core.memory.session_discovery import SessionDiscoveryService
+from core.memory.session_map.checkpoints import (
+    load_session_map_checkpoint,
+    load_session_map_observed_through,
 )
+from core.runtime.execution_tasks import ExecutionTaskSnapshot, ExecutionTaskSource
 from core.runtime.state import RuntimeStateError, get_runtime_context
-from core.runtime.task_runner import ExecutionTaskSpec
 from core.settings.store import (
     get_enabled_tool_names,
     get_enabled_tools_config,
 )
 from core.tools.failures import classify_tool_result_state
-from core.tools.utils import estimate_token_count
+from core.utils.tokens import estimate_token_count
 from core.vault_state.pathing import (
     resolve_configured_vault_root,
     resolve_vault_relative_path,
 )
-from core.vector import VectorService
 
 from ..exceptions import APIException
 from ..models import (
@@ -51,8 +57,14 @@ from ..models import (
     ChatSessionFailureInfo,
     ChatSessionForkResponse,
     ChatSessionInfo,
+    ChatSessionMapCheckpointInfo,
+    ChatSessionMapResponse,
     ChatSessionMessageInfo,
+    ChatSessionSearchEvidence,
+    ChatSessionSearchMatch,
+    ChatSessionSearchResponse,
     ChatSessionsPurgeResponse,
+    ChatSessionTimelinePage,
     ChatSessionToolCallInfo,
     ChatSessionToolEventInfo,
     ChatToolCallDetailResponse,
@@ -271,26 +283,486 @@ def set_chat_session_mode(
 def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
-    summary_store = SessionSummaryStore()
-    return [
-        ChatSessionInfo(
-            session_id=session.session_id,
-            created_at=session.created_at,
-            last_activity_at=session.last_activity_at,
-            title=session.title or None,
-            workspace=_chat_workspace_info(
-                vault_name,
-                _chat_store.get_session_workspace_path(session.session_id, vault_name),
-            ),
-            chat_mode=_chat_store.get_session_chat_mode(session.session_id, vault_name),
-            has_summary=summary_store.get_session_summary(
-                vault_name=vault_name,
-                session_id=session.session_id,
+    return [_chat_session_info(session) for session in sessions]
+
+
+def search_chat_sessions(
+    vault_name: str, query: str, limit: int
+) -> ChatSessionSearchResponse:
+    """Adapt the shared authorized discovery results to session browser rows."""
+    runtime = get_runtime_context()
+    try:
+        hits = SessionDiscoveryService(
+            runtime.chat_store, runtime.chat_session_access
+        ).search(vault_name=vault_name, query=query, limit=limit)
+    except ValueError as exc:
+        raise APIException(400, "InvalidSessionSearch", str(exc)) from exc
+    matches: list[ChatSessionSearchMatch] = []
+    for hit in hits:
+        session = runtime.chat_session_access.get_session_by_id(hit["session_id"])
+        if session is None or session.vault_name != vault_name:
+            continue
+        matches.append(
+            ChatSessionSearchMatch(
+                session=_chat_session_info(session),
+                evidence=[
+                    ChatSessionSearchEvidence.model_validate(evidence)
+                    for evidence in hit["evidence"]
+                ],
+                score=hit["score"],
             )
-            is not None,
         )
-        for session in sessions
+    return ChatSessionSearchResponse(matches=matches, limit=limit)
+
+
+def _chat_session_info(
+    session: StoredChatSession,
+) -> ChatSessionInfo:
+    """Project one persisted session consistently across listing and fork replies."""
+    vault_name = session.vault_name
+    session_id = session.session_id
+    strategy_status = get_session_context_strategy_status(
+        store=_chat_store,
+        session_id=session_id,
+        vault_name=vault_name,
+    )
+    return ChatSessionInfo(
+        session_id=session_id,
+        created_at=session.created_at,
+        last_activity_at=session.last_activity_at,
+        title=session.title or None,
+        workspace=_chat_workspace_info(
+            vault_name,
+            _chat_store.get_session_workspace_path(session_id, vault_name),
+        ),
+        chat_mode=_chat_store.get_session_chat_mode(session_id, vault_name),
+        has_session_map=strategy_status.strategy == "session_map",
+        context_strategy=strategy_status.strategy,
+        can_upgrade_to_v2=strategy_status.can_upgrade_to_v2,
+    )
+
+
+def get_chat_session_map(
+    vault_name: str,
+    session_id: str,
+    *,
+    checkpoint_id: str | None = None,
+) -> ChatSessionMapResponse:
+    """Return one append-only stepped-map checkpoint."""
+    _require_chat_session_access(vault_name, session_id)
+    checkpoints = _chat_store.list_context_checkpoints(
+        session_id,
+        vault_name,
+        checkpoint_kind="session_map",
+    )
+    latest = checkpoints[-1] if checkpoints else None
+    selected = latest
+    if checkpoint_id is not None:
+        selected = next(
+            (
+                checkpoint
+                for checkpoint in checkpoints
+                if checkpoint.checkpoint_id == checkpoint_id
+            ),
+            None,
+        )
+        if selected is None:
+            raise APIException(
+                status_code=404,
+                error_type="SessionMapCheckpointNotFound",
+                message=f"Session map checkpoint not found: {session_id}@{checkpoint_id}",
+                details={
+                    "session_id": session_id,
+                    "vault_name": vault_name,
+                    "checkpoint_id": checkpoint_id,
+                },
+            )
+    revisions = [
+        _session_map_checkpoint_info(revision, checkpoint)
+        for revision, checkpoint in enumerate(checkpoints, start=1)
     ]
+    return ChatSessionMapResponse(
+        session_id=session_id,
+        vault_name=vault_name,
+        selected_checkpoint_id=(selected.checkpoint_id if selected else None),
+        latest_checkpoint_id=(latest.checkpoint_id if latest else None),
+        revisions=revisions,
+        session_map=load_session_map_checkpoint(selected) if selected else None,
+    )
+
+
+def _session_map_checkpoint_info(
+    revision: int,
+    checkpoint: StoredContextCheckpoint,
+) -> ChatSessionMapCheckpointInfo:
+    try:
+        draft = load_session_map_checkpoint(checkpoint)
+        metadata = json.loads(checkpoint.metadata_json or "{}")
+        classification = metadata.get("classification")
+        classification_payload = (
+            classification if isinstance(classification, dict) else {}
+        )
+        action: Literal["authored", "deferred"] = (
+            "deferred"
+            if classification_payload.get("action") == "deferred"
+            else "authored"
+        )
+        return ChatSessionMapCheckpointInfo(
+            revision=revision,
+            checkpoint_id=checkpoint.checkpoint_id,
+            created_at=checkpoint.created_at,
+            consumed_through_sequence_index=checkpoint.last_message_sequence_index,
+            map_observed_through_sequence_index=load_session_map_observed_through(
+                checkpoint
+            ),
+            entry_count=len(draft.entries),
+            action=action,
+            prompt_contract_version=str(metadata.get("prompt_contract_version") or ""),
+        )
+    except (ValueError, TypeError):
+        details = {
+            "session_id": checkpoint.session_id,
+            "vault_name": checkpoint.vault_name,
+            "checkpoint_id": checkpoint.checkpoint_id,
+        }
+        message = "Stored session map is invalid; inspect the identified checkpoint."
+        logger.error(
+            "Session map checkpoint could not be loaded",
+            data={
+                "event": "session_map_checkpoint_load_failed",
+                "status": "failed",
+                "reason": "invalid_stored_checkpoint",
+                "error_type": "SessionMapCheckpointCorrupt",
+                "error": message,
+                **details,
+            },
+        )
+        raise APIException(
+            status_code=500,
+            error_type="SessionMapCheckpointCorrupt",
+            message=message,
+            details=details,
+        ) from None
+
+
+def get_chat_session_timeline(
+    vault_name: str,
+    session_id: str,
+    *,
+    before_sequence_index: int | None = None,
+    page_size: int = 40,
+) -> ChatSessionTimelinePage:
+    """Return one newest-first cursor page rendered in chronological order."""
+    _require_chat_session_access(vault_name, session_id)
+    if before_sequence_index is not None and before_sequence_index < 0:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidChatTimelineCursor",
+            message="Chat timeline cursor cannot be negative.",
+        )
+    if page_size < 1 or page_size > 100:
+        raise APIException(
+            status_code=400,
+            error_type="InvalidChatTimelinePageSize",
+            message="Chat timeline page size must be between 1 and 100.",
+        )
+    through_sequence_index = _chat_store.get_highest_message_sequence_index(
+        session_id, vault_name
+    )
+    boundaries, has_older = _chat_store.get_canonical_display_rows_before(
+        session_id,
+        vault_name,
+        through_sequence_index=through_sequence_index,
+        before_sequence_index=before_sequence_index,
+        limit=page_size,
+    )
+    messages = _project_canonical_display_boundaries(
+        session_id=session_id,
+        vault_name=vault_name,
+        boundaries=boundaries,
+        projection_id=(
+            f"timeline:{before_sequence_index}"
+            if before_sequence_index is not None
+            else "timeline:latest"
+        ),
+    )
+    tool_calls = list(
+        {
+            tool_call.tool_call_id: tool_call
+            for message in messages
+            for tool_call in message.tool_calls
+        }.values()
+    )
+    checkpoint = _chat_store.get_latest_context_checkpoint(session_id, vault_name)
+    oldest_sequence = boundaries[0][0] if boundaries else None
+    logger.debug(
+        "chat_session_timeline_page_loaded",
+        data={
+            "event": "chat_session_timeline_page_loaded",
+            "session_id": session_id,
+            "vault_name": vault_name,
+            "before_sequence_index": before_sequence_index,
+            "returned_row_count": len(messages),
+            "has_older": has_older,
+        },
+    )
+    return ChatSessionTimelinePage(
+        session_id=session_id,
+        vault_name=vault_name,
+        history_revision=_chat_store.get_session_history_revision(
+            session_id, vault_name
+        ),
+        messages=messages,
+        tool_calls=tool_calls,
+        older_before_sequence_index=(oldest_sequence if has_older else None),
+        has_older=has_older,
+        context_boundary_sequence_index=(
+            checkpoint.last_message_sequence_index if checkpoint is not None else None
+        ),
+        context_checkpoint_kind=(
+            checkpoint.checkpoint_kind if checkpoint is not None else None
+        ),
+        context_checkpoint_id=(checkpoint.checkpoint_id if checkpoint else None),
+    )
+
+
+def _project_canonical_display_boundaries(
+    *,
+    session_id: str,
+    vault_name: str,
+    boundaries: list[tuple[int, int, str]],
+    projection_id: str,
+) -> list[ChatSessionMessageInfo]:
+    """Project exact canonical display boundaries without gaps or silent omission."""
+    if not boundaries:
+        return []
+    canonical_messages = _chat_store.get_stored_messages_range(
+        session_id,
+        vault_name,
+        after_sequence_index=boundaries[0][0] - 1,
+        through_sequence_index=boundaries[-1][1],
+    )
+    tool_call_ids = list(
+        dict.fromkeys(
+            tool_call_id
+            for message in canonical_messages
+            for tool_call_id in message.tool_call_ids
+            if tool_call_id
+        )
+    )
+    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+        session_id, vault_name, tool_call_ids=tool_call_ids
+    )
+    tool_events = [
+        event
+        for tool_call_id in tool_call_ids
+        for event in _chat_store.get_tool_events_for_call(
+            session_id, vault_name, tool_call_id
+        )
+    ]
+    canonical_fork_points = _chat_store.get_canonical_fork_points_for_sequences(
+        session_id,
+        vault_name,
+        [
+            message.sequence_index
+            for message in canonical_messages
+            if message.message_type == "ModelResponse"
+        ],
+    )
+    timeline_items = _canonical_timeline_items(
+        canonical_messages,
+        canonical_fork_points=canonical_fork_points,
+        declaration_counts=declaration_counts,
+        tool_events=tool_events,
+    )
+    items_by_boundary = {
+        _canonical_timeline_item_boundary(item): item for item in timeline_items
+    }
+    projected: list[ChatSessionMessageInfo] = []
+    for boundary in boundaries:
+        item = items_by_boundary.get(boundary)
+        if item is None:
+            scoped_messages = [
+                message
+                for message in canonical_messages
+                if boundary[0] <= message.sequence_index <= boundary[1]
+            ]
+            scoped_items = _canonical_timeline_items(
+                scoped_messages,
+                canonical_fork_points=canonical_fork_points,
+                declaration_counts=declaration_counts,
+                tool_events=tool_events,
+            )
+            item = next(
+                (
+                    candidate
+                    for candidate in scoped_items
+                    if _canonical_timeline_item_boundary(candidate) == boundary
+                ),
+                None,
+            )
+            if item is None:
+                logger.warning(
+                    "canonical_timeline_projection_failed",
+                    data={
+                        "event": "canonical_timeline_projection_failed",
+                        "status": "failed",
+                        "reason": "paged_projection_boundary_mismatch",
+                        "issue": (
+                            "canonical-timeline-projection:"
+                            f"{session_id}:{projection_id}:"
+                            f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
+                        ),
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "projection_id": projection_id,
+                        "boundary_start": boundary[0],
+                        "boundary_end": boundary[1],
+                        "boundary_kind": boundary[2],
+                        "error_type": "CanonicalTimelineProjectionMismatch",
+                        "error": "The canonical timeline page could not be projected safely.",
+                    },
+                )
+                raise APIException(
+                    status_code=409,
+                    error_type="CanonicalTimelineProjectionMismatch",
+                    message="The canonical timeline page could not be projected safely.",
+                    details={
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "projection_id": projection_id,
+                        "boundary": list(boundary),
+                    },
+                )
+            logger.warning(
+                "canonical_timeline_boundary_reprojected",
+                data={
+                    "event": "canonical_timeline_boundary_reprojected",
+                    "status": "recovered",
+                    "reason": "paged_projection_boundary_drift",
+                    "issue": (
+                        "canonical-timeline-boundary:"
+                        f"{session_id}:{projection_id}:"
+                        f"{boundary[0]}:{boundary[1]}:{boundary[2]}"
+                    ),
+                    "session_id": session_id,
+                    "vault_name": vault_name,
+                    "projection_id": projection_id,
+                    "boundary_start": boundary[0],
+                    "boundary_end": boundary[1],
+                    "boundary_kind": boundary[2],
+                },
+            )
+        projected.append(item)
+    return projected
+
+
+def _canonical_timeline_item_boundary(
+    item: ChatSessionMessageInfo,
+) -> tuple[int, int, str]:
+    """Return the compact paging identity for one projected transcript row."""
+    through_sequence_index = (
+        item.through_sequence_index
+        if item.through_sequence_index is not None
+        else item.sequence_index
+    )
+    return (
+        item.sequence_index,
+        through_sequence_index,
+        "tool" if item.role == "tool" else "message",
+    )
+
+
+def _canonical_timeline_items(
+    messages: list[StoredChatMessage],
+    *,
+    canonical_fork_points: set[int],
+    declaration_counts: dict[str, int],
+    tool_events: list[StoredChatToolEvent],
+) -> list[ChatSessionMessageInfo]:
+    """Project canonical history into user messages and complete assistant turns."""
+    displayed: list[ChatSessionMessageInfo] = []
+    summaries = {
+        item.tool_call_id: item
+        for item in _effective_tool_call_info(
+            messages,
+            declaration_counts,
+            tool_events,
+        )
+    }
+    assistant_turn: list[ChatSessionMessageInfo] = []
+
+    def flush_assistant_turn() -> None:
+        if not assistant_turn:
+            return
+        call_ids = list(
+            dict.fromkeys(
+                tool_call_id
+                for item in assistant_turn
+                for tool_call_id in item.tool_call_ids
+                if tool_call_id
+            )
+        )
+        return_ids = list(
+            dict.fromkeys(
+                tool_call_id
+                for item in assistant_turn
+                for tool_call_id in item.tool_return_ids
+                if tool_call_id
+            )
+        )
+        content = "\n\n".join(
+            item.content.strip() for item in assistant_turn if item.content.strip()
+        )
+        thinking_content = "\n\n".join(
+            item.thinking_content.strip()
+            for item in assistant_turn
+            if item.thinking_content.strip()
+        )
+        if not content and not thinking_content and not call_ids:
+            assistant_turn.clear()
+            return
+        displayed.append(
+            ChatSessionMessageInfo(
+                sequence_index=assistant_turn[0].sequence_index,
+                through_sequence_index=assistant_turn[-1].sequence_index,
+                fork_sequence_index=next(
+                    (
+                        item.fork_sequence_index
+                        for item in reversed(assistant_turn)
+                        if item.fork_sequence_index is not None
+                    ),
+                    None,
+                ),
+                role="assistant",
+                content=content,
+                thinking_content=thinking_content,
+                message_type="AssistantTurn",
+                direction="response",
+                is_tool_message=False,
+                tool_call_ids=call_ids,
+                tool_return_ids=return_ids,
+                tool_call_count=len(call_ids),
+                tool_calls=[summaries[item] for item in call_ids if item in summaries],
+                context_checkpoint_kind=None,
+                context_checkpoint_id=None,
+            )
+        )
+        assistant_turn.clear()
+
+    for message in messages:
+        projected = _chat_session_message_info(
+            message, canonical_fork_points=canonical_fork_points
+        )
+        if projected.is_tool_message or projected.role == "assistant":
+            assistant_turn.append(projected)
+            continue
+        flush_assistant_turn()
+        if projected.role != "user":
+            continue
+        displayed.append(projected)
+    flush_assistant_turn()
+    return displayed
 
 
 def fork_chat_session(
@@ -300,32 +772,84 @@ def fork_chat_session(
     through_sequence_index: int,
 ) -> ChatSessionForkResponse:
     """Create a new chat session from a source session prefix."""
+    operation_id = uuid4().hex
+    logger.info(
+        "chat_session_fork_started",
+        data={
+            "event": "chat_session_fork_started",
+            "status": "started",
+            "operation_id": operation_id,
+            "vault_name": vault_name,
+            "source_session_id": source_session_id,
+            "canonical_through_sequence_index": through_sequence_index,
+        },
+    )
+    try:
+        return _fork_chat_session(
+            vault_name=vault_name,
+            source_session_id=source_session_id,
+            through_sequence_index=through_sequence_index,
+            operation_id=operation_id,
+        )
+    except Exception as exc:
+        error_type = (
+            exc.error_type if isinstance(exc, APIException) else type(exc).__name__
+        )
+        logger.warning(
+            "chat_session_fork_failed",
+            data={
+                "event": "chat_session_fork_failed",
+                "status": "failed",
+                "operation_id": operation_id,
+                "issue": f"chat_session_fork:{operation_id}",
+                "vault_name": vault_name,
+                "source_session_id": source_session_id,
+                "canonical_through_sequence_index": through_sequence_index,
+                "error_type": error_type,
+                "reason": (
+                    "request_rejected"
+                    if isinstance(exc, APIException)
+                    else "fork_execution_failed"
+                ),
+                "error": "The session fork failed; inspect server diagnostics.",
+            },
+        )
+        raise
+
+
+def _fork_chat_session(
+    *,
+    vault_name: str,
+    source_session_id: str,
+    through_sequence_index: int,
+    operation_id: str,
+) -> ChatSessionForkResponse:
     source_session = _require_chat_session_access(vault_name, source_session_id)
 
-    source_messages = _chat_store.get_stored_messages(source_session_id, vault_name)
-    highest_sequence = max(
-        (message.sequence_index for message in source_messages), default=-1
+    source_messages = _chat_store.get_stored_messages(
+        source_session_id, vault_name, mode="raw"
     )
-    if highest_sequence < 0:
+    canonical_fork_points = canonical_assistant_fork_points(source_messages)
+    if not canonical_fork_points:
         raise APIException(
             status_code=400,
             error_type="ChatSessionForkEmpty",
             message=f"Chat session has no messages to fork: {source_session_id}",
             details={"session_id": source_session_id, "vault_name": vault_name},
         )
-    if through_sequence_index > highest_sequence:
+    if through_sequence_index not in canonical_fork_points:
         raise APIException(
             status_code=400,
             error_type="ChatSessionForkPointInvalid",
             message=(
-                f"Fork point {through_sequence_index} is beyond the latest "
-                f"effective message sequence {highest_sequence}."
+                f"Fork point {through_sequence_index} does not identify a "
+                "protocol-complete assistant message in canonical session history."
             ),
             details={
                 "session_id": source_session_id,
                 "vault_name": vault_name,
                 "through_sequence_index": through_sequence_index,
-                "highest_sequence_index": highest_sequence,
+                "canonical_fork_points": sorted(canonical_fork_points),
             },
         )
 
@@ -351,37 +875,43 @@ def fork_chat_session(
     if new_session is None:  # pragma: no cover - defensive consistency check
         raise RuntimeError(f"Forked session was not persisted: {new_session_id}")
 
+    inherited_checkpoints = _chat_store.list_context_checkpoints(
+        new_session_id, vault_name
+    )
+    fork_metadata = _chat_store.get_session_metadata(new_session_id, vault_name).get(
+        "fork"
+    )
     logger.info(
-        "Chat session forked",
+        "chat_session_fork_completed",
         data={
+            "event": "chat_session_fork_completed",
+            "status": "completed",
+            "operation_id": operation_id,
             "vault_name": vault_name,
             "source_session_id": source_session_id,
             "new_session_id": new_session_id,
-            "through_sequence_index": through_sequence_index,
-            "copied_message_count": copied_message_count,
-            "workspace_path": _chat_store.get_session_workspace_path(
-                new_session_id, vault_name
-            )
-            or None,
+            "canonical_through_sequence_index": through_sequence_index,
+            "raw_message_count": copied_message_count,
+            "tool_event_count": (
+                fork_metadata.get("copied_tool_event_count", 0)
+                if isinstance(fork_metadata, dict)
+                else 0
+            ),
+            "inherited_checkpoint_count": len(inherited_checkpoints),
+            "latest_checkpoint_kind": (
+                inherited_checkpoints[-1].checkpoint_kind
+                if inherited_checkpoints
+                else None
+            ),
+            "lineage_root_session_id": (
+                fork_metadata.get("root_session_id")
+                if isinstance(fork_metadata, dict)
+                else source_session_id
+            ),
         },
     )
     return ChatSessionForkResponse(
-        session=ChatSessionInfo(
-            session_id=new_session.session_id,
-            created_at=new_session.created_at,
-            last_activity_at=new_session.last_activity_at,
-            title=new_session.title or None,
-            workspace=_chat_workspace_info(
-                vault_name,
-                _chat_store.get_session_workspace_path(
-                    new_session.session_id, vault_name
-                ),
-            ),
-            chat_mode=_chat_store.get_session_chat_mode(
-                new_session.session_id, vault_name
-            ),
-            has_summary=False,
-        ),
+        session=_chat_session_info(new_session),
         source_session_id=source_session_id,
         through_sequence_index=through_sequence_index,
         copied_message_count=copied_message_count,
@@ -405,213 +935,35 @@ def _forked_session_title(source_session: StoredChatSession) -> str:
     return f"Fork of {source_session.session_id}"
 
 
-def get_chat_session_summary(vault_name: str, session_id: str) -> dict:
-    """Return a lightweight summary preview for one chat session."""
-    _require_chat_session_access(vault_name, session_id)
-    session_summary = SessionSummaryStore().get_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
-    if session_summary is None:
-        return {
-            "session_id": session_id,
-            "vault_name": vault_name,
-            "has_summary": False,
-            "summary": None,
-            "user_intent": None,
-            "created_at": None,
-            "updated_at": None,
-            "domain": None,
-            "work_product": None,
-            "workspace_path": _chat_store.get_session_workspace_path(
-                session_id, vault_name
-            )
-            or None,
-            "named_entities": None,
-            "source_summary": None,
-            "metadata": {},
-            "artifacts": [],
-            "vector_index": {
-                "indexed_fields": 0,
-                "expected_fields": 0,
-                "indexed_field_types": [],
-                "missing_field_types": [],
-            },
-        }
-    return _session_summary_response(session_summary)
-
-
-async def update_chat_session_summary(
-    *,
-    vault_name: str,
-    session_id: str,
-    data: dict[str, Any],
-) -> dict:
-    """Manually update one session summary record and refresh search indexes."""
-    _require_chat_session_access(vault_name, session_id)
-    store = SessionSummaryStore()
-    existing = store.get_session_summary(vault_name=vault_name, session_id=session_id)
-    if existing is None:
-        raise APIException(
-            status_code=404,
-            error_type="SessionSummaryNotFound",
-            message=f"Session summary not found: {session_id}",
-            details={"session_id": session_id, "vault_name": vault_name},
-        )
-    previous = existing
-    session_summary = store.update_session_summary_fields(
-        vault_name=vault_name,
-        session_id=session_id,
-        summary=data.get("summary"),
-        domain=data.get("domain"),
-        work_product=data.get("work_product"),
-        user_intent=data.get("user_intent"),
-        workspace_path=data.get("workspace_path"),
-        named_entities=data.get("named_entities"),
-        source_summary=data.get("source_summary"),
-        metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
-    )
-    try:
-        indexed_fields = await _index_session_summary_for_api(
-            store,
-            vault_name=vault_name,
-            session_id=session_id,
-        )
-    except Exception:
-        _restore_session_summary_for_api(
-            store,
-            vault_name=vault_name,
-            session_id=session_id,
-            previous_summary=previous,
-        )
-        raise
-    response = _session_summary_response(session_summary)
-    response["indexed_fields"] = indexed_fields
-    return response
-
-
-def delete_chat_session_summary(vault_name: str, session_id: str) -> dict:
-    """Delete one session summary record without deleting the chat session."""
-    _require_chat_session_access(vault_name, session_id)
-    deleted = SessionSummaryStore().delete_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
-    return {
-        "session_id": session_id,
-        "vault_name": vault_name,
-        "deleted": deleted,
-    }
-
-
-async def _index_session_summary_for_api(
-    store: SessionSummaryStore,
-    *,
-    vault_name: str,
-    session_id: str,
-) -> int:
-    try:
-        indexed_fields = await store.index_session_summary_fields(
-            vault_name=vault_name,
-            session_id=session_id,
-            vector_service=VectorService(),
-        )
-        logger.info(
-            "session_summary_field_indexing_completed",
-            data={
-                "source": "api",
-                "vault_name": vault_name,
-                "session_id": session_id,
-                "indexed_fields": indexed_fields,
-            },
-        )
-        return indexed_fields
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "session_summary_field_indexing_failed",
-            data={
-                "source": "api",
-                "vault_name": vault_name,
-                "session_id": session_id,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            },
-        )
-        raise APIException(
-            status_code=500,
-            error_type="SessionSummaryIndexingFailed",
-            message=f"Failed to refresh session summary vector index for {session_id}",
-            details={
-                "session_id": session_id,
-                "vault_name": vault_name,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            },
-        ) from exc
-
-
-def _restore_session_summary_for_api(
-    store: SessionSummaryStore,
-    *,
-    vault_name: str,
-    session_id: str,
-    previous_summary: SessionSummary,
-) -> None:
-    store.upsert_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-        title=previous_summary.title,
-        summary=previous_summary.summary,
-        domain=previous_summary.domain,
-        work_product=previous_summary.work_product,
-        user_intent=previous_summary.user_intent,
-        named_entities=previous_summary.named_entities,
-        source_summary=previous_summary.source_summary,
-        workspace_path=previous_summary.workspace_path,
-        metadata=previous_summary.metadata,
-    )
-    if previous_summary.artifacts:
-        store.add_session_artifacts(
-            vault_name=vault_name,
-            session_id=session_id,
-            artifacts=tuple(previous_summary.artifacts),
-        )
-
-
-def _session_summary_response(session_summary: SessionSummary) -> dict[str, Any]:
-    return {
-        "session_id": session_summary.session_id,
-        "vault_name": session_summary.vault_name,
-        "has_summary": True,
-        "summary": session_summary.summary,
-        "user_intent": session_summary.user_intent,
-        "created_at": session_summary.created_at,
-        "updated_at": session_summary.updated_at,
-        "domain": session_summary.domain,
-        "work_product": session_summary.work_product,
-        "workspace_path": session_summary.workspace_path,
-        "named_entities": session_summary.named_entities,
-        "source_summary": session_summary.source_summary,
-        "metadata": session_summary.metadata,
-        "artifacts": [artifact.to_dict() for artifact in session_summary.artifacts],
-        "vector_index": SessionSummaryStore().get_session_summary_vector_index_status(
-            vault_name=session_summary.vault_name,
-            session_id=session_summary.session_id,
-        ),
-    }
-
-
 def get_chat_session_detail(
     vault_name: str, session_id: str
 ) -> ChatSessionDetailResponse:
     """Return persisted chat messages for one session."""
     _require_chat_session_access(vault_name, session_id)
-    messages = _chat_store.get_stored_messages(session_id, vault_name)
-    declaration_counts = _chat_store.get_tool_call_declaration_counts(
+    latest_checkpoint = _chat_store.get_latest_context_checkpoint(
         session_id, vault_name
     )
-    tool_events = _chat_store.get_tool_events(
-        session_id, vault_name, committed_only=True
+    timeline = (
+        get_chat_session_timeline(vault_name, session_id)
+        if latest_checkpoint is not None
+        and latest_checkpoint.checkpoint_kind == "session_map"
+        else None
+    )
+    messages = (
+        []
+        if timeline is not None
+        else _chat_store.get_stored_messages(session_id, vault_name)
+    )
+    canonical_fork_points = canonical_assistant_fork_points(messages)
+    declaration_counts = (
+        {}
+        if timeline is not None
+        else _chat_store.get_tool_call_declaration_counts(session_id, vault_name)
+    )
+    tool_events = (
+        []
+        if timeline is not None
+        else _chat_store.get_tool_events(session_id, vault_name, committed_only=True)
     )
     metadata = _chat_store.get_session_metadata(session_id, vault_name)
     latest_failure = _chat_session_failure_info(metadata.get("latest_turn_failure"))
@@ -634,8 +986,35 @@ def get_chat_session_detail(
             else None
         ),
         latest_failure=latest_failure,
-        messages=[_chat_session_message_info(message) for message in messages],
-        tool_calls=_effective_tool_call_info(messages, declaration_counts, tool_events),
+        messages=(
+            timeline.messages
+            if timeline is not None
+            else [
+                _chat_session_message_info(
+                    message,
+                    canonical_fork_points=canonical_fork_points,
+                )
+                for message in messages
+            ]
+        ),
+        tool_calls=(
+            timeline.tool_calls
+            if timeline is not None
+            else _effective_tool_call_info(messages, declaration_counts, tool_events)
+        ),
+        older_before_sequence_index=(
+            timeline.older_before_sequence_index if timeline is not None else None
+        ),
+        has_older_messages=timeline.has_older if timeline is not None else False,
+        context_boundary_sequence_index=(
+            timeline.context_boundary_sequence_index if timeline is not None else None
+        ),
+        context_checkpoint_kind=(
+            timeline.context_checkpoint_kind if timeline is not None else None
+        ),
+        context_checkpoint_id=(
+            timeline.context_checkpoint_id if timeline is not None else None
+        ),
     )
 
 
@@ -643,13 +1022,38 @@ def get_chat_tool_call_detail(
     vault_name: str,
     session_id: str,
     tool_call_id: str,
+    *,
+    checkpoint_id: str | None = None,
 ) -> ChatToolCallDetailResponse:
     """Return complete persisted detail for one session-owned tool call."""
     _require_chat_session_access(vault_name, session_id)
-    messages = _chat_store.get_stored_messages(session_id, vault_name)
-    effective_tool_call_ids = _effective_tool_call_ids(messages)
+    if checkpoint_id is None:
+        effective_tool_call_ids = {tool_call_id}
+    else:
+        checkpoint = next(
+            (
+                item
+                for item in _chat_store.list_context_checkpoints(
+                    session_id,
+                    vault_name,
+                    checkpoint_kind="session_map",
+                )
+                if item.checkpoint_id == checkpoint_id
+            ),
+            None,
+        )
+        if checkpoint is None:
+            _raise_chat_tool_call_not_found(session_id, tool_call_id)
+        assert checkpoint is not None
+        messages = _chat_store.get_stored_messages_range(
+            session_id,
+            vault_name,
+            after_sequence_index=-1,
+            through_sequence_index=checkpoint.last_message_sequence_index,
+        )
+        effective_tool_call_ids = set(_effective_tool_call_ids(messages))
     declaration_counts = _chat_store.get_tool_call_declaration_counts(
-        session_id, vault_name
+        session_id, vault_name, tool_call_ids=[tool_call_id]
     )
     if (
         tool_call_id not in effective_tool_call_ids
@@ -663,7 +1067,7 @@ def get_chat_tool_call_detail(
     )
     if not events:
         _raise_chat_tool_call_not_found(session_id, tool_call_id)
-    if not _tool_call_events_are_unambiguous(events):
+    if not tool_call_events_are_unambiguous(events):
         logger.warning(
             "Ambiguous chat tool detail withheld",
             data={
@@ -736,11 +1140,6 @@ def _tool_event_info(event: StoredChatToolEvent) -> ChatSessionToolEventInfo:
     )
 
 
-def _tool_call_events_are_unambiguous(events: list[StoredChatToolEvent]) -> bool:
-    """Return whether stored rows describe exactly one tool invocation."""
-    return sum(event.event_type == "call" for event in events) == 1
-
-
 def _effective_tool_call_info(
     messages: list[StoredChatMessage],
     declaration_counts: dict[str, int],
@@ -756,7 +1155,7 @@ def _effective_tool_call_info(
         if declaration_counts.get(tool_call_id) != 1:
             continue
         call_events = events_by_id.get(tool_call_id)
-        if not call_events or not _tool_call_events_are_unambiguous(call_events):
+        if not call_events or not tool_call_events_are_unambiguous(call_events):
             continue
         summaries.append(
             ChatSessionToolCallInfo(
@@ -821,7 +1220,12 @@ def _stored_tool_call_token_count(
     return estimate_token_count(result_event.result_text)
 
 
-def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessageInfo:
+def _chat_session_message_info(
+    message: StoredChatMessage,
+    *,
+    canonical_fork_points: set[int],
+    context_checkpoint: StoredContextCheckpoint | None = None,
+) -> ChatSessionMessageInfo:
     """Return browser-safe display data while withholding tool message contents."""
     is_tool_message = (
         _is_tool_message_text(message.content_text)
@@ -829,14 +1233,27 @@ def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessage
         or bool(message.tool_return_ids)
     )
     is_model_response = isinstance(message.message, ModelResponse)
+    is_session_map = (
+        context_checkpoint is not None
+        and context_checkpoint.checkpoint_kind == "session_map"
+    )
     return ChatSessionMessageInfo(
         sequence_index=message.sequence_index,
-        fork_sequence_index=message.fork_sequence_index,
+        fork_sequence_index=(
+            message.fork_sequence_index
+            if message.role != "assistant"
+            or message.fork_sequence_index in canonical_fork_points
+            else None
+        ),
         role=message.role,
         content=(
-            _chat_message_display_content(message)
-            if is_model_response or not is_tool_message
-            else ""
+            ""
+            if is_session_map
+            else (
+                _chat_message_display_content(message)
+                if is_model_response or not is_tool_message
+                else ""
+            )
         ),
         thinking_content=(
             _chat_message_thinking_content(message) if is_model_response else ""
@@ -846,6 +1263,15 @@ def _chat_session_message_info(message: StoredChatMessage) -> ChatSessionMessage
         is_tool_message=is_tool_message,
         tool_call_ids=list(message.tool_call_ids),
         tool_return_ids=list(message.tool_return_ids),
+        tool_call_count=0,
+        through_sequence_index=message.sequence_index,
+        tool_calls=[],
+        context_checkpoint_kind=(
+            context_checkpoint.checkpoint_kind if context_checkpoint else None
+        ),
+        context_checkpoint_id=(
+            context_checkpoint.checkpoint_id if context_checkpoint else None
+        ),
     )
 
 
@@ -858,7 +1284,7 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
     for part in getattr(message.message, "parts", []) or []:
         if isinstance(part, TextPart) and isinstance(part.content, str):
             content = part.content.strip()
-            if content:
+            if content and not _is_provider_reasoning_marker(content):
                 text_parts.append(content)
 
     if not text_parts and message.tool_call_ids:
@@ -867,6 +1293,11 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
         return str(message.content_text)
 
     return "\n\n".join(text_parts)
+
+
+def _is_provider_reasoning_marker(content: str) -> bool:
+    """Identify standalone provider control tags that contain no visible answer text."""
+    return re.fullmatch(r"</?think>", content, flags=re.IGNORECASE) is not None
 
 
 def _chat_message_thinking_content(message: StoredChatMessage) -> str:
@@ -950,16 +1381,11 @@ def export_chat_session_markdown(
 ) -> ChatSessionExportResponse:
     """Export one chat session transcript to the vault on demand."""
     _require_chat_session_access(vault_name, session_id)
-    session_summary = SessionSummaryStore().get_session_summary(
-        vault_name=vault_name,
-        session_id=session_id,
-    )
     exported = export_chat_transcript(
         store=_chat_store,
         vault_path=vault_path,
         vault_name=vault_name,
         session_id=session_id,
-        session_summary=session_summary.summary if session_summary else None,
     )
     return ChatSessionExportResponse(
         session_id=session_id,
@@ -991,39 +1417,63 @@ async def compact_chat_session_history(
 ) -> ChatHistoryCompactionResponse:
     """Compact one chat session through the shared compaction service."""
     _require_chat_session_access(vault_name, session_id)
-    runtime = get_runtime_context()
-    result = await runtime.task_runner.run_inline(
-        ExecutionTaskSpec(
-            kind=ExecutionTaskKind.HISTORY_COMPACTION,
-            scope=chat_session_scope(session_id),
-            source=ExecutionTaskSource.API,
-            label=compaction_task_label(session_id),
-            authority=require_current_execution_authority(),
-            metadata={"vault": vault_name, "session_id": session_id},
-        ),
-        lambda _task: compact_chat_history(
+    authority = require_current_execution_authority()
+    try:
+        result = await run_chat_context_compaction(
             session_id=session_id,
             vault_name=vault_name,
             vault_path=vault_path,
             focus=focus,
             source=ExecutionTaskSource.API,
+            authority=authority,
             store=_chat_store,
-        ),
-    )
+        )
+    except Exception as exc:
+        raise APIException(
+            status_code=500,
+            error_type="ChatHistoryCompactionFailed",
+            message="Chat history compaction did not complete; inspect the session and execution task.",
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "cause_error_type": type(exc).__name__,
+            },
+        ) from exc
     return ChatHistoryCompactionResponse(**result.as_api_dict())
 
 
-def delete_chat_session(vault_name: str, vault_path: str, session_id: str) -> None:
-    """Delete one chat session and its session summary."""
+async def start_chat_session_context_strategy_upgrade(
+    vault_name: str,
+    session_id: str,
+) -> ExecutionTaskSnapshot:
+    """Start one authorized, explicitly selected V1-to-V2 upgrade."""
     _require_chat_session_access(vault_name, session_id)
-    del vault_path
+    try:
+        return await start_session_context_strategy_upgrade(
+            session_id=session_id,
+            vault_name=vault_name,
+            authority=require_current_execution_authority(),
+        )
+    except SessionContextStrategyUpgradeUnavailable as exc:
+        raise APIException(
+            status_code=409,
+            error_type="SessionContextStrategyUpgradeUnavailable",
+            message=str(exc),
+            details={
+                "session_id": session_id,
+                "vault_name": vault_name,
+                "reason": exc.reason,
+            },
+        ) from exc
+
+
+async def delete_chat_session(vault_name: str, session_id: str) -> None:
+    """Delete one authorized canonical session and its derived chat indexes."""
+    _require_chat_session_access(vault_name, session_id)
     _chat_store.delete_sessions(vault_name, session_id=session_id)
-    SessionSummaryStore().delete_session_summary(
-        vault_name=vault_name, session_id=session_id
-    )
 
 
-def purge_chat_sessions(
+async def purge_chat_sessions(
     vault_name: str,
     vault_path: str,
     *,
@@ -1044,11 +1494,6 @@ def purge_chat_sessions(
     for session_id in selected_ids:
         deleted_ids.extend(
             _chat_store.delete_sessions(vault_name, session_id=session_id)
-        )
-    summary_store = SessionSummaryStore()
-    for session_id in deleted_ids:
-        summary_store.delete_session_summary(
-            vault_name=vault_name, session_id=session_id
         )
     remove_chat_transcript_exports(vault_path=vault_path, session_ids=deleted_ids)
 

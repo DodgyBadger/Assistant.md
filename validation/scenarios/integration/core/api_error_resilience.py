@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
+import httpx2
 import openai
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -20,6 +21,7 @@ class ApiErrorResilienceScenario(BaseScenario):
         import httpx
         from pydantic_ai.providers.openai import OpenAIProvider
         from pydantic_ai.retries import (
+            AsyncHTTPX2TenacityTransport,
             AsyncTenacityTransport,
             TenacityTransport,
             wait_retry_after,
@@ -27,7 +29,9 @@ class ApiErrorResilienceScenario(BaseScenario):
 
         from core.llm.model_factory import (
             _build_retrying_model_http_client,
+            _build_retrying_model_httpx2_client,
             _is_retryable_model_http_exception,
+            _is_retryable_model_httpx2_exception,
             _mark_provider_owns_http_client,
             _openrouter_attribution_headers,
         )
@@ -266,6 +270,18 @@ class ApiErrorResilienceScenario(BaseScenario):
         finally:
             await retrying_client.aclose()
 
+        retrying_httpx2_client = _build_retrying_model_httpx2_client()
+        try:
+            self.soft_assert(
+                isinstance(
+                    retrying_httpx2_client._transport,
+                    AsyncHTTPX2TenacityTransport,
+                ),
+                "httpx2-backed providers should retain bounded transport retries",
+            )
+        finally:
+            await retrying_httpx2_client.aclose()
+
         sdk_http_client = httpx.AsyncClient(
             transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
         )
@@ -324,6 +340,25 @@ class ApiErrorResilienceScenario(BaseScenario):
                 )
             ),
             "Model retry predicate should not retry invalid provider URLs",
+        )
+        self.soft_assert(
+            _is_retryable_model_httpx2_exception(
+                httpx2.ConnectError(
+                    "synthetic connection failure",
+                    request=httpx2.Request(
+                        "POST", "https://api.provider.test/v1/decision"
+                    ),
+                )
+            ),
+            "httpx2 retry predicate should retry network request errors",
+        )
+        self.soft_assert(
+            not _is_retryable_model_httpx2_exception(
+                httpx2.UnsupportedProtocol(
+                    "Request URL is missing an 'http://' or 'https://' protocol."
+                )
+            ),
+            "httpx2 retry predicate should not retry invalid provider URLs",
         )
 
         self.teardown_scenario()

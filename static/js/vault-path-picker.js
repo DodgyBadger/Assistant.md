@@ -626,9 +626,7 @@
             });
         }
 
-        async function showExplorerSelection(overlay, snapshot, options) {
-            const selectedPaths = snapshot.selectedPaths || [];
-            if (!selectedPaths.length) return;
+        function resetExplorerSearch(overlay, options) {
             const query = overlay.querySelector('[data-vault-path-picker-query]');
             const searchMode = overlay.querySelector('[data-vault-path-picker-search-mode]');
             if (query instanceof HTMLInputElement) {
@@ -647,6 +645,12 @@
                     String(button.getAttribute('data-vault-explorer-search-mode-option') === 'name')
                 );
             });
+        }
+
+        async function showExplorerSelection(overlay, snapshot, options) {
+            const selectedPaths = snapshot.selectedPaths || [];
+            if (!selectedPaths.length) return;
+            resetExplorerSearch(overlay, options);
             explorer.setActiveFolder('');
             await loadResults(overlay, options, '');
             for (const path of selectedPaths) {
@@ -799,6 +803,9 @@
         }
 
         async function loadContentResults(overlay, options) {
+            rootLoadGeneration += 1;
+            treeLifecycleGeneration += 1;
+            expandAllGeneration += 1;
             rootAbortController?.abort();
             rootAbortController = null;
             const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
@@ -918,11 +925,31 @@
             }
         }
 
-        async function revealPath(overlay, options, path, { scroll = true } = {}) {
-            const segments = String(path || '').split('/').filter(Boolean);
-            let currentPath = '';
+        async function revealPath(overlay, options, path, { scroll = true, expandLast = true } = {}) {
+            const generation = rootLoadGeneration;
+            const treeGeneration = treeLifecycleGeneration;
+            const expansionGeneration = expandAllGeneration;
+            const isCurrent = () => overlay.isConnected && generation === rootLoadGeneration
+                && treeGeneration === treeLifecycleGeneration && expansionGeneration === expandAllGeneration;
+            // Name-search results can expose a full path without any ancestor rows.
+            const visibleRow = findTreeRow(overlay, path);
+            if (visibleRow && visibleRow.offsetParent !== null) {
+                const toggle = visibleRow.querySelector(':scope > .workspace-tree-row [data-vault-path-picker-toggle]');
+                if (expandLast && toggle instanceof HTMLElement && toggle.getAttribute('aria-expanded') !== 'true') {
+                    await toggleNode(overlay, toggle, options);
+                }
+                if (!isCurrent()) return false;
+                if (scroll) visibleRow.scrollIntoView({ block: 'nearest' });
+                return true;
+            }
+            const root = options.explorer ? explorer.snapshot().activeFolder : '';
+            const relativePath = root && String(path).startsWith(`${root}/`)
+                ? String(path).slice(root.length + 1) : String(path || '');
+            const segments = relativePath.split('/').filter(Boolean);
+            let currentPath = relativePath !== String(path || '') ? root : '';
             let revealedRow = null;
             for (const segment of segments) {
+                if (!isCurrent()) return false;
                 currentPath = currentPath ? `${currentPath}/${segment}` : segment;
                 let row = findTreeRow(overlay, currentPath);
                 while (!(row instanceof HTMLElement)) {
@@ -933,10 +960,11 @@
                     ) || overlay.querySelector('[data-vault-path-picker-results]');
                     const more = pageRoot?.querySelector('[data-vault-path-picker-more]');
                     if (!(more instanceof HTMLButtonElement)) break;
-                    await loadMoreResults(more, options);
+                    if (!await loadMoreResults(more, options)) return false;
+                    if (!isCurrent()) return false;
                     row = findTreeRow(overlay, currentPath);
                 }
-                if (!(row instanceof HTMLElement)) return;
+                if (!(row instanceof HTMLElement)) return true; // Removed paths are skipped.
                 revealedRow = row;
                 const toggle = row.querySelector(
                     ':scope > .workspace-tree-row [data-vault-path-picker-toggle]'
@@ -944,11 +972,14 @@
                 if (
                     toggle instanceof HTMLElement
                     && toggle.getAttribute('aria-expanded') !== 'true'
+                    && (expandLast || currentPath !== path)
                 ) {
                     await toggleNode(overlay, toggle, options);
+                    if (!isCurrent()) return false;
                 }
             }
             if (scroll) revealedRow?.scrollIntoView({ block: 'nearest' });
+            return true;
         }
 
         function findTreeRow(overlay, path) {
@@ -1033,18 +1064,27 @@
             return `
                 <button type="button" class="vault-path-picker-more" data-vault-path-picker-more
                     data-path="${escapeHtml(payload.path || '')}"
+                    data-query="${escapeHtml(payload.query || '')}"
+                    data-scope="${escapeHtml(payload.scope || 'vault')}"
                     data-offset="${payload.next_offset}"
                     data-depth="${depth}">Load more</button>
             `;
         }
 
         async function loadMoreResults(button, options) {
+            if (button.disabled) return false;
+            const generation = treeLifecycleGeneration;
+            const isCurrent = () => button.isConnected && generation === treeLifecycleGeneration;
             button.disabled = true;
             const path = button.dataset.path || '';
             const offset = Number.parseInt(button.dataset.offset || '0', 10);
             const depth = Number.parseInt(button.dataset.depth || '0', 10);
             try {
-                const payload = await fetchFileRefs({ path, scope: 'vault', offset, options });
+                const payload = await fetchFileRefs({ path, query: button.dataset.query || '', scope: button.dataset.scope || 'vault', offset, options });
+                if (!isCurrent()) return false;
+                if (Number.isInteger(payload.next_offset) && payload.next_offset <= offset) {
+                    throw new Error('File pagination did not advance.');
+                }
                 const items = Array.isArray(payload.items) ? payload.items : [];
                 button.insertAdjacentHTML(
                     'beforebegin',
@@ -1052,9 +1092,14 @@
                     + renderLoadMore(payload, depth, options)
                 );
                 button.remove();
+                return true;
             } catch (error) {
-                button.disabled = false;
+                if (!isCurrent()) return false;
                 button.textContent = `Retry: ${error.message}`;
+                return false;
+            } finally {
+                // Collapse all invalidates the response without removing the root pager.
+                if (button.isConnected) button.disabled = false;
             }
         }
 
@@ -1065,16 +1110,62 @@
         }
 
         async function refreshExplorer(overlay, options, reveal = '') {
-            const query = overlay.querySelector('[data-vault-path-picker-query]');
+            const expandedPaths = Array.from(
+                overlay.querySelectorAll('[data-vault-path-picker-toggle][aria-expanded="true"]')
+            ).filter((toggle) => toggle.offsetParent !== null)
+                .map((toggle) => toggle.closest('[data-vault-path-picker-row]')
+                ?.getAttribute('data-vault-path-picker-row')).filter(Boolean);
+            const selectedPaths = explorer.snapshot().selectedPaths.filter((path) => {
+                const row = findTreeRow(overlay, path);
+                return row && row.offsetParent !== null;
+            });
+            const results = overlay.querySelector('[data-vault-path-picker-results]');
+            const scrollTop = results?.scrollTop || 0;
+            const loadedLists = [results, ...overlay.querySelectorAll('[data-vault-path-picker-children]')]
+                .filter((list) => list && list.offsetParent !== null)
+                .map((list) => ({
+                    path: list === results ? null : list.closest('[data-vault-path-picker-row]')?.getAttribute('data-vault-path-picker-row'),
+                    count: list.querySelectorAll(':scope > [data-vault-path-picker-row]').length,
+                }));
             const scope = overlay.querySelector('[data-vault-path-picker-scope]');
-            if (query instanceof HTMLInputElement) query.value = '';
-            if (scope instanceof HTMLSelectElement) scope.value = 'vault';
-            await loadResults(
-                overlay,
-                options,
-                options.explorer ? explorer.snapshot().activeFolder : ''
-            );
+            // Mutation results need a tree view in which the changed path can be revealed.
+            if (reveal) {
+                resetExplorerSearch(overlay, options);
+                if (scope instanceof HTMLSelectElement) scope.value = 'vault';
+            }
+            const generation = rootLoadGeneration + 1;
+            const treeGeneration = treeLifecycleGeneration + 1;
+            const expansionGeneration = expandAllGeneration + 1;
+            if (reveal) await loadResults(overlay, options);
+            else await loadCurrentResults(overlay, options);
+            const isCurrent = () => overlay.isConnected && generation === rootLoadGeneration
+                && treeGeneration === treeLifecycleGeneration && expansionGeneration === expandAllGeneration;
+            if (!isCurrent()) return;
+            const searchMode = overlay.querySelector('[data-vault-path-picker-search-mode]');
+            if (!reveal && searchMode?.value === 'content') {
+                if (results) results.scrollTop = scrollTop;
+                return;
+            }
+            for (const path of expandedPaths) {
+                if (!await revealPath(overlay, options, path, { scroll: false })) return;
+                if (!isCurrent()) return;
+            }
+            for (const { path, count } of loadedLists) {
+                const list = path === null ? results : findTreeRow(overlay, path)
+                    ?.querySelector(':scope > [data-vault-path-picker-children]');
+                if (!list) continue;
+                while (list.querySelectorAll(':scope > [data-vault-path-picker-row]').length < count) {
+                    const more = list.querySelector(':scope > [data-vault-path-picker-more]');
+                    if (!(more instanceof HTMLButtonElement)) break;
+                    if (!await loadMoreResults(more, options) || !isCurrent()) return;
+                }
+            }
+            for (const path of selectedPaths) {
+                if (!await revealPath(overlay, options, path, { scroll: false, expandLast: false })) return;
+                if (!isCurrent()) return;
+            }
             if (reveal) await revealPath(overlay, options, reveal);
+            else if (results) results.scrollTop = scrollTop;
         }
 
         function debounce(fn, delayMs) {

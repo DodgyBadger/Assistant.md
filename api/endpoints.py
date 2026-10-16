@@ -48,6 +48,7 @@ from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.mcp.oauth import resolve_mcp_oauth_redirect
+from core.memory.session_discovery import MAX_DISCOVERY_LIMIT
 from core.runtime.execution_tasks import TERMINAL_STATUS_VALUES
 from core.runtime.state import RuntimeStateError, get_runtime_context
 from core.settings import (
@@ -71,19 +72,22 @@ from .models import (
     ChatHistoryCompactionRequest,
     ChatHistoryCompactionResponse,
     ChatHistoryCompactionStatusResponse,
+    ChatSessionContextUpgradeRequest,
+    ChatSessionContextUpgradeResponse,
     ChatSessionDetailResponse,
     ChatSessionExportRequest,
     ChatSessionExportResponse,
     ChatSessionForkRequest,
     ChatSessionForkResponse,
     ChatSessionInfo,
+    ChatSessionMapResponse,
     ChatSessionModeRequest,
     ChatSessionModeResponse,
     ChatSessionRetryRequest,
+    ChatSessionSearchResponse,
     ChatSessionsPurgeRequest,
     ChatSessionsPurgeResponse,
-    ChatSessionSummaryResponse,
-    ChatSessionSummaryUpdateRequest,
+    ChatSessionTimelinePage,
     ChatSessionTitleRequest,
     ChatSessionWorkspaceRequest,
     ChatTaskReplaySnapshotResponse,
@@ -185,7 +189,6 @@ from .services import (
     complete_openai_oauth_callback,
     complete_openai_oauth_manual,
     delete_chat_session,
-    delete_chat_session_summary,
     delete_configurable_model,
     delete_configurable_provider,
     delete_secret_entry,
@@ -199,7 +202,8 @@ from .services import (
     get_chat_edit_proposal,
     get_chat_history_compaction_status,
     get_chat_session_detail,
-    get_chat_session_summary,
+    get_chat_session_map,
+    get_chat_session_timeline,
     get_chat_tool_call_detail,
     get_configurable_models,
     get_configurable_providers,
@@ -246,16 +250,17 @@ from .services import (
     rollback_vault_activity,
     run_system_database_migrations,
     scan_import_folder,
+    search_chat_sessions,
     search_vault_text,
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,
     set_workflow_enabled_state,
+    start_chat_session_context_strategy_upgrade,
     start_openai_oauth_connection,
     start_openai_oauth_device_connection,
     submit_chat_deferred_review,
     trigger_import_queue_now,
-    update_chat_session_summary,
     update_general_setting_value,
     update_secret,
     update_system_settings,
@@ -2540,9 +2545,22 @@ async def chat_sessions(vault_name: str) -> list[ChatSessionInfo] | JSONResponse
     List persisted chat sessions for a vault ordered by latest activity.
     """
     try:
-        return list_chat_sessions(vault_name)
+        return await run_in_threadpool(list_chat_sessions, vault_name)
     except Exception as e:
         return create_error_response(e)
+
+
+@router.get("/chat/sessions/search", response_model=ChatSessionSearchResponse)
+async def chat_session_search(
+    vault_name: str,
+    query: str = Query(..., min_length=1, max_length=2000),
+    limit: int = Query(MAX_DISCOVERY_LIMIT, ge=1, le=MAX_DISCOVERY_LIMIT),
+) -> ChatSessionSearchResponse | JSONResponse:
+    """Discover authorized sessions without model inference."""
+    try:
+        return await run_in_threadpool(search_chat_sessions, vault_name, query, limit)
+    except Exception as exc:
+        return create_error_response(exc)
 
 
 @router.get("/chat/sessions/{session_id}/active-task", response_model=ExecutionTaskInfo)
@@ -2550,6 +2568,47 @@ async def chat_session_active_task(session_id: str) -> ExecutionTaskInfo | JSONR
     """Return the active process-local execution task for a chat session."""
     try:
         return await get_active_chat_task(session_id)
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get("/chat/sessions/{session_id}/map", response_model=ChatSessionMapResponse)
+async def chat_session_map(
+    session_id: str,
+    vault_name: str,
+    checkpoint_id: str | None = None,
+) -> ChatSessionMapResponse | JSONResponse:
+    """Return the current or selected historical stepped-map checkpoint."""
+    try:
+        return get_chat_session_map(
+            vault_name,
+            session_id,
+            checkpoint_id=checkpoint_id,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/chat/sessions/{session_id}/upgrade-context-strategy",
+    response_model=ChatSessionContextUpgradeResponse,
+    status_code=202,
+)
+async def upgrade_chat_session_context_strategy(
+    session_id: str,
+    request: ChatSessionContextUpgradeRequest,
+) -> ChatSessionContextUpgradeResponse | JSONResponse:
+    """Start one explicit Compaction v1 to v2 session upgrade."""
+    try:
+        started = await start_chat_session_context_strategy_upgrade(
+            request.vault_name,
+            session_id,
+        )
+        task = await get_execution_task(started.task_id)
+        return ChatSessionContextUpgradeResponse(
+            session_id=session_id,
+            task=task,
+        )
     except Exception as e:
         return create_error_response(e)
 
@@ -2567,53 +2626,6 @@ async def cancel_chat_session(
         return create_error_response(e)
 
 
-@router.get(
-    "/chat/sessions/{session_id}/summary", response_model=ChatSessionSummaryResponse
-)
-async def chat_session_summary(
-    session_id: str, vault_name: str
-) -> ChatSessionSummaryResponse | JSONResponse:
-    """Return a lightweight summary preview for one chat session."""
-    try:
-        return ChatSessionSummaryResponse.model_validate(
-            get_chat_session_summary(vault_name, session_id)
-        )
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.put(
-    "/chat/sessions/{session_id}/summary", response_model=ChatSessionSummaryResponse
-)
-async def update_chat_session_summary_endpoint(
-    session_id: str,
-    vault_name: str,
-    request: ChatSessionSummaryUpdateRequest,
-) -> ChatSessionSummaryResponse | JSONResponse:
-    """Manually update one session summary record."""
-    try:
-        return ChatSessionSummaryResponse.model_validate(
-            await update_chat_session_summary(
-                vault_name=vault_name,
-                session_id=session_id,
-                data=request.model_dump(mode="python"),
-            )
-        )
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.delete("/chat/sessions/{session_id}/summary", response_model=None)
-async def delete_chat_session_summary_endpoint(
-    session_id: str, vault_name: str
-) -> dict[str, Any] | JSONResponse:
-    """Delete one session summary record without deleting the chat session."""
-    try:
-        return delete_chat_session_summary(vault_name, session_id)
-    except Exception as e:
-        return create_error_response(e)
-
-
 @router.get("/chat/sessions/{session_id}", response_model=ChatSessionDetailResponse)
 async def chat_session_detail(
     session_id: str, vault_name: str
@@ -2622,7 +2634,34 @@ async def chat_session_detail(
     Load one persisted chat session for UI rehydration.
     """
     try:
-        return get_chat_session_detail(vault_name, session_id)
+        return await run_in_threadpool(
+            get_chat_session_detail,
+            vault_name,
+            session_id,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.get(
+    "/chat/sessions/{session_id}/timeline",
+    response_model=ChatSessionTimelinePage,
+)
+async def chat_session_timeline(
+    session_id: str,
+    vault_name: str,
+    before_sequence_index: int | None = Query(None, ge=0),
+    page_size: int = Query(40, ge=1, le=100),
+) -> ChatSessionTimelinePage | JSONResponse:
+    """Load one bounded reverse-cursor page of canonical session history."""
+    try:
+        return await run_in_threadpool(
+            get_chat_session_timeline,
+            vault_name,
+            session_id,
+            before_sequence_index=before_sequence_index,
+            page_size=page_size,
+        )
     except Exception as e:
         return create_error_response(e)
 
@@ -2635,10 +2674,16 @@ async def chat_tool_call_detail(
     session_id: str,
     tool_call_id: str,
     vault_name: str,
+    checkpoint_id: str | None = None,
 ) -> ChatToolCallDetailResponse | JSONResponse:
     """Load complete persisted detail for one session-owned tool call."""
     try:
-        return get_chat_tool_call_detail(vault_name, session_id, tool_call_id)
+        return get_chat_tool_call_detail(
+            vault_name,
+            session_id,
+            tool_call_id,
+            checkpoint_id=checkpoint_id,
+        )
     except Exception as e:
         return create_error_response(e)
 
@@ -2649,8 +2694,7 @@ async def delete_chat_session_endpoint(
 ) -> dict[str, Any] | JSONResponse:
     """Delete one chat session from the canonical store."""
     try:
-        vault_path = str(resolve_vault_root(vault_name))
-        delete_chat_session(vault_name, vault_path, session_id)
+        await delete_chat_session(vault_name, session_id)
         return {"session_id": session_id, "deleted": True}
     except Exception as e:
         return create_error_response(e)
@@ -2793,7 +2837,7 @@ async def compact_chat_history_endpoint(
     session_id: str,
     request: ChatHistoryCompactionRequest,
 ) -> ChatHistoryCompactionResponse | JSONResponse:
-    """Compact one persisted chat session into a summary plus recent turns."""
+    """Compact one persisted chat session with its pinned strategy."""
     try:
         vault_path = str(resolve_vault_root(request.vault_name))
         return await compact_chat_session_history(
@@ -2815,7 +2859,7 @@ async def purge_chat_sessions_endpoint(
     """
     try:
         vault_path = str(resolve_vault_root(request.vault_name))
-        return purge_chat_sessions(
+        return await purge_chat_sessions(
             request.vault_name,
             vault_path,
             older_than_days=request.older_than_days,

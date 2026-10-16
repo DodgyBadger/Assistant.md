@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
+from core.memory.session_map.models import SessionMapDraft
 
 #######################################################################
 ## Request Models
@@ -917,14 +918,13 @@ class ModelInfo(BaseModel):
     model_string: str = Field(..., description="Actual model identifier")
     capabilities: list[str] = Field(
         default_factory=lambda: ["text"],
-        description="Declared model capabilities (e.g. text, vision)",
-    )
-    dimensions: int | None = Field(
-        None,
-        description="Embedding vector dimensions when this is an embedding model alias",
+        description="Declared model capabilities (e.g. text, vision, decision)",
     )
     available: bool = Field(
         True, description="Whether required credentials are configured"
+    )
+    chat_selectable: bool = Field(
+        True, description="Whether the alias declares generative text capability"
     )
     user_editable: bool = Field(
         True, description="If the model mapping is user-editable via UI"
@@ -1106,9 +1106,77 @@ class ChatSessionInfo(BaseModel):
     chat_mode: Literal["normal", "inline_edit"] = Field(
         "normal", description="Selected session chat mode"
     )
-    has_summary: bool = Field(
-        False, description="Whether a session summary record exists"
+    has_session_map: bool = Field(
+        False, description="Whether the session has a stepped-map checkpoint"
     )
+    context_strategy: Literal["unassigned", "recovery_card", "session_map"] = Field(
+        "unassigned",
+        description="Effective context-reduction strategy for the session",
+    )
+    can_upgrade_to_v2: bool = Field(
+        False,
+        description="Whether this recovery-card session can be explicitly upgraded",
+    )
+
+
+class ChatSessionSearchEvidence(BaseModel):
+    """Bounded lexical evidence; historical interpretation is not canonical truth."""
+
+    source: Literal["session_metadata", "session_map", "transcript"]
+    excerpt: str
+    checkpoint_id: str | None = None
+    historical: bool | None = None
+    sequence_index: int | None = None
+
+
+class ChatSessionSearchMatch(BaseModel):
+    session: ChatSessionInfo
+    evidence: list[ChatSessionSearchEvidence]
+    score: float
+
+
+class ChatSessionSearchResponse(BaseModel):
+    matches: list[ChatSessionSearchMatch]
+    limit: int
+
+
+class ChatSessionMapCheckpointInfo(BaseModel):
+    """Read-only metadata for one append-only stepped-map checkpoint."""
+
+    revision: int = Field(..., ge=1)
+    checkpoint_id: str
+    created_at: str
+    consumed_through_sequence_index: int = Field(..., ge=0)
+    map_observed_through_sequence_index: int = Field(..., ge=0)
+    entry_count: int = Field(..., ge=0)
+    action: Literal["authored", "deferred"]
+    prompt_contract_version: str
+
+
+class ChatSessionMapResponse(BaseModel):
+    """Current or historical stepped-map checkpoint for inspection."""
+
+    session_id: str
+    vault_name: str
+    selected_checkpoint_id: str | None = None
+    latest_checkpoint_id: str | None = None
+    revisions: list[ChatSessionMapCheckpointInfo] = Field(default_factory=list)
+    session_map: SessionMapDraft | None = None
+
+
+class ChatSessionTimelinePage(BaseModel):
+    """One reverse-cursor page from the canonical session timeline."""
+
+    session_id: str
+    vault_name: str
+    history_revision: int = Field(..., ge=0)
+    messages: list[ChatSessionMessageInfo] = Field(default_factory=list)
+    tool_calls: list[ChatSessionToolCallInfo] = Field(default_factory=list)
+    older_before_sequence_index: int | None = Field(default=None, ge=0)
+    has_older: bool = False
+    context_boundary_sequence_index: int | None = Field(default=None, ge=0)
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
 
 
 class ChatSessionWorkspaceRequest(BaseModel):
@@ -1162,53 +1230,6 @@ class ChatSessionForkResponse(BaseModel):
     )
 
 
-class ChatSessionSummaryResponse(BaseModel):
-    """Lightweight session summary payload for UI previews."""
-
-    session_id: str = Field(..., description="Session identifier")
-    vault_name: str = Field(..., description="Owning vault name")
-    has_summary: bool = Field(
-        ..., description="Whether a session summary record exists"
-    )
-    summary: str | None = Field(None, description="Extracted session summary")
-    user_intent: str | None = Field(None, description="Extracted user intent")
-    created_at: str | None = Field(
-        None, description="Session summary creation timestamp"
-    )
-    updated_at: str | None = Field(None, description="Session summary update timestamp")
-    domain: str | None = Field(None, description="Extracted domain")
-    work_product: str | None = Field(None, description="Extracted work product")
-    workspace_path: str | None = Field(
-        None, description="Workspace path stored for this session summary"
-    )
-    named_entities: str | None = Field(None, description="Extracted named entities")
-    source_summary: str | None = Field(None, description="Extracted source summary")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Summary metadata"
-    )
-    artifacts: list[dict[str, Any]] = Field(
-        default_factory=list, description="Linked summary artifacts"
-    )
-    vector_index: dict[str, Any] = Field(
-        default_factory=dict, description="Vector index coverage"
-    )
-
-
-class ChatSessionSummaryUpdateRequest(BaseModel):
-    """Request to manually update a session summary record."""
-
-    summary: str | None = Field(None, description="Replacement summary")
-    domain: str | None = Field(None, description="Replacement domain")
-    work_product: str | None = Field(None, description="Replacement work product")
-    user_intent: str | None = Field(None, description="Replacement user intent")
-    workspace_path: str | None = Field(None, description="Replacement workspace path")
-    named_entities: str | None = Field(None, description="Replacement named entities")
-    source_summary: str | None = Field(None, description="Replacement source summary")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Replacement summary metadata"
-    )
-
-
 class ChatSessionTitleRequest(BaseModel):
     """Request to set or clear the user-defined title for a session."""
 
@@ -1226,6 +1247,34 @@ class ChatSessionRetryRequest(BaseModel):
     """Request to retry the latest unfinished chat turn."""
 
     vault_name: str = Field(..., description="Owning vault name")
+
+
+class ChatSessionContextUpgradeRequest(BaseModel):
+    """Request an explicit single-session Compaction v1 to v2 upgrade."""
+
+    vault_name: str = Field(..., description="Owning vault name")
+
+
+class ChatSessionContextUpgradeResponse(BaseModel):
+    """Background task started for one explicit context-strategy upgrade."""
+
+    session_id: str = Field(..., description="Session identifier")
+    task: ExecutionTaskInfo = Field(
+        ..., description="Execution task created for the strategy upgrade"
+    )
+
+
+class ChatSessionToolCallInfo(BaseModel):
+    """Non-confidential tool-call metadata for session rehydration."""
+
+    tool_call_id: str = Field(..., description="Tool call identifier")
+    tool_name: str = Field(..., description="Tool name")
+    status: Literal["running", "completed", "failed", "interrupted"] = Field(
+        ..., description="Tool call lifecycle state"
+    )
+    token_count: int | None = Field(
+        None, description="Estimated token count for the tool result"
+    )
 
 
 class ChatSessionMessageInfo(BaseModel):
@@ -1256,6 +1305,27 @@ class ChatSessionMessageInfo(BaseModel):
     tool_return_ids: list[str] = Field(
         default_factory=list, description="Tool returns declared by this message"
     )
+    tool_call_count: int = Field(
+        0,
+        ge=0,
+        description="Tool calls collapsed into this conversational display row",
+    )
+    through_sequence_index: int | None = Field(
+        None,
+        description="Final canonical sequence represented by a collapsed transcript row",
+    )
+    tool_calls: list[ChatSessionToolCallInfo] = Field(
+        default_factory=list,
+        description="Safe summaries for tool calls represented by this transcript row",
+    )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = Field(
+        None,
+        description="Effective-history checkpoint represented by this display row",
+    )
+    context_checkpoint_id: str | None = Field(
+        None,
+        description="Checkpoint identifier when this row is a replacement artifact",
+    )
 
 
 class ChatSessionToolEventInfo(BaseModel):
@@ -1276,19 +1346,6 @@ class ChatSessionToolEventInfo(BaseModel):
     )
     artifact_ref: str | None = Field(
         None, description="Cache/artifact reference when present"
-    )
-
-
-class ChatSessionToolCallInfo(BaseModel):
-    """Non-confidential tool-call metadata for session rehydration."""
-
-    tool_call_id: str = Field(..., description="Tool call identifier")
-    tool_name: str = Field(..., description="Tool name")
-    status: Literal["running", "completed", "failed", "interrupted"] = Field(
-        ..., description="Tool call lifecycle state"
-    )
-    token_count: int | None = Field(
-        None, description="Estimated token count for the tool result"
     )
 
 
@@ -1375,12 +1432,28 @@ class ChatSessionDetailResponse(BaseModel):
         None, description="Latest unfinished-turn marker"
     )
     messages: list[ChatSessionMessageInfo] = Field(
-        default_factory=list, description="Persisted messages"
+        default_factory=list,
+        description="Persisted display rows, bounded to the newest page when paging is active",
     )
     tool_calls: list[ChatSessionToolCallInfo] = Field(
         default_factory=list,
-        description="Effective tool calls with non-confidential lifecycle metadata",
+        description="Displayed tool calls with non-confidential lifecycle metadata",
     )
+    older_before_sequence_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Exclusive canonical sequence cursor for loading older messages",
+    )
+    has_older_messages: bool = Field(
+        False, description="Whether an older canonical timeline page is available"
+    )
+    context_boundary_sequence_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Newest canonical message represented by the active checkpoint",
+    )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
 
 
 class VaultDirectoryInfo(BaseModel):
@@ -1452,7 +1525,10 @@ class ChatHistoryCompactionRequest(BaseModel):
     """Request to compact one persisted chat session."""
 
     vault_name: str = Field(..., description="Owning vault name")
-    focus: str | None = Field(None, description="Optional summary focus instructions")
+    focus: str | None = Field(
+        None,
+        description="Optional salience guidance for the compaction author",
+    )
 
 
 class ChatHistoryCompactionStatusResponse(BaseModel):
@@ -1461,15 +1537,19 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
     compaction_type: str = Field(..., description="Configured compaction policy")
+    strategy: str = Field(..., description="Effective strategy pinned to the session")
     messages_before: int = Field(..., description="Current stored message count")
     estimated_tokens_before: int = Field(
         ..., description="Estimated current history tokens"
     )
-    compaction_token_threshold: int = Field(
-        ..., description="Configured compaction threshold"
+    compaction_high_watermark_tokens: int = Field(
+        ..., description="Effective-history size that triggers compaction"
     )
-    compaction_keep_recent: int = Field(
-        ..., description="Target recent message count to keep"
+    compaction_low_watermark_tokens: int = Field(
+        ..., description="Effective-history target after session-map compaction"
+    )
+    compaction_retained_turns: int = Field(
+        ..., description="Minimum recent complete conversational turns to keep"
     )
     recommended: bool = Field(
         ..., description="Whether compaction is currently recommended"
@@ -1477,6 +1557,12 @@ class ChatHistoryCompactionStatusResponse(BaseModel):
     already_compacted: bool = Field(
         ..., description="Whether this session has prior compaction metadata"
     )
+    manual_compaction_available: bool = Field(
+        ..., description="Whether enough history exists for a manual compaction"
+    )
+    context_checkpoint_kind: Literal["recovery_card", "session_map"] | None = None
+    context_checkpoint_id: str | None = None
+    context_boundary_sequence_index: int | None = Field(default=None, ge=0)
 
 
 class ChatHistoryCompactionResponse(BaseModel):
@@ -1485,6 +1571,7 @@ class ChatHistoryCompactionResponse(BaseModel):
     session_id: str = Field(..., description="Session identifier")
     vault_name: str = Field(..., description="Owning vault name")
     status: str = Field(..., description="Compaction status")
+    strategy: str = Field(..., description="Strategy used for this compaction")
     messages_before: int = Field(..., description="Message count before compaction")
     messages_after: int = Field(..., description="Message count after compaction")
     estimated_tokens_before: int = Field(
@@ -1493,11 +1580,30 @@ class ChatHistoryCompactionResponse(BaseModel):
     estimated_tokens_after: int = Field(
         ..., description="Estimated tokens after compaction"
     )
-    kept_recent: int = Field(..., description="Recent raw messages preserved verbatim")
-    summary_message_index: int = Field(..., description="Stored summary message index")
-    compaction_id: str = Field(..., description="Compaction audit identifier")
-    compacted_at: str = Field(..., description="Compaction timestamp")
+    kept_recent: int | None = Field(
+        None, description="Recent raw messages preserved by recovery-card compaction"
+    )
+    summary_message_index: int | None = Field(
+        None, description="Stored recovery-card message index"
+    )
+    compaction_id: str | None = Field(
+        None, description="Recovery-card audit identifier"
+    )
+    checkpoint_id: str | None = Field(None, description="Context checkpoint identifier")
+    compacted_at: str | None = Field(
+        None, description="Recovery-card compaction timestamp"
+    )
     source: str = Field(..., description="Compaction source")
+    action: str | None = Field(None, description="Session-map authoring action")
+    authoring_task_id: str | None = Field(
+        None, description="Session-map authoring task identifier"
+    )
+    consumed_through_sequence_index: int | None = Field(
+        None, description="Last canonical message consumed by the session map"
+    )
+    reason: str | None = Field(
+        None, description="Why an explicitly requested compaction was unavailable"
+    )
 
 
 class ModelConfigRequest(BaseModel):
@@ -1507,11 +1613,7 @@ class ModelConfigRequest(BaseModel):
     model_string: str = Field(..., description="Provider-specific model identifier")
     capabilities: list[str] | None = Field(
         None,
-        description='Optional model capabilities list (e.g. ["text", "vision"] or ["embedding"])',
-    )
-    dimensions: int | None = Field(
-        None,
-        description="Embedding vector dimensions for embedding-capable model aliases",
+        description='Optional model capabilities list (e.g. ["text", "vision"] or ["decision"])',
     )
     description: str | None = Field(
         None, description="Optional description for UI display"

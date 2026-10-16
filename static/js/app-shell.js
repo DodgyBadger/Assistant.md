@@ -63,6 +63,7 @@
                 tabControls.button.classList.toggle('text-txt-secondary', !isActive);
                 tabControls.content.classList.toggle('hidden', !isActive);
             });
+            callbacks.setDashboardActive?.(tabName === 'dashboard');
 
             if (tabName === 'dashboard') {
                 callbacks.refreshStatus();

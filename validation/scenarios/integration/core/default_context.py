@@ -6,14 +6,23 @@ instructions and bounds user-controlled context sources without depending on
 their internal Markdown structure.
 """
 
+import base64
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from pydantic_ai.messages import ModelRequest, UserPromptPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from validation.core.base_scenario import BaseScenario, with_local_user_authority
 
@@ -95,7 +104,40 @@ This workspace intentionally has no README.
 """,
         )
 
+        # Pasted file-link icons must not turn standing context into multimodal data.
+        icon_path = vault / "assets" / "file-icon.png"
+        icon_path.parent.mkdir(parents=True, exist_ok=True)
+        icon_path.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="
+            )
+        )
+        for source in (
+            "AssistantMD/soul.md",
+            "AssistantMD/PlayBook.md",
+            "AssistantMD/user.md",
+            "Projects/WorkspaceA/readme.md",
+            "Projects/WorkspaceA/PLAYBOOK.md",
+        ):
+            path = vault / source
+            path.write_text(
+                f"![File icon]({os.path.relpath(icon_path, path.parent)})\n\n"
+                + path.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
         await self.start_system()
+
+        from core.vault_state.file_operations import read_vault_file_operation
+
+        image_read = read_vault_file_operation(
+            vault_path=str(vault), path="Projects/WorkspaceA/readme.md"
+        )
+        assert image_read.metadata["status"] == "completed"
+        assert image_read.metadata["media_mode"] == "markdown+images"
+        assert isinstance(
+            image_read.return_value, list
+        ), "Ordinary chat file reads should retain multimodal behavior"
 
         from core.authoring.context_manager import (
             build_context_manager_history_processor,
@@ -127,6 +169,14 @@ This workspace intentionally has no README.
             for part in getattr(message, "parts", ())
             if getattr(part, "part_kind", None) == "system-prompt"
         )
+        assert (
+            "![File icon]" in system_text
+        ), "Keep source Markdown text without embedding image data"
+        assert not any(
+            isinstance(getattr(part, "content", None), list)
+            for message in processed
+            for part in getattr(message, "parts", ())
+        ), "Automatic standing context should not attach multimodal content"
 
         self.soft_assert(
             "Use the validation soul instruction." in system_text,
@@ -175,6 +225,181 @@ This workspace intentionally has no README.
         self.soft_assert(
             system_text.count("Filler context note line") < 500,
             "Expected default context to truncate oversized user notes content",
+        )
+
+        from core.identity import LOCAL_USER_PRINCIPAL_ID
+        from core.memory.session_map.checkpoints import (
+            build_session_map_context_message,
+            commit_session_map_context_checkpoint,
+        )
+        from core.memory.session_map.evidence import SessionMapEvidence
+        from core.memory.session_map.models import (
+            SessionMapDraft,
+            SessionMapEntry,
+            SessionMapTrajectory,
+            SourceRange,
+        )
+        from core.runtime.state import get_runtime_context
+        from core.utils.messages import extract_role_and_text
+
+        compacted_session_id = "default_context_compacted_session"
+        store = get_runtime_context().chat_store
+        store.ensure_session(
+            compacted_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        compacted_raw_messages = [
+            ModelRequest(
+                parts=[UserPromptPart(content="CANONICAL_ONLY_EVICTED_SENTINEL")],
+                run_id="run-compacted",
+            ),
+            ModelResponse(
+                parts=[TextPart(content="I will retain the active objective.")],
+                run_id="run-compacted",
+            ),
+            ModelRequest(
+                parts=[UserPromptPart(content="Inspect the current artifact.")],
+                run_id="run-tail",
+            ),
+            ModelResponse(
+                parts=[
+                    ToolCallPart(
+                        tool_name="file_read",
+                        args={"operation": "read", "path": "artifact.md"},
+                        tool_call_id="call-compacted-tail",
+                    )
+                ],
+                run_id="run-tail",
+            ),
+            ModelRequest(
+                parts=[
+                    ToolReturnPart(
+                        tool_name="file_read",
+                        content="Current artifact evidence.",
+                        tool_call_id="call-compacted-tail",
+                    )
+                ],
+                run_id="run-tail",
+            ),
+            ModelResponse(
+                parts=[TextPart(content="The artifact is current.")],
+                run_id="run-tail",
+            ),
+        ]
+        store.add_messages(
+            compacted_session_id,
+            vault.name,
+            compacted_raw_messages,
+        )
+        compacted_revision = store.get_session_history_revision(
+            compacted_session_id,
+            vault.name,
+        )
+        session_map = SessionMapDraft(
+            trajectory=SessionMapTrajectory(
+                text="The session established an artifact-review objective.",
+                sources=(SourceRange(start=0, end=1),),
+            ),
+            entries=(
+                SessionMapEntry(
+                    id="artifact_review",
+                    kind="goal",
+                    state="active",
+                    basis="user_established",
+                    text="Review the current artifact.",
+                    sources=(SourceRange(start=0, end=1),),
+                ),
+            ),
+        )
+        commit_session_map_context_checkpoint(
+            store=store,
+            session_id=compacted_session_id,
+            vault_name=vault.name,
+            draft=session_map,
+            previous_map=SessionMapDraft(),
+            new_evidence=(
+                SessionMapEvidence(
+                    evidence_id="default-context-compacted-envelope",
+                    session_id=compacted_session_id,
+                    vault_name=vault.name,
+                    history_revision=compacted_revision,
+                    source_start_sequence_index=0,
+                    source_end_sequence_index=1,
+                    message_count=2,
+                    estimated_tokens=20,
+                    projected_text="Compacted objective evidence.",
+                    source_digest="a" * 64,
+                    citable_source_ranges=(SourceRange(start=0, end=1),),
+                ),
+            ),
+            expected_history_revision=compacted_revision,
+            message_count_before=len(compacted_raw_messages),
+            source="validation",
+            checkpoint_id="default-context-compacted-checkpoint",
+        )
+        effective_history = store.get_history(compacted_session_id, vault.name) or []
+        active_prompt = ModelRequest(
+            parts=[UserPromptPart(content="Continue from the compacted context.")],
+            run_id="run-active",
+        )
+        compacted_processor = build_context_manager_history_processor(
+            session_id=compacted_session_id,
+            vault_name=vault.name,
+            vault_path=str(vault),
+            model_alias="gpt",
+            template_name="default.md",
+            workspace_path="Projects/WorkspaceA",
+        )
+        compacted_processed = await compacted_processor(
+            SimpleNamespace(
+                prompt="Continue from the compacted context.",
+                deps=SimpleNamespace(),
+            ),
+            [*effective_history, active_prompt],
+        )
+        expected_map_message = build_session_map_context_message(session_map)
+        self.soft_assert_equal(
+            extract_role_and_text(compacted_processed[1]),
+            extract_role_and_text(expected_map_message),
+            "Expected default context to preserve the effective session map after standing context",
+        )
+        self.soft_assert_equal(
+            [type(message).__name__ for message in compacted_processed[2:-1]],
+            [type(message).__name__ for message in compacted_raw_messages[2:]],
+            "Expected default context to preserve provider-native retained-tail ordering",
+        )
+        self.soft_assert_equal(
+            getattr(compacted_processed[3].parts[0], "tool_call_id", None),
+            "call-compacted-tail",
+            "Expected retained tool call identity to survive default context assembly",
+        )
+        self.soft_assert_equal(
+            getattr(compacted_processed[4].parts[0], "tool_call_id", None),
+            "call-compacted-tail",
+            "Expected retained tool return identity to survive default context assembly",
+        )
+        compacted_text = "\n".join(
+            extract_role_and_text(message)[1] for message in compacted_processed
+        )
+        self.soft_assert(
+            "Use the validation soul instruction."
+            in extract_role_and_text(compacted_processed[0])[1],
+            "Expected fresh standing context ahead of the effective compacted history",
+        )
+        self.soft_assert(
+            "CANONICAL_ONLY_EVICTED_SENTINEL" not in compacted_text,
+            "Expected default context not to reload canonical messages behind the checkpoint",
+        )
+        self.soft_assert_equal(
+            compacted_text.count("Continue from the compacted context."),
+            1,
+            "Expected the active prompt exactly once after context assembly",
+        )
+        self.soft_assert_equal(
+            extract_role_and_text(compacted_processed[-1]),
+            extract_role_and_text(active_prompt),
+            "Expected the active prompt to remain the final message",
         )
 
         no_defaults_processor = build_context_manager_history_processor(

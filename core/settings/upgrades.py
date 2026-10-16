@@ -12,16 +12,68 @@ _WEB_TOOL_RENAMES = {
     "tavily_crawl": "web_crawl",
 }
 
+RETIRED_SETTINGS = frozenset(
+    {
+        "context_reduction_strategy",
+        "compaction_keep_recent",
+        "compaction_token_threshold",
+        "session_map_author_model",
+        "session_map_author_thinking",
+        "session_map_low_watermark_tokens",
+        "session_map_min_retained_groups",
+        "live_session_memory_mode",
+        "live_session_memory_decision_model",
+        "live_session_memory_author_model",
+        "live_session_memory_eligibility_turns",
+        "live_session_memory_broad_change_threshold",
+        "live_session_memory_field_change_threshold",
+        "live_session_memory_max_pending_turns",
+        "live_session_memory_max_pending_tokens",
+        "live_session_memory_task_timeout_seconds",
+        "live_session_memory_max_concurrent_tasks",
+        "session_map_gate_model",
+        "session_map_gate_threshold",
+        "session_map_gate_max_input_tokens",
+    }
+)
+
+
+def retire_embedding_models(models: dict[str, Any]) -> dict[str, Any]:
+    """Exclude retired aliases while preserving shared providers and credentials."""
+    retained: dict[str, Any] = {}
+    for name, model in models.items():
+        capabilities = (
+            model.get("capabilities", [])
+            if isinstance(model, dict)
+            else getattr(model, "capabilities", [])
+        )
+        if isinstance(capabilities, str):
+            capabilities = [capabilities]
+        if isinstance(capabilities, list) and any(
+            str(cap).strip().lower() == "embedding" for cap in capabilities
+        ):
+            continue
+        retained[name] = model
+    return retained
+
 
 def upgrade_settings_mapping(
     active: dict[str, Any], template: dict[str, Any]
 ) -> dict[str, Any]:
     """Upgrade known settings contracts while preserving custom sections."""
     upgraded = deepcopy(active)
+    models = upgraded.get("models")
+    if isinstance(models, dict):
+        upgraded["models"] = retire_embedding_models(models)
     settings = upgraded.setdefault("settings", {})
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):
         return upgraded
+
+    _upgrade_compaction_settings(settings, template_settings)
+
+    for retired_setting in RETIRED_SETTINGS:
+        settings.pop(retired_setting, None)
 
     enabled_entry = settings.get("enabled_tools") or settings.get("default_chat_tools")
     enabled_values = _entry_list(enabled_entry)
@@ -58,6 +110,34 @@ def upgrade_settings_mapping(
         )
 
     return upgraded
+
+
+def _upgrade_compaction_settings(
+    settings: dict[str, Any], template_settings: dict[str, Any]
+) -> None:
+    """Move pre-namespace compaction settings into the current contract."""
+    renames = {
+        "context_reduction_strategy": "compaction_strategy",
+        "compaction_token_threshold": "compaction_high_watermark_tokens",
+        "session_map_author_model": "compaction_author_model",
+        "session_map_author_thinking": "compaction_author_thinking",
+        "session_map_low_watermark_tokens": "compaction_low_watermark_tokens",
+        "session_map_min_retained_groups": "compaction_retained_turns",
+    }
+    for old_name, new_name in renames.items():
+        if new_name in settings:
+            continue
+        old_entry = settings.get(old_name)
+        if old_entry is None:
+            continue
+        value = _entry_value(old_entry)
+        if old_name == "context_reduction_strategy" and value == "stepped_session_map":
+            value = "session_map"
+        settings[new_name] = _template_entry_with_value(
+            template_settings,
+            new_name,
+            value,
+        )
 
 
 def _available_tool_names(

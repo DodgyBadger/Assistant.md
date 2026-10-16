@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.authoring.registry import reject_retired_helper_dependencies
 from core.utils.frontmatter import parse_simple_frontmatter
 
 _PYTHON_BLOCK_PATTERN = re.compile(
@@ -49,6 +50,7 @@ def parse_authoring_template_text(content: str) -> AuthoringTemplateSource:
     code = match.group(1).strip()
     if not code:
         raise ValueError("Authoring template python block must not be empty")
+    reject_retired_helper_dependencies(code)
 
     return AuthoringTemplateSource(
         frontmatter=frontmatter,

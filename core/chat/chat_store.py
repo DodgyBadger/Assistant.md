@@ -4,30 +4,36 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, fields, is_dataclass, replace
 from typing import Any, Literal, cast
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from pydantic_ai.messages import (
     ModelMessage,
-    ModelRequest,
     ModelResponse,
     NativeToolReturnPart,
-    SystemPromptPart,
-    TextPart,
+    RetryPromptPart,
     ThinkingPart,
     ToolCallPart,
     ToolReturnPart,
-    UserPromptPart,
 )
 from pydantic_core import to_jsonable_python
 
+from core.chat.tool_history import (
+    ToolHistoryInvocation,
+    ToolHistoryProtocolState,
+    model_message_is_tool_reply_only,
+    model_message_tool_invocations,
+)
 from core.database import connect_sqlite_from_system_db
 from core.identity import normalize_principal_id
 from core.logger import UnifiedLogger
 from core.settings import get_persist_model_reasoning_parts
+from core.utils.fts import build_fts_query
+from core.utils.messages import extract_role_and_text
 
 from .schema import DB_NAME, ensure_chat_sessions_schema
 
@@ -38,6 +44,33 @@ _MODEL_MESSAGE_LIST_ADAPTER: TypeAdapter[list[ModelMessage]] = TypeAdapter(
     list[ModelMessage]
 )
 HistoryMode = Literal["effective", "raw"]
+ContextCheckpointKind = Literal["recovery_card", "session_map"]
+
+
+class ChatHistoryCorruptionError(RuntimeError):
+    """A persisted chat record cannot safely become canonical or effective history."""
+
+    def __init__(
+        self,
+        *,
+        session_id: str,
+        vault_name: str,
+        sequence_index: int | None = None,
+        checkpoint_id: str | None = None,
+    ) -> None:
+        self.session_id = session_id
+        self.vault_name = vault_name
+        self.sequence_index = sequence_index
+        self.checkpoint_id = checkpoint_id
+        record = (
+            f"canonical message {sequence_index}"
+            if sequence_index is not None
+            else f"context checkpoint '{checkpoint_id}'"
+        )
+        super().__init__(
+            f"Unable to deserialize {record} for session '{session_id}' "
+            f"in vault '{vault_name}'."
+        )
 
 
 def _json_dumps(value: Any) -> str:
@@ -75,8 +108,8 @@ class StoredChatMessage:
 
 
 @dataclass(frozen=True)
-class StoredCompactionCheckpoint:
-    """One stored chat compaction checkpoint."""
+class StoredContextCheckpoint:
+    """One append-only effective-history checkpoint."""
 
     id: int
     checkpoint_id: str
@@ -84,11 +117,31 @@ class StoredCompactionCheckpoint:
     vault_name: str
     created_at: str
     source: str
+    checkpoint_kind: ContextCheckpointKind
     message_count_before: int
     last_message_sequence_index: int
     summary_message_json: str
     replacement_history_json: str
+    replacement_source_sequence_indexes_json: str | None = None
     metadata_json: str | None = None
+
+    @property
+    def observed_through_sequence_index(self) -> int:
+        """Return the validated canonical cutoff required for safe inheritance."""
+        return _checkpoint_observation_boundary(self)
+
+
+StoredCompactionCheckpoint = StoredContextCheckpoint
+
+
+@dataclass(frozen=True)
+class StoredChatHistoryStructure:
+    """Content-free history shape used by list and eligibility projections."""
+
+    message_count: int
+    group_count: int
+    tool_history_ok: bool
+    latest_group_complete: bool
 
 
 @dataclass(frozen=True)
@@ -103,6 +156,23 @@ class StoredChatToolEvent:
     result_text: str | None = None
     result_metadata_json: str | None = None
     artifact_ref: str | None = None
+
+
+def tool_call_events_are_unambiguous(events: Sequence[StoredChatToolEvent]) -> bool:
+    """Accept one call and at most one terminal event with the same identity."""
+    return (
+        bool(events)
+        and events[0].event_type == "call"
+        and (
+            len(events) == 1
+            or (
+                len(events) == 2
+                and events[1].tool_call_id == events[0].tool_call_id
+                and events[1].tool_name == events[0].tool_name
+                and events[1].event_type in {"result", "overflow_cached"}
+            )
+        )
+    )
 
 
 def _stored_tool_event_from_row(row: Any) -> StoredChatToolEvent:
@@ -130,6 +200,17 @@ class StoredChatSession:
     last_activity_at: str
     title: str | None = None
     metadata_json: str | None = None
+
+
+@dataclass(frozen=True)
+class StoredDiscoveryHit:
+    """A bounded best lexical hit from one derived session projection."""
+
+    session_id: str
+    source: Literal["session_metadata", "session_map"]
+    excerpt: str
+    checkpoint_id: str | None = None
+    historical: bool = False
 
 
 class ChatStore:
@@ -184,6 +265,7 @@ class ChatStore:
         *,
         limit: int | None = None,
         mode: HistoryMode = "effective",
+        connection: sqlite3.Connection | None = None,
     ) -> list[StoredChatMessage]:
         """Return stored chat messages with persistence metadata."""
         return self._fetch_messages(
@@ -191,7 +273,362 @@ class ChatStore:
             vault_name=vault_name,
             limit=limit,
             mode=mode,
+            connection=connection,
         )
+
+    def get_stored_messages_range(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        after_sequence_index: int,
+        through_sequence_index: int,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[StoredChatMessage]:
+        """Return one canonical raw-message interval ``(after, through]``."""
+        if through_sequence_index <= after_sequence_index:
+            return []
+        if connection is None:
+            conn = self._connect()
+            try:
+                return self._fetch_raw_messages_from_conn(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    after_sequence_index=after_sequence_index,
+                    through_sequence_index=through_sequence_index,
+                )
+            finally:
+                conn.close()
+        return self._fetch_raw_messages_from_conn(
+            connection,
+            session_id=session_id,
+            vault_name=vault_name,
+            after_sequence_index=after_sequence_index,
+            through_sequence_index=through_sequence_index,
+        )
+
+    def get_canonical_display_rows_before(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        through_sequence_index: int,
+        before_sequence_index: int | None,
+        limit: int,
+    ) -> tuple[list[tuple[int, int, str]], bool]:
+        """Return the newest canonical display rows before a stable sequence cursor."""
+        if limit < 1:
+            raise ValueError("Canonical display-row limit must be positive")
+        cursor = (
+            through_sequence_index + 1
+            if before_sequence_index is None
+            else before_sequence_index
+        )
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                WITH classified AS (
+                    SELECT sequence_index, role, message_type,
+                           CASE WHEN (
+                               substr(ltrim(coalesce(content_text, '')), 1, 1) = '['
+                               AND instr(ltrim(coalesce(content_text, '')), ']') > 0
+                           ) OR EXISTS (
+                               SELECT 1 FROM json_each(message_json, '$.parts') part
+                               WHERE (
+                                   json_extract(part.value, '$.part_kind')
+                                       IN (
+                                           'tool-call',
+                                           'tool-return',
+                                           'builtin-tool-return'
+                                       )
+                                   OR (
+                                       json_extract(part.value, '$.part_kind')
+                                           = 'retry-prompt'
+                                       AND json_extract(part.value, '$.tool_name')
+                                           IS NOT NULL
+                                   )
+                               )
+                                 AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
+                           ) THEN 1 ELSE 0 END AS is_tool,
+                           CASE WHEN EXISTS (
+                               SELECT 1 FROM json_each(message_json, '$.parts') part
+                               WHERE json_extract(part.value, '$.part_kind') = 'text'
+                                 AND trim(coalesce(json_extract(part.value, '$.content'), '')) != ''
+                                 AND lower(
+                                     trim(
+                                         json_extract(part.value, '$.content'),
+                                         char(9) || char(10) || char(13) || ' '
+                                     )
+                                 )
+                                     NOT IN ('<think>', '</think>')
+                           ) OR (
+                               NOT EXISTS (
+                                   SELECT 1 FROM json_each(message_json, '$.parts') part
+                                   WHERE json_extract(part.value, '$.part_kind') = 'tool-call'
+                                     AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
+                               ) AND trim(coalesce(content_text, '')) != ''
+                           ) THEN 1 ELSE 0 END AS has_text
+                    FROM chat_messages
+                    WHERE session_id = ? AND vault_name = ?
+                      AND sequence_index <= ?
+                ), pieces AS (
+                    SELECT sequence_index, 0 AS piece_order,
+                           CASE
+                               WHEN is_tool = 0 AND role = 'user' THEN 'user'
+                               WHEN is_tool = 1
+                                    OR (role = 'assistant' AND has_text = 1)
+                                   THEN 'assistant'
+                               ELSE 'separator'
+                           END AS kind
+                    FROM classified
+                ), adjacent AS (
+                    SELECT sequence_index, piece_order, kind,
+                           lag(kind) OVER (
+                               ORDER BY sequence_index, piece_order
+                           ) AS previous_kind
+                    FROM pieces
+                ), grouped AS (
+                    SELECT sequence_index, kind,
+                           sum(CASE
+                                   WHEN kind = 'assistant'
+                                        AND previous_kind = 'assistant'
+                                       THEN 0
+                                   ELSE 1
+                               END) OVER (
+                               ORDER BY sequence_index, piece_order
+                           ) AS group_id
+                    FROM adjacent
+                ), display_rows AS (
+                    SELECT group_id, min(sequence_index) AS first_sequence_index,
+                           max(sequence_index) AS last_sequence_index,
+                           min(kind) AS kind
+                    FROM grouped GROUP BY group_id HAVING kind != 'separator'
+                )
+                SELECT first_sequence_index, last_sequence_index, 'message'
+                FROM display_rows
+                WHERE first_sequence_index < ?
+                ORDER BY group_id DESC
+                LIMIT ?
+                """,
+                (
+                    session_id,
+                    vault_name,
+                    through_sequence_index,
+                    cursor,
+                    limit + 1,
+                ),
+            ).fetchall()
+        finally:
+            conn.close()
+        has_older = len(rows) > limit
+        selected = rows[:limit]
+        selected.reverse()
+        return (
+            [(int(first), int(last), str(kind)) for first, last, kind in selected],
+            has_older,
+        )
+
+    def get_canonical_fork_points_for_sequences(
+        self,
+        session_id: str,
+        vault_name: str,
+        candidate_sequence_indexes: Sequence[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> set[int]:
+        """Validate selected assistant fork points against compact prefix tool metadata."""
+        candidates = sorted(set(candidate_sequence_indexes))
+        if not candidates:
+            return set()
+        conn = connection or self._connect()
+        owns_connection = connection is None
+        try:
+            cursor = iter(
+                self._raw_tool_protocol_rows_from_conn(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    through_sequence_index=candidates[-1],
+                )
+            )
+            current = next(cursor, None)
+            protocol = ToolHistoryProtocolState()
+            fork_points: set[int] = set()
+            for candidate in candidates:
+                while current is not None and int(current[0]) <= candidate:
+                    sequence_index = int(current[0])
+                    message_index = int(current[1])
+                    reply_only = bool(current[5])
+                    calls: list[ToolHistoryInvocation] = []
+                    replies: list[ToolHistoryInvocation] = []
+                    while current is not None and int(current[0]) == sequence_index:
+                        invocation = ToolHistoryInvocation(
+                            tool_call_id=str(current[3] or ""),
+                            tool_name=None if current[4] is None else str(current[4]),
+                            is_retry=current[2] == "retry-prompt",
+                        )
+                        if current[2] == "tool-call":
+                            calls.append(invocation)
+                        else:
+                            replies.append(invocation)
+                        current = next(cursor, None)
+                    protocol.record_message(
+                        message_index,
+                        calls,
+                        replies,
+                        reply_only=reply_only,
+                    )
+                    if protocol.issues:
+                        break
+                if not protocol.issues and not protocol.pending:
+                    fork_points.add(candidate)
+            return fork_points
+        finally:
+            if owns_connection:
+                conn.close()
+
+    def get_raw_history_structure(
+        self,
+        session_id: str,
+        vault_name: str,
+    ) -> StoredChatHistoryStructure:
+        """Inspect grouping and tool protocol without hydrating message content."""
+        conn = self._connect()
+        try:
+            count_row = conn.execute(
+                """
+                WITH ordered AS (
+                    SELECT row_number() OVER (ORDER BY sequence_index) AS position,
+                           message_type,
+                           message_json
+                    FROM chat_messages
+                    WHERE session_id = ? AND vault_name = ?
+                )
+                SELECT count(*),
+                       CASE WHEN count(*) = 0 THEN 0 ELSE
+                           1 + coalesce(sum(CASE WHEN position > 1
+                               AND message_type = 'ModelRequest'
+                               AND EXISTS (
+                                   SELECT 1
+                                   FROM json_each(message_json, '$.parts') AS part
+                                   WHERE json_extract(part.value, '$.part_kind')
+                                       IN ('user-prompt', 'system-prompt')
+                               ) THEN 1 ELSE 0 END), 0)
+                       END,
+                       (SELECT message_type FROM ordered ORDER BY position DESC LIMIT 1)
+                FROM ordered
+                """,
+                (session_id, vault_name),
+            ).fetchone()
+            message_count = int(count_row[0]) if count_row else 0
+            group_count = int(count_row[1]) if count_row else 0
+
+            rows = self._raw_tool_protocol_rows_from_conn(
+                conn,
+                session_id=session_id,
+                vault_name=vault_name,
+            )
+        finally:
+            conn.close()
+
+        protocol = ToolHistoryProtocolState()
+        cursor = 0
+        while cursor < len(rows):
+            sequence_index = int(rows[cursor][0])
+            message_index = int(rows[cursor][1])
+            reply_only = bool(rows[cursor][5])
+            calls: list[ToolHistoryInvocation] = []
+            replies: list[ToolHistoryInvocation] = []
+            while cursor < len(rows) and int(rows[cursor][0]) == sequence_index:
+                part_kind = str(rows[cursor][2] or "")
+                invocation = ToolHistoryInvocation(
+                    tool_call_id=str(rows[cursor][3] or ""),
+                    tool_name=(
+                        None if rows[cursor][4] is None else str(rows[cursor][4])
+                    ),
+                    is_retry=part_kind == "retry-prompt",
+                )
+                if part_kind == "tool-call":
+                    calls.append(invocation)
+                else:
+                    replies.append(invocation)
+                cursor += 1
+            protocol.record_message(
+                message_index,
+                calls,
+                replies,
+                reply_only=bool(reply_only),
+            )
+
+        return StoredChatHistoryStructure(
+            message_count=message_count,
+            group_count=group_count,
+            latest_group_complete=bool(count_row and count_row[2] == "ModelResponse"),
+            tool_history_ok=not protocol.issues
+            and not protocol.unmatched_call_issues(),
+        )
+
+    def _raw_tool_protocol_rows_from_conn(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        session_id: str,
+        vault_name: str,
+        through_sequence_index: int | None = None,
+    ) -> list[Any]:
+        """Project only ordered tool identities needed by protocol checks."""
+        boundary_filter = ""
+        params: list[Any] = [session_id, vault_name]
+        if through_sequence_index is not None:
+            boundary_filter = "AND sequence_index <= ?"
+            params.append(through_sequence_index)
+        return conn.execute(
+            f"""
+            WITH numbered AS (
+                SELECT sequence_index, message_type, message_json,
+                       row_number() OVER (ORDER BY sequence_index) - 1
+                           AS message_index
+                FROM chat_messages
+                WHERE session_id = ? AND vault_name = ?
+                  {boundary_filter}
+            )
+            SELECT message.sequence_index, message.message_index,
+                   json_extract(part.value, '$.part_kind'),
+                   json_extract(part.value, '$.tool_call_id'),
+                   json_extract(part.value, '$.tool_name'),
+                   message.message_type = 'ModelRequest'
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM json_each(message.message_json, '$.parts') AS other_part
+                           WHERE NOT (
+                               json_extract(other_part.value, '$.part_kind') = 'tool-return'
+                               OR (
+                                   json_extract(other_part.value, '$.part_kind') = 'retry-prompt'
+                                   AND json_extract(other_part.value, '$.tool_name') IS NOT NULL
+                               )
+                           )
+                       ) AS reply_only
+            FROM numbered AS message,
+                 json_each(message.message_json, '$.parts') AS part
+            WHERE (
+                  (message.message_type = 'ModelResponse'
+                   AND json_extract(part.value, '$.part_kind') = 'tool-call')
+                  OR
+                  (message.message_type = 'ModelRequest'
+                   AND (
+                       json_extract(part.value, '$.part_kind') = 'tool-return'
+                       OR (
+                           json_extract(part.value, '$.part_kind') = 'retry-prompt'
+                           AND json_extract(part.value, '$.tool_name') IS NOT NULL
+                       )
+                   ))
+              )
+            ORDER BY message.sequence_index, CAST(part.key AS INTEGER)
+            """,
+            params,
+        ).fetchall()
 
     def add_messages(
         self,
@@ -200,13 +637,13 @@ class ChatStore:
         messages: list[ModelMessage],
         *,
         connection: sqlite3.Connection | None = None,
-    ) -> None:
-        """Append provider-native messages to one session."""
+    ) -> list[int]:
+        """Append provider-native messages and return their canonical sequence indexes."""
         if not messages:
-            return
+            return []
         if connection is None:
             with self.transaction() as conn:
-                self.add_messages(
+                return self.add_messages(
                     session_id,
                     vault_name,
                     messages,
@@ -223,7 +660,7 @@ class ChatStore:
                 message,
                 persist_reasoning_parts=persist_reasoning,
             )
-            role, content_text = _extract_role_and_text(message)
+            role, content_text = extract_role_and_text(message)
             direction = (
                 "response" if type(message).__name__ == "ModelResponse" else "request"
             )
@@ -257,6 +694,7 @@ class ChatStore:
             vault_name=vault_name,
             advance_history_revision=True,
         )
+        return list(range(next_index, next_index + len(messages)))
 
     def ensure_session(
         self,
@@ -315,7 +753,7 @@ class ChatStore:
                     message,
                     persist_reasoning_parts=persist_reasoning,
                 )
-                role, content_text = _extract_role_and_text(message)
+                role, content_text = extract_role_and_text(message)
                 direction = (
                     "response"
                     if type(message).__name__ == "ModelResponse"
@@ -366,10 +804,12 @@ class ChatStore:
         title: str | None,
         metadata_update: dict[str, Any] | None = None,
     ) -> int:
-        """Create a new session from one source session's effective message prefix."""
-        conn = self._connect()
-        try:
-            conn.execute("PRAGMA foreign_keys = ON")
+        """Create an isolated session from one canonical source-message prefix."""
+        with self.transaction() as conn:
+            # Reserve the writer before reading any source state. Implicit
+            # SQLite transactions begin only at the first write, which would
+            # otherwise allow messages and checkpoints from different revisions.
+            conn.execute("BEGIN IMMEDIATE")
             source = conn.execute(
                 """
                 SELECT metadata_json, owner_principal_id
@@ -389,20 +829,77 @@ class ChatStore:
                         source_metadata = parsed_metadata
                 except Exception:
                     source_metadata = {}
+            inherited_fork_metadata = source_metadata.get("fork")
             source_metadata = _fork_session_metadata(source_metadata)
             if metadata_update:
                 source_metadata.update(metadata_update)
+            fork_metadata = source_metadata.get("fork")
+            root_session_id = source_session_id
+            if isinstance(inherited_fork_metadata, dict):
+                root_session_id = str(
+                    inherited_fork_metadata.get("root_session_id") or source_session_id
+                )
 
-            source_messages = self._fetch_effective_messages_from_conn(
+            messages = self._fetch_raw_messages_from_conn(
                 conn,
                 session_id=source_session_id,
                 vault_name=vault_name,
+                through_sequence_index=through_sequence_index,
             )
-            messages = _fork_prefix_messages(source_messages, through_sequence_index)
             if not messages:
                 raise ValueError(
                     f"No chat messages found through sequence {through_sequence_index}"
                 )
+            if messages[-1].sequence_index != through_sequence_index:
+                raise ValueError(
+                    f"Canonical fork point does not exist: {through_sequence_index}"
+                )
+            if through_sequence_index not in canonical_assistant_fork_points(messages):
+                raise ValueError(
+                    f"Canonical fork point is not a protocol-complete assistant "
+                    f"message: {through_sequence_index}"
+                )
+
+            checkpoint_rows = conn.execute(
+                """
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ?
+                ORDER BY id ASC
+                """,
+                (source_session_id, vault_name),
+            ).fetchall()
+            eligible_checkpoints = [
+                checkpoint
+                for checkpoint in (
+                    self._context_checkpoint_from_row(row) for row in checkpoint_rows
+                )
+                if _checkpoint_observation_boundary(checkpoint)
+                <= through_sequence_index
+            ]
+            for checkpoint in eligible_checkpoints:
+                self._checkpoint_replacement_messages(
+                    conn,
+                    checkpoint,
+                    session_id=source_session_id,
+                    vault_name=vault_name,
+                )
+            source_metadata["fork"] = {
+                "source_session_id": source_session_id,
+                "through_sequence_index": through_sequence_index,
+                "root_session_id": root_session_id,
+                "child_owned_from_sequence_index": through_sequence_index + 1,
+                "inherited_checkpoint_count": len(eligible_checkpoints),
+                "created_at": (
+                    fork_metadata.get("created_at")
+                    if isinstance(fork_metadata, dict)
+                    else None
+                ),
+            }
 
             conn.execute(
                 """
@@ -424,7 +921,8 @@ class ChatStore:
             )
 
             copied_tool_call_ids: set[str] = set()
-            for new_sequence_index, message in enumerate(messages):
+            copied_tool_event_count = 0
+            for message in messages:
                 conn.execute(
                     """
                     INSERT INTO chat_messages (
@@ -435,44 +933,57 @@ class ChatStore:
                         message_type,
                         role,
                         content_text,
-                        message_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        message_json,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         new_session_id,
                         vault_name,
-                        new_sequence_index,
+                        message.sequence_index,
                         message.direction,
                         message.message_type,
                         message.role,
                         message.content_text,
                         message.message_json,
+                        message.created_at,
                     ),
                 )
                 copied_tool_call_ids.update(message.tool_call_ids)
+                copied_tool_call_ids.update(message.tool_return_ids)
 
             if copied_tool_call_ids:
+                declaration_counts = self._tool_call_declaration_counts_from_conn(
+                    conn,
+                    source_session_id,
+                    vault_name,
+                    tool_call_ids=sorted(copied_tool_call_ids),
+                )
                 event_rows = conn.execute(
                     """
-                    SELECT tool_call_id, tool_name, event_type, args_json, result_text,
-                           result_metadata_json, artifact_ref
+                    SELECT tool_call_id, tool_name, event_type, created_at,
+                           args_json, result_text, result_metadata_json, artifact_ref
                     FROM chat_tool_events
                     WHERE session_id = ? AND vault_name = ?
                     ORDER BY id ASC
                     """,
                     (source_session_id, vault_name),
                 ).fetchall()
-                for event_row in event_rows:
-                    (
-                        tool_call_id,
-                        tool_name,
-                        event_type,
-                        args_json,
-                        result_text,
-                        result_metadata_json,
-                        artifact_ref,
-                    ) = event_row
-                    if str(tool_call_id) not in copied_tool_call_ids:
+                events = [_stored_tool_event_from_row(row) for row in event_rows]
+                events_by_id: dict[str, list[StoredChatToolEvent]] = {}
+                for event in events:
+                    events_by_id.setdefault(event.tool_call_id, []).append(event)
+                safe_tool_call_ids = {
+                    tool_call_id
+                    for tool_call_id, call_events in events_by_id.items()
+                    if tool_call_id in copied_tool_call_ids
+                    and declaration_counts.get(tool_call_id) == 1
+                    and tool_call_events_are_unambiguous(call_events)
+                }
+                for event in events:
+                    # Events lack an invocation sequence. A reused ID cannot
+                    # distinguish inherited details from a later invocation.
+                    if event.tool_call_id not in safe_tool_call_ids:
                         continue
                     conn.execute(
                         """
@@ -485,21 +996,103 @@ class ChatStore:
                             args_json,
                             result_text,
                             result_metadata_json,
-                            artifact_ref
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            artifact_ref,
+                            created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             new_session_id,
                             vault_name,
-                            tool_call_id,
-                            tool_name,
-                            event_type,
-                            args_json,
-                            result_text,
-                            result_metadata_json,
-                            artifact_ref,
+                            event.tool_call_id,
+                            event.tool_name,
+                            event.event_type,
+                            event.args_json,
+                            event.result_text,
+                            event.result_metadata_json,
+                            event.artifact_ref,
+                            event.created_at,
                         ),
                     )
+                    copied_tool_event_count += 1
+
+            copied_checkpoint_ids: dict[str, str] = {}
+            for checkpoint in eligible_checkpoints:
+                child_checkpoint_id = uuid.uuid4().hex
+                copied_checkpoint_ids[checkpoint.checkpoint_id] = child_checkpoint_id
+                checkpoint_metadata = _checkpoint_metadata(checkpoint)
+                checkpoint_metadata["fork_origin"] = {
+                    "source_session_id": source_session_id,
+                    "source_checkpoint_id": checkpoint.checkpoint_id,
+                }
+                conn.execute(
+                    """
+                    INSERT INTO chat_compaction_checkpoints (
+                        checkpoint_id, session_id, vault_name, created_at, source,
+                        checkpoint_kind, message_count_before,
+                        last_message_sequence_index, summary_message_json,
+                        replacement_history_json,
+                        replacement_source_sequence_indexes_json, metadata_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        child_checkpoint_id,
+                        new_session_id,
+                        vault_name,
+                        checkpoint.created_at,
+                        checkpoint.source,
+                        checkpoint.checkpoint_kind,
+                        checkpoint.message_count_before,
+                        checkpoint.last_message_sequence_index,
+                        checkpoint.summary_message_json,
+                        checkpoint.replacement_history_json,
+                        checkpoint.replacement_source_sequence_indexes_json,
+                        json.dumps(
+                            checkpoint_metadata, ensure_ascii=False, sort_keys=True
+                        ),
+                    ),
+                )
+
+            if eligible_checkpoints:
+                latest = eligible_checkpoints[-1]
+                latest_child_id = copied_checkpoint_ids[latest.checkpoint_id]
+                latest_metadata = _checkpoint_metadata(latest)
+                if latest.checkpoint_kind == "recovery_card":
+                    source_metadata["last_compaction"] = {
+                        **latest_metadata,
+                        "compaction_id": latest_child_id,
+                    }
+                else:
+                    source_metadata["last_session_map_checkpoint"] = {
+                        "checkpoint_id": latest_child_id,
+                        "prompt_contract_version": latest_metadata.get(
+                            "prompt_contract_version"
+                        ),
+                        "consumed_through_sequence_index": (
+                            latest.last_message_sequence_index
+                        ),
+                        "map_observed_through_sequence_index": (
+                            _checkpoint_observation_boundary(latest)
+                        ),
+                        "source_history_revision": latest_metadata.get(
+                            "source_history_revision"
+                        ),
+                    }
+            child_fork_metadata = source_metadata.get("fork")
+            if isinstance(child_fork_metadata, dict):
+                child_fork_metadata["copied_tool_event_count"] = copied_tool_event_count
+
+            conn.execute(
+                """
+                UPDATE chat_sessions
+                SET metadata_json = ?
+                WHERE session_id = ? AND vault_name = ?
+                """,
+                (
+                    json.dumps(source_metadata, ensure_ascii=False, sort_keys=True),
+                    new_session_id,
+                    vault_name,
+                ),
+            )
 
             self._touch_session(
                 conn,
@@ -507,10 +1100,7 @@ class ChatStore:
                 vault_name=vault_name,
                 advance_history_revision=True,
             )
-            conn.commit()
             return len(messages)
-        finally:
-            conn.close()
 
     def set_session_title(
         self, session_id: str, vault_name: str, title: str | None
@@ -795,12 +1385,40 @@ class ChatStore:
         self,
         session_id: str,
         vault_name: str,
+        *,
+        tool_call_ids: Sequence[str] | None = None,
     ) -> dict[str, int]:
         """Count raw tool-call declarations without hydrating message history."""
         conn = self._connect()
         try:
-            rows = conn.execute(
-                """
+            return self._tool_call_declaration_counts_from_conn(
+                conn, session_id, vault_name, tool_call_ids=tool_call_ids
+            )
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _tool_call_declaration_counts_from_conn(
+        conn: sqlite3.Connection,
+        session_id: str,
+        vault_name: str,
+        *,
+        tool_call_ids: Sequence[str] | None = None,
+    ) -> dict[str, int]:
+        """Count declarations within the caller's consistent history snapshot."""
+        if tool_call_ids is not None and not tool_call_ids:
+            return {}
+        id_filter = ""
+        params: list[Any] = [session_id, vault_name]
+        if tool_call_ids is not None:
+            id_filter = (
+                "AND json_extract(part.value, '$.tool_call_id') IN ("
+                + ", ".join("?" for _ in tool_call_ids)
+                + ")"
+            )
+            params.extend(tool_call_ids)
+        rows = conn.execute(
+            f"""
                 SELECT json_extract(part.value, '$.tool_call_id') AS tool_call_id,
                        COUNT(*) AS declaration_count
                 FROM chat_messages AS message,
@@ -809,12 +1427,11 @@ class ChatStore:
                   AND message.vault_name = ?
                   AND json_extract(part.value, '$.part_kind') = 'tool-call'
                   AND json_extract(part.value, '$.tool_call_id') IS NOT NULL
+                  {id_filter}
                 GROUP BY tool_call_id
                 """,
-                (session_id, vault_name),
-            ).fetchall()
-        finally:
-            conn.close()
+            params,
+        ).fetchall()
         return {str(tool_call_id): int(count) for tool_call_id, count in rows}
 
     def _committed_tool_call_ids(
@@ -879,6 +1496,68 @@ class ChatStore:
                 metadata_json=None if metadata_json is None else str(metadata_json),
             )
             for session_id, session_vault_name, owner_principal_id, created_at, last_activity_at, title, metadata_json in rows
+        ]
+
+    def search_discovery_text(
+        self,
+        *,
+        vault_name: str,
+        session_ids: set[str],
+        query: str,
+        source: Literal["session_metadata", "session_map"],
+        limit: int,
+    ) -> list[StoredDiscoveryHit]:
+        """Read each authorized session's best indexed metadata or map match."""
+        fts_query = build_fts_query(query)
+        if not session_ids or not fts_query:
+            return []
+        if not 1 <= limit <= 200:
+            raise ValueError("Discovery candidate limit must be between 1 and 200")
+        if source == "session_metadata":
+            index, table = "chat_session_metadata_fts", "chat_sessions"
+            checkpoint = "NULL"
+            historical = "0"
+        elif source == "session_map":
+            index, table = "chat_session_maps_fts", "chat_compaction_checkpoints"
+            checkpoint = "canonical.checkpoint_id"
+            historical = "canonical.id != (SELECT max(id) FROM chat_compaction_checkpoints WHERE session_id = canonical.session_id AND vault_name = canonical.vault_name)"
+        else:
+            raise ValueError("Unsupported discovery source")
+        ids = sorted(session_ids)
+        placeholders = ",".join("?" for _ in ids)
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                f"""
+                WITH hits AS MATERIALIZED (
+                    SELECT canonical.session_id, canonical.rowid AS source_rowid,
+                           {checkpoint} AS checkpoint_id, {historical} AS historical,
+                           snippet({index}, 0, '[', ']', '...', 32) AS excerpt,
+                           bm25({index}) AS lexical_rank
+                    FROM {index} JOIN {table} AS canonical ON canonical.rowid = {index}.rowid
+                    WHERE {index} MATCH ? AND canonical.vault_name = ?
+                      AND canonical.session_id IN ({placeholders})
+                ), ranked AS (
+                    SELECT *, row_number() OVER (
+                        PARTITION BY session_id ORDER BY lexical_rank, source_rowid DESC
+                    ) AS source_rank FROM hits
+                )
+                SELECT session_id, excerpt, checkpoint_id, historical FROM ranked
+                WHERE source_rank = 1 ORDER BY lexical_rank, session_id LIMIT ?
+                """,
+                (fts_query, vault_name, *ids, limit),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [
+            StoredDiscoveryHit(
+                session_id=str(row[0]),
+                source=source,
+                excerpt=str(row[1] or "")[:600],
+                checkpoint_id=None if row[2] is None else str(row[2]),
+                historical=bool(row[3]),
+            )
+            for row in rows
         ]
 
     def get_session(self, session_id: str, vault_name: str) -> StoredChatSession | None:
@@ -1103,11 +1782,19 @@ class ChatStore:
         self,
         session_id: str,
         vault_name: str,
-    ) -> StoredCompactionCheckpoint | None:
-        """Return the latest compaction checkpoint for one session."""
+    ) -> StoredContextCheckpoint | None:
+        """Return the latest effective-history checkpoint for one session."""
+        return self.get_latest_context_checkpoint(session_id, vault_name)
+
+    def get_latest_context_checkpoint(
+        self,
+        session_id: str,
+        vault_name: str,
+    ) -> StoredContextCheckpoint | None:
+        """Return the latest effective-history checkpoint for one session."""
         conn = self._connect()
         try:
-            checkpoint = self._latest_compaction_checkpoint(
+            checkpoint = self._latest_context_checkpoint(
                 conn,
                 session_id=session_id,
                 vault_name=vault_name,
@@ -1115,6 +1802,64 @@ class ChatStore:
         finally:
             conn.close()
         return checkpoint
+
+    def get_context_checkpoint(
+        self,
+        session_id: str,
+        vault_name: str,
+        checkpoint_id: str,
+    ) -> StoredContextCheckpoint | None:
+        """Return one checkpoint scoped to its canonical session and vault."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ? AND checkpoint_id = ?
+                """,
+                (session_id, vault_name, checkpoint_id),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._context_checkpoint_from_row(row) if row is not None else None
+
+    def list_context_checkpoints(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        checkpoint_kind: ContextCheckpointKind | None = None,
+    ) -> list[StoredContextCheckpoint]:
+        """Return append-only context checkpoints in creation order."""
+        conn = self._connect()
+        try:
+            kind_filter = ""
+            params: list[Any] = [session_id, vault_name]
+            if checkpoint_kind is not None:
+                kind_filter = "AND checkpoint_kind = ?"
+                params.append(checkpoint_kind)
+            rows = conn.execute(
+                f"""
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ?
+                {kind_filter}
+                ORDER BY id ASC
+                """,
+                params,
+            ).fetchall()
+        finally:
+            conn.close()
+        return [self._context_checkpoint_from_row(row) for row in rows]
 
     def get_highest_message_sequence_index(
         self, session_id: str, vault_name: str
@@ -1141,26 +1886,98 @@ class ChatStore:
         last_message_sequence_index: int,
         summary_message: ModelMessage,
         replacement_history: list[ModelMessage],
+        replacement_source_sequence_indexes: list[int | None] | None = None,
         metadata: dict[str, Any] | None = None,
         metadata_update: dict[str, Any] | None = None,
+        expected_history_revision: int | None = None,
     ) -> None:
         """Record a compaction checkpoint without mutating raw chat messages."""
-        conn = self._connect()
-        try:
-            conn.execute("PRAGMA foreign_keys = ON")
+        self.add_context_checkpoint(
+            session_id=session_id,
+            vault_name=vault_name,
+            checkpoint_id=checkpoint_id,
+            checkpoint_kind="recovery_card",
+            source=source,
+            message_count_before=message_count_before,
+            last_message_sequence_index=last_message_sequence_index,
+            summary_message=summary_message,
+            replacement_history=replacement_history,
+            replacement_source_sequence_indexes=(replacement_source_sequence_indexes),
+            metadata=metadata,
+            metadata_update=metadata_update,
+            expected_history_revision=expected_history_revision,
+        )
+
+    def add_context_checkpoint(
+        self,
+        *,
+        session_id: str,
+        vault_name: str,
+        checkpoint_id: str,
+        checkpoint_kind: ContextCheckpointKind,
+        source: str,
+        message_count_before: int,
+        last_message_sequence_index: int,
+        summary_message: ModelMessage,
+        replacement_history: list[ModelMessage],
+        replacement_source_sequence_indexes: list[int | None] | None = None,
+        metadata: dict[str, Any] | None = None,
+        metadata_update: dict[str, Any] | None = None,
+        expected_history_revision: int | None = None,
+    ) -> StoredContextCheckpoint:
+        """Atomically record and return one typed effective-history checkpoint."""
+        if checkpoint_kind not in {"recovery_card", "session_map"}:
+            raise ValueError(f"Unsupported context checkpoint kind: {checkpoint_kind}")
+        with self.transaction() as conn:
             self._upsert_session(conn, session_id=session_id, vault_name=vault_name)
+            current_revision = _metadata_history_revision(
+                self._session_metadata(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                )
+            )
+            if (
+                expected_history_revision is not None
+                and current_revision != expected_history_revision
+            ):
+                raise ValueError(
+                    "Context checkpoint history revision changed: "
+                    f"expected {expected_history_revision}, found {current_revision}"
+                )
             persist_reasoning = get_persist_model_reasoning_parts()
             summary_message = _message_for_persistence(
                 summary_message,
                 persist_reasoning_parts=persist_reasoning,
             )
-            replacement_history = [
-                _message_for_persistence(
-                    message,
-                    persist_reasoning_parts=persist_reasoning,
+            replacement_origins = (
+                None
+                if replacement_source_sequence_indexes is None
+                else _aligned_checkpoint_replacement_origins(
+                    replacement_history, replacement_source_sequence_indexes
                 )
-                for message in replacement_history
+            )
+            replacement_history = [
+                (
+                    message
+                    if replacement_origins is not None
+                    and replacement_origins[index] is not None
+                    else _message_for_persistence(
+                        message,
+                        persist_reasoning_parts=persist_reasoning,
+                    )
+                )
+                for index, message in enumerate(replacement_history)
             ]
+            if replacement_source_sequence_indexes is not None:
+                self._validate_checkpoint_replacement_origins(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    messages=replacement_history,
+                    origins=replacement_source_sequence_indexes,
+                    last_message_sequence_index=last_message_sequence_index,
+                )
             conn.execute(
                 """
                 INSERT INTO chat_compaction_checkpoints (
@@ -1168,23 +1985,31 @@ class ChatStore:
                     session_id,
                     vault_name,
                     source,
+                    checkpoint_kind,
                     message_count_before,
                     last_message_sequence_index,
                     summary_message_json,
                     replacement_history_json,
+                    replacement_source_sequence_indexes_json,
                     metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     checkpoint_id,
                     session_id,
                     vault_name,
                     source,
+                    checkpoint_kind,
                     message_count_before,
                     last_message_sequence_index,
                     _MODEL_MESSAGE_ADAPTER.dump_json(summary_message).decode("utf-8"),
                     _MODEL_MESSAGE_LIST_ADAPTER.dump_json(replacement_history).decode(
                         "utf-8"
+                    ),
+                    (
+                        None
+                        if replacement_source_sequence_indexes is None
+                        else json.dumps(replacement_source_sequence_indexes)
                     ),
                     (
                         None
@@ -1200,9 +2025,22 @@ class ChatStore:
                 metadata_update=metadata_update,
                 advance_history_revision=True,
             )
-            conn.commit()
-        finally:
-            conn.close()
+            row = conn.execute(
+                """
+                SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                       source, checkpoint_kind, message_count_before,
+                       last_message_sequence_index, summary_message_json,
+                       replacement_history_json,
+                       replacement_source_sequence_indexes_json, metadata_json
+                FROM chat_compaction_checkpoints
+                WHERE checkpoint_id = ? AND session_id = ? AND vault_name = ?
+                """,
+                (checkpoint_id, session_id, vault_name),
+            ).fetchone()
+            if row is None:  # pragma: no cover - guarded by the insert above
+                raise RuntimeError("Inserted context checkpoint could not be loaded")
+            checkpoint = self._context_checkpoint_from_row(row)
+        return checkpoint
 
     def _fetch_messages(
         self,
@@ -1211,9 +2049,10 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
         mode: HistoryMode = "effective",
+        connection: sqlite3.Connection | None = None,
     ) -> list[StoredChatMessage]:
         _validate_history_mode(mode)
-        conn = self._connect()
+        conn = connection or self._connect()
         try:
             if mode == "raw":
                 return self._fetch_raw_messages_from_conn(
@@ -1229,7 +2068,8 @@ class ChatStore:
                 limit=limit,
             )
         finally:
-            conn.close()
+            if connection is None:
+                conn.close()
 
     def _fetch_effective_messages_from_conn(
         self,
@@ -1239,7 +2079,7 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
     ) -> list[StoredChatMessage]:
-        checkpoint = self._latest_compaction_checkpoint(
+        checkpoint = self._latest_context_checkpoint(
             conn,
             session_id=session_id,
             vault_name=vault_name,
@@ -1252,6 +2092,7 @@ class ChatStore:
                 limit=limit,
             )
         replacement = self._checkpoint_replacement_messages(
+            conn,
             checkpoint,
             session_id=session_id,
             vault_name=vault_name,
@@ -1275,12 +2116,16 @@ class ChatStore:
         vault_name: str,
         limit: int | None = None,
         after_sequence_index: int | None = None,
+        through_sequence_index: int | None = None,
     ) -> list[StoredChatMessage]:
         sequence_filter = ""
         params: list[Any] = [session_id, vault_name]
         if after_sequence_index is not None:
             sequence_filter = "AND sequence_index > ?"
             params.append(after_sequence_index)
+        if through_sequence_index is not None:
+            sequence_filter += " AND sequence_index <= ?"
+            params.append(through_sequence_index)
 
         if limit is None:
             rows = conn.execute(
@@ -1318,7 +2163,8 @@ class ChatStore:
 
     def _checkpoint_replacement_messages(
         self,
-        checkpoint: StoredCompactionCheckpoint,
+        conn: sqlite3.Connection,
+        checkpoint: StoredContextCheckpoint,
         *,
         session_id: str,
         vault_name: str,
@@ -1327,29 +2173,46 @@ class ChatStore:
             messages = _MODEL_MESSAGE_LIST_ADAPTER.validate_json(
                 checkpoint.replacement_history_json
             )
-        except Exception as exc:  # noqa: BLE001
+        except ValidationError as exc:
+            error = ChatHistoryCorruptionError(
+                session_id=session_id,
+                vault_name=vault_name,
+                checkpoint_id=checkpoint.checkpoint_id,
+            )
             logger.warning(
                 "Failed to deserialize compaction checkpoint replacement history",
                 data={
+                    "event": "chat_history_deserialization_failed",
+                    "status": "failed",
+                    "reason": "invalid_checkpoint_replacement",
+                    "issue": f"chat-history-corruption:{checkpoint.checkpoint_id}",
                     "session_id": session_id,
                     "vault_name": vault_name,
                     "checkpoint_id": checkpoint.checkpoint_id,
-                    "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    "error_type": type(error).__name__,
+                    "cause_type": type(exc).__name__,
+                    "error": str(error),
                 },
             )
-            return []
+            raise error from exc
 
+        origins = self._checkpoint_replacement_origins(
+            conn,
+            checkpoint=checkpoint,
+            messages=messages,
+            session_id=session_id,
+            vault_name=vault_name,
+        )
         stored_messages: list[StoredChatMessage] = []
         for sequence_index, message in enumerate(messages):
-            role, content_text = _extract_role_and_text(message)
+            role, content_text = extract_role_and_text(message)
             direction = (
                 "response" if type(message).__name__ == "ModelResponse" else "request"
             )
             stored_messages.append(
                 StoredChatMessage(
                     sequence_index=sequence_index,
-                    fork_sequence_index=sequence_index,
+                    fork_sequence_index=origins[sequence_index],
                     direction=direction,
                     message_type=type(message).__name__,
                     role=role,
@@ -1362,6 +2225,153 @@ class ChatStore:
                 )
             )
         return stored_messages
+
+    def _checkpoint_replacement_origins(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        checkpoint: StoredContextCheckpoint,
+        messages: list[ModelMessage],
+        session_id: str,
+        vault_name: str,
+    ) -> list[int | None]:
+        """Resolve canonical origins, including legacy checkpoint compatibility."""
+        encoded = checkpoint.replacement_source_sequence_indexes_json
+        if encoded is not None:
+            try:
+                parsed_origins = json.loads(encoded)
+                return self._validate_checkpoint_replacement_origins(
+                    conn,
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    messages=messages,
+                    origins=parsed_origins,
+                    last_message_sequence_index=checkpoint.last_message_sequence_index,
+                )
+            except ValueError as exc:
+                error = ChatHistoryCorruptionError(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    checkpoint_id=checkpoint.checkpoint_id,
+                )
+                logger.warning(
+                    "Invalid checkpoint replacement origins",
+                    data={
+                        "event": "chat_history_deserialization_failed",
+                        "status": "failed",
+                        "reason": "invalid_checkpoint_replacement_origins",
+                        "issue": f"chat-history-corruption:{checkpoint.checkpoint_id}",
+                        "session_id": session_id,
+                        "vault_name": vault_name,
+                        "checkpoint_id": checkpoint.checkpoint_id,
+                        "error_type": type(error).__name__,
+                        "cause_type": type(exc).__name__,
+                        "error": str(error),
+                    },
+                )
+                raise error from exc
+
+        serialized_messages = [
+            _MODEL_MESSAGE_ADAPTER.dump_json(message).decode("utf-8")
+            for message in messages
+        ]
+        candidate_json = json.dumps(
+            list(dict.fromkeys(serialized_messages)),
+            ensure_ascii=False,
+        )
+        raw = conn.execute(
+            """
+            SELECT sequence_index, message_json
+            FROM chat_messages
+            WHERE session_id = ? AND vault_name = ?
+              AND sequence_index <= ?
+              AND message_json IN (
+                  SELECT value FROM json_each(?)
+              )
+            ORDER BY sequence_index ASC
+            """,
+            (
+                session_id,
+                vault_name,
+                checkpoint.last_message_sequence_index,
+                candidate_json,
+            ),
+        ).fetchall()
+        candidates_by_json: dict[str, list[int]] = {}
+        for sequence_index, message_json in raw:
+            candidates_by_json.setdefault(str(message_json), []).append(
+                int(sequence_index)
+            )
+        resolved_origins: list[int | None] = []
+        previous_origin = -1
+        for message_json in serialized_messages:
+            candidates = [
+                index
+                for index in candidates_by_json.get(message_json, [])
+                if index > previous_origin
+            ]
+            if len(candidates) != 1:
+                resolved_origins.append(None)
+                continue
+            origin = candidates[0]
+            resolved_origins.append(origin)
+            previous_origin = origin
+        return resolved_origins
+
+    def _validate_checkpoint_replacement_origins(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        session_id: str,
+        vault_name: str,
+        messages: list[ModelMessage],
+        origins: object,
+        last_message_sequence_index: int,
+    ) -> list[int | None]:
+        """Require explicit origins to identify ordered canonical messages."""
+        validated_origins = _aligned_checkpoint_replacement_origins(messages, origins)
+        previous_origin = -1
+        canonical_origins: list[int] = []
+        for origin in validated_origins:
+            if origin is None:
+                continue
+            if origin < 0 or origin > last_message_sequence_index:
+                raise ValueError(
+                    "Checkpoint replacement origins must fall within its canonical boundary"
+                )
+            if origin <= previous_origin:
+                raise ValueError(
+                    "Checkpoint replacement origins must be strictly increasing"
+                )
+            previous_origin = origin
+            canonical_origins.append(origin)
+        if not canonical_origins:
+            return validated_origins
+
+        canonical_messages = self._fetch_raw_messages_from_conn(
+            conn,
+            session_id=session_id,
+            vault_name=vault_name,
+            after_sequence_index=canonical_origins[0] - 1,
+            through_sequence_index=canonical_origins[-1],
+        )
+        canonical_by_origin = {
+            item.sequence_index: _MODEL_MESSAGE_ADAPTER.dump_json(item.message)
+            for item in canonical_messages
+        }
+        for message, origin in zip(messages, validated_origins, strict=True):
+            if origin is None:
+                continue
+            canonical_message_json = canonical_by_origin.get(origin)
+            if canonical_message_json is None:
+                raise ValueError(
+                    "Checkpoint replacement origin must identify an existing canonical message"
+                )
+            if _MODEL_MESSAGE_ADAPTER.dump_json(message) != canonical_message_json:
+                raise ValueError(
+                    "Checkpoint replacement must match its canonical message origin"
+                )
+        return validated_origins
 
     def _stored_messages_from_rows(
         self,
@@ -1383,18 +2393,28 @@ class ChatStore:
             ) = row
             try:
                 message = _MODEL_MESSAGE_ADAPTER.validate_json(message_json)
-            except Exception as exc:  # noqa: BLE001
+            except ValidationError as exc:
+                error = ChatHistoryCorruptionError(
+                    session_id=session_id,
+                    vault_name=vault_name,
+                    sequence_index=int(sequence_index),
+                )
                 logger.warning(
                     "Failed to deserialize stored chat message",
                     data={
+                        "event": "chat_history_deserialization_failed",
+                        "status": "failed",
+                        "reason": "invalid_canonical_message",
+                        "issue": f"chat-history-corruption:{session_id}:{sequence_index}",
                         "session_id": session_id,
                         "vault_name": vault_name,
                         "sequence_index": sequence_index,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
+                        "error_type": type(error).__name__,
+                        "cause_type": type(exc).__name__,
+                        "error": str(error),
                     },
                 )
-                continue
+                raise error from exc
             messages.append(
                 StoredChatMessage(
                     sequence_index=int(sequence_index),
@@ -1411,17 +2431,19 @@ class ChatStore:
         return messages
 
     @staticmethod
-    def _latest_compaction_checkpoint(
+    def _latest_context_checkpoint(
         conn: sqlite3.Connection,
         *,
         session_id: str,
         vault_name: str,
-    ) -> StoredCompactionCheckpoint | None:
+    ) -> StoredContextCheckpoint | None:
         row = conn.execute(
             """
-            SELECT id, checkpoint_id, session_id, vault_name, created_at, source,
-                   message_count_before, last_message_sequence_index,
-                   summary_message_json, replacement_history_json, metadata_json
+            SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                   source, checkpoint_kind, message_count_before,
+                   last_message_sequence_index, summary_message_json,
+                   replacement_history_json,
+                   replacement_source_sequence_indexes_json, metadata_json
             FROM chat_compaction_checkpoints
             WHERE session_id = ? AND vault_name = ?
             ORDER BY id DESC
@@ -1431,6 +2453,11 @@ class ChatStore:
         ).fetchone()
         if row is None:
             return None
+        return ChatStore._context_checkpoint_from_row(row)
+
+    @staticmethod
+    def _context_checkpoint_from_row(row: Sequence[Any]) -> StoredContextCheckpoint:
+        """Convert one context-checkpoint query row through a stable mapping."""
         (
             row_id,
             checkpoint_id,
@@ -1438,23 +2465,34 @@ class ChatStore:
             row_vault_name,
             created_at,
             source,
+            checkpoint_kind,
             message_count_before,
             last_message_sequence_index,
             summary_message_json,
             replacement_history_json,
+            replacement_source_sequence_indexes_json,
             metadata_json,
         ) = row
-        return StoredCompactionCheckpoint(
+        kind = str(checkpoint_kind)
+        if kind not in {"recovery_card", "session_map"}:
+            raise ValueError(f"Unsupported stored context checkpoint kind: {kind}")
+        return StoredContextCheckpoint(
             id=int(row_id),
             checkpoint_id=str(checkpoint_id),
             session_id=str(row_session_id),
             vault_name=str(row_vault_name),
             created_at=str(created_at or ""),
             source=str(source),
+            checkpoint_kind=cast(ContextCheckpointKind, kind),
             message_count_before=int(message_count_before),
             last_message_sequence_index=int(last_message_sequence_index),
             summary_message_json=str(summary_message_json),
             replacement_history_json=str(replacement_history_json),
+            replacement_source_sequence_indexes_json=(
+                None
+                if replacement_source_sequence_indexes_json is None
+                else str(replacement_source_sequence_indexes_json)
+            ),
             metadata_json=None if metadata_json is None else str(metadata_json),
         )
 
@@ -1624,12 +2662,91 @@ def _metadata_history_revision(metadata: dict[str, Any]) -> int:
     return max(revision, 0)
 
 
+def canonical_assistant_fork_points(messages: Sequence[StoredChatMessage]) -> set[int]:
+    """Return known canonical assistant origins whose prefixes are protocol-complete."""
+    protocol = ToolHistoryProtocolState()
+    fork_points: set[int] = set()
+    for index, message in enumerate(messages):
+        calls, replies = model_message_tool_invocations(message.message)
+        protocol.record_message(
+            index,
+            calls,
+            replies,
+            reply_only=model_message_is_tool_reply_only(message.message),
+        )
+        if protocol.issues:
+            break
+        if (
+            isinstance(message.message, ModelResponse)
+            and message.fork_sequence_index is not None
+            and not protocol.pending
+        ):
+            fork_points.add(message.fork_sequence_index)
+    return fork_points
+
+
 def _fork_session_metadata(source_metadata: dict[str, Any]) -> dict[str, Any]:
     """Return source session metadata that is safe to carry into a fork."""
     metadata = dict(source_metadata)
-    for key in ("history_revision", "last_compaction", "latest_turn_failure"):
+    for key in (
+        "history_revision",
+        "last_compaction",
+        "last_session_map_checkpoint",
+        "latest_turn_failure",
+    ):
         metadata.pop(key, None)
     return metadata
+
+
+def _checkpoint_metadata(checkpoint: StoredContextCheckpoint) -> dict[str, Any]:
+    """Return one checkpoint's object metadata or an empty object."""
+    if not checkpoint.metadata_json:
+        return {}
+    try:
+        parsed = json.loads(checkpoint.metadata_json)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _aligned_checkpoint_replacement_origins(
+    messages: Sequence[ModelMessage], origins: object
+) -> list[int | None]:
+    """Require one integer or null origin per replacement message."""
+    if not isinstance(origins, list) or len(origins) != len(messages):
+        raise ValueError(
+            "Checkpoint replacement origins must align with replacement history"
+        )
+    if any(origin is not None and type(origin) is not int for origin in origins):
+        raise ValueError("Checkpoint replacement origins must be integers or null")
+    return cast(list[int | None], origins)
+
+
+def _checkpoint_observation_boundary(checkpoint: StoredContextCheckpoint) -> int:
+    """Return the newest canonical message visible to a checkpoint author."""
+    invalid_boundary = (
+        f"Invalid checkpoint observation boundary: {checkpoint.checkpoint_id}"
+    )
+    if checkpoint.last_message_sequence_index < 0:
+        raise ValueError(invalid_boundary)
+    if checkpoint.checkpoint_kind != "session_map":
+        return checkpoint.last_message_sequence_index
+    if checkpoint.metadata_json is None:
+        return checkpoint.last_message_sequence_index
+    try:
+        metadata = json.loads(checkpoint.metadata_json)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError(invalid_boundary) from exc
+    if not isinstance(metadata, dict):
+        raise ValueError(invalid_boundary)
+    # Early map checkpoints did not record the author observation cutoff.
+    # Their consumed boundary is the only durable inheritance boundary available.
+    if "map_observed_through_sequence_index" not in metadata:
+        return checkpoint.last_message_sequence_index
+    observed = metadata["map_observed_through_sequence_index"]
+    if type(observed) is not int or observed < checkpoint.last_message_sequence_index:
+        raise ValueError(invalid_boundary)
+    return observed
 
 
 def _message_for_persistence(
@@ -1694,74 +2811,6 @@ def _strip_response_part_provider_item_id(part: Any) -> Any:
     return replace(untyped_part, **updates)  # type: ignore[type-var]
 
 
-def _extract_role_and_text(msg: ModelMessage) -> tuple[str, str]:
-    if isinstance(msg, ModelRequest):
-        role = "user"
-    elif isinstance(msg, ModelResponse):
-        role = "assistant"
-    else:
-        role = getattr(msg, "role", None) or msg.__class__.__name__.lower()
-
-    parts = getattr(msg, "parts", None)
-    if parts:
-        has_system_part = False
-        rendered_parts: list[str] = []
-        for part in parts:
-            if isinstance(part, UserPromptPart | TextPart):
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(part_content)
-            elif isinstance(part, SystemPromptPart):
-                has_system_part = True
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(part_content)
-            elif isinstance(part, ToolReturnPart | NativeToolReturnPart):
-                tool_name = (
-                    getattr(part, "tool_name", None)
-                    or getattr(part, "tool_call_id", None)
-                    or "tool"
-                )
-                part_content = getattr(part, "content", None)
-                if isinstance(part_content, str):
-                    rendered_parts.append(f"[{tool_name}] {part_content}")
-            elif isinstance(part, ToolCallPart):
-                tool_name = (
-                    getattr(part, "tool_name", None)
-                    or getattr(part, "tool_call_id", None)
-                    or "tool"
-                )
-                rendered_parts.append(f"[{tool_name}] (tool call)")
-        if rendered_parts:
-            if has_system_part and role == "user":
-                return "system", "\n".join(rendered_parts)
-            return role, "\n".join(rendered_parts)
-
-    content = getattr(msg, "content", None)
-    if isinstance(content, str) and content:
-        return role, content
-
-    return role, ""
-
-
-def _fork_prefix_messages(
-    messages: list[StoredChatMessage],
-    through_sequence_index: int,
-) -> list[StoredChatMessage]:
-    copied: list[StoredChatMessage] = []
-    pending_tool_call_ids: set[str] = set()
-    for message in messages:
-        if (
-            message.sequence_index > through_sequence_index
-            and not pending_tool_call_ids
-        ):
-            break
-        copied.append(message)
-        pending_tool_call_ids.update(message.tool_call_ids)
-        pending_tool_call_ids.difference_update(message.tool_return_ids)
-    return copied
-
-
 def _tool_call_ids_from_json(message_json: str) -> set[str]:
     try:
         message = _MODEL_MESSAGE_ADAPTER.validate_json(message_json)
@@ -1794,7 +2843,9 @@ def _ordered_tool_return_ids_from_message(message: ModelMessage) -> tuple[str, .
     ids: set[str] = set()
     ordered_ids: list[str] = []
     for part in getattr(message, "parts", ()) or ():
-        if isinstance(part, ToolReturnPart | NativeToolReturnPart):
+        if isinstance(part, ToolReturnPart | NativeToolReturnPart) or (
+            isinstance(part, RetryPromptPart) and part.tool_name is not None
+        ):
             tool_call_id = getattr(part, "tool_call_id", None)
             if tool_call_id and str(tool_call_id) not in ids:
                 ids.add(str(tool_call_id))

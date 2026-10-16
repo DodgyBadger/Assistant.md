@@ -96,6 +96,7 @@ async def get_active_chat_task(session_id: str) -> ExecutionTaskInfo:
     """Return the running task, or the oldest queued task, for a chat session."""
     runtime = get_runtime_context()
     snapshots = await runtime.execution_task_access.list_tasks(
+        kind=ExecutionTaskKind.CHAT.value,
         scope=chat_session_scope(session_id),
         include_terminal=False,
     )

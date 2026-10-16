@@ -11,24 +11,55 @@
         workspacePicker,
         callbacks,
     }) {
+        let postTurnRefreshController = null;
+
+        async function refreshSessionAfterTask(taskId, vault, sessionId, streamController) {
+            postTurnRefreshController?.abort();
+            const controller = new AbortController();
+            postTurnRefreshController = controller;
+            const isCurrent = () => postTurnRefreshController === controller
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && (!state.activeChatAbortController || state.activeChatAbortController === streamController);
+            // This bounds a UI observer only; it never cancels the execution task.
+            const deadline = window.setTimeout(() => {
+                console.warn('Timed out waiting to refresh compaction state after chat completion.', { taskId, sessionId });
+                controller.abort();
+            }, 5 * 60 * 1000);
+            try {
+                const completed = await chatTaskStream.waitForTerminal(taskId, controller.signal, { isCurrent });
+                if (completed && isCurrent()) {
+                    await sessionControls.refreshCompactionState({ signal: controller.signal, isCurrent });
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.warn('Could not refresh compaction state after chat completion.', error);
+                }
+            } finally {
+                window.clearTimeout(deadline);
+                if (postTurnRefreshController === controller) postTurnRefreshController = null;
+            }
+        }
+
         async function streamStartedChatTask(
             started,
             vault,
             abortController,
             { hydrateReplay = false } = {}
         ) {
+            postTurnRefreshController?.abort();
             if (started.session_id) {
                 state.sessionId = started.session_id;
                 callbacks.syncChatControlLocks();
                 sessionControls.renderSelector();
                 sessionControls.updateTitleRow();
-                sessionControls.refreshCompactionProgress();
+                sessionControls.refreshCompactionState();
             }
             const taskId = started.task?.task_id;
             if (!taskId) {
                 throw new Error('Chat task did not return a task id.');
             }
             state.activeChatTaskId = taskId;
+            const sessionId = state.sessionId;
 
             const assistantMessage = chatRendering.createAssistantStreamingMessage();
             let hydrated = null;
@@ -86,6 +117,13 @@
                     await callbacks.loadSession(state.sessionId, { reopenToolCallId });
                 }
             }
+            if (streamResult.finished && streamResult.finishReason === 'stop'
+                && state.sessionId === sessionId && elements.vaultSelector?.value === vault
+                && state.activeChatAbortController === abortController) {
+                // Render the answer first. Its initial history load must not overwrite
+                // the later checkpoint snapshot when post-turn compaction finishes.
+                void refreshSessionAfterTask(state.activeChatTaskId || taskId, vault, sessionId, abortController);
+            }
         }
 
         async function streamDeferredReviewTask(started) {
@@ -122,7 +160,7 @@
                     elements.sendBtn.disabled = false;
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }
@@ -173,7 +211,7 @@
                     }
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }
@@ -219,7 +257,7 @@
             state.sessionId = requestSessionId;
             sessionControls.renderSelector();
             sessionControls.updateTitleRow();
-            sessionControls.refreshCompactionProgress();
+            sessionControls.refreshCompactionState();
             callbacks.syncChatControlLocks();
             state.activeChatSessionId = requestSessionId;
             const abortController = new AbortController();
@@ -297,7 +335,7 @@
                     elements.sendBtn.disabled = false;
                     callbacks.syncChatControlLocks();
                     elements.chatInput.focus();
-                    sessionControls.refreshCompactionProgress();
+                    sessionControls.refreshCompactionState();
                 }
             }
         }

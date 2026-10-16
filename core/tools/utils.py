@@ -7,8 +7,6 @@ Provides security validation and path resolution for all file operations.
 import os
 from pathlib import Path
 
-import tiktoken
-
 from core.constants import VIRTUAL_MOUNTS
 
 
@@ -109,24 +107,3 @@ def validate_and_resolve_path(
         raise ValueError("Path escapes vault boundaries")
 
     return resolved_path
-
-
-def estimate_token_count(text: str, encoding_name: str = "cl100k_base") -> int:
-    """
-    Estimate token count for text using tiktoken.
-
-    Args:
-        text: The text content to count tokens for
-        encoding_name: The tiktoken encoding to use (default: cl100k_base for GPT-4/Claude-like models)
-
-    Returns:
-        Estimated token count
-
-    Note:
-        Uses cl100k_base encoding by default, which is appropriate for:
-        - GPT-4, GPT-4o, GPT-3.5-turbo
-        - Claude models (approximate)
-        - Most modern LLMs
-    """
-    encoding = tiktoken.get_encoding(encoding_name)
-    return len(encoding.encode(text))

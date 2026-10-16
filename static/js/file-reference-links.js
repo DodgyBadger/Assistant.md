@@ -10,22 +10,35 @@
             return callbacks.workspacePath();
         }
 
-        function openDirectory(path) {
-            callbacks.openDirectory(path);
-        }
-
         function openFile(path, options) {
             callbacks.openFile(path, options);
         }
 
-        function enhanceFileLinks(container) {
+        function enhanceFileLinks(container, context = {}) {
             if (!container) return;
+            context = {
+                ...context,
+                vaultName: context.vaultName || selectedVault(),
+                workspacePath: workspacePath(),
+            };
+            container.querySelectorAll('[data-vault-wikilink]').forEach((element) => {
+                if (element.closest('a, pre, code')) return;
+                const candidate = localPathCandidate(element.dataset.vaultWikilink, context, { wikilink: true });
+                if (candidate) {
+                    element.dataset.vaultReferenceCandidate = candidate;
+                    element.dataset.vaultReferenceRoot = 'true';
+                    element.dataset.vaultReferenceLabel = element.textContent;
+                    if (!element.dataset.vaultWikilink.trim().endsWith('/') && markdownFallbackPath(candidate)) {
+                        element.dataset.vaultReferenceMarkdownFallback = 'true';
+                    }
+                }
+            });
             markStandaloneCandidates(container);
             const textNodes = [];
             const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
                 acceptNode(node) {
                     const parent = node.parentElement;
-                    if (!parent || parent.closest('a, button, code, pre, textarea, [data-vault-reference-candidate]')) {
+                    if (!parent || parent.closest('a, button, code, pre, textarea, [data-vault-reference-candidate], [data-vault-wikilink]')) {
                         return NodeFilter.FILTER_REJECT;
                     }
                     return candidateMatches(node.textContent || '').length
@@ -40,12 +53,23 @@
             container.querySelectorAll('a[href]').forEach((link) => {
                 if (!(link instanceof HTMLAnchorElement)) return;
                 if (link.dataset.vaultFileEnhanced === 'true') return;
-                const candidate = standaloneCandidate(
-                    link.getAttribute('href') || link.textContent || ''
-                );
-                if (candidate) link.dataset.vaultReferenceCandidate = candidate;
+                if (link.dataset.vaultReferenceCandidate) return;
+                const href = link.getAttribute('href') || '';
+                if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) return;
+                const candidate = localPathCandidate(href, context);
+                if (!candidate) {
+                    link.replaceWith(document.createTextNode(link.textContent || href));
+                    return;
+                }
+                link.dataset.vaultReferenceCandidate = candidate;
+                link.dataset.vaultReferenceRoot = 'true';
+                link.dataset.vaultReferenceLabel = link.textContent;
+                // Never let pending local links navigate into application routes.
+                link.setAttribute('href', '#');
+                link.removeAttribute('target');
+                link.addEventListener('click', (event) => event.preventDefault());
             });
-            resolveMarkedCandidates(container).catch((error) => {
+            return resolveMarkedCandidates(container, context).catch((error) => {
                 console.error('Unable to resolve vault references:', error);
             });
         }
@@ -81,56 +105,78 @@
             node.parentNode?.replaceChild(fragment, node);
         }
 
-        async function resolveMarkedCandidates(container) {
+        async function resolveMarkedCandidates(container, context) {
             const marked = Array.from(
                 container.querySelectorAll('[data-vault-reference-candidate]')
             ).filter((element) => element instanceof HTMLElement);
             if (!marked.length) return;
-            const paths = marked.map((element) => element.dataset.vaultReferenceCandidate || '');
-            const resolutions = await resolveCandidates(paths);
-            marked.forEach((element) => {
-                const candidate = element.dataset.vaultReferenceCandidate || '';
-                const resolution = resolutions.get(candidate);
-                delete element.dataset.vaultReferenceCandidate;
-                if (!resolution || resolution.kind === 'missing') {
-                    if (element instanceof HTMLAnchorElement) {
-                        element.replaceWith(document.createTextNode(element.textContent || candidate));
+            for (const { vaultRoot, markdownFallback } of [
+                { vaultRoot: true, markdownFallback: true },
+                { vaultRoot: true, markdownFallback: false },
+                { vaultRoot: false, markdownFallback: false },
+            ]) {
+                const group = marked.filter((element) =>
+                    (element.dataset.vaultReferenceRoot === 'true') === vaultRoot
+                    && (element.dataset.vaultReferenceMarkdownFallback === 'true') === markdownFallback
+                );
+                const paths = group.map((element) => element.dataset.vaultReferenceCandidate || '');
+                const resolutions = await resolveCandidates(paths, context, { vaultRoot, markdownFallback });
+                group.forEach((element) => {
+                    if (!container.contains(element)) return;
+                    const candidate = element.dataset.vaultReferenceCandidate || '';
+                    const resolution = resolutions.get(candidate);
+                    delete element.dataset.vaultReferenceCandidate;
+                    if (!resolution || resolution.kind === 'missing') {
+                        if (element instanceof HTMLAnchorElement) {
+                            element.replaceWith(document.createTextNode(element.textContent || candidate));
+                        }
+                        return;
                     }
-                    return;
-                }
-                const link = document.createElement('a');
-                link.href = '#';
-                link.className = element instanceof HTMLElement && element.tagName === 'CODE'
-                    ? 'vault-file-link vault-file-link-code'
-                    : 'vault-file-link';
-                link.textContent = `@${resolution.path}`;
-                link.dataset.vaultFileEnhanced = 'true';
-                link.dataset.vaultFilePath = resolution.path;
-                link.dataset.vaultFileKind = resolution.kind;
-                link.title = resolution.kind === 'directory'
-                    ? `Browse ${resolution.path}`
-                    : `Open ${resolution.path}`;
-                link.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    if (resolution.kind === 'directory') {
-                        openDirectory(resolution.path);
-                    } else {
-                        openFile(resolution.path, {
-                            onBack: () => openExplorer({ revealPath: resolution.path }),
-                        });
-                    }
+                    const link = document.createElement('a');
+                    link.href = '#';
+                    link.className = element.tagName === 'CODE'
+                        ? 'vault-file-link vault-file-link-code'
+                        : 'vault-file-link';
+                    link.textContent = element.dataset.vaultReferenceLabel ?? `@${resolution.path}`;
+                    link.dataset.vaultFileEnhanced = 'true';
+                    link.dataset.vaultFilePath = resolution.path;
+                    link.dataset.vaultFileKind = resolution.kind;
+                    link.title = resolution.kind === 'directory'
+                        ? `Browse ${resolution.path}`
+                        : `Open ${resolution.path}`;
+                    const vaultName = context.vaultName || selectedVault();
+                    const browseDirectory = () => callbacks.openExplorer({
+                        vaultName,
+                        revealPath: resolution.path,
+                    });
+                    link.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        if (resolution.kind === 'directory') {
+                            browseDirectory();
+                        } else {
+                            openFile(resolution.path, { vaultName });
+                        }
+                    });
+                    element.replaceWith(link);
                 });
-                element.replaceWith(link);
-            });
+            }
         }
 
-        async function resolveCandidates(paths) {
-            const vault = selectedVault();
-            const workspace = workspacePath();
-            const normalized = [...new Set(paths.map(normalizeDisplayPath).filter(Boolean))];
+        function markdownFallbackPath(path) {
+            const basename = path.split('/').at(-1) || '';
+            return basename && !basename.includes('.') && path.length + 3 <= 1000 ? `${path}.md` : '';
+        }
+
+        async function resolveCandidates(paths, context, { vaultRoot, markdownFallback }) {
+            const vault = context.vaultName || selectedVault();
+            const workspace = vaultRoot || context.sourcePath ? '' : context.workspacePath;
+            const normalized = [...new Set(paths.filter(Boolean))];
+            const lookupPaths = markdownFallback
+                ? [...new Set([...normalized, ...normalized.map(markdownFallbackPath).filter(Boolean)])]
+                : normalized;
             const resolved = new Map();
             const unresolved = [];
-            normalized.forEach((path) => {
+            lookupPaths.forEach((path) => {
                 const cached = resolutionCache.get(resolutionCacheKey(vault, workspace, path));
                 if (cached) {
                     resolved.set(path, cached);
@@ -138,48 +184,81 @@
                     unresolved.push(path);
                 }
             });
-            if (!vault || !unresolved.length) return resolved;
-            const response = await fetch(
-                `api/vaults/${encodeURIComponent(vault)}/file-refs/resolve`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ paths: unresolved, workspace_path: workspace }),
+            for (let offset = 0; vault && offset < unresolved.length; offset += 100) {
+                const batch = unresolved.slice(offset, offset + 100);
+                const response = await fetch(
+                    `api/vaults/${encodeURIComponent(vault)}/file-refs/resolve`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paths: batch, workspace_path: workspace }),
+                    }
+                );
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
-            );
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `HTTP ${response.status}`);
+                const payload = await response.json();
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                items.forEach((item) => {
+                    const requestedPath = item.requested_path || '';
+                    if (!requestedPath) return;
+                    resolved.set(requestedPath, item);
+                    if (item.kind !== 'missing') {
+                        resolutionCache.set(
+                            resolutionCacheKey(vault, workspace, requestedPath),
+                            item
+                        );
+                    }
+                });
             }
-            const payload = await response.json();
-            const items = Array.isArray(payload.items) ? payload.items : [];
-            items.forEach((item) => {
-                const requestedPath = normalizeDisplayPath(item.requested_path || '');
-                if (!requestedPath) return;
-                resolved.set(requestedPath, item);
-                if (item.kind !== 'missing') {
-                    resolutionCache.set(
-                        resolutionCacheKey(vault, workspace, requestedPath),
-                        item
-                    );
-                }
+            // Cache only exact API lookups, never a fallback under the original path.
+            // Ordinary Markdown destinations must not inherit wikilink-only behavior.
+            const result = new Map();
+            normalized.forEach((path) => {
+                const exact = resolved.get(path);
+                const fallback = markdownFallback ? resolved.get(markdownFallbackPath(path)) : null;
+                result.set(path, exact && exact.kind !== 'missing'
+                    ? exact : fallback?.kind === 'file' ? fallback : exact);
             });
-            return resolved;
+            return result;
         }
 
         function resolutionCacheKey(vault, workspace, path) {
             return `${vault}\u0000${workspace}\u0000${path}`;
         }
 
+        function localPathCandidate(value, context, { wikilink = false } = {}) {
+            let path = String(value || '').trim();
+            if (!wikilink) {
+                try { path = decodeURIComponent(path.split(/[?#]/, 1)[0]); }
+                catch { return ''; }
+            }
+            if (!path || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(path) || /[\x00-\x1f\\]/.test(path)) return '';
+            const legacyRoot = !wikilink && path.startsWith('@');
+            if (legacyRoot) path = path.slice(1);
+            const parts = !wikilink && !legacyRoot && !path.startsWith('/') && context.sourcePath
+                ? context.sourcePath.split('/').slice(0, -1) : [];
+            for (const part of path.split('/')) {
+                if (!part || part === '.') continue;
+                if (part === '..') {
+                    if (!parts.length) return '';
+                    parts.pop();
+                } else parts.push(part);
+            }
+            const candidate = parts.join('/');
+            return candidate.length <= 1000 ? candidate : '';
+        }
+
         function candidateMatches(text) {
             const patterns = [
                 {
-                    regex: /@([^@\n<>()\[\]{};:!?]*?\.(?:md|markdown|txt))/gi,
+                    regex: /@([^@\n<>()\[\]{};:?]*?\.(?:md|markdown|txt))/gi,
                     group: 0,
                     priority: 0,
                 },
                 {
-                    regex: /@((?:[\w .,@-]+\/)+[\w.@-]+\/?)/gi,
+                    regex: /@((?:[\w .,-]+\/)+[\w.@-]+\/?)/gi,
                     group: 0,
                     priority: 0,
                 },

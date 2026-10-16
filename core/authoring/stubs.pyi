@@ -87,14 +87,6 @@ class RetrievedHistoryResult:
     metadata: dict[str, Any]
     text: str
 
-class RetrievedSessionsResult:
-    selection: str
-    status: str
-    item_count: int
-    items: tuple[RetrievedItem, ...]
-    metadata: dict[str, Any]
-    text: str
-
 class LatestMessage:
     role: str
     content: str
@@ -198,11 +190,6 @@ async def retrieve_history(
     limit: int | str = "all",
     message_filter: str = "all",
 ) -> RetrievedHistoryResult: ...
-async def retrieve_sessions(
-    *,
-    selection: str = "pending_or_stale_summary",
-    limit: int | str = "all",
-) -> RetrievedSessionsResult: ...
 async def assemble_context(
     *,
     history: list[ContextInput] | tuple[ContextInput, ...] | None = None,

@@ -7,15 +7,10 @@ import json
 from pydantic_ai import RunContext
 from pydantic_ai.tools import Tool
 
-from core.chat.compaction import compact_chat_history, get_compaction_status
+from core.chat.compaction import get_compaction_status, run_chat_context_compaction
 from core.identity import require_current_execution_authority
 from core.logger import UnifiedLogger
-from core.runtime.execution_tasks import (
-    ExecutionTaskKind,
-    ExecutionTaskSource,
-    chat_session_scope,
-    compaction_task_label,
-)
+from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
 
 from .base import BaseTool, ToolRecoveryPolicy
@@ -39,7 +34,7 @@ class ChatHistoryCompact(BaseTool):
             """Check or compact the current chat session history.
 
             :param operation: status or compact
-            :param focus: Optional user instructions for what the summary should preserve
+            :param focus: Optional user guidance for what the compaction author should emphasize
             """
             deps = getattr(ctx, "deps", None)
             session_id = str(getattr(deps, "session_id", "") or "").strip()
@@ -65,21 +60,15 @@ class ChatHistoryCompact(BaseTool):
                 "tool_invoked",
                 data={"tool": "chat_history_compact", "operation": "compact"},
             )
-            async with runtime.task_coordinator.track_current_task(
-                kind=ExecutionTaskKind.HISTORY_COMPACTION,
-                scope=chat_session_scope(session_id),
+            result = await run_chat_context_compaction(
+                session_id=session_id,
+                vault_name=vault_name,
+                vault_path=effective_vault_path,
+                focus=focus or None,
                 source=ExecutionTaskSource.TOOL,
-                label=compaction_task_label(session_id),
                 authority=require_current_execution_authority(),
-                metadata={"vault": vault_name, "session_id": session_id},
-            ):
-                result = await compact_chat_history(
-                    session_id=session_id,
-                    vault_name=vault_name,
-                    vault_path=effective_vault_path,
-                    focus=focus or None,
-                    source=ExecutionTaskSource.TOOL,
-                )
+                store=runtime.chat_store,
+            )
             return json.dumps(result.as_tool_dict(), ensure_ascii=False, sort_keys=True)
 
         return Tool(

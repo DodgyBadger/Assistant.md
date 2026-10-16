@@ -175,8 +175,17 @@
 
         function renderDashboardExecutionTasks() {
             if (!elements.executionTasksStatus) return;
+            const error = state.executionTasksError;
+            const hasLastKnownTasks = activeExecutionTasks().length > 0;
             elements.executionTasksStatus.innerHTML = `
                 ${renderDashboardBadgeStyles()}
+                ${error ? `
+                    <div class="state-surface-error border p-3 mb-3 text-sm" role="status">
+                        ${hasLastKnownTasks
+                            ? 'Unable to refresh task status. Last known task state is shown.'
+                            : 'Unable to load task status.'}
+                    </div>
+                ` : ''}
                 ${renderInFlightTasks()}
             `;
         }
@@ -434,6 +443,7 @@
         function renderInFlightTasks() {
             const tasks = activeExecutionTasks();
             if (!tasks.length) {
+                if (state.executionTasksError) return '';
                 return `
                     <div class="mb-3 rounded-md border border-border-primary bg-app-elevated p-3 text-sm text-txt-secondary">
                         No tasks are currently running.
@@ -525,12 +535,11 @@
         }
 
         function syncExecutionTaskPolling() {
-            const hasActiveExecutionTasks = activeExecutionTasks().length > 0;
-            if (hasActiveExecutionTasks && !state.executionTaskPollTimer) {
+            if (state.dashboardActive && !state.executionTaskPollTimer) {
                 state.executionTaskPollTimer = window.setInterval(() => {
                     callbacks.fetchExecutionTasks({ render: true });
                 }, 2000);
-            } else if (!hasActiveExecutionTasks && state.executionTaskPollTimer) {
+            } else if (!state.dashboardActive && state.executionTaskPollTimer) {
                 window.clearInterval(state.executionTaskPollTimer);
                 state.executionTaskPollTimer = null;
             }

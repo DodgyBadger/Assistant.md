@@ -23,6 +23,7 @@ from core.settings.secrets_store import (
     get_secret_value,
     set_secret_value,
 )
+from core.utils.provider_errors import provider_response_error_details
 
 OPENAI_OAUTH_INTERNAL_SECRETS = frozenset(
     {OPENAI_OAUTH_TOKEN_SECRET, OPENAI_OAUTH_PENDING_SECRET}
@@ -398,8 +399,16 @@ class OpenAIOAuthHTTPTokenAdapter:
         if response.status_code in pending_statuses:
             return None
         if response.status_code < 200 or response.status_code >= 300:
+            private_values = [
+                value
+                for key, value in {**(data or {}), **(json_payload or {})}.items()
+                if "token" in key or "secret" in key or key in {"code", "device_code"}
+            ]
+            details = provider_response_error_details(
+                response.status_code, response.text, redactions=private_values
+            )
             raise OpenAIOAuthStateError(
-                f"OpenAI OAuth token request failed with HTTP {response.status_code}."
+                f"OpenAI OAuth token request failed: {details['error']}"
             )
 
         try:

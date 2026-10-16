@@ -93,10 +93,7 @@
         }
 
         function isChatSelectableModel(model) {
-            const capabilities = Array.isArray(model?.capabilities)
-                ? model.capabilities.map(capability => String(capability || '').trim().toLowerCase())
-                : [];
-            return !capabilities.includes('embedding');
+            return model?.chat_selectable === true;
         }
 
         async function persistSelectedChatMode() {

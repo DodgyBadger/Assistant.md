@@ -7,7 +7,8 @@
   },
   "overrides": {
     "brace-expansion": "2.1.7",
-    "picomatch": "2.3.2"
+    "picomatch": "2.3.2",
+    "postcss-selector-parser": "7.1.6"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.15",

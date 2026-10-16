@@ -1,6 +1,6 @@
 (function chatMessageControlsModule(window, document) {
     function createChatMessageControls({ state, elements, icons, utils, markdown, callbacks }) {
-        function addLoadingMessage() {
+        function addLoadingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';
             messageDiv.id = 'loading-message';
@@ -13,7 +13,9 @@
             </div>`;
 
             messageDiv.appendChild(contentDiv);
-            callbacks.appendMessageNode(messageDiv, { forceScroll: true });
+            callbacks.appendMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
             return messageDiv;
         }
 
@@ -37,10 +39,13 @@
             }`;
 
             const bodyDiv = document.createElement('div');
-            bodyDiv.className = 'message-body';
+            bodyDiv.className = `message-body${role === 'user' ? ' prose prose-sm max-w-none' : ''}`;
 
-            if (role === 'assistant') {
-                markdown.renderHtml(bodyDiv, content);
+            if (role === 'assistant' || role === 'user') {
+                markdown.renderHtml(bodyDiv, content, {
+                    softBreaks: role === 'user',
+                    preserveWhitespace: role === 'user',
+                });
                 markdown.postProcess(bodyDiv);
             } else {
                 const escapedContent = content
@@ -71,7 +76,7 @@
             }
 
             actionsDiv.appendChild(createCopyButton(
-                () => utils.getCopyableText(bodyDiv),
+                () => content,
                 'message-copy-button'
             ));
             const forkButton = role === 'assistant' ? createForkButton(options.sequenceIndex) : null;
@@ -88,7 +93,10 @@
             footerDiv.appendChild(actionsDiv);
             contentDiv.appendChild(footerDiv);
             messageDiv.appendChild(contentDiv);
-            callbacks.appendMessageNode(messageDiv, { forceScroll: true });
+            callbacks.appendMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
+            return messageDiv;
         }
 
         function createCopyButton(getText, extraClass = '') {
@@ -126,17 +134,28 @@
 
             button.addEventListener('click', async (event) => {
                 event.stopPropagation();
-                await forkCurrentSession(sequenceIndex, button);
+                await forkSession({
+                    sessionId: state.sessionId,
+                    sequenceIndex,
+                    button,
+                });
             });
 
             return button;
         }
 
-        async function forkCurrentSession(sequenceIndex, button) {
+        async function forkSession({ sessionId, sequenceIndex, button }) {
             const vault = elements.vaultSelector.value;
-            const sessionId = state.sessionId;
             if (state.isLoading || !vault || !sessionId || !Number.isInteger(sequenceIndex)) {
-                return;
+                return null;
+            }
+            const confirmed = window.confirm(
+                'Fork this conversation here?\n\n' +
+                'The new session will inherit only the compaction state that was valid at this point. ' +
+                'If it inherits a recovery card, you may need to upgrade the fork to Compaction V2 again.'
+            );
+            if (!confirmed) {
+                return null;
             }
 
             const previousDisabled = button.disabled;
@@ -162,10 +181,12 @@
                 state.sessionId = forkSessionId;
                 await callbacks.fetchSessions(vault, forkSessionId);
                 await callbacks.loadSession(forkSessionId);
+                return forkSessionId;
             } catch (error) {
                 console.error('Failed to fork chat session:', error);
                 callbacks.addErrorMessage(`Fork failed: ${error.message}`);
                 button.disabled = previousDisabled;
+                return null;
             }
         }
 
@@ -175,6 +196,7 @@
             addMessage,
             createCopyButton,
             createForkButton,
+            forkSession,
         });
     }
 

@@ -1,8 +1,4 @@
 const {
-    SESSION_SUMMARY_ICON_SVG,
-} = window.AssistantMDIcons;
-
-const {
     truncateText,
     formatShortDate,
 } = window.AssistantMDUtils;
@@ -25,12 +21,11 @@ const state = {
     activeChatTaskId: null,
     activeChatAbortController: null,
     systemStatus: null,
-    sessionSummaryPreviewCache: {},
-    sessionSummaryPreviewInFlight: {},
     vaultActivity: {},
     selectedActivityVault: '',
     dashboardVaultSort: { column: 'name', direction: 'asc' },
     dashboardWorkflowSort: { column: 'id', direction: 'asc' },
+    dashboardActive: false,
     executionTasks: [],
     executionTaskPollTimer: null,
     vaultActivitySort: { column: 'last_run', direction: 'desc' },
@@ -121,6 +116,7 @@ const appShell = window.AppShell.create({
     browserStorage,
     callbacks: {
         refreshStatus: () => fetchSystemStatus(),
+        setDashboardActive,
     },
 });
 
@@ -164,15 +160,10 @@ const {
 
 let sessionControls;
 
-const sessionSummary = window.SessionSummary.create({
-    state,
+const sessionMap = window.SessionMap.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
-    callbacks: {
-        renderSessionSelector: () => sessionControls.renderSelector(),
-        fetchSessions,
-    },
 });
 
 const vaultPathPicker = window.VaultPathPicker.create({
@@ -206,10 +197,10 @@ const fileReferences = window.FileReferences.create({
         closePathPicker: () => vaultPathPicker.close(),
         syncPathPickerLocks: () => vaultPathPicker.syncInteractionLocks(),
         setWorkspace: (path) => workspacePicker.setPath(path),
-        renderMarkdownPreview: (container, content) => chatRendering.renderMarkdownPreview(
+        renderMarkdownPreview: (container, content, referenceContext) => chatRendering.renderMarkdownPreview(
             container,
             content,
-            { softBreaks: true }
+            { softBreaks: true, referenceContext }
         ),
     },
 });
@@ -222,7 +213,7 @@ const editProposals = window.EditProposals.create({
     callbacks: {
         openFile: (path) => fileReferences.openFile(path),
         openPathPicker: (options) => vaultPathPicker.open(options),
-        enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
+        enhanceFileLinks: (container, context) => fileReferences.enhanceFileLinks(container, context),
     },
 });
 
@@ -237,9 +228,7 @@ const deferredReviews = window.DeferredReviews.create({
             state.pendingDeferredReview = null;
             syncChatControlLocks();
         },
-        openFile: (path) => fileReferences.openFile(path, {
-            onBack: () => fileReferences.openExplorer({ revealPath: path }),
-        }),
+        openFile: (path) => fileReferences.openFile(path),
         openPathPicker: (options) => vaultPathPicker.open(options),
     },
 });
@@ -249,12 +238,14 @@ sessionControls = window.SessionControls.create({
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
-    sessionSummary,
+    sessionMap,
     callbacks: {
+        fetchSessions,
         loadSession,
         clearSession,
         clearPendingAttachments,
         renderChatEmptyState,
+        updateCompactionState: status => chatRendering.updateCompactionState(status),
         resetChatModeToDefault,
         syncChatControlLocks,
         updateStatus,
@@ -272,8 +263,12 @@ const chatRendering = window.ChatRendering.create({
         loadSession,
         openWorkspacePicker: () => workspacePicker.openModal(),
         openChatSettings: () => sessionControls.openSessionBrowserModal(),
+        openSessionMap: ({ checkpointId = '' } = {}) => sessionMap.openModalForSession(
+            { session_id: state.sessionId },
+            { checkpointId }
+        ),
         retryLatestFailure: (button) => chatTaskActions.retryLatestFailure(button),
-        enhanceFileLinks: (container) => fileReferences.enhanceFileLinks(container),
+        enhanceFileLinks: (container, context) => fileReferences.enhanceFileLinks(container, context),
         renderEditProposalArtifact: (container, artifactRef, options) => editProposals.renderArtifact(container, artifactRef, options),
     },
 });
@@ -345,12 +340,16 @@ const vaultActivity = window.VaultActivity.create({
             vaultName,
             initialMode: 'history',
             initialRevisionId: snapshotId,
-            onBack: () => fileReferences.openExplorer({ vaultName, revealPath: path }),
         }),
     },
 });
 
 let dashboardView;
+
+function setDashboardActive(active) {
+    state.dashboardActive = Boolean(active);
+    dashboardView?.syncExecutionTaskPolling();
+}
 
 function vaultMutationInteractionLocked() {
     return Boolean(state.isLoading || state.pendingDeferredReview);

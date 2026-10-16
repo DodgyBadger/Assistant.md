@@ -9,6 +9,7 @@ import requests
 from core.ingestion.models import ExtractedDocument, RawDocument
 from core.settings.secrets_store import get_secret_value
 from core.settings.store import get_general_settings
+from core.utils.provider_errors import ProviderRequestError
 
 
 def _setting_bool(settings: Any, key: str, default: bool) -> bool:
@@ -229,11 +230,12 @@ def extract_with_mistral_ocr(
         ),
     )
     if resp.status_code >= 400:
-        error_body = str(resp.text or "").strip()
-        if len(error_body) > 1000:
-            error_body = f"{error_body[:1000]}..."
-        detail = f": {error_body}" if error_body else ""
-        raise RuntimeError(f"OCR request failed ({resp.status_code}){detail}")
+        raise ProviderRequestError(
+            provider="mistral",
+            status_code=resp.status_code,
+            body=resp.text,
+            redactions=(api_key, document_value),
+        )
 
     try:
         body: dict[str, Any] = resp.json()

@@ -5,6 +5,8 @@ Provides centralized access to core services and manages lifecycle
 for scheduler, workflow loader, and related components.
 """
 
+from __future__ import annotations
+
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime

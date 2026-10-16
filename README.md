@@ -9,13 +9,10 @@ Assistant.md is a self-hosted AI agent harness for non-coding knowledge work. It
 
 Mount one or more Markdown vaults when you install Assistant.md, and they become available to the chat agent and automated workflows. At the start of each chat session, choose any folder within a vault as the workspace, giving the agent immediate project context.
 
-> [!IMPORTANT]
->
-> **v0.8.0 is a major agentic upgrade.** Assistant.md can now connect to remote MCP services, run local MCP providers and commands in an optional advanced shell environment, work with Gmail, and securely manage the credentials those capabilities require.
-
 ## Features
 
 - **Agentic work sessions:** Run long-lived, tool-heavy work that continues after you disconnect, with context protection, subagent delegation, goal tracking, and automatic session compaction.
+- **Inspectable session memory:** Search earlier conversations and retrieve original messages after compaction. Optional Compaction v2 preserves structured, source-linked session maps with inspectable revisions.
 - **Project-aware workspaces:** Scope a chat to any vault folder and provide project-specific guidance through familiar Markdown files such as `README.md` and `playbook.md`.
 - **Vault explorer:** Browse, preview, edit, upload, import, move, organize, and search files in your vault.
 - **MCP tools:** Connect to remote Streamable HTTP or SSE servers with lazy tool discovery that keeps the context window lean.
@@ -57,7 +54,7 @@ Assistant.md is useful with its default setup, but its behavior is deliberately 
 
 ## Roadmap
 
-Future work is focused on UI enhancements, stronger research and retrieval, richer session memory and interactive chat, broader file and multimodal support, more efficient automation, and carefully scoped household or team use.
+Future work is focused on UI enhancements, stronger research and retrieval, more connected memory across conversations and vaults, richer interactive chat, broader file and multimodal support, more efficient automation, and carefully scoped household or team use.
 
 ## License
 

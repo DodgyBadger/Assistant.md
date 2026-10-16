@@ -28,7 +28,6 @@ def export_chat_transcript(
     vault_path: str,
     vault_name: str,
     session_id: str,
-    session_summary: str | None = None,
 ) -> ExportedTranscript:
     """Write one markdown transcript for a persisted session, overwriting any prior export."""
     session = store.get_session(session_id=session_id, vault_name=vault_name)
@@ -45,7 +44,7 @@ def export_chat_transcript(
 
     messages = store.get_stored_messages(session_id=session_id, vault_name=vault_name)
     lines = [
-        *_build_frontmatter(session=session, session_summary=session_summary),
+        *_build_frontmatter(session=session),
         f"Chat Session: {_build_session_export_stem(session)}",
         "",
     ]
@@ -115,21 +114,13 @@ def _extract_transcript_role_and_text(message: StoredChatMessage) -> tuple[str, 
     return "", ""
 
 
-def _build_frontmatter(
-    *, session: StoredChatSession, session_summary: str | None
-) -> list[str]:
+def _build_frontmatter(*, session: StoredChatSession) -> list[str]:
     title = (session.title or "").strip()
-    summary = (session_summary or "").strip()
-    if not title and not summary:
+    if not title:
         return []
 
     lines = ["---"]
-    if title:
-        lines.append(f"title: {json.dumps(title)}")
-    if summary:
-        lines.append("session_summary: |-")
-        for line in summary.splitlines():
-            lines.append(f"  {line}" if line else "  ")
+    lines.append(f"title: {json.dumps(title)}")
     lines.extend(["---", ""])
     return lines
 

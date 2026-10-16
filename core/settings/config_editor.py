@@ -21,6 +21,7 @@ from core.settings.store import (
     refresh_settings_cache,
     save_settings,
 )
+from core.settings.upgrades import RETIRED_SETTINGS
 
 from . import SettingsError, refresh_configuration_status_cache
 
@@ -33,30 +34,48 @@ def _persist_changes(settings_file: SettingsFile) -> None:
 
 
 def list_general_settings() -> dict[str, SettingsEntry]:
-    """Return general settings entries."""
+    """Return configured values with current product-owned metadata."""
     settings_file = load_settings()
-    merged = dict(_template_general_settings())
-    merged.update(settings_file.settings)
-    return merged
+    template_settings = _template_general_settings()
+    merged = dict(settings_file.settings)
+    for name, template_entry in template_settings.items():
+        configured_entry = settings_file.settings.get(name)
+        merged[name] = template_entry.model_copy(
+            update={
+                "value": (
+                    configured_entry.value
+                    if configured_entry is not None
+                    else template_entry.value
+                )
+            }
+        )
+    return {
+        name: entry for name, entry in merged.items() if name not in RETIRED_SETTINGS
+    }
 
 
 def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     """Update a general setting value while preserving metadata and types."""
     settings_file = load_settings()
+    if name in RETIRED_SETTINGS:
+        raise SettingsError(f"Setting '{name}' does not exist.")
     entry = settings_file.settings.get(name)
-
+    template_entry = _template_general_settings().get(name)
     if entry is None:
-        entry = _template_general_settings().get(name)
+        entry = template_entry
     if entry is None:
         raise SettingsError(f"Setting '{name}' does not exist.")
 
     coerced_value = _coerce_setting_value(raw_value, entry.value)
+    if name == "compaction_strategy":
+        coerced_value = _normalize_compaction_strategy(coerced_value)
     _validate_general_setting_value(name, coerced_value, settings_file)
+    metadata_entry = template_entry or entry
     settings_file.settings[name] = SettingsEntry(
         value=coerced_value,
-        description=entry.description,
-        category=entry.category,
-        restart_required=entry.restart_required,
+        description=metadata_entry.description,
+        category=metadata_entry.category,
+        restart_required=metadata_entry.restart_required,
     )
 
     _persist_changes(settings_file)
@@ -85,6 +104,10 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
         )
+    if name == "compaction_retained_turns" and not (
+        isinstance(value, int) and 1 <= value <= 100
+    ):
+        raise SettingsError("Compaction retained turns must be between 1 and 100.")
 
     delay_names = {
         "model_stream_retry_base_delay_seconds",
@@ -109,6 +132,16 @@ def _validate_general_setting_value(
         raise SettingsError(
             "Model stream retry base delay must not exceed the maximum delay."
         )
+
+
+def _normalize_compaction_strategy(value: Any) -> str:
+    """Normalize the retired stepped-map name into the checkpoint vocabulary."""
+    normalized = str(value).strip().lower()
+    if normalized == "stepped_session_map":
+        return "session_map"
+    if normalized not in {"recovery_card", "session_map"}:
+        raise SettingsError("Compaction strategy must be recovery_card or session_map.")
+    return normalized
 
 
 def _template_general_settings() -> dict[str, SettingsEntry]:
@@ -202,7 +235,6 @@ def upsert_model_mapping(
     provider: str,
     model_string: str,
     capabilities: list[str] | None = None,
-    dimensions: int | None = None,
     description: str | None = None,
 ) -> ModelConfig:
     """
@@ -213,7 +245,6 @@ def upsert_model_mapping(
         provider: Provider name the model depends on
         model_string: Provider-specific model identifier
         capabilities: Optional model capability list
-        dimensions: Optional embedding vector dimensions
         description: Optional human-readable description
 
     Returns:
@@ -232,6 +263,11 @@ def upsert_model_mapping(
     if provider not in settings_file.providers:
         raise SettingsError(f"Provider '{provider}' is not defined in settings.yaml.")
 
+    if capabilities and any(
+        str(cap).strip().lower() == "embedding" for cap in capabilities
+    ):
+        raise SettingsError("Embedding models are not supported.")
+
     user_editable = getattr(existing, "user_editable", True) if existing else True
     resolved_capabilities = (
         capabilities
@@ -243,11 +279,6 @@ def upsert_model_mapping(
         provider=provider,
         model_string=model_string,
         capabilities=resolved_capabilities,
-        dimensions=(
-            dimensions
-            if dimensions is not None
-            else getattr(existing, "dimensions", None)
-        ),
         description=description,
         user_editable=user_editable,
     )

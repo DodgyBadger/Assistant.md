@@ -38,7 +38,17 @@ The web UI calls the same API and runtime services used by programmatic clients.
 
 `main.py` resolves data and system roots before importing path-sensitive modules, constructs infrastructure configuration, and creates the FastAPI application. The application lifespan calls `core/runtime/bootstrap.py`, which migrates and opens managed state, validates configuration, builds shared services, synchronizes scheduled work, and publishes one process-wide `RuntimeContext` composition root. Mutable request or task identity is context-local and is never stored globally in that runtime object.
 
-Interactive chat enters through `core/chat/`. A session has an immutable owner and workspace. A process-local execution task owns the model stream, tool-call state, cancellation, buffered event replay, and safe recovery checkpoints. Each chat event stream also retains a compact process-local projection of its current response, reasoning, safe tool state, review state, and terminal state; reconnecting browsers hydrate that projection once and resume SSE strictly after its atomic event cursor, while persisted session history remains authoritative after completion. Model-stream liveness is measured between semantic Pydantic AI events rather than raw connection traffic; the idle deadline resets on model progress and is suspended while an observed tool call is running. Agent construction resolves the selected model, context instructions, effective tools, connections, limits, and output handling for the captured execution authority. Deferred inline-edit review resumes through the same task-owned execution path.
+Interactive chat enters through `core/chat/`. A session has an immutable owner and workspace. A process-local execution task owns the model stream, tool-call state, cancellation, buffered event replay, and safe recovery checkpoints. Each chat event stream also retains a compact process-local projection of its current response, reasoning, safe tool state, review state, and terminal state; reconnecting browsers hydrate that projection once and resume SSE strictly after its atomic event cursor, while persisted session history remains authoritative after completion. Model-stream liveness is measured between semantic Pydantic AI events rather than raw connection traffic; the idle deadline resets on model progress and is suspended while an observed tool call is running. Agent construction resolves the selected model, context instructions, effective tools, connections, limits, and output handling for the captured execution authority. Deferred inline-edit review resumes through the same task-owned execution path. Cancelled or failed review resumes atomically settle their review status and append interrupted replies for that review's still-unanswered stored calls; these replies record the absence of a durable result without claiming successful execution or replaying the tool. New prompts are blocked while a review is pending or resuming.
+
+A session fork is an independently owned physical copy of canonical messages through one assistant response. Applicable compaction checkpoints and structured tool events cross the branch with child-owned identities, while lineage metadata records the immediate parent and original root. A checkpoint crosses only when its author observed no message after the branch point.
+
+Response completion does not end every chat-task responsibility. The assistant answer is committed and its stream can finish before automatic post-turn compaction settles. The browser finalizes the visible answer independently, then observes task completion to refresh effective-context pressure without keeping chat controls locked or cancelling the task. Stale observations and responses cannot update another session or a newer turn's indicator.
+
+Chat storage separates canonical history from the effective history sent to a model. Canonical user, assistant, and tool messages remain intact and searchable. A compaction checkpoint supplies a derived replacement for an older canonical prefix. The recovery-card strategy produces an unstructured continuity summary and preserves the configured newest-turn floor. The session-map strategy produces a structured, provenance-linked map and evicts complete older conversational groups toward a configurable low watermark; the retained-turn setting does not control V2. An incomplete active turn remains verbatim and can leave effective history above the token target.
+
+The installation setting chooses a strategy only for sessions that do not yet have a compaction checkpoint. The first successful reduction pins that session to its strategy so later settings changes cannot silently reinterpret its history. An explicit per-session upgrade may replace a safe recovery-card boundary with a session map; there is no automatic downgrade or bulk conversion. Sessions below the high watermark can therefore remain on canonical history alone and need not have a map. Recovery cards and session maps share an optional compaction-author model, which falls back to the default chat model when no separate alias is configured. A session map is a bounded, sparse whole-map replacement: typed entries distinguish current state, supersession, and evidentiary basis, while one concise trajectory preserves causal orientation. Every authored claim cites admitted canonical message ranges, but those references are evidence routes rather than an exhaustive index of the conversation.
+
+Compaction is lossy context shaping rather than deletion. The `session_ops` transcript search and bounded-window operations retrieve canonical history when an agent needs wording, provenance, or detail absent from effective context. Session-map references identify canonical message evidence and are inspectable in the session-map UI, but they are not an exhaustive evidence index.
 
 Ordinary browser-facing tool lists and lifecycle events expose only tool identity, lifecycle state, and estimated result size. Persisted tool arguments and results cross into the browser through the authenticated per-call detail endpoint after an explicit user request; those responses are non-cacheable and the UI clears its detail references when the modal closes. Deferred-review cards are the deliberate exception: they receive proposed tool arguments because the user must inspect and may edit them before approving execution.
 
@@ -95,10 +105,10 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 | Authoring catalog | Managed and project-local Markdown definitions | vaults beneath the data root |
 | Installation settings | Deployment-wide typed configuration | system root and restart-bound environment |
 | Encrypted credentials, OAuth state, MCP and native connections | Separate principal-owned domain tables sharing atomic mutations | `access.db`; credentials use the external installation key |
-| Chats and messages | Principal-owned canonical conversation state | chat subsystem databases |
+| Chats, messages, checkpoints, and fork lineage | Principal-owned canonical conversation state | chat subsystem databases |
 | Workflow outcomes | Principal-owned durable domain history | workflow-run database |
 | Vault activity and recovery | Attributed activities, revisions, and snapshots | vault-state databases and snapshot storage |
-| Session summaries | Rebuildable derived memory indexes | memory subsystem state |
+| Session discovery indexes | Rebuildable lexical projections of canonical metadata, transcript text, and map checkpoints | chat database; memory-layer discovery service |
 | Goals | Lightweight durable state with provenance | goals subsystem state |
 | Active execution coordination | Task owner, parent-child links, progress, bounded results, waits, cancellation, and checkpoints | bounded process memory |
 | Advanced-shell files | Deployment shell user; agent-accessible | Docker home and workspace volumes |
@@ -116,7 +126,7 @@ Web retrieval exposes stable model-facing capabilities while provider strategies
 
 Multimodal input is admitted only when both product policy and the selected model support it. Image markers and attachment references are normalized before model requests; chunking and buffering keep large payloads out of ordinary text context.
 
-Session summaries are derived memory, not canonical chat history. Goals are a small durable coordination ledger, not a second workflow or task system.
+Session discovery combines bounded lexical evidence from authorized titles/workspaces, map checkpoints, and canonical transcripts. It works for sessions without maps and for recent turns after a checkpoint, without embedding credentials, background summarization, or inference. Historical maps are candidate orientation, not canonical truth. Goals are a small durable coordination ledger, not a second workflow or task system.
 
 ## Where new work belongs
 
@@ -136,6 +146,7 @@ Most features have one domain owner and several integration surfaces. Put policy
 | Vault mutation | `core/vault_state/` | Domain service requesting the change, activity, revisions, snapshots, and UI/API adapters |
 | Ingress authentication | `core/authentication/` | FastAPI application boundary, browser session endpoints, and deployment settings |
 | Advanced execution | `core/advanced_shell/` | Shell tool, stdio MCP adapter, SSH wrapper, Docker image, and Compose topology |
+| Chat compaction and in-session continuity | `core/chat/` orchestration with `core/memory/session_map/` for map authoring and checkpoint contracts | Chat storage, execution tasks, `session_ops` canonical retrieval, settings, API, and session-map UI |
 | Persistent subsystem state | Subsystem that owns the records | `core/database.py`, subsystem schema migration, recovery, and validation |
 | API or UI presentation | Core service for the represented domain | Thin `api/` orchestration followed by `static/` presentation |
 
@@ -147,8 +158,8 @@ ADRs under [`docs/development/adr/`](adr/) are append-oriented records of durabl
 
 Start with these groups when investigating a boundary:
 
-- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, and 0047;
-- vaults, ingestion, memory, and goals: ADRs 0005–0006, 0011–0018, 0024–0025, and 0029–0030;
+- runtime, tasks, chat, and workflows: ADRs 0001–0004, 0014, 0019–0020, 0026, 0028, 0031–0033, 0047, and 0049–0050;
+- vaults, ingestion, memory, and goals: ADRs 0005, 0011–0018, 0024–0025, 0029–0030, and 0051;
 - tools, models, and external capabilities: ADRs 0007–0010, 0021–0023, 0027, 0035, 0037, 0039, 0042, and 0045;
 - identity, storage, connections, and OAuth: ADRs 0015, 0028, and 0034–0041;
 - deployment and advanced execution security: ADRs 0036 and 0042–0044.

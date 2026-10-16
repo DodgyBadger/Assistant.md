@@ -31,11 +31,18 @@
 - Confirm the final handoff explains:
   what changed, what was verified, and what still needs maintainer action.
 
+## ADR Scope
+
+ADRs record durable decisions and why they were chosen; they are not architecture documents or implementation specifications. Keep them focused on the problem, the chosen direction, meaningful alternatives and trade-offs. Include only the boundaries or constraints needed to explain the decision; link to current architecture, tool contracts or implementation evidence for mechanics rather than repeating them.
+
+Underlying wiring, module decomposition and small design choices may change without an ADR update when the larger decision, rationale and essential boundaries remain intact. Update or supersede a record when those change, not merely because code has moved or implementation details have evolved. Ask: would this change make the recorded decision or its justification misleading? If not, update the appropriate current-contract documentation instead.
+
 ## Common Mistakes
 - Leaving behind session-only helpers or debug instrumentation.
 - Updating implementation without updating docs or examples.
 - Treating every plan change as an ADR candidate; ADRs should capture durable
   decisions that survived the work.
+- Turning ADRs into architecture inventories or freezing incidental implementation details as permanent decisions.
 - Accidentally committing secrets or local runtime-state artifacts.
 - Writing release notes from memory instead of the implementation plan and issue history.
 - Reaching merge readiness without running the deterministic pre-merge profile or documenting an external blocker.

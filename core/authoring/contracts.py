@@ -15,7 +15,6 @@ BUILTIN_CAPABILITY_NAMES: frozenset[str] = frozenset(
     {
         "read_cache",
         "pending_files",
-        "retrieve_sessions",
         "retrieve_history",
         "assemble_context",
         "parse_markdown",

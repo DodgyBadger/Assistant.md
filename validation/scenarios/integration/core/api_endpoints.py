@@ -824,59 +824,6 @@ class ApiEndpointsScenario(BaseScenario):
         ), "Chat task completes"
         session_id = chat_first["session_id"]
 
-        from core.memory.session_summary import SessionSummaryStore
-
-        summary_store = SessionSummaryStore(
-            system_root=str(self._get_system_controller()._system_root)
-        )
-        summary_store.upsert_session_summary(
-            vault_name=vault.name,
-            session_id=session_id,
-            summary="Original session summary.",
-            domain="integration testing",
-            work_product="api validation",
-            user_intent="verify session summary preview",
-            named_entities="IntegrationApiVault",
-            source_summary="No external sources.",
-            metadata={"source": "api_endpoint_validation"},
-        )
-
-        memory_preview = self.call_api(
-            f"/api/chat/sessions/{session_id}/summary?vault_name={vault.name}"
-        )
-        assert (
-            memory_preview.status_code == 200
-        ), "Session summary preview endpoint succeeds"
-        assert (
-            memory_preview.json().get("summary") == "Original session summary."
-        ), "Session summary preview returns summary"
-        assert (
-            memory_preview.json().get("vector_index", {}).get("expected_fields") == 4
-        ), "Session summary preview exposes expected vector index coverage"
-
-        memory_update = self.call_api(
-            f"/api/chat/sessions/{session_id}/summary?vault_name={vault.name}",
-            method="PUT",
-            data={
-                "summary": "Edited session summary.",
-                "domain": "integration testing",
-                "work_product": "manual session summary editing",
-                "user_intent": "verify session summary editing",
-                "named_entities": "IntegrationApiVault",
-                "source_summary": "No external sources.",
-                "metadata": {"source": "manual_api_edit"},
-            },
-        )
-        assert (
-            memory_update.status_code == 200
-        ), "Session summary update endpoint succeeds"
-        assert (
-            memory_update.json().get("summary") == "Edited session summary."
-        ), "Session summary update replaces summary"
-        assert (
-            memory_update.json().get("vector_index", {}).get("indexed_fields") == 4
-        ), "Session summary update returns refreshed vector index coverage"
-
         title_update = self.call_api(
             f"/api/chat/sessions/{session_id}/title",
             method="PATCH",
@@ -896,21 +843,6 @@ class ApiEndpointsScenario(BaseScenario):
         assert (
             'title: "Exported Session"' in exported_markdown
         ), "Export frontmatter includes the user session title"
-        assert (
-            "session_summary: |-\n  Edited session summary." in exported_markdown
-        ), "Export frontmatter includes the session summary"
-
-        memory_delete = self.call_api(
-            f"/api/chat/sessions/{session_id}/summary?vault_name={vault.name}",
-            method="DELETE",
-        )
-        assert (
-            memory_delete.status_code == 200
-        ), "Session summary delete endpoint succeeds"
-        assert (
-            memory_delete.json().get("deleted") is True
-        ), "Session summary delete reports deletion"
-
         chat_second = await self.run_chat_task(
             {
                 **chat_payload,

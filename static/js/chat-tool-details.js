@@ -61,10 +61,13 @@
                 updateToolDetail(entry);
             }
 
-            function openToolCallDetails(entry) {
+            function openToolCallDetails(entry, options = {}) {
                 if (!entry) return;
-                closeToolCallDetails();
+                closeToolCallDetails({ restoreFocus: false });
                 activeToolDetailEntry = entry;
+                entry.detailBackAction = typeof options.onBack === 'function' ? options.onBack : null;
+                entry.detailBackLabel = String(options.backLabel || 'Session map');
+                entry.detailReturnFocus = options.returnFocusTarget || document.activeElement;
                 entry.modalAbortController = new AbortController();
 
                 const overlay = document.createElement('div');
@@ -72,13 +75,18 @@
                 overlay.className = 'app-modal-overlay fixed inset-0 z-50 flex bg-black/40';
                 overlay.innerHTML = `
                     <div class="absolute inset-0" data-tool-call-close="true"></div>
-                    <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="chat-tool-call-modal-title">
+                    <section class="app-modal-panel relative overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="chat-tool-call-modal-title" tabindex="-1" data-tool-call-dialog>
                         <div class="app-modal-header sticky top-0">
                             <div class="app-modal-title-block">
                                 <h2 id="chat-tool-call-modal-title" class="text-lg font-semibold text-txt-primary">${utils.escapeHtml(entry.toolName || 'Tool call')}</h2>
                                 <p class="mt-1 text-xs text-txt-secondary cell-mono">${utils.escapeHtml(entry.toolId || '')}</p>
                             </div>
                             <div class="app-modal-actions">
+                                ${entry.detailBackAction ? `
+                                    <button type="button" class="app-modal-back-button" data-tool-call-back="true" aria-label="Back to ${utils.escapeHtml(entry.detailBackLabel)}" title="Back to ${utils.escapeHtml(entry.detailBackLabel)}">
+                                        ${icons.ARROW_LEFT_ICON_SVG}
+                                    </button>
+                                ` : ''}
                                 <button type="button" class="ui-icon-button is-compact" data-tool-call-close="true" aria-label="Close" title="Close">
                                     ${icons.X_ICON_SVG}
                                 </button>
@@ -90,12 +98,19 @@
                 overlay.addEventListener('click', (event) => {
                     const target = event.target;
                     if (!(target instanceof Element)) return;
+                    if (target.closest('[data-tool-call-back="true"]')) {
+                        const backAction = entry.detailBackAction;
+                        closeToolCallDetails({ restoreFocus: false });
+                        backAction?.();
+                        return;
+                    }
                     if (target.closest('[data-tool-call-close="true"]')) {
                         closeToolCallDetails();
                     }
                 });
                 document.addEventListener('keydown', handleToolCallModalKeydown);
                 document.body.appendChild(overlay);
+                overlay.querySelector('[data-tool-call-dialog]')?.focus();
                 refreshToolCallDetails(entry);
                 if (entry.persisted) {
                     void loadToolCallDetail(entry);
@@ -104,7 +119,7 @@
 
             async function loadToolCallDetail(entry, options = {}) {
                 const vault = elements.vaultSelector?.value || '';
-                const sessionId = state.sessionId || '';
+                const sessionId = entry.sessionId || state.sessionId || '';
                 if (
                     !entry
                     || !entry.persisted
@@ -123,8 +138,11 @@
                 entry.detailError = '';
                 refreshToolCallDetails(entry);
                 try {
+                    const checkpointQuery = entry.checkpointId
+                        ? `&checkpoint_id=${encodeURIComponent(entry.checkpointId)}`
+                        : '';
                     const response = await fetch(
-                        `api/chat/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(entry.toolId)}?vault_name=${encodeURIComponent(vault)}`,
+                        `api/chat/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(entry.toolId)}?vault_name=${encodeURIComponent(vault)}${checkpointQuery}`,
                         { cache: 'no-store', signal: abortController.signal }
                     );
                     if (!response.ok) {
@@ -174,7 +192,7 @@
                     { label: 'Tool call ID', value: entry.toolId || '' },
                     { label: 'Status', value: callbacks.toolStateLabel(entry) },
                     { label: 'Elapsed', value: callbacks.formatToolElapsed(entry), elapsed: true },
-                    { label: 'Context', value: 'Retained in active chat context.' }
+                    { label: 'Context', value: entry.contextLabel || 'Retained in active chat context.' }
                 ];
                 if (!isEmptyToolValue(entry.detailArgs)) {
                     sections.push({ label: 'Args', value: entry.detailArgs, kind: 'args' });
@@ -224,8 +242,9 @@
                 }
             }
 
-            function closeToolCallDetails() {
+            function closeToolCallDetails({ restoreFocus = true } = {}) {
                 const entry = activeToolDetailEntry;
+                const returnFocusTarget = entry?.detailReturnFocus;
                 activeToolDetailEntry = null;
                 const modal = document.getElementById('chat-tool-call-modal');
                 if (modal) {
@@ -233,6 +252,7 @@
                 }
                 clearToolCallDetail(entry);
                 document.removeEventListener('keydown', handleToolCallModalKeydown);
+                if (restoreFocus && returnFocusTarget?.isConnected) returnFocusTarget.focus();
             }
 
             function getActiveToolDetailId() {
@@ -256,10 +276,51 @@
                 entry.detailLoaded = false;
                 entry.detailLoading = false;
                 entry.detailError = '';
+                entry.detailBackAction = null;
+                entry.detailBackLabel = '';
+                entry.detailReturnFocus = null;
+            }
+
+            function openPersistedToolCallDetails(options = {}) {
+                const now = Date.now();
+                const entry = {
+                    container: document.createElement('button'),
+                    line: document.createElement('span'),
+                    stateIcon: document.createElement('span'),
+                    toolId: String(options.toolId || ''),
+                    toolName: String(options.toolName || 'Tool call'),
+                    tokenCount: normalizeToolTokenCount(options.tokenCount),
+                    persisted: true,
+                    detailUnavailable: false,
+                    detailArgs: null,
+                    detailResult: null,
+                    detailMetadata: {},
+                    detailArtifactRef: '',
+                    detailVault: '',
+                    detailSessionId: '',
+                    detailEvents: [],
+                    state: options.state || 'interrupted',
+                    startedAt: now,
+                    finishedAt: now,
+                    detailLoaded: false,
+                    detailLoading: false,
+                    detailError: '',
+                    detailRequestId: 0,
+                    detailAbortController: null,
+                    modalAbortController: null,
+                    checkpointId: String(options.checkpointId || ''),
+                    sessionId: String(options.sessionId || ''),
+                    contextLabel: String(options.contextLabel || ''),
+                    detailBackAction: null,
+                    detailBackLabel: '',
+                };
+                openToolCallDetails(entry, options);
             }
 
             function handleToolCallModalKeydown(event) {
                 if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
                     closeToolCallDetails();
                 }
             }
@@ -391,6 +452,7 @@
             load: loadToolCallDetail,
             normalizeTokenCount: normalizeToolTokenCount,
             open: openToolCallDetails,
+            openPersisted: openPersistedToolCallDetails,
             refresh: refreshToolCallDetails,
             setEntryTokenCount: setToolEntryTokenCount,
             updateEntry: updateToolDetail,

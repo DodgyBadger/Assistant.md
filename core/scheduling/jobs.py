@@ -13,6 +13,7 @@ from core.scheduling.system_jobs import SYSTEM_JOB_IDS
 logger = UnifiedLogger(tag="scheduler-jobs")
 
 RESERVED_JOB_IDS = SYSTEM_JOB_IDS
+WORKFLOW_MISFIRE_GRACE_SECONDS = 60
 
 
 def _get_job_snapshot(scheduler: Any, job_id: str) -> dict[str, Any]:
@@ -85,6 +86,7 @@ def _log_scheduler_change(message: str, record: dict[str, Any]) -> None:
         message,
         data={
             "event": f"workflow_job_{record['action']}",
+            "status": "completed",
             **record,
         },
     )
@@ -129,7 +131,7 @@ async def setup_scheduler_jobs(
     Set up or update scheduler jobs based on vault workflow configuration.
 
     Uses intelligent job synchronization to preserve timing state when possible:
-    - If schedule/workflow unchanged: modify job args only (preserves timing)
+    - If schedule/workflow unchanged: refresh metadata and admission policy (preserves timing)
     - If schedule/workflow changed: replace job completely (resets timing)
     - For new workflows: create new jobs
 
@@ -209,6 +211,7 @@ async def setup_scheduler_jobs(
                         args=[job_args],
                         id=workflow.scheduler_job_id,
                         name=job_name,
+                        misfire_grace_time=WORKFLOW_MISFIRE_GRACE_SECONDS,
                     )
 
                     record = _workflow_schedule_record(
@@ -231,7 +234,10 @@ async def setup_scheduler_jobs(
                     job_name = f"Workflow: {workflow.global_id}"
 
                     scheduler.modify_job(
-                        job_id=workflow.scheduler_job_id, args=[job_args], name=job_name
+                        job_id=workflow.scheduler_job_id,
+                        args=[job_args],
+                        name=job_name,
+                        misfire_grace_time=WORKFLOW_MISFIRE_GRACE_SECONDS,
                     )
 
                     record = _workflow_schedule_record(
@@ -257,6 +263,7 @@ async def setup_scheduler_jobs(
                     args=[job_args],
                     id=workflow.scheduler_job_id,
                     name=job_name,
+                    misfire_grace_time=WORKFLOW_MISFIRE_GRACE_SECONDS,
                 )
 
                 record = _workflow_schedule_record(
@@ -289,6 +296,7 @@ async def setup_scheduler_jobs(
                 "Removed job for disabled workflow",
                 data={
                     "event": "workflow_job_removed",
+                    "status": "completed",
                     "job_id": job_id,
                     "job_name": snapshot.get("job_name"),
                     "workflow_id": workflow_id,
@@ -302,6 +310,7 @@ async def setup_scheduler_jobs(
     if scheduler is not None:
         summary_data = {
             "event": "workflow_scheduler_sync_completed",
+            "status": "completed",
             "manual_reload": manual_reload,
             "vaults_discovered": vaults_discovered,
             "workflows_loaded": workflows_loaded,

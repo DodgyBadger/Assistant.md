@@ -31,8 +31,7 @@ that needs prior conversation context.
 
 - Context scripts should use `retrieve_history(...)` and
   `assemble_context(...)`.
-- Session summarization uses the broker when deriving summaries from source
-  conversation history.
+- Session discovery uses authorized canonical evidence through the focused retrieval service; context assembly uses the broker's effective-history contract.
 - Compacted sessions can expose effective replay history without every caller
   knowing checkpoint details.
 - Lower-level raw access remains an internal service concern.

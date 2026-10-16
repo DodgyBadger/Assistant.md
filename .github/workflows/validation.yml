@@ -36,7 +36,9 @@ jobs:
         run: npm ci
 
       - name: Audit npm dependencies (high+)
-        run: npm audit --audit-level=high
+        run: |
+          node --test validation/test_npm_audit_policy.cjs
+          node scripts/audit-npm.cjs
 
       - name: Set up Python
         uses: actions/setup-python@v5

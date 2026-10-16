@@ -64,6 +64,7 @@
                 updateToolCallsSummary,
                 finalizeAssistantMessage,
                 retryLatestFailure: callbacks.retryLatestFailure,
+                openSessionMap: callbacks.openSessionMap,
             },
         });
 
@@ -137,7 +138,7 @@
 
         // Loading indicator helpers
 
-        function createAssistantStreamingMessage() {
+        function createAssistantStreamingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';
 
@@ -173,7 +174,9 @@
             contentDiv.appendChild(artifactList);
             messageDiv.appendChild(contentDiv);
 
-            appendChatMessageNode(messageDiv, { forceScroll: true });
+            appendChatMessageNode(messageDiv, {
+                forceScroll: options.forceScroll !== false
+            });
 
             return {
                 messageDiv,
@@ -294,7 +297,7 @@
         }
 
         function renderAssistantMarkdown(context, options = {}) {
-            const { finalize = false } = options;
+            const { finalize = false, forceScroll = true } = options;
             renderAssistantThinking(context);
             markdown.renderHtml(context.bodyDiv, context.fullText);
             if (finalize) {
@@ -302,7 +305,9 @@
             } else {
                 markdown.schedulePostProcess(context);
             }
-            callbacks.scrollChatToBottom();
+            if (forceScroll) {
+                callbacks.scrollChatToBottom();
+            }
         }
 
 
@@ -505,7 +510,7 @@
             return entry;
         }
 
-        function finalizeAssistantMessage(context, metadata) {
+        function finalizeAssistantMessage(context, metadata = {}) {
             stopToolElapsedTimer(context);
             context.toolStatusMap.forEach((entry) => {
                 if (entry.state === 'running') {
@@ -513,7 +518,10 @@
                 }
             });
             updateToolCallsSummary(context);
-            renderAssistantMarkdown(context, { finalize: true });
+            renderAssistantMarkdown(context, {
+                finalize: true,
+                forceScroll: metadata.forceScroll !== false
+            });
 
             const hasError = context.errorMessages.length > 0;
             const endedEarly = metadata.status && metadata.status !== 'done' && !hasError;
@@ -550,7 +558,7 @@
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-footer-actions';
 
-            const copyButton = messageControls.createCopyButton(() => utils.getCopyableText(context.bodyDiv), 'message-copy-button');
+            const copyButton = messageControls.createCopyButton(() => context.fullText, 'message-copy-button');
             actionsDiv.appendChild(copyButton);
             const forkButton = messageControls.createForkButton(context.sequenceIndex);
             if (forkButton) {
@@ -565,7 +573,9 @@
             footerDiv.appendChild(actionsDiv);
             context.contentDiv.appendChild(footerDiv);
 
-            callbacks.scrollChatToBottom();
+            if (metadata.forceScroll !== false) {
+                callbacks.scrollChatToBottom();
+            }
         }
 
         function reconcileToolCallPersistence(context, toolCalls) {
@@ -612,6 +622,7 @@
             refreshEmptyState,
             addErrorMessage: addChatErrorMessage,
             renderPersistedSession: historyRendering.renderSession,
+            updateCompactionState: historyRendering.updateCompactionState,
             addMessage: messageControls.addMessage,
             addLoadingMessage: messageControls.addLoadingMessage,
             removeLoadingMessage: messageControls.removeLoadingMessage,
@@ -627,6 +638,8 @@
             renderMarkdownPreview: markdown.renderPreview,
             closeToolCallDetails: toolDetails.close,
             getActiveToolDetailId: toolDetails.getActiveId,
+            openPersistedToolCallDetails: toolDetails.openPersisted,
+            forkSession: messageControls.forkSession,
         });
     }
 

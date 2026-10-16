@@ -1,8 +1,16 @@
 (function chatHistoryRenderingModule(window, document) {
     function createChatHistoryRendering({ state, elements, icons, toolDetails, messageControls, callbacks }) {
         const persistedToolEntriesById = new Map();
+        let timelineSessionId = '';
+        let timelineOlderCursor = null;
+        let timelineHasOlder = false;
+        let timelineBoundary = null;
+        let timelineCheckpointId = '';
+        let timelineLoading = false;
+        let timelineGeneration = 0;
 
         function renderPersistedSession(payload, options = {}) {
+            resetTimelineState();
             toolDetails.close();
             persistedToolEntriesById.clear();
             elements.chatMessages.innerHTML = '';
@@ -10,6 +18,74 @@
             const messages = Array.isArray(payload?.messages) ? payload.messages : [];
             const toolCallsById = groupToolCallsById(payload?.tool_calls);
             const pendingToolCallIds = new Set();
+            const pendingAssistantText = [];
+            const pendingAssistantThinking = [];
+            let pendingStart = null;
+            let pendingEnd = null;
+
+            function trackPendingRange(message) {
+                if (!Number.isInteger(message.sequence_index)) return;
+                pendingStart ??= message.sequence_index;
+                pendingEnd = message.sequence_index;
+            }
+
+            function collectAssistantContent(message) {
+                trackPendingRange(message);
+                const content = String(message?.content || '').trim();
+                const thinking = String(message?.thinking_content || '').trim();
+                if (content) pendingAssistantText.push(content);
+                if (thinking) pendingAssistantThinking.push(thinking);
+            }
+
+            function flushAssistantTurn(sequenceIndex = null) {
+                const toolCalls = toolCallsForIds(toolCallsById, pendingToolCallIds);
+                if (
+                    pendingAssistantText.length === 0
+                    && pendingAssistantThinking.length === 0
+                    && (
+                        toolCalls.length === 0
+                        || !Number.isInteger(sequenceIndex)
+                    )
+                ) {
+                    pendingToolCallIds.clear();
+                    pendingStart = pendingEnd = null;
+                    return;
+                }
+                const node = renderPersistedAssistantMessage(
+                    pendingAssistantText.join('\n\n'),
+                    toolCalls,
+                    {
+                        sequenceIndex,
+                        thinkingText: pendingAssistantThinking.join('\n\n')
+                    }
+                );
+                markCanonicalRange(node, pendingStart, pendingEnd);
+                pendingAssistantText.length = 0;
+                pendingAssistantThinking.length = 0;
+                pendingToolCallIds.clear();
+                pendingStart = pendingEnd = null;
+            }
+
+            if (payload?.context_checkpoint_kind === 'session_map') {
+                timelineSessionId = String(payload.session_id || state.sessionId || '');
+                timelineOlderCursor = Number.isInteger(payload.older_before_sequence_index)
+                    ? payload.older_before_sequence_index
+                    : null;
+                timelineHasOlder = payload.has_older_messages === true;
+                timelineBoundary = Number.isInteger(payload.context_boundary_sequence_index)
+                    ? payload.context_boundary_sequence_index
+                    : null;
+                timelineCheckpointId = String(payload.context_checkpoint_id || '');
+                renderCanonicalTimelineRows(messages, toolCallsById);
+                positionTimelineCheckpointNotice();
+                renderLoadOlderControl();
+                if (messages.length === 0 && !timelineHasOlder) {
+                    callbacks.renderEmptyState('Selected session has no persisted messages.');
+                }
+                renderLatestFailureAction(payload?.latest_failure);
+                reopenPersistedToolCall(options.reopenToolCallId);
+                return;
+            }
 
             if (messages.length === 0) {
                 callbacks.renderEmptyState('Selected session has no persisted messages.');
@@ -20,21 +96,20 @@
             messages.forEach((message) => {
                 const forkSequenceIndex = Number.isInteger(message.fork_sequence_index)
                     ? message.fork_sequence_index
-                    : message.sequence_index;
+                    : null;
+                const displaySequenceIndex = Number.isInteger(message.sequence_index)
+                    ? message.sequence_index
+                    : null;
                 if (message.is_tool_message) {
+                    trackPendingRange(message);
                     collectToolIds(message.tool_call_ids, pendingToolCallIds);
                     collectToolIds(message.tool_return_ids, pendingToolCallIds);
-                    if (message.role === 'assistant' && (message.content || message.thinking_content)) {
-                        renderPersistedAssistantMessage(message.content || '', [], {
-                            sequenceIndex: forkSequenceIndex,
-                            thinkingText: message.thinking_content || ''
-                        });
-                    }
+                    if (message.role === 'assistant') collectAssistantContent(message);
                     return;
                 }
 
                 if (isCompactionSummaryMessage(message)) {
-                    pendingToolCallIds.clear();
+                    flushAssistantTurn();
                     renderPersistedAssistantMessage(message.content || '', [], {
                         sequenceIndex: forkSequenceIndex
                     });
@@ -42,25 +117,259 @@
                 }
 
                 if (message.role === 'assistant') {
-                    const assistantToolCalls = toolCallsForIds(toolCallsById, pendingToolCallIds);
-                    pendingToolCallIds.clear();
-                    renderPersistedAssistantMessage(message.content || '', assistantToolCalls, {
-                        sequenceIndex: forkSequenceIndex,
-                        thinkingText: message.thinking_content || ''
-                    });
+                    collectAssistantContent(message);
+                    flushAssistantTurn(forkSequenceIndex);
                     return;
                 }
 
-                pendingToolCallIds.clear();
-                messageControls.addMessage('user', message.content || '', {
-                    sequenceIndex: forkSequenceIndex
+                flushAssistantTurn();
+                const node = messageControls.addMessage('user', message.content || '', {
+                    sequenceIndex: displaySequenceIndex
+                });
+                markCanonicalRange(node, displaySequenceIndex, displaySequenceIndex);
+            });
+            flushAssistantTurn();
+
+            renderLatestFailureAction(payload?.latest_failure);
+            reopenPersistedToolCall(options.reopenToolCallId);
+        }
+
+        function resetTimelineState() {
+            timelineGeneration += 1;
+            timelineSessionId = '';
+            timelineOlderCursor = null;
+            timelineHasOlder = false;
+            timelineBoundary = null;
+            timelineCheckpointId = '';
+            timelineLoading = false;
+        }
+
+        function markCanonicalRange(node, start, end) {
+            if (!node || !Number.isInteger(start) || !Number.isInteger(end)) return;
+            node.dataset.canonicalStart = String(start);
+            node.dataset.canonicalEnd = String(end);
+        }
+
+        function updateCompactionState(status) {
+            if (status.session_id !== state.sessionId
+                || status.vault_name !== elements.vaultSelector?.value
+                || status.context_checkpoint_kind !== 'session_map'
+                || !Number.isInteger(status.context_boundary_sequence_index)) return;
+            const container = elements.chatMessages;
+            const previousScrollTop = container.scrollTop;
+            const atBottom = container.scrollHeight - container.clientHeight - previousScrollTop <= 2;
+            const viewportTop = container.getBoundingClientRect().top;
+            const anchor = Array.from(container.querySelectorAll('[data-canonical-start]'))
+                .find(node => node.getBoundingClientRect().bottom > viewportTop);
+            const anchorTop = anchor?.getBoundingClientRect().top;
+            timelineSessionId = status.session_id;
+            timelineBoundary = status.context_boundary_sequence_index;
+            timelineCheckpointId = status.context_checkpoint_id || '';
+            positionTimelineCheckpointNotice();
+            const nextAnchorTop = anchor?.getBoundingClientRect().top;
+            if (atBottom) container.scrollTop = container.scrollHeight - container.clientHeight;
+            else if (Number.isFinite(anchorTop) && Number.isFinite(nextAnchorTop)) {
+                container.scrollTop = previousScrollTop + nextAnchorTop - anchorTop;
+            } else container.scrollTop = previousScrollTop;
+        }
+
+        function reopenPersistedToolCall(toolCallId) {
+            const reopenEntry = persistedToolEntriesById.get(toolCallId || '');
+            if (reopenEntry) toolDetails.open(reopenEntry);
+        }
+
+        function renderCanonicalTimelineRows(messages, toolCallsById, options = {}) {
+            const rendered = [];
+            messages.forEach((message) => {
+                const start = Number.isInteger(message?.sequence_index)
+                    ? message.sequence_index
+                    : null;
+                const end = Number.isInteger(message?.through_sequence_index)
+                    ? message.through_sequence_index
+                    : start;
+                let node = null;
+                if (message?.role === 'tool') {
+                    const ids = new Set();
+                    collectToolIds(message.tool_call_ids, ids);
+                    const embedded = groupToolCallsById(message.tool_calls);
+                    embedded.forEach((toolCall, toolCallId) => {
+                        toolCallsById.set(toolCallId, toolCall);
+                    });
+                    node = renderPersistedAssistantMessage(
+                        '',
+                        toolCallsForIds(toolCallsById, ids),
+                        {
+                            sequenceIndex: message.fork_sequence_index,
+                            forceScroll: options.forceScroll
+                        }
+                    );
+                } else if (message?.role === 'assistant') {
+                    const ids = new Set();
+                    collectToolIds(message.tool_call_ids, ids);
+                    collectToolIds(message.tool_return_ids, ids);
+                    const embedded = groupToolCallsById(message.tool_calls);
+                    embedded.forEach((toolCall, toolCallId) => {
+                        toolCallsById.set(toolCallId, toolCall);
+                    });
+                    node = renderPersistedAssistantMessage(
+                        message.content || '',
+                        toolCallsForIds(toolCallsById, ids),
+                        {
+                            sequenceIndex: message.fork_sequence_index,
+                            thinkingText: message.thinking_content || '',
+                            forceScroll: options.forceScroll
+                        }
+                    );
+                } else if (message?.role === 'user') {
+                    node = messageControls.addMessage('user', message.content || '', {
+                        sequenceIndex: start,
+                        forceScroll: options.forceScroll
+                    });
+                }
+                if (node && Number.isInteger(start) && Number.isInteger(end)) {
+                    markCanonicalRange(node, start, end);
+                    const actions = node.querySelector('.message-footer-actions');
+                    if (actions) {
+                        const number = document.createElement('span');
+                        number.className = 'message-sequence-number';
+                        number.textContent = start === end ? `${start}` : `${start}–${end}`;
+                        number.title = start === end
+                            ? `Canonical message ${start}`
+                            : `Canonical messages ${start}–${end}`;
+                        actions.prepend(number);
+                    }
+                    rendered.push(node);
+                }
+            });
+            return rendered;
+        }
+
+        function createSessionMapCheckpointNotice() {
+            const row = document.createElement('div');
+            row.className = 'session-map-checkpoint-row';
+            row.dataset.sessionMapContextBoundary = 'true';
+
+            const notice = document.createElement('div');
+            notice.className = 'session-map-checkpoint-notice';
+
+            const text = document.createElement('span');
+            text.textContent = 'Messages above this point are represented in the assistant’s context by the session map.';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'session-map-checkpoint-link';
+            button.innerHTML = `${icons.MAP_ICON_SVG}<span>View session map</span>`;
+            button.setAttribute('aria-label', 'View session map');
+            button.addEventListener('click', () => {
+                callbacks.openSessionMap?.({
+                    checkpointId: timelineCheckpointId
                 });
             });
 
-            renderLatestFailureAction(payload?.latest_failure);
-            const reopenEntry = persistedToolEntriesById.get(options.reopenToolCallId || '');
-            if (reopenEntry) {
-                toolDetails.open(reopenEntry);
+            notice.appendChild(text);
+            notice.appendChild(button);
+            row.appendChild(notice);
+            return row;
+        }
+
+        function positionTimelineCheckpointNotice() {
+            if (!Number.isInteger(timelineBoundary)) return;
+            const container = elements.chatMessages;
+            let notice = container.querySelector('[data-session-map-context-boundary="true"]');
+            if (!notice) notice = createSessionMapCheckpointNotice();
+            const firstRawNode = Array.from(
+                container.querySelectorAll('[data-canonical-start]')
+            ).find(node => Number(node.dataset.canonicalStart) > timelineBoundary);
+            if (firstRawNode) {
+                container.insertBefore(notice, firstRawNode);
+            } else {
+                const failure = container.querySelector('.message-error')?.parentElement || null;
+                container.insertBefore(notice, failure);
+            }
+        }
+
+        function renderLoadOlderControl() {
+            const container = elements.chatMessages;
+            container.querySelector('[data-load-older-chat-messages]')?.remove();
+            if (!timelineHasOlder || !Number.isInteger(timelineOlderCursor)) return;
+            const row = document.createElement('div');
+            row.className = 'flex justify-center';
+            row.dataset.loadOlderChatMessages = 'true';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ui-button-secondary text-sm';
+            button.textContent = 'Load older messages';
+            button.addEventListener('click', () => loadOlderTimelineMessages(button));
+            row.appendChild(button);
+            container.prepend(row);
+        }
+
+        async function loadOlderTimelineMessages(button) {
+            if (
+                timelineLoading
+                || !timelineSessionId
+                || !Number.isInteger(timelineOlderCursor)
+            ) return;
+            const vault = elements.vaultSelector?.value || '';
+            if (!vault) return;
+            const requestedSessionId = timelineSessionId;
+            const requestedCursor = timelineOlderCursor;
+            const requestedGeneration = timelineGeneration;
+            const isCurrentRequest = () => (
+                timelineGeneration === requestedGeneration
+                && state.sessionId === requestedSessionId
+                && timelineSessionId === requestedSessionId
+                && elements.vaultSelector?.value === vault
+            );
+            timelineLoading = true;
+            button.disabled = true;
+            button.textContent = 'Loading…';
+            const container = elements.chatMessages;
+            const previousScrollTop = container.scrollTop;
+            const previousHeight = container.scrollHeight;
+            const viewportAnchor = container.querySelector('[data-canonical-start]')
+                || container.querySelector('[data-session-map-context-boundary="true"]');
+            const previousAnchorTop = viewportAnchor?.getBoundingClientRect?.().top;
+            try {
+                const response = await fetch(
+                    `api/chat/sessions/${encodeURIComponent(requestedSessionId)}/timeline` +
+                    `?vault_name=${encodeURIComponent(vault)}` +
+                    `&before_sequence_index=${encodeURIComponent(requestedCursor)}`
+                );
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.message || `HTTP ${response.status}`);
+                }
+                const payload = await response.json();
+                if (!isCurrentRequest()) return;
+                const toolCallsById = groupToolCallsById(payload.tool_calls);
+                const nodes = renderCanonicalTimelineRows(
+                    payload.messages || [],
+                    toolCallsById,
+                    { forceScroll: false }
+                );
+                const fragment = document.createDocumentFragment();
+                nodes.forEach(node => fragment.appendChild(node));
+                container.insertBefore(fragment, viewportAnchor);
+                timelineOlderCursor = Number.isInteger(payload.older_before_sequence_index)
+                    ? payload.older_before_sequence_index
+                    : null;
+                timelineHasOlder = payload.has_older === true;
+                positionTimelineCheckpointNotice();
+                renderLoadOlderControl();
+                const currentAnchorTop = viewportAnchor?.getBoundingClientRect?.().top;
+                const scrollDelta = Number.isFinite(previousAnchorTop)
+                    && Number.isFinite(currentAnchorTop)
+                    ? currentAnchorTop - previousAnchorTop
+                    : container.scrollHeight - previousHeight;
+                container.scrollTop = previousScrollTop + scrollDelta;
+            } catch (error) {
+                if (!isCurrentRequest()) return;
+                console.error('Unable to load older chat messages:', error);
+                button.disabled = false;
+                button.textContent = 'Try loading older messages again';
+            } finally {
+                if (isCurrentRequest()) timelineLoading = false;
             }
         }
 
@@ -189,20 +498,27 @@
         }
 
         function renderPersistedAssistantMessage(content, toolCalls, options = {}) {
-            const context = callbacks.createAssistantStreamingMessage();
+            const context = callbacks.createAssistantStreamingMessage({
+                forceScroll: options.forceScroll
+            });
             context.fullText = content || '';
             context.thinkingText = options.thinkingText || '';
             context.collapseThinking = Boolean(context.thinkingText);
             context.thinkingExpanded = false;
             context.sequenceIndex = Number.isInteger(options.sequenceIndex) ? options.sequenceIndex : null;
-            callbacks.renderAssistantMarkdown(context, { finalize: true });
+            callbacks.renderAssistantMarkdown(context, {
+                finalize: true,
+                forceScroll: options.forceScroll !== false
+            });
             hydratePersistedToolCalls(context, toolCalls);
             callbacks.finalizeAssistantMessage(context, {
                 sessionId: state.sessionId || 'unknown',
                 messageCount: 1,
                 toolCount: Array.isArray(toolCalls) ? toolCalls.length : 0,
-                status: 'done'
+                status: 'done',
+                forceScroll: options.forceScroll
             });
+            return context.messageDiv;
         }
 
         function hydratePersistedToolCalls(context, toolCalls) {
@@ -239,7 +555,11 @@
 
         return Object.freeze({
             renderSession: renderPersistedSession,
-            clear: () => persistedToolEntriesById.clear(),
+            updateCompactionState,
+            clear: () => {
+                persistedToolEntriesById.clear();
+                resetTimelineState();
+            },
         });
     }
 

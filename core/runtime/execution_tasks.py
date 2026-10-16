@@ -37,6 +37,8 @@ class ExecutionTaskKind(StrEnum):
     DELEGATE = "delegate"
     WORKFLOW = "workflow"
     HISTORY_COMPACTION = "history_compaction"
+    SESSION_MAP_AUTHORING = "session_map_authoring"
+    CONTEXT_STRATEGY_UPGRADE = "context_strategy_upgrade"
     INGESTION = "ingestion"
 
 
@@ -98,6 +100,16 @@ def ingestion_task_label(job_id: int) -> str:
 def compaction_task_label(session_id: str) -> str:
     """Return the stable label for chat history compaction tasks."""
     return f"compact:{session_id}"
+
+
+def session_map_task_label(session_id: str) -> str:
+    """Return the stable label for session-map authoring tasks."""
+    return f"session-map:{session_id}"
+
+
+def context_strategy_upgrade_task_label(session_id: str) -> str:
+    """Return the stable label for one explicit context-strategy upgrade."""
+    return f"upgrade-context:{session_id}"
 
 
 def get_current_execution_task() -> ExecutionTaskSnapshot | None:
@@ -317,7 +329,7 @@ class TaskCoordinator:
             if registered:
                 await self._finish_failed_task(
                     task_id,
-                    reason=f"{type(exc).__name__}: {exc}",
+                    reason=_execution_task_failure_reason(kind, exc),
                     error_type=type(exc).__name__,
                 )
             raise
@@ -397,7 +409,7 @@ class TaskCoordinator:
         except Exception as exc:
             await self._finish_failed_task(
                 task_id,
-                reason=f"{type(exc).__name__}: {exc}",
+                reason=_execution_task_failure_reason(record.kind, exc),
                 error_type=type(exc).__name__,
             )
             raise
@@ -1014,6 +1026,17 @@ def _clean_goal_context_value(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _execution_task_failure_reason(kind: str, exc: Exception) -> str:
+    """Keep content-bearing inference failures safe across task read surfaces."""
+    if kind in {
+        ExecutionTaskKind.HISTORY_COMPACTION,
+        ExecutionTaskKind.SESSION_MAP_AUTHORING,
+        ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
+    }:
+        return f"{type(exc).__name__}: {kind} failed"
+    return f"{type(exc).__name__}: {exc}"
 
 
 def _bound_activity_text(value: str | None) -> str | None:

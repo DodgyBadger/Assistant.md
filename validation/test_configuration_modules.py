@@ -113,6 +113,40 @@ for (const name of [
     )
 
 
+def test_activity_log_long_metadata_is_expandable_without_truncating_details() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+vm.runInThisContext(fs.readFileSync(process.argv[2], 'utf8'), { filename: process.argv[2] });
+
+const render = ConfigurationPanelRuntime.actions.renderActivityLogField;
+const traceback = `Traceback start\n${'frame '.repeat(40)}<unsafe>Traceback end`;
+const output = render('traceback', traceback);
+assert.match(output, /<details class="activity-log-detail">/);
+assert.match(output, /Traceback start/);
+assert.match(output, /Traceback end/);
+assert.doesNotMatch(output, /<unsafe>/);
+assert.match(output, /&lt;unsafe&gt;/);
+assert.strictEqual(render('status', 'failed'), '<span>status=failed</span>');
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_STATIC_ROOT / "js/configuration/runtime.js"),
+            str(_STATIC_ROOT / "js/configuration/activity-log.js"),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_dashboard_import_owns_defaults_and_job_observability_only() -> None:
     markup = (_STATIC_ROOT / "index.html").read_text(encoding="utf-8")
     imports_source = (_STATIC_ROOT / "js/configuration/imports.js").read_text(
