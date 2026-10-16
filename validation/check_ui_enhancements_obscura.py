@@ -123,6 +123,28 @@ _SETTINGS_CHECK = r"""(async () => {
 })()"""
 
 
+_MKDIR_CHECK = r"""(async () => {
+    document.body.innerHTML = '<select id="vault"><option value="Vault">Vault</option></select><div id="review"></div>';
+    const container = document.querySelector('#review');
+    const controller = DeferredReviews.create({state:{sessionId:'session'},elements:{vaultSelector:document.querySelector('#vault')},icons:{},
+        utils:{escapeHtml:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')},callbacks:{}});
+    const review = {artifact_ref:'mkdir-review',status:'pending',approvals:[{tool_name:'file_write',tool_call_id:'mkdir',args:{operation:'mkdir',path:'Notes/Typo'}}]};
+    controller.renderReviewEvent(container,review);
+    const input=container.querySelector('[data-arg-name="path"]');
+    if (!input || input.value!=='Notes/Typo' || input.disabled) throw new Error('Pending mkdir path must be editable');
+    input.value='Notes/Correct';
+    let request;
+    window.fetch=async(_url,options)=>{request=JSON.parse(options.body);return{ok:true,json:async()=>({status:'submitted'})};};
+    container.querySelector('[data-deferred-review-decision="approve"]').click();
+    container.querySelector('[data-deferred-review-submit]').click();
+    for(let index=0;index<10;index++) await Promise.resolve();
+    if (request?.decisions[0]?.override_args?.path!=='Notes/Correct') throw new Error('Approval must submit the edited folder path');
+    controller.renderReviewEvent(container,{...review,status:'completed'});
+    if (!container.querySelector('[data-arg-name="path"]').disabled) throw new Error('Completed mkdir review must be locked');
+    return 3;
+})()"""
+
+
 async def run(url: str) -> None:
     async with connect(url, max_size=16 * 1024 * 1024) as websocket:
         request_id = 0
@@ -174,6 +196,9 @@ async def run(url: str) -> None:
             await evaluate((_ROOT / "static/js/configuration/settings.js").read_text())
             count = await evaluate(_SETTINGS_CHECK)
             print(f"Obscura CDP: {count} settings-control checks passed")
+            await evaluate((_ROOT / "static/js/deferred-reviews.js").read_text())
+            count = await evaluate(_MKDIR_CHECK)
+            print(f"Obscura CDP: {count} mkdir-review checks passed")
         finally:
             await command("Target.closeTarget", {"targetId": target["targetId"]})
 

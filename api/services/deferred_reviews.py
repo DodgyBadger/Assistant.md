@@ -307,6 +307,7 @@ def _validate_deferred_review_overrides(
         "replace_text": {"old_text", "new_text"},
         "edit_line": {"old_text", "new_text"},
         "move": {"destination"},
+        "mkdir": {"path"},
     }.get(operation, set())
     changed_immutable = sorted(
         key
