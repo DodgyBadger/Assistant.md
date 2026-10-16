@@ -68,7 +68,6 @@
         systemMigrations: null,
         settingEditKey: null,
         settingDraftValue: '',
-        settingRawEditor: false,
         modelEdit: null,
         modelDraft: null,
         providerEdit: null,

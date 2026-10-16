@@ -45,13 +45,6 @@ class SettingsEntry(BaseModel):
     restart_required: bool = False
 
 
-class SettingControl(BaseModel):
-    """Editor metadata, separate from persisted settings entries."""
-
-    value_type: Literal["boolean", "integer", "number", "string", "json"]
-    choices: list[str] = Field(default_factory=list)
-
-
 class ToolConfig(BaseModel):
     """Configuration for a single tool entry."""
 

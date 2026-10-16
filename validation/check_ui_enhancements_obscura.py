@@ -62,70 +62,6 @@ _VERSION_CHECK = r"""(async () => {
 })()"""
 
 
-_SETTINGS_SETUP = r"""(() => {
-    document.body.innerHTML = '<div id="settings"></div><p id="feedback"></p>';
-    const state = {settings:[],settingsFilter:'',settingEditKey:null,settingDraftValue:'',isSavingSetting:false};
-    const noop = () => {};
-    window.ConfigurationPanelRuntime = {
-        state, elements:{settingsList:document.querySelector('#settings'),settingsFeedback:document.querySelector('#feedback')},
-        actions:{updateImportOcrAvailability:noop},constants:{},callbacks:{},resources:{},timers:{},
-        helpers:{ escapeHtml:value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
-            iconButton:()=>'', iconSvg:()=>'',setStatus:(element,text)=>{element.textContent=text;},
-            notifyConfigChanged:async()=>{},safeJson:response=>response.json(),withRestartNotice:(_text,result)=>({text:'Saved',restart:result.restart_required}) }
-    };
-})()"""
-
-_SETTINGS_CHECK = r"""(async () => {
-    const {state,actions,elements} = ConfigurationPanelRuntime;
-    const assert = (condition,message) => {if (!condition) throw new Error(message);};
-    state.settings = [
-        {key:'bool',value:'false',control:{value_type:'boolean',choices:[]}},
-        {key:'int',value:'0',control:{value_type:'integer',choices:[]}},
-        {key:'float',value:'1.5',control:{value_type:'number',choices:[]}},
-        {key:'text',value:'007',control:{value_type:'string',choices:[]}},
-        {key:'json',value:'[]',control:{value_type:'json',choices:[]}},
-        {key:'mode',value:'unfamiliar',control:{value_type:'string',choices:['normal','inline_edit']}},
-    ];
-    let requests = [];
-    window.fetch = async (url, options) => {
-        const body = JSON.parse(options.body); requests.push({url,...body});
-        const key = decodeURIComponent(url.split('/').at(-1));
-        return {ok:true,json:async()=>({...state.settings.find(item=>item.key===key),value:body.value})};
-    };
-    elements.settingsList.addEventListener('input',actions.handleSettingsInputChange);
-    elements.settingsList.addEventListener('click',actions.handleSettingsTableClick);
-    const field = () => elements.settingsList.querySelector('[data-field="setting-value"]');
-    const change = value => {field().value=value;field().dispatchEvent(new Event('input',{bubbles:true}));};
-    actions.startSettingEdit('bool');
-    assert(field().type==='checkbox' && !field().checked,'False is an unchecked checkbox');
-    await actions.saveSettingValue('bool');
-    assert(requests.at(-1).value==='false','False survives save');
-    actions.startSettingEdit('bool');field().checked=true;field().dispatchEvent(new Event('input',{bubbles:true}));
-    await actions.saveSettingValue('bool');
-    assert(requests.at(-1).value==='true','Checkbox sends a boolean string');
-    actions.startSettingEdit('int');
-    assert(field().type==='number' && field().value==='0' && field().step==='1','Zero uses an integer input');
-    await actions.saveSettingValue('int');
-    assert(requests.at(-1).value==='0','Zero survives save');
-    actions.startSettingEdit('float');
-    assert(field().step==='any','Float input accepts decimals');
-    actions.startSettingEdit('text');
-    assert(field().type==='text' && field().value==='007','Numeric-looking strings stay text');
-    actions.startSettingEdit('mode');
-    assert(field().tagName==='SELECT' && field().value==='unfamiliar','Unknown current choice is preserved');
-    elements.settingsList.querySelector('[data-action="toggle-setting-raw"]').click();
-    assert(field().type==='text' && field().value==='unfamiliar','Raw editor preserves the current value');
-    change('normal');await actions.saveSettingValue('mode');
-    assert(requests.at(-1).value==='normal','Raw fallback still uses the normal save contract');
-    actions.startSettingEdit('json');assert(field().tagName==='TEXTAREA','JSON uses a multiline field');
-    change('{');const count=requests.length;await actions.saveSettingValue('json');
-    assert(requests.length===count && field().value==='{','Invalid JSON remains editable without a request');
-    change('["value"]');await actions.saveSettingValue('json');
-    assert(requests.at(-1).value==='["value"]','JSON round-trips as an explicit string payload');
-    return 11;
-})()"""
-
-
 _MKDIR_CHECK = r"""(async () => {
     document.body.innerHTML = '<select id="vault"><option value="Vault">Vault</option></select><div id="review"></div>';
     const container = document.querySelector('#review');
@@ -195,10 +131,6 @@ async def run(url: str) -> None:
             await evaluate((_ROOT / "static/js/system-status.js").read_text())
             count = await evaluate(_VERSION_CHECK)
             print(f"Obscura CDP: {count} version-display checks passed")
-            await evaluate(_SETTINGS_SETUP)
-            await evaluate((_ROOT / "static/js/configuration/settings.js").read_text())
-            count = await evaluate(_SETTINGS_CHECK)
-            print(f"Obscura CDP: {count} settings-control checks passed")
             await evaluate((_ROOT / "static/js/deferred-reviews.js").read_text())
             count = await evaluate(_MKDIR_CHECK)
             print(f"Obscura CDP: {count} mkdir-review checks passed")

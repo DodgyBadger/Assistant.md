@@ -15,7 +15,6 @@ from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
     ProviderConfig,
-    SettingControl,
     SettingsEntry,
     SettingsFile,
     load_settings,
@@ -53,35 +52,6 @@ def list_general_settings() -> dict[str, SettingsEntry]:
     return {
         name: entry for name, entry in merged.items() if name not in RETIRED_SETTINGS
     }
-
-
-def general_setting_controls(
-    entries: dict[str, SettingsEntry],
-) -> dict[str, SettingControl]:
-    """Describe editors using packaged default types and standard choices."""
-    defaults = _template_general_settings()
-    standard_choices = {
-        "default_chat_mode": ["normal", "inline_edit"],
-        "compaction_type": ["auto", "suggested", "none"],
-        "compaction_strategy": ["recovery_card", "session_map"],
-        "ingestion_pdf_default_mode": ["markdown", "page_images"],
-    }
-    controls: dict[str, SettingControl] = {}
-    for name, entry in entries.items():
-        value = defaults.get(name, entry).value
-        control = SettingControl(
-            value_type="string", choices=standard_choices.get(name, [])
-        )
-        if isinstance(value, bool):
-            control.value_type = "boolean"
-        elif isinstance(value, int):
-            control.value_type = "integer"
-        elif isinstance(value, float):
-            control.value_type = "number"
-        elif isinstance(value, list | dict):
-            control.value_type = "json"
-        controls[name] = control
-    return controls
 
 
 def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
