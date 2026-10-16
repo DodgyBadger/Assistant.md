@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection and the Explorer dismissal follow-up are implemented; other candidates remain backlog. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
+Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection, Explorer dismissal, the approval toggle, version display, settings controls, and mkdir path editing are implemented. Mobile upload remains conditional on a concrete reproduction; documentation drafts for the latest changes await explicit approval. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
 
 ## First feature: quote selected text
 
@@ -119,3 +119,25 @@ The user authorized completing the remaining scoped tasks one at a time without 
 - Settings controls completed: eleven Obscura CDP checks, eight existing configuration module checks, and the expanded `api_endpoints` save/reload scenario passed. Full Ruff, Black, and MyPy gates passed. Standard choices are UI metadata with raw fallback; existing server validation remains authoritative.
 - Mkdir review: add a folder-path input to the existing deferred review card and allow only the mkdir path to change in approval overrides. Execute through the same file-write tool and vault path validation; preserve operation/policy immutability and non-mkdir target immutability. Validate persisted review overrides, actual corrected directory creation, traversal rejection, locked-card rendering, and submitted UI payload. ADR 0023 needs a narrowly scoped text update; hold that draft for user approval.
 - Mkdir review completed: three Obscura CDP checks and the expanded `file_ops_inline_edit_policy` plus `deferred_review_task_skeleton` scenarios passed. Corrected paths create the intended directory, traversal attempts fail, and operation/policy and other-operation targets remain immutable. Full Ruff, Black, and MyPy gates passed. ADR prose remains pending explicit draft approval.
+
+## Final hardening and pending input
+
+- The approval toggle now restores the actual pre-toggle mode even if the session list has not refreshed yet; the added Obscura check passes. Current focused results: 23 Obscura CDP checks, 21 existing module checks, and 3 Node quote/draft checks pass. Full Ruff, Black, MyPy, and CSS build pass. The final deterministic `integration/core` profile passed 134/134 scenarios with zero failures or errors (run `20261016_193914_264287`; report `validation/runs/reports/20261016_193914_264287.md`).
+- Mobile upload investigation found a client guard that silently discards files without a MIME type. This is a candidate cause, not a reproduction of the user's mobile failure. No upload behavior or contract was changed. Obtain the phone/browser, image/file type, picker source, and whether the failure occurs during selection, Send, or response processing before implementing a fix.
+- No edits were made under docs in this batch because the current AGENTS.md requires approval of the actual documentation draft. Proposed drafts to present in chat are below.
+
+### Pending usage-guide draft
+
+For `docs/use/getting-the-most.md`, add the following chat paragraph and a System settings section:
+
+Use **File approvals** beside the chat entry to turn inline review of file changes on or off for the current session. The control is unavailable while a response or review is active. Folder-creation approval cards let you correct the folder path before approving.
+
+#### System settings
+
+System shows the application version. Application Settings uses checkboxes, numeric fields, selectors for standard modes, and multiline JSON fields for lists and objects. Use **Edit as text** when a typed control does not suit a value.
+
+### Pending ADR draft
+
+For `docs/development/adr/0023-split-file-tools-and-inline-edit-review.md`, replace the review override restriction sentence with:
+
+Review overrides may edit operation content, a move destination, or a mkdir directory path. Other operation targets and overwrite policy remain immutable.

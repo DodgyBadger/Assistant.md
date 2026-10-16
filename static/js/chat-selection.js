@@ -111,20 +111,21 @@
         async function toggleFileApprovals() {
             if (state.isLoading || state.pendingDeferredReview || savingChatMode
                 || !elements.vaultSelector?.value || !elements.chatModeSelector) return;
-            elements.chatModeSelector.value = elements.chatModeSelector.value === 'inline_edit' ? 'normal' : 'inline_edit';
-            return persistSelectedChatMode();
+            const previousMode = elements.chatModeSelector.value;
+            elements.chatModeSelector.value = previousMode === 'inline_edit' ? 'normal' : 'inline_edit';
+            return persistSelectedChatMode(previousMode);
         }
 
         function isChatSelectableModel(model) {
             return model?.chat_selectable === true;
         }
 
-        async function persistSelectedChatMode() {
+        async function persistSelectedChatMode(previousMode = null) {
             const vault = elements.vaultSelector?.value || '';
             const sessionId = state.sessionId;
             if (!elements.chatModeSelector || state.isLoading || state.pendingDeferredReview || savingChatMode) return;
             if (!vault || !sessionId) { syncFileApprovalToggle(); return; }
-            const previousMode = state.sessions.find(item => item.session_id === sessionId)?.chat_mode || configuredDefaultChatMode();
+            const savedMode = previousMode || state.sessions.find(item => item.session_id === sessionId)?.chat_mode || configuredDefaultChatMode();
             const chatMode = elements.chatModeSelector.value === 'inline_edit' ? 'inline_edit' : 'normal';
             savingChatMode = true;
             callbacks.syncControls();
@@ -139,7 +140,7 @@
                 if (session && elements.vaultSelector?.value === vault) session.chat_mode = chatMode;
             } catch (error) {
                 if (elements.vaultSelector?.value === vault && state.sessionId === sessionId) {
-                    elements.chatModeSelector.value = previousMode;
+                    elements.chatModeSelector.value = savedMode;
                 }
                 console.error('Failed to persist chat mode:', error);
                 callbacks.addErrorMessage('Could not save the selected chat mode.');
