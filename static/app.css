@@ -3818,3 +3818,61 @@ summary.connection-card-summary .summary-title {
 .chat-attachment-remove:hover {
     color: rgb(var(--state-error));
 }
+
+/* Selection instructions share the file preview, keeping the main draft intact. */
+.vault-selection-prompt {
+    position: fixed;
+    z-index: 60;
+    width: 40px;
+    max-width: calc(100vw - 16px);
+    overflow: auto;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 12px;
+    background: rgb(var(--bg-card));
+    color: rgb(var(--text-primary));
+    box-shadow: 0 8px 30px rgb(0 0 0 / 20%);
+    transition: width 160ms ease;
+}
+.vault-selection-prompt[hidden], .vault-selection-prompt [hidden] { display: none; }
+.vault-selection-prompt.is-expanded { width: min(440px, calc(100vw - 16px)); }
+.vault-selection-panel { padding: 12px; animation: selection-prompt-open 160ms ease; }
+.vault-selection-heading { display: flex; align-items: center; gap: 8px; }
+.vault-selection-heading > span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.vault-selection-panel blockquote {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 100px;
+    overflow: auto;
+    margin: 8px 0;
+    padding-left: 10px;
+    border-left: 3px solid rgb(var(--border-secondary));
+    font-size: 13px;
+    color: rgb(var(--text-secondary));
+}
+.vault-selection-panel label { display: block; font-size: 12px; margin-bottom: 5px; }
+.vault-selection-panel textarea {
+    display: block;
+    width: 100%;
+    min-height: 80px;
+    max-height: 35dvh;
+    resize: vertical;
+    padding: 8px 12px;
+    border: 1px solid rgb(var(--border-secondary));
+    border-radius: 6px;
+    background: rgb(var(--bg-app));
+    color: rgb(var(--text-primary));
+    font-size: 14px;
+}
+.vault-selection-panel textarea:focus { outline: 2px solid rgb(var(--accent-primary)); outline-offset: 1px; }
+.vault-selection-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.vault-selection-feedback { margin: 0; padding: 8px; font-size: 12px; overflow-wrap: anywhere; }
+.vault-selection-prompt:has(.vault-selection-feedback:not([hidden])) { min-width: min(240px, calc(100vw - 16px)); }
+@keyframes selection-prompt-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+    .vault-selection-prompt { transition: none; }
+    .vault-selection-panel { animation: none; }
+}
+@media (max-width: 640px) {
+    .vault-selection-panel textarea { font-size: 16px; }
+    .vault-selection-actions button { min-height: 44px; }
+}

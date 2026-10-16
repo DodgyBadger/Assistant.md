@@ -275,6 +275,13 @@ function openAttachmentPicker() {
     }
 }
 
+function appendPromptBlock(block) {
+    const input = chatElements.chatInput;
+    const separator = input.value ? (input.value.endsWith('\n\n') ? '' : input.value.endsWith('\n') ? '\n' : '\n\n') : '';
+    input.value += separator + block;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function createClientSessionId(vault) {
     const safeVault = String(vault || 'chat').trim().replace(/[\s/\\]+/g, '_') || 'chat';
     const now = new Date();
@@ -293,6 +300,7 @@ function createClientSessionId(vault) {
 
 return Object.freeze({
     addPendingAttachments,
+    appendPromptBlock,
     clearPendingAttachments,
     createClientSessionId,
     handleChatFocusDividerKeydown,

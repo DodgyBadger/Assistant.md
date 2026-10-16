@@ -217,12 +217,22 @@
         }
 
         // Send message handler with streaming response support
-        async function sendMessage(promptOverride = null) {
+        async function sendMessage(promptOverride = null, {
+            includeAttachments = true,
+            focusComposerOnFinish = true,
+            onAccepted = null,
+            onStartError = null,
+            onSessionAssigned = null,
+        } = {}) {
+            let accepted = false;
             const hasStringPromptOverride = typeof promptOverride === 'string' && promptOverride.trim();
             const hasPromptOverride = hasStringPromptOverride;
             const message = hasPromptOverride ? promptOverride.trim() : elements.chatInput.value.trim();
-            const pendingUploads = composeState.pendingAttachments.slice();
-            if ((!message && pendingUploads.length === 0) || state.isLoading) return false;
+            const pendingUploads = includeAttachments ? composeState.pendingAttachments.slice() : [];
+            if ((!message && pendingUploads.length === 0) || state.isLoading || state.pendingDeferredReview) {
+                onStartError?.(new Error('Wait for the active response or review to finish.'));
+                return false;
+            }
             const effectivePrompt = message || 'Please analyze the attached image(s).';
 
             const vault = elements.vaultSelector.value;
@@ -230,12 +240,14 @@
             const thinking = elements.thinkingSelector ? (elements.thinkingSelector.value || 'default') : 'default';
 
             if (!vault) {
-                alert('Please select a vault');
+                if (onStartError) onStartError(new Error('Please select a vault.'));
+                else alert('Please select a vault');
                 return false;
             }
 
             if (!model) {
-                alert('Please select a model');
+                if (onStartError) onStartError(new Error('Please select a model.'));
+                else alert('Please select a model');
                 return false;
             }
 
@@ -255,6 +267,7 @@
             const workspacePathValue = workspacePicker.currentPath() || null;
             const requestSessionId = state.sessionId || callbacks.createClientSessionId(vault);
             state.sessionId = requestSessionId;
+            onSessionAssigned?.(requestSessionId);
             sessionControls.renderSelector();
             sessionControls.updateTitleRow();
             sessionControls.refreshCompactionState();
@@ -313,15 +326,17 @@
                     throw new Error(errorData.message || `HTTP ${startResponse.status}`);
                 }
 
-                callbacks.clearPendingAttachments();
-
-                chatRendering.removeLoadingMessage(loadingMessage);
-
                 const started = await startResponse.json();
+                if (!started.task?.task_id) throw new Error('Chat task did not return a task id.');
+                accepted = true;
+                if (includeAttachments) callbacks.clearPendingAttachments();
+                chatRendering.removeLoadingMessage(loadingMessage);
+                onAccepted?.(started);
                 await streamStartedChatTask(started, vault, abortController);
                 return true;
 
             } catch (error) {
+                if (!accepted) onStartError?.(error);
                 console.error('Error sending message:', error);
                 chatRendering.removeLoadingMessage(loadingMessage);
                 if (state.isCancellingChat || error.name === 'AbortError') {
@@ -334,7 +349,7 @@
                 if (chatTaskStream.releaseActiveStream(abortController)) {
                     elements.sendBtn.disabled = false;
                     callbacks.syncChatControlLocks();
-                    elements.chatInput.focus();
+                    if (focusComposerOnFinish) elements.chatInput.focus();
                     sessionControls.refreshCompactionState();
                 }
             }
