@@ -379,8 +379,6 @@ body.chat-focus-mode #chat-messages {
     min-height: 8rem;
 }
 body.chat-focus-mode #chat-composer {
-    display: flex;
-    flex-direction: column;
     height: var(--chat-compose-height, 18rem);
     min-height: 8rem;
     max-height: min(70vh, 42rem);
@@ -388,8 +386,7 @@ body.chat-focus-mode #chat-composer {
     padding: 0.75rem;
 }
 body.chat-focus-mode .chat-composer-row {
-    height: auto;
-    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
     align-items: stretch;
 }
@@ -453,8 +450,7 @@ details summary {
 details summary::-webkit-details-marker {
     display: none;
 }
-.chat-settings-model-row,
-.chat-settings-tools-row {
+.chat-settings-model-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 0.75rem;
@@ -1334,13 +1330,8 @@ details summary::-webkit-details-marker {
     .chat-settings-primary-row {
         grid-template-columns: minmax(0, 1fr) minmax(18rem, 1.35fr);
     }
-    .chat-settings-model-row,
-    .chat-settings-tools-row {
+    .chat-settings-model-row {
         grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
-    }
-
-    .chat-settings-tools-row {
-        grid-template-columns: minmax(0, 1fr) minmax(12rem, 15rem);
     }
 }
 .session-dropdown-title {
@@ -3880,6 +3871,7 @@ summary.connection-card-summary .summary-title {
     .vault-selection-actions button { min-height: 44px; }
 }
 
-.chat-composer-options { display: flex; justify-content: flex-end; margin-top: 6px; }
-.chat-composer-options button { font-size: 12px; }
-.chat-composer-options button[aria-pressed="true"] { border-color: rgb(var(--accent-primary)); color: rgb(var(--accent-primary)); }
+.chat-settings-header > .app-modal-title-block { min-width: 0; }
+.chat-settings-header-actions { flex-wrap: nowrap; }
+.chat-settings-approval-toggle { font-size: 12px; white-space: nowrap; }
+.chat-settings-approval-toggle[aria-pressed="true"] { border-color: rgb(var(--accent-primary)); color: rgb(var(--accent-primary)); }

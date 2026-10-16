@@ -96,6 +96,11 @@
                     </button>
                 </div>
                 <div id="chat-settings-modal-controls-source" class="hidden">
+                    <button id="file-approval-toggle" type="button" class="ui-button-secondary chat-settings-approval-toggle" aria-pressed="false" disabled>File approvals: Off</button>
+                    <select id="chat-mode-selector" hidden aria-label="File approvals">
+                        <option value="normal">File approvals: Off</option>
+                        <option value="inline_edit">File approvals: On</option>
+                    </select>
                     <div class="workspace-field">
                         <input id="workspace-path-input" type="text"
                             placeholder="Workspace path..."
@@ -128,13 +133,9 @@
                             <option value="xhigh">Thinking: XHigh</option>
                         </select>
                     </div>
-                    <div class="chat-settings-tools-row">
+                    <div>
                         <select id="template-selector" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-app-card text-txt-primary">
                             <option value="">No context script</option>
-                        </select>
-                        <select id="chat-mode-selector" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-app-card text-txt-primary">
-                            <option value="normal">File approvals: Off</option>
-                            <option value="inline_edit">File approvals: On</option>
                         </select>
                     </div>
                 </div>
@@ -190,9 +191,6 @@
                                 <path d="M6 12h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                             </svg>
                         </button>
-                    </div>
-                    <div class="chat-composer-options">
-                        <button id="file-approval-toggle" type="button" class="ui-button-secondary" aria-pressed="false" disabled>File approvals: Off</button>
                     </div>
                 </div>
             </div>
