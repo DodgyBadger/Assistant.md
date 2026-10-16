@@ -182,7 +182,15 @@
                     </div>
                 `;
             }
-            if (operation === 'delete' || operation === 'mkdir') {
+            if (operation === 'mkdir') {
+                return `
+                    <div class="edit-proposal-path-edit">
+                        <label class="edit-proposal-label" for="deferred-review-folder-${escapeHtml(toolCallId)}">Folder path</label>
+                        <input id="deferred-review-folder-${escapeHtml(toolCallId)}" class="edit-proposal-path-input" type="text" data-deferred-review-arg="${escapeHtml(toolCallId)}" data-arg-name="path" value="${escapeHtml(String(args.path || ''))}" ${locked ? 'disabled' : ''} />
+                    </div>
+                `;
+            }
+            if (operation === 'delete') {
                 return `
                     <div class="edit-proposal-delete-note">${escapeHtml(fileOpsStaticDescription(operation, args))}</div>
                 `;
