@@ -24,6 +24,7 @@
   1. the current effort's root-level implementation plan
   2. the linked GitHub issue, if one exists
   3. commit messages for smaller follow-on additions or cleanup
+- Confirm `[project].version` in `pyproject.toml` and the `project-assistant` version in `uv.lock` match the newest release heading in `RELEASE_NOTES.md`, ignoring its leading `v`. Run `uv lock --check` to verify lockfile consistency.
 - Re-read changed error messages and logging for clarity.
 - Confirm the complete `integration/core` validation profile passed against the branch's effective behavior during hardening or merge preparation. Run it now if it has not; rerun it after later changes only when they could affect broader contracts.
 - Confirm the final handoff explains:
