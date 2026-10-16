@@ -106,3 +106,10 @@ The new To Do item requests that X and clicking outside the modal exit the entir
 4. Once implementation is stable, run `python validation/run_validation.py run integration/core` during hardening or merge preparation. Live-service and experimental scenarios remain opt-in.
 
 No secrets or configured runtime roots need changes. Settings UI changes continue to write user settings through the existing API; approval mode continues to persist through the existing session contract. Do not alter local persistent runtime state merely to prepare this shortlist.
+
+## Remaining branch implementation
+
+The user authorized completing the remaining scoped tasks one at a time without another planning cycle: a visible per-session file approval toggle, application version on System, type-aware settings controls, editable mkdir review paths, and a bounded mobile-upload investigation. Keep substantive backend work excluded. Documentation edits under `docs/`, `README.md`, and `RELEASE_NOTES.md` require approval of the actual draft under the current AGENTS.md; hold those edits until approved. Browser checks use Obscura through CDP as requested by the user.
+
+- Approval toggle: reuse the existing session mode API and selector as canonical state; show the toggle next to the main composer, synchronize session/default loads, lock during active runs/reviews/saves, and restore the persisted state if a PATCH fails. Validate via Obscura CDP and the existing session mode scenario.
+- Approval toggle completed: seven Obscura CDP behavior checks and `file_ops_inline_edit_policy` passed. CSS build, JS syntax, targeted Ruff/Black, and whitespace checks passed. Focus layout reserves space for the always-visible toggle.

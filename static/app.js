@@ -54,6 +54,7 @@ const chatElements = {
     modelSelector: document.getElementById('model-selector'),
     templateSelector: document.getElementById('template-selector'),
     chatModeSelector: document.getElementById('chat-mode-selector'),
+    fileApprovalToggle: document.getElementById('file-approval-toggle'),
     thinkingSelector: document.getElementById('thinking-selector'),
     newSessionTrigger: document.getElementById('new-session-trigger'),
     sessionBrowserTrigger: document.getElementById('session-browser-trigger'),
@@ -471,9 +472,7 @@ function syncChatControlLocks() {
     if (chatElements.thinkingSelector) {
         chatElements.thinkingSelector.disabled = state.isLoading;
     }
-    if (chatElements.chatModeSelector) {
-        chatElements.chatModeSelector.disabled = state.isLoading || Boolean(state.pendingDeferredReview);
-    }
+    chatSelection.syncFileApprovalToggle();
     if (chatElements.sessionBrowserTrigger) {
         chatElements.sessionBrowserTrigger.disabled = state.isLoading;
     }
@@ -775,6 +774,7 @@ function setupEventListeners() {
     if (chatElements.chatModeSelector) {
         chatElements.chatModeSelector.addEventListener('change', persistSelectedChatMode);
     }
+    chatElements.fileApprovalToggle?.addEventListener('click', () => chatSelection.toggleFileApprovals());
     syncChatControlLocks();
 }
 

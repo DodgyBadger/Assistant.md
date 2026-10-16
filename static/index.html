@@ -133,8 +133,8 @@
                             <option value="">No context script</option>
                         </select>
                         <select id="chat-mode-selector" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-app-card text-txt-primary">
-                            <option value="normal">Mode: Normal</option>
-                            <option value="inline_edit">Mode: Inline edit</option>
+                            <option value="normal">File approvals: Off</option>
+                            <option value="inline_edit">File approvals: On</option>
                         </select>
                     </div>
                 </div>
@@ -190,6 +190,9 @@
                                 <path d="M6 12h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                             </svg>
                         </button>
+                    </div>
+                    <div class="chat-composer-options">
+                        <button id="file-approval-toggle" type="button" class="ui-button-secondary" aria-pressed="false" disabled>File approvals: Off</button>
                     </div>
                 </div>
             </div>
