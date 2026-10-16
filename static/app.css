@@ -3826,7 +3826,7 @@ summary.connection-card-summary .summary-title {
 .vault-selection-prompt {
     position: fixed;
     z-index: 60;
-    width: 40px;
+    width: 34px;
     max-width: calc(100vw - 16px);
     overflow: auto;
     border: 1px solid rgb(var(--border-primary));
@@ -3834,8 +3834,22 @@ summary.connection-card-summary .summary-title {
     background: rgb(var(--bg-card));
     color: rgb(var(--text-primary));
     box-shadow: 0 8px 30px rgb(0 0 0 / 20%);
-    transition: width 160ms ease;
+    transition: width 160ms ease, opacity 160ms ease;
 }
+/* Keep the collapsed selection affordance quiet until it is used. */
+.vault-selection-prompt:not(.is-expanded) {
+    opacity: 0.72;
+    border-radius: 8px;
+    box-shadow: 0 3px 12px rgb(0 0 0 / 12%);
+}
+.vault-selection-prompt:not(.is-expanded):hover,
+.vault-selection-prompt:not(.is-expanded):focus-within { opacity: 1; }
+.vault-selection-prompt > [data-quote-open] {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+}
+.vault-selection-prompt > [data-quote-open] svg { width: 14px; height: 14px; }
 .vault-selection-prompt[hidden], .vault-selection-prompt [hidden] { display: none; }
 .vault-selection-prompt.is-expanded { width: min(440px, calc(100vw - 16px)); }
 .vault-selection-panel { padding: 12px; animation: selection-prompt-open 160ms ease; }
