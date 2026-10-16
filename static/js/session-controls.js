@@ -255,6 +255,10 @@
             const source = modalControlsSource();
             const target = modal.querySelector('#chat-settings-modal-controls');
             if (!source || !target) return;
+            const approvalSlot = modal.querySelector('[data-chat-settings-approval-slot]');
+            if (approvalSlot && elements.fileApprovalToggle) {
+                approvalSlot.appendChild(elements.fileApprovalToggle);
+            }
             while (source.firstChild) {
                 target.appendChild(source.firstChild);
             }
@@ -267,6 +271,7 @@
             while (target.firstChild) {
                 source.appendChild(target.firstChild);
             }
+            if (elements.fileApprovalToggle) source.appendChild(elements.fileApprovalToggle);
         }
 
         function closeSessionBrowserModal() {
@@ -396,7 +401,7 @@
             overlay.innerHTML = `
                 <div class="absolute inset-0" data-session-browser-close="true"></div>
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="session-browser-modal-title">
-                    <div class="app-modal-header flex-none">
+                    <div class="app-modal-header chat-settings-header flex-none">
                         <div class="app-modal-title-block">
                             <h2 id="session-browser-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
                                 <span class="app-modal-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
@@ -404,7 +409,8 @@
                             </h2>
                             <p id="session-browser-count" class="mt-1 text-xs text-txt-secondary"></p>
                         </div>
-                        <div class="app-modal-actions">
+                        <div class="app-modal-actions chat-settings-header-actions">
+                            <span data-chat-settings-approval-slot></span>
                             <button type="button" class="session-browser-close-button" data-session-browser-close="true" aria-label="Close chat settings" title="Close">
                                 ${icons.X_ICON_SVG}
                             </button>

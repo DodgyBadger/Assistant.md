@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +85,47 @@ _MKDIR_CHECK = r"""(async () => {
 })()"""
 
 
+_MODAL_APPROVAL_CHECK = r"""(async () => {
+    const assert = (condition,message) => {if (!condition) throw new Error(message);};
+    const state = {sessions:[],sessionId:null,isLoading:false,metadata:{settings:{default_chat_mode:'inline_edit'}}};
+    const elements = {vaultSelector:document.querySelector('#vault-selector'),
+        chatModeSelector:document.querySelector('#chat-mode-selector'),fileApprovalToggle:document.querySelector('#file-approval-toggle')};
+    elements.vaultSelector.innerHTML='<option value="Vault">Vault</option>';
+    const originalButton=elements.fileApprovalToggle;
+    assert(!document.querySelector('#chat-composer').contains(originalButton),'Main composer must have no approval row');
+    const utils={escapeHtml:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')};
+    const controls=SessionControls.create({state,elements,icons:AssistantMDIcons,utils,callbacks:{}});
+    let selection;
+    selection=ChatSelection.create({state,elements,sessionControls:controls,callbacks:{syncControls:()=>selection.syncFileApprovalToggle()}});
+    originalButton.addEventListener('click',()=>selection.toggleFileApprovals());
+    selection.resetChatModeToDefault();
+    controls.openSessionBrowserModal();
+    let modal=document.querySelector('#session-browser-modal');
+    const header=modal.querySelector('.app-modal-header');
+    assert(header.contains(originalButton),'Toggle belongs in modal header');
+    const buttonBox=originalButton.getBoundingClientRect();
+    const closeBox=modal.querySelector('button[data-session-browser-close]').getBoundingClientRect();
+    const headerBox=header.getBoundingClientRect();
+    const titleBox=header.querySelector('h2').getBoundingClientRect();
+    assert(buttonBox.width>0 && buttonBox.left>=headerBox.left && closeBox.right<=headerBox.right+1 && buttonBox.right<=closeBox.left+1 && titleBox.right<=buttonBox.left+1,'Title, toggle and close button must fit the header');
+    assert(!originalButton.closest('details') && !modal.querySelector('.chat-settings-options').open,'Toggle is available with Options collapsed');
+    assert(elements.chatModeSelector.hidden,'Canonical mode selector must not duplicate the header toggle');
+    originalButton.click();await Promise.resolve();
+    assert(elements.chatModeSelector.value==='normal' && originalButton.getAttribute('aria-pressed')==='false','Header toggle changes the selected mode');
+    modal.querySelector('button[data-session-browser-close]').click();
+    assert(!document.querySelector('#session-browser-modal') && document.querySelector('#file-approval-toggle')===originalButton,'Closing preserves the original button');
+    assert(originalButton.closest('#chat-settings-modal-controls-source'),'Closed modal parks the button out of the main chat');
+    controls.openSessionBrowserModal();
+    originalButton.click();await Promise.resolve();
+    assert(elements.chatModeSelector.value==='inline_edit' && document.querySelectorAll('#file-approval-toggle').length===1,'Reopen preserves one button and one event handler');
+    state.pendingDeferredReview={};selection.syncFileApprovalToggle();
+    originalButton.click();await Promise.resolve();
+    assert(originalButton.disabled && elements.chatModeSelector.value==='inline_edit','Header respects pending-review locks');
+    document.querySelector('#session-browser-modal button[data-session-browser-close]').click();
+    return 8;
+})()"""
+
+
 async def run(url: str) -> None:
     async with connect(url, max_size=16 * 1024 * 1024) as websocket:
         request_id = 0
@@ -134,6 +176,36 @@ async def run(url: str) -> None:
             await evaluate((_ROOT / "static/js/deferred-reviews.js").read_text())
             count = await evaluate(_MKDIR_CHECK)
             print(f"Obscura CDP: {count} mkdir-review checks passed")
+            markup = (_ROOT / "static/index.html").read_text()
+            markup = re.sub(
+                r"<script\b[^>]*>[\s\S]*?</script>", "", markup, flags=re.IGNORECASE
+            )
+            await evaluate((_ROOT / "static/js/icons.js").read_text())
+            await evaluate((_ROOT / "static/js/session-controls.js").read_text())
+            styles = (
+                (_ROOT / "static/output.css").read_text()
+                + "\n"
+                + (_ROOT / "static/app.css").read_text()
+            )
+            await evaluate(
+                "(() => { const style = document.createElement('style'); style.textContent = "
+                + json.dumps(styles)
+                + "; document.head.appendChild(style); })()"
+            )
+            for width in (320, 390, 1024):
+                await command(
+                    "Emulation.setDeviceMetricsOverride",
+                    {
+                        "width": width,
+                        "height": 844,
+                        "deviceScaleFactor": 1,
+                        "mobile": width < 640,
+                    },
+                    session,
+                )
+                await evaluate("document.body.innerHTML = " + json.dumps(markup))
+                count = await evaluate(_MODAL_APPROVAL_CHECK)
+                print(f"Obscura CDP: {count} modal-approval checks passed at {width}px")
         finally:
             await command("Target.closeTarget", {"targetId": target["targetId"]})
 

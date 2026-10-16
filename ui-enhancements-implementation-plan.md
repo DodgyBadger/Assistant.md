@@ -128,7 +128,7 @@ The user authorized completing the remaining scoped tasks one at a time without 
 
 For `docs/use/getting-the-most.md`, add the following chat paragraph and a System settings section:
 
-Use **File approvals** beside the chat entry to turn inline review of file changes on or off for the current session. The control is unavailable while a response or review is active. Folder-creation approval cards let you correct the folder path before approving.
+Use **File approvals** in the Chat Settings modal header to turn inline review of file changes on or off for the current session. The control is unavailable while a response or review is active. Folder-creation approval cards let you correct the folder path before approving.
 
 #### System settings
 
@@ -145,3 +145,9 @@ Review overrides may edit operation content, a move destination, or a mkdir dire
 The user requested rolling back type-aware settings and reserving that work for a future branch with a fuller specification. Revert commit `fb9debf` while preserving the later approval-toggle fix, application version, quote selection, Explorer dismissal, and mkdir path editing. Restore the plain-text settings editor and original settings API, remove editor metadata and feature-specific validation, and remove type-aware settings from the pending documentation draft. No runtime settings or persisted user values need changes. Validate with the existing settings/API checks and Python quality gate; remaining UI checks use Obscura CDP.
 
 Rollback completed: settings implementation files and their API scenario match `fb9debf^` exactly. The targeted `api_endpoints` scenario passed (run `20261016_195305_233128`), eight existing configuration checks passed, and twelve remaining Obscura CDP checks passed. Full Ruff, Black, and MyPy gates passed. The earlier full-profile result predates this rollback; this branch-development change was validated with the focused checks above.
+
+## Approval toggle placement revision
+
+The user requested moving file approvals out of the main chat area and into the Chat Settings modal header, outside collapsible Options. Park the persistent button in the existing hidden controls source, move it into the header on open, and restore it before destroying the modal. Keep session state, save rollback, and busy/review locks unchanged. Remove the duplicate visible mode selector and the composer footer, and restore the original focus-layout height allocation. Validate with Obscura CDP using the actual application markup, including collapsed Options, toggle interaction, close/reopen, and lock behavior; run existing session/composer checks. No protected documentation is edited; the pending usage-guide draft now refers to the modal header.
+
+Placement validation passed: 36 Obscura CDP checks, including the modal lifecycle and header bounds at 320px, 390px, and 1024px with the application's markup/styles, plus five existing session-control/composer checks. CSS build, JS syntax, targeted Ruff/Black, and diff checks passed. Header checks confirm the title, approval button, and close button fit without overlap. No backend or persisted-state contracts changed, so no broader deterministic rerun was needed for this placement change.
