@@ -64,7 +64,16 @@ def quote_page() -> Iterator[Page]:
                 callbacks: { isInteractionLocked: () => state.isLoading || Boolean(state.pendingDeferredReview),
                     appendPromptBlock: block => composer.appendPromptBlock(block),
                     sendSelectionPrompt: (block, options) => actions.sendMessage(block, { ...options, includeAttachments: false, focusComposerOnFinish: false }),
-                    closePathPicker: () => { closedPicker = true; },
+                    openPathPicker: options => {
+                        window.pickerOptions = options;
+                        const tree = document.createElement('div');
+                        tree.id = 'vault-explorer-modal';
+                        document.body.appendChild(tree);
+                    },
+                    closePathPicker: () => {
+                        closedPicker = true;
+                        document.querySelector('#vault-explorer-modal')?.remove();
+                    },
                     renderMarkdownPreview: container => {
                         container.innerHTML = '<p id="passage">First passage.</p><p id="other">Another passage.</p>'
                             + '<p style="height:1200px">More document text</p>';
@@ -296,3 +305,58 @@ def test_keyboard_activation_and_enter_adds_newline(quote_page: Page) -> None:
         == "First line\nSecond line"
     )
     assert page.evaluate("sent.length") == 0
+
+
+@pytest.mark.parametrize("dismiss", ["close", "backdrop"])
+def test_explicit_dismissal_exits_tree_and_nested_files(
+    quote_page: Page, dismiss: str
+) -> None:
+    page = quote_page
+    page.evaluate("files.openExplorer()")
+    page.evaluate("pickerOptions.onOpenFile('Notes/A.md')")
+    page.evaluate("files.openFile('Notes/B.md')")
+    page.evaluate("files.openFile('Notes/C.md')")
+    if dismiss == "close":
+        page.locator('[data-vault-file-close="true"]').last.click()
+    else:
+        page.locator('#vault-file-modal > [data-vault-file-close="true"]').click(
+            position={"x": 20, "y": 400}
+        )
+    assert page.locator("#vault-file-modal").count() == 0
+    assert page.locator("#vault-explorer-modal").count() == 0
+    assert not page.evaluate("files.isPickerOpen()")
+    expect(page.locator("#chat-input")).to_be_focused()
+    page.evaluate("files.openFile('Notes/Fresh.md')")
+    assert page.locator('[data-vault-file-back="true"]').count() == 0
+
+
+def test_back_keeps_tree_and_explicit_close_preserves_declined_changes(
+    quote_page: Page,
+) -> None:
+    page = quote_page
+    page.evaluate("files.openExplorer()")
+    page.evaluate("pickerOptions.onOpenFile('Notes/A.md')")
+    page.evaluate("files.openFile('Notes/B.md')")
+    page.locator('[data-vault-file-back="true"]').click()
+    expect(page.locator("#vault-file-modal-path")).to_have_text("Notes/A.md")
+    assert page.locator("#vault-explorer-modal").count() == 1
+    open_prompt(page, "Keep this prompt")
+    page.once("dialog", lambda dialog: dialog.dismiss())
+    page.locator('[data-vault-file-close="true"]').last.click()
+    assert page.locator("#vault-selection-input").input_value() == "Keep this prompt"
+    assert page.locator("#vault-explorer-modal").count() == 1
+    page.locator("[data-quote-dismiss]").click()
+    page.evaluate(
+        "document.querySelector('#vault-file-modal-editor').value = 'Keep edits'"
+    )
+    page.once("dialog", lambda dialog: dialog.dismiss())
+    page.locator('#vault-file-modal > [data-vault-file-close="true"]').click(
+        position={"x": 20, "y": 400}
+    )
+    assert page.locator("#vault-file-modal-editor").input_value() == "Keep edits"
+    assert page.locator("#vault-explorer-modal").count() == 1
+    page.once("dialog", lambda dialog: dialog.accept())
+    page.locator('[data-vault-file-back="true"]').click()
+    assert page.locator("#vault-file-modal").count() == 0
+    assert page.locator("#vault-explorer-modal").count() == 1
+    assert page.evaluate("files.isPickerOpen()")

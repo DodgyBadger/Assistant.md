@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection is implemented; other candidates remain backlog. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
+Branch: `dev/UI-enhancements`. This shortlist comes from `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed against the current implementation. The user selected quote-selected-text as the first feature and approved the scoped implementation. Quote selection and the Explorer dismissal follow-up are implemented; other candidates remain backlog. Keep this branch focused on UI changes and small supporting backend changes; exclude substantial new backend capabilities, persistence redesign, and infrastructure work.
 
 ## First feature: quote selected text
 
@@ -62,6 +62,15 @@ Each queued selection repeats its own path, quote, and prompt so blocks remain u
 - The targeted deterministic scenarios `vault_file_reference_api` and `chat_task_event_stream_api` passed (2/2), using isolated bootstrap roots under `/tmp/assistantmd-quote-validation`.
 - The full deterministic `integration/core` profile passed: 134/134 scenarios, zero failures or errors. Run ID: `20261016_184849_228267`; report: `validation/runs/reports/20261016_184849_228267.md`.
 - Existing chat task lifecycle logging covers direct submissions. Selection text and unsent drafts are kept in browser state and introduce no telemetry content or new backend event contract.
+
+## Explorer dismissal follow-up
+
+The new To Do item requests that X and clicking outside the modal exit the entire Vault Explorer to chat, while Back alone follows file navigation history. This is implemented as a frontend-only follow-up. File previews can sit above the Explorer tree; dismissing only the file modal exposes that underlying tree and requires another close.
+
+- Explicit dismissal uses one shared operation that respects unsaved file and selection-prompt guards, closes the file and underlying picker, clears navigation history, and returns focus to the main chat entry. Reuse it after successful selection-prompt submission.
+- File replacement, Back, and the explicit browse-tree action retain their existing navigation paths. Cancellation of a discard decision must leave both layers and history intact. Keep the root picker's busy-operation restrictions.
+- Browser checks cover X and backdrop dismissal with nested file history and a tree beneath, Back retaining the underlying tree, clean reopen after dismissal, and cancelled file/prompt discard. No backend, settings, secrets, or persisted-state changes are expected.
+- Validation passed: 25 browser/module checks and the `vault_file_reference_api` deterministic scenario (run `20261016_191841_931323`). JavaScript syntax, targeted Ruff/Black, and diff whitespace checks passed. The prior full deterministic run remains 134/134; this follow-up changes only frontend dismissal/navigation and does not alter the backend contracts exercised by that profile, so it was not repeated. Next step: manual UI review; other branch candidates remain available.
 
 ## Recommended candidates
 
