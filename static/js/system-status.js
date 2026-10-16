@@ -8,6 +8,9 @@
                 if (!response.ok) throw new Error('Failed to fetch status');
 
                 state.systemStatus = await response.json();
+                if (configElements.applicationVersion) {
+                    configElements.applicationVersion.textContent = state.systemStatus?.system?.app_version || 'Unavailable';
+                }
                 const publicUrl = state.systemStatus?.system?.public_url || '';
                 if (configElements.publicUrl) {
                     configElements.publicUrl.textContent = publicUrl || 'Not configured';

@@ -17,6 +17,7 @@ from core.authentication import (
     AuthenticationMiddleware,
     AuthenticationPolicy,
 )
+from core.version import APPLICATION_VERSION
 
 from .authentication import router as authentication_router
 from .endpoints import public_router, register_exception_handlers
@@ -32,7 +33,7 @@ def create_application(
     include_ui: bool = True,
 ) -> FastAPI:
     """Build the production-equivalent route and middleware topology."""
-    app = FastAPI(lifespan=lifespan)
+    app = FastAPI(lifespan=lifespan, version=APPLICATION_VERSION)
     app.state.authentication_policy = authentication_policy
     effective_shell_config = (
         advanced_shell_config or AdvancedShellConfig.restricted_default()

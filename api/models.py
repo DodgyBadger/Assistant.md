@@ -13,6 +13,7 @@ from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
 from core.memory.session_map.models import SessionMapDraft
+from core.version import APPLICATION_VERSION
 
 #######################################################################
 ## Request Models
@@ -474,6 +475,10 @@ class SchedulerInfo(BaseModel):
 
 class SystemInfo(BaseModel):
     """Information about system health."""
+
+    app_version: str = Field(
+        default=APPLICATION_VERSION, description="AssistantMD application version"
+    )
 
     startup_time: datetime = Field(..., description="When the system started")
     last_config_reload: datetime | None = Field(
