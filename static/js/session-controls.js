@@ -403,14 +403,16 @@
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="session-browser-modal-title">
                     <div class="app-modal-header chat-settings-header flex-none">
                         <div class="app-modal-title-block">
-                            <h2 id="session-browser-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
-                                <span class="app-modal-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
-                                <span>Chat Settings</span>
-                            </h2>
+                            <div class="chat-settings-title-row">
+                                <h2 id="session-browser-modal-title" class="text-lg font-semibold text-txt-primary inline-flex items-center gap-2">
+                                    <span class="app-modal-title-icon" aria-hidden="true">${icons.SETTINGS_ICON_SVG}</span>
+                                    <span>Chat Settings</span>
+                                </h2>
+                                <span data-chat-settings-approval-slot></span>
+                            </div>
                             <p id="session-browser-count" class="mt-1 text-xs text-txt-secondary"></p>
                         </div>
-                        <div class="app-modal-actions chat-settings-header-actions">
-                            <span data-chat-settings-approval-slot></span>
+                        <div class="app-modal-actions">
                             <button type="button" class="session-browser-close-button" data-session-browser-close="true" aria-label="Close chat settings" title="Close">
                                 ${icons.X_ICON_SVG}
                             </button>

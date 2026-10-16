@@ -100,12 +100,15 @@
             if (elements.chatModeSelector) elements.chatModeSelector.disabled = locked;
             const toggle = elements.fileApprovalToggle;
             if (!toggle) return;
-            toggle.textContent = `File approvals: ${enabled ? 'On' : 'Off'}`;
+            const label = `File approvals: ${enabled ? 'On' : 'Off'}`;
+            toggle.setAttribute('aria-label', label);
+            toggle.dataset.iconLabel = label;
             toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
             toggle.disabled = locked || !elements.vaultSelector?.value;
-            toggle.title = savingChatMode ? 'Saving file approval mode…'
+            const hint = savingChatMode ? 'Saving file approval mode…'
                 : locked ? 'Available after the active response or review finishes.'
                 : 'Toggle inline review of file changes for this chat session.';
+            toggle.title = `${label}. ${hint}`;
         }
 
         async function toggleFileApprovals() {

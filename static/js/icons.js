@@ -5,6 +5,13 @@
                 <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        USER_CHECK_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m16 11 2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"></circle>
+            </svg>
+        `.trim(),
         MESSAGE_SQUARE_PLUS_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -329,6 +336,7 @@
         system: icons.SYSTEM_ICON_SVG,
         trash: icons.TRASH_ICON_SVG,
         upload: icons.UPLOAD_ICON_SVG,
+        userCheck: icons.USER_CHECK_ICON_SVG,
         wrench: icons.WRENCH_ICON_SVG,
         x: icons.X_ICON_SVG,
     };

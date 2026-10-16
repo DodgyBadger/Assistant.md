@@ -293,13 +293,15 @@ body.chat-focus-mode {
 }
 .chat-focus-explorer-button svg,
 #file-reference-btn svg,
-.vault-explorer-workspace-toggle svg {
+.vault-explorer-workspace-toggle svg,
+.chat-settings-approval-toggle svg {
     transition: color 160ms ease, filter 160ms ease;
 }
 .chat-focus-explorer-button.has-workspace svg,
 #file-reference-btn.has-workspace svg,
 #workspace-picker-btn.has-workspace svg,
-.vault-explorer-workspace-toggle.has-workspace.is-workspace-view svg {
+.vault-explorer-workspace-toggle.has-workspace.is-workspace-view svg,
+.chat-settings-approval-toggle[aria-pressed="true"] svg {
     color: rgb(var(--accent-primary));
     filter:
         drop-shadow(0 0 0.16rem rgb(var(--accent-primary) / 0.9))
@@ -3872,6 +3874,7 @@ summary.connection-card-summary .summary-title {
 }
 
 .chat-settings-header > .app-modal-title-block { min-width: 0; }
-.chat-settings-header-actions { flex-wrap: nowrap; }
-.chat-settings-approval-toggle { font-size: 12px; white-space: nowrap; }
+.chat-settings-title-row { display: flex; align-items: center; gap: 0.75rem; }
+.chat-settings-title-row > h2 { min-width: 0; }
+.chat-settings-title-row > [data-chat-settings-approval-slot] { display: inline-flex; flex: 0 0 auto; }
 .chat-settings-approval-toggle[aria-pressed="true"] { border-color: rgb(var(--accent-primary)); color: rgb(var(--accent-primary)); }

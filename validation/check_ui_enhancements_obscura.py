@@ -91,6 +91,7 @@ _MODAL_APPROVAL_CHECK = r"""(async () => {
     const elements = {vaultSelector:document.querySelector('#vault-selector'),
         chatModeSelector:document.querySelector('#chat-mode-selector'),fileApprovalToggle:document.querySelector('#file-approval-toggle')};
     elements.vaultSelector.innerHTML='<option value="Vault">Vault</option>';
+    AssistantMDIcons.hydrateIconButtons(document);
     const originalButton=elements.fileApprovalToggle;
     assert(!document.querySelector('#chat-composer').contains(originalButton),'Main composer must have no approval row');
     const utils={escapeHtml:value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')};
@@ -102,27 +103,56 @@ _MODAL_APPROVAL_CHECK = r"""(async () => {
     controls.openSessionBrowserModal();
     let modal=document.querySelector('#session-browser-modal');
     const header=modal.querySelector('.app-modal-header');
-    assert(header.contains(originalButton),'Toggle belongs in modal header');
+    assert(header.contains(originalButton) && originalButton.closest('.chat-settings-title-row'),'Toggle belongs beside the modal title');
+    assert(originalButton.querySelector('svg') && !originalButton.textContent.trim(),'Toggle uses an icon without a visible text label');
+    assert(originalButton.getAttribute('aria-label')==='File approvals: On','Icon exposes the enabled state accessibly');
     const buttonBox=originalButton.getBoundingClientRect();
     const closeBox=modal.querySelector('button[data-session-browser-close]').getBoundingClientRect();
     const headerBox=header.getBoundingClientRect();
     const titleBox=header.querySelector('h2').getBoundingClientRect();
-    assert(buttonBox.width>0 && buttonBox.left>=headerBox.left && closeBox.right<=headerBox.right+1 && buttonBox.right<=closeBox.left+1 && titleBox.right<=buttonBox.left+1,'Title, toggle and close button must fit the header');
+    assert(buttonBox.width>0 && buttonBox.left>=headerBox.left && closeBox.right<=headerBox.right+1 && buttonBox.right+16<=closeBox.left && titleBox.right<=buttonBox.left+1,'Title, toggle and close button must fit the header');
     assert(!originalButton.closest('details') && !modal.querySelector('.chat-settings-options').open,'Toggle is available with Options collapsed');
     assert(elements.chatModeSelector.hidden,'Canonical mode selector must not duplicate the header toggle');
     originalButton.click();await Promise.resolve();
     assert(elements.chatModeSelector.value==='normal' && originalButton.getAttribute('aria-pressed')==='false','Header toggle changes the selected mode');
+    assert(originalButton.querySelector('svg') && originalButton.getAttribute('aria-label')==='File approvals: Off','Toggling preserves the icon and updates the accessible state');
     modal.querySelector('button[data-session-browser-close]').click();
     assert(!document.querySelector('#session-browser-modal') && document.querySelector('#file-approval-toggle')===originalButton,'Closing preserves the original button');
     assert(originalButton.closest('#chat-settings-modal-controls-source'),'Closed modal parks the button out of the main chat');
     controls.openSessionBrowserModal();
     originalButton.click();await Promise.resolve();
     assert(elements.chatModeSelector.value==='inline_edit' && document.querySelectorAll('#file-approval-toggle').length===1,'Reopen preserves one button and one event handler');
+    let checks=11;
+    if (innerWidth===390) {
+        const swatch=document.createElement('span');swatch.style.color='rgb(var(--accent-primary))';document.body.appendChild(swatch);
+        const icon=originalButton.querySelector('svg');
+        const settle=()=>new Promise(resolve=>setTimeout(resolve,200));
+        const supportsFilters=CSS.supports('filter','drop-shadow(0 0 2px red)');
+        const glowRules=[...document.styleSheets].flatMap(sheet=>[...sheet.cssRules]).filter(rule=>
+            rule.selectorText?.includes('.chat-settings-approval-toggle[aria-pressed="true"] svg'));
+        assert(glowRules.some(rule=>rule.style.getPropertyValue('filter').includes('var(--accent-primary)')),'Glow must use the theme accent');
+        checks++;
+        for (const theme of ['light','dark','ocean','sunset','lavender','forest']) {
+            document.documentElement.dataset.theme=theme;
+            elements.chatModeSelector.value='inline_edit';selection.syncFileApprovalToggle();await settle();
+            const style=getComputedStyle(icon);
+            assert(style.color===getComputedStyle(swatch).color,`Enabled icon must use the ${theme} theme accent`);
+            if (supportsFilters) assert(style.filter && style.filter!=='none',`Enabled icon must glow in ${theme}`);
+            elements.chatModeSelector.value='normal';selection.syncFileApprovalToggle();await settle();
+            assert(getComputedStyle(icon).color!==getComputedStyle(swatch).color,`Off icon must return to a neutral color in ${theme}`);
+            if (supportsFilters) assert(!getComputedStyle(icon).filter || getComputedStyle(icon).filter==='none',`Off icon must stop glowing in ${theme}`);
+            checks+=2;
+        }
+        // Obscura currently exposes filter declarations but does not render CSS filters.
+        window.approvalGlowFilterSupported=supportsFilters;
+        swatch.remove();document.documentElement.removeAttribute('data-theme');
+        elements.chatModeSelector.value='inline_edit';selection.syncFileApprovalToggle();
+    }
     state.pendingDeferredReview={};selection.syncFileApprovalToggle();
     originalButton.click();await Promise.resolve();
     assert(originalButton.disabled && elements.chatModeSelector.value==='inline_edit','Header respects pending-review locks');
     document.querySelector('#session-browser-modal button[data-session-browser-close]').click();
-    return 8;
+    return checks;
 })()"""
 
 
@@ -206,6 +236,12 @@ async def run(url: str) -> None:
                 await evaluate("document.body.innerHTML = " + json.dumps(markup))
                 count = await evaluate(_MODAL_APPROVAL_CHECK)
                 print(f"Obscura CDP: {count} modal-approval checks passed at {width}px")
+                if width == 390 and not await evaluate(
+                    "window.approvalGlowFilterSupported"
+                ):
+                    print(
+                        "Obscura does not render CSS filters; verified glow declaration and theme colors."
+                    )
         finally:
             await command("Target.closeTarget", {"targetId": target["targetId"]})
 
