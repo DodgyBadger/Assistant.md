@@ -13,6 +13,7 @@ from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
 from core.memory.session_map.models import SessionMapDraft
+from core.settings.store import SettingControl
 from core.version import APPLICATION_VERSION
 
 #######################################################################
@@ -2118,6 +2119,9 @@ class SettingInfo(BaseModel):
     """Information about a general (non-secret) application setting."""
 
     key: str = Field(..., description="Setting name")
+    control: SettingControl | None = Field(
+        default=None, description="Type-aware setting editor metadata"
+    )
     value: str = Field(..., description="Current value rendered as string")
     description: str | None = Field(None, description="Human-readable description")
     category: str | None = Field(None, description="Settings UI grouping label")

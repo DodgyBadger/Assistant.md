@@ -149,6 +149,37 @@ class ApiEndpointsScenario(BaseScenario):
         general_settings = self.call_api("/api/system/settings/general")
         assert general_settings.status_code == 200, "General settings load"
         general_payload = general_settings.json()
+        by_key = {entry["key"]: entry for entry in general_payload}
+        assert (
+            by_key["persist_model_reasoning_parts"]["control"]["value_type"]
+            == "boolean"
+        )
+        assert by_key["chat_tool_calls_limit"]["control"]["value_type"] == "integer"
+        assert (
+            by_key["model_stream_retry_base_delay_seconds"]["control"]["value_type"]
+            == "number"
+        )
+        assert by_key["disabled_tools"]["control"]["value_type"] == "json"
+        assert by_key["default_model"]["control"]["value_type"] == "string"
+        assert by_key["default_chat_mode"]["control"]["choices"] == [
+            "normal",
+            "inline_edit",
+        ]
+        for key, value in [
+            ("persist_model_reasoning_parts", "false"),
+            ("chat_tool_calls_limit", "0"),
+            ("disabled_tools", "[]"),
+        ]:
+            result = self.call_api(
+                f"/api/system/settings/general/{key}",
+                method="PUT",
+                data={"value": value},
+            )
+            assert result.status_code == 200
+            assert result.json()["value"] == value
+            assert (
+                result.json()["control"] == by_key[key]["control"]
+            ), "Control metadata survives save and reload"
         if general_payload:
             first_setting = general_payload[0]
             update_setting = self.call_api(
