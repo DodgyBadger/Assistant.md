@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
+    NativeToolReturnPart,
+    RetryPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -33,6 +35,154 @@ class ChatToolReplayContractScenario(BaseScenario):
 
         runtime = get_runtime_context()
         store = ChatStore(system_root=str(runtime.config.system_root))
+        bracket_session_id = "bracketed_user_prompts"
+        quote_prompt = "[[Notes/Draft.md]]\n\n> Selected text\n\nExplain this passage."
+        link_prompt = "[Reference](https://example.com)\n\nExplain this link."
+        store.ensure_session(
+            bracket_session_id,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            bracket_session_id,
+            vault.name,
+            [
+                ModelRequest(parts=[UserPromptPart(content=quote_prompt)]),
+                ModelResponse(parts=[ToolCallPart("probe", {}, "bracket-probe")]),
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart("probe", "Private tool result", "bracket-probe")
+                    ]
+                ),
+                ModelResponse(parts=[TextPart("The quoted passage means this.")]),
+                ModelRequest(parts=[UserPromptPart(content=link_prompt)]),
+                ModelResponse(parts=[TextPart("The link explains this.")]),
+            ],
+        )
+        bracket_messages = store.get_stored_messages(bracket_session_id, vault.name)
+        self.soft_assert_equal(
+            [
+                message.content_text
+                for message in bracket_messages
+                if message.role == "user" and not message.tool_return_ids
+            ],
+            [quote_prompt, link_prompt],
+            "Bracketed user prompts must remain in canonical storage",
+        )
+        boundaries, has_older = store.get_canonical_display_rows_before(
+            bracket_session_id,
+            vault.name,
+            through_sequence_index=5,
+            before_sequence_index=None,
+            limit=10,
+        )
+        self.soft_assert_equal(
+            boundaries,
+            [
+                (0, 0, "message"),
+                (1, 3, "message"),
+                (4, 4, "message"),
+                (5, 5, "message"),
+            ],
+            "Quote and Markdown-link prompts must each separate assistant display rows",
+        )
+        self.soft_assert(not has_older, "All bracketed prompt display rows should fit")
+        bracket_detail = self.call_api(
+            f"/api/chat/sessions/{bracket_session_id}?vault_name={vault.name}"
+        )
+        assert bracket_detail.status_code == 200
+        bracket_payloads = bracket_detail.json()["messages"]
+        self.soft_assert_equal(
+            [
+                message["content"]
+                for message in bracket_payloads
+                if message["role"] == "user" and not message["is_tool_message"]
+            ],
+            [quote_prompt, link_prompt],
+            "Reloaded user prompt DTOs must preserve leading brackets and quotes",
+        )
+        self.soft_assert_equal(
+            [
+                message["content"]
+                for message in bracket_payloads
+                if message["is_tool_message"]
+            ],
+            ["", ""],
+            "Native tool contents must remain withheld",
+        )
+        timeline = self.call_api(
+            f"/api/chat/sessions/{bracket_session_id}/timeline?vault_name={vault.name}"
+        )
+        self.soft_assert_equal(
+            timeline.status_code, 200, "Bracketed prompt timeline must load"
+        )
+        if timeline.status_code == 200:
+            self.soft_assert_equal(
+                [
+                    message["content"]
+                    for message in timeline.json()["messages"]
+                    if message["role"] == "user"
+                ],
+                [quote_prompt, link_prompt],
+                "Canonical timeline must display quote and Markdown-link user prompts",
+            )
+        missing_id_session = "tool_parts_without_ids"
+        store.ensure_session(
+            missing_id_session,
+            vault.name,
+            owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+        )
+        store.add_messages(
+            missing_id_session,
+            vault.name,
+            [
+                ModelRequest(parts=[UserPromptPart(content="Probe tool display.")]),
+                ModelResponse(parts=[ToolCallPart("probe", {}, "")]),
+                ModelRequest(parts=[ToolReturnPart("probe", "Private result", "")]),
+                ModelResponse(
+                    parts=[NativeToolReturnPart("probe", "Private native result", "")]
+                ),
+                ModelRequest(
+                    parts=[
+                        RetryPromptPart(
+                            "Private retry", tool_name="probe", tool_call_id=""
+                        )
+                    ]
+                ),
+                ModelResponse(parts=[TextPart("Visible answer.")]),
+            ],
+        )
+        missing_id_detail = self.call_api(
+            f"/api/chat/sessions/{missing_id_session}?vault_name={vault.name}"
+        )
+        assert missing_id_detail.status_code == 200
+        self.soft_assert_equal(
+            [
+                (message["is_tool_message"], message["content"])
+                for message in missing_id_detail.json()["messages"]
+            ],
+            [
+                (False, "Probe tool display."),
+                (True, ""),
+                (True, ""),
+                (True, ""),
+                (True, ""),
+                (False, "Visible answer."),
+            ],
+            "Native tool and tool-retry parts must remain hidden even without call IDs",
+        )
+        missing_id_boundaries, _ = store.get_canonical_display_rows_before(
+            missing_id_session,
+            vault.name,
+            through_sequence_index=5,
+            before_sequence_index=None,
+            limit=10,
+        )
+        self.soft_assert_equal(
+            missing_id_boundaries,
+            [(0, 0, "message"), (1, 5, "message")],
+            "Tool parts without IDs must remain within the assistant display row",
+        )
         session_id = "chat_tool_replay_contract_session"
         store.ensure_session(
             session_id,

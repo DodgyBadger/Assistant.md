@@ -331,10 +331,7 @@ class ChatStore:
                 """
                 WITH classified AS (
                     SELECT sequence_index, role, message_type,
-                           CASE WHEN (
-                               substr(ltrim(coalesce(content_text, '')), 1, 1) = '['
-                               AND instr(ltrim(coalesce(content_text, '')), ']') > 0
-                           ) OR EXISTS (
+                           CASE WHEN EXISTS (
                                SELECT 1 FROM json_each(message_json, '$.parts') part
                                WHERE (
                                    json_extract(part.value, '$.part_kind')
@@ -350,7 +347,6 @@ class ChatStore:
                                            IS NOT NULL
                                    )
                                )
-                                 AND coalesce(json_extract(part.value, '$.tool_call_id'), '') != ''
                            ) THEN 1 ELSE 0 END AS is_tool,
                            CASE WHEN EXISTS (
                                SELECT 1 FROM json_each(message_json, '$.parts') part

@@ -441,6 +441,92 @@ assert.deepStrictEqual(userDisplayIndexes, [2]);
     )
 
 
+def test_persisted_bracketed_user_prompts_survive_history_refresh() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+global.document = {};
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const displayed = [];
+const container = {
+    set innerHTML(_value) { displayed.length = 0; },
+    querySelector() { return null; },
+};
+function messageNode() {
+    return { dataset: {}, querySelector() { return null; } };
+}
+const controller = ChatHistoryRendering.create({
+    state: { sessionId: 'session' },
+    elements: { chatMessages: container },
+    icons: {},
+    toolDetails: { close() {} },
+    messageControls: {
+        addMessage(role, content) {
+            displayed.push({ role, content });
+            return messageNode();
+        },
+    },
+    callbacks: {
+        createAssistantStreamingMessage() {
+            return { messageDiv: messageNode(), toolStatusMap: new Map() };
+        },
+        renderAssistantMarkdown() {},
+        updateToolCallsSummary() {},
+        finalizeAssistantMessage(context) {
+            displayed.push({ role: 'assistant', content: context.fullText });
+        },
+    },
+});
+
+// Prompt text is user data: reloading history must preserve its exact Markdown.
+const quote = '[[Notes/A.md]]\n\n> Selected passage.\n> Another line.\n\nExplain this.';
+const link = '[A note](<Notes/A%5D.md>)\n\n> Another passage.\n\nCompare these.';
+const expectedUsers = [quote, link].map(content => ({ role: 'user', content }));
+for (const canonical of [false, true]) {
+    const payload = {
+        session_id: 'session',
+        context_checkpoint_kind: canonical ? 'session_map' : null,
+        has_older_messages: false,
+        messages: [
+            { role: 'user', sequence_index: 0, is_tool_message: false, content: quote },
+            {
+                role: canonical ? 'tool' : 'user', sequence_index: 1,
+                is_tool_message: true, content: 'Private tool result, never a user bubble.',
+            },
+            { role: 'user', sequence_index: 2, is_tool_message: false, content: link },
+        ],
+        tool_calls: [],
+    };
+    for (const completed of [false, true, true]) {
+        const snapshot = JSON.parse(JSON.stringify(payload));
+        if (completed) snapshot.messages.push({
+            role: 'assistant', sequence_index: 3,
+            is_tool_message: false, content: 'The response.',
+        });
+        controller.renderSession(snapshot);
+        assert.deepStrictEqual(
+            displayed.filter(message => message.role === 'user'), expectedUsers,
+            'Regular and canonical history refreshes must retain bracket-leading user prompts exactly.'
+        );
+        assert(!displayed.some(message => message.content.includes('Private tool result')),
+            'Persisted tool results must remain outside visible user prompt content.');
+        if (completed) assert(displayed.some(message => message.content === 'The response.'));
+    }
+}
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_HISTORY_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
 def test_persisted_tool_turn_renders_as_one_assistant_message() -> None:
     harness = r"""
 const assert = require('assert');

@@ -7,7 +7,15 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic_ai.messages import ModelResponse, TextPart, ThinkingPart
+from pydantic_ai.messages import (
+    ModelResponse,
+    NativeToolReturnPart,
+    RetryPromptPart,
+    TextPart,
+    ThinkingPart,
+    ToolCallPart,
+    ToolReturnPart,
+)
 
 from core.chat import export_chat_transcript, remove_chat_transcript_exports
 from core.chat.chat_store import (
@@ -1227,10 +1235,10 @@ def _chat_session_message_info(
     context_checkpoint: StoredContextCheckpoint | None = None,
 ) -> ChatSessionMessageInfo:
     """Return browser-safe display data while withholding tool message contents."""
-    is_tool_message = (
-        _is_tool_message_text(message.content_text)
-        or bool(message.tool_call_ids)
-        or bool(message.tool_return_ids)
+    is_tool_message = any(
+        isinstance(part, ToolCallPart | ToolReturnPart | NativeToolReturnPart)
+        or (isinstance(part, RetryPromptPart) and part.tool_name is not None)
+        for part in message.message.parts
     )
     is_model_response = isinstance(message.message, ModelResponse)
     is_session_map = (
@@ -1287,7 +1295,10 @@ def _chat_message_display_content(message: StoredChatMessage) -> str:
             if content and not _is_provider_reasoning_marker(content):
                 text_parts.append(content)
 
-    if not text_parts and message.tool_call_ids:
+    if not text_parts and any(
+        isinstance(part, ToolCallPart | NativeToolReturnPart)
+        for part in message.message.parts
+    ):
         return ""
     if not text_parts:
         return str(message.content_text)
@@ -1513,11 +1524,6 @@ def _stored_timestamp(value: str) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC)
-
-
-def _is_tool_message_text(content: str) -> bool:
-    text = (content or "").strip()
-    return text.startswith("[") and "]" in text
 
 
 def _load_json_object(raw_value: str | None) -> dict[str, Any] | None:
