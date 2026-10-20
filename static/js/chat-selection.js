@@ -137,7 +137,7 @@
             const savedMode = previousMode || state.sessions.find(item => item.session_id === sessionId)?.chat_mode || configuredDefaultChatMode();
             const chatMode = elements.chatModeSelector.value === 'inline_edit' ? 'inline_edit' : 'normal';
             savingChatMode = true;
-            state.chatModeSavePending = { vault, sessionId };
+            state.chatModeSavePending = { vault, sessionId, chatMode };
             state.chatModeRevision = { vault, sessionId };
             callbacks.syncControls();
             try {
@@ -149,6 +149,9 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const session = state.sessions.find(item => item.session_id === sessionId);
                 if (session && elements.vaultSelector?.value === vault) session.chat_mode = chatMode;
+                if (elements.vaultSelector?.value === vault && state.sessionId === sessionId) {
+                    elements.chatModeSelector.value = chatMode;
+                }
             } catch (error) {
                 if (elements.vaultSelector?.value === vault && state.sessionId === sessionId) {
                     elements.chatModeSelector.value = savedMode;

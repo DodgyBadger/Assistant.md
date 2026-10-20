@@ -188,3 +188,92 @@ def test_chat_sessions_loads_before_application() -> None:
     application_position = markup.index('<script src="static/app.js"></script>')
 
     assert sessions_position < application_position
+
+
+def test_pending_chat_mode_save_survives_session_navigation() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+global.window = global;
+global.document = {};
+for (const module of process.argv.slice(1)) {
+    vm.runInThisContext(fs.readFileSync(module, 'utf8'), {filename:module});
+}
+
+async function exercise({ok, returnToA, historyAfterSave}) {
+    const state = {
+        sessionId:'A', isLoading:false,
+        sessions:[{session_id:'A',chat_mode:'normal'}, {session_id:'B',chat_mode:'normal'}],
+    };
+    const elements = {vaultSelector:{value:'vault'}, chatModeSelector:{value:'normal'}};
+    let finishSave;
+    let finishHistory;
+    const errors = [];
+    global.fetch = async (url, options) => {
+        if (options?.method === 'PATCH') {
+            return new Promise(resolve => { finishSave = resolve; });
+        }
+        const sessionId = url.includes('/B?') ? 'B' : 'A';
+        const response = {ok:true, json:async () => ({session_id:sessionId, chat_mode:'normal'})};
+        if (sessionId === 'A' && historyAfterSave) {
+            return new Promise(resolve => { finishHistory = () => resolve(response); });
+        }
+        return response;
+    };
+    const sessionControls = {renderSelector() {}, async refreshCompactionState() {}};
+    const callbacks = {syncControls() {}, updateStatus() {}, addErrorMessage(message) {errors.push(message);}};
+    const selection = ChatSelection.create({state, elements, sessionControls, callbacks});
+    const sessions = ChatSessions.create({
+        state, elements, sessionControls, callbacks,
+        chatRendering:{closeToolCallDetails() {}, renderPersistedSession() {}},
+        chatTaskActions:{}, chatTaskStream:{},
+    });
+    const save = selection.toggleFileApprovals();
+    assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');
+    await sessions.loadSession('B', {skipActiveTaskCheck:true});
+    assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session’s mode.');
+    let returnLoad;
+    if (returnToA) {
+        returnLoad = sessions.loadSession('A', {skipActiveTaskCheck:true});
+        if (!historyAfterSave) {
+            await returnLoad;
+            assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B’s mode.');
+        }
+    }
+    finishSave({ok, status:ok ? 200 : 500});
+    await save;
+    if (finishHistory) {
+        finishHistory();
+        await returnLoad;
+    }
+    assert.strictEqual(state.sessions[0].chat_mode, ok ? 'inline_edit' : 'normal');
+    assert.strictEqual(elements.chatModeSelector.value, returnToA && ok ? 'inline_edit' : 'normal');
+    assert.strictEqual(errors.length, ok ? 0 : 1);
+    assert.strictEqual(state.chatModeSavePending, null);
+}
+(async () => {
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+        for (const ok of [true, false]) {
+            for (const returnToA of [true, false]) {
+                for (const historyAfterSave of [true, false]) {
+                    await exercise({ok, returnToA, historyAfterSave});
+                }
+            }
+        }
+    } finally { console.error = originalError; }
+})().catch(error => {process.stderr.write(String(error.stack || error)); process.exit(1);});
+"""
+    subprocess.run(
+        [
+            "node",
+            "-e",
+            harness,
+            str(_MODULE),
+            str(_PROJECT_ROOT / "static/js/chat-selection.js"),
+        ],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

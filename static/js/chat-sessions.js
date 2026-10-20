@@ -81,10 +81,17 @@
                 const modeChanged = chatModeRevision !== state.chatModeRevision
                     && state.chatModeRevision?.sessionId === sessionId
                     && state.chatModeRevision?.vault === vault;
-                if (elements.chatModeSelector && !modeSavePending && !modeChanged) {
-                    elements.chatModeSelector.value = payload.chat_mode === 'inline_edit'
-                        ? 'inline_edit'
-                        : 'normal';
+                if (elements.chatModeSelector) {
+                    if (modeSavePending) {
+                        const pendingMode = state.chatModeSavePending.chatMode;
+                        if (pendingMode === 'normal' || pendingMode === 'inline_edit') {
+                            elements.chatModeSelector.value = pendingMode;
+                        }
+                    } else if (!modeChanged) {
+                        elements.chatModeSelector.value = payload.chat_mode === 'inline_edit'
+                            ? 'inline_edit'
+                            : 'normal';
+                    }
                 }
                 state.pendingDeferredReview = payload.pending_review || null;
                 state.workspaceExists = payload.workspace ? payload.workspace.exists === true : null;

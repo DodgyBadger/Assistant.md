@@ -326,8 +326,12 @@ class DeferredReviewTaskSkeletonScenario(BaseScenario):
                 session_id="deferred-review-session",
                 tools=[],
                 model="test",
-                chat_mode="inline_edit",
+                chat_mode="normal",
             )
+            assert (
+                ChatStore().get_session_chat_mode("deferred-review-session", vault.name)
+                == "inline_edit"
+            ), "Rejected requests must preserve the saved approval preference"
             blocked_task = await self._wait_for_task_terminal(
                 blocked_start.task.task_id
             )
@@ -342,6 +346,10 @@ class DeferredReviewTaskSkeletonScenario(BaseScenario):
                 .get("delta", {})
                 .get("content", "")
             )
+            assert (
+                ChatStore().get_session_chat_mode("deferred-review-session", vault.name)
+                == "inline_edit"
+            ), "Failed pending-review tasks must preserve the saved approval preference"
 
             duplicate_response = self.call_api(
                 (

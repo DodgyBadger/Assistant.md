@@ -598,13 +598,17 @@ async def start_queued_chat_stream_task(
 ) -> ChatStreamTaskStart:
     """Start a streaming chat task that waits behind earlier tasks in its session."""
     runtime = get_runtime_context()
-    # Persist the accepted preference before publishing the queued task. Execution
-    # keeps its captured mode without overwriting later session preference changes.
-    chat_executor.persist_chat_session_mode(
-        vault_name=vault_name,
-        session_id=session_id,
-        chat_mode=chat_mode,
+    pending_review_at_acceptance = has_pending_deferred_review(
+        vault_name=vault_name, session_id=session_id
     )
+    # Rejected requests must not change the session preference. Accepted requests
+    # save it now so queued execution cannot overwrite later preference changes.
+    if not pending_review_at_acceptance:
+        chat_executor.persist_chat_session_mode(
+            vault_name=vault_name,
+            session_id=session_id,
+            chat_mode=chat_mode,
+        )
     buffer = event_buffer or CHAT_TASK_EVENT_BUFFER
     prepared_for_failure: chat_executor.PreparedChatExecution | None = None
 
@@ -612,7 +616,7 @@ async def start_queued_chat_stream_task(
         async def _run_in_session_gate() -> None:
             nonlocal prepared_for_failure
             try:
-                if has_pending_deferred_review(
+                if pending_review_at_acceptance or has_pending_deferred_review(
                     vault_name=vault_name, session_id=session_id
                 ):
                     raise chat_executor.ChatReviewPendingError(session_id=session_id)
