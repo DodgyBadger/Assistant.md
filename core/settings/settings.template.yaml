@@ -502,10 +502,6 @@ providers:
     provider:
       require_parameters: true
     user_editable: false
-  typesafe:
-    api_key: TYPESAFE_API_KEY
-    base_url: null
-    user_editable: false
   lm_studio:
     api_key: LM_STUDIO_API_KEY
     base_url: LM_STUDIO_BASE_URL

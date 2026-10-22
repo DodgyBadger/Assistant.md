@@ -59,6 +59,30 @@ def retire_embedding_models(models: dict[str, Any]) -> dict[str, Any]:
     return retained
 
 
+def retire_builtin_providers(
+    providers: dict[str, Any], models: dict[str, Any]
+) -> dict[str, Any]:
+    """Remove unused shipped TypeSafe configuration without orphaning custom models."""
+    retained = deepcopy(providers)
+    entry = retained.get("typesafe")
+    if not isinstance(entry, dict) or entry.get("user_editable") is True:
+        return retained
+    referenced = any(
+        isinstance(model, dict) and model.get("provider") == "typesafe"
+        for model in models.values()
+    )
+    if (
+        not referenced
+        and entry.get("api_key") == "TYPESAFE_API_KEY"
+        and entry.get("base_url") is None
+        and not entry.get("provider")
+    ):
+        retained.pop("typesafe")
+    else:
+        entry["user_editable"] = True
+    return retained
+
+
 def upgrade_settings_mapping(
     active: dict[str, Any], template: dict[str, Any]
 ) -> dict[str, Any]:
@@ -72,6 +96,11 @@ def upgrade_settings_mapping(
         if catalog.issues:
             raise ValueError(" ".join(catalog.issues))
         upgraded["models"] = catalog.models
+    providers = upgraded.get("providers")
+    if isinstance(providers, dict):
+        upgraded["providers"] = retire_builtin_providers(
+            providers, upgraded.get("models", {})
+        )
     settings = upgraded.setdefault("settings", {})
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):

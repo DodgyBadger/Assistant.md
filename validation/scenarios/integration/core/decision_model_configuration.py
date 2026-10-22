@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -109,6 +110,33 @@ class DecisionModelConfigurationScenario(BaseScenario):
             all(model["name"] != "jev" for model in models_response.json()),
             "Fresh installations must not include the retired managed Jev model",
         )
+        providers = self.call_api("/api/system/providers").json()
+        assert all(provider["name"] != "typesafe" for provider in providers)
+        legacy = yaml.safe_load(self.call_api("/api/system/settings").json()["content"])
+        legacy["providers"]["typesafe"] = {
+            "api_key": "TYPESAFE_API_KEY",
+            "base_url": None,
+            "user_editable": False,
+        }
+        retired = self.call_api(
+            "/api/system/settings",
+            method="PUT",
+            data={"content": yaml.safe_dump(legacy)},
+        )
+        assert retired.status_code == 200, retired.text
+        assert "typesafe" not in yaml.safe_load(retired.json()["content"])["providers"]
+        activity_path = self._get_system_controller()._system_root / "activity.log"
+        assert any(
+            event.get("data", {}).get("event") == "retired_builtin_providers_updated"
+            and event["data"]["providers"] == ["typesafe"]
+            for event in map(json.loads, activity_path.read_text().splitlines())
+        )
+        custom_provider = self.call_api(
+            "/api/system/providers/typesafe",
+            method="PUT",
+            data={"api_key": "TYPESAFE_API_KEY"},
+        )
+        assert custom_provider.status_code == 200, custom_provider.text
         created = self.call_api(
             "/api/system/models/jev",
             method="PUT",
@@ -159,7 +187,7 @@ class DecisionModelConfigurationScenario(BaseScenario):
                 typesafe["api_key_has_value"],
                 typesafe["user_editable"],
             ),
-            ("TYPESAFE_API_KEY", None, False, False),
+            ("TYPESAFE_API_KEY", None, False, True),
             "TypeSafe should use the existing secret-pointer readiness contract without a base URL",
         )
 
@@ -257,7 +285,6 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "user_editable": True,
         }
         settings["models"].pop("jev")
-        settings["providers"].pop("typesafe")
         for key, value in _RETIRED_SETTING_FIXTURE.items():
             settings["settings"][key] = {
                 "value": value,
@@ -289,6 +316,8 @@ class DecisionModelConfigurationScenario(BaseScenario):
             },
             "Legacy embedding aliases must not be offered",
         )
+        backup_dir = self._get_system_controller()._system_root / "migration_backups"
+        existing_backups = set(backup_dir.rglob("settings.yaml.bak*"))
         repair = self.call_api("/api/system/settings/repair", method="POST")
         repaired = yaml.safe_load(repair.json()["content"])
         self.soft_assert(
@@ -296,9 +325,7 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "Settings repair must retire embedding aliases",
         )
         backup_paths = list(
-            (self._get_system_controller()._system_root / "migration_backups").rglob(
-                "settings.yaml.bak*"
-            )
+            set(backup_dir.rglob("settings.yaml.bak*")) - existing_backups
         )
         assert len(backup_paths) == 1
         backup = yaml.safe_load(backup_paths[0].read_text(encoding="utf-8"))
@@ -318,7 +345,7 @@ class DecisionModelConfigurationScenario(BaseScenario):
         self.soft_assert_equal(
             repaired["providers"]["typesafe"]["api_key"],
             "TYPESAFE_API_KEY",
-            "Settings repair should add the TypeSafe secret pointer",
+            "Settings repair should preserve the custom TypeSafe secret pointer",
         )
         self.soft_assert(
             _RETIRED_SETTING_FIXTURE.keys().isdisjoint(repaired["settings"]),

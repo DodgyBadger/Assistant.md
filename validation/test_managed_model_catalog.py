@@ -5,6 +5,61 @@ from copy import deepcopy
 from core.settings.model_catalog import upgrade_model_catalog
 
 
+def test_retired_typesafe_provider_is_removed_only_when_unused() -> None:
+    from core.settings.upgrades import retire_builtin_providers
+
+    builtin = {"api_key": "TYPESAFE_API_KEY", "base_url": None, "user_editable": False}
+    assert retire_builtin_providers({"typesafe": builtin}, {}) == {}
+    custom = {**builtin, "user_editable": True}
+    assert retire_builtin_providers({"typesafe": custom}, {}) == {"typesafe": custom}
+    dependent = {"my-decision": {"provider": "typesafe"}}
+    retained = retire_builtin_providers({"typesafe": builtin}, dependent)
+    assert retained == {"typesafe": custom}
+    customized = {**builtin, "base_url": "https://custom.example.test"}
+    assert retire_builtin_providers({"typesafe": customized}, {}) == {
+        "typesafe": {**customized, "user_editable": True}
+    }
+    assert builtin["user_editable"] is False
+
+
+def test_load_persists_unused_provider_retirement_with_backup(
+    tmp_path, monkeypatch
+) -> None:
+    import yaml
+
+    from core.settings import store
+
+    path = tmp_path / "settings.yaml"
+    template = tmp_path / "template.yaml"
+    active = {
+        "providers": {
+            "typesafe": {
+                "api_key": "TYPESAFE_API_KEY",
+                "base_url": None,
+                "user_editable": False,
+            }
+        }
+    }
+    path.write_text(yaml.safe_dump(active))
+    template.write_text("models: {}\nproviders: {}\n")
+    monkeypatch.setattr(store, "get_active_settings_path", lambda: path)
+    monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template)
+    store.refresh_settings_cache()
+    try:
+        loaded = store.load_settings()
+        assert loaded.providers == {}
+        assert loaded._retired_provider_updates == ["typesafe"]
+        assert yaml.safe_load(path.read_text())["providers"] == {}
+        backups = list((tmp_path / "migration_backups").iterdir())
+        assert len(backups) == 1
+        assert yaml.safe_load(backups[0].read_text()) == active
+        store.refresh_settings_cache()
+        assert store.load_settings()._retired_provider_updates == []
+        assert len(list((tmp_path / "migration_backups").iterdir())) == 1
+    finally:
+        store.refresh_settings_cache()
+
+
 def test_standard_alias_adopts_matching_family_even_when_explicitly_unmanaged() -> None:
     template = {
         "sonnet": {

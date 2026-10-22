@@ -36,7 +36,7 @@ class SessionMapReadinessScenario(BaseScenario):
             "/api/system/models/validation-decision",
             method="PUT",
             data={
-                "provider": "typesafe",
+                "provider": "openai",
                 "model_string": "validation-decision",
                 "capabilities": ["decision"],
             },
