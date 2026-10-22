@@ -363,3 +363,11 @@ def test_settings_editor_behaviors() -> None:
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_model_editor_behaviors() -> None:
+    subprocess.run(
+        ["node", "--test", "validation/test_model_editors.cjs"],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

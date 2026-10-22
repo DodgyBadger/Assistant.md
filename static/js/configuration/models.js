@@ -86,7 +86,7 @@
     }
 
     function renderModelViewCard(model) {
-        const editable = model.user_editable !== false;
+        const editable = model.user_editable !== false && !model.managed_id;
         const availabilityBadge = model.available
             ? '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium pill-success border">Available</span>'
             : '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium pill-error border">Unavailable</span>';
@@ -98,25 +98,27 @@
             ? model.capabilities.join(', ')
             : 'text';
 
-        const actions = editable
-            ? `
-                <button data-action="edit" data-model="${escapeHtml(model.name)}" ${iconButton('edit', 'Edit model', 'is-primary')}>${iconSvg('edit')}</button>
-                <button data-action="delete" data-model="${escapeHtml(model.name)}" ${iconButton('trash', 'Delete model', 'is-danger')}>${iconSvg('trash')}</button>
-            `
-            : `<span class="inline-block px-2 py-0.5 text-xs text-txt-secondary bg-app-elevated rounded border border-border-primary">Read-only</span>`;
+        const actions = `
+            <button data-action="edit" ${iconButton('edit', 'Edit model details', 'is-primary')}>${iconSvg('edit')}</button>
+            <button data-action="duplicate" class="px-3 py-1.5 text-xs font-medium rounded-md border border-border-primary bg-app-elevated text-txt-primary hover:bg-app-hover focus:outline-none focus:ring-2 focus:ring-accent">Duplicate as custom</button>
+            ${editable
+                ? `<button data-action="delete" ${iconButton('trash', 'Delete model', 'is-danger')}>${iconSvg('trash')}</button>`
+                : `<span class="inline-block px-2 py-0.5 text-xs text-txt-secondary bg-app-elevated rounded border border-border-primary">${model.managed_id ? 'Managed' : 'Read-only binding'}</span>`}
+        `;
 
         return `
             <div class="model-card rounded-lg border border-border-primary bg-app-card px-5 py-4 shadow-sm hover:shadow transition-shadow" data-row="${escapeHtml(model.name)}" data-mode="view" style="max-width: 1400px;">
                 <div class="space-y-4">
-                    <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start justify-between gap-4 flex-wrap">
                         <div class="min-w-0">
-                            <div class="font-semibold text-txt-primary text-sm">${escapeHtml(model.name)}</div>
+                            <div class="font-semibold text-txt-primary text-sm">${escapeHtml(model.display_name || model.name)}</div>
+                            ${model.display_name ? `<div class="text-xs text-txt-secondary mt-1">${escapeHtml(model.name)}</div>` : ''}
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="w-fit">${availabilityBadge}</div>
                             </div>
                             ${reasonLine}
                         </div>
-                        <div class="flex gap-2 shrink-0">
+                        <div class="flex gap-2 flex-wrap">
                             ${actions}
                         </div>
                     </div>
@@ -133,6 +135,10 @@
                             <div class="text-xs font-medium text-txt-secondary mb-1">Capabilities</div>
                             <div class="text-xs text-txt-primary bg-app-elevated px-2 py-1 rounded border border-border-primary inline-block max-w-xs break-words">${escapeHtml(capabilities)}</div>
                         </div>
+                        ${model.alternate_aliases?.length ? `<div>
+                            <div class="text-xs font-medium text-txt-secondary mb-1">Alternate aliases</div>
+                            <div class="text-sm text-txt-primary break-words">${escapeHtml(model.alternate_aliases.join(', '))}</div>
+                        </div>` : ''}
                     </div>
                 </div>
             </div>
@@ -143,12 +149,16 @@
         const rowKey = isNew ? '__new' : (state.modelEdit?.key || draft.name || '');
         const selectedProvider = draft.provider !== undefined ? draft.provider : (state.providers[0]?.name || '');
         const providerOptions = buildProviderOptions(selectedProvider);
-        const providerDisabled = state.providers.length === 0 ? 'disabled' : '';
+        const readOnly = Boolean(draft.binding_read_only);
+        const bindingDisabled = readOnly ? 'disabled' : '';
+        const providerDisabled = readOnly || state.providers.length === 0 ? 'disabled' : '';
         const providerHelp = state.providers.length ? 'Select the provider powering this model.' : 'Add a provider before creating models.';
 
-        const renameHint = isNew
+        const renameHint = readOnly
+            ? '<p class="text-xs text-txt-secondary mt-1">Managed binding. Duplicate as custom to change the name, provider, or model identifier.</p>'
+            : isNew
             ? '<p class="text-xs text-txt-secondary mt-1">Lowercase alias used in assistant files.</p>'
-            : '<p class="text-xs text-txt-secondary mt-1">Renaming updates the model alias used in assistants.</p>';
+            : '<p class="text-xs text-txt-secondary mt-1">Renaming preserves the previous name as an alternate alias.</p>';
 
         return `
             <div class="model-card rounded-lg border border-border-primary bg-app-card editing-highlight px-5 py-4 shadow-sm" data-row="${escapeHtml(rowKey)}" data-mode="edit" style="max-width: 1400px;">
@@ -156,7 +166,7 @@
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="block text-xs font-medium text-txt-primary mb-1.5">Model Name</label>
-                            <input data-field="name" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. planning" value="${escapeHtml(draft.name || '')}" />
+                            <input data-field="name" ${readOnly ? 'readonly aria-readonly="true"' : ''} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. planning" value="${escapeHtml(draft.name || '')}" />
                             ${renameHint}
                         </div>
                         <div>
@@ -169,12 +179,21 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-txt-primary mb-1.5">Model Identifier</label>
-                        <input data-field="model_string" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary font-mono text-sm transition-colors" placeholder="e.g. claude-sonnet-4-5" value="${escapeHtml(draft.model_string || '')}" />
+                        <input data-field="model_string" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary font-mono text-sm transition-colors" placeholder="e.g. claude-sonnet-4-5" value="${escapeHtml(draft.model_string || '')}" />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-txt-primary mb-1.5">Capabilities</label>
-                        <input data-field="capabilities" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
+                        <input data-field="capabilities" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
                         <p class="text-xs text-txt-secondary mt-1">Comma-separated values. Examples: <code>text, vision</code> or <code>decision</code>.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Display name</label>
+                        <input data-field="display_name" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.display_name || '')}" placeholder="Optional friendly label" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Alternate aliases</label>
+                        <input data-field="alternate_aliases" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.alternate_aliases || '')}" placeholder="alias1, alias2, alias3" />
+                        <p class="text-xs text-txt-secondary mt-1">Comma-separated names accepted by scripts and saved settings. You can edit or remove any entry.</p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <button data-action="cancel-model" ${iconButton('circleX', 'Cancel model edit')}>${iconSvg('circleX')}</button>
@@ -204,6 +223,8 @@
 
         if (action === 'edit' && rowKey) {
             startModelEdit(rowKey);
+        } else if (action === 'duplicate' && rowKey) {
+            duplicateModel(rowKey);
         } else if (action === 'delete' && rowKey) {
             deleteModel(rowKey);
         } else if (action === 'cancel-model') {
@@ -240,7 +261,7 @@
         }
 
         const model = state.models.find(m => m.name === modelName);
-        if (!model || model.user_editable === false) {
+        if (!model) {
             setStatus(elements.modelFeedback, 'This model is read-only.', 'warning');
             return;
         }
@@ -248,6 +269,9 @@
         state.modelEdit = { mode: 'existing', key: model.name };
         state.modelDraft = {
             name: model.name,
+            binding_read_only: model.user_editable === false || Boolean(model.managed_id),
+            alternate_aliases: (model.alternate_aliases || []).join(', '),
+            display_name: model.display_name || '',
             provider: model.provider,
             model_string: model.model_string,
             capabilities: Array.isArray(model.capabilities) && model.capabilities.length
@@ -258,6 +282,33 @@
         renderModels();
         focusModelInput('name');
         setStatus(elements.modelFeedback, `Editing '${model.name}'.`, 'info');
+    }
+
+    function duplicateModel(modelName) {
+        if (state.isSavingModel || state.modelEdit) {
+            setStatus(elements.modelFeedback, 'Finish the current edit before duplicating a model.', 'warning');
+            return;
+        }
+        const model = state.models.find(item => item.name === modelName);
+        if (!model) return;
+        const names = new Set(state.models.flatMap(item => [item.name, ...(item.alternate_aliases || [])]).map(name => name.trim().toLowerCase()));
+        const base = `${model.name}-custom`;
+        let name = base;
+        let suffix = 2;
+        while (names.has(name)) name = `${base}-${suffix++}`;
+        state.modelEdit = { mode: 'new', key: '__new' };
+        state.modelDraft = {
+            name,
+            provider: model.provider,
+            model_string: model.model_string,
+            capabilities: (model.capabilities || ['text']).join(', '),
+            display_name: '',
+            alternate_aliases: '',
+            binding_read_only: false
+        };
+        renderModels();
+        focusModelInput('name');
+        setStatus(elements.modelFeedback, 'Edit the custom copy and click Save.', 'info');
     }
 
     function startNewModel() {
@@ -273,7 +324,10 @@
             name: '',
             provider: defaultProvider,
             model_string: '',
-            capabilities: 'text'
+            capabilities: 'text',
+            alternate_aliases: '',
+            display_name: '',
+            binding_read_only: false
         };
 
         renderModels();
@@ -294,7 +348,7 @@
         if (state.isSavingModel || !state.modelEdit || !state.modelDraft) return;
 
         const draft = state.modelDraft;
-        let alias = (draft.name || '').trim().toLowerCase();
+        const alias = (draft.name || '').trim().toLowerCase();
         const provider = (draft.provider || '').trim();
         const modelString = (draft.model_string || '').trim();
         const capabilitiesInput = (draft.capabilities || '').trim();
@@ -333,7 +387,10 @@
             const payload = {
                 provider: provider,
                 model_string: modelString,
-                capabilities: capabilities
+                capabilities: capabilities,
+                alternate_aliases: (draft.alternate_aliases || '').split(',').map(item => item.trim()).filter(Boolean),
+                display_name: (draft.display_name || '').trim(),
+                original_name: originalName
             };
 
             const response = await fetch(`api/system/models/${encodeURIComponent(alias)}`, {
@@ -348,20 +405,8 @@
             }
 
             const result = await response.json();
-            let restartRequired = Boolean(result && result.restart_required);
+            const restartRequired = Boolean(result && result.restart_required);
 
-            if (originalName && alias !== originalName) {
-                const deleteResponse = await fetch(`api/system/models/${encodeURIComponent(originalName)}`, {
-                    method: 'DELETE'
-                });
-                if (!deleteResponse.ok) {
-                    const deleteError = await safeJson(deleteResponse);
-                    throw new Error(deleteError?.message || `Failed to remove old alias '${originalName}'.`);
-                }
-
-                const deleteResult = await safeJson(deleteResponse);
-                restartRequired = restartRequired || Boolean(deleteResult && deleteResult.restart_required);
-            }
 
             cancelModelEdit(false);
             await loadModels();
@@ -413,6 +458,7 @@
         handleModelInputChange,
         startModelEdit,
         startNewModel,
+        duplicateModel,
         cancelModelEdit,
         saveModelRow,
         deleteModel

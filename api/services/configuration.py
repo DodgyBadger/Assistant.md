@@ -51,6 +51,7 @@ from core.settings.config_editor import (
     upsert_provider_config,
 )
 from core.settings.editor_schema import build_editors, canonical_value, settings_issues
+from core.settings.model_registry import build_model_registry
 from core.settings.secrets_store import (
     delete_secret,
     get_secret_value,
@@ -64,6 +65,7 @@ from core.settings.store import (
     ModelConfig,
     ProviderConfig,
     SettingsEntry,
+    SettingsFile,
     get_active_settings_path,
     get_disabled_tool_names,
     get_general_settings,
@@ -127,6 +129,16 @@ async def update_system_settings(new_content: str) -> SystemSettingsResponse:
         raise SystemConfigurationError(
             "Settings YAML must contain a top-level mapping (dictionary)."
         )
+
+    try:
+        proposed_models = SettingsFile.model_validate(
+            {"models": parsed.get("models") or {}}
+        ).models
+        current_models = load_settings().models
+        if proposed_models != current_models:
+            build_model_registry(proposed_models).validate()
+    except ValueError as exc:
+        raise SystemConfigurationError(f"Invalid model registry: {exc}") from exc
 
     normalized_content = (
         new_content if new_content.endswith("\n") else new_content + "\n"
@@ -354,6 +366,8 @@ def get_general_settings_config() -> list[SettingInfo]:
         result.issues = issues[key]
         try:
             normalized = canonical_value(key, entry.value)
+            if isinstance(normalized, str):
+                normalized = editors[key].aliases.get(normalized, normalized)
         except ValueError:
             normalized = entry.value
         result.edit_value = _format_setting_value(normalized)
@@ -400,6 +414,7 @@ def _build_model_info(
 
     return ModelInfo(
         name=name,
+        managed_id=config.managed_id,
         alternate_aliases=config.alternate_aliases,
         display_name=config.display_name,
         provider=config.provider,
@@ -571,6 +586,7 @@ def upsert_configurable_model(
             model_string=payload.model_string,
             capabilities=payload.capabilities,
             description=payload.description,
+            original_name=payload.original_name,
             alternate_aliases=payload.alternate_aliases,
             display_name=payload.display_name,
         )
@@ -587,7 +603,14 @@ def upsert_configurable_model(
 
     logger.info(
         "Model alias upserted",
-        data={"alias": model_name, "provider": payload.provider},
+        data={
+            "event": "model_mapping_saved",
+            "status": "completed",
+            "alias": model_name,
+            "original_alias": payload.original_name,
+            "provider": payload.provider,
+            "alternate_count": len(updated.alternate_aliases),
+        },
     )
     return _build_model_info(
         model_name, updated, config_status.model_availability, issue_messages
