@@ -15,6 +15,7 @@ from core.settings.editor_schema import (
     parse_setting_value,
     validate_update,
 )
+from core.settings.model_registry import build_model_registry
 from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
@@ -141,6 +142,8 @@ def upsert_model_mapping(
     model_string: str,
     capabilities: list[str] | None = None,
     description: str | None = None,
+    alternate_aliases: list[str] | None = None,
+    display_name: str | None = None,
 ) -> ModelConfig:
     """
     Create or update a model mapping entry.
@@ -159,7 +162,7 @@ def upsert_model_mapping(
         SettingsError: When attempting to modify a non-editable entry or
                        reference an unknown provider.
     """
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     existing = settings_file.models.get(name)
 
     if existing and not getattr(existing, "user_editable", True):
@@ -186,7 +189,21 @@ def upsert_model_mapping(
         capabilities=resolved_capabilities,
         description=description,
         user_editable=user_editable,
+        alternate_aliases=(
+            alternate_aliases
+            if alternate_aliases is not None
+            else list(existing.alternate_aliases) if existing else []
+        ),
+        display_name=(
+            display_name
+            if display_name is not None
+            else existing.display_name if existing else None
+        ),
     )
+    try:
+        build_model_registry(settings_file.models).validate()
+    except ValueError as exc:
+        raise SettingsError(str(exc)) from exc
 
     _persist_changes(settings_file)
     return settings_file.models[name]

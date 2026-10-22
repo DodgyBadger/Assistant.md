@@ -78,6 +78,8 @@ class ModelConfig(BaseModel):
     capabilities: list[str] = Field(default_factory=lambda: ["text"])
     description: str | None = None
     user_editable: bool = True
+    alternate_aliases: list[str] = Field(default_factory=list)
+    display_name: str | None = None
 
     @field_validator("capabilities", mode="before")
     @classmethod

@@ -5,6 +5,7 @@ Maps simple model names (e.g., 'sonnet', 'gpt-4o') to provider-specific model ob
 and handles environment-based configuration and API key validation.
 """
 
+from dataclasses import dataclass
 from threading import Lock
 from typing import Any
 
@@ -22,6 +23,7 @@ from core.llm.provider_policy import (
     provider_requires_custom_base_url,
 )
 from core.logger import UnifiedLogger
+from core.settings.model_registry import ModelRegistry, build_model_registry
 from core.settings.secrets_store import get_secret_value, load_secrets, secret_has_value
 from core.settings.store import (
     get_general_settings,
@@ -33,44 +35,22 @@ from core.settings.store import (
 logger = UnifiedLogger(tag="models")
 
 _MODEL_CACHE_LOCK = Lock()
-MODEL_MAPPINGS: dict[str, tuple[str, str]] = {}
-MODEL_CAPABILITIES: dict[str, set[str]] = {}
-PROVIDER_CONFIGS: dict[str, dict[str, Any]] = {}
+
+
+@dataclass(frozen=True)
+class ModelCache:
+    registry: ModelRegistry
+    bindings: dict[str, tuple[str, str]]
+    capabilities: dict[str, set[str]]
+    providers: dict[str, dict[str, Any]]
+
+
+_MODEL_CACHE: ModelCache
 
 
 #######################################################################
 ## Model Mappings from YAML Configuration
 #######################################################################
-
-
-def _get_model_mappings() -> dict[str, tuple[str, str]]:
-    """Get model mappings in the format expected by existing code."""
-    models = get_models_config()
-
-    mappings: dict[str, tuple[str, str]] = {}
-    for model_name, model_config in models.items():
-        mappings[model_name] = (model_config.provider, model_config.model_string)
-
-    return mappings
-
-
-def _get_model_capabilities() -> dict[str, set[str]]:
-    """Get model capabilities with normalized lowercase values."""
-    models = get_models_config()
-    capabilities_map: dict[str, set[str]] = {}
-
-    for model_name, model_config in models.items():
-        capabilities = list(model_config.capabilities or ["text"])
-        normalized = {
-            str(capability).strip().lower()
-            for capability in capabilities
-            if str(capability).strip()
-        }
-        if not normalized:
-            normalized = {"text"}
-        capabilities_map[model_name.lower().strip()] = normalized
-
-    return capabilities_map
 
 
 def _get_provider_configs() -> dict[str, dict[str, Any]]:
@@ -90,10 +70,19 @@ def _get_provider_configs() -> dict[str, dict[str, Any]]:
 
 def _refresh_model_cache_unlocked() -> None:
     """Refresh module-level caches for model/provider mappings."""
-    global MODEL_MAPPINGS, MODEL_CAPABILITIES, PROVIDER_CONFIGS
-    MODEL_MAPPINGS = _get_model_mappings()
-    MODEL_CAPABILITIES = _get_model_capabilities()
-    PROVIDER_CONFIGS = _get_provider_configs()
+    global _MODEL_CACHE
+    models = get_models_config()
+    registry = build_model_registry(models)
+    mappings = {
+        alias: (models[canonical].provider, models[canonical].model_string)
+        for alias, canonical in registry.canonical_names.items()
+    }
+    capabilities = {
+        alias: set(models[canonical].capabilities or ["text"])
+        for alias, canonical in registry.canonical_names.items()
+    }
+    providers = _get_provider_configs()
+    _MODEL_CACHE = ModelCache(registry, mappings, capabilities, providers)
 
 
 def refresh_model_cache() -> None:
@@ -124,16 +113,14 @@ def resolve_model(model_name: str) -> tuple[str, str]:
     Raises:
         ValueError: If model name is not recognized
     """
-    # Case-insensitive lookup
-    model_key = model_name.lower().strip()
+    cache = _MODEL_CACHE
+    cache.registry.resolve(model_name)
+    return cache.bindings[model_name.lower().strip()]
 
-    if model_key not in MODEL_MAPPINGS:
-        available_models = ", ".join(sorted(MODEL_MAPPINGS.keys()))
-        raise ValueError(
-            f"Unknown model '{model_name}'. Available models: {available_models}"
-        )
 
-    return MODEL_MAPPINGS[model_key]
+def resolve_canonical_model_alias(model_name: str) -> str:
+    """Return the single configured model identity for any accepted name."""
+    return _MODEL_CACHE.registry.resolve(model_name)
 
 
 def get_provider_config(provider: str) -> dict[str, Any]:
@@ -148,7 +135,7 @@ def get_provider_config(provider: str) -> dict[str, Any]:
     Returns:
         Dictionary with all provider configuration keys
     """
-    return PROVIDER_CONFIGS.get(provider, {})
+    return _MODEL_CACHE.providers.get(provider, {})
 
 
 def _openai_oauth_enabled() -> bool:
@@ -157,13 +144,9 @@ def _openai_oauth_enabled() -> bool:
 
 def get_model_capabilities(model_name: str) -> set[str]:
     """Return normalized capability set for a model alias."""
-    model_key = model_name.lower().strip()
-    if model_key not in MODEL_MAPPINGS:
-        available_models = ", ".join(sorted(MODEL_MAPPINGS.keys()))
-        raise ValueError(
-            f"Unknown model '{model_name}'. Available models: {available_models}"
-        )
-    return set(MODEL_CAPABILITIES.get(model_key, {"text"}))
+    cache = _MODEL_CACHE
+    cache.registry.resolve(model_name)
+    return set(cache.capabilities[model_name.lower().strip()])
 
 
 def model_supports_capability(model_name: str, capability: str) -> bool:
@@ -267,7 +250,7 @@ def get_available_api_keys() -> dict[str, str]:
     secrets = load_secrets()
     available: dict[str, str] = {}
 
-    for provider_config in PROVIDER_CONFIGS.values():
+    for provider_config in _MODEL_CACHE.providers.values():
         key_name = provider_config.get("api_key")
         if key_name and key_name != "null":
             value = secrets.get(key_name)
