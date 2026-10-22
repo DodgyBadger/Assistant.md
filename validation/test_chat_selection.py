@@ -69,8 +69,8 @@ function select(value = '') {
     return { value, options: [], innerHTML: '', appendChild(option) { this.options.push(option); } };
 }
 const models = [
-    { name: 'first', available: true, chat_selectable: true, display_name: 'Friendly' },
-    { name: 'preferred', available: true, chat_selectable: true, alternate_aliases: ['old'], display_name: 'Friendly' },
+    { name: 'first', available: true, chat_selectable: true },
+    { name: 'preferred', available: true, chat_selectable: true, alternate_aliases: ['old'] },
 ];
 const state = { metadata: { vaults: [], models, settings: {} }, systemStatus: { configuration_status: { default_model: 'old' } } };
 const elements = { vaultSelector: select(), modelSelector: select(), thinkingSelector: null };

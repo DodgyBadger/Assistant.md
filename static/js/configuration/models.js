@@ -100,10 +100,12 @@
 
         const actions = `
             <button data-action="edit" ${iconButton('edit', 'Edit model details', 'is-primary')}>${iconSvg('edit')}</button>
-            <button data-action="duplicate" class="px-3 py-1.5 text-xs font-medium rounded-md border border-border-primary bg-app-elevated text-txt-primary hover:bg-app-hover focus:outline-none focus:ring-2 focus:ring-accent">Duplicate as custom</button>
+            <button data-action="duplicate" ${iconButton('copy', 'Duplicate as custom', 'is-primary')}>${iconSvg('copy')}</button>
             ${editable
                 ? `<button data-action="delete" ${iconButton('trash', 'Delete model', 'is-danger')}>${iconSvg('trash')}</button>`
-                : `<span class="inline-block px-2 py-0.5 text-xs text-txt-secondary bg-app-elevated rounded border border-border-primary">${model.managed_id ? 'Managed' : 'Read-only binding'}</span>`}
+                : model.managed_id
+                ? `<span class="inline-flex items-center text-txt-secondary" role="img" aria-label="Managed model" title="Managed model"><span class="w-4 h-4">${iconSvg('lock')}</span></span>`
+                : `<span class="inline-block px-2 py-0.5 text-xs text-txt-secondary bg-app-elevated rounded border border-border-primary">Read-only binding</span>`}
         `;
 
         return `
@@ -111,8 +113,7 @@
                 <div class="space-y-4">
                     <div class="flex items-start justify-between gap-4 flex-wrap">
                         <div class="min-w-0">
-                            <div class="font-semibold text-txt-primary text-sm">${escapeHtml(model.display_name || model.name)}</div>
-                            ${model.display_name ? `<div class="text-xs text-txt-secondary mt-1">${escapeHtml(model.name)}</div>` : ''}
+                            <div class="font-semibold text-txt-primary text-sm">${escapeHtml(model.name)}</div>
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="w-fit">${availabilityBadge}</div>
                             </div>
@@ -155,17 +156,17 @@
         const providerHelp = state.providers.length ? 'Select the provider powering this model.' : 'Add a provider before creating models.';
 
         const renameHint = readOnly
-            ? '<p class="text-xs text-txt-secondary mt-1">Managed binding. Duplicate as custom to change the name, provider, or model identifier.</p>'
+            ? '<p class="text-xs text-txt-secondary mt-1">Managed binding. Duplicate as custom to change the primary alias, provider, or model identifier.</p>'
             : isNew
             ? '<p class="text-xs text-txt-secondary mt-1">Lowercase alias used in assistant files.</p>'
-            : '<p class="text-xs text-txt-secondary mt-1">Renaming preserves the previous name as an alternate alias.</p>';
+            : '<p class="text-xs text-txt-secondary mt-1">Renaming preserves the previous primary alias as an alternate alias.</p>';
 
         return `
             <div class="model-card rounded-lg border border-border-primary bg-app-card editing-highlight px-5 py-4 shadow-sm" data-row="${escapeHtml(rowKey)}" data-mode="edit" style="max-width: 1400px;">
                 <fieldset class="space-y-4" ${state.isSavingModel ? 'disabled' : ''}>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label for="model-editor-name" class="block text-xs font-medium text-txt-primary mb-1.5">Model Name</label>
+                            <label for="model-editor-name" class="block text-xs font-medium text-txt-primary mb-1.5">Model Alias</label>
                             <input id="model-editor-name" data-field="name" ${readOnly ? 'readonly aria-readonly="true"' : ''} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. planning" value="${escapeHtml(draft.name || '')}" />
                             ${renameHint}
                         </div>
@@ -185,10 +186,6 @@
                         <label for="model-editor-capabilities" class="block text-xs font-medium text-txt-primary mb-1.5">Capabilities</label>
                         <input id="model-editor-capabilities" data-field="capabilities" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
                         <p class="text-xs text-txt-secondary mt-1">Comma-separated values. Examples: <code>text, vision</code> or <code>decision</code>.</p>
-                    </div>
-                    <div>
-                        <label for="model-editor-display_name" class="block text-xs font-medium text-txt-primary mb-1.5">Display name</label>
-                        <input id="model-editor-display_name" data-field="display_name" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.display_name || '')}" placeholder="Optional friendly label" />
                     </div>
                     <div>
                         <label for="model-editor-alternate_aliases" class="block text-xs font-medium text-txt-primary mb-1.5">Alternate aliases</label>
@@ -271,7 +268,6 @@
             name: model.name,
             binding_read_only: model.user_editable === false || Boolean(model.managed_id),
             alternate_aliases: (model.alternate_aliases || []).join(', '),
-            display_name: model.display_name || '',
             provider: model.provider,
             model_string: model.model_string,
             capabilities: Array.isArray(model.capabilities) && model.capabilities.length
@@ -302,7 +298,6 @@
             provider: model.provider,
             model_string: model.model_string,
             capabilities: (model.capabilities || ['text']).join(', '),
-            display_name: '',
             alternate_aliases: '',
             binding_read_only: false
         };
@@ -326,7 +321,6 @@
             model_string: '',
             capabilities: 'text',
             alternate_aliases: '',
-            display_name: '',
             binding_read_only: false
         };
 
@@ -362,7 +356,7 @@
         const originalName = state.modelEdit.mode === 'existing' ? state.modelEdit.key : null;
 
         if (!alias) {
-            setStatus(elements.modelFeedback, 'Model name is required.', 'error');
+            setStatus(elements.modelFeedback, 'Model alias is required.', 'error');
             return;
         }
 
@@ -391,7 +385,6 @@
                 model_string: modelString,
                 capabilities: capabilities,
                 alternate_aliases: (draft.alternate_aliases || '').split(',').map(item => item.trim()).filter(Boolean),
-                display_name: (draft.display_name || '').trim(),
                 original_name: originalName
             };
 

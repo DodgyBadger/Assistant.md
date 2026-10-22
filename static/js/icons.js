@@ -1,5 +1,11 @@
 (function iconsModule(window) {
     const icons = {
+        LOCK_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
         CHAT_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -321,6 +327,7 @@
         briefcaseBusiness: icons.BRIEFCASE_BUSINESS_ICON_SVG,
         import: icons.IMPORT_ICON_SVG,
         link: icons.LINK_ICON_SVG,
+        lock: icons.LOCK_ICON_SVG,
         more: icons.MORE_HORIZONTAL_ICON_SVG,
         move: icons.MOVE_ICON_SVG,
         play: icons.PLAY_ICON_SVG,

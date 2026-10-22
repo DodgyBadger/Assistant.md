@@ -20,7 +20,7 @@ function harness() {
     runtime.state.models = [{
         name: 'managed', provider: 'openai', model_string: 'provider-model',
         managed_id: 'stable', user_editable: false, capabilities: ['text', 'vision'],
-        alternate_aliases: ['old'], display_name: 'Friendly', available: true,
+        alternate_aliases: ['old'], available: true,
     }];
     return { context, ...runtime };
 }

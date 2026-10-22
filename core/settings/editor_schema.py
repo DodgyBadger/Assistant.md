@@ -158,16 +158,6 @@ def build_editors(
                 choices = [
                     choice for choice in choices if choice.value.lower() != "none"
                 ]
-            labels = {
-                key: (
-                    f"{model.display_name} ({key})"
-                    if model.display_name and model.display_name != key
-                    else key
-                )
-                for key, model in settings_file.models.items()
-            }
-            for choice in choices:
-                choice.label = labels.get(choice.value, choice.label)
             editor = SettingEditor(
                 kind="select",
                 choices=choices,

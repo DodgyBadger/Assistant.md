@@ -216,6 +216,7 @@
             clean: icon.CLEAN_ICON_SVG,
             database: icon.DATABASE_ICON_SVG,
             edit: icon.EDIT_ICON_SVG,
+            lock: icon.LOCK_ICON_SVG,
             play: icon.PLAY_ICON_SVG,
             refresh: icon.REFRESH_ICON_SVG,
             save: icon.SAVE_ICON_SVG,
