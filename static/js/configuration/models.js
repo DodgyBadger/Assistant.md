@@ -92,7 +92,7 @@
             : '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium pill-error border">Unavailable</span>';
 
         const reasonLine = model.status_message && !model.available
-            ? `<div class="text-xs state-error mt-1">${escapeHtml(model.status_message)}</div>`
+            ? `<div class="text-xs state-error break-words">${escapeHtml(model.status_message)}</div>`
             : '';
         const capabilities = Array.isArray(model.capabilities) && model.capabilities.length
             ? model.capabilities.join(', ')
@@ -111,35 +111,35 @@
         return `
             <div class="model-card rounded-lg border border-border-primary bg-app-card px-5 py-4 shadow-sm hover:shadow transition-shadow" data-row="${escapeHtml(model.name)}" data-mode="view" style="max-width: 1400px;">
                 <div class="space-y-4">
-                    <div class="flex items-start justify-between gap-4 flex-wrap">
-                        <div class="min-w-0">
-                            <div class="font-semibold text-txt-primary text-sm">${escapeHtml(model.name)}</div>
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-semibold text-txt-primary text-sm break-words">${escapeHtml(model.name)}</div>
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="w-fit">${availabilityBadge}</div>
                             </div>
-                            ${reasonLine}
                         </div>
-                        <div class="flex gap-2 flex-wrap">
+                        <div class="flex items-center gap-2 shrink-0">
                             ${actions}
                         </div>
                     </div>
+                    ${reasonLine}
                     <div class="flex gap-6 items-start flex-wrap">
-                        <div>
+                        <div class="min-w-0 max-w-full">
                             <div class="text-xs font-medium text-txt-secondary mb-1">Provider</div>
                             <div class="text-sm text-txt-primary">${escapeHtml(model.provider)}</div>
                         </div>
-                        <div>
+                        <div class="min-w-0 max-w-full">
                             <div class="text-xs font-medium text-txt-secondary mb-1">Model Identifier</div>
-                            <div class="text-xs font-mono text-txt-primary bg-app-elevated px-2 py-1 rounded border border-border-primary inline-block max-w-xs break-words">${escapeHtml(model.model_string)}</div>
+                            <div class="text-xs font-mono text-txt-primary bg-app-elevated px-2 py-1 rounded border border-border-primary inline-block max-w-full break-words">${escapeHtml(model.model_string)}</div>
                         </div>
-                        <div>
+                        <div class="min-w-0 max-w-full">
                             <div class="text-xs font-medium text-txt-secondary mb-1">Capabilities</div>
-                            <div class="text-xs text-txt-primary bg-app-elevated px-2 py-1 rounded border border-border-primary inline-block max-w-xs break-words">${escapeHtml(capabilities)}</div>
+                            <div class="text-xs text-txt-primary bg-app-elevated px-2 py-1 rounded border border-border-primary inline-block max-w-full break-words">${escapeHtml(capabilities)}</div>
                         </div>
-                        ${model.alternate_aliases?.length ? `<div>
-                            <div class="text-xs font-medium text-txt-secondary mb-1">Alternate aliases</div>
-                            <div class="text-sm text-txt-primary break-words">${escapeHtml(model.alternate_aliases.join(', '))}</div>
-                        </div>` : ''}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-medium text-txt-secondary mb-1">Alternate aliases</div>
+                        <div class="text-sm text-txt-primary break-words">${model.alternate_aliases?.length ? escapeHtml(model.alternate_aliases.join(', ')) : '<span class="text-txt-secondary">None</span>'}</div>
                     </div>
                 </div>
             </div>
