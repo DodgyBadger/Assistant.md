@@ -5,6 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from core.settings.model_catalog import upgrade_model_catalog
+
 _WEB_TOOL_RENAMES = {
     "web_search_duckduckgo": "web_search",
     "web_search_tavily": "web_search",
@@ -64,7 +66,12 @@ def upgrade_settings_mapping(
     upgraded = deepcopy(active)
     models = upgraded.get("models")
     if isinstance(models, dict):
-        upgraded["models"] = retire_embedding_models(models)
+        catalog = upgrade_model_catalog(
+            retire_embedding_models(models), template.get("models", {})
+        )
+        if catalog.issues:
+            raise ValueError(" ".join(catalog.issues))
+        upgraded["models"] = catalog.models
     settings = upgraded.setdefault("settings", {})
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):

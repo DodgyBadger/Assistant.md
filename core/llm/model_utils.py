@@ -29,6 +29,7 @@ from core.settings.store import (
     get_general_settings,
     get_models_config,
     get_providers_config,
+    load_settings,
 )
 
 # Create module logger
@@ -83,6 +84,29 @@ def _refresh_model_cache_unlocked() -> None:
     }
     providers = _get_provider_configs()
     _MODEL_CACHE = ModelCache(registry, mappings, capabilities, providers)
+    settings = load_settings()
+    upgrade = settings._catalog_update
+    if upgrade is not None:
+        settings._catalog_update = None
+        if upgrade.issues:
+            logger.warning(
+                "Managed model update blocked",
+                data={
+                    "event": "managed_models_update_blocked",
+                    "status": "blocked",
+                    "reasons": upgrade.issues,
+                },
+            )
+        elif upgrade.updated:
+            logger.info(
+                "Managed models updated",
+                data={
+                    "event": "managed_models_updated",
+                    "status": "completed",
+                    "models": upgrade.updated,
+                    "renames": upgrade.renames,
+                },
+            )
 
 
 def refresh_model_cache() -> None:

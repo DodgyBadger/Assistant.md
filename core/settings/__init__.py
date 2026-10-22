@@ -38,6 +38,7 @@ from core.settings.store import (
     get_models_config,
     get_providers_config,
     get_tools_config,
+    load_settings,
 )
 from core.settings.store import (
     get_disabled_tool_names as get_disabled_tool_names,
@@ -315,6 +316,10 @@ def validate_settings(
     providers = providers_config or get_providers_config()
     models = models_config or get_models_config()
 
+    for message in load_settings()._catalog_issues:
+        status.add_issue(
+            name="models:catalog_update", message=message, severity="warning"
+        )
     registry = build_model_registry(models)
     for name, messages in registry.issues.items():
         status.add_issue(name=f"model:{name}", message=" ".join(messages))

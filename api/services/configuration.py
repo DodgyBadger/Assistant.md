@@ -182,7 +182,10 @@ def repair_settings_from_template() -> SystemSettingsResponse:
         raise SystemConfigurationError("Template settings file is not a valid mapping.")
 
     # Apply centralized contract upgrades before merging template defaults.
-    merged = upgrade_settings_mapping(active_raw, template_raw)
+    try:
+        merged = upgrade_settings_mapping(active_raw, template_raw)
+    except ValueError as exc:
+        raise SystemConfigurationError(str(exc)) from exc
     for section in ("settings", "models", "providers", "tools"):
         if merged.get(section) is None or not isinstance(merged.get(section), dict):
             merged[section] = {}
@@ -260,6 +263,12 @@ def repair_settings_from_template() -> SystemSettingsResponse:
             if key in template_section:
                 continue
             entry = active_section.get(key)
+            if (
+                section_name == "models"
+                and isinstance(entry, dict)
+                and entry.get("managed_id")
+            ):
+                continue
             if _is_user_editable(entry, default_user_editable):
                 continue
             active_section.pop(key, None)
