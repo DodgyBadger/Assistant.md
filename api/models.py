@@ -919,6 +919,8 @@ class ExecutionTaskCancelResponse(BaseModel):
 class ModelInfo(BaseModel):
     """Model metadata for UI configuration."""
 
+    alternate_aliases: list[str] = Field(default_factory=list)
+    display_name: str | None = None
     name: str = Field(..., description="User-friendly model name")
     provider: str = Field(..., description="Provider (anthropic, openai, google, etc.)")
     model_string: str = Field(..., description="Actual model identifier")
@@ -1615,6 +1617,8 @@ class ChatHistoryCompactionResponse(BaseModel):
 class ModelConfigRequest(BaseModel):
     """Payload for creating or updating a model mapping."""
 
+    alternate_aliases: list[str] | None = None
+    display_name: str | None = None
     provider: str = Field(..., description="Provider name the model uses")
     model_string: str = Field(..., description="Provider-specific model identifier")
     capabilities: list[str] | None = Field(

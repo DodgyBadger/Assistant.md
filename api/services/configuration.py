@@ -391,6 +391,8 @@ def _build_model_info(
 
     return ModelInfo(
         name=name,
+        alternate_aliases=config.alternate_aliases,
+        display_name=config.display_name,
         provider=config.provider,
         model_string=config.model_string,
         capabilities=capabilities,
@@ -560,6 +562,8 @@ def upsert_configurable_model(
             model_string=payload.model_string,
             capabilities=payload.capabilities,
             description=payload.description,
+            alternate_aliases=payload.alternate_aliases,
+            display_name=payload.display_name,
         )
     except SettingsError as exc:
         raise InvalidSystemSettingError(model_name, str(exc)) from exc

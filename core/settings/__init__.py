@@ -27,6 +27,7 @@ from core.llm.provider_policy import (
     provider_requires_custom_base_url,
 )
 from core.llm.thinking import ThinkingValue, normalize_thinking_value
+from core.settings.model_registry import build_model_registry
 from core.settings.secrets_store import get_secret_value, load_secrets, secret_has_value
 from core.settings.store import (
     SETTINGS_TEMPLATE,
@@ -314,11 +315,17 @@ def validate_settings(
     providers = providers_config or get_providers_config()
     models = models_config or get_models_config()
 
+    registry = build_model_registry(models)
+    for name, messages in registry.issues.items():
+        status.add_issue(name=f"model:{name}", message=" ".join(messages))
+
     for model_name, model_config in models.items():
         provider_name = getattr(model_config, "provider", None) or (
             model_config.get("provider") if isinstance(model_config, dict) else None
         )
-        status.model_availability[model_name] = True
+        status.model_availability[model_name] = model_name not in registry.issues
+        if model_name in registry.issues:
+            continue
         if secrets_locked:
             status.model_availability[model_name] = False
             continue
