@@ -40,6 +40,7 @@ from core.llm.model_selection import ModelExecutionSpec, resolve_model_execution
 from core.llm.model_utils import (
     get_provider_config,
     model_supports_capability,
+    resolve_canonical_model_alias,
     resolve_model,
     validate_api_keys,
 )
@@ -274,6 +275,11 @@ def build_model_instance(
         return execution
 
     require_secrets_ready()
+
+    if normalized_model != "test":
+        normalized_model = (
+            resolve_canonical_model_alias(normalized_model).strip().lower()
+        )
 
     if normalized_model == "test":
         return TestModel()

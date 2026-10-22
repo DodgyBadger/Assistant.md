@@ -97,6 +97,8 @@ Validation: alias integration scenario verifies API ownership, custom duplicatio
 
 ### Slice 4 Chat default fallback
 
+Completed: chat fallback first failed on the missing resolver, then passed alongside alias and delegate scenarios (run `20261022_221441_155256`). Chat retry and persisted-session checks also passed (run `20261022_221718_103817`); expanded collision, custom-copy, System-error, and provider-failure boundaries passed (run `20261022_221901_512858`). Twenty-five focused unit/module checks and the complete production quality gate passed. Chromium verified managed edits, editable alternates, custom duplication, keyboard focus, theme-dependent colors, and no horizontal overflow in six themes at desktop and mobile sizes. The browser no longer chooses an arbitrary first available model.
+
 Deliver shared chat reference resolution: retain a valid canonical or alternate selection, fall back only for an unresolved selected name, and fail with a System-tab issue if the default cannot resolve. Preserve explicit script/delegate failure, omitted-model inheritance, capability checks, provider failure handling, and current retries. Use the resolved model before model-dependent preparation and show it in existing chat metadata. Do not choose an arbitrary available model in the browser.
 
 Validation: deterministic chat scenario and browser selection tests cover valid selections, alternate defaults, removed aliases, invalid defaults, restored sessions, and provider/capability errors without fallback. Extend existing delegate and chat regression assertions where those boundaries are shared.

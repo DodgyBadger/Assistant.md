@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from core.settings.model_registry import normalize_model_alias
+from core.settings.model_registry import build_model_registry, normalize_model_alias
 
 # Verified shipped bindings before managed identities were introduced. Keep these
 # baselines fixed when changing the catalog so local retargeting is never adopted.
@@ -36,6 +36,11 @@ class CatalogUpgrade:
     renames: list[tuple[str, str]]
     updated: list[str]
     issues: list[str]
+
+
+@dataclass(frozen=True)
+class _ModelNames:
+    alternate_aliases: list[str]
 
 
 def _names(models: dict[str, Any]) -> dict[str, set[str]]:
@@ -143,6 +148,22 @@ def upgrade_model_catalog(
         if old_name != new_name:
             models.pop(old_name)
         models[new_name] = replacement
+    if updated or renames:
+        entries: dict[str, _ModelNames] = {}
+        for name, configured in models.items():
+            if not isinstance(configured, dict):
+                continue
+            aliases = configured.get("alternate_aliases", [])
+            if not isinstance(aliases, list) or any(
+                not isinstance(alias, str) for alias in aliases
+            ):
+                issues.append(f"Model '{name}' has an invalid alternate list.")
+                continue
+            entries[name] = _ModelNames(aliases)
+        registry = build_model_registry(entries)
+        issues.extend(
+            message for messages in registry.issues.values() for message in messages
+        )
     if issues:
         return CatalogUpgrade(deepcopy(active), [], [], issues)
     return CatalogUpgrade(models, renames, updated, [])

@@ -32,6 +32,7 @@ from core.chat.compaction import (
     maybe_auto_compact_after_turn,
 )
 from core.chat.instructions import constant_instruction, primary_chat_instruction_layers
+from core.chat.model_selection import resolve_chat_model_alias
 from core.chat.run_recovery import ChatRunRecoveryCoordinator
 from core.constants import REGULAR_CHAT_INSTRUCTIONS
 from core.identity import ExecutionAuthority, require_current_execution_authority
@@ -944,6 +945,7 @@ async def _prepare_chat_execution(
     display_prompt: str | None = None,
 ) -> PreparedChatExecution:
     """Perform chat preflight before either sync or streaming execution begins."""
+    model = resolve_chat_model_alias(model, session_id=session_id)
     _validate_image_capability(model, image_paths, image_uploads)
     workspace_path = _CHAT_STORE.get_session_workspace_path(session_id, vault_name)
     base_instructions, tool_instructions, model_instance, tool_functions = (

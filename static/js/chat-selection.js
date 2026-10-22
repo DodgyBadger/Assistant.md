@@ -50,7 +50,6 @@
                 elements.vaultSelector.value = previousVault;
             }
 
-            let firstAvailableModel = null;
             const envDefaultModel = state.systemStatus?.configuration_status?.default_model || null;
             const chatModels = state.metadata.models.filter(isChatSelectableModel);
 
@@ -58,19 +57,13 @@
                 const option = document.createElement('option');
                 option.value = model.name;
                 const displayModelName = model.model_string || model.model || model.provider;
-                option.textContent = `${model.name} (${displayModelName})${model.available ? '' : ' (unavailable)'}`;
+                option.textContent = `${model.display_name || model.name} (${displayModelName})${model.available ? '' : ' (unavailable)'}`;
                 option.disabled = model.available === false;
                 elements.modelSelector.appendChild(option);
-                if (model.available && !firstAvailableModel) firstAvailableModel = model.name;
             });
 
-            if (previousModel && chatModels.some(model => model.name === previousModel && model.available !== false)) {
-                elements.modelSelector.value = previousModel;
-            } else if (envDefaultModel && chatModels.some(model => model.name === envDefaultModel && model.available)) {
-                elements.modelSelector.value = envDefaultModel;
-            } else if (firstAvailableModel) {
-                elements.modelSelector.value = firstAvailableModel;
-            }
+            const selected = resolveModelSelection(previousModel) || resolveModelSelection(envDefaultModel);
+            elements.modelSelector.value = selected?.name || '';
 
             if (elements.vaultSelector?.value) {
                 fetchTemplates(elements.vaultSelector.value, previousTemplate);
@@ -123,6 +116,14 @@
             const previousMode = elements.chatModeSelector.value;
             elements.chatModeSelector.value = previousMode === 'inline_edit' ? 'normal' : 'inline_edit';
             return persistSelectedChatMode(previousMode);
+        }
+
+        function resolveModelSelection(reference) {
+            const name = String(reference || '').trim().toLowerCase();
+            if (!name) return null;
+            return state.metadata?.models?.find(model => isChatSelectableModel(model)
+                && [model.name, ...(model.alternate_aliases || [])]
+                    .some(alias => alias.trim().toLowerCase() === name)) || null;
         }
 
         function isChatSelectableModel(model) {
@@ -227,6 +228,7 @@
             populateSelectors,
             resetChatModeToDefault,
             isChatSelectableModel,
+            resolveModelSelection,
             persistSelectedChatMode,
             syncFileApprovalToggle,
             toggleFileApprovals,

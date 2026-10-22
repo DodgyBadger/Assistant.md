@@ -40,19 +40,13 @@
 
                 const envDefaultModel = state.systemStatus?.configuration_status?.default_model || null;
                 if (envDefaultModel && state.metadata && chatElements.modelSelector) {
-                    const availableModels = state.metadata.models
-                        .filter(callbacks.isChatSelectableModel)
-                        .filter(model => model.available !== false);
-                    const firstAvailableModel = availableModels.length ? availableModels[0].name : null;
+                    const models = state.metadata.models.filter(callbacks.isChatSelectableModel);
+                    const matches = (model, reference) => [model.name, ...(model.alternate_aliases || [])]
+                        .some(alias => alias.trim().toLowerCase() === String(reference || '').trim().toLowerCase());
                     const currentValue = chatElements.modelSelector.value;
-                    const hasEnvDefault = availableModels.some(model => model.name === envDefaultModel);
-                    if (
-                        !state.modelSelectionTouched
-                        && hasEnvDefault
-                        && (!currentValue || currentValue === firstAvailableModel)
-                    ) {
-                        chatElements.modelSelector.value = envDefaultModel;
-                    }
+                    const current = models.find(model => matches(model, currentValue));
+                    const fallback = models.find(model => matches(model, envDefaultModel));
+                    if (!current) chatElements.modelSelector.value = fallback?.name || '';
                 }
                 callbacks.syncRestartFlag();
                 await fetchExecutionTasks({ render: false });
