@@ -85,3 +85,35 @@ test('pending saves keep the draft protected until failure is reported', async (
     assert.equal(runtime.state.isSavingModel, false);
     assert.equal(runtime.state.modelEdit.key, 'managed');
 });
+
+test('successful custom deletion refreshes dependent settings and reports success', async () => {
+    const runtime = harness();
+    runtime.state.models[0].managed_id = null;
+    runtime.state.models[0].user_editable = true;
+    runtime.context.confirm = () => true;
+    const refreshes = [];
+    const tones = [];
+    runtime.elements.settingsList = {};
+    runtime.elements.modelFeedback = {
+        textContent: '',
+        classList: { remove() {}, add(tone) { tones.push(tone); } },
+    };
+    runtime.actions.loadGeneralSettings = async force => refreshes.push(['settings', force]);
+    runtime.callbacks.refreshMetadata = async () => refreshes.push(['metadata']);
+    runtime.callbacks.refreshStatus = async () => refreshes.push(['status']);
+    const requests = [];
+    runtime.context.fetch = async (url, options) => {
+        requests.push({ url, method: options?.method || 'GET' });
+        return { ok: true, json: async () => options?.method === 'DELETE' ? { restart_required: false } : [] };
+    };
+
+    await runtime.actions.deleteModel('managed');
+
+    assert.deepEqual(requests, [
+        { url: 'api/system/models/managed', method: 'DELETE' },
+        { url: 'api/system/models', method: 'GET' },
+    ]);
+    assert.equal(runtime.state.models.length, 0);
+    assert.deepEqual(refreshes, [['settings', true], ['metadata'], ['status']]);
+    assert.equal(tones.at(-1), 'state-success');
+});

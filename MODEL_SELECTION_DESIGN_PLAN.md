@@ -197,6 +197,10 @@ Keep the model alias and action buttons in a non-wrapping header with a flexible
 
 Validation: a Chromium geometry probe first reproduced buttons dropping below the header at 320px. The corrected layout passes across all six themes at 320px, 390px, and 1200px, including top-aligned actions, full-width status, visible aliases, and no horizontal overflow. Inspected the mobile screenshot. All four existing model-editor checks pass, CSS compilation passes, and the diff has no whitespace errors. The approved architecture sentence is applied; no documentation approval remains pending for this effort.
 
+## Configuration refresh regression
+
+A successful custom-model deletion raised `actions is not defined` during the dependent configuration refresh and was incorrectly presented as a deletion failure. The shared runtime now declares and exports the same actions registry captured by `notifyConfigChanged`, so registered settings actions are available to the helper. A regression check reproduced the missing refresh before the fix and now verifies deletion, model-list reload, settings/metadata/status refresh, and successful feedback. All five model-editor behavior checks and all 11 configuration-module/chat-selector checks pass. No backend behavior or CSS changes are required.
+
 ## Final documentation review step
 
 Completed: the user approved the architecture paragraph and only the first sentence of the authoring draft. Both approved additions are applied. The installation draft was rejected because these details do not belong in installation guidance; relevant user-facing details can be considered when release notes are drafted separately. The release-note draft was rejected for this effort, with release-note drafting deferred. No installation or release-note changes were made. A separate ADR is unnecessary because the existing settings-backed binding decision already owns this contract.
