@@ -2,7 +2,7 @@
 
 from core.llm.model_utils import resolve_canonical_model_alias
 from core.logger import UnifiedLogger
-from core.settings.model_registry import UnknownModelAlias
+from core.settings.model_registry import InvalidModelAlias, UnknownModelAlias
 from core.settings.store import get_general_settings
 from core.utils.value_parser import DirectiveValueParser
 
@@ -10,7 +10,7 @@ logger = UnifiedLogger(tag="chat")
 
 
 def resolve_chat_model_alias(model_alias: str, *, session_id: str | None = None) -> str:
-    """Resolve one chat selection, using the default only for an absent name."""
+    """Resolve one chat selection, using the default only when the name cannot resolve."""
     _, parameters = DirectiveValueParser.parse_value_with_parameters(model_alias)
     if parameters:
         raise ValueError(
@@ -21,7 +21,7 @@ def resolve_chat_model_alias(model_alias: str, *, session_id: str | None = None)
         return model_alias.strip().lower()
     try:
         return resolve_canonical_model_alias(model_alias)
-    except UnknownModelAlias:
+    except (UnknownModelAlias, InvalidModelAlias):
         entry = get_general_settings().get("default_model")
         default = entry.value if entry is not None else None
         if not isinstance(default, str) or not default.strip():
@@ -37,6 +37,7 @@ def resolve_chat_model_alias(model_alias: str, *, session_id: str | None = None)
                 "requested_alias": model_alias,
                 "effective_alias": canonical,
                 "session_id": session_id,
+                "issue": f"chat_model_fallback:{session_id}:{model_alias}:{canonical}",
             },
         )
         return canonical

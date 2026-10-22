@@ -69,7 +69,7 @@ function select(value = '') {
     return { value, options: [], innerHTML: '', appendChild(option) { this.options.push(option); } };
 }
 const models = [
-    { name: 'first', available: true, chat_selectable: true },
+    { name: 'first', available: true, chat_selectable: true, display_name: 'Friendly' },
     { name: 'preferred', available: true, chat_selectable: true, alternate_aliases: ['old'], display_name: 'Friendly' },
 ];
 const state = { metadata: { vaults: [], models, settings: {} }, systemStatus: { configuration_status: { default_model: 'old' } } };
@@ -77,6 +77,7 @@ const elements = { vaultSelector: select(), modelSelector: select(), thinkingSel
 const controller = ChatSelection.create({ state, elements, sessionControls: { renderSelector() {} }, callbacks: { syncControls() {} } });
 controller.populateSelectors();
 assert.equal(elements.modelSelector.value, 'preferred');
+assert.equal(new Set(elements.modelSelector.options.map(option => option.textContent)).size, 2);
 assert.equal(elements.modelSelector.options.filter(item => item.value === 'old').length, 0);
 elements.modelSelector.value = 'old';
 controller.populateSelectors();

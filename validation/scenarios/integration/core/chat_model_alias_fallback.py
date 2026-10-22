@@ -65,6 +65,24 @@ class ChatModelAliasFallbackScenario(BaseScenario):
                 }
             )
             assert second["terminal_event"]["event"] == "done", second
+            # An invalid on-disk alias also cannot resolve; use only the configured default.
+            from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
+            from core.runtime.reload_service import reload_configuration
+
+            path = self._get_system_controller()._system_root / "settings.yaml"
+            original = path.read_text()
+            ambiguous = yaml.safe_load(original)
+            ambiguous["models"]["sonnet"]["alternate_aliases"] = ["ambiguous"]
+            ambiguous["models"]["opus"]["alternate_aliases"] = ["ambiguous"]
+            path.write_text(yaml.safe_dump(ambiguous))
+            try:
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
+                assert resolve_chat_model_alias("ambiguous") == "test"
+            finally:
+                path.write_text(original)
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
             # A configured alias with missing credentials must not use the valid default.
             unavailable = await self.run_chat_task(
                 {
