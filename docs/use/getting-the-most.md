@@ -14,10 +14,6 @@ The chat agent can help with the setup described in this guide. Tell it what you
 
 Open Assistant.md, choose a vault and model, and start talking. Alongside chat, use Vault Explorer to browse, preview, select, upload, import, move, search, and edit vault files directly. The operation bar applies available actions to the selected files or folders, while the active folder supplies the destination for creation, upload, and URL import. The agent can work with the same files using its built-in tools.
 
-The Explorer’s **X** button and clicking outside the modal close the Explorer and return to chat, including when a file preview is open above the tree. **Back** returns to the previous file or the underlying tree. Unsaved file edits and selection instructions require a discard decision before leaving.
-
-In a Markdown file preview, select a passage and choose the floating chat icon to open a multiline instruction field. **Add to draft** appends the file path, quoted passage, and your instruction to the main chat entry, keeping the document open so you can collect more instructions. **Send now** submits that selection and instruction immediately and reveals the chat. Your existing main draft and its image attachments remain intact. Enter adds a newline in the popup; Ctrl+Enter or Cmd+Enter sends it. Both actions wait until any active response or pending review finishes. The selection action is available in the current file's Markdown preview, excluding source editing, properties, and revision history.
-
 With no additional customization, Chat and Vault Explorer let you:
 
 - browse and search by file or folder name, search file contents, and preview Markdown across your vaults;
