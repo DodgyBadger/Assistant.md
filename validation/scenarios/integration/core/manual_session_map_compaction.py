@@ -48,6 +48,16 @@ class ManualSessionMapCompactionScenario(BaseScenario):
     async def test_scenario(self) -> None:
         vault = self.create_vault("ManualSessionMapCompactionVault")
         await self.start_system()
+        decision_fixture = self.call_api(
+            "/api/system/models/validation-decision",
+            method="PUT",
+            data={
+                "provider": "typesafe",
+                "model_string": "validation-decision",
+                "capabilities": ["decision"],
+            },
+        )
+        assert decision_fixture.status_code == 200, decision_fixture.text
 
         import core.memory.session_map.service as session_map_service
 
@@ -1077,7 +1087,7 @@ class ManualSessionMapCompactionScenario(BaseScenario):
             revision = store.get_session_history_revision(session_id, vault_name)
             for model, thinking, availability_error, expected_reason in (
                 (None, "low", None, "author_model_not_configured"),
-                ("jev", "low", None, "author_model_not_text_capable"),
+                ("validation-decision", "low", None, "author_model_not_text_capable"),
                 ("unknown-author", "low", None, "author_model_unknown"),
                 ("test", "impossible", None, "author_thinking_invalid"),
                 (

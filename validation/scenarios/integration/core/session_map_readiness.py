@@ -32,6 +32,16 @@ class SessionMapReadinessScenario(BaseScenario):
     async def test_scenario(self) -> None:
         vault = self.create_vault("SessionMapReadinessVault")
         await self.start_system()
+        decision_fixture = self.call_api(
+            "/api/system/models/validation-decision",
+            method="PUT",
+            data={
+                "provider": "typesafe",
+                "model_string": "validation-decision",
+                "capabilities": ["decision"],
+            },
+        )
+        assert decision_fixture.status_code == 200, decision_fixture.text
         store = get_runtime_context().chat_store
         canonical_session = "session-map-ready-canonical"
         store.ensure_session(
@@ -201,7 +211,7 @@ class SessionMapReadinessScenario(BaseScenario):
             "The retained-turn floor should reject values below one",
         )
 
-        self._set_invalid_setting("compaction_author_model", "jev")
+        self._set_invalid_setting("compaction_author_model", "validation-decision")
         decision_only = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,

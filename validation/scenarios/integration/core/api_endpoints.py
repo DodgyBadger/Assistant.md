@@ -301,7 +301,7 @@ class ApiEndpointsScenario(BaseScenario):
             oauth_models.status_code == 200
         ), "Model listing succeeds after OAuth completion"
         oauth_gpt = next(
-            model for model in oauth_models.json() if model["name"] == "gpt"
+            model for model in oauth_models.json() if model["name"] == "sol"
         )
         assert (
             oauth_gpt["available"] is True
@@ -322,7 +322,7 @@ class ApiEndpointsScenario(BaseScenario):
             disconnected_models.status_code == 200
         ), "Model listing succeeds after OAuth disconnect"
         disconnected_gpt = next(
-            model for model in disconnected_models.json() if model["name"] == "gpt"
+            model for model in disconnected_models.json() if model["name"] == "sol"
         )
         assert (
             disconnected_gpt["available"] is False
@@ -443,7 +443,7 @@ class ApiEndpointsScenario(BaseScenario):
             api_key_mode_models.status_code == 200
         ), "Model listing succeeds with API-key mode and connected OAuth"
         api_key_mode_gpt = next(
-            model for model in api_key_mode_models.json() if model["name"] == "gpt"
+            model for model in api_key_mode_models.json() if model["name"] == "sol"
         )
         assert (
             api_key_mode_gpt["available"] is True

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
@@ -12,25 +13,29 @@ from core.settings.model_registry import (
     preserve_renamed_alias,
 )
 
-# Verified shipped bindings before managed identities were introduced. Keep these
-# baselines fixed when changing the catalog so local retargeting is never adopted.
-_LEGACY_BINDINGS: dict[str, tuple[str, str, set[str]]] = {
-    "gemini": ("google", "gemini-3.1-pro-preview", {"text", "vision"}),
-    "gemini-flash": ("google", "gemini-flash-latest", {"text", "vision"}),
-    "gemini-flash-lite": ("google", "gemini-flash-lite-latest", {"text", "vision"}),
-    "sonnet": ("anthropic", "claude-sonnet-5", {"text", "vision"}),
-    "opus": ("anthropic", "claude-opus-5", {"text", "vision"}),
-    "haiku": ("anthropic", "claude-haiku-4-5", {"text", "vision"}),
-    "astra": ("openai", "gpt-6-astra", {"text", "vision"}),
-    "gpt": ("openai", "gpt-5.6-sol", {"text", "vision"}),
-    "gpt-mini": ("openai", "gpt-5.6-terra", {"text", "vision"}),
-    "gpt-nano": ("openai", "gpt-5.6-luna", {"text", "vision"}),
-    "grok": ("grok", "grok-4.6-latest", {"text", "vision"}),
-    "grok-fast": ("grok", "grok-4.3-latest", {"text", "vision"}),
-    "mistral-large": ("mistral", "mistral-large-latest", {"text", "vision"}),
-    "mistral-small": ("mistral", "mistral-small-latest", {"text", "vision"}),
-    "mistral-medium": ("mistral", "mistral-medium-latest", {"text", "vision"}),
-    "jev": ("typesafe", "jev-latest", {"decision"}),
+# Exact legacy binding used only to retire the former shipped Jev entry.
+_LEGACY_JEV_BINDING = ("typesafe", "jev-latest", {"decision"})
+
+_RETIRED_MANAGED_IDS = frozenset({"builtin-jev"})
+
+# Standard aliases identify managed families across generations. Custom aliases
+# are outside this policy, even when their provider binding matches a family.
+_MANAGED_FAMILIES = {
+    "builtin-sonnet": r"claude-(?:sonnet-[\d-]+|[\d-]+-sonnet(?:-[\d-]+)?)(?:-latest)?",
+    "builtin-opus": r"claude-(?:opus-[\d-]+|[\d-]+-opus(?:-[\d-]+)?)(?:-latest)?",
+    "builtin-haiku": r"claude-(?:haiku-[\d-]+|[\d-]+-haiku(?:-[\d-]+)?)(?:-latest)?",
+    "builtin-astra": r"gpt-[\d.]+-astra(?:-latest|-[\d-]+)?",
+    "builtin-gpt": r"gpt-[\d.]+o?(?:-sol|-turbo)?(?:-latest|-preview|-\d{4}(?:-\d{2}-\d{2})?)?",
+    "builtin-gpt-mini": r"gpt-[\d.]+(?:o)?-(?:mini|terra)(?:-latest|-\d{4}-\d{2}-\d{2})?",
+    "builtin-gpt-nano": r"gpt-[\d.]+-(?:nano|luna)(?:-latest|-\d{4}-\d{2}-\d{2})?",
+    "builtin-gemini": r"gemini-(?:[\d.]+-)?pro(?:-latest|-preview(?:-[\d-]+)?|-[\d-]+)?",
+    "builtin-gemini-flash": r"gemini-(?:[\d.]+-)?flash(?:-latest|-preview(?:-[\d-]+)?|-[\d-]+)?",
+    "builtin-gemini-flash-lite": r"gemini-(?:[\d.]+-)?flash-lite(?:-latest|-preview(?:-[\d-]+)?|-[\d-]+)?",
+    "builtin-grok": r"grok-[\d.]+(?:-latest|-[\d-]+)?",
+    "builtin-grok-fast": r"grok-(?:4\.3|[\d.-]+-fast(?:-reasoning|-non-reasoning)?)(?:-latest)?",
+    "builtin-mistral-large": r"mistral-large(?:-[\d-]+|-latest)?",
+    "builtin-mistral-medium": r"mistral-medium(?:-[\d-]+|-latest)?",
+    "builtin-mistral-small": r"mistral-small(?:-[\d-]+|-latest)?",
 }
 
 
@@ -39,6 +44,7 @@ class CatalogUpgrade:
     models: dict[str, Any]
     renames: list[tuple[str, str]]
     updated: list[str]
+    removed: list[str]
     issues: list[str]
 
 
@@ -67,14 +73,16 @@ def upgrade_model_catalog(
 ) -> CatalogUpgrade:
     """Update existing managed identities; leave missing entries to settings repair.
 
-    New custom entries explicitly persist managed_id=None. Legacy entries without
-    that field are adopted only against the frozen shipped baseline.
+    Standard aliases are adopted when provider and model family match, including
+    explicitly unmanaged entries. Custom aliases retain their independent binding.
     """
     models = deepcopy(active)
     renames: list[tuple[str, str]] = []
     updated: list[str] = []
+    removed: list[str] = []
     issues: list[str] = []
     catalog_ids: dict[str, str] = {}
+    standard_targets: dict[str, dict[str, Any]] = {}
     for name, entry in template.items():
         if not isinstance(entry, dict) or not entry.get("managed_id"):
             continue
@@ -82,16 +90,37 @@ def upgrade_model_catalog(
         if identity in catalog_ids:
             issues.append(f"Managed identity '{identity}' is repeated in the catalog.")
         catalog_ids[identity] = name
+        if identity in _MANAGED_FAMILIES:
+            standard_targets[normalize_model_alias(name)] = entry
+            standard_targets[identity.removeprefix("builtin-")] = entry
 
     seen_ids: set[str] = set()
     for old_name, entry in list(models.items()):
         if not isinstance(entry, dict):
             continue
+        if entry.get("managed_id") in _RETIRED_MANAGED_IDS:
+            models.pop(old_name)
+            removed.append(old_name)
+            continue
+        standard = standard_targets.get(normalize_model_alias(old_name))
+        if not entry.get("managed_id") and standard is not None:
+            binding = entry.get("model_string")
+            if (
+                entry.get("provider") != standard["provider"]
+                or not isinstance(binding, str)
+                or re.fullmatch(
+                    _MANAGED_FAMILIES[standard["managed_id"]], binding.strip().lower()
+                )
+                is None
+            ):
+                issues.append(
+                    f"Standard model alias '{old_name}' has a different provider or model family. "
+                    f"Rename the custom entry and remove '{old_name}' from its alternate aliases, "
+                    "or restore the catalog provider and model family to use the managed model."
+                )
+                continue
+            entry["managed_id"] = standard["managed_id"]
         if "managed_id" not in entry:
-            baseline = _LEGACY_BINDINGS.get(old_name)
-            target = template.get(old_name, {})
-            if not target.get("managed_id"):
-                target = template.get(catalog_ids.get(f"builtin-{old_name}", ""), {})
             capabilities = entry.get("capabilities", ["text"])
             if not isinstance(capabilities, list):
                 capabilities = [capabilities]
@@ -100,11 +129,11 @@ def upgrade_model_catalog(
                 entry.get("model_string"),
                 {str(cap).strip().lower() for cap in capabilities},
             )
-            entry["managed_id"] = (
-                target.get("managed_id") if baseline == binding else None
-            )
-            if entry["managed_id"] is None and baseline is not None:
-                entry["user_editable"] = True
+            if old_name == "jev" and binding == _LEGACY_JEV_BINDING:
+                models.pop(old_name)
+                removed.append(old_name)
+                continue
+            entry["managed_id"] = None
         identity = entry.get("managed_id")
         if not identity:
             continue
@@ -143,7 +172,7 @@ def upgrade_model_catalog(
         if old_name != new_name:
             models.pop(old_name)
         models[new_name] = replacement
-    if updated or renames:
+    if updated or renames or removed:
         entries: dict[str, _ModelNames] = {}
         for name, configured in models.items():
             if not isinstance(configured, dict):
@@ -160,5 +189,5 @@ def upgrade_model_catalog(
             message for messages in registry.issues.values() for message in messages
         )
     if issues:
-        return CatalogUpgrade(deepcopy(active), [], [], issues)
-    return CatalogUpgrade(models, renames, updated, [])
+        return CatalogUpgrade(deepcopy(active), [], [], [], issues)
+    return CatalogUpgrade(models, renames, updated, removed, [])

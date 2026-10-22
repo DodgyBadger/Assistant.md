@@ -105,7 +105,21 @@ class DecisionModelConfigurationScenario(BaseScenario):
             200,
             "Model configuration should remain readable",
         )
-        jev = next(model for model in models_response.json() if model["name"] == "jev")
+        self.soft_assert(
+            all(model["name"] != "jev" for model in models_response.json()),
+            "Fresh installations must not include the retired managed Jev model",
+        )
+        created = self.call_api(
+            "/api/system/models/jev",
+            method="PUT",
+            data={
+                "provider": "typesafe",
+                "model_string": "jev-latest",
+                "capabilities": ["decision"],
+            },
+        )
+        assert created.status_code == 200, created.text
+        jev = created.json()
         self.soft_assert_equal(
             (
                 jev["provider"],
@@ -115,8 +129,8 @@ class DecisionModelConfigurationScenario(BaseScenario):
                 jev["available"],
                 jev["chat_selectable"],
             ),
-            ("typesafe", "jev-latest", ["decision"], False, False, False),
-            "Built-in Jev metadata should be decision-only and unavailable without its secret",
+            ("typesafe", "jev-latest", ["decision"], True, False, False),
+            "Custom Jev metadata should be decision-only and unavailable without its secret",
         )
         self.soft_assert_equal(
             get_model_capabilities("jev"),
@@ -233,11 +247,6 @@ class DecisionModelConfigurationScenario(BaseScenario):
             ["decision"],
             "Configuration API round-trips decision-only aliases without adding text",
         )
-        self.call_api(
-            "/api/system/models/validation-decision",
-            method="DELETE",
-        )
-
         settings_response = self.call_api("/api/system/settings")
         settings = yaml.safe_load(settings_response.json()["content"])
         settings["models"]["legacy-vector"] = {
@@ -297,10 +306,14 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "legacy-vector" in backup["models"],
             "Settings repair backup preserves retired configuration",
         )
+        self.soft_assert(
+            "jev" not in repaired["models"],
+            "Settings repair must not recreate the retired managed Jev alias",
+        )
         self.soft_assert_equal(
-            repaired["models"]["jev"]["capabilities"],
+            repaired["models"]["validation-decision"]["capabilities"],
             ["decision"],
-            "Settings repair should add the built-in Jev alias",
+            "Settings repair should preserve custom decision models",
         )
         self.soft_assert_equal(
             repaired["providers"]["typesafe"]["api_key"],
@@ -325,7 +338,7 @@ class DecisionModelConfigurationScenario(BaseScenario):
         cleared_jev = next(
             model
             for model in self.call_api("/api/system/models").json()
-            if model["name"] == "jev"
+            if model["name"] == "validation-decision"
         )
         self.soft_assert(
             not cleared_jev["available"],
