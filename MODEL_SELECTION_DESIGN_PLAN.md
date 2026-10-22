@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Design decisions are settled and initial implementation inspection is complete. Implementation is authorized and underway on `dev/durable-model-aliases`. Keep script-facing model names usable across provider rebranding and managed catalog updates through a canonical alias and one plain editable alternate list. Preserve explicit model selection, existing defaults, and user-defined models.
+Implementation and hardening are complete on `dev/durable-model-aliases`. Documentation drafts remain pending explicit user approval. Keep script-facing model names usable across provider rebranding and managed catalog updates through a canonical alias and one plain editable alternate list. Preserve explicit model selection, existing defaults, and user-defined models.
 
 This effort touches settings persistence, model lookup, model configuration API/UI, managed configuration upgrades, chat selection, and alias consumers in scripts and delegates. Secrets stay in the existing secret store. Validation uses isolated runtime roots without modifying active settings, secrets, or vault data.
 
@@ -61,11 +61,11 @@ Make settings schema changes additive and upgrades idempotent. Preserve user bin
 
 ## Initial implementation inspection
 
-The shipped settings template currently marks most generative models user editable, and `ModelConfig` has no stable managed identity or alternate-name field. Adoption therefore cannot use the editability flag as evidence of an untouched binding. Compare against known shipped binding and capability baselines; retain customized or ambiguous entries as custom. Settings repair currently fills missing entries without updating existing model bindings and prunes removed non-editable entries, so the managed rename path must run before generic merging/pruning to preserve aliases and current user-edited alternate lists.
+At initial inspection, the shipped settings template marked most generative models user editable, and `ModelConfig` had no stable managed identity or alternate-name field. Adoption therefore cannot use the editability flag as evidence of an untouched binding. Compare against known shipped binding and capability baselines; retain customized or ambiguous entries as custom. Settings repair currently fills missing entries without updating existing model bindings and prunes removed non-editable entries, so the managed rename path must run before generic merging/pruning to preserve aliases and current user-edited alternate lists.
 
-The existing model editor performs a rename as a create followed by a separate delete. Replace that path with an atomic operation that preserves the previous canonical as an alternate and rejects collisions before writing. Managed editing must permit alternate-list edits while rejecting changes to the canonical name and binding. Duplicate-as-custom must create a fresh custom entry without copying managed identity or claiming the source model's alternate names.
+The initial model editor performed a rename as a create followed by a separate delete. The implemented atomic operation preserves the previous canonical as an alternate and rejects collisions before writing. Managed editing must permit alternate-list edits while rejecting changes to the canonical name and binding. Duplicate-as-custom must create a fresh custom entry without copying managed identity or claiming the source model's alternate names.
 
-The general settings editor currently treats model choices as literal canonical dictionary keys. Update resolution and validation together so a valid alternate used by `default_model` is accepted without becoming a duplicate picker option. Inspect the chat selection path before changing it; fallback applies only to unresolved aliases and must retain existing capability and provider error handling.
+The initial general settings editor treated model choices as literal canonical dictionary keys. Resolution and validation now accept valid alternates used by `default_model` without creating duplicate picker options. Both ordinary chat and deferred-review preparation use the shared chat fallback resolver, preserving capability and provider error handling.
 
 ## Testable implementation slices
 
@@ -123,12 +123,38 @@ Operator review: Chromium passed managed binding protection, alternate-list edit
 
 Further review centralized managed/custom rename preservation in `core/settings/model_registry.py`, disambiguated repeated display labels with canonical names, and protected model drafts while saves are pending. The alias scenario inspects actual managed-update success and blocking records; distinct blocked configurations have distinct warning identities. Chat fallback covers both absent and invalid stored names, while provider and capability failures retain their existing handling. Raw YAML recovery validates the proposed registry independently of the broken current file; a malformed alternate-list fixture first reproduced the failed repair and now passes.
 
-The first complete run passed 136 of 137 scenarios and exposed a timing assumption in `execution_task_runner`: terminal status can precede its failure hook. The scenario now waits for the hook's completion signal before preserving the exact original-exception assertion; production task-runner behavior is unchanged. Four focused integration scenarios passed after the fixes (run `20261022_223910_339035`), along with 26 focused unit/module checks and the complete Python quality gate. The final full run is pending.
+The first complete run passed 136 of 137 scenarios and exposed a timing assumption in `execution_task_runner`: terminal status can precede its failure hook. The scenario now waits for the hook's completion signal before preserving the exact original-exception assertion; production task-runner behavior is unchanged. Four focused integration scenarios passed after the fixes (run `20261022_223910_339035`), along with 26 focused unit/module checks and the complete Python quality gate. The final complete run subsequently passed all 137 scenarios.
 
 The chat path audit also covered deferred inline-review resumes. A missing-alias resume fixture reproduced the separate preparation path failing to use the default; that preparation path now calls the same chat resolver before model-dependent setup. The fallback, deferred-review task skeleton, and deferred-review interruption scenarios passed (run `20261022_224336_554188`), with production quality gates passing. This changes reference resolution only and preserves deferred tool-result handling and existing recovery permissions.
 
-The full deterministic suite is running against the hardened execution behavior. Final results and documentation approval status will be recorded before delivery.
+Final validation: all 137 deterministic `integration/core` scenarios passed against the completed implementation (run `20261022_224357_963304`, report `validation/runs/reports/20261022_224357_963304.md`). All 26 focused unit/module checks passed, including the concurrent cold-load regression; model-editor browser behavior checks and native Chromium checks passed across six themes at desktop/mobile sizes. The complete production Ruff, Black, and MyPy gates passed, CSS compilation passed, `uv lock --check` passed, and project/lockfile/release versions match at `0.9.1`. No live-model or experimental scenarios were run. Completed implementation slices and hardening corrections are committed locally. The only remaining work is explicitly approved documentation publication; none of the drafts below has been applied.
 
 ## Final documentation review step
 
 Review the model/settings contract in `docs/development/architecture.md`, authored model references in `docs/use/authoring.md`, and setup guidance in `docs/setup/installation.md`. Determine whether the alias and chat-default contracts warrant an ADR alongside ADRs 0007 and 0009. Present exact proposed documentation text or diffs in chat, obtain explicit user approval under AGENTS.md, and apply only approved changes. No protected documentation changes are included in this planning work.
+
+### Pending architecture addition
+
+Target: `docs/development/architecture.md`, after the built-in model/tool binding paragraph. Draft presented for approval:
+
+Model names resolve through one normalized registry of canonical and alternate aliases. Managed catalog entries have stable identities and centrally controlled names and provider bindings; custom entries retain user ownership. A managed canonical rename preserves the previous name in the same editable alternate list. Catalog updates and configuration edits reject name collisions before publishing changes. An unresolved chat selection uses the configured default; an unresolved default produces a System configuration error. Provider and capability failures retain their existing handling.
+
+### Pending authoring addition
+
+Target: `docs/use/authoring.md`, after the paragraph about keeping model aliases near the top of scripts. Draft presented for approval:
+
+Model arguments accept canonical aliases and alternate aliases configured under System → Models. Alternate aliases resolve to the same binding and capabilities and do not appear as separate picker choices. A missing explicit script or delegate model raises an error; chat’s fallback to the configured default does not apply to those explicit selections.
+
+### Pending installation addition
+
+Target: `docs/setup/installation.md`, after the provider-readiness paragraph. Draft presented for approval:
+
+Choose the default model in System → Application Settings. New chats use that default, and a chat whose selected alias no longer resolves falls back to it. If the default cannot resolve, System reports the configuration error. Under System → Models, managed model names and bindings are centrally controlled; use Duplicate as custom for an independently editable binding. Alternate aliases are an editable comma-separated list, including names preserved automatically during managed renames.
+
+### Pending release note
+
+Target: `RELEASE_NOTES.md`. Draft presented in chat; explicit approval is still required before editing:
+
+Managed model updates preserve previous aliases. Alternate aliases remain editable, managed models can be duplicated as custom, and chats use the configured default when their selected alias cannot resolve.
+
+Final action: obtain explicit approval for each affected documentation draft, then apply only the approved text and record the resulting documentation commit. Unapproved drafts remain pending.
