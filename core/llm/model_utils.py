@@ -100,7 +100,7 @@ def _refresh_model_cache_unlocked() -> None:
                     + sha256("\n".join(upgrade.issues).encode()).hexdigest()[:16],
                 },
             )
-        elif upgrade.updated:
+        elif upgrade.updated or upgrade.removed:
             logger.info(
                 "Managed models updated",
                 data={
@@ -108,6 +108,7 @@ def _refresh_model_cache_unlocked() -> None:
                     "status": "completed",
                     "models": upgrade.updated,
                     "renames": upgrade.renames,
+                    "removed": upgrade.removed,
                 },
             )
 

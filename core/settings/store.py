@@ -194,7 +194,7 @@ def _load_settings_file() -> SettingsFile:
         raise ValueError(f"Invalid settings.yaml configuration: {exc}") from exc
     settings._catalog_issues = upgrade.issues
     settings._catalog_update = upgrade
-    if upgrade.updated or upgrade.renames:
+    if upgrade.updated or upgrade.renames or upgrade.removed:
         backup = prepare_migration_backup_path(
             settings_file.parent, "settings.yaml.bak"
         )

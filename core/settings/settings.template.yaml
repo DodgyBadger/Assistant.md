@@ -367,7 +367,7 @@ models:
   gemini:
     managed_id: builtin-gemini
     provider: google
-    model_string: gemini-3.1-pro-preview
+    model_string: gemini-pro-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
@@ -388,21 +388,21 @@ models:
   sonnet:
     managed_id: builtin-sonnet
     provider: anthropic
-    model_string: claude-sonnet-5
+    model_string: claude-sonnet-5-5
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
   opus:
     managed_id: builtin-opus
     provider: anthropic
-    model_string: claude-opus-5
+    model_string: claude-opus-5-5
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
   haiku:
     managed_id: builtin-haiku
     provider: anthropic
-    model_string: claude-haiku-4-5
+    model_string: claude-haiku-5-5
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
@@ -413,31 +413,34 @@ models:
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
-  gpt:
+  sol:
     managed_id: builtin-gpt
+    alternate_aliases: ["gpt"]
     provider: openai
-    model_string: gpt-5.6-sol
+    model_string: gpt-6.1-sol
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
-  gpt-mini:
+  terra:
     managed_id: builtin-gpt-mini
+    alternate_aliases: ["gpt-mini"]
     provider: openai
     model_string: gpt-5.6-terra
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
-  gpt-nano:
+  luna:
     managed_id: builtin-gpt-nano
+    alternate_aliases: ["gpt-nano"]
     provider: openai
-    model_string: gpt-5.6-luna
+    model_string: gpt-6-luna
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
   grok:
     managed_id: builtin-grok
     provider: grok
-    model_string: grok-4.6-latest
+    model_string: grok-4.7-latest
     capabilities: ["text", "vision"]
     description: null
     user_editable: false
@@ -468,13 +471,6 @@ models:
     model_string: mistral-medium-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: false
-  jev:
-    managed_id: builtin-jev
-    provider: typesafe
-    model_string: jev-latest
-    capabilities: ["decision"]
-    description: "Default Jev decision model for classification workloads"
     user_editable: false
 
 providers:

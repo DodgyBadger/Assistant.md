@@ -24,17 +24,25 @@ class ModelAliasResolutionScenario(BaseScenario):
                 "model_string": "validation-model",
                 "capabilities": ["text", "vision"],
                 "alternate_aliases": ["historical-model"],
-                "display_name": "Validation Model",
             }
             created = self.call_api(
                 "/api/system/models/current-model", method="PUT", data=payload
             )
             assert created.status_code == 200, created.text
             assert created.json()["alternate_aliases"] == ["historical-model"]
+            assert "display_name" not in created.json()
             assert resolve_model(" Historical-Model ") == resolve_model("current-model")
             assert get_model_capabilities("historical-model") == {"text", "vision"}
             listed = self.call_api("/api/system/models").json()
             assert not any(model["name"] == "historical-model" for model in listed)
+            for primary, alternate in (
+                ("sol", "gpt"),
+                ("terra", "gpt-mini"),
+                ("luna", "gpt-nano"),
+            ):
+                assert resolve_model(alternate) == resolve_model(primary)
+                assert any(model["name"] == primary for model in listed)
+                assert not any(model["name"] == alternate for model in listed)
             before = self.call_api("/api/system/settings").json()["content"]
             collision = self.call_api(
                 "/api/system/models/another-model", method="PUT", data=payload
@@ -109,35 +117,15 @@ class ModelAliasResolutionScenario(BaseScenario):
             assert copied.status_code == 200, copied.text
             assert copied.json()["managed_id"] is None
             assert copied.json()["user_editable"] is True
-            # Display labels may repeat, but picker options must remain distinguishable.
-            self.call_api(
-                "/api/system/models/sonnet",
-                method="PUT",
-                data={
-                    **managed_payload,
-                    "alternate_aliases": [],
-                    "display_name": "Shared label",
-                },
-            )
-            self.call_api(
-                "/api/system/models/sonnet-custom",
-                method="PUT",
-                data={**custom_payload, "display_name": "Shared label"},
-            )
             general = self.call_api("/api/system/settings/general").json()
             choices = next(item for item in general if item["key"] == "default_model")[
                 "editor"
             ]["choices"]
-            assert (
-                len(
-                    {
-                        choice["label"]
-                        for choice in choices
-                        if choice["value"] in {"sonnet", "sonnet-custom"}
-                    }
-                )
-                == 2
-            )
+            assert {
+                choice["value"]: choice["label"]
+                for choice in choices
+                if choice["value"] in {"sonnet", "sonnet-custom"}
+            } == {"sonnet": "sonnet", "sonnet-custom": "sonnet-custom"}
             repaired = self.call_api("/api/system/settings/repair", method="POST")
             assert repaired.status_code == 200, repaired.text
             custom = next(
@@ -193,6 +181,27 @@ class ModelAliasResolutionScenario(BaseScenario):
 
             from core.settings import store
 
+            retired = yaml.safe_load(path.read_text())
+            retired["models"]["jev"] = {
+                "managed_id": "builtin-jev",
+                "provider": "typesafe",
+                "model_string": "jev-latest",
+                "capabilities": ["decision"],
+                "user_editable": False,
+            }
+            path.write_text(yaml.safe_dump(retired))
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                reload_configuration()
+            assert "jev" not in yaml.safe_load(path.read_text())["models"]
+            assert any(
+                "jev" in event.get("data", {}).get("removed", [])
+                and event.get("data", {}).get("event") == "managed_models_updated"
+                for event in (
+                    json.loads(line)
+                    for line in (path.parent / "activity.log").read_text().splitlines()
+                )
+            )
+
             template = yaml.safe_load(store.SETTINGS_TEMPLATE.read_text())
             template["models"]["managed-next"] = template["models"].pop("sonnet")
             template["models"]["managed-next"]["model_string"] = "catalog-v2"
@@ -241,6 +250,56 @@ class ModelAliasResolutionScenario(BaseScenario):
 
             finally:
                 path.write_text(before)
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
+            # Standard family aliases become managed even after older installations
+            # persisted them as custom; conflicting bindings remain recoverable.
+            original = path.read_text()
+            try:
+                legacy = yaml.safe_load(original)
+                legacy["models"]["sonnet"].update(
+                    managed_id=None,
+                    model_string="claude-sonnet-4-6",
+                    capabilities=["text"],
+                    user_editable=True,
+                )
+                path.write_text(yaml.safe_dump(legacy))
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
+                adopted = yaml.safe_load(path.read_text())["models"]["sonnet"]
+                assert adopted["managed_id"] == "builtin-sonnet"
+                assert adopted["model_string"] == "claude-sonnet-5-5"
+                assert adopted["user_editable"] is False
+
+                legacy["models"]["sonnet"].update(
+                    provider="openai", model_string="gpt-6-astra"
+                )
+                conflicting = yaml.safe_dump(legacy)
+                path.write_text(conflicting)
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    result = reload_configuration()
+                assert path.read_text() == conflicting
+                assert any(
+                    issue.name == "models:catalog_update"
+                    and issue.severity == "warning"
+                    and "sonnet" in issue.message
+                    for issue in result.status.issues
+                )
+                restored = self.call_api(
+                    "/api/system/models/sonnet",
+                    method="PUT",
+                    data={
+                        "provider": "anthropic",
+                        "model_string": "claude-sonnet-4-6",
+                        "capabilities": ["text"],
+                    },
+                )
+                assert restored.status_code == 200, restored.text
+                assert restored.json()["managed_id"] == "builtin-sonnet"
+                assert restored.json()["model_string"] == "claude-sonnet-5-5"
+                assert restored.json()["user_editable"] is False
+            finally:
+                path.write_text(original)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
             # The raw editor must repair malformed current model data without loading it first.

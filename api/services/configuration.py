@@ -596,6 +596,9 @@ def upsert_configurable_model(
 
     reload_result = reload_configuration()
     config_status = reload_result.status
+    saved_models = get_models_config()
+    canonical_name = build_model_registry(saved_models).resolve(model_name)
+    updated = saved_models[canonical_name]
     issue_messages = {
         issue.name.split(":", 1)[1]: issue.message
         for issue in config_status.issues
@@ -608,13 +611,14 @@ def upsert_configurable_model(
             "event": "model_mapping_saved",
             "status": "completed",
             "alias": model_name,
+            "canonical_alias": canonical_name,
             "original_alias": payload.original_name,
-            "provider": payload.provider,
+            "provider": updated.provider,
             "alternate_count": len(updated.alternate_aliases),
         },
     )
     return _build_model_info(
-        model_name, updated, config_status.model_availability, issue_messages
+        canonical_name, updated, config_status.model_availability, issue_messages
     )
 
 
