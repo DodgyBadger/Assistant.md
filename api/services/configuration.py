@@ -44,11 +44,13 @@ from core.settings import (
 from core.settings.config_editor import (
     delete_model_mapping,
     delete_provider_config,
+    get_template_general_settings,
     list_general_settings,
     update_general_setting,
     upsert_model_mapping,
     upsert_provider_config,
 )
+from core.settings.editor_schema import build_editors, canonical_value, settings_issues
 from core.settings.secrets_store import (
     delete_secret,
     get_secret_value,
@@ -68,6 +70,7 @@ from core.settings.store import (
     get_models_config,
     get_providers_config,
     get_tools_config,
+    load_settings,
 )
 from core.settings.upgrades import upgrade_settings_mapping
 
@@ -333,7 +336,20 @@ def _build_setting_info(key: str, entry: SettingsEntry) -> SettingInfo:
 def get_general_settings_config() -> list[SettingInfo]:
     """Return serialized general settings metadata."""
     settings_map = list_general_settings()
-    return [_build_setting_info(key, entry) for key, entry in settings_map.items()]
+    editors = build_editors(load_settings(), get_template_general_settings())
+    issues = settings_issues(settings_map, editors)
+    results = []
+    for key, entry in settings_map.items():
+        result = _build_setting_info(key, entry)
+        result.editor = editors[key]
+        result.issues = issues[key]
+        try:
+            normalized = canonical_value(key, entry.value)
+        except ValueError:
+            normalized = entry.value
+        result.edit_value = _format_setting_value(normalized)
+        results.append(result)
+    return results
 
 
 def update_general_setting_value(
@@ -346,7 +362,9 @@ def update_general_setting_value(
         raise InvalidSystemSettingError(setting_name, str(exc)) from exc
 
     reload_result = reload_configuration(restart_required=updated.restart_required)
-    setting_info = _build_setting_info(setting_name, updated)
+    setting_info = next(
+        entry for entry in get_general_settings_config() if entry.key == setting_name
+    )
     setting_info.restart_required = (
         setting_info.restart_required or reload_result.restart_required
     )

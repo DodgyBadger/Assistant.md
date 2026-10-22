@@ -13,6 +13,7 @@ from core.advanced_shell import ExecutionMode
 from core.advanced_shell.preflight import AdvancedShellReadiness
 from core.authentication import AuthenticationMode
 from core.memory.session_map.models import SessionMapDraft
+from core.settings.editor_schema import SettingEditor, SettingIssue
 from core.version import APPLICATION_VERSION
 
 #######################################################################
@@ -2116,6 +2117,10 @@ class UpdateSettingsRequest(BaseModel):
 
 class SettingInfo(BaseModel):
     """Information about a general (non-secret) application setting."""
+
+    editor: SettingEditor | None = None
+    issues: list[SettingIssue] = Field(default_factory=list)
+    edit_value: str | None = None
 
     key: str = Field(..., description="Setting name")
     value: str = Field(..., description="Current value rendered as string")

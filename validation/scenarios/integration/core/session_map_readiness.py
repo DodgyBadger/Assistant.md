@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from pydantic_ai.messages import (  # noqa: E402
@@ -199,7 +201,7 @@ class SessionMapReadinessScenario(BaseScenario):
             "The retained-turn floor should reject values below one",
         )
 
-        self._set_setting("compaction_author_model", "jev")
+        self._set_invalid_setting("compaction_author_model", "jev")
         decision_only = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -212,7 +214,7 @@ class SessionMapReadinessScenario(BaseScenario):
         )
 
         self._set_setting("compaction_author_model", "test")
-        self._set_setting("compaction_author_thinking", "impossible")
+        self._set_invalid_setting("compaction_author_thinking", "impossible")
         invalid_thinking = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -225,7 +227,7 @@ class SessionMapReadinessScenario(BaseScenario):
         )
 
         self._set_setting("compaction_author_thinking", "low")
-        self._set_setting("compaction_low_watermark_tokens", "100")
+        self._set_invalid_setting("compaction_low_watermark_tokens", "100")
         invalid_watermarks = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
@@ -285,6 +287,24 @@ class SessionMapReadinessScenario(BaseScenario):
         )
 
         self.assert_no_failures()
+
+    def _set_invalid_setting(self, key: str, value: str) -> None:
+        # The structured editor rejects these inputs. Seed invalid persisted
+        # configuration through the advanced surface to probe runtime readiness.
+        rejected = self.call_api(
+            f"/api/system/settings/general/{key}", method="PUT", data={"value": value}
+        )
+        assert rejected.status_code == 400, rejected.text
+        settings = yaml.safe_load(
+            self.call_api("/api/system/settings").json()["content"]
+        )
+        settings["settings"][key]["value"] = int(value) if value.isdecimal() else value
+        response = self.call_api(
+            "/api/system/settings",
+            method="PUT",
+            data={"content": yaml.safe_dump(settings)},
+        )
+        assert response.status_code == 200, response.text
 
     def _set_setting(self, key: str, value: str) -> None:
         response = self.call_api(

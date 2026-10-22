@@ -288,7 +288,7 @@ settings:
     value:
       - pdf_ocr
       - pdf_text
-    description: "Available strategies and priority for PDF ingestion. JSON array. OCR is recommended first when configured; unavailable strategies are skipped. Remove a value to disable it or reorder as needed. E.g. [\"pdf_ocr\"] forces all imports through OCR."
+    description: "PDF ingestion strategies in priority order. OCR is recommended first when configured; unavailable strategies are skipped. Keep at least one strategy. Select only pdf_ocr to require OCR."
     category: "Import"
     restart_required: false
   ingestion_pdf_default_mode:
@@ -319,7 +319,7 @@ settings:
   ingestion_image_default_strategies:
     value:
       - image_ocr
-    description: "Available strategies and priority for image ingestion. JSON array. Remove value to disable or reorder as needed."
+    description: "Image ingestion strategies in priority order. Keep at least one strategy."
     category: "Import"
     restart_required: false
   ingestion_output_path_pattern:

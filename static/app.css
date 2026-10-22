@@ -1328,6 +1328,24 @@ details summary::-webkit-details-marker {
 .tool-checkbox-wrapper:has(input[type="checkbox"]:disabled) label:hover {
     background: transparent;
 }
+.setting-choice-pill {
+    max-width: 100%;
+}
+.setting-choice-pill label {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid rgb(var(--border-secondary));
+    border-radius: 9999px;
+    overflow-wrap: anywhere;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.setting-choice-pill:has(input:checked) label {
+    border-color: rgb(var(--accent-primary));
+    box-shadow: 0 0 0 1px rgb(var(--accent-primary) / 0.18), 0 0 10px rgb(var(--accent-primary) / 0.2);
+}
+.setting-choice-pill:has(input:focus-visible) label {
+    outline: 2px solid rgb(var(--accent-primary));
+    outline-offset: 2px;
+}
 @media (min-width: 768px) {
     .chat-settings-primary-row {
         grid-template-columns: minmax(0, 1fr) minmax(18rem, 1.35fr);
