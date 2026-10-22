@@ -134,9 +134,7 @@ async def update_system_settings(new_content: str) -> SystemSettingsResponse:
         proposed_models = SettingsFile.model_validate(
             {"models": parsed.get("models") or {}}
         ).models
-        current_models = load_settings().models
-        if proposed_models != current_models:
-            build_model_registry(proposed_models).validate()
+        build_model_registry(proposed_models).validate()
     except ValueError as exc:
         raise InvalidSystemSettingError("models", str(exc)) from exc
 

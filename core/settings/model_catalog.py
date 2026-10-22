@@ -6,7 +6,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from core.settings.model_registry import build_model_registry, normalize_model_alias
+from core.settings.model_registry import (
+    build_model_registry,
+    normalize_model_alias,
+    preserve_renamed_alias,
+)
 
 # Verified shipped bindings before managed identities were introduced. Keep these
 # baselines fixed when changing the catalog so local retargeting is never adopted.
@@ -116,7 +120,7 @@ def upgrade_model_catalog(
         owners = _names(models).get(normalize_model_alias(new_name), set())
         if owners - {old_name}:
             issues.append(
-                f"Cannot rename managed model '{old_name}' to '{new_name}': the name belongs to another model."
+                f"Cannot update managed model '{old_name}': alias '{new_name}' belongs to another model."
             )
             continue
         aliases = entry.get("alternate_aliases", [])
@@ -130,18 +134,9 @@ def upgrade_model_catalog(
             replacement[field] = deepcopy(target[field])
         replacement["user_editable"] = False
         if old_name != new_name:
-            aliases = [
-                alias
-                for alias in aliases
-                if normalize_model_alias(alias) != normalize_model_alias(new_name)
-            ]
-            if normalize_model_alias(old_name) != normalize_model_alias(
-                new_name
-            ) and normalize_model_alias(old_name) not in {
-                normalize_model_alias(alias) for alias in aliases
-            }:
-                aliases.append(old_name)
-            replacement["alternate_aliases"] = aliases
+            replacement["alternate_aliases"] = preserve_renamed_alias(
+                old_name, new_name, aliases
+            )
             renames.append((old_name, new_name))
         if replacement != active.get(old_name) or old_name != new_name:
             updated.append(new_name)

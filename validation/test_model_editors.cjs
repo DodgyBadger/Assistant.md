@@ -68,3 +68,20 @@ test('custom rename sends one atomic request and preserves a failed draft', asyn
     assert.equal(runtime.state.modelDraft.name, 'renamed');
     assert.equal(runtime.state.modelEdit.key, 'managed');
 });
+
+test('pending saves keep the draft protected until failure is reported', async () => {
+    const runtime = harness();
+    runtime.actions.startModelEdit('managed');
+    let finish;
+    runtime.context.fetch = () => new Promise(resolve => { finish = resolve; });
+    const saving = runtime.actions.saveModelRow('managed');
+    assert.equal(runtime.state.isSavingModel, true);
+    runtime.actions.cancelModelEdit();
+    assert.equal(runtime.state.modelEdit?.key, 'managed');
+    runtime.actions.handleModelInputChange({ target: { dataset: { field: 'alternate_aliases' }, value: 'changed-during-save' } });
+    assert.equal(runtime.state.modelDraft.alternate_aliases, 'old');
+    finish({ ok: false, status: 400, json: async () => ({ message: 'Collision' }) });
+    await saving;
+    assert.equal(runtime.state.isSavingModel, false);
+    assert.equal(runtime.state.modelEdit.key, 'managed');
+});

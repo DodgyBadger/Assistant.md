@@ -6,6 +6,7 @@ and handles environment-based configuration and API key validation.
 """
 
 from dataclasses import dataclass
+from hashlib import sha256
 from threading import Lock
 from typing import Any
 
@@ -95,6 +96,8 @@ def _refresh_model_cache_unlocked() -> None:
                     "event": "managed_models_update_blocked",
                     "status": "blocked",
                     "reasons": upgrade.issues,
+                    "issue": "models:catalog_update:"
+                    + sha256("\n".join(upgrade.issues).encode()).hexdigest()[:16],
                 },
             )
         elif upgrade.updated:

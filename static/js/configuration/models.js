@@ -162,44 +162,44 @@
 
         return `
             <div class="model-card rounded-lg border border-border-primary bg-app-card editing-highlight px-5 py-4 shadow-sm" data-row="${escapeHtml(rowKey)}" data-mode="edit" style="max-width: 1400px;">
-                <div class="space-y-4">
+                <fieldset class="space-y-4" ${state.isSavingModel ? 'disabled' : ''}>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
-                            <label class="block text-xs font-medium text-txt-primary mb-1.5">Model Name</label>
-                            <input data-field="name" ${readOnly ? 'readonly aria-readonly="true"' : ''} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. planning" value="${escapeHtml(draft.name || '')}" />
+                            <label for="model-editor-name" class="block text-xs font-medium text-txt-primary mb-1.5">Model Name</label>
+                            <input id="model-editor-name" data-field="name" ${readOnly ? 'readonly aria-readonly="true"' : ''} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. planning" value="${escapeHtml(draft.name || '')}" />
                             ${renameHint}
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-txt-primary mb-1.5">Provider</label>
-                            <select data-field="provider" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" ${providerDisabled}>
+                            <label for="model-editor-provider" class="block text-xs font-medium text-txt-primary mb-1.5">Provider</label>
+                            <select id="model-editor-provider" data-field="provider" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" ${providerDisabled}>
                                 ${providerOptions}
                             </select>
                             <p class="text-xs text-txt-secondary mt-1">${providerHelp}</p>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Model Identifier</label>
-                        <input data-field="model_string" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary font-mono text-sm transition-colors" placeholder="e.g. claude-sonnet-4-5" value="${escapeHtml(draft.model_string || '')}" />
+                        <label for="model-editor-model_string" class="block text-xs font-medium text-txt-primary mb-1.5">Model Identifier</label>
+                        <input id="model-editor-model_string" data-field="model_string" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary font-mono text-sm transition-colors" placeholder="e.g. claude-sonnet-4-5" value="${escapeHtml(draft.model_string || '')}" />
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Capabilities</label>
-                        <input data-field="capabilities" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
+                        <label for="model-editor-capabilities" class="block text-xs font-medium text-txt-primary mb-1.5">Capabilities</label>
+                        <input id="model-editor-capabilities" data-field="capabilities" ${bindingDisabled} class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm transition-colors" placeholder="e.g. text, vision" value="${escapeHtml(draft.capabilities || 'text')}" />
                         <p class="text-xs text-txt-secondary mt-1">Comma-separated values. Examples: <code>text, vision</code> or <code>decision</code>.</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Display name</label>
-                        <input data-field="display_name" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.display_name || '')}" placeholder="Optional friendly label" />
+                        <label for="model-editor-display_name" class="block text-xs font-medium text-txt-primary mb-1.5">Display name</label>
+                        <input id="model-editor-display_name" data-field="display_name" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.display_name || '')}" placeholder="Optional friendly label" />
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-txt-primary mb-1.5">Alternate aliases</label>
-                        <input data-field="alternate_aliases" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.alternate_aliases || '')}" placeholder="alias1, alias2, alias3" />
+                        <label for="model-editor-alternate_aliases" class="block text-xs font-medium text-txt-primary mb-1.5">Alternate aliases</label>
+                        <input id="model-editor-alternate_aliases" data-field="alternate_aliases" class="w-full px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-app-card text-txt-primary text-sm" value="${escapeHtml(draft.alternate_aliases || '')}" placeholder="alias1, alias2, alias3" />
                         <p class="text-xs text-txt-secondary mt-1">Comma-separated names accepted by scripts and saved settings. You can edit or remove any entry.</p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <button data-action="cancel-model" ${iconButton('circleX', 'Cancel model edit')}>${iconSvg('circleX')}</button>
                         <button data-action="save-model" ${iconButton('save', 'Save model', 'is-primary')}>${iconSvg('save')}</button>
                     </div>
-                </div>
+                </fieldset>
             </div>
         `;
     }
@@ -235,7 +235,7 @@
     }
 
     function handleModelInputChange(event) {
-        if (!state.modelEdit || !event.target.dataset.field) {
+        if (state.isSavingModel || !state.modelEdit || !event.target.dataset.field) {
             return;
         }
         const field = event.target.dataset.field;
@@ -255,8 +255,8 @@
 
     function startModelEdit(modelName) {
         if (state.isSavingModel) return;
-        if (state.modelEdit && state.modelEdit.mode === 'new') {
-            setStatus(elements.modelFeedback, 'Finish creating the new model before editing another.', 'warning');
+        if (state.modelEdit) {
+            setStatus(elements.modelFeedback, 'Finish editing the current model before editing another.', 'warning');
             return;
         }
 
@@ -336,6 +336,7 @@
     }
 
     function cancelModelEdit(message = true) {
+        if (state.isSavingModel && message) return;
         state.modelEdit = null;
         state.modelDraft = null;
         renderModels();
@@ -382,6 +383,7 @@
         state.modelDraft.name = alias;
         state.isSavingModel = true;
         setStatus(elements.modelFeedback, 'Saving model…', 'info');
+        renderModels();
 
         try {
             const payload = {
@@ -417,6 +419,8 @@
             setStatus(elements.modelFeedback, `Failed to save model: ${error.message}`, 'error');
         } finally {
             state.isSavingModel = false;
+            renderModels();
+            if (state.modelEdit) focusModelInput(state.modelDraft?.binding_read_only ? 'alternate_aliases' : 'name');
         }
     }
 

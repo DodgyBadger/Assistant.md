@@ -24,6 +24,23 @@ def normalize_model_alias(name: str) -> str:
     return name.strip().lower()
 
 
+def preserve_renamed_alias(
+    old_name: str, new_name: str, alternates: list[str]
+) -> list[str]:
+    """Promote a same-model alternate and retain the prior canonical exactly once."""
+    if old_name == new_name:
+        return list(alternates)
+    old_key, new_key = normalize_model_alias(old_name), normalize_model_alias(new_name)
+    retained = [
+        alias for alias in alternates if normalize_model_alias(alias) != new_key
+    ]
+    if old_key != new_key and old_key not in {
+        normalize_model_alias(alias) for alias in retained
+    }:
+        retained.append(old_name)
+    return retained
+
+
 @dataclass(frozen=True)
 class ModelRegistry:
     canonical_names: dict[str, str]

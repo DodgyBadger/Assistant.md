@@ -15,7 +15,11 @@ from core.settings.editor_schema import (
     parse_setting_value,
     validate_update,
 )
-from core.settings.model_registry import build_model_registry, normalize_model_alias
+from core.settings.model_registry import (
+    build_model_registry,
+    normalize_model_alias,
+    preserve_renamed_alias,
+)
 from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
@@ -199,17 +203,9 @@ def upsert_model_mapping(
                 f"Model '{source_name}' has a managed binding. Duplicate it as custom to change the binding."
             )
     if existing and source_name != name:
-        candidate.alternate_aliases = [
-            alias
-            for alias in candidate.alternate_aliases
-            if normalize_model_alias(alias) != normalize_model_alias(name)
-        ]
-        if normalize_model_alias(source_name) != normalize_model_alias(
-            name
-        ) and normalize_model_alias(source_name) not in {
-            normalize_model_alias(alias) for alias in candidate.alternate_aliases
-        }:
-            candidate.alternate_aliases.append(source_name)
+        candidate.alternate_aliases = preserve_renamed_alias(
+            source_name, name, candidate.alternate_aliases
+        )
         del settings_file.models[source_name]
     settings_file.models[name] = candidate
     try:
