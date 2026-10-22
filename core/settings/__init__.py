@@ -324,6 +324,24 @@ def validate_settings(
     for name, messages in registry.issues.items():
         status.add_issue(name=f"model:{name}", message=" ".join(messages))
 
+    for setting_name in ("default_model", "compaction_author_model"):
+        configured = get_general_settings().get(setting_name)
+        value = configured.value if configured is not None else None
+        if setting_name == "compaction_author_model" and (
+            value is None or str(value).strip().lower() in {"", "none"}
+        ):
+            continue
+        try:
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError("Select a configured text model.")
+            canonical = registry.resolve(value)
+            if "text" not in models[canonical].capabilities:
+                raise ValueError("Select a model with text capability.")
+        except ValueError as exc:
+            status.add_issue(
+                name=f"setting:{setting_name}", message=f"{setting_name}: {exc}"
+            )
+
     for model_name, model_config in models.items():
         provider_name = getattr(model_config, "provider", None) or (
             model_config.get("provider") if isinstance(model_config, dict) else None

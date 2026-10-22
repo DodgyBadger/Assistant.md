@@ -96,5 +96,66 @@ class ModelAliasResolutionScenario(BaseScenario):
             assert next(item for item in settings if item["key"] == "default_model")[
                 "issues"
             ]
+            # Duplication uses ordinary custom creation, which cannot copy managed identity.
+            custom_payload = {
+                "provider": sonnet["provider"],
+                "model_string": "user-model-id",
+                "capabilities": sonnet["capabilities"],
+                "alternate_aliases": [],
+            }
+            copied = self.call_api(
+                "/api/system/models/sonnet-custom", method="PUT", data=custom_payload
+            )
+            assert copied.status_code == 200, copied.text
+            assert copied.json()["managed_id"] is None
+            assert copied.json()["user_editable"] is True
+            repaired = self.call_api("/api/system/settings/repair", method="POST")
+            assert repaired.status_code == 200, repaired.text
+            custom = next(
+                model
+                for model in self.call_api("/api/system/models").json()
+                if model["name"] == "sonnet-custom"
+            )
+            assert custom["model_string"] == "user-model-id"
+            # Advanced edits share the collision boundary and cannot partially write.
+            import yaml
+
+            before = self.call_api("/api/system/settings").json()["content"]
+            raw = yaml.safe_load(before)
+            raw["models"]["sonnet-custom"]["alternate_aliases"] = ["sonnet"]
+            collision = self.call_api(
+                "/api/system/settings",
+                method="PUT",
+                data={"content": yaml.safe_dump(raw)},
+            )
+            assert collision.status_code == 400, collision.text
+            assert self.call_api("/api/system/settings").json()["content"] == before
+            # On-disk invalid names remain diagnosable and never choose a winner.
+            from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
+            from core.runtime.reload_service import reload_configuration
+            from core.settings.model_registry import InvalidModelAlias
+
+            path = self._get_system_controller()._system_root / "settings.yaml"
+            path.write_text(yaml.safe_dump(raw))
+            try:
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
+                models = self.call_api("/api/system/models")
+                assert models.status_code == 200, models.text
+                assert all(
+                    not model["available"]
+                    for model in models.json()
+                    if model["name"] in {"sonnet", "sonnet-custom"}
+                )
+                try:
+                    resolve_model("sonnet")
+                except InvalidModelAlias:
+                    pass
+                else:
+                    raise AssertionError("Ambiguous aliases must not resolve")
+            finally:
+                path.write_text(before)
+                with use_execution_authority(LOCAL_USER_AUTHORITY):
+                    reload_configuration()
         finally:
             await self.stop_system()

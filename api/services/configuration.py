@@ -138,7 +138,7 @@ async def update_system_settings(new_content: str) -> SystemSettingsResponse:
         if proposed_models != current_models:
             build_model_registry(proposed_models).validate()
     except ValueError as exc:
-        raise SystemConfigurationError(f"Invalid model registry: {exc}") from exc
+        raise InvalidSystemSettingError("models", str(exc)) from exc
 
     normalized_content = (
         new_content if new_content.endswith("\n") else new_content + "\n"
@@ -290,6 +290,11 @@ def repair_settings_from_template() -> SystemSettingsResponse:
     _prune_section("tools", default_user_editable=False)
     _prune_section("models", default_user_editable=True)
     _prune_section("providers", default_user_editable=False)
+
+    try:
+        build_model_registry(SettingsFile.model_validate(merged).models).validate()
+    except ValueError as exc:
+        raise InvalidSystemSettingError("models", str(exc)) from exc
 
     try:
         backup_path = prepare_migration_backup_path(

@@ -55,3 +55,38 @@ def test_chat_selection_loads_before_application() -> None:
     application_position = markup.index('<script src="static/app.js"></script>')
 
     assert selection_position < application_position
+
+
+def test_chat_model_selection_resolves_alternates_and_uses_only_the_default() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+global.window = global;
+global.document = { createElement() { return {}; } };
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'));
+function select(value = '') {
+    return { value, options: [], innerHTML: '', appendChild(option) { this.options.push(option); } };
+}
+const models = [
+    { name: 'first', available: true, chat_selectable: true },
+    { name: 'preferred', available: true, chat_selectable: true, alternate_aliases: ['old'], display_name: 'Friendly' },
+];
+const state = { metadata: { vaults: [], models, settings: {} }, systemStatus: { configuration_status: { default_model: 'old' } } };
+const elements = { vaultSelector: select(), modelSelector: select(), thinkingSelector: null };
+const controller = ChatSelection.create({ state, elements, sessionControls: { renderSelector() {} }, callbacks: { syncControls() {} } });
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, 'preferred');
+assert.equal(elements.modelSelector.options.filter(item => item.value === 'old').length, 0);
+elements.modelSelector.value = 'old';
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, 'preferred');
+models[1].available = false;
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, 'preferred');
+elements.modelSelector.value = 'removed';
+state.systemStatus.configuration_status.default_model = 'missing';
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, '');
+"""
+    subprocess.run(["node", "-e", harness, str(_MODULE)], check=True, cwd=_PROJECT_ROOT)
