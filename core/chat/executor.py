@@ -1052,6 +1052,7 @@ async def _prepare_deferred_review_resume_execution(
     chat_mode: ChatMode = NORMAL_CHAT_MODE,
 ) -> PreparedChatExecution:
     """Prepare a chat execution that resumes deferred tool review results."""
+    model = resolve_chat_model_alias(model, session_id=session_id)
     workspace_path = _CHAT_STORE.get_session_workspace_path(session_id, vault_name)
     base_instructions, tool_instructions, model_instance, tool_functions = (
         _prepare_agent_config(

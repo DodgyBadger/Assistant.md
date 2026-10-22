@@ -65,8 +65,27 @@ class ChatModelAliasFallbackScenario(BaseScenario):
                 }
             )
             assert second["terminal_event"]["event"] == "done", second
-            # An invalid on-disk alias also cannot resolve; use only the configured default.
+            # Resuming inline review is another chat preparation path and uses the same rule.
+            from pydantic_ai import DeferredToolResults
+
+            from core.chat import executor as chat_executor
             from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
+
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                resumed = await chat_executor._prepare_deferred_review_resume_execution(
+                    vault_name=vault.name,
+                    vault_path=str(vault),
+                    session_id="alias-fallback-session",
+                    tools=[],
+                    model="removed-alias",
+                    message_history=[],
+                    deferred_tool_results=DeferredToolResults(),
+                )
+                try:
+                    assert resumed.model == "test"
+                finally:
+                    await resumed.close()
+            # An invalid on-disk alias also cannot resolve; use only the configured default.
             from core.runtime.reload_service import reload_configuration
 
             path = self._get_system_controller()._system_root / "settings.yaml"
