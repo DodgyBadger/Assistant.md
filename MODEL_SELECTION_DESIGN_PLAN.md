@@ -89,6 +89,8 @@ Validation: pure upgrade assertions and the alias scenario cover untouched adopt
 
 ### Slice 3 Model editing and settings integration
 
+Completed: the managed-alternate edit scenario first failed on the prior read-only rejection, then passed with atomic custom rename, managed binding protection, editable alternate removal, and alternate-backed default validation (run `20261022_221058_656712`). Twenty-two focused Python/module checks passed, including three browser model-editor behavior checks; production quality gates passed and CSS compilation completed. Managed duplication starts a separate custom draft without managed identity or inherited alternate names.
+
 Deliver API and theme-aware UI for one alternate list and independent display labels, centrally controlled managed bindings, atomic custom rename preserving its prior alias, and Duplicate as custom without managed identity or copied alternate names. Model pickers show canonical entries only; valid saved alternates remain accepted and display the canonical option. Use the same collision checks before any write, including Advanced YAML edits that alter the registry.
 
 Validation: alias integration scenario verifies API ownership, custom duplication/rename, list editing/removal, atomic failure, saved alternate defaults, invalid-reference issues, and custom preservation. Browser behavior checks exercise save payloads, managed field protection, duplicate drafts, atomic rename, and canonical selection without duplicate options. Review keyboard controls and existing themes; rebuild CSS if new utilities require it.

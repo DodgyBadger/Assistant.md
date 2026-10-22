@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
+from core.settings.model_registry import build_model_registry
 from core.settings.store import (
     RETIRED_BUILTIN_TOOL_NAMES,
     SettingsEntry,
@@ -36,6 +37,7 @@ class SettingEditor(BaseModel):
         "json",
     ]
     choices: list[SettingChoice] = Field(default_factory=list)
+    aliases: dict[str, str] = Field(default_factory=dict)
     minimum: float | None = None
     maximum: float | None = None
     exclusive_minimum: bool = False
@@ -134,6 +136,7 @@ def build_editors(
         "web_extract_strategy": "web_extract",
         "web_crawl_strategy": "web_crawl",
     }
+    registry = build_model_registry(settings_file.models)
     editors: dict[str, SettingEditor] = {}
     entries = dict(settings_file.settings)
     entries.update(templates)
@@ -144,7 +147,7 @@ def build_editors(
                 sorted(
                     key
                     for key, model in settings_file.models.items()
-                    if "text" in model.capabilities
+                    if "text" in model.capabilities and key not in registry.issues
                 )
             )
             if name == "compaction_author_model":
@@ -155,7 +158,21 @@ def build_editors(
                 choices = [
                     choice for choice in choices if choice.value.lower() != "none"
                 ]
-            editor = SettingEditor(kind="select", choices=choices)
+            labels = {
+                key: model.display_name or key
+                for key, model in settings_file.models.items()
+            }
+            for choice in choices:
+                choice.label = labels.get(choice.value, choice.label)
+            editor = SettingEditor(
+                kind="select",
+                choices=choices,
+                aliases={
+                    alias: canonical
+                    for alias, canonical in registry.canonical_names.items()
+                    if canonical in {choice.value for choice in choices}
+                },
+            )
         elif name == "default_context_script":
             editor = SettingEditor(
                 kind="select",
@@ -308,6 +325,8 @@ def value_issues(name: str, value: Any, editor: SettingEditor) -> list[SettingIs
             message = f"Value must be at most {editor.maximum:g}."
     elif editor.kind == "select":
         available = {choice.value for choice in editor.choices}
+        if isinstance(normalized, str):
+            normalized = editor.aliases.get(normalized, normalized)
         if not isinstance(normalized, str) or normalized not in available:
             code = "choice"
             message = (

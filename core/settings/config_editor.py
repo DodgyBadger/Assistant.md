@@ -15,7 +15,7 @@ from core.settings.editor_schema import (
     parse_setting_value,
     validate_update,
 )
-from core.settings.model_registry import build_model_registry
+from core.settings.model_registry import build_model_registry, normalize_model_alias
 from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
@@ -144,80 +144,91 @@ def upsert_model_mapping(
     description: str | None = None,
     alternate_aliases: list[str] | None = None,
     display_name: str | None = None,
+    original_name: str | None = None,
 ) -> ModelConfig:
-    """
-    Create or update a model mapping entry.
-
-    Args:
-        name: Model alias (lowercase string used by workflows)
-        provider: Provider name the model depends on
-        model_string: Provider-specific model identifier
-        capabilities: Optional model capability list
-        description: Optional human-readable description
-
-    Returns:
-        Updated ModelConfig instance
-
-    Raises:
-        SettingsError: When attempting to modify a non-editable entry or
-                       reference an unknown provider.
-    """
+    """Atomically edit or rename one entry without losing its accepted names."""
     settings_file = load_settings().model_copy(deep=True)
-    existing = settings_file.models.get(name)
-
-    if existing and not getattr(existing, "user_editable", True):
-        raise SettingsError(f"Model '{name}' is not user editable.")
-
+    source_name = original_name or name
+    existing = settings_file.models.get(source_name)
+    if original_name and existing is None:
+        raise SettingsError(f"Model '{original_name}' does not exist.")
+    if source_name != name and name in settings_file.models:
+        raise SettingsError(f"Model '{name}' already exists.")
+    if not existing and normalize_model_alias(name) == "test":
+        raise SettingsError("The model alias 'test' is reserved for validation.")
     if provider not in settings_file.providers:
         raise SettingsError(f"Provider '{provider}' is not defined in settings.yaml.")
-
-    if capabilities and any(
-        str(cap).strip().lower() == "embedding" for cap in capabilities
-    ):
-        raise SettingsError("Embedding models are not supported.")
-
-    user_editable = getattr(existing, "user_editable", True) if existing else True
-    resolved_capabilities = (
-        capabilities
-        if capabilities is not None
-        else list(getattr(existing, "capabilities", ["text"])) if existing else ["text"]
-    )
-
-    settings_file.models[name] = ModelConfig(
-        provider=provider,
-        model_string=model_string,
-        capabilities=resolved_capabilities,
-        description=description,
-        user_editable=user_editable,
-        alternate_aliases=(
-            alternate_aliases
-            if alternate_aliases is not None
-            else list(existing.alternate_aliases) if existing else []
-        ),
-        display_name=(
-            display_name
-            if display_name is not None
-            else existing.display_name if existing else None
-        ),
-    )
+    if not model_string.strip():
+        raise SettingsError("A provider model identifier is required.")
+    try:
+        candidate = ModelConfig(
+            provider=provider,
+            model_string=model_string,
+            capabilities=(
+                capabilities
+                if capabilities is not None
+                else existing.capabilities if existing else ["text"]
+            ),
+            description=(
+                description
+                if description is not None
+                else existing.description if existing else None
+            ),
+            user_editable=existing.user_editable if existing else True,
+            managed_id=existing.managed_id if existing else None,
+            alternate_aliases=(
+                alternate_aliases
+                if alternate_aliases is not None
+                else list(existing.alternate_aliases) if existing else []
+            ),
+            display_name=(
+                display_name
+                if display_name is not None
+                else existing.display_name if existing else None
+            ),
+        )
+    except ValueError as exc:
+        raise SettingsError(str(exc)) from exc
+    if existing and (existing.managed_id or not existing.user_editable):
+        if source_name != name or (
+            candidate.provider,
+            candidate.model_string,
+            candidate.capabilities,
+        ) != (existing.provider, existing.model_string, existing.capabilities):
+            raise SettingsError(
+                f"Model '{source_name}' has a managed binding. Duplicate it as custom to change the binding."
+            )
+    if existing and source_name != name:
+        candidate.alternate_aliases = [
+            alias
+            for alias in candidate.alternate_aliases
+            if normalize_model_alias(alias) != normalize_model_alias(name)
+        ]
+        if normalize_model_alias(source_name) != normalize_model_alias(
+            name
+        ) and normalize_model_alias(source_name) not in {
+            normalize_model_alias(alias) for alias in candidate.alternate_aliases
+        }:
+            candidate.alternate_aliases.append(source_name)
+        del settings_file.models[source_name]
+    settings_file.models[name] = candidate
     try:
         build_model_registry(settings_file.models).validate()
     except ValueError as exc:
         raise SettingsError(str(exc)) from exc
-
     _persist_changes(settings_file)
-    return settings_file.models[name]
+    return candidate
 
 
 def delete_model_mapping(name: str) -> None:
     """Delete a user-editable model mapping."""
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     existing = settings_file.models.get(name)
 
     if not existing:
         raise SettingsError(f"Model '{name}' does not exist.")
 
-    if not getattr(existing, "user_editable", True):
+    if existing.managed_id or not existing.user_editable:
         raise SettingsError(f"Model '{name}' is not user editable.")
 
     del settings_file.models[name]
