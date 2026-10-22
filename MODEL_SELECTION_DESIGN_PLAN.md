@@ -81,6 +81,8 @@ Validation: focused registry assertions plus `integration/core/model_alias_resol
 
 ### Slice 2 Managed catalog updates
 
+Completed: six catalog/storage checks cover renames, alternate promotion/removal, idempotence, custom preservation, verified legacy adoption, atomic collision rollback, persisted upgrades, and rollback backups. The four relevant integration scenarios passed (run `20261022_220822_830310`). Fresh templates now carry stable managed IDs and centrally controlled bindings; known managed updates persist automatically with a backup, while customized legacy entries remain custom.
+
 Deliver stable managed identity, an explicit baseline for adopting untouched shipped entries, atomic managed rename/update behavior, and preservation of custom bindings. Update known managed entries automatically when settings load; preserve aliases and current alternate lists in the persisted settings. A collision retains working settings and raises a System configuration warning. Repair must use the same update helper and must not prune retained renamed managed entries or overwrite customized entries.
 
 Validation: pure upgrade assertions and the alias scenario cover untouched adoption, customized/ambiguous preservation, repeated renames, same-model alternate promotion, idempotence, deleted alternates remaining deleted, binding updates, collisions without partial writes, repair, and fresh-template seeding.

@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError, field_validator
 
 from core.connections import ConnectionRequirement
+from core.migration_backups import prepare_migration_backup_path
 from core.runtime.paths import get_system_root
+from core.settings.model_catalog import CatalogUpgrade, upgrade_model_catalog
 from core.settings.upgrades import retire_embedding_models
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
@@ -78,6 +80,7 @@ class ModelConfig(BaseModel):
     capabilities: list[str] = Field(default_factory=lambda: ["text"])
     description: str | None = None
     user_editable: bool = True
+    managed_id: str | None = None
     alternate_aliases: list[str] = Field(default_factory=list)
     display_name: str | None = None
 
@@ -113,6 +116,9 @@ class ModelConfig(BaseModel):
 
 class SettingsFile(BaseModel):
     """Root schema for settings.yaml content."""
+
+    _catalog_update: CatalogUpgrade | None = PrivateAttr(default=None)
+    _catalog_issues: list[str] = PrivateAttr(default_factory=list)
 
     settings: dict[str, SettingsEntry] = Field(default_factory=dict)
     models: dict[str, ModelConfig] = Field(default_factory=dict)
@@ -172,10 +178,26 @@ def load_settings() -> SettingsFile:
         if raw_data.get(section) is None:
             raw_data[section] = {}
 
+    template = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+    upgrade = upgrade_model_catalog(raw_data["models"], template.get("models", {}))
+    candidate = {**raw_data, "models": upgrade.models}
     try:
-        return SettingsFile.model_validate(raw_data)
+        settings = SettingsFile.model_validate(candidate)
     except ValidationError as exc:
         raise ValueError(f"Invalid settings.yaml configuration: {exc}") from exc
+    settings._catalog_issues = upgrade.issues
+    settings._catalog_update = upgrade
+    if upgrade.updated or upgrade.renames:
+        backup = prepare_migration_backup_path(
+            settings_file.parent, "settings.yaml.bak"
+        )
+        shutil.copyfile(settings_file, backup)
+        tmp_path = settings_file.with_suffix(".tmp")
+        tmp_path.write_text(
+            yaml.safe_dump(candidate, sort_keys=False), encoding="utf-8"
+        )
+        os.replace(tmp_path, settings_file)
+    return settings
 
 
 def refresh_settings_cache() -> None:

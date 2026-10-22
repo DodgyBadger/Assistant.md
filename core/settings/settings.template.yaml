@@ -365,96 +365,112 @@ settings:
 
 models:
   gemini:
+    managed_id: builtin-gemini
     provider: google
     model_string: gemini-3.1-pro-preview
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   gemini-flash:
+    managed_id: builtin-gemini-flash
     provider: google
     model_string: gemini-flash-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   gemini-flash-lite:
+    managed_id: builtin-gemini-flash-lite
     provider: google
     model_string: gemini-flash-lite-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   sonnet:
+    managed_id: builtin-sonnet
     provider: anthropic
     model_string: claude-sonnet-5
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   opus:
+    managed_id: builtin-opus
     provider: anthropic
     model_string: claude-opus-5
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   haiku:
+    managed_id: builtin-haiku
     provider: anthropic
     model_string: claude-haiku-4-5
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   astra:
+    managed_id: builtin-astra
     provider: openai
     model_string: gpt-6-astra
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   gpt:
+    managed_id: builtin-gpt
     provider: openai
     model_string: gpt-5.6-sol
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   gpt-mini:
+    managed_id: builtin-gpt-mini
     provider: openai
     model_string: gpt-5.6-terra
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   gpt-nano:
+    managed_id: builtin-gpt-nano
     provider: openai
     model_string: gpt-5.6-luna
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   grok:
+    managed_id: builtin-grok
     provider: grok
     model_string: grok-4.6-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   grok-fast:
+    managed_id: builtin-grok-fast
     provider: grok
     model_string: grok-4.3-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   mistral-large:
+    managed_id: builtin-mistral-large
     provider: mistral
     model_string: mistral-large-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   mistral-small:
+    managed_id: builtin-mistral-small
     provider: mistral
     model_string: mistral-small-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   mistral-medium:
+    managed_id: builtin-mistral-medium
     provider: mistral
     model_string: mistral-medium-latest
     capabilities: ["text", "vision"]
     description: null
-    user_editable: true
+    user_editable: false
   jev:
+    managed_id: builtin-jev
     provider: typesafe
     model_string: jev-latest
     capabilities: ["decision"]
