@@ -355,3 +355,11 @@ ConfigurationPanel.init({});
         check=True,
         cwd=_PROJECT_ROOT,
     )
+
+
+def test_settings_editor_behaviors() -> None:
+    subprocess.run(
+        ["node", "--test", "validation/test_settings_editors.cjs"],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

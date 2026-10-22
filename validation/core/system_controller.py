@@ -106,6 +106,15 @@ class SystemController:
             "base_url": None,
             "user_editable": False,
         }
+        # Keep deterministic fixtures in the same registry used by constrained
+        # settings editors. User-editable fixtures survive template repair.
+        raw_settings["providers"]["test"]["user_editable"] = True
+        raw_settings["models"]["test"] = {
+            "provider": "test",
+            "model_string": "test",
+            "capabilities": ["text"],
+            "user_editable": True,
+        }
         settings_path.write_text(
             yaml.safe_dump(raw_settings, sort_keys=False, allow_unicode=False),
             encoding="utf-8",

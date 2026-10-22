@@ -24,6 +24,7 @@
         elements.activityLogLoadOlderBtn = document.getElementById('load-older-activity-log');
 
         elements.settingsFeedback = document.getElementById('settings-feedback');
+        elements.settingsValidation = document.getElementById('settings-validation');
         elements.settingsFilter = document.getElementById('settings-filter');
         elements.settingsList = document.getElementById('settings-list');
 

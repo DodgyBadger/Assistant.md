@@ -36,6 +36,7 @@
         isTriggeringImportQueue: false,
         isSavingImportDefaults: false,
         settings: [],
+        settingsValidationError: '',
         models: [],
         providers: [],
         secrets: [],
@@ -128,6 +129,7 @@
         activityLogLoadOlderBtn: null,
 
         settingsFeedback: null,
+        settingsValidation: null,
         settingsFilter: null,
         settingsList: null,
 
@@ -277,6 +279,10 @@
     }
 
     async function notifyConfigChanged() {
+        if (actions.loadGeneralSettings && elements.settingsList) {
+            await actions.loadGeneralSettings(true);
+        }
+
         if (typeof callbacks.refreshMetadata === 'function') {
             try {
                 await callbacks.refreshMetadata();

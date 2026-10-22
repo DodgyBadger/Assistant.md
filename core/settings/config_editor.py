@@ -6,11 +6,15 @@ such as model mappings and custom providers while preserving developer-only
 sections (tools, core providers).
 """
 
-import json
-from typing import Any, Literal
+from typing import Literal
 
 import yaml
 
+from core.settings.editor_schema import (
+    build_editors,
+    parse_setting_value,
+    validate_update,
+)
 from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
@@ -36,7 +40,7 @@ def _persist_changes(settings_file: SettingsFile) -> None:
 def list_general_settings() -> dict[str, SettingsEntry]:
     """Return configured values with current product-owned metadata."""
     settings_file = load_settings()
-    template_settings = _template_general_settings()
+    template_settings = get_template_general_settings()
     merged = dict(settings_file.settings)
     for name, template_entry in template_settings.items():
         configured_entry = settings_file.settings.get(name)
@@ -60,16 +64,20 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     if name in RETIRED_SETTINGS:
         raise SettingsError(f"Setting '{name}' does not exist.")
     entry = settings_file.settings.get(name)
-    template_entry = _template_general_settings().get(name)
+    template_entry = get_template_general_settings().get(name)
     if entry is None:
         entry = template_entry
     if entry is None:
         raise SettingsError(f"Setting '{name}' does not exist.")
 
-    coerced_value = _coerce_setting_value(raw_value, entry.value)
-    if name == "compaction_strategy":
-        coerced_value = _normalize_compaction_strategy(coerced_value)
-    _validate_general_setting_value(name, coerced_value, settings_file)
+    templates = get_template_general_settings()
+    editors = build_editors(settings_file, templates)
+    entries = _merged_general_settings(settings_file)
+    try:
+        coerced_value = parse_setting_value(name, raw_value, editors[name])
+        validate_update(name, coerced_value, entries, editors)
+    except (ValueError, OverflowError) as exc:
+        raise SettingsError(str(exc)) from exc
     metadata_entry = template_entry or entry
     settings_file.settings[name] = SettingsEntry(
         value=coerced_value,
@@ -82,69 +90,7 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     return settings_file.settings[name]
 
 
-def _validate_general_setting_value(
-    name: str, value: Any, settings_file: SettingsFile
-) -> None:
-    """Validate safety-sensitive general settings before persistence."""
-    if name == "model_stream_retries" and not 0 <= value <= 5:
-        raise SettingsError("Model stream retries must be between 0 and 5.")
-    if name == "mcp_max_concurrent_advanced_shell_stdio_launches" and not (
-        isinstance(value, int) and 1 <= value <= 32
-    ):
-        raise SettingsError(
-            "Managed advanced-shell stdio launch concurrency must be between 1 and 32."
-        )
-    if name == "max_concurrent_delegates" and not (
-        isinstance(value, int) and 0 <= value <= 32
-    ):
-        raise SettingsError(
-            "Delegate concurrency must be between 0 (unlimited) and 32."
-        )
-    if name == "model_stream_idle_timeout_seconds" and not 0 <= value <= 3_600:
-        raise SettingsError(
-            "Model stream idle timeout must be between 0 (disabled) and 3600 seconds."
-        )
-    if name == "compaction_retained_turns" and not (
-        isinstance(value, int) and 1 <= value <= 100
-    ):
-        raise SettingsError("Compaction retained turns must be between 1 and 100.")
-
-    delay_names = {
-        "model_stream_retry_base_delay_seconds",
-        "model_stream_retry_max_delay_seconds",
-    }
-    if name not in delay_names:
-        return
-    if not 0 <= value <= 300:
-        raise SettingsError(
-            "Model stream retry delays must be between 0 and 300 seconds."
-        )
-
-    settings = _merged_general_settings(settings_file)
-    other_name = next(iter(delay_names - {name}))
-    other_entry = settings.get(other_name)
-    other_value = getattr(other_entry, "value", None)
-    if not isinstance(other_value, int | float):
-        return
-    base_delay = value if name.endswith("base_delay_seconds") else other_value
-    max_delay = value if name.endswith("max_delay_seconds") else other_value
-    if base_delay > max_delay:
-        raise SettingsError(
-            "Model stream retry base delay must not exceed the maximum delay."
-        )
-
-
-def _normalize_compaction_strategy(value: Any) -> str:
-    """Normalize the retired stepped-map name into the checkpoint vocabulary."""
-    normalized = str(value).strip().lower()
-    if normalized == "stepped_session_map":
-        return "session_map"
-    if normalized not in {"recovery_card", "session_map"}:
-        raise SettingsError("Compaction strategy must be recovery_card or session_map.")
-    return normalized
-
-
-def _template_general_settings() -> dict[str, SettingsEntry]:
+def get_template_general_settings() -> dict[str, SettingsEntry]:
     try:
         raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
     except FileNotFoundError:
@@ -161,51 +107,10 @@ def _template_general_settings() -> dict[str, SettingsEntry]:
     return result
 
 
-def _coerce_setting_value(raw_value: str, current_value: Any) -> Any:
-    """Attempt to convert the provided raw string into the original setting type."""
-    raw_value = raw_value if raw_value is not None else ""
-
-    if isinstance(current_value, bool):
-        normalized = raw_value.strip().lower()
-        if normalized in {"true", "1", "yes", "on"}:
-            return True
-        if normalized in {"false", "0", "no", "off"}:
-            return False
-        raise SettingsError("Value must be true or false.")
-
-    if isinstance(current_value, int) and not isinstance(current_value, bool):
-        try:
-            return int(raw_value.strip())
-        except ValueError as exc:
-            raise SettingsError("Value must be an integer.") from exc
-
-    if isinstance(current_value, float):
-        try:
-            return float(raw_value.strip())
-        except ValueError as exc:
-            raise SettingsError("Value must be a number.") from exc
-
-    if current_value is None:
-        return raw_value or None
-
-    if isinstance(current_value, list | dict):
-        try:
-            parsed = json.loads(raw_value)
-        except json.JSONDecodeError as exc:
-            raise SettingsError("Value must be valid JSON for this setting.") from exc
-        if not isinstance(parsed, type(current_value)):
-            raise SettingsError(
-                "Updated value type does not match existing setting type."
-            )
-        return parsed
-
-    return raw_value
-
-
 def _merged_general_settings(
     settings_file: SettingsFile,
 ) -> dict[str, SettingsEntry]:
-    merged = dict(_template_general_settings())
+    merged = dict(get_template_general_settings())
     merged.update(settings_file.settings)
     return merged
 
