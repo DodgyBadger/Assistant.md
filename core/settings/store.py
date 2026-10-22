@@ -84,7 +84,6 @@ class ModelConfig(BaseModel):
     user_editable: bool = True
     managed_id: str | None = None
     alternate_aliases: list[str] = Field(default_factory=list)
-    display_name: str | None = None
 
     @field_validator("capabilities", mode="before")
     @classmethod

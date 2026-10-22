@@ -921,8 +921,7 @@ class ModelInfo(BaseModel):
 
     managed_id: str | None = None
     alternate_aliases: list[str] = Field(default_factory=list)
-    display_name: str | None = None
-    name: str = Field(..., description="User-friendly model name")
+    name: str = Field(..., description="Primary model alias")
     provider: str = Field(..., description="Provider (anthropic, openai, google, etc.)")
     model_string: str = Field(..., description="Actual model identifier")
     capabilities: list[str] = Field(
@@ -1620,7 +1619,6 @@ class ModelConfigRequest(BaseModel):
 
     original_name: str | None = None
     alternate_aliases: list[str] | None = None
-    display_name: str | None = None
     provider: str = Field(..., description="Provider name the model uses")
     model_string: str = Field(..., description="Provider-specific model identifier")
     capabilities: list[str] | None = Field(

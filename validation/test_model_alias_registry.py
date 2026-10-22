@@ -10,6 +10,19 @@ from core.settings.model_registry import (
 from core.settings.store import ModelConfig
 
 
+def test_removed_display_name_is_ignored_in_saved_model_entries() -> None:
+    config = ModelConfig.model_validate(
+        {
+            "provider": "openai",
+            "model_string": "example",
+            "alternate_aliases": ["old"],
+            "display_name": "Obsolete label",
+        }
+    )
+    assert "display_name" not in config.model_dump()
+    assert config.alternate_aliases == ["old"]
+
+
 def model(*aliases: str) -> ModelConfig:
     return ModelConfig(
         provider="openai", model_string="example", alternate_aliases=list(aliases)

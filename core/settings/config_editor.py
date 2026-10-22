@@ -147,7 +147,6 @@ def upsert_model_mapping(
     capabilities: list[str] | None = None,
     description: str | None = None,
     alternate_aliases: list[str] | None = None,
-    display_name: str | None = None,
     original_name: str | None = None,
 ) -> ModelConfig:
     """Atomically edit or rename one entry without losing its accepted names."""
@@ -184,11 +183,6 @@ def upsert_model_mapping(
                 alternate_aliases
                 if alternate_aliases is not None
                 else list(existing.alternate_aliases) if existing else []
-            ),
-            display_name=(
-                display_name
-                if display_name is not None
-                else existing.display_name if existing else None
             ),
         )
     except ValueError as exc:

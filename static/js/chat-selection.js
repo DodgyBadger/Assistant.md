@@ -57,9 +57,7 @@
                 const option = document.createElement('option');
                 option.value = model.name;
                 const displayModelName = model.model_string || model.model || model.provider;
-                const label = model.display_name && model.display_name !== model.name
-                    ? `${model.display_name} [${model.name}]` : model.name;
-                option.textContent = `${label} (${displayModelName})${model.available ? '' : ' (unavailable)'}`;
+                option.textContent = `${model.name} (${displayModelName})${model.available ? '' : ' (unavailable)'}`;
                 option.disabled = model.available === false;
                 elements.modelSelector.appendChild(option);
             });
