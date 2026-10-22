@@ -21,7 +21,7 @@ from core.connections import ConnectionRequirement
 from core.migration_backups import prepare_migration_backup_path
 from core.runtime.paths import get_system_root
 from core.settings.model_catalog import CatalogUpgrade, upgrade_model_catalog
-from core.settings.upgrades import retire_embedding_models
+from core.settings.upgrades import retire_builtin_providers, retire_embedding_models
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
 _SETTINGS_LOCK = RLock()
@@ -120,6 +120,7 @@ class SettingsFile(BaseModel):
 
     _catalog_update: CatalogUpgrade | None = PrivateAttr(default=None)
     _catalog_issues: list[str] = PrivateAttr(default_factory=list)
+    _retired_provider_updates: list[str] = PrivateAttr(default_factory=list)
 
     settings: dict[str, SettingsEntry] = Field(default_factory=dict)
     models: dict[str, ModelConfig] = Field(default_factory=dict)
@@ -187,14 +188,21 @@ def _load_settings_file() -> SettingsFile:
 
     template = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
     upgrade = upgrade_model_catalog(raw_data["models"], template.get("models", {}))
-    candidate = {**raw_data, "models": upgrade.models}
+    providers = retire_builtin_providers(raw_data["providers"], upgrade.models)
+    provider_updates = [
+        name
+        for name, entry in raw_data["providers"].items()
+        if providers.get(name) != entry
+    ]
+    candidate = {**raw_data, "models": upgrade.models, "providers": providers}
     try:
         settings = SettingsFile.model_validate(candidate)
     except ValidationError as exc:
         raise ValueError(f"Invalid settings.yaml configuration: {exc}") from exc
     settings._catalog_issues = upgrade.issues
     settings._catalog_update = upgrade
-    if upgrade.updated or upgrade.renames or upgrade.removed:
+    settings._retired_provider_updates = provider_updates
+    if upgrade.updated or upgrade.renames or upgrade.removed or provider_updates:
         backup = prepare_migration_backup_path(
             settings_file.parent, "settings.yaml.bak"
         )

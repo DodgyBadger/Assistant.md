@@ -86,6 +86,16 @@ def _refresh_model_cache_unlocked() -> None:
     providers = _get_provider_configs()
     _MODEL_CACHE = ModelCache(registry, mappings, capabilities, providers)
     settings = load_settings()
+    if settings._retired_provider_updates:
+        logger.info(
+            "Retired built-in providers updated",
+            data={
+                "event": "retired_builtin_providers_updated",
+                "status": "completed",
+                "providers": settings._retired_provider_updates,
+            },
+        )
+        settings._retired_provider_updates = []
     upgrade = settings._catalog_update
     if upgrade is not None:
         settings._catalog_update = None
