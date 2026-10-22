@@ -23,6 +23,8 @@ description: My automation
 
 Scripts execute in the Pydantic Monty sandbox. The [runtime reference](../tools/code_execution.md) documents supported Python features, tool calls, and helper functions. Keep user-editable paths, prompts, model aliases, and thinking settings near the top, and explain the script with concise comments.
 
+Model arguments accept canonical aliases and alternate aliases configured under System → Models.
+
 ### Script locations
 
 | Location | Use |
