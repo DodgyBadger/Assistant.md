@@ -11,6 +11,7 @@ import os
 import shutil
 from functools import lru_cache
 from pathlib import Path
+from threading import RLock
 from typing import Any, Literal
 
 import yaml
@@ -23,6 +24,7 @@ from core.settings.model_catalog import CatalogUpgrade, upgrade_model_catalog
 from core.settings.upgrades import retire_embedding_models
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
+_SETTINGS_LOCK = RLock()
 RETIRED_BUILTIN_TOOL_NAMES = frozenset(
     {
         "file_ops",
@@ -163,6 +165,12 @@ def _ensure_settings_file(target_path: Path) -> None:
 
 @lru_cache(maxsize=1)
 def load_settings() -> SettingsFile:
+    """Load settings and serialize automatic upgrades with all settings writes."""
+    with _SETTINGS_LOCK:
+        return _load_settings_file()
+
+
+def _load_settings_file() -> SettingsFile:
     """
     Load complete settings.yaml configuration with caching.
 
@@ -202,25 +210,27 @@ def load_settings() -> SettingsFile:
 
 def refresh_settings_cache() -> None:
     """Clear the settings cache so future calls reload from disk."""
-    load_settings.cache_clear()  # type: ignore[attr-defined]
-    _get_template_tools_config.cache_clear()
+    with _SETTINGS_LOCK:
+        load_settings.cache_clear()  # type: ignore[attr-defined]
+        _get_template_tools_config.cache_clear()
 
 
 def save_settings(settings: SettingsFile) -> None:
     """Persist settings configuration to disk using atomic write."""
-    path = get_active_settings_path()
-    # Settings may contain string-backed enums used by runtime-only availability
-    # checks. Dump through Pydantic's JSON mode so the persisted YAML contains
-    # their stable string values rather than Python enum objects.
-    data = settings.model_dump(mode="json")
+    with _SETTINGS_LOCK:
+        path = get_active_settings_path()
+        # Settings may contain string-backed enums used by runtime-only availability
+        # checks. Dump through Pydantic's JSON mode so the persisted YAML contains
+        # their stable string values rather than Python enum objects.
+        data = settings.model_dump(mode="json")
 
-    tmp_path = path.with_suffix(".tmp")
-    path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(".tmp")
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(tmp_path, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(data, handle, sort_keys=False, allow_unicode=False)
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(data, handle, sort_keys=False, allow_unicode=False)
 
-    os.replace(tmp_path, path)
+        os.replace(tmp_path, path)
 
 
 def get_active_settings_path() -> Path:
