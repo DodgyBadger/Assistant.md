@@ -2,10 +2,10 @@
 
 ## v0.9.1
 
-- Select text in Markdown previews to quote it with instructions—add to your chat draft or send immediately.
-- Toggle file approvals from the Chat Settings header, and adjust next-message settings while a response is running.
+### UI enhancements
+- When viewing a Markdown file in the Vault Explorer, select text to insert a quote and optional prompt, speeding up file review.
+- More convenient access to the inline approval toggle.
 - Correct folder paths before approving creation.
-- Closing Vault Explorer now dismisses all its layers.
 - View the app version on the System page.
 
 ## v0.9.0
