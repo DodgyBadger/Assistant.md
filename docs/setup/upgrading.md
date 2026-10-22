@@ -8,7 +8,7 @@ Existing checkouts can keep their current local folder name. If `git remote get-
 git remote set-url origin https://github.com/DodgyBadger/Assistant.md.git
 ```
 
-## Upgrading to v0.9.0 (planned)
+## Upgrading to v0.9.0
 
 If you are upgrading from any release before v0.8, complete the [pre-v0.8 deployment changes](#upgrading-from-releases-before-v08) below as part of this upgrade. You do not need to install v0.8 separately.
 
