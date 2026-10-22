@@ -111,6 +111,18 @@ At successful managed updates emit `managed_models_updated` with `status`, updat
 
 After all slices pass relevant checks, run the full deterministic `integration/core` suite and complete production Ruff, Black, and MyPy gates. Review theme-aware model editing, keyboard access, persistent warnings, cache refresh, custom-data preservation, and chat selection. Record outcomes here before final delivery. No live inference calls are required.
 
+## Hardening review
+
+Scope and ownership: the authoritative registry now serves API model editing, general-setting validation, model construction, and chat selection. Managed catalog identity owns binding updates; alternates remain a plain user list. YAML dictionaries are confined to the catalog upgrade boundary and validated into typed settings before runtime use. Existing provider authentication, capability gates, script/delegate errors, and same-model retry policy remain authoritative.
+
+Lifecycle finding (high): concurrent cold settings loads could race while replacing the automatic-upgrade temporary file. A six-reader test reproduced `FileNotFoundError`. Settings loading, saving, and cache invalidation now share a reentrant lock; the probe passes with one complete upgrade and one backup. All 26 focused checks and the complete Python quality gate pass after this correction.
+
+Collision review: Advanced YAML edits and settings repair validate the resulting registry before writing, while on-disk invalid names remain available for administration and cannot resolve arbitrarily. Custom duplication and repair preservation are covered by the alias scenario. Catalog upgrades validate the complete resulting namespace and roll back on collisions.
+
+Operator review: Chromium passed managed binding protection, alternate-list editing, custom-copy independence, keyboard focus, theme-dependent colors, and desktop/mobile overflow checks in all six themes. Activity checks cover model edits, chat fallback, and managed update success/blocking. Documentation drafts for architecture, authoring, and installation were presented for explicit approval; they remain unapplied until approved. A separate ADR is unnecessary because the existing settings-backed binding decision already owns this contract.
+
+The full deterministic suite is running against the hardened execution behavior. Final results and documentation approval status will be recorded before delivery.
+
 ## Final documentation review step
 
 Review the model/settings contract in `docs/development/architecture.md`, authored model references in `docs/use/authoring.md`, and setup guidance in `docs/setup/installation.md`. Determine whether the alias and chat-default contracts warrant an ADR alongside ADRs 0007 and 0009. Present exact proposed documentation text or diffs in chat, obtain explicit user approval under AGENTS.md, and apply only approved changes. No protected documentation changes are included in this planning work.

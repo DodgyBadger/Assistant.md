@@ -137,3 +137,42 @@ def test_load_collision_preserves_file_and_exposes_issue(tmp_path, monkeypatch) 
         assert not (tmp_path / "migration_backups").exists()
     finally:
         store.refresh_settings_cache()
+
+
+def test_concurrent_cold_loads_publish_one_complete_upgrade(
+    tmp_path, monkeypatch
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from time import sleep
+
+    import yaml
+
+    from core.settings import store
+
+    active_path = tmp_path / "settings.yaml"
+    template_path = tmp_path / "template.yaml"
+    active_path.write_text(yaml.safe_dump({"models": {"old": entry()}}))
+    template_path.write_text(yaml.safe_dump({"models": {"new": entry(binding="v2")}}))
+    monkeypatch.setattr(store, "get_active_settings_path", lambda: active_path)
+    monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
+    copyfile = store.shutil.copyfile
+
+    def delayed_backup(source, destination):
+        sleep(0.03)
+        return copyfile(source, destination)
+
+    monkeypatch.setattr(store.shutil, "copyfile", delayed_backup)
+    store.refresh_settings_cache()
+    try:
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            loaded = list(executor.map(lambda _: store.load_settings(), range(6)))
+        assert all(item.models["new"].alternate_aliases == ["old"] for item in loaded)
+        assert (
+            yaml.safe_load(active_path.read_text())["models"]["new"]["model_string"]
+            == "v2"
+        )
+        assert (
+            len(list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))) == 1
+        )
+    finally:
+        store.refresh_settings_cache()
