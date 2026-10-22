@@ -87,7 +87,7 @@ For OpenAI, either setup path is valid:
 - **API key:** add `OPENAI_API_KEY` under **System → Secrets**. The built-in OpenAI provider uses that secret by default.
 - **OAuth:** enable `openai_oauth_enabled` under **System → Application Settings**. Return to **Model Providers**, edit OpenAI, select **OAuth**, save, and choose **Connect** or **Device Code** in its OAuth panel.
 
-OpenAI OAuth remains labeled experimental because OpenAI does not officially support this Assistant.md integration and may change or restrict the flow. It is nevertheless a complete and valid way to enable the OpenAI provider during first setup. API-key authentication remains available if OAuth is unsuitable.
+OpenAI OAuth is experimental and is not officially supported by OpenAI for Assistant.md. Use API-key authentication if OAuth is unsuitable.
 
 For another provider, add its requested secret or endpoint from the same System page. Once one provider is ready, Assistant.md is ready to use.
 
@@ -175,24 +175,21 @@ The `loopback` authentication mode is for direct development runs such as `scrip
 
 ### Enable advanced mode
 
-Advanced mode gives Assistant.md access to a Bash command line in a separate, non-root Linux container, greatly expanding what it can do. Files under `/home/advanced-shell` and `/workspace` survive ordinary container restarts and upgrades. Processes and `/tmp` do not, and the container does not provide systemd or a supported cron/service supervisor.
+Advanced mode gives chat command-line tools in a separate, non-root Linux container. Files under `/home/advanced-shell` and `/workspace` survive ordinary restarts and upgrades; processes and `/tmp` do not. The container does not provide systemd or a supported cron/service supervisor.
 
-The advanced shell cannot see your vaults unless you explicitly mount vault content into its container. For security, mount one narrow read-write exchange folder rather than an entire writable vault. You can precreate `AssistantMD/shell-exchange` inside a vault, or select another existing folder in that vault, then bind only that exact host path to `/exchange` through `docker-compose.override.yml`. Assistant.md sees the same files through its normal vault mount, so neither side needs a separate copy or Docker-managed exchange volume.
+1. Prepare an exchange folder if the shell needs vault access. It cannot see vaults by default. Prefer one narrow read-write folder, such as `AssistantMD/shell-exchange`, and read-only mounts for additional content.
+2. Create the host folder before starting the advanced profile. Docker otherwise creates a missing source as `root`. On a first installation, choose an existing vault folder or start once in restricted mode before creating the vault's `AssistantMD/shell-exchange` folder.
+3. Copy the relevant mount settings from `docker-compose.override.yml.example` into `docker-compose.override.yml`, binding the exact host folder to `/exchange`. Retain `bind.create_host_path: false`. Assistant.md accesses the same files through its vault mount, so no separate copy is needed.
+4. Add both settings to `.env`:
 
-Docker creates a missing bind-mount source as `root`, which can make it unusable by both application users. Create the exchange folder before starting the advanced profile and retain `bind.create_host_path: false` from the override example. On a first installation, the vault's `AssistantMD/` folder does not yet exist. Either select an existing vault folder for the initial exchange, or start once in restricted mode, let Assistant.md create its vault folders, create `AssistantMD/shell-exchange`, and then enable advanced mode.
+   ```dotenv
+   COMPOSE_PROFILES=advanced
+   ASSISTANTMD_EXECUTION_MODE=advanced
+   ```
 
-Examples are available in `docker-compose.override.yml.example`. Prefer read-only mounts for any additional vault content. Never mount Assistant.md's `system/` folder, the Docker socket, a host home folder, or the host root. See [Security Considerations](security.md#advanced-shell) before adding access or credentials.
+5. Run `docker compose config` and inspect the rendered `advanced-shell` mounts and networks. Confirm each source is the intended absolute host path and each target is unique. Run `docker compose up -d`, then check that **System → Infrastructure** reports the shell as `ready`.
 
-After preparing any exchange mount, add both settings to `.env`:
-
-```dotenv
-COMPOSE_PROFILES=advanced
-ASSISTANTMD_EXECUTION_MODE=advanced
-```
-
-The first starts the optional container; the second explicitly authorizes Assistant.md to expose the capability. Before starting, run `docker compose config` and inspect the rendered `advanced-shell` volumes and networks. Confirm that every bind-mount source expanded to the intended absolute host path and every target is unique. Then run `docker compose up -d` and confirm **System → Infrastructure** reports the advanced shell as `ready`.
-
-Stdio MCP servers installed there are launched when Assistant.md needs them. Ask chat to follow the bundled **Advanced Shell MCP Setup** skill, then review and paste its generated YAML or JSON into **System → Connections**.
+The profile starts the container; the execution-mode setting authorizes Assistant.md to use it. Never mount `system/`, the Docker socket, a host home directory, or the host root. Review [advanced-shell security](security.md#advanced-shell) before adding mounts or credentials. For local MCP providers, follow [Connect a local stdio server](../use/connections.md#connect-a-local-stdio-server).
 
 Contributor setup for running Assistant.md and its advanced shell from a checkout belongs in the [Development Guide](../development/dev-setup.md).
 
@@ -220,22 +217,16 @@ Docker Desktop normally handles this mapping automatically on Windows and macOS.
 
 ## Vault Path Examples
 
-```
-/home/user/MyVaults/
-├── Personal/
-```
+Point `ASSISTANTMD_DATA_PATH` at the parent of your vault folders:
 
-`.env` reads: `ASSISTANTMD_DATA_PATH=/home/user/MyVaults`. Assistant.md will see one vault called `Personal`.
-
-```
+```text
 /home/user/MyVaults/
 ├── Personal/
 ├── Work/
 └── Family/
-
 ```
 
-`.env` reads: `ASSISTANTMD_DATA_PATH=/home/user/MyVaults`. Assistant.md will see three vaults called `Personal`, `Work` and `Family`
+With `ASSISTANTMD_DATA_PATH=/home/user/MyVaults`, Assistant.md sees `Personal`, `Work`, and `Family` as vaults. Keep only `Personal/` for a single-vault setup.
 
 ## Platform notes
 
