@@ -28,7 +28,7 @@
             return;
         }
 
-        state.secrets.forEach((entry) => {
+        [...state.secrets].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })).forEach((entry) => {
             if (editing && editing.mode === 'existing' && editing.key === entry.name) {
                 cards.push(renderSecretEditCard(draft, { isNew: false }));
                 return;

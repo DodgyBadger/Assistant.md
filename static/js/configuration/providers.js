@@ -63,7 +63,7 @@
             return;
         }
 
-        state.providers.forEach((provider) => {
+        [...state.providers].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })).forEach((provider) => {
             if (editing && editing.mode === 'existing' && editing.key === provider.name) {
                 cards.push(renderProviderEditCard(draft, { isNew: false }));
                 return;
