@@ -102,6 +102,7 @@
         OLLAMA_BASE_URL: { label: 'Ollama Base URL', description: 'Custom endpoint for Ollama (http://host:port)' },
     };
 
+    const actions = {};
     const callbacks = {
         refreshMetadata: null,
         refreshStatus: null,
@@ -311,7 +312,7 @@
 
 
     window.ConfigurationPanelRuntime = {
-        actions: {},
+        actions,
         callbacks,
         constants: { ACTIVITY_LOG_LEVELS, BUILT_IN_PROVIDER_NAMES, DEFAULT_IMPORT_JOB_STATUSES, SECRET_METADATA },
         elements,
