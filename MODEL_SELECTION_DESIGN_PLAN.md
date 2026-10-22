@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Implementation and final validation are complete on `dev/durable-model-aliases`, including the catalog refresh and ownership reconciliation. The architecture and shortened authoring additions are applied, while the further architecture sentence covering family adoption awaits explicit approval. Keep script-facing model names usable across provider rebranding and managed catalog updates through a canonical alias and one plain editable alternate list. Preserve explicit model selection, existing defaults, and user-defined models.
+Implementation and final validation are complete on `dev/durable-model-aliases`, including the catalog refresh and ownership reconciliation. The architecture and shortened authoring additions are applied, and the further architecture sentence covering family adoption is approved and applied. Keep script-facing model names usable across provider rebranding and managed catalog updates through a canonical alias and one plain editable alternate list. Preserve explicit model selection, existing defaults, and user-defined models.
 
 This effort touches settings persistence, model lookup, model configuration API/UI, managed configuration upgrades, chat selection, and alias consumers in scripts and delegates. Secrets stay in the existing secret store. Validation uses isolated runtime roots without modifying active settings, secrets, or vault data.
 
@@ -191,6 +191,12 @@ Validation so far: adoption and conflict tests failed before implementation and 
 
 Local checkpoint commits: `f8b1626` simplifies model alias labels and icon actions, `ab6257c` applies the approved architecture and authoring text, `0a9d943` upgrades Pydantic AI and the related SDK lock entries, and the subsequent catalog commit records the binding refresh, Jev retirement, and standard-family ownership rule. Nothing was pushed. The unrelated user edit to `docs/agent-guides/planning.md` remains unstaged and untouched.
 
+## Mobile model-card follow-up
+
+Keep the model alias and action buttons in a non-wrapping header with a flexible, wrapping alias and fixed-size actions. Render provider error messages in their own full-width row below the header. Constrain metadata fields to the card width. Show alternate aliases in a separate full-width card section, with an explicit empty state when none are configured. Continue using existing theme tokens and icon-button styles.
+
+Validation: a Chromium geometry probe first reproduced buttons dropping below the header at 320px. The corrected layout passes across all six themes at 320px, 390px, and 1200px, including top-aligned actions, full-width status, visible aliases, and no horizontal overflow. Inspected the mobile screenshot. All four existing model-editor checks pass, CSS compilation passes, and the diff has no whitespace errors. The approved architecture sentence is applied; no documentation approval remains pending for this effort.
+
 ## Final documentation review step
 
 Completed: the user approved the architecture paragraph and only the first sentence of the authoring draft. Both approved additions are applied. The installation draft was rejected because these details do not belong in installation guidance; relevant user-facing details can be considered when release notes are drafted separately. The release-note draft was rejected for this effort, with release-note drafting deferred. No installation or release-note changes were made. A separate ADR is unnecessary because the existing settings-backed binding decision already owns this contract.
@@ -207,4 +213,4 @@ Applied to `docs/use/authoring.md` after the paragraph about keeping model alias
 
 Model arguments accept canonical aliases and alternate aliases configured under System → Models.
 
-Final review outcome: only the explicitly approved documentation text was applied. Installation remains unchanged, and release notes will be drafted separately. A further architecture sentence covering standard-alias family adoption and conflict warnings was presented for approval and remains pending: “Entries under a standard alias become managed when their provider and model family match; conflicting bindings remain unchanged and raise a System warning.”
+Final review outcome: only the explicitly approved documentation text was applied. Installation remains unchanged, and release notes will be drafted separately. The user approved the further architecture sentence covering standard-alias family adoption and conflict warnings, and it is applied: “Entries under a standard alias become managed when their provider and model family match; conflicting bindings remain unchanged and raise a System warning.”
