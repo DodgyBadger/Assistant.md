@@ -23,19 +23,13 @@ Keep the repository's tracked `docker-compose.yml` and put local customizations 
 
 ## Upgrading to v0.9.0
 
-### Session discovery and retired summaries
+Follow the routine update procedure above. Existing conversations remain available; no manual conversion is required.
 
-Session discovery searches original transcripts and session-map revisions, including existing conversations without maps. It no longer requires an embedding model or nightly summarization.
+**Optional: adopt Compaction v2.** V1 remains the default. Set `compaction_strategy` to `session_map` in Settings to use V2 for sessions that have not yet compacted. For an existing V1-compacted session, choose **Upgrade to Compaction v2** in the session browser. Upgrade individual sessions as desired; changing the default does not convert them.
 
-Startup backs up legacy summary data before removing retired summary tables. Original conversations and maps remain intact. Packaged nightly-summary workflows are archived; customized workflows are preserved with review diagnostics. Remove or rewrite calls to retired summary operations and helpers. If custom database dependencies block retirement, preserve or migrate them before retrying; do not delete the database to bypass the check.
+**If you customized nightly summaries:** review System Notices and update workflows that call retired summary operations or helpers. Packaged summary workflows are archived automatically. Startup backs up retired summary data; original conversations remain intact.
 
-Embedding aliases are excluded from active configuration. Use **Repair settings from template** in System Notices to remove them with a backup. Shared providers, credentials, and supported chat/decision model aliases are preserved.
-
-### Optional Compaction v2
-
-V1 recovery-card compaction remains the default. Set `compaction_strategy` to `session_map` in Settings to use V2 for new sessions. For conversations already compacted under V1, choose **Upgrade to Compaction v2** in the session browser individually; changing the default does not convert them.
-
-In V2, use **Load older messages** to inspect retained original history and the session's map icon to inspect its interpretation. See [Search past sessions](../use/getting-the-most.md#search-past-sessions) for recovering earlier work.
+**If prompted about obsolete embedding settings:** use **Repair settings from template** in System Notices. An embedding model is no longer needed for session discovery.
 
 ## Upgrading from releases before v0.8
 
