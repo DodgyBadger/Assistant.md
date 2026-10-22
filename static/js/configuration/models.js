@@ -57,7 +57,7 @@
                 </div>
             `);
         } else {
-            state.models.forEach((model) => {
+            [...state.models].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })).forEach((model) => {
                 if (editing && editing.mode === 'existing' && editing.key === model.name) {
                     cards.push(renderModelEditCard(draft, { isNew: false }));
                 } else {
