@@ -125,6 +125,8 @@ Further review centralized managed/custom rename preservation in `core/settings/
 
 The first complete run passed 136 of 137 scenarios and exposed a timing assumption in `execution_task_runner`: terminal status can precede its failure hook. The scenario now waits for the hook's completion signal before preserving the exact original-exception assertion; production task-runner behavior is unchanged. Four focused integration scenarios passed after the fixes (run `20261022_223910_339035`), along with 26 focused unit/module checks and the complete Python quality gate. The final full run is pending.
 
+The chat path audit also covered deferred inline-review resumes. A missing-alias resume fixture reproduced the separate preparation path failing to use the default; that preparation path now calls the same chat resolver before model-dependent setup. The fallback, deferred-review task skeleton, and deferred-review interruption scenarios passed (run `20261022_224336_554188`), with production quality gates passing. This changes reference resolution only and preserves deferred tool-result handling and existing recovery permissions.
+
 The full deterministic suite is running against the hardened execution behavior. Final results and documentation approval status will be recorded before delivery.
 
 ## Final documentation review step
