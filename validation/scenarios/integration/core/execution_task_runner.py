@@ -1683,6 +1683,7 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             failure = RuntimeError(sentinel)
             inline_ids: list[str] = []
             hook_errors: list[BaseException] = []
+            hook_finished = asyncio.Event()
 
             async def fail(
                 task: ExecutionTaskSnapshot,
@@ -1696,8 +1697,10 @@ class ExecutionTaskRunnerScenario(BaseScenario):
                 _task_id: str,
                 error: BaseException,
                 errors: list[BaseException] = hook_errors,
+                completed: asyncio.Event = hook_finished,
             ) -> None:
                 errors.append(error)
+                completed.set()
 
             spec = ExecutionTaskSpec(
                 kind=kind,
@@ -1728,6 +1731,8 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             assert terminal.terminal_error_type == "RuntimeError"
             assert sentinel not in str(terminal.terminal_reason)
             assert kind in str(terminal.terminal_reason)
+            # Terminal status is published before background failure hooks run.
+            await asyncio.wait_for(hook_finished.wait(), timeout=2.0)
             assert hook_errors == [failure], "Failure hooks need the original exception"
 
     async def _wait_for_task_terminal(self, task_id: str):
