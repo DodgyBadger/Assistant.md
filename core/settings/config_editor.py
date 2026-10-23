@@ -157,7 +157,9 @@ def upsert_model_mapping(
         raise SettingsError(f"Model '{original_name}' does not exist.")
     if source_name != name and name in settings_file.models:
         raise SettingsError(f"Model '{name}' already exists.")
-    if not existing and normalize_model_alias(name) == "test":
+    if normalize_model_alias(name) == "test" and (
+        not existing or normalize_model_alias(source_name) != "test"
+    ):
         raise SettingsError("The model alias 'test' is reserved for validation.")
     if provider not in settings_file.providers:
         raise SettingsError(f"Provider '{provider}' is not defined in settings.yaml.")
