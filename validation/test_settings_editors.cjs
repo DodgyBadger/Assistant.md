@@ -173,6 +173,9 @@ test('global defaults cancellation leaves drafts and configuration untouched', a
     state.settingEditKey = 'limit';
     state.settingDraftValue = '9';
     context.confirm = () => false;
+    actions.cancelModelEdit = actions.cancelProviderEdit = () => {
+        throw new Error('Cancellation must preserve configuration drafts');
+    };
     context.fetch = async () => { throw new Error('Cancellation must not send a request'); };
     await actions.restoreManagedDefaults();
     assert.equal(state.settingEditKey, 'limit');
@@ -185,12 +188,88 @@ test('failed global reset keeps the unsaved draft and exposes the conflict', asy
     state.settingEditKey = 'limit';
     state.settingDraftValue = '9';
     context.confirm = () => true;
+    actions.cancelModelEdit = actions.cancelProviderEdit = () => {
+        throw new Error('Failed reset must preserve configuration drafts');
+    };
     context.fetch = async () => ({ ok: false, status: 400, json: async () => ({ message: 'Custom model conflicts with a managed default' }) });
     await actions.restoreManagedDefaults();
     assert.equal(state.settingEditKey, 'limit');
     assert.equal(state.settingDraftValue, '9');
     assert.match(elements.settingsFeedback.textContent, /conflict/);
     assert.equal(state.isSavingSetting, false);
+});
+
+test('successful global reset discards settings, model and provider drafts before refreshing cards', async () => {
+    const { context, actions, state } = harness();
+    for (const name of ['models', 'providers']) {
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/configuration/${name}.js`), 'utf8'), context);
+    }
+    state.settingEditKey = 'limit';
+    state.settingDraftValue = '9';
+    state.modelEdit = { mode: 'existing', key: 'managed-model' };
+    state.modelDraft = { alternate_aliases: 'unsaved-alias' };
+    state.providerEdit = { mode: 'existing', key: 'ollama' };
+    state.providerDraft = { base_url: 'UNSAVED_ENDPOINT' };
+    let finishReset;
+    context.confirm = () => true;
+    context.fetch = async (_url, options = {}) => options.method === 'POST'
+        ? new Promise(resolve => { finishReset = resolve; })
+        : { ok: true, json: async () => [] };
+    let refreshed = 0;
+    actions.loadModels = actions.loadProviders = async () => {
+        assert.equal(state.modelEdit, null);
+        assert.equal(state.modelDraft, null);
+        assert.equal(state.providerEdit, null);
+        assert.equal(state.providerDraft, null);
+        refreshed += 1;
+    };
+    const reset = actions.restoreManagedDefaults();
+    assert.equal(state.modelDraft.alternate_aliases, 'unsaved-alias');
+    assert.equal(state.providerDraft.base_url, 'UNSAVED_ENDPOINT');
+    finishReset({ ok: true, json: async () => ({ message: 'Defaults restored' }) });
+    await reset;
+    assert.equal(state.settingEditKey, null);
+    assert.equal(state.settingDraftValue, '');
+    assert.equal(refreshed, 2);
+});
+
+test('global reset refreshes models and providers after delayed pre-reset reads finish', async () => {
+    const { context, actions, state, elements } = harness();
+    for (const name of ['models', 'providers']) {
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/configuration/${name}.js`), 'utf8'), context);
+    }
+    const element = () => ({ innerHTML: '', textContent: '', querySelector: () => null, classList: { add() {}, remove() {} } });
+    elements.modelList = element();
+    elements.modelFeedback = element();
+    elements.providerList = element();
+    elements.providerFeedback = element();
+    const pending = {};
+    const reads = { models: 0, providers: 0 };
+    context.confirm = () => true;
+    context.fetch = async (url, options = {}) => {
+        const section = url === 'api/system/models' ? 'models' : url === 'api/system/providers' ? 'providers' : null;
+        if (section) {
+            reads[section] += 1;
+            if (reads[section] === 1) return new Promise(resolve => { pending[section] = resolve; });
+            return { ok: true, json: async () => [{ name: `restored-${section}` }] };
+        }
+        return { ok: true, json: async () => options.method === 'POST' ? { message: 'Defaults restored' } : [] };
+    };
+    const oldModels = actions.loadModels();
+    const oldProviders = actions.loadProviders();
+    await actions.restoreManagedDefaults();
+    const coalescedFreshModels = actions.loadModels({ fresh: true });
+    const coalescedFreshProviders = actions.loadProviders({ fresh: true });
+    assert.deepEqual(reads, { models: 1, providers: 1 });
+    pending.models({ ok: true, json: async () => [{ name: 'old-models' }] });
+    pending.providers({ ok: true, json: async () => [{ name: 'old-providers' }] });
+    await Promise.all([oldModels, oldProviders]);
+    await Promise.all([coalescedFreshModels, coalescedFreshProviders]);
+    assert.deepEqual(reads, { models: 2, providers: 2 });
+    assert.equal(state.models[0].name, 'restored-models');
+    assert.equal(state.providers[0].name, 'restored-providers');
+    assert.equal(state.isLoadingModels, false);
+    assert.equal(state.isLoadingProviders, false);
 });
 
 test('custom setting reset renders the shared Undo icon instead of the fallback gear', () => {

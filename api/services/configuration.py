@@ -2,6 +2,8 @@
 
 import json
 import re
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, Literal
 from uuid import uuid4
 
@@ -28,7 +30,10 @@ from core.llm.openai_oauth import (
 from core.llm.openai_oauth import (
     start_openai_oauth as start_openai_oauth_attempt,
 )
-from core.migration_backups import prepare_migration_backup_path
+from core.migration_backups import (
+    get_migration_backup_directory,
+    prepare_migration_backup_path,
+)
 from core.runtime.reload_service import reload_configuration
 from core.settings import (
     SettingsError,
@@ -357,10 +362,19 @@ def restore_managed_configuration_defaults() -> SettingsRepairResponse:
         },
     )
     try:
-        backup_path = prepare_migration_backup_path(root, "settings.db.bak")
-        repository.backup(root, backup_path)
+        backup_directory = get_migration_backup_directory(root)
+        backup_directory.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile(
+            dir=backup_directory, prefix="settings.db.bak-", delete=False
+        ) as reserved_backup:
+            backup_path = Path(reserved_backup.name)
+        backup_revision = repository.backup(root, backup_path)
+        if backup_revision is None:
+            raise SettingsError(
+                "Settings must be initialized before restoring defaults."
+            )
         phase = "reset"
-        reset_managed_configuration()
+        reset_managed_configuration(expected_revision=backup_revision)
         phase = "reload"
         reload_configuration(restart_required=True)
     except Exception as exc:
@@ -378,7 +392,7 @@ def restore_managed_configuration_defaults() -> SettingsRepairResponse:
                 "durable_update_completed": phase == "reload",
             },
         )
-        if isinstance(exc, SettingsError):
+        if isinstance(exc, SettingsError | repository.StaleSettingsError):
             raise InvalidSystemSettingError("defaults", str(exc)) from exc
         raise
     logger.info(

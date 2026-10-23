@@ -91,12 +91,19 @@ def save(root: Path, data: dict[str, Any], expected_revision: int) -> int:
         conn.close()
 
 
-def backup(root: Path, target: Path) -> None:
-    """Create a consistent SQLite backup, including any committed WAL content."""
+def backup(root: Path, target: Path) -> int | None:
+    """Copy committed state and return the revision captured by that snapshot."""
     source = connect(root)
-    destination = sqlite3.connect(str(target))
     try:
-        source.backup(destination)
+        # Pin the revision and backup to one read snapshot. A caller performing a
+        # destructive operation must reject mutations newer than this revision.
+        source.execute("BEGIN")
+        captured_revision = revision(source)
+        destination = sqlite3.connect(str(target))
+        try:
+            source.backup(destination)
+        finally:
+            destination.close()
+        return captured_revision
     finally:
-        destination.close()
         source.close()
