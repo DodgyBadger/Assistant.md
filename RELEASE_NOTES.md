@@ -2,6 +2,7 @@
 
 ## v0.9.2
 
+- Added Default/Custom settings and a way to restore managed defaults while keeping custom models.
 - Moved application settings to a database, with automatic import of existing settings.
 - Improved System settings with guided controls and validation to reduce entry errors.
 - Added durable model aliases and easier custom model management.

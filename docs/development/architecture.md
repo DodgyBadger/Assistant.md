@@ -103,6 +103,8 @@ The configured data and system roots are persistent runtime state. Subsystems ow
 
 Installation settings, models, providers, and tool configuration are typed records in a settings-owned SQLite database. Configuration changes commit atomically with revision checks, and runtime caches refresh after successful edits. Packaged defaults and managed model catalogs remain application-owned source data. Secret values remain in the encrypted credentials store.
 
+General settings inherit packaged defaults unless explicitly saved as Custom overrides. Numbered settings upgrades checkpoint committed changes and back up initialized databases before migration. The System UI can restore one default or restore all general settings and managed configuration while preserving custom entries, model aliases, and secrets.
+
 | State | Authority and source of truth | Location |
 | --- | --- | --- |
 | Vault content | Canonical user-owned Markdown and related files | data root |
