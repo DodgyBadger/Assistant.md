@@ -66,3 +66,37 @@ Implementation and hardening are complete. Validation used temporary roots; the 
 - Vault mutation routing and `git diff --check` passed.
 - No experimental or live-provider scenarios were executed.
 - Approved architecture, ADR 0053, and release-note changes are complete. Work remains on `dev/settings-UI-upgrade`; commits are local and have not been pushed.
+
+## Peer hardening round
+
+Status: in progress; review scope is `cb47996..HEAD`, retaining the earlier settings/model work as the established contract.
+
+### Stage 1: scope and contracts
+
+- Storage: configuration records and initialization marker commit atomically; existing YAML is imported once with an exact-snapshot backup; subsequent reads use SQLite.
+- Editing: shared typed editors, alias validation and managed ownership apply through API services; snapshot revisions reject stale writes; failed writes leave state and caches intact.
+- Catalog and bootstrap: managed reconciliation preserves custom bindings and alias diagnostics; declared database migrations and backup ownership must remain consistent with runtime initialization.
+- API/UI: raw-YAML endpoints remain absent; repair returns a structured outcome only after durable completion; errors and all status controls remain theme-aware.
+- Validation and observability: explicit scenario roots protect persistent runtime state; actual activity events must identify migration/repair outcomes without private configuration values.
+
+Three independent read-only peers are reviewing storage, API/runtime boundaries, and validation/lifecycle coverage. The primary review covers cross-cutting ownership, observable failure behavior, and operator contracts. Subsequent stages and accepted findings will be recorded here after evidence is established.
+
+### Findings and corrections
+
+- Medium, contract drift / legacy ownership provenance: initial `SettingsFile.model_dump()` synthesized `managed_id: null` before catalog reconciliation (`core/settings/store.py`, original import lines 188–189). This prevented the exact pre-managed Jev entry from retiring and retained its TypeSafe dependency. Source fields now remain raw through catalog reconciliation, and only the final typed snapshot is written. A migration-through-store regression failed before the change and passes afterward; both storage and boundary peers independently verified the correction, including cold reload and atomic rollback.
+- Medium, failure lifecycle gap: connection/schema setup ran outside the guarded load boundary (`core/settings/store.py`, original line 161). Corrupt databases raised without the settings failure event. Acquisition is now guarded and cleanup conditional; controlled error guidance identifies the database/backup inspection step. A corrupt-database regression failed for the absent event before the change and passes afterward. The validation peer independently verified exactly one real Activity failure record and unchanged source bytes.
+
+### Stages 2–5: ownership, lifecycle, logging, and operator review
+
+- Shared typed editing, model registry validation, catalog ownership and revision-checked commits remain authoritative. No transport-specific persistence or duplicate runtime configuration source was introduced. Raw legacy dictionaries are retained only until provenance-sensitive reconciliation; final records still use JSON-mode typed serialization.
+- Initial records, initialization marker, reconciled catalog and revision remain inside one SQLite transaction. Focused tests cover stale writes, failed-save rollback, interrupted initialization, exact source backups, retry, root isolation and unchanged corrupt database bytes.
+- Actual Activity records inspected from `20261023_033059_settingsdatabasemigration`: `settings_database_initialized` (legacy_yaml/defaults), `settings_database_initialization_failed`, `settings_database_load_failed`, `managed_models_updated` (removed Jev), and `retired_builtin_providers_updated` (TypeSafe). All have stable event/status and applicable source/path/exception identities; failure guidance is controlled text, without stored values. The repair integration scenario verifies `settings_repair_completed` and its persisted SQLite backup. Initialization publishes a terminal atomic outcome rather than helper-level progress events during early logging bootstrap; system migration orchestration retains its start/terminal operation IDs.
+- No frontend mutation was required by these corrections. The shared structured repair response, stale-write 409 error, theme-aware feedback and unchanged editor flows were reviewed. Configuration-status syntax checks pass; existing editor checks are rerun as focused operator evidence.
+- Current schema migration v1 creates tables non-destructively. Peers noted automatic schema setup can precede startup orchestration; no current destructive migration bypass was demonstrated, so speculative future migration redesign is outside this correction. Pre-existing generic malformed-configuration exception rendering was also distinguished from new behavior and left unchanged.
+
+### Stage 6: validation and release readiness
+
+- All 46 focused Python checks pass; complete Ruff, Black and MyPy gates pass.
+- Affected integration rerun: 3/3 passed (`20261023_033058_938256`): settings_database_migration, model_alias_resolution, system_template_seed_refresh.
+- The full deterministic integration/core profile is running against the corrected behavior.
+- Architecture, ADR 0053 and release-note contracts remain accurate; no documentation draft changes or approvals are pending for this round. No dependency changes or live-provider tests are required.
