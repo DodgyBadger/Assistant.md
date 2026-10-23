@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.9.2
+
+- Improved System settings with guided controls and validation to reduce entry errors.
+- Added durable model aliases and easier custom model management.
+- Updated managed models to current provider releases, with automatic updates where supported.
+- Refined the settings UI, including mobile layouts and alphabetical sorting.
+
 ## v0.9.1
 
 ### UI enhancements
