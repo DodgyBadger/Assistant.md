@@ -76,6 +76,13 @@ class SettingsLifecycleScenario(BaseScenario):
                 data={"name": "LIFECYCLE_SECRET", "value": "validation-fixture-only"},
             )
             assert secret.status_code == 200, secret.text
+            authoring = (
+                self._get_system_controller()._system_root / "Authoring" / "default.md"
+            )
+            authoring_content = (
+                authoring.read_text() + "\n<!-- local customization -->\n"
+            )
+            authoring.write_text(authoring_content)
             raw = self.configuration_snapshot()
             raw["models"].pop("haiku")
             raw["models"]["read-only-custom-model"] = {
@@ -101,6 +108,7 @@ class SettingsLifecycleScenario(BaseScenario):
             assert backup.exists()
             current = self.configuration_snapshot()
             assert current["settings"] == {}
+            assert authoring.read_text() == authoring_content
             assert (
                 current["models"]["read-only-custom-model"]
                 == raw["models"]["read-only-custom-model"]
