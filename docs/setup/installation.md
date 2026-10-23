@@ -89,7 +89,7 @@ For OpenAI, either setup path is valid:
 
 OpenAI OAuth is experimental and is not officially supported by OpenAI for Assistant.md. Use API-key authentication if OAuth is unsuitable.
 
-For another provider, add its requested secret or endpoint from the same System page. Once one provider is ready, Assistant.md is ready to use.
+For another provider, add its requested secret or endpoint from the same System page. Then open **System → Application Settings** and choose `default_model` from your configured provider to finish setup.
 
 Assistant.md adds an `AssistantMD/` folder to each mounted vault for skills, workflows, imported documents, and exported chats. See [Getting the Most from Assistant.md](../use/getting-the-most.md) when you are ready to customize how it works.
 

@@ -61,13 +61,25 @@ class ChatUsageLimitsScenario(BaseScenario):
             usage_limits = original_chat_usage_limits()
             self.soft_assert_equal(
                 usage_limits.request_limit,
-                150,
-                "Chat usage limits should set AssistantMD's explicit model-request default",
+                None,
+                "The unlimited model-request default should become Pydantic None",
             )
             self.soft_assert_equal(
                 usage_limits.tool_calls_limit,
                 None,
                 "A disabled chat tool-call setting should become Pydantic None",
+            )
+
+            configured_limit = self.call_api(
+                "/api/system/settings/general/chat_model_requests_limit",
+                method="PUT",
+                data={"value": "150"},
+            )
+            assert configured_limit.status_code == 200, configured_limit.text
+            self.soft_assert_equal(
+                original_chat_usage_limits().request_limit,
+                150,
+                "An explicit model-request limit should reach Pydantic",
             )
 
             request_limit_session = "chat_usage_limit_task"

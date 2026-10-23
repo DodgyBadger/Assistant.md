@@ -20,7 +20,7 @@ Reduce only complete, protocol-safe conversational groups. Use a high watermark 
 
 Author through the governed task executor and commit validated replacements atomically against an unchanged source-history revision. Failure preserves the prior effective history rather than silently switching strategies.
 
-Default to `recovery_card`, with `session_map` optional. The first successful checkpoint pins the session's strategy; installation-setting changes do not reinterpret existing sessions.
+Default to `session_map`, with `recovery_card` optional. The first successful checkpoint pins the session's strategy; installation-setting changes do not reinterpret existing sessions.
 
 Allow explicit per-session upgrades to a current map reconstructed from canonical history. Do not fabricate historical maps that never informed later turns or automatically convert existing sessions.
 

@@ -156,8 +156,8 @@ def build_editors(
                 ]
             else:
                 choices = [
-                    choice for choice in choices if choice.value.lower() != "none"
-                ]
+                    SettingChoice(value="none", label="Not configured — select a model")
+                ] + [choice for choice in choices if choice.value.lower() != "none"]
             editor = SettingEditor(
                 kind="select",
                 choices=choices,

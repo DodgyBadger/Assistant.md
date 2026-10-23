@@ -395,7 +395,7 @@ def restore_managed_configuration_defaults() -> SettingsRepairResponse:
     return SettingsRepairResponse(
         success=True,
         restart_required=True,
-        message="Application settings now use defaults and managed configuration has been restored. Custom entries and secrets were preserved.",
+        message="Application settings now use defaults and managed configuration has been restored. Custom entries and secrets were preserved. Select a default model in Application Settings to finish setup.",
         backup_path=str(backup_path),
     )
 

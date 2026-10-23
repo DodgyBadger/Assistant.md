@@ -59,8 +59,8 @@ class SessionMapReadinessScenario(BaseScenario):
         settings = {item["key"]: item for item in settings_response.json()}
         self.soft_assert_equal(
             settings["compaction_strategy"]["value"],
-            "recovery_card",
-            "Recovery-card compaction should remain the default strategy",
+            "session_map",
+            "Session-map compaction should be the default strategy",
         )
         self.soft_assert_equal(
             settings["compaction_author_model"]["value"],
@@ -75,17 +75,18 @@ class SessionMapReadinessScenario(BaseScenario):
         self.soft_assert_equal(
             settings["compaction_retained_turns"]["value"],
             "3",
-            "Compaction v2 should retain three recent turns by default",
+            "The recovery-card retained-turn setting should remain three",
         )
         initial = evaluate_session_map_compaction_readiness(
             store=store,
             session_id=canonical_session,
             vault_name=vault.name,
+            model_availability_check=lambda _model: None,
         )
         self.soft_assert_equal(
             (initial.enabled, initial.reason),
-            (False, "strategy_not_enabled"),
-            "The default configuration should fail closed",
+            (True, "ready_canonical_history"),
+            "The default strategy should admit canonical history with a usable author",
         )
 
         legacy_update = self.call_api(

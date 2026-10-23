@@ -2,6 +2,7 @@
 
 ## v0.9.2
 
+- Updated application defaults, including session-map compaction, and added a setup warning when no default model is selected.
 - Added Default/Custom settings and a way to restore managed defaults while keeping custom models.
 - Moved application settings to a database, with automatic import of existing settings.
 - Improved System settings with guided controls and validation to reduce entry errors.

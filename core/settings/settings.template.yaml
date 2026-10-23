@@ -5,8 +5,8 @@
 
 settings:
   default_model:
-    value: sonnet
-    description: "Default model alias used in the chat UI and as fallback when workflow and context templates omit an explicit model."
+    value: none
+    description: "Select a default model during setup. Used for new chat selection, implicit model calls, and compaction unless a separate compaction author is configured."
     category: "Models"
     restart_required: false
   default_model_thinking:
@@ -20,7 +20,7 @@ settings:
     category: "Chat"
     restart_required: false
   default_chat_mode:
-    value: normal
+    value: inline_edit
     description: "Default mode for new chat sessions. Use normal or inline_edit."
     category: "Chat"
     restart_required: false
@@ -50,7 +50,7 @@ settings:
     category: "Chat"
     restart_required: false
   chat_model_requests_limit:
-    value: 150
+    value: 0
     description: "Maximum model requests allowed in one chat response. 0 disables the limit. This is a circuit breaker for runaway long-running tasks, separate from tool-call limits."
     category: "Chat"
     restart_required: false
@@ -75,7 +75,7 @@ settings:
     category: "Delegation"
     restart_required: false
   delegate_timeout_seconds:
-    value: 120
+    value: 0
     description: "Maximum seconds allowed for one delegate child-agent run. 0 disables the delegate timeout. Increase for broad delegated searches or slower models."
     category: "Delegation"
     restart_required: false
@@ -166,7 +166,7 @@ settings:
     category: "Models"
     restart_required: false
   auto_cache_max_tokens:
-    value: 50000
+    value: 30000
     description: "When chat tool output exceeds this estimated token count, store it in cache and return a compact preview plus cache ref instead of inlining the full payload. 0 = disabled. Caution: very low values will increase tool churn and token usage."
     category: "Chat"
     restart_required: false
@@ -176,12 +176,12 @@ settings:
     category: "Chat"
     restart_required: false
   compaction_high_watermark_tokens:
-    value: 80000
+    value: 200000
     description: "Estimated effective-history size that triggers suggested or automatic compaction. Increase this high watermark if compaction happens too often."
     category: "Chat"
     restart_required: false
   compaction_strategy:
-    value: recovery_card
+    value: session_map
     description: "Default compaction strategy for sessions without a checkpoint: recovery_card (Compaction v1) or session_map (Compaction v2). After the first reduction, each session remains pinned to its selected strategy until an explicit upgrade changes it."
     category: "Chat"
     restart_required: false
@@ -196,7 +196,7 @@ settings:
     category: "Chat"
     restart_required: false
   compaction_low_watermark_tokens:
-    value: 20000
+    value: 40000
     description: "Target Compaction v2 effective-history size after session-map eviction. This covers the session map and retained chat history, not context-template instructions, tool schemas, or the active prompt. An incomplete active turn remains verbatim and can cause the actual size to exceed this target. Must be lower than compaction_high_watermark_tokens."
     category: "Chat"
     restart_required: false
@@ -235,7 +235,7 @@ settings:
     category: "Vault State"
     restart_required: false
   vault_scan_interval_seconds:
-    value: 0
+    value: 300
     description: "Interval in seconds for scheduled vault-state refresh. 0 disables scheduled refresh."
     category: "Vault State"
     restart_required: false
@@ -250,7 +250,7 @@ settings:
     category: "Vault State"
     restart_required: false
   task_snapshot_retention_days:
-    value: 30
+    value: 7
     description: "Days to retain task snapshot metadata and files before cleanup."
     category: "Vault State"
     restart_required: false
@@ -260,7 +260,7 @@ settings:
     category: "Chunking"
     restart_required: false
   chunking_max_image_mb_per_image:
-    value: 5
+    value: 10
     description: "Maximum size in MB for a single image attachment from chunked markdown inputs. 0 = disabled."
     category: "Chunking"
     restart_required: false
