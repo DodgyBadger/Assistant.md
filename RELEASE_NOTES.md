@@ -2,13 +2,14 @@
 
 ## v0.9.2
 
-- Updated application defaults, including session-map compaction, and added a setup warning when no default model is selected.
-- Added Default/Custom settings and a way to restore managed defaults while keeping custom models.
-- Moved application settings to a database, with automatic import of existing settings.
-- Improved System settings with guided controls and validation to reduce entry errors.
-- Added durable model aliases and easier custom model management.
-- Updated managed models to current provider releases, with automatic updates where supported.
-- Refined the settings UI, including mobile layouts and alphabetical sorting.
+This is the settings update: clearer controls, easier model management, and defaults that stay current while preserving your customizations.
+
+- Guided settings controls and validation help prevent entry errors, with improved mobile layouts and alphabetical sorting.
+- Default/Custom indicators and reset controls make it easier to adopt shipped defaults while keeping custom models.
+- Database-backed settings support versioned upgrades and automatically import existing configuration.
+- Durable model aliases preserve familiar names, with simpler custom model management.
+- Managed models track current provider releases, with automatic updates where supported.
+- Refreshed application defaults include session-map compaction, with a setup warning when no default model is selected.
 
 ## v0.9.1
 
