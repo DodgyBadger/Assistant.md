@@ -1,6 +1,6 @@
 # Settings Database Implementation Plan
 
-Status: implementation authorized on `dev/settings-UI-upgrade`.
+Status: implementation completed and validated on `dev/settings-UI-upgrade`.
 
 ## Goal and recommendation
 
@@ -36,7 +36,7 @@ Implement on the existing settings branch as explicitly requested. Preserve all 
 
 ## Next phase
 
-Feature development, starting with executable migration/revision contracts. Validation uses temporary roots. Documentation drafts for architecture, ADR 0053, and the v0.9.2 release note were explicitly approved and applied.
+Implementation and hardening are complete. Validation used temporary roots; the configured local runtime state was not used as a test fixture. Documentation drafts for architecture, ADR 0053, and the v0.9.2 release note were explicitly approved and applied.
 
 ## Lifecycle events
 
@@ -49,10 +49,20 @@ Feature development, starting with executable migration/revision contracts. Vali
 
 - Implemented slices 1–4; separate record tables use JSON-validated per-record fields, and unchanged records are not rewritten.
 - Added deterministic integration coverage in `settings_database_migration` and focused rollback/import/revision tests. Updated validation fixtures and optional live probes to use database-backed configuration helpers.
-- Focused tests: 44 passed. Initial six-scenario run passed five; the provider-metadata repair failure was fixed and its rerun passed. Migration, repair/seed refresh, scheduler settings, and system database migration scenarios pass. Full deterministic integration/core run is in progress. The final migration/model-alias rerun passed both scenarios (`20261023_030339_514102`).
+- Focused tests: 44 passed. Initial six-scenario run passed five; the provider-metadata repair failure was fixed and its rerun passed. Migration, repair/seed refresh, scheduler settings, and system database migration scenarios pass. Full deterministic integration/core run passed all 138 scenarios (`20261023_030852_963378`). The final migration/model-alias rerun passed both scenarios (`20261023_030339_514102`).
 - Approved documentation applied in `docs/development/architecture.md`, ADR 0053, and `RELEASE_NOTES.md`. Installation documentation does not describe runtime YAML configuration and needs no change for this effort.
 
 - Final review reproduced a concurrent YAML edit causing backup bytes to differ from imported bytes. Import now reads one byte snapshot and backs up those exact bytes; the new regression passes. An injected interruption after record writes also proves both configuration records and initialization metadata roll back before a retry succeeds.
 - Python quality gates pass: complete Ruff, Black, and MyPy checks. All 14 Node editor checks and the vault mutation routing check pass.
 
-- Initial full deterministic run `20261023_025814_769397`: 130/138 passed. Eight compaction scenarios exposed fixture seeding through a previous active runtime root. Validation now seeds the explicit scenario database directly; a root-isolation regression passes, and all ten scenarios in the affected-sequence rerun passed (`20261023_030837_568561`). A fresh full deterministic run is in progress against this correction.
+- Initial full deterministic run `20261023_025814_769397`: 130/138 passed. Eight compaction scenarios exposed fixture seeding through a previous active runtime root. Validation now seeds the explicit scenario database directly; a root-isolation regression passes, and all ten scenarios in the affected-sequence rerun passed (`20261023_030837_568561`). The fresh full deterministic run passed all 138 scenarios against this correction (`20261023_030852_963378`).
+
+## Final validation
+
+- Full deterministic `integration/core`: 138/138 passed; report `validation/runs/reports/20261023_030852_963378.md`.
+- Focused settings, catalog, alias, configuration, and chat-selection checks: 44 passed.
+- Node editor checks: 14 passed; configuration-status JavaScript syntax check passed.
+- Complete Ruff, Black, and MyPy gates passed; MyPy checked 292 production source files.
+- Vault mutation routing and `git diff --check` passed.
+- No experimental or live-provider scenarios were executed.
+- Approved architecture, ADR 0053, and release-note changes are complete. Work remains on `dev/settings-UI-upgrade`; commits are local and have not been pushed.
