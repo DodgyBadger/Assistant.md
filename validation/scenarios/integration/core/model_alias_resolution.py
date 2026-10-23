@@ -164,6 +164,18 @@ class ModelAliasResolutionScenario(BaseScenario):
                     for model in models.json()
                     if model["name"] in {"sonnet", "sonnet-custom"}
                 )
+                assert all(
+                    not model["chat_selectable"]
+                    for model in models.json()
+                    if model["name"] in {"sonnet", "sonnet-custom"}
+                )
+                metadata = self.call_api("/api/metadata")
+                assert metadata.status_code == 200, metadata.text
+                assert all(
+                    not model["chat_selectable"]
+                    for model in metadata.json()["models"]
+                    if model["name"] in {"sonnet", "sonnet-custom"}
+                )
                 try:
                     resolve_model("sonnet")
                 except InvalidModelAlias:
