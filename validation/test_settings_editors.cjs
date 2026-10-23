@@ -192,3 +192,13 @@ test('failed global reset keeps the unsaved draft and exposes the conflict', asy
     assert.match(elements.settingsFeedback.textContent, /conflict/);
     assert.equal(state.isSavingSetting, false);
 });
+
+test('custom setting reset renders the shared Undo icon instead of the fallback gear', () => {
+    const { context, actions, helpers } = harness();
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/icons.js'), 'utf8'), context);
+    const icons = context.AssistantMDIcons;
+    assert.equal(helpers.iconSvg('undo'), icons.UNDO_ICON_SVG);
+    const card = actions.renderSettingViewCard({ key: 'limit', value: '9', default_value: '3', source: 'custom', editor: numeric, issues: [] });
+    assert.ok(card.includes(icons.UNDO_ICON_SVG));
+    assert.ok(!card.includes(icons.SETTINGS_ICON_SVG));
+});

@@ -221,6 +221,7 @@
             lock: icon.LOCK_ICON_SVG,
             play: icon.PLAY_ICON_SVG,
             refresh: icon.REFRESH_ICON_SVG,
+            undo: icon.UNDO_ICON_SVG,
             save: icon.SAVE_ICON_SVG,
             trash: icon.TRASH_ICON_SVG,
             alert: icon.ALERT_ICON_SVG,
