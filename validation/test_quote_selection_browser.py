@@ -33,6 +33,7 @@ def quote_page() -> Iterator[Page]:
             window.elements = { chatInput: document.querySelector('textarea'),
                 vaultSelector: { value: 'Vault' }, modelSelector: { value: 'test' },
                 sendBtn: { disabled: false } };
+            window.fileContents = {}; window.fileReads = []; window.failFileReads = false;
             window.sent = []; window.failStart = false; window.holdStart = false; window.closedPicker = false;
             window.fetch = async (url, options) => {
                 if (url === 'api/chat/tasks') {
@@ -43,7 +44,11 @@ def quote_page() -> Iterator[Page]:
                     return failStart ? { ok: false, json: async () => ({ message: 'Start failed' }) }
                         : { ok: true, json: async () => ({ session_id: 'session-new', task: { task_id: 'task' } }) };
                 }
-                return { ok: true, json: async () => ({ content: 'fixture', sha256: 'hash' }) };
+                const filePath = new URL(url, 'http://test/').searchParams.get('path');
+                fileReads.push(filePath);
+                if (failFileReads) return { ok: false, status: 503, json: async () => ({message:'Refresh unavailable'}) };
+                const content = fileContents[filePath] || 'fixture';
+                return { ok: true, json: async () => ({ content, sha256: content }) };
             };
             window.composer = ChatComposer.create({ state, composeState: compose, elements,
                 utils: {}, browserStorage: {} });
@@ -74,7 +79,16 @@ def quote_page() -> Iterator[Page]:
                         closedPicker = true;
                         document.querySelector('#vault-explorer-modal')?.remove();
                     },
-                    renderMarkdownPreview: container => {
+                    renderMarkdownPreview: (container, content) => {
+                        if (content !== 'fixture') {
+                            container.textContent = content;
+                            if (content.startsWith('Long update')) {
+                                const tail = document.createElement('p');
+                                tail.style.height = '1200px';
+                                container.appendChild(tail);
+                            }
+                            return;
+                        }
                         container.innerHTML = '<p id="passage">First passage.</p><p id="other">Another passage.</p>'
                             + '<p style="height:1200px">More document text</p>';
                     } } });
@@ -123,7 +137,7 @@ def test_send_acceptance_preserves_draft_and_images_before_stream_finishes(
     open_prompt(page)
     page.locator("#vault-selection-input").press("Control+Enter")
     page.wait_for_function(
-        "sent.length === 1 && !document.querySelector('#vault-file-modal')"
+        "sent.length === 1 && document.querySelector('#vault-selection-panel').hidden"
     )
     assert (
         page.evaluate("sent[0].prompt")
@@ -131,7 +145,8 @@ def test_send_acceptance_preserves_draft_and_images_before_stream_finishes(
     )
     assert page.locator("#chat-input").input_value() == "Existing draft"
     assert page.evaluate("compose.pendingAttachments.length") == 1
-    assert page.evaluate("closedPicker && state.isLoading")
+    assert page.evaluate("!closedPicker && state.isLoading")
+    assert page.locator("#vault-file-modal").count() == 1
 
 
 def test_failed_start_retains_entry_and_new_session_can_retry(quote_page: Page) -> None:
@@ -146,7 +161,7 @@ def test_failed_start_retains_entry_and_new_session_can_retry(quote_page: Page) 
     page.evaluate("failStart = false")
     page.locator("[data-quote-send]").click()
     page.wait_for_function(
-        "sent.length === 2 && !document.querySelector('#vault-file-modal')"
+        "sent.length === 2 && document.querySelector('#vault-selection-panel').hidden"
     )
     assert page.evaluate("compose.pendingAttachments.length") == 1
 
@@ -285,7 +300,7 @@ def test_send_does_not_silently_discard_unsaved_file_edits(quote_page: Page) -> 
     page.once("dialog", lambda dialog: dialog.accept())
     page.locator("[data-quote-send]").click()
     page.wait_for_function(
-        "sent.length === 1 && !document.querySelector('#vault-file-modal')"
+        "sent.length === 1 && document.querySelector('#vault-selection-panel').hidden"
     )
 
 
@@ -360,3 +375,157 @@ def test_back_keeps_tree_and_explicit_close_preserves_declined_changes(
     assert page.locator("#vault-file-modal").count() == 0
     assert page.locator("#vault-explorer-modal").count() == 1
     assert page.evaluate("files.isPickerOpen()")
+
+
+def test_immediate_send_keeps_reading_and_refreshes_without_losing_next_instruction(
+    quote_page: Page,
+) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    assert page.locator("#vault-file-modal").count() == 1
+    page.evaluate("document.querySelector('#vault-file-modal-preview').scrollTop = 150")
+    open_prompt(page, "Next instruction in progress")
+    assert page.locator("[data-quote-send]").is_disabled()
+    page.locator("#vault-selection-input").press("Control+Enter")
+    assert page.evaluate("sent.length") == 1
+    page.evaluate(
+        "fileContents['Notes/A.md'] = 'Agent updated the reviewed document'; finishStream()"
+    )
+    expect(page.locator("#vault-file-modal-preview")).to_have_text(
+        "Agent updated the reviewed document"
+    )
+    assert (
+        page.locator("#vault-selection-input").input_value()
+        == "Next instruction in progress"
+    )
+    expect(page.locator("[data-quote-send]")).to_be_enabled()
+    assert page.locator("#chat-input").input_value() == "Existing draft"
+
+
+def test_completion_refreshes_the_file_currently_being_read(quote_page: Page) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    page.evaluate("files.openFile('Notes/B.md')")
+    expect(page.locator("#vault-file-modal-path")).to_have_text("Notes/B.md")
+    page.evaluate("fileContents['Notes/B.md'] = 'Updated second file'; finishStream()")
+    expect(page.locator("#vault-file-modal-preview")).to_have_text(
+        "Updated second file"
+    )
+
+
+def test_dismissing_reader_during_send_does_not_reopen_it(quote_page: Page) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    page.locator('[data-vault-file-close="true"]').last.click()
+    page.evaluate("finishStream()")
+    page.wait_for_function("!state.isLoading")
+    assert page.locator("#vault-file-modal").count() == 0
+
+
+def test_failed_background_refresh_keeps_reader_and_reports_error(
+    quote_page: Page,
+) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    page.evaluate("failFileReads = true; finishStream()")
+    expect(page.locator("#vault-file-modal-status")).to_contain_text(
+        "Refresh unavailable"
+    )
+    assert page.locator("#vault-file-modal").count() == 1
+    assert page.locator("#passage").count() == 1
+
+
+def test_background_refresh_preserves_reading_scroll(quote_page: Page) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    preview = page.locator("#vault-file-modal-preview")
+    preview.evaluate("element => element.scrollTop = 200")
+    scroll = preview.evaluate("element => element.scrollTop")
+    assert scroll > 0
+    page.evaluate(
+        "fileContents['Notes/A.md'] = 'Long update with a document edit'; finishStream()"
+    )
+    expect(preview).to_contain_text("Long update with a document edit")
+    assert preview.evaluate("element => element.scrollTop") == scroll
+
+
+def test_late_background_refresh_cannot_overwrite_local_edits(quote_page: Page) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    page.evaluate(
+        """() => {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const result = await originalFetch(...args);
+            if (args[0].includes('/files?')) await new Promise(resolve => { window.releaseFileRead = resolve; });
+            return result;
+        };
+        fileContents['Notes/A.md'] = 'Background edit';
+        finishStream();
+    }"""
+    )
+    page.wait_for_function("typeof releaseFileRead === 'function' && !state.isLoading")
+    page.locator('[data-vault-file-mode="edit"]').click()
+    page.locator("#vault-file-modal-editor").fill("New local edits")
+    page.evaluate("releaseFileRead()")
+    page.wait_for_timeout(100)
+    assert page.locator("#vault-file-modal-editor").input_value() == "New local edits"
+
+
+def test_finishing_send_does_not_steal_focus_from_continued_reading(
+    quote_page: Page,
+) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    open_prompt(page, "Preparing the next instruction")
+    preview = page.locator("#vault-file-modal-preview")
+    preview.focus()
+    page.evaluate("finishStream()")
+    page.wait_for_function("!state.isLoading && fileReads.length > 1")
+    expect(preview).to_be_focused()
+
+
+def test_previous_refresh_cannot_unlock_the_next_pending_send(quote_page: Page) -> None:
+    page = quote_page
+    open_prompt(page)
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof finishStream === 'function'")
+    page.evaluate(
+        """() => {
+        const originalFetch = window.fetch;
+        let held = false;
+        window.fetch = async (...args) => {
+            const result = await originalFetch(...args);
+            if (!held && args[0].includes('/files?')) {
+                held = true;
+                await new Promise(resolve => { window.releaseFileRead = resolve; });
+            }
+            return result;
+        };
+        finishStream();
+    }"""
+    )
+    page.wait_for_function("!state.isLoading && typeof releaseFileRead === 'function'")
+    open_prompt(page, "Next request")
+    page.evaluate("holdStart = true")
+    page.locator("[data-quote-send]").click()
+    page.wait_for_function("typeof releaseStart === 'function'")
+    assert page.locator("#vault-selection-input").get_attribute("readonly") is not None
+    page.evaluate("releaseFileRead()")
+    page.wait_for_timeout(100)
+    assert page.locator("#vault-selection-input").get_attribute("readonly") is not None
+    assert page.locator("[data-quote-dismiss]").is_disabled()

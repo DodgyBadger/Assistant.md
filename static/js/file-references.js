@@ -253,6 +253,7 @@
             let selectedRevisionId = initialRevisionId;
             let currentFileExists = false;
             let currentFileHashKnown = false;
+            let refreshRequestId = 0;
             const supportsPreview = /\.(md|markdown)$/i.test(path);
             const lockMessage = 'Available when the active response finishes.';
 
@@ -262,14 +263,33 @@
                 isActive: () => supportsPreview && mode === 'preview',
                 isLocked: interactionLocked,
                 onAppend: (block) => callbacks.appendPromptBlock(block),
-                onSend: (block, options) => {
-                    if (isDirty() && !window.confirm('Discard unsaved file changes and send this selection?')) {
+                onSend: async (block, options) => {
+                    const discardEdits = isDirty();
+                    if (discardEdits && !window.confirm('Discard unsaved file changes and send this selection?')) {
                         options.onStartError(new Error('Send cancelled. Your file changes and selection prompt are intact.'));
                         return false;
                     }
-                    return callbacks.sendSelectionPrompt(block, options);
+                    let accepted = false;
+                    try {
+                        return await callbacks.sendSelectionPrompt(block, {
+                            ...options,
+                            onAccepted: (started) => {
+                                accepted = true;
+                                if (discardEdits) {
+                                    const scrollTop = preview.scrollTop;
+                                    editor.value = savedContent;
+                                    renderPreview();
+                                    preview.scrollTop = scrollTop;
+                                }
+                                options.onAccepted(started);
+                            },
+                        });
+                    } finally {
+                        // Navigation may have replaced this reader while the task ran.
+                        if (accepted) await activeFileView?.refresh(vault);
+                    }
                 },
-                onAccepted: () => closeExplorer({ force: true }),
+                onAccepted: () => preview.focus({ preventScroll: true }),
             });
             activeSelectionPrompt = selectionPrompt;
 
@@ -282,6 +302,9 @@
             }
             activeFileCanClose = confirmDiscard;
             activeFileView = {
+                refresh: async (taskVault) => {
+                    if (taskVault === vault) await refreshAfterResponse();
+                },
                 snapshot: () => ({
                     path, vaultName: vault, onBack: returnToOrigin, allowCreate,
                     initialMode: mode, initialRevisionId: selectedRevisionId,
@@ -311,6 +334,42 @@
                     propertiesContent.textContent = parts.frontmatter;
                 }
                 properties?.classList.toggle('hidden', !parts.frontmatter);
+            }
+
+            async function refreshAfterResponse() {
+                if (document.getElementById('vault-file-modal') !== overlay
+                    || mode !== 'preview' || isDirty()) return;
+                const requestId = ++refreshRequestId;
+                const originalHash = sha256;
+                const originalContent = editor.value;
+                try {
+                    const data = await fetchVaultFile(path, vault);
+                    if (document.getElementById('vault-file-modal') !== overlay
+                        || requestId !== refreshRequestId || mode !== 'preview'
+                        || isDirty() || editor.value !== originalContent || sha256 !== originalHash) return;
+                    const content = data.content || '';
+                    if (content !== savedContent || data.sha256 !== sha256) {
+                        const scrollTop = preview.scrollTop;
+                        editor.value = content;
+                        savedContent = content;
+                        sha256 = data.sha256 || '';
+                        currentFileExists = true;
+                        currentFileHashKnown = true;
+                        createIfMissing = false;
+                        historyLoaded = false;
+                        renderPreview();
+                        preview.scrollTop = scrollTop;
+                    }
+                    statusLabel?.classList.add('hidden');
+                    applyInteractionLock();
+                } catch (error) {
+                    if (document.getElementById('vault-file-modal') !== overlay
+                        || requestId !== refreshRequestId) return;
+                    if (statusLabel) {
+                        statusLabel.classList.remove('hidden');
+                        statusLabel.innerHTML = `<span class="state-error">Could not refresh this file: ${escapeHtml(error.message)}. Reopen it to retry.</span>`;
+                    }
+                }
             }
 
             function showHistoryOnly(message) {
@@ -712,7 +771,7 @@
 
         async function fetchVaultFile(path, vaultName = '') {
             const vault = vaultName || selectedVault();
-            const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/files?path=${encodeURIComponent(path)}`);
+            const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/files?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 const error = new Error(errorData.message || `HTTP ${response.status}`);
