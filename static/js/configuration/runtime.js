@@ -282,9 +282,9 @@
         });
     }
 
-    async function notifyConfigChanged() {
-        if (actions.loadGeneralSettings && elements.settingsList) {
-            await actions.loadGeneralSettings(true);
+    async function notifyConfigChanged({ refreshSettings = true } = {}) {
+        if (refreshSettings && actions.loadGeneralSettings && elements.settingsList) {
+            await actions.loadGeneralSettings(true, { silent: true });
         }
 
         if (typeof callbacks.refreshMetadata === 'function') {

@@ -202,3 +202,139 @@ test('custom setting reset renders the shared Undo icon instead of the fallback 
     assert.ok(card.includes(icons.UNDO_ICON_SVG));
     assert.ok(!card.includes(icons.SETTINGS_ICON_SVG));
 });
+
+test('saved settings unlock and repaint while metadata is still refreshing', async () => {
+    const { context, actions, callbacks, state, elements } = harness();
+    const result = { key: 'limit', value: '7', default_value: '3', source: 'custom', editor: numeric, issues: [] };
+    state.settings = [result];
+    state.settingEditKey = 'limit';
+    state.settingDraftValue = '7';
+    let releaseMetadata;
+    let metadataStarted = false;
+    callbacks.refreshMetadata = () => { metadataStarted = true; return new Promise(resolve => { releaseMetadata = resolve; }); };
+    context.fetch = async (_url, options = {}) => ({ ok: true, json: async () => options.method === 'PUT' ? result : [result] });
+    const saving = actions.saveSettingValue('limit');
+    while (!metadataStarted) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(state.isSavingSetting, false);
+    assert.doesNotMatch(elements.settingsList.innerHTML, /data-action="restore-setting-default" disabled/);
+    releaseMetadata();
+    await saving;
+});
+
+test('default restore unlocks before slow status refresh finishes', async () => {
+    const { context, actions, callbacks, state, elements } = harness();
+    const result = { key: 'limit', value: '3', default_value: '3', source: 'default', editor: numeric, issues: [] };
+    const other = { ...result, key: 'other', source: 'custom', value: '9' };
+    state.settings = [{ ...result, source: 'custom' }, other];
+    let releaseStatus;
+    let statusStarted = false;
+    callbacks.refreshStatus = () => { statusStarted = true; return new Promise(resolve => { releaseStatus = resolve; }); };
+    context.fetch = async (_url, options = {}) => ({ ok: true, json: async () => options.method === 'DELETE' ? result : [result, other] });
+    const restoring = actions.restoreSettingDefault('limit');
+    while (!statusStarted) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(state.isSavingSetting, false);
+    assert.doesNotMatch(elements.settingsList.innerHTML, /data-action="restore-setting-default" disabled/);
+    releaseStatus();
+    await restoring;
+});
+
+test('finishing an older metadata refresh cannot unlock a newer pending mutation', async () => {
+    const { context, actions, callbacks, state } = harness();
+    const first = { key: 'limit', value: '7', default_value: '3', source: 'custom', editor: numeric, issues: [] };
+    const other = { ...first, key: 'other', value: '9' };
+    state.settings = [first, other];
+    state.settingEditKey = 'limit';
+    state.settingDraftValue = '7';
+    let releaseMetadata, releaseReset;
+    let metadataStarted = false;
+    callbacks.refreshMetadata = async () => {
+        if (!metadataStarted) {
+            metadataStarted = true;
+            await new Promise(resolve => { releaseMetadata = resolve; });
+        }
+    };
+    context.fetch = async (_url, options = {}) => {
+        if (options.method === 'DELETE') {
+            await new Promise(resolve => { releaseReset = resolve; });
+            return { ok: true, json: async () => ({ ...other, value: '3', source: 'default' }) };
+        }
+        return { ok: true, json: async () => options.method === 'PUT' ? first : [first, other] };
+    };
+    const saving = actions.saveSettingValue('limit');
+    while (!metadataStarted) await new Promise(resolve => setImmediate(resolve));
+    const restoring = actions.restoreSettingDefault('other');
+    while (!releaseReset) await new Promise(resolve => setImmediate(resolve));
+    releaseMetadata();
+    await saving;
+    assert.equal(state.isSavingSetting, true);
+    releaseReset();
+    await restoring;
+    assert.equal(state.isSavingSetting, false);
+});
+
+test('successive settings changes coalesce slow refreshes and retain save feedback', async () => {
+    const { context, actions, callbacks, state, elements } = harness();
+    let entries = ['first', 'second', 'third'].map(key => ({ key, value: '9', default_value: '3', source: 'custom', editor: numeric, issues: [] }));
+    state.settings = entries;
+    let releaseMetadata;
+    let refreshes = 0;
+    callbacks.refreshMetadata = async () => {
+        refreshes += 1;
+        if (refreshes === 1) await new Promise(resolve => { releaseMetadata = resolve; });
+    };
+    context.fetch = async (url, options = {}) => {
+        if (options.method === 'DELETE') {
+            const key = url.split('/').at(-2);
+            const result = { ...entries.find(entry => entry.key === key), value: '3', source: 'default' };
+            entries = entries.map(entry => entry.key === key ? result : entry);
+            return { ok: true, json: async () => result };
+        }
+        return { ok: true, json: async () => entries };
+    };
+    const first = actions.restoreSettingDefault('first');
+    while (!releaseMetadata) await new Promise(resolve => setImmediate(resolve));
+    const second = actions.restoreSettingDefault('second');
+    while (state.isSavingSetting) await new Promise(resolve => setImmediate(resolve));
+    const third = actions.restoreSettingDefault('third');
+    while (state.isSavingSetting) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(refreshes, 1);
+    assert.match(elements.settingsFeedback.textContent, /now uses its default/);
+    releaseMetadata();
+    await Promise.all([first, second, third]);
+    assert.equal(refreshes, 2);
+    assert.ok(state.settings.every(entry => entry.source === 'default'));
+    assert.match(elements.settingsFeedback.textContent, /now uses its default/);
+});
+
+test('global defaults refresh visible values even while an older metadata refresh waits', async () => {
+    const { context, actions, callbacks, state } = harness();
+    let entries = ['first', 'other'].map(key => ({ key, value: '9', default_value: '3', source: 'custom', editor: numeric, issues: [] }));
+    state.settings = entries;
+    let releaseMetadata;
+    let calls = 0;
+    callbacks.refreshMetadata = async () => {
+        calls += 1;
+        if (calls === 1) await new Promise(resolve => { releaseMetadata = resolve; });
+    };
+    context.confirm = () => true;
+    context.fetch = async (_url, options = {}) => {
+        if (options.method === 'POST') {
+            entries = entries.map(entry => ({ ...entry, value: '3', source: 'default' }));
+            return { ok: true, json: async () => ({ message: 'Defaults restored' }) };
+        }
+        if (options.method === 'DELETE') {
+            const result = { ...entries[0], value: '3', source: 'default' };
+            entries = [result, entries[1]];
+            return { ok: true, json: async () => result };
+        }
+        return { ok: true, json: async () => entries };
+    };
+    const first = actions.restoreSettingDefault('first');
+    while (!releaseMetadata) await new Promise(resolve => setImmediate(resolve));
+    const reset = actions.restoreManagedDefaults();
+    while (state.isSavingSetting) await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(state.settings.every(entry => entry.source === 'default'));
+    releaseMetadata();
+    await Promise.all([first, reset]);
+});

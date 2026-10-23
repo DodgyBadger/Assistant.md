@@ -7,14 +7,16 @@
 
     let settingsRequestId = 0;
     let editRequestId = 0;
+    let metadataRefreshPromise = null;
+    let metadataRefreshRequested = false;
 
-    async function loadGeneralSettings(preserveDraft = false) {
+    async function loadGeneralSettings(preserveDraft = false, { silent = false } = {}) {
         if (!elements.settingsList) return;
         const requestId = ++settingsRequestId;
         if (!preserveDraft) ++editRequestId;
 
         state.isLoadingSettings = true;
-        setStatus(elements.settingsFeedback, 'Loading settings…', 'info');
+        if (!silent) setStatus(elements.settingsFeedback, 'Loading settings…', 'info');
 
         try {
             const response = await fetch('api/system/settings/general');
@@ -31,15 +33,52 @@
             }
             renderSettings();
             actions.updateImportOcrAvailability();
-            setStatus(elements.settingsFeedback, '', 'info');
+            if (!silent) setStatus(elements.settingsFeedback, '', 'info');
         } catch (error) {
             if (requestId !== settingsRequestId) return;
             state.settingsValidationError = `Settings validation is unavailable: ${error.message}`;
             renderSettings(true);
-            setStatus(elements.settingsFeedback, `Failed to load settings: ${error.message}`, 'error');
+            if (!silent) setStatus(elements.settingsFeedback, `Failed to load settings: ${error.message}`, 'error');
         } finally {
             if (requestId === settingsRequestId) state.isLoadingSettings = false;
         }
+    }
+
+    function setSettingMutationBusy(busy) {
+        // Invalidate reads from before this mutation, including late edit preflights.
+        ++settingsRequestId;
+        state.isLoadingSettings = false;
+        if (busy) ++editRequestId;
+        state.isSavingSetting = busy;
+        if (elements.settingsUseDefaults) elements.settingsUseDefaults.disabled = busy;
+        renderSettings();
+    }
+
+    function refreshSettingMetadata() {
+        metadataRefreshRequested = true;
+        if (!metadataRefreshPromise) {
+            metadataRefreshPromise = (async () => {
+                while (metadataRefreshRequested) {
+                    metadataRefreshRequested = false;
+                    await notifyConfigChanged({ refreshSettings: false });
+                }
+            })().catch((error) => {
+                console.error('Failed to refresh configuration after a setting change:', error);
+            }).finally(() => {
+                metadataRefreshPromise = null;
+                // Include requests arriving as the previous refresh settles.
+                if (metadataRefreshRequested) return refreshSettingMetadata();
+            });
+        }
+        return metadataRefreshPromise;
+    }
+
+    async function refreshAfterSettingMutation() {
+        // Update visible settings independently of potentially slow metadata/status.
+        await Promise.all([
+            loadGeneralSettings(true, { silent: true }),
+            refreshSettingMetadata(),
+        ]);
     }
 
     function renderSettings(emptyOnError = false) {
@@ -394,7 +433,7 @@
             setStatus(elements.settingsFeedback, draftError, 'error');
             return;
         }
-        state.isSavingSetting = true;
+        setSettingMutationBusy(true);
         setStatus(elements.settingsFeedback, 'Saving setting…', 'info');
 
         try {
@@ -406,7 +445,6 @@
 
             if (!response.ok) {
                 const errorData = await safeJson(response);
-                await loadGeneralSettings(true);
                 throw new Error(errorData?.message || `HTTP ${response.status}`);
             }
 
@@ -415,21 +453,20 @@
             actions.updateImportOcrAvailability();
             cancelSettingEdit(false);
             renderSettings();
-            await notifyConfigChanged();
             const resultMessage = withRestartNotice(`Saved setting '${result.key}'.`, result);
             setStatus(elements.settingsFeedback, resultMessage.text, resultMessage.restart ? 'warning' : 'success');
         } catch (error) {
             setStatus(elements.settingsFeedback, `Failed to save setting: ${error.message}`, 'error');
         } finally {
-            state.isSavingSetting = false;
+            setSettingMutationBusy(false);
         }
+        await refreshAfterSettingMutation();
     }
 
 
     async function restoreSettingDefault(settingKey) {
         if (state.isSavingSetting) return;
-        state.isSavingSetting = true;
-        renderSettings();
+        setSettingMutationBusy(true);
         setStatus(elements.settingsFeedback, 'Restoring default…', 'info');
         try {
             const response = await fetch(`api/system/settings/general/${encodeURIComponent(settingKey)}/override`, { method: 'DELETE' });
@@ -438,7 +475,6 @@
             state.settings = state.settings.map((setting) => setting.key === result.key ? result : setting);
             actions.updateImportOcrAvailability();
             renderSettings();
-            await notifyConfigChanged();
             const notice = withRestartNotice(`Setting '${result.key}' now uses its default.`, result);
             setStatus(elements.settingsFeedback, notice.text, notice.restart ? 'warning' : 'success');
             requestAnimationFrame(() => {
@@ -446,37 +482,37 @@
                 card?.querySelector('[data-action="edit-setting"]')?.focus();
             });
         } catch (error) {
-            await loadGeneralSettings(true);
             setStatus(elements.settingsFeedback, `Failed to restore default: ${error.message}`, 'error');
         } finally {
-            state.isSavingSetting = false;
-            renderSettings();
+            setSettingMutationBusy(false);
         }
+        await refreshAfterSettingMutation();
     }
 
     async function restoreManagedDefaults() {
         if (state.isSavingSetting) return;
         const confirmed = window.confirm('Use shipped defaults for all application settings and managed configuration? Custom models, providers, tools, and secrets will be preserved. A backup will be saved first. Any unsaved configuration edits will be discarded.');
         if (!confirmed) return;
-        state.isSavingSetting = true;
-        if (elements.settingsUseDefaults) elements.settingsUseDefaults.disabled = true;
+        setSettingMutationBusy(true);
         setStatus(elements.settingsFeedback, 'Restoring managed defaults…', 'info');
         try {
             const response = await fetch('api/system/settings/defaults', { method: 'POST' });
             const result = await safeJson(response);
             if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
             cancelSettingEdit(false);
-            await Promise.all([loadGeneralSettings(), actions.loadModels?.(), actions.loadProviders?.()]);
-            await notifyConfigChanged();
+            // The mutation has committed; refresh other cards without holding its lock.
+            void Promise.all([actions.loadModels?.(), actions.loadProviders?.()]).catch((error) => {
+                console.error('Failed to refresh managed configuration:', error);
+            });
             const notice = withRestartNotice(result.message, result);
             setStatus(elements.settingsFeedback, notice.text, notice.restart ? 'warning' : 'success');
         } catch (error) {
             setStatus(elements.settingsFeedback, `Failed to restore defaults: ${error.message}`, 'error');
         } finally {
-            state.isSavingSetting = false;
-            if (elements.settingsUseDefaults) elements.settingsUseDefaults.disabled = false;
+            setSettingMutationBusy(false);
             elements.settingsUseDefaults?.focus();
         }
+        await refreshAfterSettingMutation();
     }
 
 
