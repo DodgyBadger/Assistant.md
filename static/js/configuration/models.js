@@ -5,8 +5,23 @@
     const { actions, elements, helpers, state } = runtime;
     const { escapeHtml, iconButton, iconSvg, notifyConfigChanged, safeJson, setStatus, withRestartNotice } = helpers;
 
-    async function loadModels() {
-        if (!elements.modelList || state.isLoadingModels) return;
+    let modelsLoadPromise = null;
+
+    function loadModels({ fresh = false } = {}) {
+        if (!elements.modelList) return Promise.resolve();
+        if (modelsLoadPromise) {
+            if (!fresh) return modelsLoadPromise;
+            // A reset needs a read started after its durable update. Concurrent
+            // fresh requests waiting on the same read share the trailing load.
+            return modelsLoadPromise.then(() => loadModels());
+        }
+        modelsLoadPromise = fetchModels().finally(() => {
+            modelsLoadPromise = null;
+        });
+        return modelsLoadPromise;
+    }
+
+    async function fetchModels() {
 
         state.isLoadingModels = true;
         setStatus(elements.modelFeedback, 'Loading models…', 'info');

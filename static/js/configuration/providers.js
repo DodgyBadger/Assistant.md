@@ -6,8 +6,23 @@
     const { ACTIVITY_LOG_LEVELS, BUILT_IN_PROVIDER_NAMES, DEFAULT_IMPORT_JOB_STATUSES, SECRET_METADATA } = constants;
     const { escapeHtml, formatDateTime, iconButton, iconSvg, notifyConfigChanged, safeJson, setIconButtonLabel, setStatus, withRestartNotice } = helpers;
 
-    async function loadProviders() {
-        if (!elements.providerList || state.isLoadingProviders) return;
+    let providersLoadPromise = null;
+
+    function loadProviders({ fresh = false } = {}) {
+        if (!elements.providerList) return Promise.resolve();
+        if (providersLoadPromise) {
+            if (!fresh) return providersLoadPromise;
+            // A reset needs a read started after its durable update. Concurrent
+            // fresh requests waiting on the same read share the trailing load.
+            return providersLoadPromise.then(() => loadProviders());
+        }
+        providersLoadPromise = fetchProviders().finally(() => {
+            providersLoadPromise = null;
+        });
+        return providersLoadPromise;
+    }
+
+    async function fetchProviders() {
 
         state.isLoadingProviders = true;
         setStatus(elements.providerFeedback, 'Loading providers…', 'info');

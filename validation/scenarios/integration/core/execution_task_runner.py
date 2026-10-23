@@ -950,6 +950,12 @@ class ExecutionTaskRunnerScenario(BaseScenario):
 
         cancel_hook_task_ids: list[str] = []
         cancel_started = asyncio.Event()
+        cancel_hook_finished = asyncio.Event()
+
+        async def record_cancelled(task_id: str) -> None:
+            cancel_hook_task_ids.append(task_id)
+            cancel_hook_finished.set()
+
         cancelled_task = await runtime.task_runner.start_background(
             ExecutionTaskSpec(
                 kind=ExecutionTaskKind.CHAT,
@@ -960,11 +966,7 @@ class ExecutionTaskRunnerScenario(BaseScenario):
                 metadata={"probe": "cancelled"},
             ),
             lambda task: _wait_until_cancelled(task, cancel_started),
-            hooks=ExecutionTaskHooks(
-                on_cancelled=lambda task_id: _record_task_id(
-                    cancel_hook_task_ids, task_id
-                ),
-            ),
+            hooks=ExecutionTaskHooks(on_cancelled=record_cancelled),
         )
         await asyncio.wait_for(cancel_started.wait(), timeout=2.0)
         await runtime.task_coordinator.cancel_task(
@@ -976,6 +978,8 @@ class ExecutionTaskRunnerScenario(BaseScenario):
             "cancelled",
             "Runner should mark cancelled background work cancelled",
         )
+        # The coordinator can publish terminal cancellation before runner hooks finish.
+        await asyncio.wait_for(cancel_hook_finished.wait(), timeout=2.0)
         self.soft_assert_equal(
             cancel_hook_task_ids,
             [cancelled_task.task_id],

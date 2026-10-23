@@ -22,6 +22,7 @@ from core.settings.model_registry import (
     normalize_model_alias,
     preserve_renamed_alias,
 )
+from core.settings.repository import StaleSettingsError
 from core.settings.store import (
     SETTINGS_TEMPLATE,
     ModelConfig,
@@ -106,9 +107,13 @@ def restore_general_setting(name: str) -> SettingsEntry:
     return candidate.settings[name]
 
 
-def reset_managed_configuration() -> SettingsFile:
+def reset_managed_configuration(*, expected_revision: int) -> SettingsFile:
     """Restore managed defaults atomically, retaining independently owned entries."""
     candidate = load_settings()
+    if candidate._revision != expected_revision:
+        raise StaleSettingsError(
+            "Settings changed after the pre-reset backup. Reload and retry."
+        )
     raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
     defaults = SettingsFile.model_validate(raw)
     catalog = upgrade_model_catalog(

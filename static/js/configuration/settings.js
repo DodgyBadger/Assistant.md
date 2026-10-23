@@ -500,8 +500,10 @@
             const result = await safeJson(response);
             if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
             cancelSettingEdit(false);
+            actions.cancelModelEdit?.(false);
+            actions.cancelProviderEdit?.(false);
             // The mutation has committed; refresh other cards without holding its lock.
-            void Promise.all([actions.loadModels?.(), actions.loadProviders?.()]).catch((error) => {
+            void Promise.all([actions.loadModels?.({ fresh: true }), actions.loadProviders?.({ fresh: true })]).catch((error) => {
                 console.error('Failed to refresh managed configuration:', error);
             });
             const notice = withRestartNotice(result.message, result);
