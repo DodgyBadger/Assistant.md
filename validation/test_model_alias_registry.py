@@ -10,6 +10,24 @@ from core.settings.model_registry import (
 from core.settings.store import ModelConfig
 
 
+def test_custom_rename_cannot_claim_validation_fixture(monkeypatch) -> None:
+    from core.settings import SettingsError, config_editor
+    from core.settings.store import ProviderConfig, SettingsFile
+
+    settings = SettingsFile(
+        models={"mine": model()}, providers={"openai": ProviderConfig()}
+    )
+    monkeypatch.setattr(config_editor, "load_settings", lambda: settings)
+    writes = []
+    monkeypatch.setattr(config_editor, "_persist_changes", writes.append)
+    with pytest.raises(SettingsError):
+        config_editor.upsert_model_mapping(
+            " TEST ", "openai", "example", original_name="mine"
+        )
+    assert writes == []
+    assert list(settings.models) == ["mine"]
+
+
 def test_removed_display_name_is_ignored_in_saved_model_entries() -> None:
     config = ModelConfig.model_validate(
         {
