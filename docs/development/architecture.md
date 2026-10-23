@@ -101,11 +101,13 @@ The advanced shell and stdio providers share one Unix identity and persistent en
 
 The configured data and system roots are persistent runtime state. Subsystems own their databases and expose service boundaries rather than sharing tables through ad hoc SQL.
 
+Installation settings, models, providers, and tool configuration are typed records in a settings-owned SQLite database. Configuration changes commit atomically with revision checks, and runtime caches refresh after successful edits. Packaged defaults and managed model catalogs remain application-owned source data. Secret values remain in the encrypted credentials store.
+
 | State | Authority and source of truth | Location |
 | --- | --- | --- |
 | Vault content | Canonical user-owned Markdown and related files | data root |
 | Authoring catalog | Managed and project-local Markdown definitions | vaults beneath the data root |
-| Installation settings | Deployment-wide typed configuration | system root and restart-bound environment |
+| Installation settings | Deployment-wide typed configuration | `settings.db` under the system root; deployment bootstrap in environment |
 | Encrypted credentials, OAuth state, MCP and native connections | Separate principal-owned domain tables sharing atomic mutations | `access.db`; credentials use the external installation key |
 | Chats, messages, checkpoints, and fork lineage | Principal-owned canonical conversation state | chat subsystem databases |
 | Workflow outcomes | Principal-owned durable domain history | workflow-run database |
