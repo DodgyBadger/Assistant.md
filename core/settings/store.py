@@ -8,7 +8,6 @@ models, providers, and tool metadata. Replaces the legacy mappings loader.
 from __future__ import annotations
 
 import os
-import shutil
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
@@ -172,8 +171,10 @@ def load_settings() -> SettingsFile:
                 if revision is None:
                     initializing = True
                     legacy_path = root / "settings.yaml"
-                    source = legacy_path if legacy_path.exists() else SETTINGS_TEMPLATE
-                    raw_data = yaml.safe_load(source.read_text(encoding="utf-8"))
+                    importing_legacy = legacy_path.exists()
+                    source = legacy_path if importing_legacy else SETTINGS_TEMPLATE
+                    source_bytes = source.read_bytes()
+                    raw_data = yaml.safe_load(source_bytes)
                     if raw_data is None:
                         raw_data = {}
                     if not isinstance(raw_data, dict):
@@ -186,11 +187,11 @@ def load_settings() -> SettingsFile:
                     # Validate before backing up or marking initialization complete.
                     initial = SettingsFile.model_validate(raw_data)
                     raw_data = initial.model_dump(mode="json")
-                    if legacy_path.exists():
+                    if importing_legacy:
                         backup = prepare_migration_backup_path(
                             root, "settings.yaml.bak"
                         )
-                        shutil.copyfile(legacy_path, backup)
+                        backup.write_bytes(source_bytes)
                         with backup.open("rb") as handle:
                             os.fsync(handle.fileno())
                         initialized_source = "legacy_yaml"

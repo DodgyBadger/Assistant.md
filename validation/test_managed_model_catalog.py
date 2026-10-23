@@ -377,13 +377,13 @@ def test_concurrent_cold_loads_publish_one_complete_upgrade(
     template_path.write_text(yaml.safe_dump({"models": {"new": entry(binding="v2")}}))
     monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
-    copyfile = store.shutil.copyfile
+    prepare_backup = store.prepare_migration_backup_path
 
-    def delayed_backup(source, destination):
+    def delayed_backup(root, filename):
         sleep(0.03)
-        return copyfile(source, destination)
+        return prepare_backup(root, filename)
 
-    monkeypatch.setattr(store.shutil, "copyfile", delayed_backup)
+    monkeypatch.setattr(store, "prepare_migration_backup_path", delayed_backup)
     store.refresh_settings_cache()
     try:
         with ThreadPoolExecutor(max_workers=6) as executor:
