@@ -29,12 +29,6 @@ from core.runtime.state import clear_runtime_context
 from core.secrets import reset_secrets_bootstrap_status
 from core.secrets.crypto import SECRET_KEY_ENV
 from core.settings import AppSettings
-from core.settings.store import (
-    ModelConfig,
-    ProviderConfig,
-    load_settings,
-    save_settings,
-)
 
 
 class SchedulerJobInfo:
@@ -96,14 +90,9 @@ class SystemController:
 
     def _seed_validation_settings(self) -> None:
         """Seed validation settings with the deterministic model provider."""
-        settings = load_settings()
-        if "test" in settings.models:
-            return
-        settings.providers["test"] = ProviderConfig(user_editable=True)
-        settings.models["test"] = ModelConfig(
-            provider="test", model_string="test", user_editable=True
-        )
-        save_settings(settings)
+        from validation.core.configuration import seed_configuration
+
+        seed_configuration(self._system_root)
 
     def _create_api_app(self) -> FastAPI:
         """Construct FastAPI app matching production router for validation."""

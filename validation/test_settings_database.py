@@ -123,3 +123,20 @@ def test_interrupted_import_rolls_back_initialization_and_records(
         assert repository.revision(conn) is None
         assert all(not entries for entries in repository.read_records(conn).values())
     assert store.load_settings().settings["debug"].value is False
+
+
+def test_validation_seeding_uses_explicit_root_not_active_bootstrap_root(
+    isolated_store,
+):
+    from validation.core.configuration import seed_configuration
+
+    fixture_root = isolated_store / "scenario-installation"
+    seed_configuration(fixture_root)
+    from core.settings.repository import connect, read_records
+
+    conn = connect(fixture_root)
+    try:
+        assert "test" in read_records(conn)["models"]
+    finally:
+        conn.close()
+    assert not (isolated_store / "settings.db").exists()
