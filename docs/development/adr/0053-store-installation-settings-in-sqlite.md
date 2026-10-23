@@ -16,6 +16,12 @@ Packaged defaults seed new installations. Existing runtime YAML is imported once
 
 Secret values remain in the encrypted credentials store. Deployment bootstrap remains environment-based. The System UI uses typed configuration operations; raw-YAML read and replacement endpoints are removed. Settings repair creates a consistent database backup before committing changes.
 
+Existing stored values are retained as explicit overrides when default ownership is introduced. Saving a setting pins its value, including when it equals the current default; Use default removes the override. Effective values and product-owned metadata are resolved centrally.
+
+Ordered settings migrations cover structural and semantic changes, record successful steps transactionally, and reject unsupported newer versions.
+
+Global Use defaults restores the shipped managed configuration and clears general-setting overrides after backup; custom models, independently named providers and tools, alternate model aliases, and encrypted secrets are preserved. Conflicts that would overwrite a custom model block the reset.
+
 ## Consequences
 
 Configuration changes commit atomically, stale writes require reload and retry, and failed imports remain retryable. Backups and recovery must include the settings database. Runtime configuration no longer depends on editing YAML files.

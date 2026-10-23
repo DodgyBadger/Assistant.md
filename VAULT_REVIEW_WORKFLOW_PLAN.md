@@ -13,7 +13,7 @@ After an accepted immediate task finishes, refresh the currently open file in th
 1. Update real-browser quote-send regressions to require the modal to remain open, a blocked second send during processing, and refreshed agent edits after completion; retain append/draft/attachment and failure-path coverage.
 2. Replace forced explorer dismissal with an accepted-send reading handoff and safe completion refresh through the current file-view owner. Keep chat task ownership and locking unchanged.
 3. Verify navigation, dismissal, local-edit preservation, refresh failure and keyboard flows with browser tests and focused JavaScript checks. No backend or CSS behavior changes are planned.
-4. Review documentation relevance; present any protected documentation drafts and obtain approval before applying them. Existing settings documentation drafts remain independently pending approval.
+4. Review documentation relevance; present any protected documentation drafts and obtain approval before applying them. The separate settings documentation drafts were explicitly approved and applied.
 
 ## Outcome and validation
 
@@ -25,6 +25,6 @@ Two lifecycle regressions were reproduced and corrected: background completion m
 - Vault Explorer controller checks: 2 passed.
 - Node quote/composer checks: 3 passed.
 - JavaScript syntax, complete Ruff/Black and diff hygiene checks passed. No production Python, API/storage contract, CSS or dependency changes were needed. The previously passed 139-scenario deterministic backend profile remains the backend baseline; this frontend change was verified directly in the browser rather than repeating that profile.
-- Existing user-facing documentation and the quote-selection release-note entry remain accurate; no protected documentation edits are required for this change. Settings lifecycle documentation drafts are still separately awaiting approval.
+- Existing user-facing documentation and the quote-selection release-note entry remain accurate; no protected documentation edits are required for this change. Settings lifecycle documentation drafts were separately approved and applied.
 
 Implementation and evidence are committed locally; no push was performed.
