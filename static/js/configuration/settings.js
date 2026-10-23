@@ -125,12 +125,13 @@
             <div class="setting-card text-txt-primary rounded-lg border border-border-primary bg-app-card px-5 py-4 shadow-sm hover:shadow transition-shadow" data-setting="${escapeHtml(setting.key)}" data-mode="view" style="max-width: 1400px;">
                 <div class="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
                     <div class="flex-1">
-                        <div class="font-semibold text-txt-primary text-sm">${escapeHtml(setting.key)}</div>
+                        <div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-txt-primary text-sm">${escapeHtml(setting.key)}</span><span class="text-xs text-txt-secondary border border-border-secondary rounded px-2 py-1">${setting.source === 'default' ? 'Default' : 'Custom'}</span></div>
                         ${description}
                         ${renderSettingIssues(setting)}
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-sm text-txt-primary font-mono bg-app-elevated px-3 py-2 rounded border border-border-primary break-words inline-block max-w-xs">${escapeHtml(formatSettingDisplay(setting))}</div>
+                        ${setting.source === 'custom' && setting.default_value != null ? `<button data-action="restore-setting-default" ${state.isSavingSetting ? 'disabled' : ''} ${iconButton('refresh', 'Use default', 'shrink-0')}>${iconSvg('refresh')}</button>` : ''}
                         <button data-action="edit-setting" ${iconButton('edit', 'Edit setting', 'is-primary shrink-0')}>${iconSvg('edit')}</button>
                     </div>
                 </div>
@@ -149,7 +150,7 @@
             <div class="setting-card text-txt-primary rounded-lg border border-border-primary bg-app-card editing-highlight px-5 py-4 shadow-sm" data-setting="${escapeHtml(setting.key)}" data-mode="edit" style="max-width: 1400px;">
                 <div class="space-y-4">
                     <div>
-                        <div class="font-semibold text-txt-primary text-sm">${escapeHtml(setting.key)}</div>
+                        <div class="flex items-center gap-2 flex-wrap"><span class="font-semibold text-txt-primary text-sm">${escapeHtml(setting.key)}</span><span class="text-xs text-txt-secondary border border-border-secondary rounded px-2 py-1">${setting.source === 'default' ? 'Default' : 'Custom'}</span></div>
                         ${description}
                     </div>
                     <div class="space-y-2">
@@ -316,6 +317,8 @@
             startSettingEdit(settingKey);
         } else if (action === 'cancel-setting') {
             cancelSettingEdit();
+        } else if (action === 'restore-setting-default') {
+            restoreSettingDefault(settingKey);
         } else if (action === 'save-setting') {
             saveSettingValue(settingKey);
         }
@@ -423,6 +426,60 @@
     }
 
 
+    async function restoreSettingDefault(settingKey) {
+        if (state.isSavingSetting) return;
+        state.isSavingSetting = true;
+        renderSettings();
+        setStatus(elements.settingsFeedback, 'Restoring default…', 'info');
+        try {
+            const response = await fetch(`api/system/settings/general/${encodeURIComponent(settingKey)}/override`, { method: 'DELETE' });
+            const result = await safeJson(response);
+            if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
+            state.settings = state.settings.map((setting) => setting.key === result.key ? result : setting);
+            actions.updateImportOcrAvailability();
+            renderSettings();
+            await notifyConfigChanged();
+            const notice = withRestartNotice(`Setting '${result.key}' now uses its default.`, result);
+            setStatus(elements.settingsFeedback, notice.text, notice.restart ? 'warning' : 'success');
+            requestAnimationFrame(() => {
+                const card = Array.from(elements.settingsList?.querySelectorAll?.('[data-setting]') || []).find((entry) => entry.dataset.setting === settingKey);
+                card?.querySelector('[data-action="edit-setting"]')?.focus();
+            });
+        } catch (error) {
+            await loadGeneralSettings(true);
+            setStatus(elements.settingsFeedback, `Failed to restore default: ${error.message}`, 'error');
+        } finally {
+            state.isSavingSetting = false;
+            renderSettings();
+        }
+    }
+
+    async function restoreManagedDefaults() {
+        if (state.isSavingSetting) return;
+        const confirmed = window.confirm('Use shipped defaults for all application settings and managed configuration? Custom models, providers, tools, and secrets will be preserved. A backup will be saved first. Any unsaved configuration edits will be discarded.');
+        if (!confirmed) return;
+        state.isSavingSetting = true;
+        if (elements.settingsUseDefaults) elements.settingsUseDefaults.disabled = true;
+        setStatus(elements.settingsFeedback, 'Restoring managed defaults…', 'info');
+        try {
+            const response = await fetch('api/system/settings/defaults', { method: 'POST' });
+            const result = await safeJson(response);
+            if (!response.ok) throw new Error(result?.message || `HTTP ${response.status}`);
+            cancelSettingEdit(false);
+            await Promise.all([loadGeneralSettings(), actions.loadModels?.(), actions.loadProviders?.()]);
+            await notifyConfigChanged();
+            const notice = withRestartNotice(result.message, result);
+            setStatus(elements.settingsFeedback, notice.text, notice.restart ? 'warning' : 'success');
+        } catch (error) {
+            setStatus(elements.settingsFeedback, `Failed to restore defaults: ${error.message}`, 'error');
+        } finally {
+            state.isSavingSetting = false;
+            if (elements.settingsUseDefaults) elements.settingsUseDefaults.disabled = false;
+            elements.settingsUseDefaults?.focus();
+        }
+    }
+
+
     Object.assign(actions, {
         loadGeneralSettings,
         renderSettingsValidation,
@@ -441,6 +498,8 @@
         startSettingEdit,
         focusSettingInput,
         cancelSettingEdit,
-        saveSettingValue
+        saveSettingValue,
+        restoreSettingDefault,
+        restoreManagedDefaults
     });
 }(window, document));

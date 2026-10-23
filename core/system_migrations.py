@@ -146,7 +146,10 @@ MIGRATION_TARGETS: tuple[SystemMigrationTarget, ...] = (
         db_name=SETTINGS_DB_NAME,
         namespace=SETTINGS_MIGRATION_NAMESPACE,
         migrations=SETTINGS_MIGRATIONS,
-        ensure_schema=ensure_settings_schema,
+        ensure_schema=lambda system_root: ensure_settings_schema(
+            system_root, backup=False
+        ),
+        requires_backup=True,
     ),
     SystemMigrationTarget(
         db_name=ACCESS_DB_NAME,

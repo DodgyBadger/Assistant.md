@@ -95,10 +95,12 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                     else:
                         raise AssertionError("Injected write must fail")
                 assert store.load_settings().model_dump(mode="json") == committed
+                with repository.connect(fixture_root) as current_connection:
+                    persisted = repository.read_records(current_connection)
                 backup_path = fixture_root / "snapshot.db"
                 repository.backup(fixture_root, backup_path)
                 with sqlite3.connect(str(backup_path)) as conn:
-                    assert repository.read_records(conn) == committed
+                    assert repository.read_records(conn) == persisted
                 assert (
                     len(
                         list(

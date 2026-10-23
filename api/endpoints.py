@@ -244,6 +244,8 @@ from .services import (
     resolve_vault_path_references,
     resolve_vault_root,
     resolve_vault_upload_target,
+    restore_general_setting_default,
+    restore_managed_configuration_defaults,
     restore_vault_file_revision,
     rollback_vault_activity,
     run_system_database_migrations,
@@ -941,6 +943,24 @@ async def repair_system_settings() -> SettingsRepairResponse | JSONResponse:
     """Merge missing settings from template into active settings (with backup)."""
     try:
         return repair_settings_from_template()
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post("/system/settings/defaults", response_model=SettingsRepairResponse)
+async def restore_managed_defaults() -> SettingsRepairResponse | JSONResponse:
+    try:
+        return restore_managed_configuration_defaults()
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.delete(
+    "/system/settings/general/{setting_key}/override", response_model=SettingInfo
+)
+async def restore_setting_default(setting_key: str) -> SettingInfo | JSONResponse:
+    try:
+        return restore_general_setting_default(setting_key)
     except Exception as e:
         return create_error_response(e)
 

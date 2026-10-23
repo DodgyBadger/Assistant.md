@@ -101,6 +101,14 @@ def upgrade_settings_mapping(
         upgraded["providers"] = retire_builtin_providers(
             providers, upgraded.get("models", {})
         )
+    return upgrade_general_settings(upgraded, template)
+
+
+def upgrade_general_settings(
+    active: dict[str, Any], template: dict[str, Any]
+) -> dict[str, Any]:
+    """Versioned general-setting semantics without changing model ownership."""
+    upgraded = deepcopy(active)
     settings = upgraded.setdefault("settings", {})
     template_settings = template.get("settings", {})
     if not isinstance(settings, dict) or not isinstance(template_settings, dict):

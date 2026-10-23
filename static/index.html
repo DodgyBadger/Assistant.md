@@ -449,8 +449,9 @@
                         <p class="text-sm text-txt-secondary">
                             Update non-secret runtime settings. Changes apply immediately unless otherwise specified. Choose from supported options or enter a validated value.
                         </p>
-                        <div>
+                        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
                             <input id="settings-filter" type="search" placeholder="Filter settings…" class="w-full md:max-w-md px-3 py-2 border border-border-secondary rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm bg-app-card text-txt-primary transition-colors" />
+                            <button id="settings-use-defaults" type="button" class="px-3 py-2 rounded-md border border-border-primary bg-app-elevated text-txt-primary hover:bg-app-card text-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent">Use defaults</button>
                         </div>
                         <div id="settings-feedback" class="text-sm text-txt-secondary" role="status"></div>
                         <div id="settings-validation" class="text-sm state-warning" role="status" aria-live="polite" hidden></div>

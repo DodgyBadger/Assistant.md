@@ -258,6 +258,8 @@ from .configuration import (
     get_metadata,
     list_secrets,
     repair_settings_from_template,
+    restore_general_setting_default,
+    restore_managed_configuration_defaults,
     start_openai_oauth_connection,
     start_openai_oauth_device_connection,
     update_general_setting_value,

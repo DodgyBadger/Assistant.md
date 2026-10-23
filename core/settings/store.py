@@ -22,7 +22,12 @@ from core.migration_backups import prepare_migration_backup_path
 from core.runtime.paths import get_system_root
 from core.settings import repository
 from core.settings.model_catalog import CatalogUpgrade, upgrade_model_catalog
-from core.settings.upgrades import retire_builtin_providers, retire_embedding_models
+from core.settings.schema import SettingsMigrationError
+from core.settings.upgrades import (
+    retire_builtin_providers,
+    retire_embedding_models,
+    upgrade_general_settings,
+)
 
 SETTINGS_TEMPLATE = Path(__file__).parent / "settings.template.yaml"
 _SETTINGS_LOCK = RLock()
@@ -45,6 +50,7 @@ class SettingsEntry(BaseModel):
     """Single general settings entry."""
 
     value: Any
+    source: Literal["default", "custom"] = "custom"
     description: str | None = None
     category: str | None = None
     restart_required: bool = False
@@ -146,6 +152,48 @@ def _resolve_system_root() -> Path:
     return get_system_root()
 
 
+def get_default_settings() -> dict[str, SettingsEntry]:
+    return {
+        name: entry.model_copy(deep=True)
+        for name, entry in _load_default_settings(SETTINGS_TEMPLATE).items()
+    }
+
+
+@lru_cache(maxsize=1)
+def _load_default_settings(path: Path) -> dict[str, SettingsEntry]:
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return {
+        name: SettingsEntry.model_validate({**entry, "source": "default"})
+        for name, entry in raw.get("settings", {}).items()
+    }
+
+
+def _resolve_general_settings(configured: dict[str, Any]) -> dict[str, Any]:
+    defaults = get_default_settings()
+    resolved = {name: entry.model_dump(mode="json") for name, entry in defaults.items()}
+    for name, entry in configured.items():
+        if name in defaults:
+            if entry.get("source", "custom") == "custom":
+                resolved[name] = {
+                    **resolved[name],
+                    "value": entry["value"],
+                    "source": "custom",
+                }
+        else:
+            resolved[name] = entry
+    return resolved
+
+
+def _persisted_snapshot(settings: SettingsFile) -> dict[str, Any]:
+    data = settings.model_dump(mode="json")
+    data["settings"] = {
+        name: entry
+        for name, entry in data["settings"].items()
+        if entry.get("source", "custom") == "custom"
+    }
+    return data
+
+
 _snapshot_cache: dict[Path, SettingsFile] = {}
 
 
@@ -185,6 +233,13 @@ def load_settings() -> SettingsFile:
                     for section in ("settings", "models", "providers", "tools"):
                         if raw_data.get(section) is None:
                             raw_data[section] = {}
+                    if importing_legacy:
+                        raw_data["settings"] = {
+                            name: {**entry, "source": "custom"}
+                            for name, entry in raw_data["settings"].items()
+                        }
+                    else:
+                        raw_data["settings"] = {}
                     # Validate before backing up or marking initialization complete.
                     # Keep absent legacy fields distinct from explicit nulls until
                     # catalog reconciliation has interpreted ownership provenance.
@@ -210,6 +265,8 @@ def load_settings() -> SettingsFile:
                 template = (
                     yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
                 )
+                if initializing:
+                    raw_data = upgrade_general_settings(raw_data, template)
                 upgrade = upgrade_model_catalog(
                     raw_data["models"], template.get("models", {})
                 )
@@ -222,7 +279,12 @@ def load_settings() -> SettingsFile:
                     if providers.get(name) != entry
                 ]
                 settings = SettingsFile.model_validate(
-                    {**raw_data, "models": upgrade.models, "providers": providers}
+                    {
+                        **raw_data,
+                        "settings": _resolve_general_settings(raw_data["settings"]),
+                        "models": upgrade.models,
+                        "providers": providers,
+                    }
                 )
                 catalog_changed = bool(
                     upgrade.updated
@@ -231,7 +293,7 @@ def load_settings() -> SettingsFile:
                     or provider_updates
                 )
                 if initializing or catalog_changed:
-                    repository.write_records(conn, settings.model_dump(mode="json"))
+                    repository.write_records(conn, _persisted_snapshot(settings))
                     revision += int(catalog_changed)
                     conn.execute(
                         "UPDATE configuration_state SET revision = ? WHERE singleton = 1",
@@ -243,6 +305,16 @@ def load_settings() -> SettingsFile:
             settings._catalog_update = upgrade
             settings._retired_provider_updates = provider_updates
         except Exception as exc:
+            if isinstance(exc, SettingsMigrationError):
+                _log_database_event(
+                    "settings_upgrade_failed",
+                    root,
+                    phase=exc.phase,
+                    version=exc.version,
+                    backup_path=str(exc.backup_path) if exc.backup_path else None,
+                    error_type=exc.error_type,
+                    error=str(exc),
+                )
             _log_database_event(
                 (
                     "settings_database_initialization_failed"
@@ -334,6 +406,7 @@ def refresh_settings_cache() -> None:
     """Clear packaged defaults; live snapshots are read from the database."""
     with _SETTINGS_LOCK:
         _snapshot_cache.clear()
+        _load_default_settings.cache_clear()
         _get_template_tools_config.cache_clear()
 
 
@@ -347,7 +420,7 @@ def save_settings(settings: SettingsFile) -> None:
             )
         validated = SettingsFile.model_validate(settings.model_dump(mode="json"))
         settings._revision = repository.save(
-            root, validated.model_dump(mode="json"), settings._revision
+            root, _persisted_snapshot(validated), settings._revision
         )
         _snapshot_cache.pop(root, None)
 
