@@ -2118,6 +2118,8 @@ class SettingInfo(BaseModel):
     issues: list[SettingIssue] = Field(default_factory=list)
     edit_value: str | None = None
 
+    source: Literal["default", "custom"] = "custom"
+    default_value: str | None = None
     key: str = Field(..., description="Setting name")
     value: str = Field(..., description="Current value rendered as string")
     description: str | None = Field(None, description="Human-readable description")

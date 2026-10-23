@@ -13,8 +13,10 @@ import yaml
 from core.settings.editor_schema import (
     build_editors,
     parse_setting_value,
+    settings_issues,
     validate_update,
 )
+from core.settings.model_catalog import upgrade_model_catalog
 from core.settings.model_registry import (
     build_model_registry,
     normalize_model_alias,
@@ -26,6 +28,7 @@ from core.settings.store import (
     ProviderConfig,
     SettingsEntry,
     SettingsFile,
+    get_default_settings,
     load_settings,
     refresh_settings_cache,
     save_settings,
@@ -44,22 +47,10 @@ def _persist_changes(settings_file: SettingsFile) -> None:
 
 def list_general_settings() -> dict[str, SettingsEntry]:
     """Return configured values with current product-owned metadata."""
-    settings_file = load_settings().model_copy(deep=True)
-    template_settings = get_template_general_settings()
-    merged = dict(settings_file.settings)
-    for name, template_entry in template_settings.items():
-        configured_entry = settings_file.settings.get(name)
-        merged[name] = template_entry.model_copy(
-            update={
-                "value": (
-                    configured_entry.value
-                    if configured_entry is not None
-                    else template_entry.value
-                )
-            }
-        )
     return {
-        name: entry for name, entry in merged.items() if name not in RETIRED_SETTINGS
+        name: entry
+        for name, entry in load_settings().settings.items()
+        if name not in RETIRED_SETTINGS
     }
 
 
@@ -96,20 +87,81 @@ def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
 
 
 def get_template_general_settings() -> dict[str, SettingsEntry]:
+    return get_default_settings()
+
+
+def restore_general_setting(name: str) -> SettingsEntry:
+    """Remove one override only when its effective default is valid."""
+    candidate = load_settings()
+    defaults = get_default_settings()
+    if name not in defaults or name in RETIRED_SETTINGS:
+        raise SettingsError(f"Setting '{name}' has no application default.")
+    candidate.settings[name] = defaults[name]
+    editors = build_editors(candidate, defaults)
     try:
-        raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
-    except FileNotFoundError:
-        return {}
-    settings = raw.get("settings")
-    if not isinstance(settings, dict):
-        return {}
-    result: dict[str, SettingsEntry] = {}
-    for key, value in settings.items():
-        try:
-            result[str(key)] = SettingsEntry.model_validate(value)
-        except Exception:
-            continue
-    return result
+        validate_update(name, defaults[name].value, candidate.settings, editors)
+    except ValueError as exc:
+        raise SettingsError(str(exc)) from exc
+    _persist_changes(candidate)
+    return candidate.settings[name]
+
+
+def reset_managed_configuration() -> SettingsFile:
+    """Restore managed defaults atomically, retaining independently owned entries."""
+    candidate = load_settings()
+    raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+    defaults = SettingsFile.model_validate(raw)
+    catalog = upgrade_model_catalog(
+        {
+            name: model.model_dump(mode="json")
+            for name, model in candidate.models.items()
+        },
+        raw.get("models", {}),
+    )
+    if catalog.issues:
+        raise SettingsError(" ".join(catalog.issues))
+    candidate.models = SettingsFile.model_validate({"models": catalog.models}).models
+    catalog_ids = {
+        model.managed_id for model in defaults.models.values() if model.managed_id
+    }
+    candidate.models = {
+        name: model
+        for name, model in candidate.models.items()
+        if model.managed_id in catalog_ids or not model.managed_id
+    }
+    managed_ids = {
+        model.managed_id for model in candidate.models.values() if model.managed_id
+    }
+    for name, model in defaults.models.items():
+        if model.managed_id not in managed_ids:
+            if name in candidate.models:
+                raise SettingsError(
+                    f"Custom model '{name}' conflicts with a managed default. Rename it before resetting."
+                )
+            candidate.models[name] = model
+    for section in ("providers", "tools"):
+        active = getattr(candidate, section)
+        baseline = getattr(defaults, section)
+        # Packaged provider/tool names remain managed even when their fields
+        # are editable (for example Ollama). Independently named entries survive.
+        preserved = {
+            name: entry for name, entry in active.items() if name not in baseline
+        }
+        setattr(candidate, section, {**baseline, **preserved})
+    candidate.settings = get_default_settings()
+    try:
+        build_model_registry(candidate.models).validate()
+    except ValueError as exc:
+        raise SettingsError(str(exc)) from exc
+    editors = build_editors(candidate, candidate.settings)
+    issues = settings_issues(candidate.settings, editors)
+    invalid = [
+        f"{name}: {issue.message}" for name, items in issues.items() for issue in items
+    ]
+    if invalid:
+        raise SettingsError(" ".join(invalid))
+    _persist_changes(candidate)
+    return candidate
 
 
 def _merged_general_settings(

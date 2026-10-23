@@ -23,6 +23,7 @@
         elements.activityLogCount = document.getElementById('activity-log-count');
         elements.activityLogLoadOlderBtn = document.getElementById('load-older-activity-log');
 
+        elements.settingsUseDefaults = document.getElementById('settings-use-defaults');
         elements.settingsFeedback = document.getElementById('settings-feedback');
         elements.settingsValidation = document.getElementById('settings-validation');
         elements.settingsFilter = document.getElementById('settings-filter');
@@ -105,6 +106,7 @@
         elements.activityLogLoadOlderBtn?.addEventListener('click', () => actions.refreshActivityLog({ append: true }));
         document.addEventListener('click', actions.handleActivityLogDocumentClick);
 
+        elements.settingsUseDefaults?.addEventListener('click', actions.restoreManagedDefaults);
         elements.settingsList?.addEventListener('click', actions.handleSettingsTableClick);
         elements.settingsList?.addEventListener('input', actions.handleSettingsInputChange);
         elements.settingsFilter?.addEventListener('input', actions.handleSettingsFilterInput);

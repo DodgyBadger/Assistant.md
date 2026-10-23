@@ -148,3 +148,47 @@ test('editing an invalid numeric value keeps the saved value visible and intact'
     assert.equal(state.settingDraftValue, 'broken-number');
     assert.equal(setting.value, 'broken-number');
 });
+
+test('restoring a default updates provenance and preserves another unsaved draft', async () => {
+    const { context, actions, state } = harness();
+    const result = { key: 'limit', value: '3', default_value: '3', source: 'default', editor: numeric, issues: [] };
+    state.settings = [{ ...result, value: '9', source: 'custom' }];
+    state.settingEditKey = 'other';
+    state.settingDraftValue = 'unsaved';
+    const calls = [];
+    context.fetch = async (url, options = {}) => {
+        calls.push({ url, method: options.method || 'GET' });
+        return { ok: true, json: async () => options.method === 'DELETE' ? result : [result] };
+    };
+    await actions.restoreSettingDefault('limit');
+    assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1);
+    assert.equal(state.settings[0].source, 'default');
+    assert.equal(state.settingEditKey, 'other');
+    assert.equal(state.settingDraftValue, 'unsaved');
+    assert.equal(state.isSavingSetting, false);
+});
+
+test('global defaults cancellation leaves drafts and configuration untouched', async () => {
+    const { context, actions, state } = harness();
+    state.settingEditKey = 'limit';
+    state.settingDraftValue = '9';
+    context.confirm = () => false;
+    context.fetch = async () => { throw new Error('Cancellation must not send a request'); };
+    await actions.restoreManagedDefaults();
+    assert.equal(state.settingEditKey, 'limit');
+    assert.equal(state.settingDraftValue, '9');
+    assert.equal(state.isSavingSetting, false);
+});
+
+test('failed global reset keeps the unsaved draft and exposes the conflict', async () => {
+    const { context, actions, state, elements } = harness();
+    state.settingEditKey = 'limit';
+    state.settingDraftValue = '9';
+    context.confirm = () => true;
+    context.fetch = async () => ({ ok: false, status: 400, json: async () => ({ message: 'Custom model conflicts with a managed default' }) });
+    await actions.restoreManagedDefaults();
+    assert.equal(state.settingEditKey, 'limit');
+    assert.equal(state.settingDraftValue, '9');
+    assert.match(elements.settingsFeedback.textContent, /conflict/);
+    assert.equal(state.isSavingSetting, false);
+});

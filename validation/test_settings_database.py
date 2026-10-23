@@ -49,8 +49,10 @@ def test_new_install_has_no_runtime_yaml_and_stale_writes_are_rejected(isolated_
     first = store.load_settings()
     assert not (isolated_store / "settings.yaml").exists()
     stale = first.model_copy(deep=True)
+    first.settings["debug"].source = "custom"
     first.settings["debug"].value = False
     store.save_settings(first)
+    stale.settings["debug"].source = "custom"
     stale.settings["debug"].value = True
     with pytest.raises(ValueError, match="reload|Reload"):
         store.save_settings(stale)
@@ -73,6 +75,7 @@ def test_failed_write_leaves_persisted_state_and_cached_reads_unchanged(
 
     settings = store.load_settings()
     original = deepcopy(settings.model_dump())
+    settings.settings["debug"].source = "custom"
     settings.settings["debug"].value = not settings.settings["debug"].value
     original_write = repository.write_records
 

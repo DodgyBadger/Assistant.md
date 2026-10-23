@@ -129,6 +129,7 @@
         activityLogCount: null,
         activityLogLoadOlderBtn: null,
 
+        settingsUseDefaults: null,
         settingsFeedback: null,
         settingsValidation: null,
         settingsFilter: null,

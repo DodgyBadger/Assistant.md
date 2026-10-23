@@ -3,6 +3,7 @@
 import json
 import re
 from typing import Any, Literal
+from uuid import uuid4
 
 import yaml
 
@@ -40,6 +41,8 @@ from core.settings.config_editor import (
     delete_provider_config,
     get_template_general_settings,
     list_general_settings,
+    reset_managed_configuration,
+    restore_general_setting,
     update_general_setting,
     upsert_model_mapping,
     upsert_provider_config,
@@ -250,9 +253,15 @@ def _format_setting_value(value: Any) -> str:
     return str(value)
 
 
-def _build_setting_info(key: str, entry: SettingsEntry) -> SettingInfo:
+def _build_setting_info(
+    key: str, entry: SettingsEntry, default: SettingsEntry | None
+) -> SettingInfo:
     return SettingInfo(
         key=key,
+        source=entry.source,
+        default_value=(
+            _format_setting_value(default.value) if default is not None else None
+        ),
         value=_format_setting_value(getattr(entry, "value", None)),
         description=getattr(entry, "description", None),
         category=getattr(entry, "category", None),
@@ -263,11 +272,12 @@ def _build_setting_info(key: str, entry: SettingsEntry) -> SettingInfo:
 def get_general_settings_config() -> list[SettingInfo]:
     """Return serialized general settings metadata."""
     settings_map = list_general_settings()
-    editors = build_editors(load_settings(), get_template_general_settings())
+    defaults = get_template_general_settings()
+    editors = build_editors(load_settings(), defaults)
     issues = settings_issues(settings_map, editors)
     results = []
     for key, entry in settings_map.items():
-        result = _build_setting_info(key, entry)
+        result = _build_setting_info(key, entry, defaults.get(key))
         result.editor = editors[key]
         result.issues = issues[key]
         try:
@@ -300,11 +310,94 @@ def update_general_setting_value(
     logger.info(
         "General setting updated",
         data={
+            "event": "general_setting_updated",
+            "status": "completed",
+            "source": "custom",
             "setting_key": setting_name,
             "restart_required": setting_info.restart_required,
         },
     )
     return setting_info
+
+
+def restore_general_setting_default(setting_name: str) -> SettingInfo:
+    try:
+        restored = restore_general_setting(setting_name)
+    except SettingsError as exc:
+        raise InvalidSystemSettingError(setting_name, str(exc)) from exc
+    reload_configuration(restart_required=restored.restart_required)
+    result = next(
+        entry for entry in get_general_settings_config() if entry.key == setting_name
+    )
+    logger.info(
+        "General setting uses application default",
+        data={
+            "event": "general_setting_default_restored",
+            "status": "completed",
+            "setting_key": setting_name,
+            "source": "default",
+            "restart_required": result.restart_required,
+        },
+    )
+    return result
+
+
+def restore_managed_configuration_defaults() -> SettingsRepairResponse:
+    root = get_settings_database_path().parent
+    operation_id = uuid4().hex
+    backup_path = None
+    phase = "backup"
+    logger.info(
+        "Restoring managed configuration defaults",
+        data={
+            "event": "managed_configuration_defaults_started",
+            "status": "started",
+            "operation_id": operation_id,
+            "database_path": str(get_settings_database_path()),
+        },
+    )
+    try:
+        backup_path = prepare_migration_backup_path(root, "settings.db.bak")
+        repository.backup(root, backup_path)
+        phase = "reset"
+        reset_managed_configuration()
+        phase = "reload"
+        reload_configuration(restart_required=True)
+    except Exception as exc:
+        logger.error(
+            "Managed configuration defaults were not fully restored",
+            data={
+                "event": "managed_configuration_defaults_failed",
+                "status": "failed",
+                "operation_id": operation_id,
+                "database_path": str(get_settings_database_path()),
+                "backup_path": str(backup_path) if backup_path else None,
+                "phase": phase,
+                "error_type": type(exc).__name__,
+                "error": "Inspect configuration conflicts or the pre-reset backup; no custom entry is overwritten.",
+                "durable_update_completed": phase == "reload",
+            },
+        )
+        if isinstance(exc, SettingsError):
+            raise InvalidSystemSettingError("defaults", str(exc)) from exc
+        raise
+    logger.info(
+        "Managed configuration defaults restored",
+        data={
+            "event": "managed_configuration_defaults_restored",
+            "status": "completed",
+            "operation_id": operation_id,
+            "database_path": str(get_settings_database_path()),
+            "backup_path": str(backup_path),
+            "restart_required": True,
+        },
+    )
+    return SettingsRepairResponse(
+        success=True,
+        restart_required=True,
+        message="Application settings now use defaults and managed configuration has been restored. Custom entries and secrets were preserved.",
+        backup_path=str(backup_path),
+    )
 
 
 def _build_model_info(

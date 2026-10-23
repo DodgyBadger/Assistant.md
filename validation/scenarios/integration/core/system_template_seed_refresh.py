@@ -103,11 +103,11 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             status_response.json().get("configuration_status", {}).get("issues", [])
         )
         self.soft_assert(
-            any(
-                issue.get("name") == "settings:missing_metadata"
+            all(
+                issue.get("name") != "settings:missing_metadata"
                 for issue in status_issues
             ),
-            "Status should warn when existing settings are missing template metadata",
+            "Product-owned setting metadata is available without repairing stored overrides",
         )
 
         repair_response = self.call_api("/api/system/settings/repair", method="POST")
@@ -117,6 +117,13 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "Settings repair should complete through the system API",
         )
         repaired_settings = self.configuration_snapshot()
+        assert "openrouter_ignored_providers" not in repaired_settings["settings"]
+        from core.settings.store import get_general_settings
+
+        repaired_settings["settings"] = {
+            name: entry.model_dump(mode="json")
+            for name, entry in get_general_settings().items()
+        }
         activity = self.call_api("/api/system/activity-log?limit=200").json()
         repair_events = [
             entry["data"]
@@ -164,9 +171,10 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         )
         for invalid_persisted_value in (-1, 33, "invalid"):
             persisted = self.configuration_request().json()["configuration"]
-            persisted["settings"]["max_concurrent_delegates"][
-                "value"
-            ] = invalid_persisted_value
+            persisted["settings"]["max_concurrent_delegates"] = {
+                "value": invalid_persisted_value,
+                "source": "custom",
+            }
             persisted_update = self.configuration_request(
                 method="PUT", data={"configuration": persisted}
             )
