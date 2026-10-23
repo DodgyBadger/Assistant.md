@@ -1,6 +1,6 @@
 [project]
 name = "project-assistant"
-version = "0.9.1"
+version = "0.9.2"
 description = "Automated personal productivity system with AI-powered markdown workflows"
 authors = [
     { name = "AssistantMD Team" }
