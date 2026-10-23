@@ -225,6 +225,12 @@
                 <path d="M6 12h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
         `.trim(),
+        UNDO_ICON_SVG: `
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M3 7v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `.trim(),
         REFRESH_ICON_SVG: `
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M21 12a9 9 0 0 0-15-6.7L3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -333,6 +339,7 @@
         play: icons.PLAY_ICON_SVG,
         plus: icons.PLUS_ICON_SVG,
         refresh: icons.REFRESH_ICON_SVG,
+        undo: icons.UNDO_ICON_SVG,
         save: icons.SAVE_ICON_SVG,
         send: icons.SEND_ICON_SVG,
         sendHorizontal: icons.SEND_HORIZONTAL_ICON_SVG,

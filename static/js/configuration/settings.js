@@ -131,7 +131,7 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <div class="text-sm text-txt-primary font-mono bg-app-elevated px-3 py-2 rounded border border-border-primary break-words inline-block max-w-xs">${escapeHtml(formatSettingDisplay(setting))}</div>
-                        ${setting.source === 'custom' && setting.default_value != null ? `<button data-action="restore-setting-default" ${state.isSavingSetting ? 'disabled' : ''} ${iconButton('refresh', 'Use default', 'shrink-0')}>${iconSvg('refresh')}</button>` : ''}
+                        ${setting.source === 'custom' && setting.default_value != null ? `<button data-action="restore-setting-default" ${state.isSavingSetting ? 'disabled' : ''} ${iconButton('undo', 'Use default', 'shrink-0')}>${iconSvg('undo')}</button>` : ''}
                         <button data-action="edit-setting" ${iconButton('edit', 'Edit setting', 'is-primary shrink-0')}>${iconSvg('edit')}</button>
                     </div>
                 </div>
