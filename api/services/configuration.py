@@ -409,6 +409,8 @@ def _build_model_info(
     config: ModelConfig,
     availability: dict[str, bool],
     issue_messages: dict[str, str] | None = None,
+    *,
+    alias_valid: bool = True,
 ) -> ModelInfo:
     status_message = None
     if issue_messages:
@@ -423,7 +425,7 @@ def _build_model_info(
         model_string=config.model_string,
         capabilities=capabilities,
         available=availability.get(name, True),
-        chat_selectable="text" in capabilities,
+        chat_selectable="text" in capabilities and alias_valid,
         user_editable=config.user_editable,
         description=config.description,
         status_message=status_message,
@@ -564,6 +566,7 @@ def get_configurable_models() -> list[ModelInfo]:
     """Return model configuration entries with availability metadata."""
     config_status = validate_settings()
     models_config = get_models_config()
+    registry = build_model_registry(models_config)
     issue_messages = {
         issue.name.split(":", 1)[1]: issue.message
         for issue in config_status.issues
@@ -571,7 +574,11 @@ def get_configurable_models() -> list[ModelInfo]:
     }
     return [
         _build_model_info(
-            name, config, config_status.model_availability, issue_messages
+            name,
+            config,
+            config_status.model_availability,
+            issue_messages,
+            alias_valid=name not in registry.issues,
         )
         for name, config in models_config.items()
     ]
@@ -957,14 +964,17 @@ async def get_metadata() -> MetadataResponse:
         for issue in config_status.issues
         if issue.name.startswith("model:")
     }
+    models_config = get_models_config()
+    registry = build_model_registry(models_config)
     models = [
         _build_model_info(
             name,
             config,
             config_status.model_availability,
             model_issue_messages,
+            alias_valid=name not in registry.issues,
         )
-        for name, config in get_models_config().items()
+        for name, config in models_config.items()
     ]
     tools = [
         ToolInfo(

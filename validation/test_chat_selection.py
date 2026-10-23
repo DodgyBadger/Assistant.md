@@ -89,5 +89,17 @@ elements.modelSelector.value = 'removed';
 state.systemStatus.configuration_status.default_model = 'missing';
 controller.populateSelectors();
 assert.equal(elements.modelSelector.value, '');
+models.push(
+    {name: 'invalid-a', chat_selectable: false, available: false, alternate_aliases: ['ambiguous']},
+    {name: 'invalid-b', chat_selectable: false, available: false, alternate_aliases: ['ambiguous']},
+);
+elements.modelSelector.value = 'ambiguous';
+state.systemStatus.configuration_status.default_model = 'old';
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, 'preferred');
+elements.modelSelector.value = 'invalid-a';
+state.systemStatus.configuration_status.default_model = 'ambiguous';
+controller.populateSelectors();
+assert.equal(elements.modelSelector.value, '');
 """
     subprocess.run(["node", "-e", harness, str(_MODULE)], check=True, cwd=_PROJECT_ROOT)
