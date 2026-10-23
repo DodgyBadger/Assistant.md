@@ -9,8 +9,6 @@ deletion from system/Authoring.
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from validation.core.base_scenario import BaseScenario
@@ -54,13 +52,13 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
 
         await self.start_system()
 
-        settings_response = self.call_api("/api/system/settings")
+        settings_response = self.configuration_request()
         self.soft_assert_equal(
             settings_response.status_code,
             200,
             "Settings fetch should succeed before repair",
         )
-        settings_raw = yaml.safe_load(settings_response.json()["content"])
+        settings_raw = settings_response.json()["configuration"]
         settings_raw["providers"]["openrouter"].pop("provider", None)
         settings_raw["settings"].pop("openrouter_ignored_providers", None)
         settings_raw["settings"].pop("max_concurrent_delegates", None)
@@ -72,10 +70,8 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "category": "Delegation",
             "restart_required": False,
         }
-        update_settings_response = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(settings_raw, sort_keys=False)},
+        update_settings_response = self.configuration_request(
+            method="PUT", data={"configuration": settings_raw}
         )
         self.soft_assert_equal(
             update_settings_response.status_code,
@@ -120,7 +116,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             200,
             "Settings repair should complete through the system API",
         )
-        repaired_settings = yaml.safe_load(repair_response.json()["content"])
+        repaired_settings = self.configuration_snapshot()
         activity = self.call_api("/api/system/activity-log?limit=200").json()
         repair_events = [
             entry["data"]
@@ -130,7 +126,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
         assert len(repair_events) == 1
         assert repair_events[0]["status"] == "completed"
         assert Path(repair_events[0]["backup_path"]).is_file()
-        assert Path(repair_events[0]["settings_path"]).is_file()
+        assert Path(repair_events[0]["database_path"]).is_file()
         self.soft_assert_equal(
             repaired_settings["providers"]["openrouter"].get("provider"),
             {"require_parameters": True},
@@ -167,16 +163,12 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
             "Settings repair should add the semantic model-stream idle timeout",
         )
         for invalid_persisted_value in (-1, 33, "invalid"):
-            persisted = yaml.safe_load(
-                self.call_api("/api/system/settings").json()["content"]
-            )
+            persisted = self.configuration_request().json()["configuration"]
             persisted["settings"]["max_concurrent_delegates"][
                 "value"
             ] = invalid_persisted_value
-            persisted_update = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted, sort_keys=False)},
+            persisted_update = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             self.soft_assert_equal(
                 persisted_update.status_code,
@@ -189,11 +181,7 @@ class SystemTemplateSeedRefreshScenario(BaseScenario):
                 "Invalid persisted delegate concurrency should fail closed to the template default",
             )
         persisted["settings"]["max_concurrent_delegates"]["value"] = 3
-        self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(persisted, sort_keys=False)},
-        )
+        self.configuration_request(method="PUT", data={"configuration": persisted})
         unlimited_update = self.call_api(
             "/api/system/settings/general/max_concurrent_delegates",
             method="PUT",

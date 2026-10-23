@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
+from copy import deepcopy
 from pathlib import Path
-
-import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -88,18 +87,17 @@ class ChatModelAliasFallbackScenario(BaseScenario):
             # An invalid on-disk alias also cannot resolve; use only the configured default.
             from core.runtime.reload_service import reload_configuration
 
-            path = self._get_system_controller()._system_root / "settings.yaml"
-            original = path.read_text()
-            ambiguous = yaml.safe_load(original)
+            original = self.configuration_snapshot()
+            ambiguous = deepcopy(original)
             ambiguous["models"]["sonnet"]["alternate_aliases"] = ["ambiguous"]
             ambiguous["models"]["opus"]["alternate_aliases"] = ["ambiguous"]
-            path.write_text(yaml.safe_dump(ambiguous))
+            self.install_configuration_fixture(ambiguous)
             try:
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
                 assert resolve_chat_model_alias("ambiguous") == "test"
             finally:
-                path.write_text(original)
+                self.install_configuration_fixture(original)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
             # A configured alias with missing credentials must not use the valid default.
@@ -119,14 +117,10 @@ class ChatModelAliasFallbackScenario(BaseScenario):
                 json.loads(line).get("data", {}).get("event") == "chat_model_fallback"
                 for line in activity.splitlines()
             )
-            raw = yaml.safe_load(
-                self.call_api("/api/system/settings").json()["content"]
-            )
+            raw = self.configuration_request().json()["configuration"]
             raw["settings"]["default_model"]["value"] = "missing-default"
-            saved = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(raw)},
+            saved = self.configuration_request(
+                method="PUT", data={"configuration": raw}
             )
             assert saved.status_code == 200, saved.text
             status = self.call_api("/api/status").json()["configuration_status"]

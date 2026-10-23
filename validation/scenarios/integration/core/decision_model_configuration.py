@@ -6,8 +6,6 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority  # noqa: E402
@@ -112,19 +110,17 @@ class DecisionModelConfigurationScenario(BaseScenario):
         )
         providers = self.call_api("/api/system/providers").json()
         assert all(provider["name"] != "typesafe" for provider in providers)
-        legacy = yaml.safe_load(self.call_api("/api/system/settings").json()["content"])
+        legacy = self.configuration_request().json()["configuration"]
         legacy["providers"]["typesafe"] = {
             "api_key": "TYPESAFE_API_KEY",
             "base_url": None,
             "user_editable": False,
         }
-        retired = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(legacy)},
+        retired = self.configuration_request(
+            method="PUT", data={"configuration": legacy}
         )
         assert retired.status_code == 200, retired.text
-        assert "typesafe" not in yaml.safe_load(retired.json()["content"])["providers"]
+        assert "typesafe" not in retired.json()["configuration"]["providers"]
         activity_path = self._get_system_controller()._system_root / "activity.log"
         assert any(
             event.get("data", {}).get("event") == "retired_builtin_providers_updated"
@@ -240,7 +236,7 @@ class DecisionModelConfigurationScenario(BaseScenario):
             secret_value not in serialized_status,
             "Configuration and readiness responses must not expose the credential value",
         )
-        active_settings = self.call_api("/api/system/settings").json()["content"]
+        active_settings = self.configuration_request().json()["configuration"]
         activity_log = (
             self._get_system_controller()._system_root / "activity.log"
         ).read_text(encoding="utf-8")
@@ -275,8 +271,8 @@ class DecisionModelConfigurationScenario(BaseScenario):
             ["decision"],
             "Configuration API round-trips decision-only aliases without adding text",
         )
-        settings_response = self.call_api("/api/system/settings")
-        settings = yaml.safe_load(settings_response.json()["content"])
+        settings_response = self.configuration_request()
+        settings = settings_response.json()["configuration"]
         settings["models"]["legacy-vector"] = {
             "provider": "openai",
             "model_string": "text-embedding-3-small",
@@ -292,10 +288,8 @@ class DecisionModelConfigurationScenario(BaseScenario):
                 "category": "Chat",
                 "restart_required": False,
             }
-        removed_builtins = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(settings, sort_keys=False)},
+        removed_builtins = self.configuration_request(
+            method="PUT", data={"configuration": settings}
         )
         self.soft_assert_equal(
             removed_builtins.status_code,
@@ -317,18 +311,24 @@ class DecisionModelConfigurationScenario(BaseScenario):
             "Legacy embedding aliases must not be offered",
         )
         backup_dir = self._get_system_controller()._system_root / "migration_backups"
-        existing_backups = set(backup_dir.rglob("settings.yaml.bak*"))
+        existing_backups = set(backup_dir.rglob("settings.db.bak*"))
         repair = self.call_api("/api/system/settings/repair", method="POST")
-        repaired = yaml.safe_load(repair.json()["content"])
+        assert repair.status_code == 200, repair.text
+        repaired = self.configuration_snapshot()
         self.soft_assert(
             "legacy-vector" not in repaired["models"],
             "Settings repair must retire embedding aliases",
         )
         backup_paths = list(
-            set(backup_dir.rglob("settings.yaml.bak*")) - existing_backups
+            set(backup_dir.rglob("settings.db.bak*")) - existing_backups
         )
         assert len(backup_paths) == 1
-        backup = yaml.safe_load(backup_paths[0].read_text(encoding="utf-8"))
+        import sqlite3
+
+        from core.settings.repository import read_records
+
+        with sqlite3.connect(str(backup_paths[0])) as conn:
+            backup = read_records(conn)
         self.soft_assert(
             "legacy-vector" in backup["models"],
             "Settings repair backup preserves retired configuration",

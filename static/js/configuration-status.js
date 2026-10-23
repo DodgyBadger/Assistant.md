@@ -81,7 +81,7 @@
             if (repairBtn) {
                 repairBtn.addEventListener('click', async () => {
                     const confirmed = window.confirm(
-                        'Repair settings from template?\n\nThis will add missing keys and metadata from settings.template.yaml, prune unknown settings, and remove unknown non-user-editable tools/models/providers. Existing values for matching keys will be preserved.\nA backup will be written to system/settings.bak. Reload the page after repair to see changes.'
+                        'Repair settings?\n\nThis will restore missing defaults and metadata, prune unknown settings, and remove unknown non-user-editable tools/models/providers. Existing values for matching keys will be preserved.\nA database backup will be saved before repair. Reload the page after repair to see changes.'
                     );
                     if (!confirmed) return;
 
@@ -102,8 +102,9 @@
                     try {
                         const response = await fetch('api/system/settings/repair', { method: 'POST' });
                         if (!response.ok) throw new Error(await response.text() || 'Repair failed');
+                        const result = await response.json();
                         await callbacks.refreshStatus();
-                        showAlert('Settings repaired. Backup saved to system/settings.bak. Reload the page to see new defaults.', 'info');
+                        showAlert(result.message, 'info');
                     } catch (error) {
                         console.error('Settings repair failed', error);
                         showAlert(`Settings repair failed: ${error.message}`, 'error');

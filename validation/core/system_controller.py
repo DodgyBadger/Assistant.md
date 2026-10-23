@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -30,7 +29,12 @@ from core.runtime.state import clear_runtime_context
 from core.secrets import reset_secrets_bootstrap_status
 from core.secrets.crypto import SECRET_KEY_ENV
 from core.settings import AppSettings
-from core.settings.store import SETTINGS_TEMPLATE, refresh_settings_cache
+from core.settings.store import (
+    ModelConfig,
+    ProviderConfig,
+    load_settings,
+    save_settings,
+)
 
 
 class SchedulerJobInfo:
@@ -92,34 +96,14 @@ class SystemController:
 
     def _seed_validation_settings(self) -> None:
         """Seed validation settings with the deterministic model provider."""
-        settings_path = self._system_root / "settings.yaml"
-        if settings_path.exists():
+        settings = load_settings()
+        if "test" in settings.models:
             return
-
-        raw_settings = (
-            yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+        settings.providers["test"] = ProviderConfig(user_editable=True)
+        settings.models["test"] = ModelConfig(
+            provider="test", model_string="test", user_editable=True
         )
-        raw_settings.setdefault("models", {})
-        raw_settings.setdefault("providers", {})
-        raw_settings["providers"]["test"] = {
-            "api_key": None,
-            "base_url": None,
-            "user_editable": False,
-        }
-        # Keep deterministic fixtures in the same registry used by constrained
-        # settings editors. User-editable fixtures survive template repair.
-        raw_settings["providers"]["test"]["user_editable"] = True
-        raw_settings["models"]["test"] = {
-            "provider": "test",
-            "model_string": "test",
-            "capabilities": ["text"],
-            "user_editable": True,
-        }
-        settings_path.write_text(
-            yaml.safe_dump(raw_settings, sort_keys=False, allow_unicode=False),
-            encoding="utf-8",
-        )
-        refresh_settings_cache()
+        save_settings(settings)
 
     def _create_api_app(self) -> FastAPI:
         """Construct FastAPI app matching production router for validation."""

@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.scheduling.system_jobs import (
@@ -13,7 +11,6 @@ from core.scheduling.system_jobs import (
     run_scheduled_ingestion_worker,
     run_scheduled_vault_state_refresh,
 )
-from core.settings.store import SETTINGS_TEMPLATE
 from validation.core.base_scenario import BaseScenario
 
 
@@ -130,16 +127,9 @@ class VaultStateScheduledRefreshScenario(BaseScenario):
         self.assert_no_failures()
 
     def _write_vault_scan_interval(self, interval_seconds: int) -> None:
-        from core.settings.store import refresh_settings_cache
-
-        settings_path = self._get_system_controller()._system_root / "settings.yaml"
-        raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+        raw = self.configuration_snapshot()
         raw["settings"]["vault_scan_interval_seconds"]["value"] = interval_seconds
-        settings_path.write_text(
-            yaml.safe_dump(raw, sort_keys=False, allow_unicode=False),
-            encoding="utf-8",
-        )
-        refresh_settings_cache()
+        self.install_configuration_fixture(raw)
 
     def _activity_log_text(self) -> str:
         activity_log = self._get_system_controller()._system_root / "activity.log"

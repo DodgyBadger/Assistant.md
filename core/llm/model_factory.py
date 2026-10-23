@@ -401,7 +401,7 @@ def build_model_instance(
         if not base_url_config:
             raise ValueError(
                 f"Provider '{provider}' requires 'base_url' to be configured in "
-                f"system/settings.yaml. Set providers.{provider}.base_url to a literal "
+                f"System settings. Set providers.{provider}.base_url to a literal "
                 f"URL or the name of a stored secret."
             )
 

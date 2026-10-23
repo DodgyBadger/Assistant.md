@@ -1,7 +1,7 @@
 # Assistant.md Settings Template
 #
-# This template seeds `system/settings.yaml` when no user configuration
-# exists. Edit a copy under `system/settings.yaml` rather than this file.
+# Packaged defaults seed the settings database on new installations.
+# Manage runtime configuration through the System settings UI.
 
 settings:
   default_model:

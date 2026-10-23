@@ -11,6 +11,7 @@ from typing import Any
 from fastapi.responses import JSONResponse
 
 from core.logger import UnifiedLogger
+from core.settings.repository import StaleSettingsError
 from core.settings.store import get_general_settings
 from core.tools.failures import FailureClassification, classify_exception
 
@@ -115,6 +116,8 @@ def create_error_response(exception: Exception) -> JSONResponse:
     Returns:
         JSONResponse with standardized error format
     """
+    if isinstance(exception, StaleSettingsError):
+        exception = APIException(409, "SettingsConflict", str(exception))
     if isinstance(exception, APIException):
         details = build_api_error_details(exception)
         error_response = ErrorResponse(

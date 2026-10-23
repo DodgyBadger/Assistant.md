@@ -70,7 +70,7 @@ async def create_agent(
         default_model_value = default_model_entry.value if default_model_entry else None
         if not default_model_value:
             raise ValueError(
-                "Set 'default_model' in system/settings.yaml before creating agents without an explicit model."
+                "Set 'default_model' in System settings before creating agents without an explicit model."
             )
 
         default_model_name = str(default_model_value).lower().strip()
@@ -84,7 +84,7 @@ async def create_agent(
         if isinstance(model, ModelExecutionSpec) and model.mode == "skip":
             raise ValueError(
                 "default_model cannot use skip mode ('none'). "
-                "Set a concrete LLM alias in system/settings.yaml."
+                "Set a concrete LLM alias in System settings."
             )
 
     # Pure composition - assemble the pre-configured pieces

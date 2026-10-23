@@ -107,13 +107,13 @@ from core.settings.secrets_store import (
 )
 from core.settings.store import (
     SETTINGS_TEMPLATE,
-    get_active_settings_path,
     get_disabled_tool_names,
     get_enabled_tool_names,
     get_enabled_tools_config,
     get_general_settings,
     get_models_config,
     get_providers_config,
+    get_settings_database_path,
     get_tools_config,
 )
 from core.settings.upgrades import upgrade_settings_mapping
@@ -188,10 +188,10 @@ from ..models import (
     SecretInfo,
     SecretUpdateRequest,
     SettingInfo,
+    SettingsRepairResponse,
     SettingUpdateRequest,
     StatusResponse,
     SystemInfo,
-    SystemSettingsResponse,
     SystemWorkflowTemplateSummary,
     TemplateInfo,
     ToolInfo,
@@ -256,14 +256,12 @@ from .configuration import (
     get_configurable_providers,
     get_general_settings_config,
     get_metadata,
-    get_system_settings,
     list_secrets,
     repair_settings_from_template,
     start_openai_oauth_connection,
     start_openai_oauth_device_connection,
     update_general_setting_value,
     update_secret,
-    update_system_settings,
     upsert_configurable_model,
     upsert_configurable_provider,
 )

@@ -5,8 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from pydantic_ai.messages import (  # noqa: E402
@@ -305,14 +303,10 @@ class SessionMapReadinessScenario(BaseScenario):
             f"/api/system/settings/general/{key}", method="PUT", data={"value": value}
         )
         assert rejected.status_code == 400, rejected.text
-        settings = yaml.safe_load(
-            self.call_api("/api/system/settings").json()["content"]
-        )
+        settings = self.configuration_request().json()["configuration"]
         settings["settings"][key]["value"] = int(value) if value.isdecimal() else value
-        response = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(settings)},
+        response = self.configuration_request(
+            method="PUT", data={"configuration": settings}
         )
         assert response.status_code == 200, response.text
 

@@ -137,16 +137,15 @@ from .models import (
     SecretInfo,
     SecretUpdateRequest,
     SettingInfo,
+    SettingsRepairResponse,
     SettingUpdateRequest,
     StatusResponse,
     SystemLogResponse,
     SystemMigrationRunRequest,
     SystemMigrationRunResponse,
     SystemMigrationStatusResponse,
-    SystemSettingsResponse,
     SystemTemplateSeedResponse,
     TemplateInfo,
-    UpdateSettingsRequest,
     VaultActivityResponse,
     VaultActivityRollbackPreviewResponse,
     VaultActivityRollbackRequest,
@@ -214,7 +213,6 @@ from .services import (
     get_metadata,
     get_system_activity_log,
     get_system_database_migration_status,
-    get_system_settings,
     get_system_status,
     get_vault_activity,
     get_vault_activity_rollback_preview,
@@ -263,7 +261,6 @@ from .services import (
     trigger_import_queue_now,
     update_general_setting_value,
     update_secret,
-    update_system_settings,
     update_vault_file,
     update_workflow_file,
     upload_vault_file,
@@ -939,28 +936,8 @@ async def start_chat_task(
         return create_error_response(e)
 
 
-@router.get("/system/settings", response_model=SystemSettingsResponse)
-async def system_settings() -> SystemSettingsResponse | JSONResponse:
-    """Return the current settings configuration file."""
-    try:
-        return await get_system_settings()
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.put("/system/settings", response_model=SystemSettingsResponse)
-async def update_system_settings_endpoint(
-    request: UpdateSettingsRequest,
-) -> SystemSettingsResponse | JSONResponse:
-    """Validate and persist updated settings YAML content."""
-    try:
-        return await update_system_settings(request.content)
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.post("/system/settings/repair", response_model=SystemSettingsResponse)
-async def repair_system_settings() -> SystemSettingsResponse | JSONResponse:
+@router.post("/system/settings/repair", response_model=SettingsRepairResponse)
+async def repair_system_settings() -> SettingsRepairResponse | JSONResponse:
     """Merge missing settings from template into active settings (with backup)."""
     try:
         return repair_settings_from_template()

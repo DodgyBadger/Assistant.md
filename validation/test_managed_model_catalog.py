@@ -2,7 +2,17 @@
 
 from copy import deepcopy
 
+import pytest
+
 from core.settings.model_catalog import upgrade_model_catalog
+
+
+@pytest.fixture(autouse=True)
+def isolated_roots(tmp_path, monkeypatch):
+    from core.runtime import paths
+
+    monkeypatch.setattr(paths, "_bootstrap_system_root", tmp_path)
+    monkeypatch.setattr(paths, "_bootstrap_data_root", tmp_path / "data")
 
 
 def test_retired_typesafe_provider_is_removed_only_when_unused() -> None:
@@ -42,14 +52,14 @@ def test_load_persists_unused_provider_retirement_with_backup(
     }
     path.write_text(yaml.safe_dump(active))
     template.write_text("models: {}\nproviders: {}\n")
-    monkeypatch.setattr(store, "get_active_settings_path", lambda: path)
+    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template)
     store.refresh_settings_cache()
     try:
         loaded = store.load_settings()
         assert loaded.providers == {}
         assert loaded._retired_provider_updates == ["typesafe"]
-        assert yaml.safe_load(path.read_text())["providers"] == {}
+        assert store.load_settings().providers == {}
         backups = list((tmp_path / "migration_backups").iterdir())
         assert len(backups) == 1
         assert yaml.safe_load(backups[0].read_text()) == active
@@ -276,16 +286,13 @@ def test_load_persists_rename_and_backup_and_preserves_removed_alias(
     active = {"models": {"old": entry(aliases=["optional"])}}
     active_path.write_text(yaml.safe_dump(active))
     template_path.write_text(yaml.safe_dump({"models": {"new": entry(binding="v2")}}))
-    monkeypatch.setattr(store, "get_active_settings_path", lambda: active_path)
+    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
     store.refresh_settings_cache()
     try:
         loaded = store.load_settings()
         assert loaded.models["new"].alternate_aliases == ["optional", "old"]
-        assert (
-            yaml.safe_load(active_path.read_text())["models"]["new"]["model_string"]
-            == "v2"
-        )
+        assert store.load_settings().models["new"].model_string == "v2"
         backups = list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))
         assert len(backups) == 1
         assert yaml.safe_load(backups[0].read_text()) == active
@@ -311,7 +318,7 @@ def test_load_collision_preserves_file_and_exposes_issue(tmp_path, monkeypatch) 
     original = yaml.safe_dump(active)
     active_path.write_text(original)
     template_path.write_text(yaml.safe_dump({"models": {"new": entry(binding="v2")}}))
-    monkeypatch.setattr(store, "get_active_settings_path", lambda: active_path)
+    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
     store.refresh_settings_cache()
     try:
@@ -319,7 +326,9 @@ def test_load_collision_preserves_file_and_exposes_issue(tmp_path, monkeypatch) 
         assert loaded._catalog_issues
         assert active_path.read_text() == original
         assert loaded.models["old"].model_string == "v1"
-        assert not (tmp_path / "migration_backups").exists()
+        assert (
+            len(list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))) == 1
+        )
     finally:
         store.refresh_settings_cache()
 
@@ -336,12 +345,12 @@ def test_load_persists_retirement_without_other_catalog_updates(
     active = {"models": {"jev": entry("builtin-jev")}}
     active_path.write_text(yaml.safe_dump(active))
     template_path.write_text(yaml.safe_dump({"models": {}}))
-    monkeypatch.setattr(store, "get_active_settings_path", lambda: active_path)
+    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
     store.refresh_settings_cache()
     try:
         assert store.load_settings().models == {}
-        assert yaml.safe_load(active_path.read_text())["models"] == {}
+        assert store.load_settings().models == {}
         backups = list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))
         assert len(backups) == 1
         assert yaml.safe_load(backups[0].read_text()) == active
@@ -366,7 +375,7 @@ def test_concurrent_cold_loads_publish_one_complete_upgrade(
     template_path = tmp_path / "template.yaml"
     active_path.write_text(yaml.safe_dump({"models": {"old": entry()}}))
     template_path.write_text(yaml.safe_dump({"models": {"new": entry(binding="v2")}}))
-    monkeypatch.setattr(store, "get_active_settings_path", lambda: active_path)
+    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
     monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
     copyfile = store.shutil.copyfile
 
@@ -380,10 +389,7 @@ def test_concurrent_cold_loads_publish_one_complete_upgrade(
         with ThreadPoolExecutor(max_workers=6) as executor:
             loaded = list(executor.map(lambda _: store.load_settings(), range(6)))
         assert all(item.models["new"].alternate_aliases == ["old"] for item in loaded)
-        assert (
-            yaml.safe_load(active_path.read_text())["models"]["new"]["model_string"]
-            == "v2"
-        )
+        assert store.load_settings().models["new"].model_string == "v2"
         assert (
             len(list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))) == 1
         )

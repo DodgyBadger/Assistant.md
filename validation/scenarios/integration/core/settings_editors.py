@@ -6,8 +6,6 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from validation.core.base_scenario import BaseScenario
@@ -91,9 +89,9 @@ class SettingsEditorsScenario(BaseScenario):
                 ("ingestion_pdf_default_strategies", '["typo"]'),
                 ("compaction_low_watermark_tokens", "90000"),
             ]:
-                before = self.call_api("/api/system/settings").json()["content"]
+                before = self.configuration_request().json()["configuration"]
                 update(key, raw, 400)
-                assert self.call_api("/api/system/settings").json()["content"] == before
+                assert self.configuration_request().json()["configuration"] == before
 
             update("persist_model_reasoning_parts", "true")
             update("model_stream_retry_base_delay_seconds", "0.5")
@@ -101,9 +99,7 @@ class SettingsEditorsScenario(BaseScenario):
             update("disabled_tools", "[]")
             update("ingestion_pdf_default_strategies", '["pdf_text","pdf_ocr"]')
             update("compaction_author_model", "none")
-            persisted = yaml.safe_load(
-                self.call_api("/api/system/settings").json()["content"]
-            )
+            persisted = self.configuration_request().json()["configuration"]
             assert (
                 persisted["settings"]["persist_model_reasoning_parts"]["value"] is True
             )
@@ -121,10 +117,8 @@ class SettingsEditorsScenario(BaseScenario):
             persisted["settings"]["max_concurrent_delegates"]["value"] = "broken"
             persisted["settings"]["default_chat_mode"]["value"] = "typo"
             persisted["settings"]["vault_state_excluded_patterns"]["value"] = [42]
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted, sort_keys=False)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             invalid = settings()
@@ -147,14 +141,10 @@ class SettingsEditorsScenario(BaseScenario):
 
             # Both participants report relationship violations; unrelated settings
             # remain editable and incremental repairs cannot worsen the violation.
-            persisted = yaml.safe_load(
-                self.call_api("/api/system/settings").json()["content"]
-            )
+            persisted = self.configuration_request().json()["configuration"]
             persisted["settings"]["compaction_low_watermark_tokens"]["value"] = 100000
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             invalid = settings()
@@ -174,39 +164,29 @@ class SettingsEditorsScenario(BaseScenario):
 
             # Choices and validity follow the live registry, including an alias
             # removed after a client obtained the choices and later restored.
-            persisted = yaml.safe_load(
-                self.call_api("/api/system/settings").json()["content"]
-            )
+            persisted = self.configuration_request().json()["configuration"]
             persisted["models"]["sonnet"]["model_string"] = "upgraded-model-id"
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             assert not settings()["default_model"]["issues"]
             saved_model = persisted["models"].pop("sonnet")
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             assert settings()["default_model"]["issues"]
             update("default_model", "sonnet", 400)
             persisted["models"]["sonnet"] = saved_model
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             assert not settings()["default_model"]["issues"]
             persisted["models"] = {}
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             empty_models = settings()
@@ -215,10 +195,8 @@ class SettingsEditorsScenario(BaseScenario):
             assert not empty_models["compaction_author_model"]["issues"]
             # Packaged tools remain registered before an older persisted file is repaired.
             persisted["tools"].pop("file_read")
-            response = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(persisted)},
+            response = self.configuration_request(
+                method="PUT", data={"configuration": persisted}
             )
             assert response.status_code == 200, response.text
             tool_choices = settings()["disabled_tools"]["editor"]["choices"]

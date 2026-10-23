@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-import yaml
 from dotenv import dotenv_values
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
@@ -290,13 +289,9 @@ def _capture_new_checkpoints(
 
 
 def _load_live_settings(system_root: Path) -> dict[str, Any]:
-    settings_path = system_root / "settings.yaml"
-    if not settings_path.exists():
-        raise RuntimeError(f"Live settings file not found: {settings_path}")
-    payload = yaml.safe_load(settings_path.read_text(encoding="utf-8")) or {}
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Live settings are not a mapping: {settings_path}")
-    return payload
+    from validation.core.configuration import read_database_snapshot
+
+    return read_database_snapshot(system_root / "settings.db")
 
 
 def _load_live_secrets(system_root: Path, env_path: Path) -> LiveSecrets:
@@ -343,8 +338,10 @@ def _access_token_only(raw_token: str) -> str:
 
 
 def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
-    settings_path = controller._system_root / "settings.yaml"  # noqa: SLF001
-    isolated = yaml.safe_load(settings_path.read_text(encoding="utf-8")) or {}
+    from validation.core.configuration import install_configuration, read_configuration
+
+    root = controller._system_root  # noqa: SLF001
+    isolated = read_configuration(root)
     live_settings = live.get("settings") or {}
     live_models = live.get("models") or {}
     live_providers = live.get("providers") or {}
@@ -367,10 +364,7 @@ def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
         ("compaction_type", "auto"),
     ):
         _set_setting(isolated, name, value)
-    settings_path.write_text(
-        yaml.safe_dump(isolated, sort_keys=False, allow_unicode=False),
-        encoding="utf-8",
-    )
+    install_configuration(root, isolated)
 
 
 def _set_setting(settings: dict[str, Any], name: str, value: Any) -> None:

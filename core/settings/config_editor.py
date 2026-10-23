@@ -1,5 +1,5 @@
 """
-Configuration editing helpers for settings.yaml.
+Configuration editing helpers for application settings.
 
 Provides validated update operations for user-facing configuration surfaces
 such as model mappings and custom providers while preserving developer-only
@@ -44,7 +44,7 @@ def _persist_changes(settings_file: SettingsFile) -> None:
 
 def list_general_settings() -> dict[str, SettingsEntry]:
     """Return configured values with current product-owned metadata."""
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     template_settings = get_template_general_settings()
     merged = dict(settings_file.settings)
     for name, template_entry in template_settings.items():
@@ -65,7 +65,7 @@ def list_general_settings() -> dict[str, SettingsEntry]:
 
 def update_general_setting(name: str, raw_value: str) -> SettingsEntry:
     """Update a general setting value while preserving metadata and types."""
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     if name in RETIRED_SETTINGS:
         raise SettingsError(f"Setting '{name}' does not exist.")
     entry = settings_file.settings.get(name)
@@ -162,7 +162,9 @@ def upsert_model_mapping(
     ):
         raise SettingsError("The model alias 'test' is reserved for validation.")
     if provider not in settings_file.providers:
-        raise SettingsError(f"Provider '{provider}' is not defined in settings.yaml.")
+        raise SettingsError(
+            f"Provider '{provider}' is not defined in application settings."
+        )
     if not model_string.strip():
         raise SettingsError("A provider model identifier is required.")
     try:
@@ -239,7 +241,7 @@ def upsert_provider_config(
 
     Only providers marked as user_editable (or new providers) may be modified.
     """
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     existing = settings_file.providers.get(name)
 
     if existing and not _provider_can_be_edited(settings_file, name, existing):
@@ -277,7 +279,7 @@ def upsert_provider_config(
 
 def delete_provider_config(name: str) -> None:
     """Delete a user-editable provider configuration if unused."""
-    settings_file = load_settings()
+    settings_file = load_settings().model_copy(deep=True)
     existing = settings_file.providers.get(name)
 
     if not existing:

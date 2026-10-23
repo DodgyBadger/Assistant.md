@@ -29,6 +29,11 @@ class SystemDatabaseDefinition:
 
 
 SYSTEM_DATABASES: dict[str, SystemDatabaseDefinition] = {
+    "settings": SystemDatabaseDefinition(
+        name="settings",
+        owner="core.settings",
+        description="Typed installation settings, models, providers, and tools.",
+    ),
     "chat_sessions": SystemDatabaseDefinition(
         name="chat_sessions",
         owner="core.chat.chat_store",

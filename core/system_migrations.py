@@ -69,6 +69,16 @@ from core.migration_backups import (
 )
 from core.runtime.paths import get_system_root
 from core.secrets.bootstrap import get_secrets_bootstrap_status
+from core.settings.schema import (
+    DB_NAME as SETTINGS_DB_NAME,
+)
+from core.settings.schema import (
+    MIGRATION_NAMESPACE as SETTINGS_MIGRATION_NAMESPACE,
+)
+from core.settings.schema import (
+    SETTINGS_MIGRATIONS,
+    ensure_settings_schema,
+)
 from core.vault_state.schema import (
     DB_NAME as VAULT_STATE_DB_NAME,
 )
@@ -132,6 +142,12 @@ class SystemMigrationStatus:
 
 
 MIGRATION_TARGETS: tuple[SystemMigrationTarget, ...] = (
+    SystemMigrationTarget(
+        db_name=SETTINGS_DB_NAME,
+        namespace=SETTINGS_MIGRATION_NAMESPACE,
+        migrations=SETTINGS_MIGRATIONS,
+        ensure_schema=ensure_settings_schema,
+    ),
     SystemMigrationTarget(
         db_name=ACCESS_DB_NAME,
         namespace=ACCESS_MIGRATION_NAMESPACE,
