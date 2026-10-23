@@ -150,7 +150,7 @@ Recommended next step: agree this settings-only product contract before creating
 
 ## Authorized branch slice: settings defaults and versioned upgrades
 
-Status: authorized for implementation on `dev/settings-UI-upgrade`.
+Status: implementation complete and validated on `dev/settings-UI-upgrade`; protected documentation additions await draft approval.
 
 Scope includes Default/Custom general-setting ownership, numbered settings upgrades with backup/checkpoint/retry protection, per-setting Use default and the explicitly requested global managed-default reset. Managed model/provider/tool ownership remains unchanged. Authoring templates, broader snapshot restore, application downgrade automation and import/export are deferred.
 
@@ -182,3 +182,12 @@ The user explicitly expanded this branch slice to include a convenient global Us
 - Focused checks: 52 Python tests and 17 Node checks pass. Complete Ruff/Black/MyPy checks and CSS build pass. Browser checks passed all six themes at 320/390/1200px, keyboard focus and no overflow; mobile screenshot inspected.
 - Targeted global reset, packaged-default repair and system migration checks passed (`20261023_203928_963899`); the full deterministic integration/core run is in progress. Older persistence scenarios now distinguish effective settings from stored overrides.
 - Architecture/ADR 0053/release-note additions have been drafted in chat and are awaiting explicit approval; no protected documentation files have been edited.
+
+### Authorized slice final validation
+
+- Full deterministic integration/core: 139/139 passed (`20261023_204055_487841`), report `validation/runs/reports/20261023_204055_487841.md`.
+- Focused persistence/catalog/alias/settings/chat checks: 52 passed; Node model/settings editor checks: 17 passed. Complete Ruff, Black and MyPy checks, CSS build, JavaScript syntax and diff hygiene pass.
+- Browser source/reset controls passed all six themes at 320/390/1200px, keyboard focus and no horizontal overflow; `/tmp/assistantmd-settings-lifecycle-mobile.png` was visually inspected.
+- Latest dedicated reset scope scenario passed (`20261023_204333_119005`), including edited authoring content and read-only custom models. Actual Activity records cover per-setting default restoration and correlated global reset start/completion/failure; model-name conflict failure is atomic and does not log setting/secret values.
+- The initial integration mismatches were resolved by treating shipped editable providers as managed by catalog name, distinguishing sparse stored overrides from effective settings in older scenarios, and reading packaged defaults once per response.
+- Architecture, ADR 0053 and release-note draft additions remain pending explicit approval. No protected documentation files have been changed for this slice. Code and validation evidence are committed locally on the existing branch; nothing from this slice has been pushed.
