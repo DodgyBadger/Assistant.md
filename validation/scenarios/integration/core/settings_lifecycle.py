@@ -18,6 +18,13 @@ class SettingsLifecycleScenario(BaseScenario):
     async def test_scenario(self) -> None:
         self.create_vault("SettingsLifecycleVault")
         await self.start_system()
+        # This scenario exercises V1 behavior independently of the shipped strategy.
+        strategy_response = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "recovery_card"},
+        )
+        assert strategy_response.status_code == 200, strategy_response.text
         try:
 
             def settings():

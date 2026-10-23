@@ -68,7 +68,10 @@ async def create_agent(
         general_settings = get_general_settings()
         default_model_entry = general_settings.get("default_model")
         default_model_value = default_model_entry.value if default_model_entry else None
-        if not default_model_value:
+        if (
+            not default_model_value
+            or str(default_model_value).strip().lower() == "none"
+        ):
             raise ValueError(
                 "Set 'default_model' in System settings before creating agents without an explicit model."
             )

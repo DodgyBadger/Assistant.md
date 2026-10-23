@@ -20,6 +20,13 @@ class SettingsEditorsScenario(BaseScenario):
             "---\nrun_type: context\n---\nCustom context\n", encoding="utf-8"
         )
         await self.start_system()
+        # This scenario exercises V1 behavior independently of the shipped strategy.
+        strategy_response = self.call_api(
+            "/api/system/settings/general/compaction_strategy",
+            method="PUT",
+            data={"value": "recovery_card"},
+        )
+        assert strategy_response.status_code == 200, strategy_response.text
         try:
 
             def settings():
@@ -191,7 +198,10 @@ class SettingsEditorsScenario(BaseScenario):
             assert response.status_code == 200, response.text
             empty_models = settings()
             assert empty_models["default_model"]["issues"]
-            assert empty_models["default_model"]["editor"]["choices"] == []
+            assert [
+                choice["value"]
+                for choice in empty_models["default_model"]["editor"]["choices"]
+            ] == ["none"]
             assert not empty_models["compaction_author_model"]["issues"]
             # Packaged tools remain registered before an older persisted file is repaired.
             persisted["tools"].pop("file_read")

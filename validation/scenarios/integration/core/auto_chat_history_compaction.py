@@ -47,6 +47,7 @@ class AutoChatHistoryCompactionScenario(BaseScenario):
         ), "Compaction setting copy should steer users to threshold tuning before disabling auto"
 
         for key, value in (
+            ("compaction_strategy", "recovery_card"),
             ("compaction_type", "auto"),
             ("compaction_retained_turns", "1"),
             ("compaction_high_watermark_tokens", "1"),

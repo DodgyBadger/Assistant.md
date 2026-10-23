@@ -69,6 +69,11 @@ def seed_configuration(root: Path) -> None:
             )
             if "test" in raw.get("models", {}):
                 return
+            if current is None:
+                # Stable explicit fixture policy: tests opt into scheduler scans and
+                # unconfigured-model setup independently of shipped defaults.
+                raw["settings"]["default_model"]["value"] = "sonnet"
+                raw["settings"]["vault_scan_interval_seconds"]["value"] = 0
             raw.setdefault("providers", {})["test"] = {
                 "api_key": None,
                 "base_url": None,

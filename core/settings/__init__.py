@@ -327,6 +327,14 @@ def validate_settings(
     for setting_name in ("default_model", "compaction_author_model"):
         configured = get_general_settings().get(setting_name)
         value = configured.value if configured is not None else None
+        if setting_name == "default_model" and (
+            value is None or str(value).strip().lower() in {"", "none"}
+        ):
+            status.add_issue(
+                name="setting:default_model",
+                message="Select a default model in System → Application Settings to finish setup. It is also used for compaction unless a separate compaction author is configured.",
+            )
+            continue
         if setting_name == "compaction_author_model" and (
             value is None or str(value).strip().lower() in {"", "none"}
         ):

@@ -24,7 +24,7 @@ def resolve_chat_model_alias(model_alias: str, *, session_id: str | None = None)
     except (UnknownModelAlias, InvalidModelAlias):
         entry = get_general_settings().get("default_model")
         default = entry.value if entry is not None else None
-        if not isinstance(default, str) or not default.strip():
+        if not isinstance(default, str) or default.strip().lower() in {"", "none"}:
             raise UnknownModelAlias(
                 "The default model is not configured. Check the System tab."
             ) from None
