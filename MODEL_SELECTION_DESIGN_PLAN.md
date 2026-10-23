@@ -118,7 +118,7 @@ Lifecycle finding (high): concurrent cold settings loads could race while replac
 
 Collision review: Advanced YAML edits and settings repair validate the resulting registry before writing, while on-disk invalid names remain available for administration and cannot resolve arbitrarily. Custom duplication and repair preservation are covered by the alias scenario. Catalog upgrades validate the complete resulting namespace and roll back on collisions.
 
-Operator review: Chromium passed managed binding protection, alternate-list editing, custom-copy independence, keyboard focus, theme-dependent colors, and desktop/mobile overflow checks in all six themes. Activity checks cover model edits, chat fallback, and managed update success/blocking. Documentation review is complete: the approved architecture paragraph and shortened authoring addition are applied; installation changes were rejected and release notes are deferred to a separate drafting effort. A separate ADR is unnecessary because the existing settings-backed binding decision already owns this contract.
+Operator review: Chromium passed managed binding protection, alternate-list editing, custom-copy independence, keyboard focus, theme-dependent colors, and desktop/mobile overflow checks in all six themes. Activity checks cover model edits, chat fallback, and managed update success/blocking. Documentation review is complete: the approved architecture paragraph and shortened authoring addition are applied; installation changes were rejected and release notes are deferred to a separate drafting effort. ADR review now identifies a distinct decision about managed ownership, durable aliases, and explicit selection boundaries. ADR 0007 establishes where bindings live; accepted ADR 0052 complements it by defining who owns managed bindings and how references survive model updates.
 
 Further review centralized managed/custom rename preservation in `core/settings/model_registry.py`, and protected model drafts while saves are pending. The alias scenario inspects actual managed-update success and blocking records; distinct blocked configurations have distinct warning identities. Chat fallback covers both absent and invalid stored names, while provider and capability failures retain their existing handling. Raw YAML recovery validates the proposed registry independently of the broken current file; a malformed alternate-list fixture first reproduced the failed repair and now passes.
 
@@ -209,7 +209,7 @@ Validation: the provider-retirement regression failed before implementation and 
 
 ## Final documentation review step
 
-Completed: the user approved the architecture paragraph and only the first sentence of the authoring draft. Both approved additions are applied. The installation draft was rejected because these details do not belong in installation guidance; relevant user-facing details can be considered when release notes are drafted separately. The release-note draft was rejected for this effort, with release-note drafting deferred. No installation or release-note changes were made. A separate ADR is unnecessary because the existing settings-backed binding decision already owns this contract.
+Completed: the user approved the architecture paragraph and only the first sentence of the authoring draft. Both approved additions are applied. The installation draft was rejected because these details do not belong in installation guidance; relevant user-facing details can be considered when release notes are drafted separately. The initial release-note draft was deferred. The later approved concise v0.9.2 entry is now published in `RELEASE_NOTES.md`; installation remains unchanged. ADR review now identifies a distinct decision about managed ownership, durable aliases, and explicit selection boundaries. ADR 0007 establishes where bindings live; accepted ADR 0052 complements it by defining who owns managed bindings and how references survive model updates.
 
 ### Approved architecture addition
 
@@ -224,3 +224,12 @@ Applied to `docs/use/authoring.md` after the paragraph about keeping model alias
 Model arguments accept canonical aliases and alternate aliases configured under System → Models.
 
 Final review outcome: only the explicitly approved documentation text was applied. Installation remains unchanged, and release notes will be drafted separately. The user approved the further architecture sentence covering standard-alias family adoption and conflict warnings, and it is applied: “Entries under a standard alias become managed when their provider and model family match; conflicting bindings remain unchanged and raise a System warning.”
+
+
+### Accepted ADR 0052
+
+Created `docs/development/adr/0052-managed-model-families-and-durable-aliases.md` from the approved high-level draft. It complements ADR 0007: settings-backed binding remains the registry contract, while ADR 0052 records managed ownership, durable primary/alternate aliases, standard-family adoption, visible conflicts, and the tradeoff between stable references and evolving underlying models. Existing ADRs are unchanged.
+
+Validation: checked the ADR's local complement link and all evidence paths and ran the diff whitespace check. Documentation-only change; no runtime checks require repetition.
+
+Final documentation review outcome: the approved architecture, authoring, v0.9.2 release notes, and ADR 0052 are applied. Installation remains unchanged, and no documentation approval remains pending for this effort.
