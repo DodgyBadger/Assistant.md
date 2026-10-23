@@ -10,8 +10,6 @@ import os
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from validation.core.base_scenario import BaseScenario  # noqa: E402
@@ -170,14 +168,16 @@ def _seed_probe_files(scenario: BaseScenario, vault: Path) -> None:
 
 def _configure_live_openai_settings(scenario: BaseScenario) -> str:
     live_settings_path = Path(
-        os.environ.get("OPENAI_OAUTH_STRESS_SETTINGS", "/app/system/settings.yaml")
+        os.environ.get("OPENAI_OAUTH_STRESS_SETTINGS", "/app/system/settings.db")
     )
     assert live_settings_path.exists(), (
-        "Live OAuth stress probe requires /app/system/settings.yaml or "
+        "Live OAuth stress probe requires /app/system/settings.db or "
         "OPENAI_OAUTH_STRESS_SETTINGS"
     )
 
-    live_settings = yaml.safe_load(live_settings_path.read_text(encoding="utf-8")) or {}
+    from validation.core.configuration import read_database_snapshot
+
+    live_settings = read_database_snapshot(live_settings_path)
     live_general = live_settings.get("settings", {})
     live_models = live_settings.get("models", {})
     live_providers = live_settings.get("providers", {})
@@ -201,11 +201,7 @@ def _configure_live_openai_settings(scenario: BaseScenario) -> str:
         openai_provider, dict
     ), "Live OAuth stress probe requires an openai provider entry in live settings"
 
-    controller = scenario._get_system_controller()  # noqa: SLF001
-    isolated_settings_path = controller._system_root / "settings.yaml"  # noqa: SLF001
-    isolated_settings = (
-        yaml.safe_load(isolated_settings_path.read_text(encoding="utf-8")) or {}
-    )
+    isolated_settings = scenario.configuration_snapshot()
     isolated_settings.setdefault("settings", {})
     isolated_settings.setdefault("models", {})
     isolated_settings.setdefault("providers", {})
@@ -220,10 +216,7 @@ def _configure_live_openai_settings(scenario: BaseScenario) -> str:
         ]
     isolated_settings["models"][model] = model_config
     isolated_settings["providers"]["openai"] = openai_provider
-    isolated_settings_path.write_text(
-        yaml.safe_dump(isolated_settings, sort_keys=False, allow_unicode=False),
-        encoding="utf-8",
-    )
+    scenario.install_configuration_fixture(isolated_settings)
     return model
 
 

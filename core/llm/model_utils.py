@@ -6,7 +6,6 @@ and handles environment-based configuration and API key validation.
 """
 
 from dataclasses import dataclass
-from hashlib import sha256
 from threading import Lock
 from typing import Any
 
@@ -30,7 +29,6 @@ from core.settings.store import (
     get_general_settings,
     get_models_config,
     get_providers_config,
-    load_settings,
 )
 
 # Create module logger
@@ -85,42 +83,6 @@ def _refresh_model_cache_unlocked() -> None:
     }
     providers = _get_provider_configs()
     _MODEL_CACHE = ModelCache(registry, mappings, capabilities, providers)
-    settings = load_settings()
-    if settings._retired_provider_updates:
-        logger.info(
-            "Retired built-in providers updated",
-            data={
-                "event": "retired_builtin_providers_updated",
-                "status": "completed",
-                "providers": settings._retired_provider_updates,
-            },
-        )
-        settings._retired_provider_updates = []
-    upgrade = settings._catalog_update
-    if upgrade is not None:
-        settings._catalog_update = None
-        if upgrade.issues:
-            logger.warning(
-                "Managed model update blocked",
-                data={
-                    "event": "managed_models_update_blocked",
-                    "status": "blocked",
-                    "reasons": upgrade.issues,
-                    "issue": "models:catalog_update:"
-                    + sha256("\n".join(upgrade.issues).encode()).hexdigest()[:16],
-                },
-            )
-        elif upgrade.updated or upgrade.removed:
-            logger.info(
-                "Managed models updated",
-                data={
-                    "event": "managed_models_updated",
-                    "status": "completed",
-                    "models": upgrade.updated,
-                    "renames": upgrade.renames,
-                    "removed": upgrade.removed,
-                },
-            )
 
 
 def refresh_model_cache() -> None:

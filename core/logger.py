@@ -222,10 +222,6 @@ def refresh_logfire_configuration(force: bool = False) -> None:
     _logfire_config_state = desired_state
 
 
-# Initialize configuration eagerly so early logging honors current settings.
-refresh_logfire_configuration(force=True)
-
-
 def _ensure_activity_logger() -> logging.Logger:
     """Create or return the process-wide activity logger."""
 
@@ -725,3 +721,8 @@ class OneShotLogger:
             sink_mode=self._mode,
             **fields,
         )
+
+
+# Settings bootstrap can emit activity events; all logger definitions must exist
+# before eagerly reading configuration.
+refresh_logfire_configuration(force=True)

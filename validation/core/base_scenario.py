@@ -482,6 +482,36 @@ class BaseScenario(ABC):
 
     # === API ENDPOINT TESTING ===
 
+    def configuration_snapshot(self) -> dict[str, Any]:
+        from validation.core.configuration import read_configuration
+
+        return read_configuration(self._get_system_controller()._system_root)
+
+    def install_configuration_fixture(self, data: dict[str, Any]) -> None:
+        from validation.core.configuration import install_configuration
+
+        install_configuration(self._get_system_controller()._system_root, data)
+
+    def configuration_request(
+        self,
+        method: str = "GET",
+        data: dict | None = None,
+    ) -> APIResponse:
+        """Read or validate/install test configuration through subsystem helpers."""
+        from core.runtime.reload_service import reload_configuration
+        from validation.core.configuration import validate_configuration
+
+        if method == "PUT":
+            try:
+                proposed = (data or {})["configuration"]
+                validate_configuration(proposed)
+            except (ValueError, KeyError, TypeError) as exc:
+                return APIResponse(400, text=str(exc))
+            self.install_configuration_fixture(proposed)
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                reload_configuration()
+        return APIResponse(200, data={"configuration": self.configuration_snapshot()})
+
     def call_api(
         self,
         endpoint: str,

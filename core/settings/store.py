@@ -1,7 +1,7 @@
 """
-Settings file loader and helpers.
+Typed installation settings persistence and helpers.
 
-Provides typed access to `system/settings.yaml`, covering general settings,
+Provides typed access to the settings database, covering general settings,
 models, providers, and tool metadata. Replaces the legacy mappings loader.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
 from threading import RLock
 from typing import Any, Literal
@@ -20,6 +21,7 @@ from pydantic import BaseModel, Field, PrivateAttr, ValidationError, field_valid
 from core.connections import ConnectionRequirement
 from core.migration_backups import prepare_migration_backup_path
 from core.runtime.paths import get_system_root
+from core.settings import repository
 from core.settings.model_catalog import CatalogUpgrade, upgrade_model_catalog
 from core.settings.upgrades import retire_builtin_providers, retire_embedding_models
 
@@ -116,8 +118,10 @@ class ModelConfig(BaseModel):
 
 
 class SettingsFile(BaseModel):
-    """Root schema for settings.yaml content."""
+    """Typed configuration snapshot independent of its persistence format."""
 
+    _revision: int | None = PrivateAttr(default=None)
+    _database_root: Path | None = PrivateAttr(default=None)
     _catalog_update: CatalogUpgrade | None = PrivateAttr(default=None)
     _catalog_issues: list[str] = PrivateAttr(default_factory=list)
     _retired_provider_updates: list[str] = PrivateAttr(default_factory=list)
@@ -143,108 +147,200 @@ def _resolve_system_root() -> Path:
     return get_system_root()
 
 
-def _resolve_settings_path() -> Path:
-    """Determine the active settings file path."""
-    return _resolve_system_root() / "settings.yaml"
+_snapshot_cache: dict[Path, SettingsFile] = {}
 
 
-def _ensure_settings_file(target_path: Path) -> None:
-    """Ensure the settings file exists at the target path, seeding from template if missing."""
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if target_path.exists():
-        return
-
-    if not SETTINGS_TEMPLATE.exists():
-        raise FileNotFoundError(
-            f"Default settings template missing: {SETTINGS_TEMPLATE}"
-        )
-
-    shutil.copyfile(SETTINGS_TEMPLATE, target_path)
+def get_settings_database_path() -> Path:
+    """Return the database owned by the installation settings subsystem."""
+    return repository.database_path(_resolve_system_root())
 
 
-@lru_cache(maxsize=1)
 def load_settings() -> SettingsFile:
-    """Load settings and serialize automatic upgrades with all settings writes."""
+    """Read a defensive configuration snapshot and reconcile managed entries."""
     with _SETTINGS_LOCK:
-        return _load_settings_file()
+        root = _resolve_system_root()
+        conn = repository.connect(root)
+        initialized_source: str | None = None
+        initializing = False
+        try:
+            cached = _snapshot_cache.get(root)
+            if cached is not None and cached._revision == repository.revision(conn):
+                return cached.model_copy(deep=True)
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                revision = repository.revision(conn)
+                if revision is None:
+                    initializing = True
+                    legacy_path = root / "settings.yaml"
+                    source = legacy_path if legacy_path.exists() else SETTINGS_TEMPLATE
+                    raw_data = yaml.safe_load(source.read_text(encoding="utf-8"))
+                    if raw_data is None:
+                        raw_data = {}
+                    if not isinstance(raw_data, dict):
+                        raise ValueError(
+                            "Legacy settings must contain a top-level mapping."
+                        )
+                    for section in ("settings", "models", "providers", "tools"):
+                        if raw_data.get(section) is None:
+                            raw_data[section] = {}
+                    # Validate before backing up or marking initialization complete.
+                    initial = SettingsFile.model_validate(raw_data)
+                    raw_data = initial.model_dump(mode="json")
+                    if legacy_path.exists():
+                        backup = prepare_migration_backup_path(
+                            root, "settings.yaml.bak"
+                        )
+                        shutil.copyfile(legacy_path, backup)
+                        with backup.open("rb") as handle:
+                            os.fsync(handle.fileno())
+                        initialized_source = "legacy_yaml"
+                    else:
+                        initialized_source = "defaults"
+                    repository.write_records(conn, raw_data)
+                    revision = 1
+                    conn.execute(
+                        "INSERT INTO configuration_state (singleton, revision, source) "
+                        "VALUES (1, ?, ?)",
+                        (revision, initialized_source),
+                    )
+                else:
+                    raw_data = repository.read_records(conn)
+                template = (
+                    yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
+                )
+                upgrade = upgrade_model_catalog(
+                    raw_data["models"], template.get("models", {})
+                )
+                providers = retire_builtin_providers(
+                    raw_data["providers"], upgrade.models
+                )
+                provider_updates = [
+                    name
+                    for name, entry in raw_data["providers"].items()
+                    if providers.get(name) != entry
+                ]
+                settings = SettingsFile.model_validate(
+                    {**raw_data, "models": upgrade.models, "providers": providers}
+                )
+                if (
+                    upgrade.updated
+                    or upgrade.renames
+                    or upgrade.removed
+                    or provider_updates
+                ):
+                    repository.write_records(conn, settings.model_dump(mode="json"))
+                    revision += 1
+                    conn.execute(
+                        "UPDATE configuration_state SET revision = ? WHERE singleton = 1",
+                        (revision,),
+                    )
+            settings._revision = revision
+            settings._database_root = root
+            settings._catalog_issues = upgrade.issues
+            settings._catalog_update = upgrade
+            settings._retired_provider_updates = provider_updates
+        except Exception as exc:
+            _log_database_event(
+                (
+                    "settings_database_initialization_failed"
+                    if initializing
+                    else "settings_database_load_failed"
+                ),
+                root,
+                error_type=type(exc).__name__,
+            )
+            raise
+        finally:
+            conn.close()
+        _snapshot_cache[root] = settings.model_copy(deep=True)
+        _log_catalog_events(settings)
+        if initialized_source:
+            _log_database_event(
+                "settings_database_initialized",
+                root,
+                source=initialized_source,
+                revision=revision,
+            )
+        return settings.model_copy(deep=True)
 
 
-def _load_settings_file() -> SettingsFile:
-    """
-    Load complete settings.yaml configuration with caching.
+def _log_catalog_events(settings: SettingsFile) -> None:
+    from core.logger import UnifiedLogger
 
-    Returns:
-        SettingsFile model for general settings, models, providers, and tools.
-    """
-    settings_file = get_active_settings_path()
-
-    with open(settings_file, encoding="utf-8") as handle:
-        raw_data = yaml.safe_load(handle) or {}
-
-    for section in ("settings", "models", "providers", "tools"):
-        if raw_data.get(section) is None:
-            raw_data[section] = {}
-
-    template = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
-    upgrade = upgrade_model_catalog(raw_data["models"], template.get("models", {}))
-    providers = retire_builtin_providers(raw_data["providers"], upgrade.models)
-    provider_updates = [
-        name
-        for name, entry in raw_data["providers"].items()
-        if providers.get(name) != entry
-    ]
-    candidate = {**raw_data, "models": upgrade.models, "providers": providers}
-    try:
-        settings = SettingsFile.model_validate(candidate)
-    except ValidationError as exc:
-        raise ValueError(f"Invalid settings.yaml configuration: {exc}") from exc
-    settings._catalog_issues = upgrade.issues
-    settings._catalog_update = upgrade
-    settings._retired_provider_updates = provider_updates
-    if upgrade.updated or upgrade.renames or upgrade.removed or provider_updates:
-        backup = prepare_migration_backup_path(
-            settings_file.parent, "settings.yaml.bak"
+    logger = UnifiedLogger(tag="models", default_sinks=["activity"])
+    if settings._retired_provider_updates:
+        logger.info(
+            "Retired built-in providers updated",
+            data={
+                "event": "retired_builtin_providers_updated",
+                "status": "completed",
+                "providers": settings._retired_provider_updates,
+            },
         )
-        shutil.copyfile(settings_file, backup)
-        tmp_path = settings_file.with_suffix(".tmp")
-        tmp_path.write_text(
-            yaml.safe_dump(candidate, sort_keys=False), encoding="utf-8"
+    upgrade = settings._catalog_update
+    if upgrade is None:
+        return
+    if upgrade.issues:
+        logger.warning(
+            "Managed model update blocked",
+            data={
+                "event": "managed_models_update_blocked",
+                "status": "blocked",
+                "reasons": upgrade.issues,
+                "issue": "models:catalog_update:"
+                + sha256("\n".join(upgrade.issues).encode()).hexdigest()[:16],
+            },
         )
-        os.replace(tmp_path, settings_file)
-    return settings
+    elif upgrade.updated or upgrade.removed or upgrade.renames:
+        logger.info(
+            "Managed models updated",
+            data={
+                "event": "managed_models_updated",
+                "status": "completed",
+                "models": upgrade.updated,
+                "renames": upgrade.renames,
+                "removed": upgrade.removed,
+            },
+        )
+
+
+def _log_database_event(event: str, root: Path, **fields: Any) -> None:
+    # Activity-only logging is safe before settings/logfire bootstrap completes.
+    from core.logger import UnifiedLogger
+
+    logger = UnifiedLogger(tag="settings", default_sinks=["activity"])
+    data = {
+        "event": event,
+        "status": "failed" if event.endswith("failed") else "completed",
+        "database_path": str(repository.database_path(root)),
+        **fields,
+    }
+    if event.endswith("failed"):
+        logger.error("Settings database load failed", data=data)
+    else:
+        logger.info("Settings database initialized", data=data)
 
 
 def refresh_settings_cache() -> None:
-    """Clear the settings cache so future calls reload from disk."""
+    """Clear packaged defaults; live snapshots are read from the database."""
     with _SETTINGS_LOCK:
-        load_settings.cache_clear()  # type: ignore[attr-defined]
+        _snapshot_cache.clear()
         _get_template_tools_config.cache_clear()
 
 
 def save_settings(settings: SettingsFile) -> None:
-    """Persist settings configuration to disk using atomic write."""
+    """Commit a typed snapshot only if its original revision is still current."""
     with _SETTINGS_LOCK:
-        path = get_active_settings_path()
-        # Settings may contain string-backed enums used by runtime-only availability
-        # checks. Dump through Pydantic's JSON mode so the persisted YAML contains
-        # their stable string values rather than Python enum objects.
-        data = settings.model_dump(mode="json")
-
-        tmp_path = path.with_suffix(".tmp")
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(tmp_path, "w", encoding="utf-8") as handle:
-            yaml.safe_dump(data, handle, sort_keys=False, allow_unicode=False)
-
-        os.replace(tmp_path, path)
-
-
-def get_active_settings_path() -> Path:
-    """Return the active settings file path, ensuring it exists."""
-    path = _resolve_settings_path()
-    _ensure_settings_file(path)
-    return path
+        root = _resolve_system_root()
+        if settings._revision is None or settings._database_root != root:
+            raise ValueError(
+                "Settings snapshot is not current for this installation. Reload and retry."
+            )
+        validated = SettingsFile.model_validate(settings.model_dump(mode="json"))
+        settings._revision = repository.save(
+            root, validated.model_dump(mode="json"), settings._revision
+        )
+        _snapshot_cache.pop(root, None)
 
 
 def get_general_settings() -> dict[str, SettingsEntry]:

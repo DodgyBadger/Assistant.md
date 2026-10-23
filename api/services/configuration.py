@@ -2,8 +2,6 @@
 
 import json
 import re
-import shutil
-from pathlib import Path
 from typing import Any, Literal
 
 import yaml
@@ -30,15 +28,11 @@ from core.llm.openai_oauth import (
     start_openai_oauth as start_openai_oauth_attempt,
 )
 from core.migration_backups import prepare_migration_backup_path
-from core.runtime.paths import (
-    resolve_bootstrap_data_root,
-    resolve_bootstrap_system_root,
-    set_bootstrap_roots,
-)
 from core.runtime.reload_service import reload_configuration
 from core.settings import (
     SettingsError,
     get_default_chat_mode,
+    repository,
     validate_settings,
 )
 from core.settings.config_editor import (
@@ -66,13 +60,14 @@ from core.settings.store import (
     ProviderConfig,
     SettingsEntry,
     SettingsFile,
-    get_active_settings_path,
     get_disabled_tool_names,
     get_general_settings,
     get_models_config,
     get_providers_config,
+    get_settings_database_path,
     get_tools_config,
     load_settings,
+    save_settings,
 )
 from core.settings.upgrades import upgrade_settings_mapping
 
@@ -93,113 +88,22 @@ from ..models import (
     SecretInfo,
     SecretUpdateRequest,
     SettingInfo,
+    SettingsRepairResponse,
     SettingUpdateRequest,
-    SystemSettingsResponse,
     ToolInfo,
 )
 from .shared import get_workflow_loader, logger
 
 
-def _build_settings_response(path: Path) -> SystemSettingsResponse:
-    content = path.read_text(encoding="utf-8")
-    return SystemSettingsResponse(
-        path=str(path), content=content, size_bytes=len(content.encode("utf-8"))
-    )
-
-
-async def get_system_settings() -> SystemSettingsResponse:
-    """Return the current settings YAML content."""
-    path = get_active_settings_path()
-    return _build_settings_response(path)
-
-
-async def update_system_settings(new_content: str) -> SystemSettingsResponse:
-    """Validate and persist updated settings YAML content."""
-    path = get_active_settings_path()
-
-    try:
-        parsed = yaml.safe_load(new_content) if new_content.strip() else {}
-    except yaml.YAMLError as exc:
-        raise SystemConfigurationError(f"Invalid settings YAML: {exc}") from exc
-
-    if parsed is None:
-        parsed = {}
-
-    if not isinstance(parsed, dict):
-        raise SystemConfigurationError(
-            "Settings YAML must contain a top-level mapping (dictionary)."
-        )
-
-    try:
-        proposed_models = SettingsFile.model_validate(
-            {"models": parsed.get("models") or {}}
-        ).models
-        build_model_registry(proposed_models).validate()
-    except ValueError as exc:
-        raise InvalidSystemSettingError("models", str(exc)) from exc
-
-    normalized_content = (
-        new_content if new_content.endswith("\n") else new_content + "\n"
-    )
-
-    try:
-        path.write_text(normalized_content, encoding="utf-8")
-    except Exception as exc:
-        raise SystemConfigurationError(f"Failed to write settings file: {exc}") from exc
-
-    reload_configuration()
-    logger.info(
-        "Settings updated",
-        data={"settings_path": str(path), "content_size": len(normalized_content)},
-    )
-
-    return _build_settings_response(path)
-
-
-def repair_settings_from_template() -> SystemSettingsResponse:
-    """
-    Merge missing keys from settings.template.yaml into the active settings file.
-
-    - Creates a .bak backup of system/settings.yaml before writing.
-    - Adds missing keys; existing values are preserved.
-    - Prunes removed settings and removed non-user-editable models/providers/tools.
-    """
-    # Ensure bootstrap roots exist for path resolution
-    set_bootstrap_roots(resolve_bootstrap_data_root(), resolve_bootstrap_system_root())
-    active_path = get_active_settings_path()
-
-    try:
-        template_raw = (
-            yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
-        )
-    except FileNotFoundError as exc:
-        raise SystemConfigurationError("Template settings file not found.") from exc
-    except yaml.YAMLError as exc:
-        raise SystemConfigurationError(
-            f"Failed to read template settings: {exc}"
-        ) from exc
-
-    try:
-        active_raw = yaml.safe_load(active_path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise SystemConfigurationError(
-            f"Failed to read active settings: {exc}"
-        ) from exc
-
-    if not isinstance(active_raw, dict):
-        raise SystemConfigurationError("Active settings file is not a valid mapping.")
-    if not isinstance(template_raw, dict):
-        raise SystemConfigurationError("Template settings file is not a valid mapping.")
-
-    # Apply centralized contract upgrades before merging template defaults.
+def repair_settings_from_template() -> SettingsRepairResponse:
+    """Reconcile packaged defaults in one revision-checked database commit."""
+    snapshot = load_settings()
+    active_raw = snapshot.model_dump(mode="json")
+    template_raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding="utf-8")) or {}
     try:
         merged = upgrade_settings_mapping(active_raw, template_raw)
     except ValueError as exc:
         raise SystemConfigurationError(str(exc)) from exc
-    for section in ("settings", "models", "providers", "tools"):
-        if merged.get(section) is None or not isinstance(merged.get(section), dict):
-            merged[section] = {}
-
     template_sections: dict[str, dict] = {}
     for section in ("settings", "models", "providers", "tools"):
         section_val = template_raw.get(section)
@@ -229,9 +133,10 @@ def repair_settings_from_template() -> SystemSettingsResponse:
             if isinstance(active_setting, dict) and isinstance(template_setting, dict):
                 for metadata_key in ("description", "category", "restart_required"):
                     if metadata_key in template_setting:
-                        active_setting.setdefault(
-                            metadata_key, template_setting[metadata_key]
-                        )
+                        if active_setting.get(metadata_key) is None:
+                            active_setting[metadata_key] = template_setting[
+                                metadata_key
+                            ]
 
     # Existing core provider entries may need newly introduced non-secret fields
     # from the template. Preserve all active values and only fill absent keys.
@@ -244,7 +149,13 @@ def repair_settings_from_template() -> SystemSettingsResponse:
                 template_provider, dict
             ):
                 for provider_key, provider_value in template_provider.items():
-                    active_provider.setdefault(provider_key, provider_value)
+                    if (
+                        provider_key == "provider"
+                        and active_provider.get(provider_key) is None
+                    ):
+                        active_provider[provider_key] = provider_value
+                    else:
+                        active_provider.setdefault(provider_key, provider_value)
 
     # Prune removed settings (settings are not user-extensible)
     settings_template_keys = set(template_sections["settings"].keys())
@@ -294,37 +205,29 @@ def repair_settings_from_template() -> SystemSettingsResponse:
     except ValueError as exc:
         raise InvalidSystemSettingError("models", str(exc)) from exc
 
-    try:
-        backup_path = prepare_migration_backup_path(
-            active_path.parent, "settings.yaml.bak"
-        )
-        shutil.copyfile(active_path, backup_path)
-    except Exception as exc:
-        raise SystemConfigurationError(
-            f"Failed to create settings backup: {exc}"
-        ) from exc
-
-    try:
-        active_path.write_text(
-            yaml.safe_dump(merged, sort_keys=False, allow_unicode=False),
-            encoding="utf-8",
-        )
-    except Exception as exc:
-        raise SystemConfigurationError(
-            f"Failed to write repaired settings: {exc}"
-        ) from exc
-
+    candidate = SettingsFile.model_validate(merged)
+    candidate._revision = snapshot._revision
+    candidate._database_root = snapshot._database_root
+    root = get_settings_database_path().parent
+    backup_path = prepare_migration_backup_path(root, "settings.db.bak")
+    repository.backup(root, backup_path)
+    save_settings(candidate)
     reload_configuration()
     logger.info(
         "Settings repair completed",
         data={
             "event": "settings_repair_completed",
             "status": "completed",
-            "settings_path": str(active_path),
+            "database_path": str(get_settings_database_path()),
             "backup_path": str(backup_path),
         },
     )
-    return _build_settings_response(active_path)
+    return SettingsRepairResponse(
+        success=True,
+        restart_required=False,
+        message="Settings repaired. Reload the page to see changes.",
+        backup_path=str(backup_path),
+    )
 
 
 #######################################################################

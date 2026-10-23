@@ -15,8 +15,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 _direct_run_root: tempfile.TemporaryDirectory[str] | None = None
@@ -113,10 +111,10 @@ class ApiEndpointsScenario(BaseScenario):
         activity = self.call_api("/api/system/activity-log")
         assert activity.status_code == 200, "Activity log fetch succeeds"
 
-        settings = self.call_api("/api/system/settings")
+        settings = self.configuration_request()
         assert settings.status_code == 200, "Settings fetch succeeds"
         settings_payload = settings.json()
-        settings_content = yaml.safe_load(settings_payload["content"]) or {}
+        settings_content = settings_payload["configuration"] or {}
         settings_content.setdefault("settings", {}).setdefault(
             "default_model",
             {
@@ -139,10 +137,8 @@ class ApiEndpointsScenario(BaseScenario):
             "base_url": None,
             "user_editable": False,
         }
-        update_settings = self.call_api(
-            "/api/system/settings",
-            method="PUT",
-            data={"content": yaml.safe_dump(settings_content, sort_keys=False)},
+        update_settings = self.configuration_request(
+            method="PUT", data={"configuration": settings_content}
         )
         assert update_settings.status_code == 200, "Settings update round-trips"
 

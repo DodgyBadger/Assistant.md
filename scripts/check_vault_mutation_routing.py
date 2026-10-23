@@ -29,16 +29,6 @@ ALLOWED_DIRECT_MUTATION_CALLS = {
         "import_root.mkdir",
     ),
     (
-        Path("api/services/configuration.py"),
-        "update_system_settings",
-        "path.write_text",
-    ),
-    (
-        Path("api/services/configuration.py"),
-        "repair_settings_from_template",
-        "active_path.write_text",
-    ),
-    (
         Path("api/services/workflows.py"),
         "_write_system_workflow_file_content",
         "temp_path.write_text",

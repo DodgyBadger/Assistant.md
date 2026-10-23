@@ -922,7 +922,7 @@ def _validate_image_capability(
     logger.warning("Chat capability mismatch", data=details)
     raise ChatCapabilityError(
         (
-            f"Model '{model_alias}' does not declare 'vision' capability in settings.yaml. "
+            f"Model '{model_alias}' does not declare 'vision' capability in model settings. "
             "Use a vision-capable model or remove image attachments."
         ),
         details=details,

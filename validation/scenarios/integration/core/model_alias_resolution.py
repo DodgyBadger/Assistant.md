@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
@@ -43,12 +44,12 @@ class ModelAliasResolutionScenario(BaseScenario):
                 assert resolve_model(alternate) == resolve_model(primary)
                 assert any(model["name"] == primary for model in listed)
                 assert not any(model["name"] == alternate for model in listed)
-            before = self.call_api("/api/system/settings").json()["content"]
+            before = self.configuration_request().json()["configuration"]
             collision = self.call_api(
                 "/api/system/models/another-model", method="PUT", data=payload
             )
             assert collision.status_code == 400, collision.text
-            assert self.call_api("/api/system/settings").json()["content"] == before
+            assert self.configuration_request().json()["configuration"] == before
             sonnet = next(model for model in listed if model["name"] == "sonnet")
             assert sonnet["user_editable"] is False
             managed_payload = {
@@ -134,26 +135,24 @@ class ModelAliasResolutionScenario(BaseScenario):
                 if model["name"] == "sonnet-custom"
             )
             assert custom["model_string"] == "user-model-id"
-            # Advanced edits share the collision boundary and cannot partially write.
+            # Configuration fixtures share the collision boundary and cannot partially write.
             import yaml
 
-            before = self.call_api("/api/system/settings").json()["content"]
-            raw = yaml.safe_load(before)
+            before = self.configuration_request().json()["configuration"]
+            raw = deepcopy(before)
             raw["models"]["sonnet-custom"]["alternate_aliases"] = ["sonnet"]
-            collision = self.call_api(
-                "/api/system/settings",
-                method="PUT",
-                data={"content": yaml.safe_dump(raw)},
+            collision = self.configuration_request(
+                method="PUT", data={"configuration": raw}
             )
             assert collision.status_code == 400, collision.text
-            assert self.call_api("/api/system/settings").json()["content"] == before
-            # On-disk invalid names remain diagnosable and never choose a winner.
+            assert self.configuration_request().json()["configuration"] == before
+            # Persisted invalid names remain diagnosable and never choose a winner.
             from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
             from core.runtime.reload_service import reload_configuration
             from core.settings.model_registry import InvalidModelAlias
 
-            path = self._get_system_controller()._system_root / "settings.yaml"
-            path.write_text(yaml.safe_dump(raw))
+            path = self._get_system_controller()._system_root / "settings.db"
+            self.install_configuration_fixture(raw)
             try:
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
@@ -183,7 +182,7 @@ class ModelAliasResolutionScenario(BaseScenario):
                 else:
                     raise AssertionError("Ambiguous aliases must not resolve")
             finally:
-                path.write_text(before)
+                self.install_configuration_fixture(before)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
             # Catalog changes run against an isolated template and produce actual
@@ -193,7 +192,7 @@ class ModelAliasResolutionScenario(BaseScenario):
 
             from core.settings import store
 
-            retired = yaml.safe_load(path.read_text())
+            retired = self.configuration_snapshot()
             retired["models"]["jev"] = {
                 "managed_id": "builtin-jev",
                 "provider": "typesafe",
@@ -201,10 +200,10 @@ class ModelAliasResolutionScenario(BaseScenario):
                 "capabilities": ["decision"],
                 "user_editable": False,
             }
-            path.write_text(yaml.safe_dump(retired))
+            self.install_configuration_fixture(retired)
             with use_execution_authority(LOCAL_USER_AUTHORITY):
                 reload_configuration()
-            assert "jev" not in yaml.safe_load(path.read_text())["models"]
+            assert "jev" not in self.configuration_snapshot()["models"]
             assert any(
                 "jev" in event.get("data", {}).get("removed", [])
                 and event.get("data", {}).get("event") == "managed_models_updated"
@@ -224,17 +223,17 @@ class ModelAliasResolutionScenario(BaseScenario):
                     with use_execution_authority(LOCAL_USER_AUTHORITY):
                         reload_configuration()
                     assert resolve_model("sonnet") == ("anthropic", "catalog-v2")
-                    saved = path.read_text()
-                    assert yaml.safe_load(saved)["models"]["managed-next"][
-                        "alternate_aliases"
-                    ] == ["sonnet"]
+                    saved = self.configuration_snapshot()
+                    assert saved["models"]["managed-next"]["alternate_aliases"] == [
+                        "sonnet"
+                    ]
                     template["models"]["sonnet-custom"] = template["models"].pop(
                         "managed-next"
                     )
                     fixture.write_text(yaml.safe_dump(template))
                     with use_execution_authority(LOCAL_USER_AUTHORITY):
                         result = reload_configuration()
-                    assert path.read_text() == saved
+                    assert self.configuration_snapshot() == saved
                     assert any(
                         issue.name == "models:catalog_update"
                         for issue in result.status.issues
@@ -261,24 +260,24 @@ class ModelAliasResolutionScenario(BaseScenario):
                 assert len({event["issue"] for event in blocked_events}) == 2
 
             finally:
-                path.write_text(before)
+                self.install_configuration_fixture(before)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
             # Standard family aliases become managed even after older installations
             # persisted them as custom; conflicting bindings remain recoverable.
-            original = path.read_text()
+            original = self.configuration_snapshot()
             try:
-                legacy = yaml.safe_load(original)
+                legacy = deepcopy(original)
                 legacy["models"]["sonnet"].update(
                     managed_id=None,
                     model_string="claude-sonnet-4-6",
                     capabilities=["text"],
                     user_editable=True,
                 )
-                path.write_text(yaml.safe_dump(legacy))
+                self.install_configuration_fixture(legacy)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
-                adopted = yaml.safe_load(path.read_text())["models"]["sonnet"]
+                adopted = self.configuration_snapshot()["models"]["sonnet"]
                 assert adopted["managed_id"] == "builtin-sonnet"
                 assert adopted["model_string"] == "claude-sonnet-5-5"
                 assert adopted["user_editable"] is False
@@ -286,11 +285,11 @@ class ModelAliasResolutionScenario(BaseScenario):
                 legacy["models"]["sonnet"].update(
                     provider="openai", model_string="gpt-6-astra"
                 )
-                conflicting = yaml.safe_dump(legacy)
-                path.write_text(conflicting)
+                conflicting = deepcopy(legacy)
+                self.install_configuration_fixture(conflicting)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     result = reload_configuration()
-                assert path.read_text() == conflicting
+                assert self.configuration_snapshot() == conflicting
                 assert any(
                     issue.name == "models:catalog_update"
                     and issue.severity == "warning"
@@ -311,24 +310,15 @@ class ModelAliasResolutionScenario(BaseScenario):
                 assert restored.json()["model_string"] == "claude-sonnet-5-5"
                 assert restored.json()["user_editable"] is False
             finally:
-                path.write_text(original)
+                self.install_configuration_fixture(original)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
-            # The raw editor must repair malformed current model data without loading it first.
-            original = path.read_text()
-            malformed = yaml.safe_load(original)
-            malformed["models"]["sonnet-custom"]["alternate_aliases"] = "not-a-list"
-            path.write_text(yaml.safe_dump(malformed))
-            store.refresh_settings_cache()
-            try:
-                repaired = self.call_api(
-                    "/api/system/settings", method="PUT", data={"content": original}
-                )
-                assert repaired.status_code == 200, repaired.text
-                assert self.call_api("/api/system/models").status_code == 200
-            finally:
-                path.write_text(original)
-                with use_execution_authority(LOCAL_USER_AUTHORITY):
-                    reload_configuration()
+            # Raw-YAML configuration mutation is no longer exposed by the API.
+            assert self.call_api("/api/system/settings").status_code == 404
+            assert (
+                self.call_api("/api/system/settings", method="PUT", data={}).status_code
+                == 404
+            )
+
         finally:
             await self.stop_system()

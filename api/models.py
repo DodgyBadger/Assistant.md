@@ -2105,18 +2105,10 @@ class SystemLogResponse(BaseModel):
     )
 
 
-class SystemSettingsResponse(BaseModel):
-    """Response containing settings configuration for editing."""
+class SettingsRepairResponse(OperationResult):
+    """Outcome and consistent backup artifact for settings repair."""
 
-    path: str = Field(..., description="Filesystem path to the active settings file")
-    content: str = Field(..., description="Raw YAML content of the settings file")
-    size_bytes: int = Field(..., description="Total size of the settings file in bytes")
-
-
-class UpdateSettingsRequest(BaseModel):
-    """Request payload when updating settings YAML content."""
-
-    content: str = Field(..., description="New YAML content to persist")
+    backup_path: str
 
 
 class SettingInfo(BaseModel):
