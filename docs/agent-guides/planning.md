@@ -36,5 +36,6 @@ That plan should:
 - be created if none exists for the effort
 - be updated if the effort already has a plan file
 - capture scope, affected areas, validation target, and the next concrete implementation steps
+- end with a documentation review step: identify relevant documentation updates, discuss the affected files and proposed text or diff with the user, obtain explicit approval, and apply the approved updates
 
 This is required so work can continue cleanly across chat sessions and longer-running sprints.
