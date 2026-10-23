@@ -69,7 +69,7 @@ Implementation and hardening are complete. Validation used temporary roots; the 
 
 ## Peer hardening round
 
-Status: in progress; review scope is `cb47996..HEAD`, retaining the earlier settings/model work as the established contract.
+Status: complete; review scope is `cb47996..HEAD`, retaining the earlier settings/model work as the established contract.
 
 ### Stage 1: scope and contracts
 
@@ -98,5 +98,9 @@ Three independent read-only peers are reviewing storage, API/runtime boundaries,
 
 - All 46 focused Python checks pass; complete Ruff, Black and MyPy gates pass.
 - Affected integration rerun: 3/3 passed (`20261023_033058_938256`): settings_database_migration, model_alias_resolution, system_template_seed_refresh.
-- The full deterministic integration/core profile is running against the corrected behavior.
+- The full deterministic integration/core profile passed all 138 scenarios against the corrected behavior (`20261023_033109_006730`); report: `validation/runs/reports/20261023_033109_006730.md`.
 - Architecture, ADR 0053 and release-note contracts remain accurate; no documentation draft changes or approvals are pending for this round. No dependency changes or live-provider tests are required.
+
+### Peer hardening outcome
+
+All six stages are complete. Both Medium findings are resolved and independently re-reviewed; no remaining actionable findings were identified. Final validation: 138/138 deterministic scenarios, 46 focused Python checks, 14 Node editor checks, JavaScript syntax, complete Ruff/Black/MyPy gates and diff hygiene. No new documentation changes or manual checks are pending. Corrections and evidence are committed locally on `dev/settings-UI-upgrade`; nothing from this round has been pushed.
