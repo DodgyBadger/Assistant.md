@@ -38,6 +38,7 @@
         let captured = null;
         let expanded = false;
         let sending = false;
+        let sendRequestId = 0;
         let disposed = false;
         let feedbackTimer = null;
         let lastLockReason = '';
@@ -155,14 +156,17 @@
                 document.getSelection()?.removeAllRanges();
                 return;
             }
+            const requestId = ++sendRequestId;
             sending = true;
             syncLocks();
             setFeedback('Sending…');
+            let accepted = false;
             try {
                 await onSend(block, {
                     // First send allocates a session before starting its task.
                     onSessionAssigned: (sessionId) => { captured.sessionId = sessionId; },
                     onAccepted: () => {
+                        accepted = true;
                         sending = false;
                         reset();
                         onAccepted();
@@ -172,10 +176,13 @@
                     },
                 });
             } finally {
-                sending = false;
-                if (!disposed) {
-                    syncLocks();
-                    if (expanded) input.focus({ preventScroll: true });
+                // A previous response may still be refreshing after the next send starts.
+                if (requestId === sendRequestId) {
+                    sending = false;
+                    if (!disposed) {
+                        syncLocks();
+                        if (expanded && !accepted) input.focus({ preventScroll: true });
+                    }
                 }
             }
         }
