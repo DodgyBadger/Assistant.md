@@ -49,5 +49,8 @@ Feature development, starting with executable migration/revision contracts. Vali
 
 - Implemented slices 1–4; separate record tables use JSON-validated per-record fields, and unchanged records are not rewritten.
 - Added deterministic integration coverage in `settings_database_migration` and focused rollback/import/revision tests. Updated validation fixtures and optional live probes to use database-backed configuration helpers.
-- Focused tests: 41 passed. Initial six-scenario run passed five; the provider-metadata repair failure was fixed and its rerun passed. Migration, repair/seed refresh, scheduler settings, and system database migration scenarios pass. Full deterministic integration/core run is in progress.
+- Focused tests: 43 passed. Initial six-scenario run passed five; the provider-metadata repair failure was fixed and its rerun passed. Migration, repair/seed refresh, scheduler settings, and system database migration scenarios pass. Full deterministic integration/core run is in progress. The final migration/model-alias rerun passed both scenarios (`20261023_030339_514102`).
 - Approved documentation applied in `docs/development/architecture.md`, ADR 0053, and `RELEASE_NOTES.md`. Installation documentation does not describe runtime YAML configuration and needs no change for this effort.
+
+- Final review reproduced a concurrent YAML edit causing backup bytes to differ from imported bytes. Import now reads one byte snapshot and backs up those exact bytes; the new regression passes. An injected interruption after record writes also proves both configuration records and initialization metadata roll back before a retry succeeds.
+- Python quality gates pass: complete Ruff, Black, and MyPy checks. All 14 Node editor checks and the vault mutation routing check pass.
