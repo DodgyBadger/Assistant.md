@@ -2,6 +2,7 @@
 
 ## v0.9.2
 
+- Moved application settings to a database, with automatic import of existing settings.
 - Improved System settings with guided controls and validation to reduce entry errors.
 - Added durable model aliases and easier custom model management.
 - Updated managed models to current provider releases, with automatic updates where supported.
