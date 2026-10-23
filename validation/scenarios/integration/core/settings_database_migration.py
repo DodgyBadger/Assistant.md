@@ -27,13 +27,22 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
         legacy = fixture_root / "settings.yaml"
         raw = {
             "settings": {"debug": {"value": False}},
-            "providers": {"custom": {"base_url": "https://example.test"}},
+            "providers": {
+                "custom": {"base_url": "https://example.test"},
+                "typesafe": {"api_key": "TYPESAFE_API_KEY", "user_editable": False},
+            },
             "models": {
                 "custom": {
                     "provider": "custom",
                     "model_string": "user-model",
                     "alternate_aliases": ["historical"],
-                }
+                },
+                "jev": {
+                    "provider": "typesafe",
+                    "model_string": "jev-latest",
+                    "capabilities": ["decision"],
+                    "user_editable": False,
+                },
             },
             "tools": {},
         }
@@ -45,6 +54,8 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 first = store.load_settings()
                 assert first.models["custom"].alternate_aliases == ["historical"]
                 assert first.models["custom"].managed_id is None
+                assert "jev" not in first.models
+                assert "typesafe" not in first.providers
                 assert legacy.read_text() == original
                 backups = list(
                     (fixture_root / "migration_backups").glob("settings.yaml.bak*")
@@ -121,6 +132,19 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 repaired["settings"]["debug"]["value"] = True
                 failed_legacy.write_text(yaml.safe_dump(repaired))
                 assert store.load_settings().settings["debug"].value is True
+            corrupt_root = root / "corrupt-installation"
+            corrupt_root.mkdir()
+            corrupt_database = corrupt_root / "settings.db"
+            corrupt_bytes = b"not sqlite"
+            corrupt_database.write_bytes(corrupt_bytes)
+            with patch.object(store, "_resolve_system_root", return_value=corrupt_root):
+                try:
+                    store.load_settings()
+                except sqlite3.DatabaseError:
+                    pass
+                else:
+                    raise AssertionError("Corrupt database must fail explicitly")
+            assert corrupt_database.read_bytes() == corrupt_bytes
             assert self.call_api("/api/system/settings").status_code == 404
             assert (
                 self.call_api("/api/system/settings", method="PUT", data={}).status_code
@@ -151,6 +175,16 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 and e["data"]["database_path"] == str(fixture_root / "settings.db")
             ]
             assert len(imported) == 1 and imported[0]["source"] == "legacy_yaml"
+            failures = [
+                e["data"]
+                for e in events
+                if e.get("data", {}).get("event") == "settings_database_load_failed"
+                and e["data"]["database_path"] == str(corrupt_database)
+            ]
+            assert len(failures) == 1
+            assert failures[0]["status"] == "failed"
+            assert failures[0]["error_type"] == "DatabaseError"
+            assert failures[0]["error"]
             assert any(
                 e.get("data", {}).get("event")
                 == "settings_database_initialization_failed"

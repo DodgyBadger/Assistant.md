@@ -140,3 +140,57 @@ def test_validation_seeding_uses_explicit_root_not_active_bootstrap_root(
     finally:
         conn.close()
     assert not (isolated_store / "settings.db").exists()
+
+
+def test_legacy_jev_and_unused_typesafe_retire_during_import(isolated_store):
+    original = yaml.safe_dump(
+        {
+            "models": {
+                "jev": {
+                    "provider": "typesafe",
+                    "model_string": "jev-latest",
+                    "capabilities": ["decision"],
+                    "user_editable": False,
+                }
+            },
+            "providers": {
+                "typesafe": {"api_key": "TYPESAFE_API_KEY", "user_editable": False}
+            },
+        }
+    )
+    (isolated_store / "settings.yaml").write_text(original)
+    loaded = store.load_settings()
+    assert "jev" not in loaded.models
+    assert "typesafe" not in loaded.providers
+    backup = next((isolated_store / "migration_backups").glob("settings.yaml.bak*"))
+    assert backup.read_text() == original
+    store.refresh_settings_cache()
+    assert "jev" not in store.load_settings().models
+    assert "typesafe" not in store.load_settings().providers
+
+
+def test_corrupt_database_emits_failure_without_modifying_source(isolated_store):
+    import json
+    import sqlite3
+
+    store.load_settings()
+    store.refresh_settings_cache()
+    database = isolated_store / "settings.db"
+    original = b"not sqlite"
+    database.write_bytes(original)
+    with pytest.raises(sqlite3.DatabaseError):
+        store.load_settings()
+    assert database.read_bytes() == original
+    events = [
+        json.loads(line)
+        for line in (isolated_store / "activity.log").read_text().splitlines()
+    ]
+    failures = [
+        event["data"]
+        for event in events
+        if event.get("data", {}).get("event") == "settings_database_load_failed"
+    ]
+    assert len(failures) == 1
+    assert failures[0]["status"] == "failed"
+    assert failures[0]["database_path"] == str(database)
+    assert failures[0]["error_type"] == "DatabaseError"

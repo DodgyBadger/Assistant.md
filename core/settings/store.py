@@ -158,10 +158,11 @@ def load_settings() -> SettingsFile:
     """Read a defensive configuration snapshot and reconcile managed entries."""
     with _SETTINGS_LOCK:
         root = _resolve_system_root()
-        conn = repository.connect(root)
+        conn = None
         initialized_source: str | None = None
         initializing = False
         try:
+            conn = repository.connect(root)
             cached = _snapshot_cache.get(root)
             if cached is not None and cached._revision == repository.revision(conn):
                 return cached.model_copy(deep=True)
@@ -185,8 +186,9 @@ def load_settings() -> SettingsFile:
                         if raw_data.get(section) is None:
                             raw_data[section] = {}
                     # Validate before backing up or marking initialization complete.
-                    initial = SettingsFile.model_validate(raw_data)
-                    raw_data = initial.model_dump(mode="json")
+                    # Keep absent legacy fields distinct from explicit nulls until
+                    # catalog reconciliation has interpreted ownership provenance.
+                    SettingsFile.model_validate(raw_data)
                     if importing_legacy:
                         backup = prepare_migration_backup_path(
                             root, "settings.yaml.bak"
@@ -197,7 +199,6 @@ def load_settings() -> SettingsFile:
                         initialized_source = "legacy_yaml"
                     else:
                         initialized_source = "defaults"
-                    repository.write_records(conn, raw_data)
                     revision = 1
                     conn.execute(
                         "INSERT INTO configuration_state (singleton, revision, source) "
@@ -223,14 +224,15 @@ def load_settings() -> SettingsFile:
                 settings = SettingsFile.model_validate(
                     {**raw_data, "models": upgrade.models, "providers": providers}
                 )
-                if (
+                catalog_changed = bool(
                     upgrade.updated
                     or upgrade.renames
                     or upgrade.removed
                     or provider_updates
-                ):
+                )
+                if initializing or catalog_changed:
                     repository.write_records(conn, settings.model_dump(mode="json"))
-                    revision += 1
+                    revision += int(catalog_changed)
                     conn.execute(
                         "UPDATE configuration_state SET revision = ? WHERE singleton = 1",
                         (revision,),
@@ -249,10 +251,16 @@ def load_settings() -> SettingsFile:
                 ),
                 root,
                 error_type=type(exc).__name__,
+                error=(
+                    "Could not initialize settings; inspect legacy settings.yaml or packaged defaults and retry."
+                    if initializing
+                    else "Could not load settings.db; inspect the database and its backups."
+                ),
             )
             raise
         finally:
-            conn.close()
+            if conn is not None:
+                conn.close()
         _snapshot_cache[root] = settings.model_copy(deep=True)
         _log_catalog_events(settings)
         if initialized_source:
