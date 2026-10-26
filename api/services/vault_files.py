@@ -12,6 +12,7 @@ from typing import Literal
 from core.constants import ASSISTANTMD_ROOT_DIR
 from core.runtime.state import get_runtime_context
 from core.vault_state.activity import VaultActivityContext, use_vault_activity
+from core.vault_state.favorites import favorite_paths, set_favorite_paths
 from core.vault_state.file_mutations import (
     VaultMutationRejected,
     restore_vault_file,
@@ -179,6 +180,7 @@ def _vault_file_response(
         path=path,
         name=full_path.name,
         content=content,
+        favorite=path in favorite_paths(resolve_vault_root(vault_name)),
         sha256=_sha256_text(content),
         size_bytes=len(encoded),
         modified_at=_datetime_from_mtime(full_path),
@@ -557,6 +559,46 @@ def _is_workspace_picker_directory(path: Path) -> bool:
     )
 
 
+def get_vault_favorites(vault_name: str) -> list[str]:
+    """List authorized existing bookmarks in one vault."""
+    return sorted(favorite_paths(resolve_vault_root(vault_name)))
+
+
+def update_vault_favorites(
+    vault_name: str, paths: list[str], favorite: bool
+) -> list[str]:
+    """Validate a complete batch before persisting any bookmark changes."""
+    root = resolve_vault_root(vault_name)
+    with vault_directory_mutation_lock(root, root):
+        normalized_paths = []
+        for path in paths:
+            _, normalized, resolved = _resolve_vault_file_path(vault_name, path)
+            if any(part.startswith(".") for part in Path(normalized).parts):
+                raise APIException(
+                    400, "InvalidFavoritePath", "Hidden paths cannot be bookmarked."
+                )
+            if favorite and not (resolved.is_file() or resolved.is_dir()):
+                raise APIException(
+                    404,
+                    "FavoritePathNotFound",
+                    "Favorite path must be an existing file or folder.",
+                )
+            normalized_paths.append(normalized)
+        changed = set_favorite_paths(root, sorted(set(normalized_paths)), favorite)
+        if changed:
+            logger.info(
+                "Vault favorites updated",
+                data={
+                    "event": "vault_file_favorites_updated",
+                    "vault_name": vault_name,
+                    "favorite": favorite,
+                    "requested_count": len(paths),
+                    "changed_count": changed,
+                },
+            )
+        return sorted(favorite_paths(root))
+
+
 def list_vault_file_references(
     *,
     vault_name: str,
@@ -566,6 +608,7 @@ def list_vault_file_references(
     scope: str = "workspace",
     limit: int = _VAULT_FILE_REFERENCE_LIMIT,
     offset: int = 0,
+    favorites_only: bool = False,
 ) -> VaultFileReferenceListResponse:
     """Return file/folder candidates for chat reference insertion."""
     vault_root = resolve_vault_root(vault_name)
@@ -578,6 +621,47 @@ def list_vault_file_references(
         max(int(limit or _VAULT_FILE_REFERENCE_LIMIT), 1), _VAULT_FILE_REFERENCE_LIMIT
     )
     bounded_offset = max(int(offset or 0), 0)
+
+    favorites = favorite_paths(vault_root)
+    if favorites_only:
+        requested_scope = _normalize_workspace_path(path) or (
+            normalized_workspace if normalized_scope == "workspace" else ""
+        )
+        base_relative, _ = _resolve_existing_vault_directory(
+            vault_name=vault_name, path=requested_scope
+        )
+        candidates = []
+        for favorite in sorted(favorites, key=str.casefold):
+            if base_relative and not favorite.startswith(base_relative + "/"):
+                continue
+            if (
+                normalized_query
+                and normalized_query not in Path(favorite).name.casefold()
+            ):
+                continue
+            info = _vault_file_reference_info(
+                vault_root=vault_root,
+                path=vault_root / favorite,
+                workspace_path=normalized_workspace,
+            )
+            if info is not None:
+                info.favorite = True
+                candidates.append(info)
+        candidates.sort(
+            key=lambda item: (item.kind != "directory", item.path.casefold())
+        )
+        page = candidates[bounded_offset : bounded_offset + bounded_limit]
+        truncated = len(candidates) > bounded_offset + len(page)
+        return VaultFileReferenceListResponse(
+            vault_name=vault_name,
+            path=base_relative,
+            workspace_path=normalized_workspace,
+            query=normalized_query,
+            scope=normalized_scope,
+            items=page,
+            truncated=truncated,
+            next_offset=bounded_offset + len(page) if truncated else None,
+        )
 
     if normalized_query:
         requested_search_path = _normalize_workspace_path(path)
@@ -595,6 +679,8 @@ def list_vault_file_references(
             query=normalized_query,
             limit=bounded_limit,
         )
+        for item in items:
+            item.favorite = item.path in favorites
         return VaultFileReferenceListResponse(
             vault_name=vault_name,
             path=base_relative,
@@ -619,6 +705,8 @@ def list_vault_file_references(
         limit=bounded_limit,
         offset=bounded_offset,
     )
+    for item in items:
+        item.favorite = item.path in favorites
     return VaultFileReferenceListResponse(
         vault_name=vault_name,
         path=base_path,

@@ -1098,6 +1098,25 @@ class ChatStore:
             )
             return len(messages)
 
+    def set_session_favorite(
+        self, session_id: str, vault_name: str, favorite: bool
+    ) -> None:
+        """Set a bookmark without changing chat activity or effective history."""
+        with self.transaction() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            metadata = self._session_metadata(
+                conn, session_id=session_id, vault_name=vault_name
+            )
+            metadata["favorite"] = favorite
+            conn.execute(
+                "UPDATE chat_sessions SET metadata_json = ? WHERE session_id = ? AND vault_name = ?",
+                (
+                    json.dumps(metadata, ensure_ascii=False, sort_keys=True),
+                    session_id,
+                    vault_name,
+                ),
+            )
+
     def set_session_title(
         self, session_id: str, vault_name: str, title: str | None
     ) -> None:
@@ -2685,6 +2704,7 @@ def _fork_session_metadata(source_metadata: dict[str, Any]) -> dict[str, Any]:
     """Return source session metadata that is safe to carry into a fork."""
     metadata = dict(source_metadata)
     for key in (
+        "favorite",
         "history_revision",
         "last_compaction",
         "last_session_map_checkpoint",

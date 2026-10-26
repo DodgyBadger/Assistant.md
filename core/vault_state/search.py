@@ -60,6 +60,7 @@ def search_vault_content(
     path: str = "",
     limit: int = 100,
     timeout_seconds: float = 5.0,
+    allowed_paths: set[str] | None = None,
 ) -> VaultContentSearchResult:
     """Return structured case-insensitive literal matches from text files."""
     normalized_query = _normalize_query(query)
@@ -88,6 +89,7 @@ def search_vault_content(
         query=normalized_query,
         limit=limit,
         timeout_seconds=timeout_seconds,
+        allowed_paths=allowed_paths,
     )
 
 
@@ -98,6 +100,7 @@ def search_content_roots(
     query: str,
     limit: int = 100,
     timeout_seconds: float = 5.0,
+    allowed_paths: set[str] | None = None,
 ) -> VaultContentSearchResult:
     """Return bounded structured matches from validated files or directories."""
     normalized_query = _normalize_query(query)
@@ -118,6 +121,8 @@ def search_content_roots(
             )
         resolved_roots.append(resolved)
     if not resolved_roots:
+        return VaultContentSearchResult(matches=(), truncated=False)
+    if allowed_paths is not None and not allowed_paths:
         return VaultContentSearchResult(matches=(), truncated=False)
     bounded_limit = min(max(int(limit), 1), 200)
     command = [
@@ -173,7 +178,9 @@ def search_content_roots(
             if not line:
                 break
             match = _parse_match(line=line, vault_root=root)
-            if match is None:
+            if match is None or (
+                allowed_paths is not None and match.path not in allowed_paths
+            ):
                 continue
             if len(matches) >= bounded_limit:
                 truncated = True

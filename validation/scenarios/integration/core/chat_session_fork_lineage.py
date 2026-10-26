@@ -105,6 +105,7 @@ class ChatSessionForkLineageScenario(BaseScenario):
             },
         )
 
+        store.set_session_favorite(session_id, vault.name, True)
         source_before = store.get_stored_messages(session_id, vault.name, mode="raw")
         response = self.call_api(
             f"/api/chat/sessions/{session_id}/fork",
@@ -114,6 +115,8 @@ class ChatSessionForkLineageScenario(BaseScenario):
         assert response.status_code == 200, response.text
         payload = response.json()
         child_id = payload["session"]["session_id"]
+        assert payload["session"]["favorite"] is False
+        assert store.get_session_metadata(session_id, vault.name)["favorite"] is True
         self.soft_assert_equal(
             payload["copied_message_count"],
             6,

@@ -77,6 +77,7 @@ from .models import (
     ChatSessionDetailResponse,
     ChatSessionExportRequest,
     ChatSessionExportResponse,
+    ChatSessionFavoriteRequest,
     ChatSessionForkRequest,
     ChatSessionForkResponse,
     ChatSessionInfo,
@@ -155,6 +156,8 @@ from .models import (
     VaultContentSearchMatch,
     VaultContentSearchResponse,
     VaultDirectoryListResponse,
+    VaultFavoritesRequest,
+    VaultFavoritesResponse,
     VaultFileReferenceListResponse,
     VaultFileResponse,
     VaultFileRevisionResponse,
@@ -216,6 +219,7 @@ from .services import (
     get_system_status,
     get_vault_activity,
     get_vault_activity_rollback_preview,
+    get_vault_favorites,
     get_vault_file,
     get_vault_file_revisions,
     get_vault_snapshot_file,
@@ -252,6 +256,7 @@ from .services import (
     scan_import_folder,
     search_chat_sessions,
     search_vault_text,
+    set_chat_session_favorite,
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,
@@ -263,6 +268,7 @@ from .services import (
     trigger_import_queue_now,
     update_general_setting_value,
     update_secret,
+    update_vault_favorites,
     update_vault_file,
     update_workflow_file,
     upload_vault_file,
@@ -2215,6 +2221,30 @@ async def vault_directories(
         return create_error_response(e)
 
 
+@router.get("/vaults/{vault_name}/favorites", response_model=VaultFavoritesResponse)
+async def vault_favorites(vault_name: str) -> VaultFavoritesResponse | JSONResponse:
+    """List this principal's file and folder bookmarks."""
+    try:
+        paths = await run_in_threadpool(get_vault_favorites, vault_name)
+        return VaultFavoritesResponse(paths=paths)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
+@router.patch("/vaults/{vault_name}/favorites", response_model=VaultFavoritesResponse)
+async def set_vault_favorites(
+    vault_name: str, request: VaultFavoritesRequest
+) -> VaultFavoritesResponse | JSONResponse:
+    """Set an explicit bookmark state for selected files and folders."""
+    try:
+        paths = await run_in_threadpool(
+            update_vault_favorites, vault_name, request.paths, request.favorite
+        )
+        return VaultFavoritesResponse(paths=paths)
+    except Exception as exc:
+        return create_error_response(exc)
+
+
 @router.get(
     "/vaults/{vault_name}/file-refs", response_model=VaultFileReferenceListResponse
 )
@@ -2226,11 +2256,13 @@ async def vault_file_references(
     scope: str = "workspace",
     limit: int = 100,
     offset: int = 0,
+    favorites_only: bool = False,
 ) -> VaultFileReferenceListResponse | JSONResponse:
     """Return file and folder candidates for chat reference insertion."""
     try:
         return await run_in_threadpool(
             list_vault_file_references,
+            favorites_only=favorites_only,
             vault_name=vault_name,
             path=path,
             workspace_path=workspace_path,
@@ -2251,11 +2283,13 @@ async def vault_content_search(
     query: str,
     path: str = "",
     limit: int = Query(100, ge=1, le=200),
+    favorites_only: bool = False,
 ) -> VaultContentSearchResponse | JSONResponse:
     """Return bounded structured literal matches from vault text files."""
     try:
         result = await run_in_threadpool(
             search_vault_text,
+            favorites_only=favorites_only,
             vault_name=vault_name,
             query=query,
             path=path,
@@ -2695,6 +2729,18 @@ async def delete_chat_session_endpoint(
         return {"session_id": session_id, "deleted": True}
     except Exception as e:
         return create_error_response(e)
+
+
+@router.patch("/chat/sessions/{session_id}/favorite", response_model=None)
+async def set_session_favorite(
+    session_id: str, request: ChatSessionFavoriteRequest
+) -> dict[str, object] | JSONResponse:
+    """Set an authorized chat session bookmark."""
+    try:
+        set_chat_session_favorite(request.vault_name, session_id, request.favorite)
+        return {"session_id": session_id, "favorite": request.favorite}
+    except Exception as exc:
+        return create_error_response(exc)
 
 
 @router.patch("/chat/sessions/{session_id}/title", response_model=None)
