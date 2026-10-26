@@ -54,7 +54,9 @@ jobs:
         run: uv sync --frozen --all-extras --no-install-project
 
       - name: Audit Python dependencies
-        run: uv tool run --from pip-audit pip-audit --progress-spinner=off
+        run: |
+          uv export --frozen --all-extras --all-groups --no-emit-project --output-file "$RUNNER_TEMP/audit-requirements.txt"
+          uv tool run --from pip-audit pip-audit --progress-spinner=off --disable-pip -r "$RUNNER_TEMP/audit-requirements.txt"
 
   validation:
     needs: security-audit

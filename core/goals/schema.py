@@ -51,8 +51,7 @@ def ensure_goal_ops_schema(
 
 
 def _create_goal_ops_tables(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS goals (
             goal_id TEXT PRIMARY KEY,
             vault_name TEXT NOT NULL,
@@ -70,28 +69,20 @@ def _create_goal_ops_tables(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goals_vault_status_updated
         ON goals(vault_name, status, updated_at)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goals_vault_workspace
         ON goals(vault_name, workspace_path_hint)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goals_vault_source
         ON goals(vault_name, source_type, source_id)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS goal_steps (
             step_id TEXT PRIMARY KEY,
             goal_id TEXT NOT NULL,
@@ -106,22 +97,16 @@ def _create_goal_ops_tables(conn: sqlite3.Connection) -> None:
                 REFERENCES goals(goal_id)
                 ON DELETE CASCADE
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goal_steps_goal_position
         ON goal_steps(goal_id, position, created_at)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goal_steps_goal_status
         ON goal_steps(goal_id, status)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS goal_events (
             event_id TEXT PRIMARY KEY,
             goal_id TEXT NOT NULL,
@@ -137,16 +122,12 @@ def _create_goal_ops_tables(conn: sqlite3.Connection) -> None:
                 REFERENCES goal_steps(step_id)
                 ON DELETE SET NULL
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goal_events_goal_created
         ON goal_events(goal_id, created_at)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS goal_checkpoints (
             checkpoint_id TEXT PRIMARY KEY,
             goal_id TEXT NOT NULL,
@@ -165,14 +146,11 @@ def _create_goal_ops_tables(conn: sqlite3.Connection) -> None:
                 REFERENCES goal_steps(step_id)
                 ON DELETE SET NULL
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goal_checkpoints_goal_created
         ON goal_checkpoints(goal_id, created_at)
-        """
-    )
+        """)
 
 
 def _add_goal_source_provenance(conn: sqlite3.Connection) -> None:
@@ -180,12 +158,10 @@ def _add_goal_source_provenance(conn: sqlite3.Connection) -> None:
     for column in ("source_type", "source_id", "source_task_id", "source_label"):
         if column not in columns:
             conn.execute(f"ALTER TABLE goals ADD COLUMN {column} TEXT")
-    conn.execute(
-        """
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_goals_vault_source
         ON goals(vault_name, source_type, source_id)
-        """
-    )
+        """)
 
 
 def _add_goal_plan_snapshot(conn: sqlite3.Connection) -> None:

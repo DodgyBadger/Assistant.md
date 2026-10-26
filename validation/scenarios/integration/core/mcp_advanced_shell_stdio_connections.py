@@ -106,8 +106,7 @@ class MCPAdvancedShellStdioConnectionsScenario(BaseScenario):
             "Non-secret environment belongs only in sanitized MCP metadata",
         )
         parsed = parse_mcp_connection_import(
-            MCPConnectionImportRequest(
-                configuration="""
+            MCPConnectionImportRequest(configuration="""
 name: Filesystem
 transport: advanced_shell_stdio
 executable: /home/advanced-shell/.local/bin/mcp-server-filesystem
@@ -117,8 +116,7 @@ environment: {}
 roots: [/workspace]
 allowed_tools: [list_allowed_directories]
 enabled: true
-"""
-            )
+""")
         )
         self.soft_assert_equal(
             (

@@ -128,14 +128,12 @@ class VaultActivityMigrationScenario(BaseScenario):
                 "Temporary migration provenance should be removed from the current schema",
             )
             self.soft_assert_equal(
-                conn.execute(
-                    """
+                conn.execute("""
                     SELECT version
                     FROM schema_migrations
                     WHERE namespace = 'vault_state'
                     ORDER BY version
-                    """
-                ).fetchall(),
+                    """).fetchall(),
                 [(1,)],
                 "Vault-state migration should be recorded in the shared version ledger",
             )
@@ -188,8 +186,7 @@ class VaultActivityMigrationScenario(BaseScenario):
         created_at = datetime.now(UTC) - timedelta(days=1)
         expires_at = created_at + timedelta(days=30)
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE snapshot_sets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     task_id VARCHAR NOT NULL,
@@ -208,10 +205,8 @@ class VaultActivityMigrationScenario(BaseScenario):
                     expires_at DATETIME,
                     rolled_back_at DATETIME
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE file_snapshots (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     snapshot_set_id INTEGER NOT NULL,
@@ -226,8 +221,7 @@ class VaultActivityMigrationScenario(BaseScenario):
                     created_at DATETIME NOT NULL,
                     expires_at DATETIME
                 )
-                """
-            )
+                """)
             conn.execute(
                 """
                 INSERT INTO snapshot_sets (
@@ -280,8 +274,7 @@ class VaultActivityMigrationScenario(BaseScenario):
                     expires_at.isoformat(),
                 ),
             )
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE vault_mutations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     activity_id VARCHAR NOT NULL,
@@ -304,10 +297,8 @@ class VaultActivityMigrationScenario(BaseScenario):
                     expires_at DATETIME,
                     metadata_json TEXT
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE task_file_mutations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     task_id VARCHAR NOT NULL,
@@ -323,8 +314,7 @@ class VaultActivityMigrationScenario(BaseScenario):
                     snapshot_ref VARCHAR,
                     created_at DATETIME NOT NULL
                 )
-                """
-            )
+                """)
             conn.executemany(
                 """
                 INSERT INTO task_file_mutations (

@@ -588,14 +588,10 @@ class VaultFileReferenceApiScenario(BaseScenario):
         connection = sqlite3.connect(db_path)
         connection.row_factory = sqlite3.Row
         try:
-            return list(
-                connection.execute(
-                    """
+            return list(connection.execute("""
                     SELECT event_type, path, content_hash
                     FROM vault_file_events
                     ORDER BY sequence
-                    """
-                )
-            )
+                    """))
         finally:
             connection.close()

@@ -74,8 +74,7 @@ def ensure_chat_sessions_schema(
     """Create chat-session tables when they do not already exist."""
     conn = connect_sqlite_from_system_db(DB_NAME, system_root)
     try:
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_sessions (
                 session_id TEXT NOT NULL,
                 vault_name TEXT NOT NULL,
@@ -86,10 +85,8 @@ def ensure_chat_sessions_schema(
                 metadata_json TEXT,
                 PRIMARY KEY (session_id, vault_name)
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
@@ -106,22 +103,16 @@ def ensure_chat_sessions_schema(
                     REFERENCES chat_sessions(session_id, vault_name)
                     ON DELETE CASCADE
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_messages_session_sequence
             ON chat_messages(session_id, vault_name, sequence_index)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created
             ON chat_messages(session_id, vault_name, created_at)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_tool_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
@@ -138,22 +129,16 @@ def ensure_chat_sessions_schema(
                     REFERENCES chat_sessions(session_id, vault_name)
                     ON DELETE CASCADE
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_tool_events_session_created
             ON chat_tool_events(session_id, vault_name, created_at)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_tool_events_call_id
             ON chat_tool_events(session_id, vault_name, tool_call_id)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_edit_proposals (
                 artifact_ref TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -166,16 +151,12 @@ def ensure_chat_sessions_schema(
                     REFERENCES chat_sessions(session_id, vault_name)
                     ON DELETE CASCADE
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_edit_proposals_session
             ON chat_edit_proposals(session_id, vault_name, created_at)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS chat_deferred_reviews (
                 artifact_ref TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
@@ -195,14 +176,11 @@ def ensure_chat_sessions_schema(
                     REFERENCES chat_sessions(session_id, vault_name)
                     ON DELETE CASCADE
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_chat_deferred_reviews_session
             ON chat_deferred_reviews(session_id, vault_name, created_at)
-            """
-        )
+            """)
         _ensure_column(
             conn,
             "chat_deferred_reviews",
@@ -216,12 +194,10 @@ def ensure_chat_sessions_schema(
             "TEXT",
         )
         _deduplicate_session_ids(conn)
-        conn.execute(
-            """
+        conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_sessions_session_id_unique
             ON chat_sessions(session_id)
-            """
-        )
+            """)
         _migrate_compaction_checkpoints(conn)
         _migrate_session_discovery_fts(conn)
         _migrate_session_owners(conn)
@@ -298,8 +274,7 @@ def _migrate_session_discovery_fts(conn: sqlite3.Connection) -> None:
 
 def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
     """Add append-only chat compaction checkpoint storage."""
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS chat_compaction_checkpoints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             checkpoint_id TEXT NOT NULL,
@@ -319,22 +294,17 @@ def _migrate_compaction_checkpoints(conn: sqlite3.Connection) -> None:
                 REFERENCES chat_sessions(session_id, vault_name)
                 ON DELETE CASCADE
         )
-        """
-    )
+        """)
     _migrate_context_checkpoint_kinds(conn)
     _migrate_checkpoint_replacement_origins(conn)
-    conn.execute(
-        """
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_compaction_checkpoints_session_id
         ON chat_compaction_checkpoints(session_id, vault_name, id)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_compaction_checkpoints_session_sequence
         ON chat_compaction_checkpoints(session_id, vault_name, last_message_sequence_index)
-        """
-    )
+        """)
 
 
 def _migrate_context_checkpoint_kinds(conn: sqlite3.Connection) -> None:
@@ -355,8 +325,7 @@ def _migrate_checkpoint_replacement_origins(conn: sqlite3.Connection) -> None:
         "replacement_source_sequence_indexes_json",
         "TEXT",
     )
-    conn.execute(
-        """
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_context_checkpoints_kind
         ON chat_compaction_checkpoints(
             session_id,
@@ -364,8 +333,7 @@ def _migrate_checkpoint_replacement_origins(conn: sqlite3.Connection) -> None:
             checkpoint_kind,
             id
         )
-        """
-    )
+        """)
 
 
 def _ensure_column(
@@ -397,18 +365,15 @@ def _migrate_session_owners(conn: sqlite3.Connection) -> None:
         """,
         (LOCAL_USER_PRINCIPAL_ID,),
     )
-    conn.execute(
-        """
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_sessions_owner_activity
         ON chat_sessions(owner_principal_id, last_activity_at)
-        """
-    )
+        """)
 
 
 def _migrate_live_session_map_storage(conn: sqlite3.Connection) -> None:
     """Add source-linked session-map revisions and maintenance state."""
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS chat_session_map_revisions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL,
@@ -425,16 +390,12 @@ def _migrate_live_session_map_storage(conn: sqlite3.Connection) -> None:
                 REFERENCES chat_sessions(session_id, vault_name)
                 ON DELETE CASCADE
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_session_map_latest
         ON chat_session_map_revisions(session_id, vault_name, revision DESC)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS chat_session_map_maintenance (
             session_id TEXT NOT NULL,
             vault_name TEXT NOT NULL,
@@ -457,8 +418,7 @@ def _migrate_live_session_map_storage(conn: sqlite3.Connection) -> None:
                 REFERENCES chat_sessions(session_id, vault_name)
                 ON DELETE CASCADE
         )
-        """
-    )
+        """)
 
 
 def _migrate_live_session_map_attempt_audit(conn: sqlite3.Connection) -> None:
@@ -487,8 +447,7 @@ def _migrate_live_session_map_attempt_audit(conn: sqlite3.Connection) -> None:
         "last_authoring_json",
         "TEXT",
     )
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS chat_session_map_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL,
@@ -512,14 +471,11 @@ def _migrate_live_session_map_attempt_audit(conn: sqlite3.Connection) -> None:
                 REFERENCES chat_sessions(session_id, vault_name)
                 ON DELETE CASCADE
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_chat_session_map_attempts_session
         ON chat_session_map_attempts(session_id, vault_name, attempt_number DESC)
-        """
-    )
+        """)
 
 
 def _remove_live_session_map_storage(conn: sqlite3.Connection) -> None:
@@ -531,36 +487,29 @@ def _remove_live_session_map_storage(conn: sqlite3.Connection) -> None:
 
 def _migrate_chat_message_fts(conn: sqlite3.Connection) -> None:
     """Add a rebuildable full-text index over canonical chat-message text."""
-    conn.execute(
-        """
+    conn.execute("""
         CREATE VIRTUAL TABLE IF NOT EXISTS chat_messages_fts USING fts5(
             content_text,
             content = 'chat_messages',
             content_rowid = 'id',
             tokenize = 'unicode61'
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_insert
         AFTER INSERT ON chat_messages BEGIN
             INSERT INTO chat_messages_fts(rowid, content_text)
             VALUES (new.id, COALESCE(new.content_text, ''));
         END
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_delete
         AFTER DELETE ON chat_messages BEGIN
             INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content_text)
             VALUES ('delete', old.id, COALESCE(old.content_text, ''));
         END
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TRIGGER IF NOT EXISTS chat_messages_fts_after_update
         AFTER UPDATE OF content_text ON chat_messages BEGIN
             INSERT INTO chat_messages_fts(chat_messages_fts, rowid, content_text)
@@ -568,8 +517,7 @@ def _migrate_chat_message_fts(conn: sqlite3.Connection) -> None:
             INSERT INTO chat_messages_fts(rowid, content_text)
             VALUES (new.id, COALESCE(new.content_text, ''));
         END
-        """
-    )
+        """)
     rebuild_chat_message_fts(conn)
 
 
@@ -599,14 +547,12 @@ def _backfill_structured_chat_message_text(conn: sqlite3.Connection) -> None:
 
 def _deduplicate_session_ids(conn: sqlite3.Connection) -> None:
     """Ensure historical composite-key sessions have globally unique IDs."""
-    duplicate_rows = conn.execute(
-        """
+    duplicate_rows = conn.execute("""
         SELECT session_id
         FROM chat_sessions
         GROUP BY session_id
         HAVING COUNT(*) > 1
-        """
-    ).fetchall()
+        """).fetchall()
     for (session_id,) in duplicate_rows:
         sessions = conn.execute(
             """

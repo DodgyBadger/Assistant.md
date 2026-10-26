@@ -31,8 +31,7 @@ def create_mcp_schema(conn: sqlite3.Connection) -> None:
 
 
 def _create_connection_tables(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS mcp_connection_slugs (
             connection_id TEXT PRIMARY KEY,
             owner_principal_id TEXT NOT NULL,
@@ -43,10 +42,8 @@ def _create_connection_tables(conn: sqlite3.Connection) -> None:
             CHECK (length(owner_principal_id) > 0),
             CHECK (length(slug) > 0)
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS mcp_connections (
             connection_id TEXT PRIMARY KEY,
             owner_principal_id TEXT NOT NULL,
@@ -98,20 +95,15 @@ def _create_connection_tables(conn: sqlite3.Connection) -> None:
                  AND stdio_roots_json IS NOT NULL)
             )
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_mcp_connections_owner_enabled
         ON mcp_connections(owner_principal_id, enabled, display_name)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         INSERT OR IGNORE INTO mcp_connection_slugs (
             connection_id, owner_principal_id, slug, created_at
         )
         SELECT connection_id, owner_principal_id, slug, created_at
         FROM mcp_connections
-        """
-    )
+        """)

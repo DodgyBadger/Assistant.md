@@ -54,8 +54,7 @@ def _ensure_ingestion_jobs_table(conn: sqlite3.Connection) -> None:
 
 def _create_ingestion_jobs_table(conn: sqlite3.Connection) -> None:
     """Create the current table for a new database without migrating old tables."""
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS ingestion_jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_uri VARCHAR NOT NULL,
@@ -74,8 +73,7 @@ def _create_ingestion_jobs_table(conn: sqlite3.Connection) -> None:
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL
         )
-        """
-    )
+        """)
 
 
 def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:

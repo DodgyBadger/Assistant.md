@@ -6,9 +6,18 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from pydantic_ai.messages import (
+    MULTI_MODAL_CONTENT_TYPES,
+    BinaryAudio,
+    BinaryImage,
+    CachePoint,
+    TextContent,
+)
+
 from core.authoring.contracts import (
     AssembleContextResult,
     AuthoringHost,
+    ContextMessage,
     HistoryMessage,
     LatestMessage,
     MarkdownCodeBlock,
@@ -186,6 +195,7 @@ class WorkflowAuthoringHost(AuthoringHost):
             ScriptToolResult,
             PendingFilesResult,
             AssembleContextResult,
+            ContextMessage,
             LatestMessage,
             HistoryMessage,
             MarkdownHeading,
@@ -196,4 +206,9 @@ class WorkflowAuthoringHost(AuthoringHost):
             RetrievedHistoryResult,
             ToolExchange,
             ToolExchangeBatch,
+            *MULTI_MODAL_CONTENT_TYPES,
+            BinaryImage,
+            BinaryAudio,
+            TextContent,
+            CachePoint,
         )

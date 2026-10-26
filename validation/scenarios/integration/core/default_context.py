@@ -39,8 +39,7 @@ class DefaultContextScenario(BaseScenario):
             """# Soul
 
 Use the validation soul instruction.
-"""
-            + ("Soul filler that should eventually be truncated.\n" * 200),
+""" + ("Soul filler that should eventually be truncated.\n" * 200),
         )
         self.create_file(
             vault,
@@ -48,8 +47,7 @@ Use the validation soul instruction.
             """# Vault Playbook
 
 Use the validation vault playbook.
-"""
-            + ("Vault playbook filler that should eventually be truncated.\n" * 200),
+""" + ("Vault playbook filler that should eventually be truncated.\n" * 200),
         )
         self.create_file(
             vault,

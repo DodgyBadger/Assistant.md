@@ -303,13 +303,11 @@ class WorkflowRunStore:
     def list_latest_runs(self) -> list[WorkflowRunRecord]:
         """Return the latest terminal outcome for every known workflow."""
         with self._connect() as conn:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT *
                 FROM workflow_latest_runs
                 ORDER BY completed_at DESC, workflow_id
-                """
-            ).fetchall()
+                """).fetchall()
             return [_record_from_row(row) for row in rows]
 
     def _connect(self) -> sqlite3.Connection:

@@ -32,8 +32,7 @@ def create_connections_schema(conn: sqlite3.Connection) -> None:
 
 def _create_current_google_connection_table(conn: sqlite3.Connection) -> None:
     """Create the latest table directly for a fresh database."""
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS google_connections (
             owner_principal_id TEXT NOT NULL,
             connection_id TEXT NOT NULL,
@@ -69,26 +68,19 @@ def _create_current_google_connection_table(conn: sqlite3.Connection) -> None:
             CHECK (config_version > 0),
             CHECK (oauth_generation > 0)
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS google_connections_owner_name_unique
         ON google_connections(owner_principal_id, lower(display_name))
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS google_connections_one_default
         ON google_connections(owner_principal_id) WHERE is_default = 1
-        """
-    )
+        """)
 
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS google_connection_slugs (
+    conn.execute("""CREATE TABLE IF NOT EXISTS google_connection_slugs (
             connection_id TEXT PRIMARY KEY,
             owner_principal_id TEXT NOT NULL,
             slug TEXT NOT NULL,
             UNIQUE (owner_principal_id, slug)
-        )"""
-    )
+        )""")

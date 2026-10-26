@@ -53,8 +53,7 @@ def ensure_workflow_run_schema(
 
 
 def _create_workflow_run_schema(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS workflow_runs (
             run_id TEXT PRIMARY KEY,
             workflow_id TEXT NOT NULL,
@@ -77,34 +76,25 @@ def _create_workflow_run_schema(conn: sqlite3.Connection) -> None:
             started_at TEXT,
             completed_at TEXT
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_terminal
         ON workflow_runs(workflow_id, completed_at DESC, run_id DESC)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_vault_terminal
         ON workflow_runs(vault_name, completed_at DESC, run_id DESC)
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_source_terminal
         ON workflow_runs(source, completed_at DESC)
-        """
-    )
+        """)
     _create_workflow_name_index(conn)
-    conn.execute(
-        """
+    conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_runs_scheduler_event
         ON workflow_runs(scheduler_event_key)
         WHERE scheduler_event_key IS NOT NULL
-        """
-    )
+        """)
     _create_latest_runs_view(conn)
 
 
@@ -114,39 +104,30 @@ def _migrate_workflow_run_owners(conn: sqlite3.Connection) -> None:
         for row in conn.execute("PRAGMA table_info(workflow_runs)").fetchall()
     }
     if "owner_principal_id" not in columns:
-        conn.execute(
-            """
+        conn.execute("""
             ALTER TABLE workflow_runs
             ADD COLUMN owner_principal_id TEXT NOT NULL DEFAULT 'local-user'
-            """
-        )
-    conn.execute(
-        """
+            """)
+    conn.execute("""
         UPDATE workflow_runs SET owner_principal_id = 'local-user'
         WHERE owner_principal_id IS NULL OR TRIM(owner_principal_id) = ''
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_owner_terminal
         ON workflow_runs(owner_principal_id, completed_at DESC)
-        """
-    )
+        """)
 
 
 def _create_workflow_name_index(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_workflow_runs_name_terminal
         ON workflow_runs(workflow_name, completed_at DESC, run_id DESC)
-        """
-    )
+        """)
 
 
 def _create_latest_runs_view(conn: sqlite3.Connection) -> None:
     conn.execute("DROP VIEW IF EXISTS workflow_latest_runs")
-    conn.execute(
-        """
+    conn.execute("""
         CREATE VIEW workflow_latest_runs AS
         SELECT runs.*
         FROM workflow_runs AS runs
@@ -159,5 +140,4 @@ def _create_latest_runs_view(conn: sqlite3.Connection) -> None:
               ORDER BY candidate.completed_at DESC, candidate.run_id DESC
               LIMIT 1
           )
-        """
-    )
+        """)

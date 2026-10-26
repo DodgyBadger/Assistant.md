@@ -192,14 +192,12 @@ class VaultStateManifestScenario(BaseScenario):
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT vault_id, vault_name, path, artifact_class, content_hash,
                        change_sequence, deleted_at
                 FROM vault_files
                 ORDER BY path
-                """
-            ).fetchall()
+                """).fetchall()
             return [dict(row) for row in rows]
         finally:
             conn.close()

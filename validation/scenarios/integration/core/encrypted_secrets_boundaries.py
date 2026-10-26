@@ -384,8 +384,7 @@ class EncryptedSecretsBoundariesScenario(BaseScenario):
         service.set_for_authority(owner, "copy-rollback", "source", "copy-value")
         service.set_for_authority(owner, "delete-rollback", "blocked", "keep-value")
         with sqlite3.connect(system_root / "access.db") as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TRIGGER reject_namespace_delete
                 BEFORE DELETE ON encrypted_secrets
                 WHEN OLD.owner_principal_id = 'secret-owner'
@@ -393,8 +392,7 @@ class EncryptedSecretsBoundariesScenario(BaseScenario):
                 BEGIN
                     SELECT RAISE(ABORT, 'injected namespace deletion failure');
                 END
-                """
-            )
+                """)
         try:
             service.mutate_for_authority(
                 owner,
@@ -426,8 +424,7 @@ class EncryptedSecretsBoundariesScenario(BaseScenario):
 
         service.set_for_authority(owner, "rollback", "source", "rollback-value")
         with sqlite3.connect(system_root / "access.db") as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TRIGGER reject_relocation_delete
                 BEFORE DELETE ON encrypted_secrets
                 WHEN OLD.owner_principal_id = 'secret-owner'
@@ -436,8 +433,7 @@ class EncryptedSecretsBoundariesScenario(BaseScenario):
                 BEGIN
                     SELECT RAISE(ABORT, 'injected relocation failure');
                 END
-                """
-            )
+                """)
         try:
             service.mutate_for_authority(
                 owner,

@@ -519,14 +519,12 @@ class ChatHistoryCompactionScenario(BaseScenario):
             runtime.config.system_root / "chat_sessions.db"
         )
         try:
-            migration_rows = migration_conn.execute(
-                """
+            migration_rows = migration_conn.execute("""
                 SELECT version
                 FROM schema_migrations
                 WHERE namespace = 'chat_sessions'
                 ORDER BY version
-                """
-            ).fetchall()
+                """).fetchall()
         finally:
             migration_conn.close()
         assert [row[0] for row in migration_rows] == [

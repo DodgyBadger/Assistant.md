@@ -154,8 +154,7 @@ class SystemStartupMigrationsScenario(BaseScenario):
     @staticmethod
     def _create_legacy_chat_sessions_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE chat_sessions (
                     session_id TEXT NOT NULL,
                     vault_name TEXT NOT NULL,
@@ -165,14 +164,12 @@ class SystemStartupMigrationsScenario(BaseScenario):
                     metadata_json TEXT,
                     PRIMARY KEY (session_id, vault_name)
                 )
-                """
-            )
+                """)
 
     @staticmethod
     def _create_legacy_session_summaries_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE session_summaries (
                     session_id TEXT NOT NULL,
                     vault_name TEXT NOT NULL,
@@ -187,14 +184,12 @@ class SystemStartupMigrationsScenario(BaseScenario):
                     metadata_json TEXT,
                     PRIMARY KEY (session_id, vault_name)
                 )
-                """
-            )
+                """)
 
     @staticmethod
     def _create_goal_ops_v1_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE goals (
                     goal_id TEXT PRIMARY KEY,
                     vault_name TEXT NOT NULL,
@@ -207,10 +202,8 @@ class SystemStartupMigrationsScenario(BaseScenario):
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE schema_migrations (
                     namespace TEXT NOT NULL,
                     version INTEGER NOT NULL,
@@ -218,14 +211,11 @@ class SystemStartupMigrationsScenario(BaseScenario):
                     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (namespace, version)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 INSERT INTO schema_migrations (namespace, version, name)
                 VALUES ('goal_ops', 1, 'create_goal_ops_tables')
-                """
-            )
+                """)
 
     @staticmethod
     def _migration_versions(conn: sqlite3.Connection, namespace: str) -> list[int]:

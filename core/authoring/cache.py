@@ -146,8 +146,7 @@ def _ensure_db(system_root: Path | None = None) -> str:
         DB_NAME, str(system_root) if system_root else None
     )
     try:
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS context_step_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 run_id TEXT NOT NULL,
@@ -161,28 +160,20 @@ def _ensure_db(system_root: Path | None = None) -> str:
                 raw_output TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_context_step_cache_lookup
             ON context_step_cache(vault_name, template_name, section_key)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_context_step_cache_run
             ON context_step_cache(run_id)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_context_step_cache_session
             ON context_step_cache(session_id)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
@@ -191,10 +182,8 @@ def _ensure_db(system_root: Path | None = None) -> str:
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(session_id, vault_name)
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS context_summaries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT NOT NULL,
@@ -211,13 +200,11 @@ def _ensure_db(system_root: Path | None = None) -> str:
                 input_payload TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
+            """)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_context_summaries_session ON context_summaries(session_id, vault_name)"
         )
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS cache_artifacts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 owner_id TEXT NOT NULL,
@@ -232,20 +219,15 @@ def _ensure_db(system_root: Path | None = None) -> str:
                 last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 expires_at DATETIME
             )
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_cache_artifacts_owner_ref
             ON cache_artifacts(owner_id, artifact_ref)
-            """
-        )
-        conn.execute(
-            """
+            """)
+        conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_cache_artifacts_expires
             ON cache_artifacts(expires_at)
-            """
-        )
+            """)
         conn.commit()
     finally:
         conn.close()

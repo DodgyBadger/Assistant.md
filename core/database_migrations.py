@@ -73,8 +73,7 @@ def apply_sqlite_migrations(
 
 
 def _ensure_migrations_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             namespace TEXT NOT NULL,
             version INTEGER NOT NULL,
@@ -82,8 +81,7 @@ def _ensure_migrations_table(conn: sqlite3.Connection) -> None:
             applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (namespace, version)
         )
-        """
-    )
+        """)
 
 
 def _applied_versions(conn: sqlite3.Connection, *, namespace: str) -> set[int]:
