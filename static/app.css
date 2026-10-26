@@ -3917,3 +3917,73 @@ summary.connection-card-summary .summary-title {
 .chat-settings-title-row > h2 { min-width: 0; }
 .chat-settings-title-row > [data-chat-settings-approval-slot] { display: inline-flex; flex: 0 0 auto; }
 .chat-settings-approval-toggle[aria-pressed="true"] { border-color: rgb(var(--accent-primary)); color: rgb(var(--accent-primary)); }
+
+/* Shared bookmark controls and new-chat shortcuts. */
+.ui-icon-button.is-bookmarked,
+.session-dropdown-action.is-bookmarked {
+    color: rgb(var(--accent-primary));
+}
+.is-bookmarked svg {
+    fill: currentColor;
+}
+.chat-favorites {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgb(var(--border-primary));
+}
+.chat-favorites h3 {
+    margin: 0 0 0.65rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+.chat-favorite-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 0.65rem;
+}
+.chat-favorite-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    min-width: 0;
+    padding: 0.8rem;
+    border: 1px solid rgb(var(--border-primary));
+    border-radius: 0.5rem;
+    background: rgb(var(--bg-card));
+    text-align: left;
+}
+.chat-favorite-card:hover,
+.chat-favorite-card:focus-visible {
+    border-color: rgb(var(--accent-primary));
+}
+.chat-favorite-card:focus-visible {
+    outline: 2px solid rgb(var(--accent-primary));
+    outline-offset: 2px;
+}
+.chat-favorite-card > svg {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.15rem;
+    color: rgb(var(--accent-primary));
+    fill: currentColor;
+}
+.chat-favorite-card > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.chat-favorite-card strong {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 500;
+}
+.chat-favorite-card small {
+    display: block;
+    margin-top: 0.25rem;
+    color: rgb(var(--text-secondary));
+    font-size: 0.73rem;
+}
+.chat-favorite-card:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

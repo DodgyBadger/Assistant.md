@@ -54,7 +54,15 @@ Implementation in progress on branch `dev/UI-favorites`; chat resume behavior, p
 
 ## Backend milestone
 
-Implemented chat favorite state and APIs, favorite-first UI session listing, durable file/folder bookmarks, scoped filename/content filtering before limits, and shared move/delete/restore lifecycle hooks. The initial deterministic `ui_favorites` scenario passes, including restart durability; extended principal isolation and fork coverage are undergoing verification. Frontend integration is the next milestone.
+Implemented chat favorite state and APIs, favorite-first UI session listing, durable file/folder bookmarks, scoped filename/content filtering before limits, and shared move/delete/restore lifecycle hooks. Committed as `f8d7780`. Four targeted deterministic scenarios passed: `ui_favorites`, `chat_session_fork_lineage`, `vault_file_reference_api`, and `vault_explorer_batch_move`. The complete Ruff, Black, and MyPy gates passed before the commit.
+
+## Chat interface milestone
+
+Implemented Lucide bookmark toggles in session rows and favorite conversation cards on the new-chat panel. Cards use the same session-selection method as browser rows. Session changes refresh the cards; late bookmark responses cannot modify another vault. Desktop/mobile browser tests and nearby controller tests pass (22 checks). The bookmark icon and styling are shared with the Explorer interface.
+
+## Validation and documentation constraints
+
+The full `integration/core` run was started and then explicitly stopped at the user's request (exit 130); it is incomplete and must not be reported as passed. Continue with targeted checks only. The user has deferred documentation discussion and changes until later; no files under `docs/`, `README.md`, or `RELEASE_NOTES.md` have been edited. Leave the final documentation review step pending.
 
 ## Validation-first implementation sequence
 

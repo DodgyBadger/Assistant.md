@@ -37,10 +37,12 @@
             },
         });
         const startPanel = window.ChatStartPanel.create({
+            state,
             elements,
             icons,
             utils,
             callbacks: {
+                selectSession: callbacks.selectSession,
                 openChatSettings: callbacks.openChatSettings,
                 openWorkspacePicker: callbacks.openWorkspacePicker,
                 renderEmptyState: () => renderChatEmptyState(),

@@ -1,5 +1,5 @@
 (function chatStartPanelModule(window) {
-    function createChatStartPanelController({ elements, icons, utils, callbacks }) {
+    function createChatStartPanelController({ state = {}, elements, icons, utils, callbacks }) {
         let workspaceEditorOpen = false;
 
         function renderChatEmptyState() {
@@ -30,9 +30,20 @@
                     </button>
                 </div>
                 ${renderWorkspaceRow(workspacePath)}
+                ${renderFavorites()}
             `;
             attachChatStartPanelEvents(panel);
             container.appendChild(panel);
+        }
+
+        function renderFavorites() {
+            const sessions = (state.sessions || []).filter(session => session.favorite);
+            if (!sessions.length) return '';
+            return `<div class="chat-favorites"><h3>Favorite chats</h3><div class="chat-favorite-cards">${sessions.map(session => `
+                <button type="button" class="chat-favorite-card" data-chat-favorite="${utils.escapeHtml(session.session_id)}" ${state.isLoading ? 'disabled' : ''}>
+                    ${icons.BOOKMARK_ICON_SVG}
+                    <span><strong>${utils.escapeHtml(session.title || session.session_id)}</strong>${session.workspace?.path ? `<small>${utils.escapeHtml(session.workspace.path)}</small>` : ''}</span>
+                </button>`).join('')}</div></div>`;
         }
 
         function selectedOptionText(select) {
@@ -81,6 +92,11 @@
             panel.addEventListener('click', (event) => {
                 const target = event.target;
                 if (!(target instanceof Element)) return;
+                const favorite = target.closest('[data-chat-favorite]');
+                if (favorite) {
+                    if (!state.isLoading) callbacks.selectSession?.(favorite.dataset.chatFavorite);
+                    return;
+                }
                 if (target.closest('[data-chat-start-settings]')) {
                     callbacks.openChatSettings?.();
                     return;

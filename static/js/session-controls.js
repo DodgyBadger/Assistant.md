@@ -102,12 +102,14 @@
         function renderSelector() {
             renderSessionBrowserList();
             focusEditingInput();
+            callbacks.refreshEmptyState?.();
         }
 
         function renderSessionActions(session) {
             const sessionId = session?.session_id || '';
             return `
                 <div class="session-dropdown-row-actions" aria-label="Session actions">
+                    ${renderRowActionButton('favorite', sessionId, session.favorite ? 'Remove favorite' : 'Favorite session', icons.BOOKMARK_ICON_SVG, session.favorite ? 'is-bookmarked' : '')}
                     ${session?.can_upgrade_to_v2
                         ? renderRowActionButton('upgrade-v2', sessionId, 'Upgrade to Compaction v2', icons.REFRESH_ICON_SVG)
                         : ''}
@@ -154,6 +156,7 @@
                 <button
                     type="button"
                     class="${classes}"
+                    ${action === 'favorite' ? `aria-pressed="${extraClass === 'is-bookmarked'}"` : ''}
                     data-session-action="${action}"
                     data-session-action-id="${escapeHtml(sessionId)}"
                     ${isSessionActionLocked(action, sessionId) ? 'disabled' : ''}
@@ -350,7 +353,7 @@
                 return;
             }
 
-            const sessions = filteredBrowserSessions();
+            const sessions = [...filteredBrowserSessions()].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
             if (count) {
                 count.textContent = searchingContents
                     ? `${sessions.length} matches · up to ${sessionBrowserSearchLimit} best matches shown`
@@ -505,6 +508,36 @@
             if (filterInput instanceof HTMLInputElement) {
                 filterInput.focus();
                 filterInput.select();
+            }
+        }
+
+        async function toggleFavorite(sessionId, button) {
+            const vault = elements.vaultSelector?.value || '';
+            const session = state.sessions.find(row => row.session_id === sessionId);
+            if (!vault || !session || button.disabled) return;
+            button.disabled = true;
+            try {
+                const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/favorite`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vault_name: vault, favorite: !session.favorite }),
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                if (elements.vaultSelector?.value !== vault) return;
+                const current = state.sessions.find(row => row.session_id === sessionId);
+                if (current) current.favorite = result.favorite;
+                const hit = sessionBrowserSearchMatches.find(row => row.session.session_id === sessionId);
+                if (hit) hit.session.favorite = result.favorite;
+                state.sessions.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite))
+                    || String(b.last_activity_at).localeCompare(String(a.last_activity_at))
+                    || String(b.created_at).localeCompare(String(a.created_at))
+                    || b.session_id.localeCompare(a.session_id));
+                renderSelector();
+            } catch (error) {
+                callbacks.updateStatus?.(`Unable to update favorite: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
             }
         }
 
@@ -680,6 +713,10 @@
             if (!sessionId) return;
             if (isSessionActionLocked(action, sessionId)) return;
 
+            if (action === 'favorite') {
+                await toggleFavorite(sessionId, button);
+                return;
+            }
             if (action === 'edit-title') {
                 editingSessionId = sessionId;
                 renderSelector();
@@ -844,6 +881,7 @@
 
         return Object.freeze({
             syncModalControls,
+            selectSession,
             formatOptionLabel,
             renderSelector,
             clearCompactionProgress,

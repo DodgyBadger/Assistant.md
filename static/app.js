@@ -253,6 +253,7 @@ sessionControls = window.SessionControls.create({
         clearSession,
         clearPendingAttachments,
         renderChatEmptyState,
+        refreshEmptyState: () => chatRendering.refreshEmptyState(),
         updateCompactionState: status => chatRendering.updateCompactionState(status),
         resetChatModeToDefault,
         syncChatControlLocks,
@@ -269,6 +270,7 @@ const chatRendering = window.ChatRendering.create({
         scrollChatToBottom,
         fetchSessions,
         loadSession,
+        selectSession: (sessionId) => sessionControls.selectSession(sessionId),
         openWorkspacePicker: () => workspacePicker.openModal(),
         openChatSettings: () => sessionControls.openSessionBrowserModal(),
         openSessionMap: ({ checkpointId = '' } = {}) => sessionMap.openModalForSession(
