@@ -606,7 +606,7 @@ class MCPOAuthCoordinator:
                     "committed": True,
                     "error_class": type(exc).__name__,
                     "error_type": type(exc).__name__,
-                    "error": str(exc)[:500],
+                    "error": "Saved MCP OAuth state could not be applied to the runtime.",
                     "issue": f"mcp_oauth_mutation:{connection_id}",
                 },
             )
