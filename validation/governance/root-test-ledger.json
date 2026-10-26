@@ -5259,7 +5259,7 @@
             "test_v1_values_remain_custom_and_receive_a_pre_upgrade_backup"
           ],
           "contract": "Version-one settings upgrade preserves custom values and writes pre-upgrade revision/schema backup.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/sqlite_migrations.py",
@@ -5274,6 +5274,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            }
           ]
         },
         {
@@ -5282,7 +5290,7 @@
             "test_newer_settings_version_is_rejected_without_rewriting_database"
           ],
           "contract": "Future settings schema version is rejected without rewriting database.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/sqlite_migrations.py",
@@ -5297,6 +5305,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            }
           ]
         },
         {
@@ -5320,6 +5336,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            }
           ]
         },
         {
@@ -5328,7 +5352,7 @@
             "test_reset_one_setting_preserves_other_overrides_and_validates_dependencies"
           ],
           "contract": "Reset one override preserves other overrides and validates dependencies.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/settings_lifecycle.py",
@@ -5343,6 +5367,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
           ]
         },
         {
@@ -5351,7 +5383,7 @@
             "test_reset_rejects_an_invalid_default_relationship_atomically"
           ],
           "contract": "Invalid default relationship rejects reset atomically with original settings preserved.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/settings_lifecycle.py",
@@ -5366,6 +5398,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
           ]
         },
         {
@@ -5374,7 +5414,7 @@
             "test_global_reset_rejects_an_edit_committed_after_its_backup"
           ],
           "contract": "A concurrent edit after backup is preserved and stale global reset is rejected; backup contains earlier revision.",
-          "disposition": "rewrite",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/settings_lifecycle.py",
@@ -5389,6 +5429,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
           ]
         },
         {
@@ -5397,7 +5445,7 @@
             "test_global_reset_accepts_the_revision_captured_by_its_backup"
           ],
           "contract": "A reset using its captured backup revision succeeds and increments revision once.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/settings_lifecycle.py",
@@ -5412,6 +5460,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
           ]
         },
         {
@@ -5458,6 +5514,14 @@
           ],
           "review_questions": [
             "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
           ]
         }
       ],

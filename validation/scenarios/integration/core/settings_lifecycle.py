@@ -41,6 +41,12 @@ class SettingsLifecycleScenario(BaseScenario):
             )
             assert saved.status_code == 200, saved.text
             assert saved.json()["source"] == "custom"
+            other = self.call_api(
+                "/api/system/settings/general/debug",
+                method="PUT",
+                data={"value": "true"},
+            )
+            assert other.status_code == 200, other.text
             reset = self.call_api(
                 "/api/system/settings/general/default_api_timeout/override",
                 method="DELETE",
@@ -50,6 +56,11 @@ class SettingsLifecycleScenario(BaseScenario):
             assert reset.json()["value"] == reset.json()["default_value"]
             assert (
                 "default_api_timeout" not in self.configuration_snapshot()["settings"]
+            )
+            assert settings()["debug"]["source"] == "custom"
+            assert settings()["debug"]["value"] == "true"
+            self.call_api(
+                "/api/system/settings/general/debug/override", method="DELETE"
             )
             # Resetting one side of a numeric relationship must not make it invalid.
             high = self.call_api(
@@ -67,6 +78,42 @@ class SettingsLifecycleScenario(BaseScenario):
             self.call_api(
                 "/api/system/settings/general/compaction_high_watermark_tokens/override",
                 method="DELETE",
+            )
+            assert (
+                self.call_api(
+                    "/api/system/settings/general/compaction_strategy",
+                    method="PUT",
+                    data={"value": "session_map"},
+                ).status_code
+                == 200
+            )
+            default_high = int(
+                settings()["compaction_high_watermark_tokens"]["default_value"]
+            )
+            for key, value in (
+                ("compaction_high_watermark_tokens", default_high + 20000),
+                ("compaction_low_watermark_tokens", default_high + 10000),
+            ):
+                response = self.call_api(
+                    f"/api/system/settings/general/{key}",
+                    method="PUT",
+                    data={"value": str(value)},
+                )
+                assert response.status_code == 200, response.text
+            before_invalid_reset = self.configuration_snapshot()
+            rejected = self.call_api(
+                "/api/system/settings/general/compaction_high_watermark_tokens/override",
+                method="DELETE",
+            )
+            assert rejected.status_code == 400, rejected.text
+            assert self.configuration_snapshot() == before_invalid_reset
+            assert (
+                int(settings()["compaction_high_watermark_tokens"]["value"])
+                == default_high + 20000
+            )
+            assert (
+                int(settings()["compaction_low_watermark_tokens"]["value"])
+                == default_high + 10000
             )
             custom = self.call_api(
                 "/api/system/models/my-lifecycle-model",
@@ -148,6 +195,20 @@ class SettingsLifecycleScenario(BaseScenario):
                 assert conn.execute(
                     "SELECT payload FROM configuration_settings WHERE name='debug'"
                 ).fetchone()
+                first_revision = conn.execute(
+                    "SELECT revision FROM configuration_state"
+                ).fetchone()[0]
+            second_reset = self.call_api("/api/system/settings/defaults", method="POST")
+            assert second_reset.status_code == 200, second_reset.text
+            second_backup = Path(second_reset.json()["backup_path"])
+            assert second_backup != backup and second_backup.exists()
+            with sqlite3.connect(second_backup) as conn:
+                assert (
+                    conn.execute("SELECT revision FROM configuration_state").fetchone()[
+                        0
+                    ]
+                    == first_revision + 1
+                )
             conflicting = deepcopy(current)
             conflicting["models"]["haiku"] = {
                 "provider": "test",
@@ -184,11 +245,12 @@ class SettingsLifecycleScenario(BaseScenario):
                 for event in lifecycle
                 if event["status"] in {"completed", "failed"}
             ]
-            assert len(starts) == 2 and len(terminals) == 2
+            assert len(starts) == 3 and len(terminals) == 3
             assert {event["operation_id"] for event in starts} == {
                 event["operation_id"] for event in terminals
             }
             assert sorted(event["status"] for event in terminals) == [
+                "completed",
                 "completed",
                 "failed",
             ]

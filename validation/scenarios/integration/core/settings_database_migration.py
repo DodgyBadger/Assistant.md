@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -13,7 +14,9 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
+from core.database_migrations import apply_sqlite_migrations
 from core.settings import repository, store
+from core.settings import schema as settings_schema
 from validation.core.base_scenario import BaseScenario
 
 
@@ -147,6 +150,136 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 else:
                     raise AssertionError("Corrupt database must fail explicitly")
             assert corrupt_database.read_bytes() == corrupt_bytes
+
+            # Build an actual v1 checkpoint and let the settings migration own
+            # the upgrade and backup, including a failed attempt and retry.
+            upgrade_root = root / "numbered-upgrade"
+            upgrade_root.mkdir()
+            upgrade_database = upgrade_root / "settings.db"
+            with sqlite3.connect(upgrade_database) as conn:
+                apply_sqlite_migrations(
+                    conn,
+                    namespace="settings",
+                    migrations=settings_schema.SETTINGS_MIGRATIONS[:1],
+                )
+                conn.execute("INSERT INTO configuration_state VALUES(1, 7, 'defaults')")
+                conn.execute(
+                    "INSERT INTO configuration_settings VALUES(?, ?)",
+                    ("debug", json.dumps(["invalid legacy entry"])),
+                )
+            try:
+                settings_schema.ensure_settings_schema(str(upgrade_root))
+            except settings_schema.SettingsMigrationError as exc:
+                assert exc.phase == "apply" and exc.version == 2
+                failed_backup = exc.backup_path
+                assert failed_backup is not None and failed_backup.exists()
+            else:
+                raise AssertionError("Malformed v1 record must fail the upgrade")
+            with sqlite3.connect(upgrade_database) as conn:
+                assert (
+                    conn.execute("SELECT revision FROM configuration_state").fetchone()[
+                        0
+                    ]
+                    == 7
+                )
+                assert (
+                    conn.execute(
+                        "SELECT max(version) FROM schema_migrations"
+                    ).fetchone()[0]
+                    == 1
+                )
+                assert json.loads(
+                    conn.execute(
+                        "SELECT payload FROM configuration_settings WHERE name='debug'"
+                    ).fetchone()[0]
+                ) == ["invalid legacy entry"]
+                conn.execute(
+                    "UPDATE configuration_settings SET payload=? WHERE name='debug'",
+                    (json.dumps({"value": False, "description": "legacy"}),),
+                )
+            settings_schema.ensure_settings_schema(str(upgrade_root))
+            backups = list(
+                (upgrade_root / "migration_backups").glob("settings.db.bak*")
+            )
+            assert len(backups) == 2
+            successful_backup = next(path for path in backups if path != failed_backup)
+            with sqlite3.connect(successful_backup) as conn:
+                assert (
+                    conn.execute("SELECT revision FROM configuration_state").fetchone()[
+                        0
+                    ]
+                    == 7
+                )
+                assert (
+                    conn.execute(
+                        "SELECT max(version) FROM schema_migrations"
+                    ).fetchone()[0]
+                    == 1
+                )
+                assert (
+                    json.loads(
+                        conn.execute(
+                            "SELECT payload FROM configuration_settings WHERE name='debug'"
+                        ).fetchone()[0]
+                    )["value"]
+                    is False
+                )
+            with sqlite3.connect(upgrade_database) as conn:
+                assert (
+                    conn.execute("SELECT revision FROM configuration_state").fetchone()[
+                        0
+                    ]
+                    == 8
+                )
+                assert (
+                    conn.execute(
+                        "SELECT max(version) FROM schema_migrations"
+                    ).fetchone()[0]
+                    == 2
+                )
+                upgraded = json.loads(
+                    conn.execute(
+                        "SELECT payload FROM configuration_settings WHERE name='debug'"
+                    ).fetchone()[0]
+                )
+                assert upgraded["value"] is False and upgraded["source"] == "custom"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from pathlib import Path; import sys; "
+                    "from core.runtime.paths import set_bootstrap_roots; "
+                    "set_bootstrap_roots(Path(sys.argv[1]), Path(sys.argv[2])); "
+                    "from core.settings.store import load_settings, get_default_settings; "
+                    "entry = load_settings().settings['debug']; "
+                    "default = get_default_settings()['debug']; "
+                    "assert entry.value is False and entry.source == 'custom'; "
+                    "assert entry.description == default.description and entry.description != 'legacy'",
+                    str(upgrade_root / "data"),
+                    str(upgrade_root),
+                ],
+                check=True,
+                cwd=Path(__file__).resolve().parents[4],
+                timeout=30,
+            )
+            settings_schema.ensure_settings_schema(str(upgrade_root))
+            assert (
+                len(list((upgrade_root / "migration_backups").glob("settings.db.bak*")))
+                == 2
+            )
+
+            with sqlite3.connect(upgrade_database) as conn:
+                conn.execute(
+                    "INSERT INTO schema_migrations(namespace, version, name) VALUES('settings', 999, 'future')"
+                )
+            original_database = upgrade_database.read_bytes()
+            try:
+                settings_schema.ensure_settings_schema(str(upgrade_root))
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Future settings schema must be rejected")
+            assert upgrade_database.read_bytes() == original_database
             assert self.call_api("/api/system/settings").status_code == 404
             assert (
                 self.call_api("/api/system/settings", method="PUT", data={}).status_code
