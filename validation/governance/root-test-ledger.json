@@ -355,7 +355,15 @@
           "dependencies": [
             "TestClient and explicit synthetic policy; isolated roots"
           ],
-          "review_questions": "Which cookie attributes and activity fields are stable? Can adapter run fully initialized runtime?"
+          "review_questions": "Which cookie attributes and activity fields are stable? Can adapter run fully initialized runtime?",
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/ingress_authentication",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real ASGI requests: disabled/owner modes, login/logout, malformed/oversized login rejection and failed-login throttling. Cookie claims/bounds and complete mode matrix are not all asserted."
+            }
+          ]
         },
         {
           "id": "test_authentication_application:141",
@@ -370,14 +378,22 @@
             "test_failed_owner_logins_are_rate_limited": 165
           },
           "contract": "Oversized or duplicate owner-token JSON rejected without secret echo; failures rate-limited with retry-after. Evidence: real HTTP responses.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [],
           "rationale": "Distinct malformed and abuse cases absent from core.",
           "proposed_destination": "Owner ingress scenario",
           "dependencies": [
             "Real application TestClient"
           ],
-          "review_questions": "Include successful login reset and elapsed window through controlled clock?"
+          "review_questions": "Include successful login reset and elapsed window through controlled clock?",
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/ingress_authentication",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real ASGI requests: disabled/owner modes, login/logout, malformed/oversized login rejection and failed-login throttling. Cookie claims/bounds and complete mode matrix are not all asserted."
+            }
+          ]
         }
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
@@ -427,7 +443,15 @@
           "dependencies": [
             "Synthetic ASGI app/route and direct session codec; socket peer control"
           ],
-          "review_questions": "Which real application WebSocket endpoint can prove rejection?"
+          "review_questions": "Which real application WebSocket endpoint can prove rejection?",
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/ingress_authentication",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Oversized public-route headers, unknown route protection, malformed bearer, real session/CSRF and proxy/loopback admission. WebSocket and full malformed transport matrix remain."
+            }
+          ]
         }
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
@@ -585,7 +609,15 @@
           "dependencies": [
             "Codec and synthetic clock"
           ],
-          "review_questions": "How to control clock/rotate secret without patching application implementation?"
+          "review_questions": "How to control clock/rotate secret without patching application implementation?",
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/ingress_authentication",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real cookies exercise tampering, secret rotation, per-session CSRF isolation. Exact expiry/future-issued clock and codec cases remain."
+            }
+          ]
         },
         {
           "id": "test_authentication_session:114",
