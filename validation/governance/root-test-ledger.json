@@ -2200,7 +2200,7 @@
             "test_retired_typesafe_provider_is_removed_only_when_unused"
           ],
           "contract": "Retire only unused builtin TypeSafe; retain customized or referenced provider as editable.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/decision_model_configuration.py",
@@ -2215,6 +2215,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2223,7 +2231,7 @@
             "test_load_persists_unused_provider_retirement_with_backup"
           ],
           "contract": "Persist provider retirement with exactly one original-content backup and idempotent reload.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/settings_database_migration.py",
@@ -2243,6 +2251,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2251,7 +2267,7 @@
             "test_standard_alias_adopts_matching_family_even_when_explicitly_unmanaged"
           ],
           "contract": "Adopt matching standard family despite unmanaged status and preserve aliases/custom neighbor and idempotence.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2266,6 +2282,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2297,7 +2321,7 @@
             "test_unmanaged_historical_openai_aliases_adopt_before_renaming"
           ],
           "contract": "Historical OpenAI names adopt before rename with old aliases retained and resolvable.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2312,6 +2336,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2360,7 +2392,7 @@
             "test_jev_retirement_preserves_custom_models_and_is_idempotent"
           ],
           "contract": "Retire builtin jev idempotently while preserving customized and custom decision models.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2380,6 +2412,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2449,6 +2489,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2480,7 +2528,7 @@
             "test_load_persists_rename_and_backup_and_preserves_removed_alias"
           ],
           "contract": "Persist rename once with original backup and honor subsequently removed alias.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2500,6 +2548,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {
@@ -2531,7 +2587,7 @@
             "test_load_persists_retirement_without_other_catalog_updates"
           ],
           "contract": "Persist only jev retirement once with unchanged original backup across reloads.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2551,6 +2607,14 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
           ]
         },
         {

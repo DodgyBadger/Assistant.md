@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
+import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
@@ -228,9 +231,188 @@ class ModelAliasResolutionScenario(BaseScenario):
                 "current-model",
             }
             assert resolve_model(" HISTORICAL-MODEL ") == resolve_model("renamed-model")
+            # Import independent legacy installations with the shipped catalog.
+            # A fresh process gives each installation its own real bootstrap roots.
+            builtin_provider = {
+                "api_key": "TYPESAFE_API_KEY",
+                "base_url": None,
+                "user_editable": False,
+            }
+            old_jev = {
+                "provider": "typesafe",
+                "model_string": "jev-latest",
+                "capabilities": ["decision"],
+                "user_editable": False,
+            }
+            cases = {
+                "unused": {
+                    "models": {"jev": old_jev},
+                    "providers": {"typesafe": builtin_provider},
+                },
+                "referenced": {
+                    "models": {
+                        "jev": old_jev,
+                        "my-decision": {
+                            **old_jev,
+                            "model_string": "my-model",
+                            "user_editable": True,
+                        },
+                    },
+                    "providers": {"typesafe": builtin_provider},
+                },
+                "customized": {
+                    "models": {"jev": {**old_jev, "model_string": "my-jev"}},
+                    "providers": {
+                        "typesafe": {
+                            **builtin_provider,
+                            "base_url": "https://custom.example.test",
+                        }
+                    },
+                },
+                "custom-provider": {
+                    "models": {
+                        "jev": {**old_jev, "managed_id": None, "user_editable": True}
+                    },
+                    "providers": {
+                        "typesafe": {**builtin_provider, "user_editable": True}
+                    },
+                },
+                "custom-unused": {
+                    "models": {},
+                    "providers": {
+                        "typesafe": {**builtin_provider, "user_editable": True}
+                    },
+                },
+                "customized-unused": {
+                    "models": {},
+                    "providers": {
+                        "typesafe": {
+                            **builtin_provider,
+                            "base_url": "https://custom.example.test",
+                        }
+                    },
+                },
+                "aliases": {
+                    "models": {
+                        name: {
+                            "provider": "openai",
+                            "model_string": binding,
+                            "capabilities": ["text"],
+                            "user_editable": True,
+                            "alternate_aliases": [f"historic-{name}"],
+                        }
+                        for name, binding in (
+                            ("gpt", "gpt-5.6-sol"),
+                            ("gpt-mini", "gpt-5.6-terra"),
+                            ("gpt-nano", "gpt-5.6-luna"),
+                        )
+                    },
+                    "providers": {},
+                },
+            }
+            for case, legacy_config in cases.items():
+                fixture_root = path.parent / f"catalog-legacy-{case}"
+                fixture_root.mkdir()
+                legacy_file = fixture_root / "settings.yaml"
+                original_bytes = yaml.safe_dump(legacy_config).encode()
+                legacy_file.write_bytes(original_bytes)
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-c",
+                        """
+import json, sys
+from pathlib import Path
+from core.runtime.paths import set_bootstrap_roots
+root = Path(sys.argv[1])
+set_bootstrap_roots(root / 'data', root)
+from core.settings.store import load_settings, refresh_settings_cache, save_settings
+first = load_settings()
+initial = first.model_dump(mode='json')
+refresh_settings_cache()
+again = load_settings()
+assert again.model_dump(mode='json') == initial
+if sys.argv[2] == 'aliases':
+    again.models['sol'].alternate_aliases.remove('gpt')
+    save_settings(again)
+    refresh_settings_cache()
+    assert 'gpt' not in load_settings().models['sol'].alternate_aliases
+(root / 'effective.json').write_text(json.dumps(initial))
+""",
+                        str(fixture_root),
+                        case,
+                    ],
+                    check=True,
+                    cwd=Path(__file__).resolve().parents[4],
+                    timeout=30,
+                )
+                effective = json.loads((fixture_root / "effective.json").read_text())
+                backups = list(
+                    (fixture_root / "migration_backups").glob("settings.yaml.bak*")
+                )
+                assert len(backups) == 1 and backups[0].read_bytes() == original_bytes
+                with sqlite3.connect(fixture_root / "settings.db") as conn:
+                    persisted_models = {
+                        name: json.loads(payload)
+                        for name, payload in conn.execute(
+                            "SELECT name, payload FROM configuration_models"
+                        )
+                    }
+                    persisted_providers = {
+                        name: json.loads(payload)
+                        for name, payload in conn.execute(
+                            "SELECT name, payload FROM configuration_providers"
+                        )
+                    }
+                if case == "unused":
+                    assert (
+                        "jev" not in effective["models"]
+                        and "typesafe" not in persisted_providers
+                    )
+                elif case == "referenced":
+                    assert "jev" not in persisted_models
+                    assert all(
+                        persisted_models["my-decision"][key] == value
+                        for key, value in legacy_config["models"]["my-decision"].items()
+                    )
+                    assert persisted_models["my-decision"]["managed_id"] is None
+                    assert persisted_providers["typesafe"]["user_editable"] is True
+                elif case in {"customized", "custom-provider"}:
+                    assert all(
+                        persisted_models["jev"][key] == value
+                        for key, value in legacy_config["models"]["jev"].items()
+                    )
+                    assert persisted_models["jev"]["managed_id"] is None
+                    assert persisted_providers["typesafe"]["user_editable"] is True
+                    assert (
+                        persisted_providers["typesafe"]["base_url"]
+                        == legacy_config["providers"]["typesafe"]["base_url"]
+                    )
+                elif case in {"custom-unused", "customized-unused"}:
+                    assert persisted_models == {}
+                    assert persisted_providers["typesafe"]["user_editable"] is True
+                    assert (
+                        persisted_providers["typesafe"]["base_url"]
+                        == legacy_config["providers"]["typesafe"]["base_url"]
+                    )
+                else:
+                    for old, primary in (
+                        ("gpt", "sol"),
+                        ("gpt-mini", "terra"),
+                        ("gpt-nano", "luna"),
+                    ):
+                        assert old not in persisted_models
+                        model = effective["models"][primary]
+                        assert model["managed_id"] == f"builtin-{old}"
+                        assert set(model["alternate_aliases"]) == {
+                            old,
+                            f"historic-{old}",
+                        }
+                    assert persisted_models["sol"]["alternate_aliases"] == [
+                        "historic-gpt"
+                    ]
             # Catalog changes run against an isolated template and produce actual
             # System Activity records without dispatching any provider request.
-            import json
             from unittest.mock import patch
 
             from core.settings import store
