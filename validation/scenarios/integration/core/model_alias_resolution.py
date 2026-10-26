@@ -50,6 +50,29 @@ class ModelAliasResolutionScenario(BaseScenario):
             )
             assert collision.status_code == 400, collision.text
             assert self.configuration_request().json()["configuration"] == before
+            # Rejected aliases/renames must leave persisted configuration intact.
+            for aliases in (
+                [""],
+                ["none"],
+                ["test"],
+                ["CURRENT-MODEL"],
+                ["old", " OLD "],
+            ):
+                invalid = self.call_api(
+                    "/api/system/models/current-model",
+                    method="PUT",
+                    data={**payload, "alternate_aliases": aliases},
+                )
+                assert invalid.status_code == 400, invalid.text
+                assert self.configuration_snapshot() == before
+            reserved = self.call_api(
+                "/api/system/models/ TEST ",
+                method="PUT",
+                data={**payload, "original_name": "current-model"},
+            )
+            assert reserved.status_code == 400, reserved.text
+            assert self.configuration_snapshot() == before
+            assert resolve_model(" TEST ") == resolve_model("test")
             sonnet = next(model for model in listed if model["name"] == "sonnet")
             assert sonnet["user_editable"] is False
             managed_payload = {
@@ -175,6 +198,8 @@ class ModelAliasResolutionScenario(BaseScenario):
                     for model in metadata.json()["models"]
                     if model["name"] in {"sonnet", "sonnet-custom"}
                 )
+                # A broken identity must not disable unrelated models.
+                assert resolve_model("renamed-model") == ("openai", "validation-model")
                 try:
                     resolve_model("sonnet")
                 except InvalidModelAlias:
@@ -185,6 +210,24 @@ class ModelAliasResolutionScenario(BaseScenario):
                 self.install_configuration_fixture(before)
                 with use_execution_authority(LOCAL_USER_AUTHORITY):
                     reload_configuration()
+            # Load legacy persisted entries through the real configuration reload.
+            # Obsolete presentation fields are excluded from API output; identities survive.
+            legacy_aliases = self.configuration_snapshot()
+            legacy_aliases["models"]["renamed-model"]["display_name"] = "Legacy label"
+            self.install_configuration_fixture(legacy_aliases)
+            with use_execution_authority(LOCAL_USER_AUTHORITY):
+                reload_configuration()
+            persisted = next(
+                model
+                for model in self.call_api("/api/system/models").json()
+                if model["name"] == "renamed-model"
+            )
+            assert "display_name" not in persisted
+            assert set(persisted["alternate_aliases"]) == {
+                "historical-model",
+                "current-model",
+            }
+            assert resolve_model(" HISTORICAL-MODEL ") == resolve_model("renamed-model")
             # Catalog changes run against an isolated template and produce actual
             # System Activity records without dispatching any provider request.
             import json

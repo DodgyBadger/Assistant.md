@@ -2872,7 +2872,7 @@
             "test_custom_rename_cannot_claim_validation_fixture"
           ],
           "contract": "Custom rename cannot claim reserved validation fixture and must perform no write.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2887,6 +2887,14 @@
           ],
           "review_questions": [
             "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API rejects reserved rename and all five invalid alias edits without persisted changes; reload omits obsolete display fields in API output while aliases survive; test fixture remains case-insensitive; unaffected model resolves despite another collision. Persisted invalid-alias resolution and full shared-alternate matrix remain; normalized canonical identity/unknown alias helper cases not claimed."
+            }
           ]
         },
         {
@@ -2895,7 +2903,7 @@
             "test_removed_display_name_is_ignored_in_saved_model_entries"
           ],
           "contract": "Saved entries ignore removed display_name while retaining alternate aliases.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2910,6 +2918,14 @@
           ],
           "review_questions": [
             "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API rejects reserved rename and all five invalid alias edits without persisted changes; reload omits obsolete display fields in API output while aliases survive; test fixture remains case-insensitive; unaffected model resolves despite another collision. Persisted invalid-alias resolution and full shared-alternate matrix remain; normalized canonical identity/unknown alias helper cases not claimed."
+            }
           ]
         },
         {
@@ -2956,6 +2972,14 @@
           ],
           "review_questions": [
             "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real API rejects reserved rename and all five invalid alias edits without persisted changes; reload omits obsolete display fields in API output while aliases survive; test fixture remains case-insensitive; unaffected model resolves despite another collision. Persisted invalid-alias resolution and full shared-alternate matrix remain; normalized canonical identity/unknown alias helper cases not claimed."
+            }
           ]
         },
         {
@@ -2979,6 +3003,14 @@
           ],
           "review_questions": [
             "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real API rejects reserved rename and all five invalid alias edits without persisted changes; reload omits obsolete display fields in API output while aliases survive; test fixture remains case-insensitive; unaffected model resolves despite another collision. Persisted invalid-alias resolution and full shared-alternate matrix remain; normalized canonical identity/unknown alias helper cases not claimed."
+            }
           ]
         },
         {
@@ -2987,7 +3019,7 @@
             "test_validation_model_can_be_a_canonical_fixture"
           ],
           "contract": "Validation model test is permitted as canonical fixture with case-insensitive resolution.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -3002,6 +3034,14 @@
           ],
           "review_questions": [
             "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API rejects reserved rename and all five invalid alias edits without persisted changes; reload omits obsolete display fields in API output while aliases survive; test fixture remains case-insensitive; unaffected model resolves despite another collision. Persisted invalid-alias resolution and full shared-alternate matrix remain; normalized canonical identity/unknown alias helper cases not claimed."
+            }
           ]
         }
       ],
