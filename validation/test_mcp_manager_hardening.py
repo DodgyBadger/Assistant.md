@@ -366,12 +366,17 @@ async def test_client_cleanup_failure_logs_sanitized_connection_context(
         connection=connection,
     )
 
-    assert records == [
+    assert len(records) == 1
+    assert records[0].get("error")
+    assert "provider stderr must not be logged" not in repr(records)
+    assert [{key: value for key, value in records[0].items() if key != "error"}] == [
         {
             "event": "mcp_client_cleanup_failed",
+            "status": "failed",
             "error_type": "ValueError",
             "connection_id": connection.connection_id,
             "transport": connection.transport.value,
+            "issue": connection.connection_id,
         }
     ]
 
@@ -449,8 +454,16 @@ async def test_invalidation_cleanup_failure_is_observed(
     manager.invalidate(LOCAL_USER_AUTHORITY.principal_id, connection.connection_id)
     assert key not in manager._entries
     await _wait_until(lambda: bool(records))
-    assert records == [
-        {"event": "mcp_invalidation_cleanup_failed", "error_type": "RuntimeError"}
+    assert len(records) == 1
+    assert records[0].get("error")
+    assert "sensitive provider message" not in repr(records)
+    assert [{key: value for key, value in records[0].items() if key != "error"}] == [
+        {
+            "event": "mcp_invalidation_cleanup_failed",
+            "status": "failed",
+            "error_type": "RuntimeError",
+            "issue": "mcp_invalidation_cleanup",
+        }
     ]
     await manager.shutdown()
 

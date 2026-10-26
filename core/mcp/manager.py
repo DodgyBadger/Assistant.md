@@ -854,7 +854,7 @@ async def _close_client(
             "event": "mcp_client_cleanup_failed",
             "status": "failed",
             "error_type": type(exc).__name__,
-            "error": str(exc)[:500],
+            "error": "MCP client cleanup did not complete.",
         }
         if connection is not None:
             context.update(
