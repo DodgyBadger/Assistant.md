@@ -3529,7 +3529,7 @@
             "test_oauth_reason_preserved_without_tokens"
           ],
           "contract": "OAuth failure retains safe reason without access or refresh tokens. ",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [],
           "rationale": "No matching safe-reason/redaction assertion identified. Static source inspection only; no execution or pass evidence.",
           "proposed_destination": "Provider failure and OAuth scenarios with controlled external protocol responses and structured event/output.",
@@ -3538,6 +3538,14 @@
           ],
           "review_questions": [
             "Which error fields and redaction behavior are supported public or validation-event contracts?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/openai_oauth_rejection",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Production OAuth HTTP token adapter and real API authorization/connection/chat refresh path. Only the external OAuth token endpoint uses controlled HTTP transport responses. Provider rejection reason survives while authorization codes and access/refresh tokens stay out of API/status/chat errors. No claim of real OpenAI availability or general SDK error matrix."
+            }
           ]
         }
       ],
