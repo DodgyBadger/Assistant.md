@@ -231,6 +231,14 @@ The proposal keeps Python scenarios and the standard CLI, separates a generic ex
 
 The initial pilots are real owner-authentication/CSRF behavior, backup-fenced settings reset, and quotation appended to an existing draft through the real served browser application. Framework-owned fixture applications exercise failure and cleanup. A concrete open decision is how to arrange the settings concurrency case deterministically without replacing the application's backup function. Executor replacement, distributed scheduling, and package extraction are deferred. No code, test, CI, protected documentation, or external library file was changed, and no tests/services were run for this review.
 
+## Implementation checkpoints
+
+### Real ingress authentication
+
+Added `validation/scenarios/integration/core/ingress_authentication.py`. It boots the real runtime and exercises production application policies through real ASGI requests and cookies. Assertions cover unauthorized UI/API/docs/static access, public health, owner login/logout, successful protected runtime operations, missing/wrong/valid CSRF, bearer access, ambiguous credentials, and trusted-proxy/loopback immediate-peer boundaries. No application methods or HTTP replies are mocked. The individual scenario passed on an isolated temporary validation root; `/tmp/test-cleanup-ingress-auth.log` retains the initial assertion failure and the corrected passing run. Session expiration/rotation, throttling, malformed transport cases, and WebSocket boundaries remain open. Existing root tests remain intact.
+
+Focused execution must use an isolated `VALIDATION_ROOT` as well as temporary bootstrap data/system roots. An initial run used the old default validation root, whose built-in retention removed older generated run artifacts; subsequent execution uses a temporary validation root with a scenarios symlink to avoid that retention side effect. No persistent application data was used.
+
 ## Proposed implementation sequence after investigation review
 
 1. Review the outcome-based requirements and earlier generic-runtime-adapter brainstorm above, choose a bounded evaluation of the runner/lifecycle separation, and agree on the audit classifications and single validation entry point. Keep the immediate scope to validation architecture and cleanup; do not mix the favorites branch or quick-prompts implementation into it.
