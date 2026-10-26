@@ -64,6 +64,7 @@ from core.settings import (
     get_default_model_thinking,
 )
 from core.tools.failures import classify_exception
+from core.utils.provider_errors import provider_exception_details
 
 logger = UnifiedLogger(tag="chat-executor")
 
@@ -258,6 +259,15 @@ def _is_user_prompt_request(message: ModelMessage) -> bool:
 
 def _serialize_exception(exc: BaseException) -> dict[str, Any]:
     """Return stable exception details for activity-log diagnostics."""
+    provider_details = provider_exception_details(exc, include_transport_errors=False)
+    if provider_details:
+        # SDK exception strings/chains embed raw request and response bodies.
+        # Keep stack locations and the projected provider reason, without those bodies.
+        return {
+            "error_type": type(exc).__name__,
+            **provider_details,
+            "traceback": "".join(traceback.format_tb(exc.__traceback__)).strip(),
+        }
     return {
         "error_type": type(exc).__name__,
         "error": str(exc),
@@ -285,7 +295,7 @@ def _build_failure_recovery_marker(
         "phase": phase,
         "streaming": streaming,
         "error_type": type(exc).__name__,
-        "error": str(exc),
+        "error": classification.message,
         "failure_kind": classification.failure_kind,
         "retryable": classification.retryable,
         "http_status": classification.http_status,

@@ -16,6 +16,7 @@ from typing import Any
 
 from core.identity import ExecutionAuthority, use_execution_authority
 from core.logger import UnifiedLogger
+from core.utils.provider_errors import provider_exception_details
 
 
 class ExecutionTaskStatus(StrEnum):
@@ -1036,7 +1037,9 @@ def _execution_task_failure_reason(kind: str, exc: Exception) -> str:
         ExecutionTaskKind.CONTEXT_STRATEGY_UPGRADE,
     }:
         return f"{type(exc).__name__}: {kind} failed"
-    return f"{type(exc).__name__}: {exc}"
+    details = provider_exception_details(exc, include_transport_errors=False)
+    message = details.get("error", str(exc))
+    return f"{type(exc).__name__}: {message}"
 
 
 def _bound_activity_text(value: str | None) -> str | None:

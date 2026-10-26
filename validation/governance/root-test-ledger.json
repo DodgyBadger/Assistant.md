@@ -3453,6 +3453,14 @@
           ],
           "review_questions": [
             "Which error fields and redaction behavior are supported public or validation-event contracts?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_failure_classification",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real local OpenAI-compatible HTTP rejection through SDK and actual chat. Structured billing/status/retry outputs, provider type/code and bounded message survive; private input field, quoted API key/refresh fields, Bearer token, document data and credential/query URL fields stay out of stream/session/activity artifacts. Anthropic/Google SDK variants, explicit arbitrary redaction input and unstructured response/wrapper matrix remain."
+            }
           ]
         },
         {
@@ -3470,6 +3478,14 @@
           ],
           "review_questions": [
             "Which error fields and redaction behavior are supported public or validation-event contracts?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_failure_classification",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real local OpenAI-compatible HTTP rejection through SDK and actual chat. Structured billing/status/retry outputs, provider type/code and bounded message survive; private input field, quoted API key/refresh fields, Bearer token, document data and credential/query URL fields stay out of stream/session/activity artifacts. Anthropic/Google SDK variants, explicit arbitrary redaction input and unstructured response/wrapper matrix remain."
+            }
           ]
         },
         {
@@ -3512,7 +3528,7 @@
             "test_quoted_credential_fields_inside_provider_message_are_redacted"
           ],
           "contract": "Quoted credential and refresh fields are redacted. ",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [],
           "rationale": "No matching quoted-token negative identified. Static source inspection only; no execution or pass evidence.",
           "proposed_destination": "Provider failure and OAuth scenarios with controlled external protocol responses and structured event/output.",
@@ -3521,6 +3537,14 @@
           ],
           "review_questions": [
             "Which error fields and redaction behavior are supported public or validation-event contracts?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_failure_classification",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real local OpenAI-compatible HTTP rejection through SDK and actual chat. Structured billing/status/retry outputs, provider type/code and bounded message survive; private input field, quoted API key/refresh fields, Bearer token, document data and credential/query URL fields stay out of stream/session/activity artifacts. Anthropic/Google SDK variants, explicit arbitrary redaction input and unstructured response/wrapper matrix remain."
+            }
           ]
         },
         {

@@ -16,6 +16,7 @@ from pydantic_ai.exceptions import (
 from pydantic_ai.messages import ToolReturn
 
 from core.llm.stream_retry import ModelStreamIdleTimeout
+from core.utils.provider_errors import provider_exception_details
 
 ToolTerminalState = Literal["completed", "failed", "interrupted"]
 
@@ -88,13 +89,15 @@ def classify_exception(
     exc: Exception, *, phase: str = "tool_execution"
 ) -> FailureClassification:
     """Classify common network/API/tool exceptions into a stable failure envelope."""
+    provider_details = provider_exception_details(exc, include_transport_errors=False)
+    message = str(provider_details.get("error", str(exc)))
     if isinstance(exc, ModelStreamIdleTimeout):
         return FailureClassification(
             error_type=type(exc).__name__,
             failure_kind="model_stream_idle_timeout",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Retry the request or switch models/providers if the stream repeatedly "
                 "stops producing usable events."
@@ -107,7 +110,7 @@ def classify_exception(
             failure_kind="execution_limit",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Do not retry the same broad request. Split the work into smaller scoped steps "
                 "or raise the configured execution limit if the scope is intentional."
@@ -122,7 +125,7 @@ def classify_exception(
                 failure_kind="rate_limited",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 retry_after=retry_after,
                 suggested_action="Retry after the provider rate-limit window.",
@@ -133,7 +136,7 @@ def classify_exception(
                 failure_kind="provider_unavailable",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 retry_after=retry_after,
                 suggested_action=(
@@ -146,7 +149,7 @@ def classify_exception(
                 failure_kind="configuration",
                 retryable=False,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action=(
                     "Check the model provider secret and account access before retrying."
@@ -157,7 +160,7 @@ def classify_exception(
             failure_kind="bad_request",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             http_status=status_code,
             suggested_action="Change the model request or selected model before retrying.",
         )
@@ -167,7 +170,7 @@ def classify_exception(
             failure_kind="transient_provider",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Retry the request; use another model/provider if the failure continues."
             ),
@@ -182,7 +185,7 @@ def classify_exception(
                 failure_kind="rate_limited",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action="Retry after the provider rate-limit window.",
                 metadata={"model_name": exc.model_name},
@@ -193,7 +196,7 @@ def classify_exception(
                 failure_kind="provider_unavailable",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action="Retry with backoff; use another model/provider if the outage continues.",
                 metadata={"model_name": exc.model_name},
@@ -207,7 +210,7 @@ def classify_exception(
                 failure_kind="configuration",
                 retryable=False,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action="Check the model provider secret and account access before retrying.",
                 metadata={"model_name": exc.model_name},
@@ -218,7 +221,7 @@ def classify_exception(
                 failure_kind="billing",
                 retryable=False,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action=(
                     "Check provider billing, credits, or quota before retrying; "
@@ -231,7 +234,7 @@ def classify_exception(
             failure_kind="bad_request",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             http_status=status_code,
             suggested_action="Change the model request or selected model before retrying.",
             metadata={"model_name": exc.model_name},
@@ -246,7 +249,7 @@ def classify_exception(
                 failure_kind="configuration",
                 retryable=False,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 suggested_action=(
                     "Configure the provider base URL as a complete http:// or "
                     "https:// URL before retrying."
@@ -269,7 +272,7 @@ def classify_exception(
                 failure_kind="transient_network",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 suggested_action=(
                     "Retry with backoff; check network connectivity if failures continue."
                 ),
@@ -283,7 +286,7 @@ def classify_exception(
             failure_kind="transient_provider",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Retry with backoff; use another model/provider if the stream remains incomplete."
             ),
@@ -294,7 +297,7 @@ def classify_exception(
             failure_kind="transient_network",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action="Retry with backoff, or narrow the request if repeated timeouts occur.",
         )
     if isinstance(exc, httpx.HTTPStatusError):
@@ -306,7 +309,7 @@ def classify_exception(
                 failure_kind="rate_limited",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 retry_after=retry_after,
                 suggested_action="Retry after the provider rate-limit window, respecting Retry-After when present.",
@@ -317,7 +320,7 @@ def classify_exception(
                 failure_kind="provider_unavailable",
                 retryable=True,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 retry_after=retry_after,
                 suggested_action="Retry with backoff; use another source if the provider remains unavailable.",
@@ -328,7 +331,7 @@ def classify_exception(
                 failure_kind="configuration",
                 retryable=False,
                 phase=phase,
-                message=str(exc),
+                message=message,
                 http_status=status_code,
                 suggested_action="Check the provider secret, account access, or tool configuration before retrying.",
             )
@@ -337,7 +340,7 @@ def classify_exception(
             failure_kind="bad_request",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             http_status=status_code,
             suggested_action="Change the request parameters before retrying.",
         )
@@ -347,7 +350,7 @@ def classify_exception(
             failure_kind="transient_network",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action="Retry with backoff; check network connectivity if failures continue.",
         )
 
@@ -358,7 +361,7 @@ def classify_exception(
             failure_kind="provider_overloaded",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Retry with backoff; use another model/provider if capacity pressure continues."
             ),
@@ -372,7 +375,7 @@ def classify_exception(
             failure_kind="transient_provider",
             retryable=True,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action="Retry with backoff; reduce request scope if the failure repeats.",
         )
     if any(
@@ -391,7 +394,7 @@ def classify_exception(
             failure_kind="configuration",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action="Check the provider secret, account access, or tool configuration before retrying.",
         )
     if any(token in lowered for token in ("credit", "billing", "balance", "quota")):
@@ -400,7 +403,7 @@ def classify_exception(
             failure_kind="billing",
             retryable=False,
             phase=phase,
-            message=str(exc),
+            message=message,
             suggested_action=(
                 "Check provider billing, credits, or quota before retrying; "
                 "switch providers if another configured option is available."
@@ -411,7 +414,7 @@ def classify_exception(
         failure_kind="unknown",
         retryable=False,
         phase=phase,
-        message=str(exc),
+        message=message,
         suggested_action="Inspect the error details and adjust the request or configuration before retrying.",
     )
 
