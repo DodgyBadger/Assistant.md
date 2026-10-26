@@ -5321,7 +5321,7 @@
             "test_failed_upgrade_keeps_old_checkpoint_and_can_retry"
           ],
           "contract": "Failed numbered settings upgrade keeps old revision/checkpoint and retries successfully.",
-          "disposition": "rewrite",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/sqlite_migrations.py",
@@ -5343,6 +5343,12 @@
               "verification": "focused scenario passed",
               "scope": "partial",
               "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            },
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "A valid v1 database with an actual SQLite BEFORE INSERT abort trigger fails after the upgrade DELETE. Live row, revision/checkpoint and pre-upgrade backup survive; removing the constraint permits retry. Proves real transactional rollback and retry without replacing migration functions."
             }
           ]
         },

@@ -151,8 +151,8 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                     raise AssertionError("Corrupt database must fail explicitly")
             assert corrupt_database.read_bytes() == corrupt_bytes
 
-            # Build an actual v1 checkpoint and let the settings migration own
-            # the upgrade and backup, including a failed attempt and retry.
+            # A database constraint fails the v2 replacement insert after its
+            # delete, exercising transaction rollback and a subsequent retry.
             upgrade_root = root / "numbered-upgrade"
             upgrade_root.mkdir()
             upgrade_database = upgrade_root / "settings.db"
@@ -165,7 +165,11 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 conn.execute("INSERT INTO configuration_state VALUES(1, 7, 'defaults')")
                 conn.execute(
                     "INSERT INTO configuration_settings VALUES(?, ?)",
-                    ("debug", json.dumps(["invalid legacy entry"])),
+                    ("debug", json.dumps({"value": False, "description": "legacy"})),
+                )
+                conn.execute(
+                    "CREATE TRIGGER reject_upgrade BEFORE INSERT ON configuration_settings "
+                    "BEGIN SELECT RAISE(ABORT, 'controlled upgrade failure'); END"
                 )
             try:
                 settings_schema.ensure_settings_schema(str(upgrade_root))
@@ -174,7 +178,25 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                 failed_backup = exc.backup_path
                 assert failed_backup is not None and failed_backup.exists()
             else:
-                raise AssertionError("Malformed v1 record must fail the upgrade")
+                raise AssertionError("The SQLite constraint must fail the upgrade")
+            with sqlite3.connect(failed_backup) as conn:
+                assert (
+                    conn.execute("SELECT revision FROM configuration_state").fetchone()[
+                        0
+                    ]
+                    == 7
+                )
+                assert (
+                    conn.execute(
+                        "SELECT max(version) FROM schema_migrations"
+                    ).fetchone()[0]
+                    == 1
+                )
+                assert json.loads(
+                    conn.execute(
+                        "SELECT payload FROM configuration_settings WHERE name='debug'"
+                    ).fetchone()[0]
+                ) == {"value": False, "description": "legacy"}
             with sqlite3.connect(upgrade_database) as conn:
                 assert (
                     conn.execute("SELECT revision FROM configuration_state").fetchone()[
@@ -192,11 +214,8 @@ class SettingsDatabaseMigrationScenario(BaseScenario):
                     conn.execute(
                         "SELECT payload FROM configuration_settings WHERE name='debug'"
                     ).fetchone()[0]
-                ) == ["invalid legacy entry"]
-                conn.execute(
-                    "UPDATE configuration_settings SET payload=? WHERE name='debug'",
-                    (json.dumps({"value": False, "description": "legacy"}),),
-                )
+                ) == {"value": False, "description": "legacy"}
+                conn.execute("DROP TRIGGER reject_upgrade")
             settings_schema.ensure_settings_schema(str(upgrade_root))
             backups = list(
                 (upgrade_root / "migration_backups").glob("settings.db.bak*")
