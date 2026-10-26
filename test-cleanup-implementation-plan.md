@@ -143,7 +143,7 @@ None of the reviewed frameworks supplies AssistantMD's domain setup and output c
 
 ### Bounded next assessment
 
-My provisional recommendation is to preserve the domain scenario approach, assess the lifecycle/discovery defects, and compare the smallest viable reuse of established tooling against improving the existing runner. Do not migrate 139 scenarios before that comparison. TextTest is the first alternative to evaluate for output-based verification; a thin pytest adapter is an option only if it demonstrably removes more custom machinery than it adds. Robot/Behave remain lower-priority alternatives unless keyword-based authoring becomes a requirement.
+The current direction is to improve the existing domain scenario approach and its lifecycle/discovery guarantees. The user has questioned whether TextTest warrants migration, and it is no longer a proposed next-step migration target. A mature execution component can be reconsidered only if a concrete local need and measured maintenance saving justify it. Preserve flexible Python scenarios and avoid bulk conversion of the 139 scenarios or adoption of another authoring language.
 
 Use three representative contracts to assess the candidates: real owner-login/CSRF outcomes against the actual application; backup-fenced settings reset using real files/SQLite and controlled concurrent actions; and quote selection appended to a draft through the actual browser/application without replacing fetch. Include a deliberately failing expected outcome so evidence retention and failure reporting can be assessed. The browser example can avoid sending a model request, keeping framework evaluation independent of LLM simulation policy.
 
@@ -222,6 +222,14 @@ The generic layer must be importable and runnable without importing `core.*`, `a
 7. Refocus the cleanup ledger on coherent user journeys and stable behavioral contracts. Existing scenarios should be extended when they already represent the relevant user outcome. New scenarios need a distinct outcome or lifecycle/authorization boundary; do not create one per new internal module. Avoid replacing the current suite with a handful of unwieldy monolithic scenarios.
 
 This makes the earlier adapter proposal the leading architecture to assess alongside the concrete runner/lifecycle fixes already identified. Framework replacement is secondary: a mature executor could sit beneath the generic scenario layer if a small assessment demonstrates a maintenance benefit, without dictating scenario authoring or outcome assertions. Package extraction remains a later decision.
+
+## Independent Astra design review
+
+At the user's explicit request, an Astra subagent independently reviewed the source, prior brainstorm, coverage audit, and framework assessment. Its proposal is [astra-validation-framework-design-plan.md](astra-validation-framework-design-plan.md). The parent reviewed that artifact; it remains a design proposal rather than authorization to implement or a claim that tests pass.
+
+The proposal keeps Python scenarios and the standard CLI, separates a generic execution/evidence core from the AssistantMD runtime adapter and domain helpers, and recommends serial fresh-interpreter scenario workers to contain current process-global state. The runner owns the complete async lifecycle, including partial startup, timeout/interruption, cleanup, and evidence finalization. Governance starts with three reviewed behavioral contracts and complete inventory accounting; semantic adequacy remains a review responsibility rather than a claim made by a static checker.
+
+The initial pilots are real owner-authentication/CSRF behavior, backup-fenced settings reset, and quotation appended to an existing draft through the real served browser application. Framework-owned fixture applications exercise failure and cleanup. A concrete open decision is how to arrange the settings concurrency case deterministically without replacing the application's backup function. Executor replacement, distributed scheduling, and package extraction are deferred. No code, test, CI, protected documentation, or external library file was changed, and no tests/services were run for this review.
 
 ## Proposed implementation sequence after investigation review
 
