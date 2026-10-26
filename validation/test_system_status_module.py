@@ -61,7 +61,9 @@ def test_initial_render_does_not_wait_for_system_status() -> None:
     )
 
 
-def test_late_system_status_preserves_user_model_selection() -> None:
+def test_late_system_status_preserves_valid_models_and_falls_back_for_missing_models() -> (
+    None
+):
     harness = r"""
 const assert = require('assert');
 const fs = require('fs');
@@ -76,7 +78,7 @@ const state = {
     metadata: {
         models: [
             { name: 'first', available: true },
-            { name: 'preferred', available: true },
+            { name: 'preferred', available: true, alternate_aliases: ['old-preferred'] },
         ],
     },
     modelSelectionTouched: true,
@@ -88,7 +90,7 @@ global.fetch = async (url) => ({
         if (url === 'api/status') {
             return {
                 advanced_shell: {},
-                configuration_status: { default_model: 'preferred' },
+                configuration_status: { default_model: 'old-preferred' },
             };
         }
         return { tasks: [] };
@@ -116,7 +118,13 @@ const controller = SystemStatus.create({
     assert.strictEqual(modelSelector.value, 'first');
     state.modelSelectionTouched = false;
     await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, 'first');
+    modelSelector.value = 'removed-model';
+    await controller.fetchSystemStatus();
     assert.strictEqual(modelSelector.value, 'preferred');
+    state.metadata.models = [{ name: 'first', available: true }];
+    await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, '');
 })().catch((error) => {
     console.error(error);
     process.exitCode = 1;
