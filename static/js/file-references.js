@@ -5,6 +5,7 @@
         let activeFileCanClose = null;
         let activeFileView = null;
         let activeSelectionPrompt = null;
+        let activeFavoriteEvents = null;
         let fileHistory = [];
 
         const linkResolver = window.FileReferenceLinks.create({
@@ -200,6 +201,7 @@
                                 <button type="button" data-vault-file-mode="edit" aria-label="Edit Markdown" title="Edit Markdown">${icons.EDIT_ICON_SVG}</button>
                                 <button type="button" data-vault-file-mode="history" aria-label="Revision history" title="Revision history">${icons.HISTORY_ICON_SVG}</button>
                             </div>
+                            <button type="button" class="ui-icon-button is-compact" data-vault-file-favorite aria-pressed="false" aria-label="Favorite file" title="Favorite file" disabled>${icons.BOOKMARK_ICON_SVG}</button>
                             <button type="button" class="ui-icon-button is-primary is-compact hidden" data-vault-file-save="true" aria-label="Save file" title="Save file" disabled>${icons.SAVE_ICON_SVG}</button>
                             <button type="button" class="ui-icon-button is-compact" data-vault-file-close="true" aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
@@ -252,6 +254,10 @@
             let historyLoadPromise = null;
             let selectedRevisionId = initialRevisionId;
             let currentFileExists = false;
+            let currentFavorite = false;
+            let favoritePending = false;
+            let favoriteRevision = 0;
+            const favoriteButton = overlay.querySelector('[data-vault-file-favorite]');
             let currentFileHashKnown = false;
             let refreshRequestId = 0;
             const supportsPreview = /\.(md|markdown)$/i.test(path);
@@ -342,6 +348,7 @@
                 const requestId = ++refreshRequestId;
                 const originalHash = sha256;
                 const originalContent = editor.value;
+                const originalFavoriteRevision = favoriteRevision;
                 try {
                     const data = await fetchVaultFile(path, vault);
                     if (document.getElementById('vault-file-modal') !== overlay
@@ -360,6 +367,7 @@
                         renderPreview();
                         preview.scrollTop = scrollTop;
                     }
+                    if (originalFavoriteRevision === favoriteRevision) currentFavorite = Boolean(data.favorite);
                     statusLabel?.classList.add('hidden');
                     applyInteractionLock();
                 } catch (error) {
@@ -401,9 +409,29 @@
                 });
             }
 
+            function syncFavoriteButton() {
+                if (!favoriteButton) return;
+                favoriteButton.disabled = !currentFileExists || favoritePending;
+                favoriteButton.setAttribute('aria-pressed', String(currentFavorite));
+                favoriteButton.classList.toggle('is-bookmarked', currentFavorite);
+                favoriteButton.title = currentFavorite ? 'Remove favorite' : 'Favorite file';
+                favoriteButton.setAttribute('aria-label', favoriteButton.title);
+            }
+
+            // The file modal can remain open above the Explorer; synchronize either control.
+            const onFavoritesChanged = (event) => {
+                if (event.detail.vault !== vault) return;
+                favoriteRevision += 1;
+                currentFavorite = event.detail.paths.has(path);
+                syncFavoriteButton();
+            };
+            activeFavoriteEvents = new AbortController();
+            document.addEventListener('vault-favorites-changed', onFavoritesChanged, { signal: activeFavoriteEvents.signal });
+
             function applyInteractionLock() {
                 selectionPrompt.syncLocks();
                 const locked = interactionLocked();
+                syncFavoriteButton();
                 if (editor instanceof HTMLTextAreaElement) {
                     editor.readOnly = locked;
                     editor.title = locked ? lockMessage : '';
@@ -432,6 +460,25 @@
                 if (document.getElementById('vault-file-modal') !== overlay) return;
                 const target = event.target;
                 if (!(target instanceof Element)) return;
+                if (target.closest('[data-vault-file-favorite]')) {
+                    if (!currentFileExists || favoritePending) return;
+                    favoritePending = true;
+                    syncFavoriteButton();
+                    try {
+                        const paths = await window.VaultFavorites.set(vault, [path], !currentFavorite);
+                        if (document.getElementById('vault-file-modal') !== overlay) return;
+                        currentFavorite = paths.has(path);
+                    } catch (error) {
+                        if (document.getElementById('vault-file-modal') === overlay && statusLabel) {
+                            statusLabel.classList.remove('hidden');
+                            statusLabel.textContent = `Unable to update favorite: ${error.message}`;
+                        }
+                    } finally {
+                        favoritePending = false;
+                        syncFavoriteButton();
+                    }
+                    return;
+                }
                 if (target.closest('[data-vault-file-back="true"]')) {
                     const prior = fileHistory.at(-1);
                     if (prior) {
@@ -473,6 +520,8 @@
                         currentFileHashKnown = true;
                     }, () => sha256);
                     if (saved) {
+                        currentFavorite = Boolean(saved.favorite);
+                        syncFavoriteButton();
                         savedContent = editor.value;
                         historyLoaded = false;
                         if (historyList instanceof HTMLElement) historyList.innerHTML = '';
@@ -492,6 +541,8 @@
                 if (document.getElementById('vault-file-modal') !== overlay) return;
                 sha256 = data.sha256 || '';
                 currentFileExists = true;
+                currentFavorite = Boolean(data.favorite);
+                syncFavoriteButton();
                 currentFileHashKnown = true;
                 if (editor instanceof HTMLTextAreaElement) {
                     editor.value = data.content || '';
@@ -545,6 +596,14 @@
                 }
                 if (error.errorType === 'VaultFileNotText') {
                     currentFileExists = true;
+                    try {
+                        const paths = await window.VaultFavorites.read(vault);
+                        if (document.getElementById('vault-file-modal') !== overlay) return;
+                        currentFavorite = paths.has(path);
+                        syncFavoriteButton();
+                    } catch (favoriteError) {
+                        if (statusLabel) statusLabel.textContent = `Unable to load favorite: ${favoriteError.message}`;
+                    }
                     currentFileHashKnown = false;
                     if (initialMode === 'history') {
                         showHistoryOnly('This file is not editable as plain text.');
@@ -821,6 +880,8 @@
             if (!force && activeFileCanClose && !activeFileCanClose()) return false;
             activeSelectionPrompt?.destroy();
             activeSelectionPrompt = null;
+            activeFavoriteEvents?.abort();
+            activeFavoriteEvents = null;
             document.getElementById('vault-file-modal')?.remove();
             activeFileCanClose = null;
             activeFileView = null;

@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-Implementation in progress on branch `dev/UI-favorites`; chat resume behavior, per-vault scope, file and folder favorites, move/delete lifecycle, and bookmark controls are confirmed. Implement favorite chat sessions and favorite vault files. Workspace `prompts.md` quick prompts remain a separate specification effort and are outside this implementation.
+Implementation and targeted validation complete on branch `dev/UI-favorites`; chat resume behavior, per-vault scope, file and folder favorites, move/delete lifecycle, and bookmark controls are confirmed. Implement favorite chat sessions and favorite vault files. Workspace `prompts.md` quick prompts remain a separate specification effort and are outside this implementation.
 
 ## Observed implementation
 
@@ -59,6 +59,12 @@ Implemented chat favorite state and APIs, favorite-first UI session listing, dur
 ## Chat interface milestone
 
 Implemented Lucide bookmark toggles in session rows and favorite conversation cards on the new-chat panel. Cards use the same session-selection method as browser rows. Session changes refresh the cards; late bookmark responses cannot modify another vault. Desktop/mobile browser tests and nearby controller tests pass (22 checks). The bookmark icon and styling are shared with the Explorer interface.
+
+## Explorer interface milestone
+
+Implemented bookmark toggles for individual files and selected files/folders, with mixed selections adding every selected item and fully bookmarked selections removing all. A shared API helper synchronizes the file modal and Explorer. The Explorer header filter applies to flat favorite listings, filename searches, and content searches; opening a bookmarked folder enters ordinary browsing. Pending mutations keep the bookmark control visible and disabled, and failures preserve bookmark state. Favorite revision guards prevent stale reads from overwriting completed edits.
+
+Desktop/mobile browser workflows, pending/failure handling, and nearby Explorer controller checks passed (22 checks across the focused files). The CSS build passed. Mobile previews were visually inspected with no horizontal overflow. The complete Ruff and Black checks passed; the production Python MyPy gate passed at the backend milestone and production Python has not changed since. Session UI is committed as `dba4896`; Explorer UI is the final implementation commit. Remaining work is user review, deferred documentation, the separately scoped quick-prompts specification, and any later merge validation explicitly requested by the user.
 
 ## Validation and documentation constraints
 

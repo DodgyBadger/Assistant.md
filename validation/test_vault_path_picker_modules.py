@@ -24,6 +24,7 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 global.window = global;
+global.VaultFavorites = { async read() { return new Set(); } };
 let scrollCalls = 0;
 class Element {
     constructor() {
@@ -92,6 +93,7 @@ const mode = new HTMLInputElement(); mode.value = 'name';
 const results = new Element(); const status = new Element();
 let overlay;
 global.document = {
+    addEventListener() {},
     activeElement: null,
     getElementById(id) { return overlay?.isConnected && overlay.id === id ? overlay : null; },
     createElement() {
@@ -311,7 +313,7 @@ const fs = require('fs');
 const vm = require('vm');
 
 global.window = global;
-global.document = {};
+global.document = { addEventListener() {} };
 for (const path of process.argv.slice(1)) {
     vm.runInThisContext(fs.readFileSync(path, 'utf8'), { filename: path });
 }

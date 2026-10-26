@@ -84,6 +84,10 @@
             if (!overlay || !options) return;
             const selectedItem = currentSnapshot.selectedItems[0] || null;
             try {
+                if (action === 'favorite') {
+                    await callbacks.toggleFavorites(overlay, currentSnapshot, options);
+                    return;
+                }
                 if (action === 'clear') {
                     state.clearSelection();
                     return;
@@ -191,7 +195,17 @@
                     );
                 }
             });
-            toolbar.render(currentSnapshot, {
+            const allFavorites = currentSnapshot.selectedCount > 0 && currentSnapshot.selectedPaths.every(
+                path => options.favoritePaths?.has(path)
+            );
+            toolbar.render({
+                ...currentSnapshot,
+                operations: { ...currentSnapshot.operations, favorite: {
+                    ...currentSnapshot.operations.favorite,
+                    enabled: currentSnapshot.selectedCount > 0 && !options.favoritesPending,
+                    pressed: allFavorites,
+                } },
+            }, {
                 readOnly: callbacks.isReadOnly(options) || callbacks.isBusy(),
                 lockMessage: callbacks.isBusy()
                     ? 'Available after the upload finishes.'
@@ -213,7 +227,7 @@
             }
             actions.push('refresh');
             if (typeof currentOptions.onAddReference === 'function') actions.push('reference');
-            actions.push('copy');
+            actions.push('copy', 'favorite');
             if (typeof currentOptions.onSetWorkspace === 'function') actions.push('workspace');
             actions.push('rename', 'move', 'delete');
             if (typeof currentOptions.onImportSources === 'function') {

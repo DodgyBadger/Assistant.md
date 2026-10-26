@@ -6,6 +6,7 @@
         import_url: { label: 'Import URL', icon: 'LINK_ICON_SVG', locks: true },
         refresh: { label: 'Refresh', icon: 'REFRESH_ICON_SVG', locks: false },
         reference: { label: 'Add to prompt', icon: 'MESSAGE_SQUARE_PLUS_ICON_SVG', locks: true },
+        favorite: { label: 'Favorite selected', icon: 'BOOKMARK_ICON_SVG', locks: false },
         copy: { label: 'Copy path', icon: 'CLIPBOARD_COPY_ICON_SVG', locks: false },
         import_file: { label: 'Import to Markdown', icon: 'FILE_DOWN_ICON_SVG', locks: true },
         workspace: { label: 'Set as workspace', icon: 'BRIEFCASE_BUSINESS_ICON_SVG', locks: true },
@@ -31,7 +32,7 @@
     ]);
     const ACTION_MENUS_BY_NAME = new Map(ACTION_MENUS.map((menu) => [menu.name, menu]));
     const TOOLBAR_GROUPS = Object.freeze([
-        Object.freeze({ name: 'use', items: Object.freeze(['reference', 'copy']) }),
+        Object.freeze({ name: 'use', items: Object.freeze(['reference', 'copy', 'favorite']) }),
         Object.freeze({
             name: 'manage',
             items: Object.freeze(['create', 'rename', 'move', 'import', 'delete']),
@@ -262,20 +263,23 @@
         function shouldRenderAction(name, operationState, selectedCount) {
             if (!ACTIONS[name] || !operationState) return false;
             if (operationState.enabled) return true;
-            return selectedCount > 1 && ['move', 'delete'].includes(name);
+            return (name === 'favorite' && selectedCount > 0)
+                || (selectedCount > 1 && ['move', 'delete'].includes(name));
         }
 
         function renderActionButton(name, operationState, { lockMessage, readOnly }) {
             const definition = ACTIONS[name];
             const locked = readOnly && definition.locks;
             const disabled = locked || operationState.enabled !== true;
+            const label = name === 'favorite' && operationState.pressed ? 'Remove selected favorites' : definition.label;
             const reason = locked
                 ? lockMessage
-                : operationState.reason || definition.label;
+                : operationState.reason || label;
             return `
-                <button type="button" class="ui-icon-button is-compact vault-explorer-toolbar-action"
+                <button type="button" class="ui-icon-button is-compact vault-explorer-toolbar-action${name === 'favorite' && operationState.pressed ? ' is-bookmarked' : ''}"
+                    ${name === 'favorite' ? `aria-pressed="${Boolean(operationState.pressed)}"` : ''}
                     data-vault-explorer-toolbar-action="${name}"
-                    aria-label="${escapeHtml(definition.label)}"
+                    aria-label="${escapeHtml(label)}"
                     title="${escapeHtml(reason)}" ${disabled ? 'disabled' : ''}>
                     ${icons[definition.icon] || ''}
                 </button>

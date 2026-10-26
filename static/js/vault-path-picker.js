@@ -62,6 +62,7 @@
             utils,
             callbacks: {
                 handleBatchMove: explorerBatchMoves.show,
+                toggleFavorites,
                 handleImportAction,
                 handleMutationAction: explorerActions.handleAction,
                 isBusy: isExplorerBusy,
@@ -74,6 +75,43 @@
                 workspacePath,
             },
         });
+
+        document.addEventListener('vault-favorites-changed', (event) => {
+            if (!activeOptions?.explorer || event.detail.vault !== (activeOptions.vaultName || selectedVault())) return;
+            activeOptions.favoritePaths = event.detail.paths;
+            activeOptions.favoriteRevision += 1;
+            explorer.render();
+            const overlay = document.getElementById(activePickerId);
+            if (overlay && activeOptions.favoritesOnly) {
+                void loadCurrentResults(overlay, activeOptions).catch(error => setStatus(overlay, error.message, true));
+            }
+        });
+
+        function setFavoritesFilter(overlay, options, active) {
+            options.favoritesOnly = active;
+            const button = overlay.querySelector('[data-vault-favorites-filter]');
+            if (!button) return;
+            button.setAttribute('aria-pressed', String(active));
+            button.classList.toggle('is-bookmarked', active);
+            button.title = active ? 'Show all files and folders' : 'Show favorites only';
+            button.setAttribute('aria-label', button.title);
+        }
+
+        async function toggleFavorites(overlay, snapshot, options) {
+            if (!snapshot.selectedCount || options.favoritesPending) return;
+            const favorite = !snapshot.selectedPaths.every(path => options.favoritePaths?.has(path));
+            options.favoritesPending = true;
+            explorer.render();
+            try {
+                const paths = await window.VaultFavorites.set(options.vaultName || selectedVault(), snapshot.selectedPaths, favorite);
+                if (!isActiveOverlay(overlay)) return;
+                options.favoritePaths = paths;
+                setStatus(overlay, favorite ? 'Selected items favorited.' : 'Selected favorites removed.');
+            } finally {
+                options.favoritesPending = false;
+                if (isActiveOverlay(overlay)) explorer.render();
+            }
+        }
 
         function selectedVault() {
             return elements.vaultSelector?.value || '';
@@ -128,6 +166,10 @@
             activePickerId = id;
             activeOnClose = typeof options.onClose === 'function' ? options.onClose : null;
             activeOptions = options;
+            options.favoritesOnly = false;
+            options.favoritePaths = new Set();
+            options.favoriteRevision = 0;
+            options.favoritesPending = false;
             const mode = options.mode === 'directories' ? 'directories' : 'files';
             const titleId = `${id}-title`;
             const showSearch = mode === 'files';
@@ -158,6 +200,7 @@
                             </div>` : ''}
                         `}
                         <div class="app-modal-actions">
+                            ${options.explorer ? `<button type="button" class="ui-icon-button is-compact" data-vault-favorites-filter aria-pressed="false" aria-label="Show favorites only" title="Show favorites only">${icons.BOOKMARK_ICON_SVG}</button>` : ''}
                             <button type="button" class="ui-icon-button is-compact" data-vault-path-picker-close aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                     </div>
@@ -271,6 +314,12 @@
                     close();
                     return;
                 }
+                const favoritesFilter = target.closest('[data-vault-favorites-filter]');
+                if (favoritesFilter instanceof HTMLButtonElement) {
+                    setFavoritesFilter(overlay, options, !options.favoritesOnly);
+                    loadRoot();
+                    return;
+                }
                 const searchModeOption = target.closest('[data-vault-explorer-search-mode-option]');
                 if (searchModeOption instanceof HTMLButtonElement) {
                     if (searchModeSelect instanceof HTMLInputElement) {
@@ -332,6 +381,13 @@
                         if (kind === 'directory') {
                             explorerActions.selectDestination(overlay, path);
                         }
+                        return;
+                    }
+                    if (kind === 'directory' && options.favoritesOnly && options.expandDirectoriesOnSelect) {
+                        setFavoritesFilter(overlay, options, false);
+                        explorer.setActiveFolder(path);
+                        resetExplorerSearch(overlay, options);
+                        loadRoot();
                         return;
                     }
                     if (kind === 'directory' && options.expandDirectoriesOnSelect) {
@@ -763,16 +819,23 @@
             const selectedScope = scopeSelect instanceof HTMLSelectElement
                 ? scopeSelect.value
                 : options.explorer ? 'vault' : 'workspace';
-            const payload = await fetchFileRefs({
-                path: path || (options.explorer
-                    ? explorer.snapshot().activeFolder
-                    : selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
-                query: queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '',
-                scope: selectedScope === 'active' ? 'vault' : selectedScope,
-                signal: controller.signal,
-                options,
-            });
+            const favoriteRevision = options.favoriteRevision;
+            const [payload, favorites] = await Promise.all([
+                fetchFileRefs({
+                    path: path || (options.explorer
+                        ? explorer.snapshot().activeFolder
+                        : selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
+                    query: queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '',
+                    scope: selectedScope === 'active' ? 'vault' : selectedScope,
+                    signal: controller.signal,
+                    options,
+                }),
+                options.explorer
+                    ? window.VaultFavorites.read(options.vaultName || selectedVault(), { signal: controller.signal })
+                    : Promise.resolve(new Set()),
+            ]);
             if (generation !== rootLoadGeneration || !overlay.isConnected) return;
+            if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
             const items = Array.isArray(payload.items) ? payload.items : [];
             setStatus(overlay, renderFileStatus(payload, items.length));
             results.innerHTML = items.length
@@ -808,9 +871,17 @@
             expandAllGeneration += 1;
             rootAbortController?.abort();
             rootAbortController = null;
+            explorerSearch.cancel();
             const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
             const query = queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '';
+            const generation = rootLoadGeneration;
+            const favoriteRevision = options.favoriteRevision;
+            const favorites = options.explorer ? await window.VaultFavorites.read(options.vaultName || selectedVault()) : new Set();
+            if (generation !== rootLoadGeneration || !isActiveOverlay(overlay)) return;
+            if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
+            explorer.render();
             await explorerSearch.load({
+                favoritesOnly: Boolean(options.favoritesOnly),
                 overlay,
                 vault: options.vaultName || selectedVault(),
                 query,
@@ -845,6 +916,7 @@
             if (query) params.set('query', query);
             if (offset) params.set('offset', String(offset));
             params.set('scope', scope || 'workspace');
+            if (options.favoritesOnly) params.set('favorites_only', 'true');
             const vault = options.vaultName || selectedVault();
             const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/file-refs?${params.toString()}`, { signal });
             if (!response.ok) {
@@ -1000,7 +1072,7 @@
             const name = String(item.name || path || 'Path');
             const kind = item.kind === 'directory' ? 'directory' : 'file';
             const indent = Math.min(Math.max(depth, 0) * 1.25, 5);
-            const canExpand = kind === 'directory' && item.has_children;
+            const canExpand = kind === 'directory' && item.has_children && !options.favoritesOnly;
             const icon = kind === 'directory' ? icons.FOLDER_ICON_SVG : fileIcon();
             const selected = options.explorer
                 && explorer.snapshot().selectedPaths.includes(path);
@@ -1142,7 +1214,7 @@
                 && treeGeneration === treeLifecycleGeneration && expansionGeneration === expandAllGeneration;
             if (!isCurrent()) return;
             const searchMode = overlay.querySelector('[data-vault-path-picker-search-mode]');
-            if (!reveal && searchMode?.value === 'content') {
+            if (options.favoritesOnly || (!reveal && searchMode?.value === 'content')) {
                 if (results) results.scrollTop = scrollTop;
                 return;
             }

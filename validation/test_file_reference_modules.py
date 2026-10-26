@@ -151,7 +151,7 @@ class Textarea extends Element {}
 class Button extends Element {}
 global.Element = global.HTMLElement = Element;
 global.HTMLTextAreaElement = Textarea; global.HTMLButtonElement = Button;
-global.document = { createElement:()=>new Element(), getElementById:()=>overlay, body:{appendChild(node){overlay=node;}} };
+global.document = { addEventListener() {}, createElement:()=>new Element(), getElementById:()=>overlay, body:{appendChild(node){overlay=node;}} };
 global.confirm = () => discard;
 global.requestAnimationFrame = callback => callback();
 global.fetch = async url => ({ok:true,json:async()=>({content:`Body ${url}`,sha256:'hash'})});
