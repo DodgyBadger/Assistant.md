@@ -72,6 +72,16 @@ class CodeExecutionScenario(BaseScenario):
                             'hasattr(doc, "return_value") and getattr(doc, "return_value") == "BLOCKED_CONTENT"'
                         )
                     }
+                if case_name == "registered_values":
+                    return {
+                        "code": (
+                            f"parsed = await parse_markdown(value={STRUCTURED_NOTE!r})\n"
+                            'history = await retrieve_history(scope="session", limit=1)\n'
+                            'date.today("%Y") + ":" + parsed.sections[1].heading + ":" + history.items[0].to_text()'
+                        )
+                    }
+                if case_name == "private_method":
+                    return {"code": 'date._resolve("today", None)'}
                 if case_name == "streaming_detail":
                     return {
                         "code": (
@@ -287,6 +297,58 @@ class CodeExecutionScenario(BaseScenario):
             self.soft_assert(
                 "true" in dynamic_attribute_helpers_text.lower(),
                 "code_execution should support hasattr/getattr on helper result objects",
+            )
+
+            # Seed ordinary persisted conversation state, without prior tool calls.
+            from pydantic_ai.messages import ModelRequest, UserPromptPart
+
+            from core.chat.chat_store import ChatStore
+            from core.identity import LOCAL_USER_PRINCIPAL_ID
+
+            history_store = ChatStore()
+            history_store.ensure_session(
+                "code_execution_registered_values",
+                vault.name,
+                owner_principal_id=LOCAL_USER_PRINCIPAL_ID,
+            )
+            history_store.add_messages(
+                "code_execution_registered_values",
+                vault.name,
+                [
+                    ModelRequest(parts=[UserPromptPart("HISTORY_REGISTERED_VALUE")]),
+                ],
+            )
+            current_case["name"] = "registered_values"
+            registered_values = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "Read registered date, markdown and prior history values.",
+                    "session_id": "code_execution_registered_values",
+                    "tools": ["code_execution"],
+                    "model": "test",
+                },
+            )
+            assert registered_values["terminal_event"].get("event") == "done"
+            assert f"{datetime.now().year}:AI In Fiction" in registered_values["text"]
+            assert "HISTORY_REGISTERED_VALUE" in registered_values["text"]
+
+            current_case["name"] = "private_method"
+            private_method = await self.run_chat_task(
+                {
+                    "vault_name": vault.name,
+                    "prompt": "Attempt to call a private date method.",
+                    "session_id": "code_execution_private_method",
+                    "tools": ["code_execution"],
+                    "model": "test",
+                },
+            )
+            assert private_method["terminal_event"].get("event") == "done"
+            self.assert_event_contains(
+                self.validation_events(),
+                name="authoring_monty_execution_failed",
+                expected={
+                    "workflow_id": "CodeExecutionVault/chat/code_execution_private_method",
+                },
             )
 
             current_case["name"] = "streaming_detail"

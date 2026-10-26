@@ -3192,50 +3192,6 @@
       "execution_in_core": "not_executed_as_a_root_suite"
     },
     {
-      "path": "validation/test_monty_values.py",
-      "summary": "2 direct tests, each separately assessed against concrete scenario assertions.",
-      "groups": [
-        {
-          "id": "monty_values_01",
-          "tests": [
-            "test_registered_values_cross_inputs_and_nested_helper_results"
-          ],
-          "contract": "Registered value crosses code input and nested helper result boundaries. ",
-          "disposition": "gap",
-          "coverage": [],
-          "rationale": "No equivalent assertion found; execute supported code flow with real value-producing operation. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Real code execution scenario with registered value from supported domain action.",
-          "dependencies": [
-            "Direct Monty converter and synthetic helper results."
-          ],
-          "review_questions": [
-            "Which registered values and private-access restrictions are intended durable contract?"
-          ]
-        },
-        {
-          "id": "monty_values_02",
-          "tests": [
-            "test_registered_values_do_not_expose_private_methods"
-          ],
-          "contract": "Private methods of registered values cannot be called from code execution. ",
-          "disposition": "gap",
-          "coverage": [],
-          "rationale": "No equivalent negative identified; preserve isolation contract. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Real code execution scenario with registered value from supported domain action.",
-          "dependencies": [
-            "Direct Monty converter and synthetic helper results."
-          ],
-          "review_questions": [
-            "Which registered values and private-access restrictions are intended durable contract?"
-          ]
-        }
-      ],
-      "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "3f1282102030a1de2c517dd4f9a32b3448c0e7db20e2545ebd8c2f742cf42ad9",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
-    },
-    {
       "path": "validation/test_npm_audit_policy.cjs",
       "summary": "9 test(s): npm audit policy self-check.",
       "groups": [
@@ -6702,6 +6658,71 @@
         "reason": "All ten durable application-ingress behaviors passed through the real runtime scenario; internal wording and exact countdown snapshots omitted deliberately.",
         "replacement": "integration/core/ingress_authentication",
         "verification_log": "/tmp/test-cleanup-catalog-code-auth.log"
+      }
+    },
+    {
+      "path": "validation/test_monty_values.py",
+      "summary": "2 direct tests, each separately assessed against concrete scenario assertions.",
+      "groups": [
+        {
+          "id": "monty_values_01",
+          "tests": [
+            "test_registered_values_cross_inputs_and_nested_helper_results"
+          ],
+          "contract": "Registered value crosses code input and nested helper result boundaries. ",
+          "disposition": "covered",
+          "coverage": [],
+          "rationale": "No equivalent assertion found; execute supported code flow with real value-producing operation. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Real code execution scenario with registered value from supported domain action.",
+          "dependencies": [
+            "Direct Monty converter and synthetic helper results."
+          ],
+          "review_questions": [
+            "Which registered values and private-access restrictions are intended durable contract?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/code_execution",
+              "verification": "focused scenario passed",
+              "scope": "supported application behavior",
+              "notes": "Production registered date input public method plus nested real HistoryMessage.to_text and Markdown values cross actual code execution. A sole private-method call emits execution-failed with correct workflow identity. Denial may occur in type checking; this does not separately isolate converter runtime exposure policy for arbitrary synthetic classes."
+            }
+          ]
+        },
+        {
+          "id": "monty_values_02",
+          "tests": [
+            "test_registered_values_do_not_expose_private_methods"
+          ],
+          "contract": "Private methods of registered values cannot be called from code execution. ",
+          "disposition": "covered",
+          "coverage": [],
+          "rationale": "No equivalent negative identified; preserve isolation contract. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Real code execution scenario with registered value from supported domain action.",
+          "dependencies": [
+            "Direct Monty converter and synthetic helper results."
+          ],
+          "review_questions": [
+            "Which registered values and private-access restrictions are intended durable contract?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/code_execution",
+              "verification": "focused scenario passed",
+              "scope": "supported application behavior",
+              "notes": "Production registered date input public method plus nested real HistoryMessage.to_text and Markdown values cross actual code execution. A sole private-method call emits execution-failed with correct workflow identity. Denial may occur in type checking; this does not separately isolate converter runtime exposure policy for arbitrary synthetic classes."
+            }
+          ]
+        }
+      ],
+      "area": "settings, storage, search, decision, and configuration editors",
+      "sha256": "3f1282102030a1de2c517dd4f9a32b3448c0e7db20e2545ebd8c2f742cf42ad9",
+      "review_status": "source_audit_candidate",
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retirement": {
+        "reason": "Supported application value conversion/public method/private denial outcomes pass through existing code-execution scenario; direct synthetic converter mechanism is not a separate application contract.",
+        "replacement": "integration/core/code_execution",
+        "verification_log": "/tmp/test-cleanup-monty-values.log"
       }
     }
   ]
