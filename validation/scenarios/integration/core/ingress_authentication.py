@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime, timedelta
+
 import httpx
 from fastapi import FastAPI
 
@@ -11,6 +14,8 @@ from core.authentication import (
     MAXIMUM_REQUEST_HEADER_BYTES,
     OWNER_CSRF_COOKIE,
     OWNER_SESSION_COOKIE,
+    OwnerSessionCodec,
+    SessionVerificationError,
     load_authentication_policy,
 )
 from core.runtime.state import get_runtime_context
@@ -43,8 +48,23 @@ class IngressAuthenticationScenario(BaseScenario):
     async def test_scenario(self) -> None:
         self.create_vault("IngressAuthenticationVault")
         try:
+            policy = load_authentication_policy(
+                AppSettings(
+                    ASSISTANTMD_AUTH_MODE="owner_token", ASSISTANTMD_AUTH_SECRET=_SECRET
+                )
+            )
+            async with _client(
+                create_application(authentication_policy=policy)
+            ) as client:
+                starting = await client.get("/api/health")
+                assert starting.status_code == 503
+                assert starting.json() == {
+                    "status": "starting",
+                    "scheduler_running": False,
+                }
             await self.start_system()
             await self._owner_session()
+            await self._session_time_boundaries()
             await self._invalid_requests_and_rate_limit()
             await self._peer_modes()
         finally:
@@ -62,13 +82,15 @@ class IngressAuthenticationScenario(BaseScenario):
             assert root.status_code == 303 and root.headers["location"] == "/auth/login"
             for path in ("/api/status", "/docs", "/static/js/authentication.js"):
                 assert (await browser.get(path)).status_code == 401, path
-            assert (await browser.get("/auth/login")).status_code == 200
+            login_page = await browser.get("/auth/login")
+            assert login_page.status_code == 200 and _SECRET not in login_page.text
             assert (
                 await browser.post("/auth/session", json={"owner_token": "wrong"})
             ).status_code == 401
 
             login = await browser.post("/auth/session", json={"owner_token": _SECRET})
             assert login.status_code == 200 and login.json() == {"authenticated": True}
+            assert login.headers["cache-control"].startswith("no-store")
             cookies = login.headers.get_list("set-cookie")
             assert len(cookies) == 2
             assert any(
@@ -110,6 +132,26 @@ class IngressAuthenticationScenario(BaseScenario):
 
             headers = {"Authorization": f"Bearer {_SECRET}"}
             assert (await bearer.get("/api/status", headers=headers)).status_code == 200
+            activity = await bearer.get("/api/system/activity-log", headers=headers)
+            assert activity.status_code == 200
+            auth_events = [
+                entry
+                for entry in activity.json()["entries"]
+                if entry.get("tag") == "authentication"
+            ]
+            assert any(
+                entry.get("data", {}).get("event") == "owner_session_exchange_failed"
+                and entry["data"].get("status") == "failed"
+                and entry["data"].get("reason") == "invalid_credential"
+                for entry in auth_events
+            )
+            assert any(
+                entry.get("data", {}).get("event") == "owner_session_exchange_completed"
+                and entry["data"].get("status") == "completed"
+                and entry["data"].get("secure_cookie") is True
+                for entry in auth_events
+            )
+            assert _SECRET not in json.dumps(auth_events)
             bearer_rescan = await bearer.post("/api/vaults/rescan", headers=headers)
             assert (
                 bearer_rescan.status_code == 200
@@ -157,6 +199,54 @@ class IngressAuthenticationScenario(BaseScenario):
             }
             assert (await browser.get("/")).status_code == 303
             assert (await browser.get("/api/status")).status_code == 401
+
+    async def _session_time_boundaries(self) -> None:
+        policy = load_authentication_policy(
+            AppSettings(
+                ASSISTANTMD_AUTH_MODE="owner_token", ASSISTANTMD_AUTH_SECRET=_SECRET
+            )
+        )
+        codec = OwnerSessionCodec(policy, lifetime=timedelta(minutes=5))
+        now = datetime.now(UTC).replace(microsecond=0)
+        current = codec.issue(now=now - timedelta(minutes=1))
+        expired = codec.issue(now=now - timedelta(days=1))
+        future = codec.issue(now=now + timedelta(days=1))
+        assert _SECRET not in current.cookie_value
+        assert _SECRET not in current.csrf_token
+        assert current.csrf_token not in current.cookie_value
+        assert len(current.cookie_value.encode()) <= 4096
+
+        # The explicit verification clock makes the exclusive expiry boundary deterministic.
+        assert codec.verify(
+            current.cookie_value, now=current.expires_at - timedelta(seconds=1)
+        )
+        try:
+            codec.verify(current.cookie_value, now=current.expires_at)
+        except SessionVerificationError:
+            pass
+        else:
+            raise AssertionError("Session accepted at its expiration time")
+
+        app = _application("owner_token", ASSISTANTMD_AUTH_SECRET=_SECRET)
+        async with _client(app) as client:
+            accepted = await client.get(
+                "/api/status",
+                headers={"Cookie": f"{OWNER_SESSION_COOKIE}={current.cookie_value}"},
+            )
+            assert accepted.status_code == 200
+            for value in (
+                expired.cookie_value,
+                future.cookie_value,
+                "",
+                "one-segment",
+                ".",
+                "x.y.z",
+                "a" * 4097,
+            ):
+                denied = await client.get(
+                    "/api/status", headers={"Cookie": f"{OWNER_SESSION_COOKIE}={value}"}
+                )
+                assert denied.status_code == 401
 
     async def _invalid_requests_and_rate_limit(self) -> None:
         app = _application("owner_token", ASSISTANTMD_AUTH_SECRET=_SECRET)
@@ -210,6 +300,7 @@ class IngressAuthenticationScenario(BaseScenario):
             ).status_code == 404
         loopback = _application("loopback")
         async with _client(loopback, "127.0.0.1") as local, _client(loopback) as remote:
+            assert (await local.get("/")).status_code == 200
             assert (await local.get("/api/status")).status_code == 200
             denied = await remote.get(
                 "/api/status",
@@ -224,6 +315,8 @@ class IngressAuthenticationScenario(BaseScenario):
         )
         headers = {"X-AssistantMD-Proxy-Assertion": _SECRET}
         async with _client(proxy, "172.20.0.4") as trusted, _client(proxy) as untrusted:
+            assert (await trusted.get("/", headers=headers)).status_code == 200
+            assert (await trusted.get("/")).status_code == 401
             assert (
                 await trusted.get("/api/status", headers=headers)
             ).status_code == 200
