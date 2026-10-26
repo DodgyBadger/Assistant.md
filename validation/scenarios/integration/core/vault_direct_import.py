@@ -225,6 +225,10 @@ class VaultDirectImportScenario(BaseScenario):
                 ),
                 "An import without an override should use the persisted PDF mode default",
             )
+            original_source = source.read_bytes()
+            original_artifacts = {
+                path: (vault / path).read_bytes() for path in defaulted_outputs
+            }
             page_collision = self.call_api(
                 "/api/import/sources",
                 method="POST",
@@ -249,6 +253,16 @@ class VaultDirectImportScenario(BaseScenario):
                     for path in page_collision_outputs
                 ),
                 "Page-image resubmission should allocate one numbered output namespace",
+            )
+            numbered_page = "PageDefault/assets/source_1/pages/page_0001.png"
+            assert numbered_page in page_collision_outputs
+            assert (vault / numbered_page).read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+            numbered_markdown = (vault / "PageDefault/source_1.md").read_text()
+            assert "(assets/source_1/pages/page_0001.png)" in numbered_markdown
+            assert source.read_bytes() == original_source
+            assert all(
+                (vault / path).read_bytes() == content
+                for path, content in original_artifacts.items()
             )
 
             url = "https://example.test/reference"

@@ -2123,7 +2123,7 @@
             "test_output_allocation_uses_one_numbered_namespace"
           ],
           "contract": "Collision allocates numbered Markdown and matching asset namespace.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/import_pipeline_core.py",
@@ -2138,6 +2138,14 @@
           ],
           "review_questions": [
             "What supported fault boundary can trigger failure and external modification without replacing application services?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_direct_import",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real PDF page-image collision: numbered Markdown links to the allocated numbered PNG, PNG bytes exist, source and first import artifacts remain byte-identical. This is PDF rendering; OCR-specific renderer and storage compensation/finalization failures remain pending."
+            }
           ]
         },
         {
@@ -2161,6 +2169,14 @@
           ],
           "review_questions": [
             "What supported fault boundary can trigger failure and external modification without replacing application services?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_direct_import",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Real PDF page-image collision: numbered Markdown links to the allocated numbered PNG, PNG bytes exist, source and first import artifacts remain byte-identical. This is PDF rendering; OCR-specific renderer and storage compensation/finalization failures remain pending."
+            }
           ]
         },
         {
