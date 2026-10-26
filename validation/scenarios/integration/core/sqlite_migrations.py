@@ -122,17 +122,12 @@ class SQLiteMigrationsScenario(BaseScenario):
                 "Failed migration should roll back its target-table changes",
             )
 
-            recorded_versions = [
-                row[0]
-                for row in conn.execute(
-                    """
+            recorded_versions = [row[0] for row in conn.execute("""
                     SELECT version
                     FROM schema_migrations
                     WHERE namespace = 'validation'
                     ORDER BY version
-                    """
-                ).fetchall()
-            ]
+                    """).fetchall()]
             self.soft_assert_equal(
                 recorded_versions,
                 [1, 2],

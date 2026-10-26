@@ -10,6 +10,7 @@ This is the settings update: clearer controls, easier model management, and defa
 - Durable model aliases preserve familiar names, with simpler custom model management.
 - Managed models track current provider releases, with automatic updates where supported.
 - Refreshed application defaults include session-map compaction, with a setup warning when no default model is selected.
+- Updated dependencies and corrected Python security auditing.
 
 ## v0.9.1
 

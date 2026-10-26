@@ -106,8 +106,7 @@ def _migrate_snapshot_ownership(conn: sqlite3.Connection) -> None:
     if rebuild_snapshot_sets:
         conn.execute("ALTER TABLE snapshot_sets RENAME TO snapshot_sets_task_owned")
         _create_snapshot_sets(conn)
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO snapshot_sets (
                 id, activity_id, task_id, task_kind, task_source, task_scope,
                 task_label, vault_id, vault_name, purpose, scope_kind, scope_id,
@@ -118,12 +117,10 @@ def _migrate_snapshot_ownership(conn: sqlite3.Connection) -> None:
                 task_label, vault_id, vault_name, purpose, scope_kind, scope_id,
                 snapshot_root, status, created_at, expires_at, rolled_back_at
             FROM snapshot_sets_task_owned
-            """
-        )
+            """)
     if rebuild_file_snapshots:
         _create_file_snapshots(conn)
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO file_snapshots (
                 id, snapshot_set_id, activity_id, task_id, vault_id, vault_name,
                 path, source, file_exists, content_hash, snapshot_ref, created_at,
@@ -134,8 +131,7 @@ def _migrate_snapshot_ownership(conn: sqlite3.Connection) -> None:
                 path, source, file_exists, content_hash, snapshot_ref, created_at,
                 expires_at
             FROM file_snapshots_task_owned
-            """
-        )
+            """)
         conn.execute("DROP TABLE file_snapshots_task_owned")
     if rebuild_snapshot_sets:
         conn.execute("DROP TABLE snapshot_sets_task_owned")
@@ -145,20 +141,14 @@ def _migrate_task_mutations(conn: sqlite3.Connection) -> None:
     if not _table_exists(conn, "task_file_mutations"):
         return
     _ensure_legacy_mutation_columns(conn)
-    rolled_back_tasks = {
-        str(row[0])
-        for row in conn.execute(
-            """
+    rolled_back_tasks = {str(row[0]) for row in conn.execute("""
             SELECT DISTINCT task_id
             FROM snapshot_sets
             WHERE purpose = 'rollback'
               AND status = 'rolled_back'
               AND task_id IS NOT NULL
-            """
-        )
-    }
-    rows = conn.execute(
-        """
+            """)}
+    rows = conn.execute("""
         SELECT
             id, task_id, task_kind, task_source, task_scope, task_label,
             goal_id, step_id, vault_id, vault_name, path, related_path,
@@ -167,8 +157,7 @@ def _migrate_task_mutations(conn: sqlite3.Connection) -> None:
             snapshot_ref, created_at, expires_at
         FROM task_file_mutations
         ORDER BY id
-        """
-    ).fetchall()
+        """).fetchall()
     activity_rows: dict[str, tuple[object, ...]] = {}
     activity_bounds: dict[str, tuple[str, str, object | None]] = {}
     for row in rows:
@@ -264,8 +253,7 @@ def _remove_legacy_mutation_provenance(conn: sqlite3.Connection) -> None:
     if "legacy_task_mutation_id" not in _table_columns(conn, "vault_mutations"):
         return
     conn.execute("ALTER TABLE vault_mutations RENAME TO vault_mutations_with_legacy_id")
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE vault_mutations (
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             activity_id VARCHAR NOT NULL,
@@ -287,10 +275,8 @@ def _remove_legacy_mutation_provenance(conn: sqlite3.Connection) -> None:
             expires_at DATETIME,
             metadata_json TEXT
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         INSERT INTO vault_mutations (
             id, activity_id, operation_id, path, related_path, target_kind,
             operation, status, event_sequence, before_exists, before_hash,
@@ -303,8 +289,7 @@ def _remove_legacy_mutation_provenance(conn: sqlite3.Connection) -> None:
             before_snapshot_id, after_exists, after_hash, after_snapshot_id,
             snapshot_ref, created_at, expires_at, metadata_json
         FROM vault_mutations_with_legacy_id
-        """
-    )
+        """)
     conn.execute("DROP TABLE vault_mutations_with_legacy_id")
 
 
@@ -331,8 +316,7 @@ def _ensure_legacy_mutation_columns(conn: sqlite3.Connection) -> None:
 
 
 def _create_snapshot_sets(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE snapshot_sets (
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             activity_id VARCHAR,
@@ -352,13 +336,11 @@ def _create_snapshot_sets(conn: sqlite3.Connection) -> None:
             expires_at DATETIME,
             rolled_back_at DATETIME
         )
-        """
-    )
+        """)
 
 
 def _create_file_snapshots(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE file_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             snapshot_set_id INTEGER NOT NULL,
@@ -374,8 +356,7 @@ def _create_file_snapshots(conn: sqlite3.Connection) -> None:
             created_at DATETIME NOT NULL,
             expires_at DATETIME
         )
-        """
-    )
+        """)
 
 
 def _ensure_current_indexes(conn: sqlite3.Connection) -> None:

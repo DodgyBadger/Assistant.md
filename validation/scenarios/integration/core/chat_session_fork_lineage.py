@@ -253,16 +253,14 @@ class ChatSessionForkLineageScenario(BaseScenario):
         atomic_child_id = "atomic-failure-child"
         database_path = get_runtime_context().config.system_root / "chat_sessions.db"
         with sqlite3.connect(database_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TRIGGER reject_atomic_fork_checkpoint
                 BEFORE INSERT ON chat_compaction_checkpoints
                 WHEN NEW.session_id = 'atomic-failure-child'
                 BEGIN
                     SELECT RAISE(ABORT, 'injected checkpoint copy failure');
                 END
-                """
-            )
+                """)
         try:
             try:
                 store.fork_session(

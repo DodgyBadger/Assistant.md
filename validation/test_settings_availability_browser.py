@@ -18,8 +18,7 @@ def test_controls_unlock_before_metadata_refresh_finishes(operation: str) -> Non
         )
         for module in ("icons", "configuration/runtime", "configuration/settings"):
             page.add_script_tag(path=str(_ROOT / f"static/js/{module}.js"))
-        page.evaluate(
-            """() => {
+        page.evaluate("""() => {
             const r = ConfigurationPanelRuntime;
             r.elements.settingsList = document.querySelector('#settings');
             r.elements.settingsFeedback = document.querySelector('#feedback');
@@ -40,8 +39,7 @@ def test_controls_unlock_before_metadata_refresh_finishes(operation: str) -> Non
                 return {ok:true,json:async()=>entries};
             };
             r.actions.renderSettings();
-        }"""
-        )
+        }""")
         if operation == "save":
             page.locator('[data-setting="first"] [data-action="edit-setting"]').click()
             page.locator('[data-field="setting-value"]').fill("7")

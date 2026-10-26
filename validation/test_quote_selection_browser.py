@@ -26,8 +26,7 @@ def quote_page() -> Iterator[Page]:
             "chat-task-actions",
         ):
             page.add_script_tag(path=str(_ROOT / f"static/js/{module}.js"))
-        page.evaluate(
-            r"""async () => {
+        page.evaluate(r"""async () => {
             window.state = { sessionId: '', isLoading: false };
             window.compose = { pendingAttachments: [{ file: new File(['image'], 'keep.png', { type: 'image/png' }) }] };
             window.elements = { chatInput: document.querySelector('textarea'),
@@ -97,8 +96,7 @@ def quote_page() -> Iterator[Page]:
                 const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
             };
             await files.openFile('Notes/A.md');
-        }"""
-        )
+        }""")
         yield page
         browser.close()
 
@@ -205,12 +203,10 @@ def test_mobile_layout_and_selection_isolation(quote_page: Page) -> None:
     assert box and box["x"] >= 0 and box["x"] + box["width"] <= 390
     assert box["y"] >= 0 and box["y"] + box["height"] <= 640
     page.locator("[data-quote-dismiss]").click()
-    page.evaluate(
-        """() => {
+    page.evaluate("""() => {
         const range = document.createRange(); range.selectNodeContents(document.querySelector('#vault-file-modal-title'));
         getSelection().removeAllRanges(); getSelection().addRange(range);
-    }"""
-    )
+    }""")
     assert page.locator("[data-quote-open]").is_hidden()
 
 
@@ -464,8 +460,7 @@ def test_late_background_refresh_cannot_overwrite_local_edits(quote_page: Page) 
     open_prompt(page)
     page.locator("[data-quote-send]").click()
     page.wait_for_function("typeof finishStream === 'function'")
-    page.evaluate(
-        """() => {
+    page.evaluate("""() => {
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
             const result = await originalFetch(...args);
@@ -474,8 +469,7 @@ def test_late_background_refresh_cannot_overwrite_local_edits(quote_page: Page) 
         };
         fileContents['Notes/A.md'] = 'Background edit';
         finishStream();
-    }"""
-    )
+    }""")
     page.wait_for_function("typeof releaseFileRead === 'function' && !state.isLoading")
     page.locator('[data-vault-file-mode="edit"]').click()
     page.locator("#vault-file-modal-editor").fill("New local edits")
@@ -504,8 +498,7 @@ def test_previous_refresh_cannot_unlock_the_next_pending_send(quote_page: Page) 
     open_prompt(page)
     page.locator("[data-quote-send]").click()
     page.wait_for_function("typeof finishStream === 'function'")
-    page.evaluate(
-        """() => {
+    page.evaluate("""() => {
         const originalFetch = window.fetch;
         let held = false;
         window.fetch = async (...args) => {
@@ -517,8 +510,7 @@ def test_previous_refresh_cannot_unlock_the_next_pending_send(quote_page: Page) 
             return result;
         };
         finishStream();
-    }"""
-    )
+    }""")
     page.wait_for_function("!state.isLoading && typeof releaseFileRead === 'function'")
     open_prompt(page, "Next request")
     page.evaluate("holdStart = true")

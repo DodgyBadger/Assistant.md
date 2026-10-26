@@ -27,6 +27,7 @@ from core.authoring.registry import (
     AuthoringCapabilityRegistry,
     reject_retired_helper_dependencies,
 )
+from core.authoring.runtime.monty_values import MontyValueConverter
 from core.authoring.shared.tool_binding import resolve_tool_binding
 from core.logger import UnifiedLogger
 from core.settings.store import get_enabled_tools_config
@@ -86,6 +87,7 @@ async def run_authoring_monty(
     external_functions.update(direct_tool_functions)
     reserved_inputs = dict(host.get_monty_inputs())
     effective_inputs = {**reserved_inputs, **(inputs or {})}
+    values = MontyValueConverter(host.get_monty_dataclasses())
     capture = _PrintCapture()
 
     logger.set_sinks(["validation"]).info(
@@ -111,12 +113,14 @@ async def run_authoring_monty(
                         if type_check
                         else None
                     ),
-                    dataclass_registry=list(host.get_monty_dataclasses()),
                 ) as session:
                     value = await session.feed_run(
                         code,
-                        inputs=effective_inputs or None,
-                        external_lookup=external_functions,
+                        inputs=values.convert(effective_inputs) or None,
+                        external_lookup={
+                            name: values.wrap_function(function)
+                            for name, function in external_functions.items()
+                        },
                         print_callback=capture.callback,
                     )
         except Exception as exc:

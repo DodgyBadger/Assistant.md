@@ -319,13 +319,11 @@ class VaultStateCleanupScenario(BaseScenario):
         db_path = self._get_system_controller()._system_root / "vault_state.db"
         conn = sqlite3.connect(db_path)
         try:
-            rows = conn.execute(
-                """
+            rows = conn.execute("""
                 SELECT a.task_id
                 FROM vault_mutations AS m
                 JOIN vault_activities AS a ON a.activity_id = m.activity_id
-                """
-            ).fetchall()
+                """).fetchall()
             return {str(row[0]) for row in rows}
         finally:
             conn.close()

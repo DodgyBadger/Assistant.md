@@ -373,13 +373,11 @@ class TranscriptRetrievalStorageScenario(BaseScenario):
 
         store.delete_sessions(vault_name, session_id=session_id)
         with sqlite3.connect(system_root / "chat_sessions.db") as conn:
-            remaining = conn.execute(
-                """
+            remaining = conn.execute("""
                 SELECT COUNT(*)
                 FROM chat_messages_fts
                 WHERE chat_messages_fts MATCH 'amber'
-                """
-            ).fetchone()
+                """).fetchone()
         self.soft_assert_equal(
             int(remaining[0] if remaining else -1),
             0,

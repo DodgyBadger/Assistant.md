@@ -383,8 +383,7 @@ class PrincipalExecutionAuthorityScenario(BaseScenario):
     @staticmethod
     def _create_legacy_chat_database(path: Path) -> None:
         with sqlite3.connect(path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE chat_sessions (
                     session_id TEXT NOT NULL,
                     vault_name TEXT NOT NULL,
@@ -394,14 +393,11 @@ class PrincipalExecutionAuthorityScenario(BaseScenario):
                     metadata_json TEXT,
                     PRIMARY KEY (session_id, vault_name)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 INSERT INTO chat_sessions (session_id, vault_name)
                 VALUES ('legacy-session', 'PrincipalVault')
-                """
-            )
+                """)
 
 
 async def _capture_authority(observed: list[str | None]) -> None:

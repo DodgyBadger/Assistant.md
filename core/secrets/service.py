@@ -791,12 +791,10 @@ class EncryptedSecretsService:
             conn.close()
 
     def _verify_all(self, conn: sqlite3.Connection) -> None:
-        rows = conn.execute(
-            """
+        rows = conn.execute("""
             SELECT owner_principal_id, namespace, name, envelope_version,
                    key_version, nonce, ciphertext FROM encrypted_secrets
-            """
-        ).fetchall()
+            """).fetchall()
         for row in rows:
             self._decrypt_row(
                 row,

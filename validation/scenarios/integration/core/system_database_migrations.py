@@ -368,8 +368,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
     @staticmethod
     def _create_legacy_chat_sessions_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE chat_sessions (
                     session_id TEXT NOT NULL,
                     vault_name TEXT NOT NULL,
@@ -379,20 +378,16 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                     metadata_json TEXT,
                     PRIMARY KEY (session_id, vault_name)
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 INSERT INTO chat_sessions (session_id, vault_name)
                 VALUES ('legacy', 'MigrationVault')
-                """
-            )
+                """)
 
     @staticmethod
     def _create_pre_retirement_chat_sessions_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE schema_migrations (
                     namespace TEXT NOT NULL,
                     version INTEGER NOT NULL,
@@ -400,8 +395,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (namespace, version)
                 )
-                """
-            )
+                """)
             conn.executemany(
                 """
                 INSERT INTO schema_migrations (namespace, version, name)
@@ -430,8 +424,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
     @staticmethod
     def _create_legacy_ingestion_jobs_db(db_path: Path) -> None:
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE ingestion_jobs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     source_uri VARCHAR NOT NULL,
@@ -445,8 +438,7 @@ class SystemDatabaseMigrationsScenario(BaseScenario):
                     created_at DATETIME NOT NULL,
                     updated_at DATETIME NOT NULL
                 )
-                """
-            )
+                """)
 
     @staticmethod
     def _migration_versions(conn: sqlite3.Connection, namespace: str) -> list[int]:
