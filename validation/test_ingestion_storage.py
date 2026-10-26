@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from core.ingestion.models import ExtractedDocument, RenderOptions
-from core.ingestion.output_paths import allocate_import_output_paths
 from core.ingestion.renderers import default_renderer
 from core.ingestion.service import IngestionService
 from core.ingestion.storage import StoredArtifact, default_storage
@@ -24,22 +23,6 @@ def _restore_exact_file_states(*, vault_path: Path, states: tuple) -> tuple:
             raise VaultMutationRejected("file_conflict", "current file state changed")
         target.unlink()
     return ()
-
-
-def test_output_allocation_uses_one_numbered_namespace(tmp_path: Path) -> None:
-    vault = tmp_path / "Vault"
-    (vault / "Imported").mkdir(parents=True)
-    (vault / "Imported" / "report.md").write_text("existing", encoding="utf-8")
-
-    with allocate_import_output_paths(
-        vault_root=vault,
-        path_pattern="Imported",
-        relative_dir="",
-        source_filename="report.pdf",
-        title=None,
-    ) as paths:
-        assert paths.markdown_path == "Imported/report_1.md"
-        assert paths.asset_dir == "Imported/assets/report_1"
 
 
 def test_renderer_links_ocr_assets_to_the_allocated_namespace() -> None:

@@ -3,7 +3,6 @@
 from copy import deepcopy
 
 import pytest
-import yaml
 
 from core.settings import store
 
@@ -18,54 +17,6 @@ def isolated_store(tmp_path, monkeypatch):
     store.refresh_settings_cache()
     yield tmp_path
     store.refresh_settings_cache()
-
-
-def test_legacy_import_is_backed_up_once_and_yaml_becomes_non_authoritative(
-    isolated_store,
-):
-    root = isolated_store
-    legacy = root / "settings.yaml"
-    original = {
-        "settings": {"debug": {"value": False}},
-        "models": {},
-        "providers": {},
-        "tools": {},
-    }
-    legacy.write_text(yaml.safe_dump(original))
-    loaded = store.load_settings()
-    assert (root / "settings.db").exists()
-    assert loaded.settings["debug"].value is False
-    assert legacy.read_text() == yaml.safe_dump(original)
-    backups = list((root / "migration_backups").glob("settings.yaml.bak*"))
-    assert len(backups) == 1
-    assert yaml.safe_load(backups[0].read_text()) == original
-    legacy.write_text("invalid: [")
-    store.refresh_settings_cache()
-    assert store.load_settings().settings["debug"].value is False
-    assert len(list((root / "migration_backups").glob("settings.yaml.bak*"))) == 1
-
-
-def test_new_install_has_no_runtime_yaml_and_stale_writes_are_rejected(isolated_store):
-    first = store.load_settings()
-    assert not (isolated_store / "settings.yaml").exists()
-    stale = first.model_copy(deep=True)
-    first.settings["debug"].source = "custom"
-    first.settings["debug"].value = False
-    store.save_settings(first)
-    stale.settings["debug"].source = "custom"
-    stale.settings["debug"].value = True
-    with pytest.raises(ValueError, match="reload|Reload"):
-        store.save_settings(stale)
-    assert store.load_settings().settings["debug"].value is False
-
-
-def test_invalid_import_is_retryable_and_does_not_seed_defaults(isolated_store):
-    legacy = isolated_store / "settings.yaml"
-    legacy.write_text("models: []\n")
-    with pytest.raises(ValueError):
-        store.load_settings()
-    legacy.write_text("settings:\n  debug:\n    value: false\n")
-    assert store.load_settings().settings["debug"].value is False
 
 
 def test_failed_write_leaves_persisted_state_and_cached_reads_unchanged(
@@ -143,57 +94,3 @@ def test_validation_seeding_uses_explicit_root_not_active_bootstrap_root(
     finally:
         conn.close()
     assert not (isolated_store / "settings.db").exists()
-
-
-def test_legacy_jev_and_unused_typesafe_retire_during_import(isolated_store):
-    original = yaml.safe_dump(
-        {
-            "models": {
-                "jev": {
-                    "provider": "typesafe",
-                    "model_string": "jev-latest",
-                    "capabilities": ["decision"],
-                    "user_editable": False,
-                }
-            },
-            "providers": {
-                "typesafe": {"api_key": "TYPESAFE_API_KEY", "user_editable": False}
-            },
-        }
-    )
-    (isolated_store / "settings.yaml").write_text(original)
-    loaded = store.load_settings()
-    assert "jev" not in loaded.models
-    assert "typesafe" not in loaded.providers
-    backup = next((isolated_store / "migration_backups").glob("settings.yaml.bak*"))
-    assert backup.read_text() == original
-    store.refresh_settings_cache()
-    assert "jev" not in store.load_settings().models
-    assert "typesafe" not in store.load_settings().providers
-
-
-def test_corrupt_database_emits_failure_without_modifying_source(isolated_store):
-    import json
-    import sqlite3
-
-    store.load_settings()
-    store.refresh_settings_cache()
-    database = isolated_store / "settings.db"
-    original = b"not sqlite"
-    database.write_bytes(original)
-    with pytest.raises(sqlite3.DatabaseError):
-        store.load_settings()
-    assert database.read_bytes() == original
-    events = [
-        json.loads(line)
-        for line in (isolated_store / "activity.log").read_text().splitlines()
-    ]
-    failures = [
-        event["data"]
-        for event in events
-        if event.get("data", {}).get("event") == "settings_database_load_failed"
-    ]
-    assert len(failures) == 1
-    assert failures[0]["status"] == "failed"
-    assert failures[0]["database_path"] == str(database)
-    assert failures[0]["error_type"] == "DatabaseError"

@@ -2054,37 +2054,6 @@
       "summary": "5 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
-          "id": "ingestion_storage_01",
-          "tests": [
-            "test_output_allocation_uses_one_numbered_namespace"
-          ],
-          "contract": "Collision allocates numbered Markdown and matching asset namespace.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
-              "line": 44,
-              "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
-            }
-          ],
-          "rationale": "Scenario checks output existence only, not collision names. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Import pipeline scenario with real storage and controlled failure/interleaving.",
-          "dependencies": [
-            "Temporary vault; failure cases replace writes, restore, job service or invoke a private method."
-          ],
-          "review_questions": [
-            "What supported fault boundary can trigger failure and external modification without replacing application services?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/vault_direct_import",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real PDF page-image collision: numbered Markdown links to the allocated numbered PNG, PNG bytes exist, source and first import artifacts remain byte-identical. This is PDF rendering; OCR-specific renderer and storage compensation/finalization failures remain pending."
-            }
-          ]
-        },
-        {
           "id": "ingestion_storage_02",
           "tests": [
             "test_renderer_links_ocr_assets_to_the_allocated_namespace"
@@ -2186,88 +2155,58 @@
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "62fbd600125c97f81bbc5dd229fd96daedbf96050a0726f3e34b687214540066",
+      "sha256": "877b58c7daf97f6b5af842af9287671d6f17e502ef2dbd658f8f5cddec48c4f0",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
+        {
+          "id": "ingestion_storage_01",
+          "tests": [
+            "test_output_allocation_uses_one_numbered_namespace"
+          ],
+          "contract": "Collision allocates numbered Markdown and matching asset namespace.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "line": 44,
+              "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
+            }
+          ],
+          "rationale": "Scenario checks output existence only, not collision names. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Import pipeline scenario with real storage and controlled failure/interleaving.",
+          "dependencies": [
+            "Temporary vault; failure cases replace writes, restore, job service or invoke a private method."
+          ],
+          "review_questions": [
+            "What supported fault boundary can trigger failure and external modification without replacing application services?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_direct_import",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real PDF page-image collision: numbered Markdown links to the allocated numbered PNG, PNG bytes exist, source and first import artifacts remain byte-identical. This is PDF rendering; OCR-specific renderer and storage compensation/finalization failures remain pending."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_ingestion_storage.py"
+          }
+        }
+      ]
     },
     {
       "path": "validation/test_managed_model_catalog.py",
       "summary": "16 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
-          "id": "managed_model_catalog_01",
-          "tests": [
-            "test_retired_typesafe_provider_is_removed_only_when_unused"
-          ],
-          "contract": "Retire only unused builtin TypeSafe; retain customized or referenced provider as editable.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
-              "line": 112,
-              "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
-            }
-          ],
-          "rationale": "Only unused retirement is covered; customized/dependent cases remain. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
-          "dependencies": [
-            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
-          ],
-          "review_questions": [
-            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/model_alias_resolution",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
-            }
-          ]
-        },
-        {
-          "id": "managed_model_catalog_02",
-          "tests": [
-            "test_load_persists_unused_provider_retirement_with_backup"
-          ],
-          "contract": "Persist provider retirement with exactly one original-content backup and idempotent reload.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
-              "line": 55,
-              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
-            },
-            {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
-              "line": 112,
-              "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
-            }
-          ],
-          "rationale": "Legacy import backup is covered but provider-only upgrade/repeated reload is distinct. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
-          "dependencies": [
-            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
-          ],
-          "review_questions": [
-            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/model_alias_resolution",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
-            }
-          ]
-        },
-        {
           "id": "managed_model_catalog_03",
           "tests": [
             "test_standard_alias_adopts_matching_family_even_when_explicitly_unmanaged"
           ],
           "contract": "Adopt matching standard family despite unmanaged status and preserve aliases/custom neighbor and idempotence.",
-          "disposition": "covered",
+          "disposition": "rewrite",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2290,7 +2229,8 @@
               "scope": "covered",
               "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
             }
-          ]
+          ],
+          "review_notes": "Retained after second semantic review: existing scenario covers current packaged catalog behavior, but root fixture has additional family/template variants. Scenario overlap is not full equivalence."
         },
         {
           "id": "managed_model_catalog_04",
@@ -2298,7 +2238,7 @@
             "test_standard_alias_family_conflict_preserves_settings_and_blocks_upgrade"
           ],
           "contract": "A conflicting standard family leaves settings unchanged and reports blocked upgrade.",
-          "disposition": "covered",
+          "disposition": "rewrite",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2313,38 +2253,8 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ]
-        },
-        {
-          "id": "managed_model_catalog_05",
-          "tests": [
-            "test_unmanaged_historical_openai_aliases_adopt_before_renaming"
           ],
-          "contract": "Historical OpenAI names adopt before rename with old aliases retained and resolvable.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
-              "line": 206,
-              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
-            }
-          ],
-          "rationale": "Other provider family and legacy naming paths not asserted. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
-          "dependencies": [
-            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
-          ],
-          "review_questions": [
-            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/model_alias_resolution",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
-            }
-          ]
+          "review_notes": "Retained after second semantic review: existing scenario covers current packaged catalog behavior, but root fixture has additional family/template variants. Scenario overlap is not full equivalence."
         },
         {
           "id": "managed_model_catalog_06",
@@ -2384,42 +2294,6 @@
           ],
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ]
-        },
-        {
-          "id": "managed_model_catalog_08",
-          "tests": [
-            "test_jev_retirement_preserves_custom_models_and_is_idempotent"
-          ],
-          "contract": "Retire builtin jev idempotently while preserving customized and custom decision models.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
-              "line": 206,
-              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
-            },
-            {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
-              "line": 55,
-              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
-            }
-          ],
-          "rationale": "Retirement is asserted, preservation and repeated upgrade are not. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
-          "dependencies": [
-            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
-          ],
-          "review_questions": [
-            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/model_alias_resolution",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
-            }
           ]
         },
         {
@@ -2528,7 +2402,7 @@
             "test_load_persists_rename_and_backup_and_preserves_removed_alias"
           ],
           "contract": "Persist rename once with original backup and honor subsequently removed alias.",
-          "disposition": "covered",
+          "disposition": "rewrite",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -2556,7 +2430,8 @@
               "scope": "covered",
               "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
             }
-          ]
+          ],
+          "review_notes": "Retained after second semantic review: existing scenario covers current packaged catalog behavior, but root fixture has additional family/template variants. Scenario overlap is not full equivalence."
         },
         {
           "id": "managed_model_catalog_14",
@@ -2580,6 +2455,185 @@
           "review_questions": [
             "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
           ]
+        },
+        {
+          "id": "managed_model_catalog_16",
+          "tests": [
+            "test_concurrent_cold_loads_publish_one_complete_upgrade"
+          ],
+          "contract": "Concurrent cold loads publish one complete upgraded catalog and exactly one backup.",
+          "disposition": "rewrite",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "line": 206,
+              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
+            }
+          ],
+          "rationale": "Unique publication race; examine controllable real load interleaving rather than patching internal upgrade. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
+          "dependencies": [
+            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
+          ],
+          "review_questions": [
+            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ]
+        }
+      ],
+      "area": "settings, storage, search, decision, and configuration editors",
+      "sha256": "9130e9addaa9e7ba02fe2d271c77b9fa87d953f8b16f46d55c60b0f96722ea6f",
+      "review_status": "source_audit_candidate",
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
+        {
+          "id": "managed_model_catalog_01",
+          "tests": [
+            "test_retired_typesafe_provider_is_removed_only_when_unused"
+          ],
+          "contract": "Retire only unused builtin TypeSafe; retain customized or referenced provider as editable.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "line": 112,
+              "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
+            }
+          ],
+          "rationale": "Only unused retirement is covered; customized/dependent cases remain. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
+          "dependencies": [
+            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
+          ],
+          "review_questions": [
+            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_managed_model_catalog.py"
+          }
+        },
+        {
+          "id": "managed_model_catalog_02",
+          "tests": [
+            "test_load_persists_unused_provider_retirement_with_backup"
+          ],
+          "contract": "Persist provider retirement with exactly one original-content backup and idempotent reload.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "line": 55,
+              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
+            },
+            {
+              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "line": 112,
+              "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
+            }
+          ],
+          "rationale": "Legacy import backup is covered but provider-only upgrade/repeated reload is distinct. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
+          "dependencies": [
+            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
+          ],
+          "review_questions": [
+            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_managed_model_catalog.py"
+          }
+        },
+        {
+          "id": "managed_model_catalog_05",
+          "tests": [
+            "test_unmanaged_historical_openai_aliases_adopt_before_renaming"
+          ],
+          "contract": "Historical OpenAI names adopt before rename with old aliases retained and resolvable.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "line": 206,
+              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
+            }
+          ],
+          "rationale": "Other provider family and legacy naming paths not asserted. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
+          "dependencies": [
+            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
+          ],
+          "review_questions": [
+            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_managed_model_catalog.py"
+          }
+        },
+        {
+          "id": "managed_model_catalog_08",
+          "tests": [
+            "test_jev_retirement_preserves_custom_models_and_is_idempotent"
+          ],
+          "contract": "Retire builtin jev idempotently while preserving customized and custom decision models.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "line": 206,
+              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
+            },
+            {
+              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "line": 55,
+              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
+            }
+          ],
+          "rationale": "Retirement is asserted, preservation and repeated upgrade are not. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
+          "dependencies": [
+            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
+          ],
+          "review_questions": [
+            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/model_alias_resolution",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_managed_model_catalog.py"
+          }
         },
         {
           "id": "managed_model_catalog_15",
@@ -2615,36 +2669,13 @@
               "scope": "covered",
               "notes": "Actual legacy installations imported in isolated fresh processes with current packaged catalog. Preserve exact original backup, persist real DB and verify reload idempotence; retire only unused built-in provider/Jev, preserve unused custom/customized provider and all supplied custom model fields; adopt historical OpenAI names and preserve explicit alias removal. Existing real legacy sonnet family adoption also passes. Arbitrary future catalog generations/collisions and complete custom-name conflicts remain pending."
             }
-          ]
-        },
-        {
-          "id": "managed_model_catalog_16",
-          "tests": [
-            "test_concurrent_cold_loads_publish_one_complete_upgrade"
           ],
-          "contract": "Concurrent cold loads publish one complete upgraded catalog and exactly one backup.",
-          "disposition": "rewrite",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
-              "line": 206,
-              "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
-            }
-          ],
-          "rationale": "Unique publication race; examine controllable real load interleaving rather than patching internal upgrade. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Model alias resolution and settings migration scenarios; separate cold-load concurrency case if required.",
-          "dependencies": [
-            "Direct upgrade function and temporary settings root; load cases patch root/template; concurrent test controls internals."
-          ],
-          "review_questions": [
-            "Which historical upgrade variants remain supported, and how can cold-load contention be synchronized using real stores?"
-          ]
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_managed_model_catalog.py"
+          }
         }
-      ],
-      "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "329362ff4287b6dbd918856bbd2669d66bbcd34158a10522c437d62dc78f9392",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      ]
     },
     {
       "path": "validation/test_mcp_manager_hardening.py",
@@ -3477,7 +3508,13 @@
           "review_questions": [
             "Which error fields and redaction behavior are supported public or validation-event contracts?"
           ]
-        },
+        }
+      ],
+      "area": "settings, storage, search, decision, and configuration editors",
+      "sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
+      "review_status": "source_audit_candidate",
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
         {
           "id": "provider_errors_05",
           "tests": [
@@ -3501,7 +3538,11 @@
               "scope": "covered",
               "notes": "Real local OpenAI-compatible HTTP rejection through SDK and actual chat. Structured billing/status/retry outputs, provider type/code and bounded message survive; private input field, quoted API key/refresh fields, Bearer token, document data and credential/query URL fields stay out of stream/session/activity artifacts. Anthropic/Google SDK variants, explicit arbitrary redaction input and unstructured response/wrapper matrix remain."
             }
-          ]
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_provider_errors.py"
+          }
         },
         {
           "id": "provider_errors_06",
@@ -3526,13 +3567,13 @@
               "scope": "covered",
               "notes": "Production OAuth HTTP token adapter and real API authorization/connection/chat refresh path. Only the external OAuth token endpoint uses controlled HTTP transport responses. Provider rejection reason survives while authorization codes and access/refresh tokens stay out of API/status/chat errors. No claim of real OpenAI availability or general SDK error matrix."
             }
-          ]
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_provider_errors.py"
+          }
         }
-      ],
-      "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "2708899335e429882e010e58c6f7ceaaaf29454e4f12e864b2e064f9e8e91784",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      ]
     },
     {
       "path": "validation/test_quote_selection.cjs",
@@ -4560,75 +4601,6 @@
       "summary": "9 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
-          "id": "settings_database_01",
-          "tests": [
-            "test_legacy_import_is_backed_up_once_and_yaml_becomes_non_authoritative"
-          ],
-          "contract": "Legacy YAML imports into database once with exact backup; later YAML is non-authoritative.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
-              "line": 55,
-              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
-            }
-          ],
-          "rationale": "Scenario checks all these observations. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
-          "dependencies": [
-            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
-          ],
-          "review_questions": [
-            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
-          ]
-        },
-        {
-          "id": "settings_database_02",
-          "tests": [
-            "test_new_install_has_no_runtime_yaml_and_stale_writes_are_rejected"
-          ],
-          "contract": "New install has no runtime YAML and stale snapshots cannot overwrite newer writes.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
-              "line": 55,
-              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
-            }
-          ],
-          "rationale": "Scenario explicitly checks both. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
-          "dependencies": [
-            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
-          ],
-          "review_questions": [
-            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
-          ]
-        },
-        {
-          "id": "settings_database_03",
-          "tests": [
-            "test_invalid_import_is_retryable_and_does_not_seed_defaults"
-          ],
-          "contract": "Invalid legacy import fails without initialization and succeeds after repair.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
-              "line": 55,
-              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
-            }
-          ],
-          "rationale": "Scenario checks uninitialized revision and retry. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
-          "dependencies": [
-            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
-          ],
-          "review_questions": [
-            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
-          ]
-        },
-        {
           "id": "settings_database_04",
           "tests": [
             "test_failed_write_leaves_persisted_state_and_cached_reads_unchanged"
@@ -4713,6 +4685,93 @@
           "review_questions": [
             "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
           ]
+        }
+      ],
+      "area": "settings, storage, search, decision, and configuration editors",
+      "sha256": "304d2b9eac8a14058fbfc4899221503b0434d563d739f33772a4b6cbb9ae1f13",
+      "review_status": "source_audit_candidate",
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
+        {
+          "id": "settings_database_01",
+          "tests": [
+            "test_legacy_import_is_backed_up_once_and_yaml_becomes_non_authoritative"
+          ],
+          "contract": "Legacy YAML imports into database once with exact backup; later YAML is non-authoritative.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "line": 55,
+              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
+            }
+          ],
+          "rationale": "Scenario checks all these observations. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
+          "dependencies": [
+            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
+          ],
+          "review_questions": [
+            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_database.py"
+          }
+        },
+        {
+          "id": "settings_database_02",
+          "tests": [
+            "test_new_install_has_no_runtime_yaml_and_stale_writes_are_rejected"
+          ],
+          "contract": "New install has no runtime YAML and stale snapshots cannot overwrite newer writes.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "line": 55,
+              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
+            }
+          ],
+          "rationale": "Scenario explicitly checks both. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
+          "dependencies": [
+            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
+          ],
+          "review_questions": [
+            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_database.py"
+          }
+        },
+        {
+          "id": "settings_database_03",
+          "tests": [
+            "test_invalid_import_is_retryable_and_does_not_seed_defaults"
+          ],
+          "contract": "Invalid legacy import fails without initialization and succeeds after repair.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "line": 55,
+              "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
+            }
+          ],
+          "rationale": "Scenario checks uninitialized revision and retry. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings database migration scenario; framework isolation profile for seeding.",
+          "dependencies": [
+            "Isolated temporary store; selected tests monkeypatch repository/import operations and logger."
+          ],
+          "review_questions": [
+            "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_database.py"
+          }
         },
         {
           "id": "settings_database_08",
@@ -4735,7 +4794,11 @@
           ],
           "review_questions": [
             "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
-          ]
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_database.py"
+          }
         },
         {
           "id": "settings_database_09",
@@ -4758,13 +4821,13 @@
           ],
           "review_questions": [
             "Can exact-snapshot and interrupted-import failures be established via a reviewed external boundary?"
-          ]
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_database.py"
+          }
         }
-      ],
-      "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "3a37c16e7c5de05fbc5c53a6fb9f2cc5818d42d2ddcb99f7f91c32d5f1e3cc66",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      ]
     },
     {
       "path": "validation/test_settings_editors.cjs",
@@ -5258,229 +5321,6 @@
           ]
         },
         {
-          "id": "settings_lifecycle_02",
-          "tests": [
-            "test_v1_values_remain_custom_and_receive_a_pre_upgrade_backup"
-          ],
-          "contract": "Version-one settings upgrade preserves custom values and writes pre-upgrade revision/schema backup.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
-              "line": 82,
-              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
-            }
-          ],
-          "rationale": "Generic migrations are not settings v1 migration or backup. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_database_migration",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_03",
-          "tests": [
-            "test_newer_settings_version_is_rejected_without_rewriting_database"
-          ],
-          "contract": "Future settings schema version is rejected without rewriting database.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
-              "line": 82,
-              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
-            }
-          ],
-          "rationale": "Generic migration checks do not cover future settings version or bytes. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_database_migration",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_04",
-          "tests": [
-            "test_failed_upgrade_keeps_old_checkpoint_and_can_retry"
-          ],
-          "contract": "Failed numbered settings upgrade keeps old revision/checkpoint and retries successfully.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
-              "line": 82,
-              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
-            }
-          ],
-          "rationale": "Generic migration tests do not prove settings numbered checkpoint/retry; internal fault injection needs reviewed real boundary. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_database_migration",
-              "verification": "focused scenario passed",
-              "scope": "partial",
-              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
-            },
-            {
-              "scenario": "integration/core/settings_database_migration",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "A valid v1 database with an actual SQLite BEFORE INSERT abort trigger fails after the upgrade DELETE. Live row, revision/checkpoint and pre-upgrade backup survive; removing the constraint permits retry. Proves real transactional rollback and retry without replacing migration functions."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_05",
-          "tests": [
-            "test_reset_one_setting_preserves_other_overrides_and_validates_dependencies"
-          ],
-          "contract": "Reset one override preserves other overrides and validates dependencies.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
-              "line": 41,
-              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
-            }
-          ],
-          "rationale": "Scenario checks one setting and dependency rejection, not preservation of another override in this operation. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_lifecycle",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_06",
-          "tests": [
-            "test_reset_rejects_an_invalid_default_relationship_atomically"
-          ],
-          "contract": "Invalid default relationship rejects reset atomically with original settings preserved.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
-              "line": 41,
-              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
-            }
-          ],
-          "rationale": "Scenario asserts an unrelated global managed-model conflict, not a single-setting invalid default relationship; preserve the atomic dependency negative. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_lifecycle",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_07",
-          "tests": [
-            "test_global_reset_rejects_an_edit_committed_after_its_backup"
-          ],
-          "contract": "A concurrent edit after backup is preserved and stale global reset is rejected; backup contains earlier revision.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
-              "line": 41,
-              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
-            }
-          ],
-          "rationale": "Scenario has no backup/reset interleaving; fake backup hook in root test does not prove real API race. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_lifecycle",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
-            }
-          ]
-        },
-        {
-          "id": "settings_lifecycle_08",
-          "tests": [
-            "test_global_reset_accepts_the_revision_captured_by_its_backup"
-          ],
-          "contract": "A reset using its captured backup revision succeeds and increments revision once.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
-              "line": 41,
-              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
-            }
-          ],
-          "rationale": "API reset success and backup exist, but captured revision and increment not asserted. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
-          "dependencies": [
-            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
-          ],
-          "review_questions": [
-            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/settings_lifecycle",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
-            }
-          ]
-        },
-        {
           "id": "settings_lifecycle_09",
           "tests": [
             "test_reset_service_exposes_backup_conflicts_without_resetting"
@@ -5536,9 +5376,262 @@
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "160cf3dc01422ea1d912088ee8656de6be8b26c5f52f8dd0c410c989ef823fe7",
+      "sha256": "f374e50ea578085c20832b85fe2fc4efccbfaacc79bb2f0514a13732959366a8",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
+        {
+          "id": "settings_lifecycle_02",
+          "tests": [
+            "test_v1_values_remain_custom_and_receive_a_pre_upgrade_backup"
+          ],
+          "contract": "Version-one settings upgrade preserves custom values and writes pre-upgrade revision/schema backup.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "line": 82,
+              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
+            }
+          ],
+          "rationale": "Generic migrations are not settings v1 migration or backup. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_03",
+          "tests": [
+            "test_newer_settings_version_is_rejected_without_rewriting_database"
+          ],
+          "contract": "Future settings schema version is rejected without rewriting database.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "line": 82,
+              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
+            }
+          ],
+          "rationale": "Generic migration checks do not cover future settings version or bytes. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_04",
+          "tests": [
+            "test_failed_upgrade_keeps_old_checkpoint_and_can_retry"
+          ],
+          "contract": "Failed numbered settings upgrade keeps old revision/checkpoint and retries successfully.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "line": 82,
+              "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
+            }
+          ],
+          "rationale": "Generic migration tests do not prove settings numbered checkpoint/retry; internal fault injection needs reviewed real boundary. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "partial",
+              "notes": "Actual v1 SQLite fixture: malformed payload fails upgrade with preserved checkpoint, repair/retry succeeds with pre-upgrade backups and custom value, fresh-process settings load supplies packaged metadata, rerun is idempotent, future schema rejection preserves database bytes. Does not inject an arbitrary migration failure after intermediate writes."
+            },
+            {
+              "scenario": "integration/core/settings_database_migration",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "A valid v1 database with an actual SQLite BEFORE INSERT abort trigger fails after the upgrade DELETE. Live row, revision/checkpoint and pre-upgrade backup survive; removing the constraint permits retry. Proves real transactional rollback and retry without replacing migration functions."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_05",
+          "tests": [
+            "test_reset_one_setting_preserves_other_overrides_and_validates_dependencies"
+          ],
+          "contract": "Reset one override preserves other overrides and validates dependencies.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "line": 41,
+              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
+            }
+          ],
+          "rationale": "Scenario checks one setting and dependency rejection, not preservation of another override in this operation. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_06",
+          "tests": [
+            "test_reset_rejects_an_invalid_default_relationship_atomically"
+          ],
+          "contract": "Invalid default relationship rejects reset atomically with original settings preserved.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "line": 41,
+              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
+            }
+          ],
+          "rationale": "Scenario asserts an unrelated global managed-model conflict, not a single-setting invalid default relationship; preserve the atomic dependency negative. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_07",
+          "tests": [
+            "test_global_reset_rejects_an_edit_committed_after_its_backup"
+          ],
+          "contract": "A concurrent edit after backup is preserved and stale global reset is rejected; backup contains earlier revision.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "line": 41,
+              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
+            }
+          ],
+          "rationale": "Scenario has no backup/reset interleaving; fake backup hook in root test does not prove real API race. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        },
+        {
+          "id": "settings_lifecycle_08",
+          "tests": [
+            "test_global_reset_accepts_the_revision_captured_by_its_backup"
+          ],
+          "contract": "A reset using its captured backup revision succeeds and increments revision once.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "line": 41,
+              "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
+            }
+          ],
+          "rationale": "API reset success and backup exist, but captured revision and increment not asserted. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Settings lifecycle and settings-specific numbered migration scenarios.",
+          "dependencies": [
+            "Real isolated SQLite stores and templates; race/service and failure tests monkeypatch backup, clock or upgrade internals."
+          ],
+          "review_questions": [
+            "Choose deterministic real backup/reset interleaving; distinguish API conflict projection from revision invariant."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/settings_lifecycle",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API preserves unrelated override, rejects invalid reset atomically, and creates successive backups; domain reset rejects a revision older than its real backup and accepts matching revision. API backup/edit interleaving and forced name collision remain separate gaps."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_settings_lifecycle.py"
+          }
+        }
+      ]
     },
     {
       "path": "validation/test_shipped_settings_defaults.py",
@@ -5736,7 +5829,7 @@
             "test_content_search_is_literal_structured_and_scope_bounded"
           ],
           "contract": "Literal scoped search returns structured path, line, character column and snippet.",
-          "disposition": "covered",
+          "disposition": "gap",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5759,154 +5852,8 @@
               "scope": "covered",
               "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
             }
-          ]
-        },
-        {
-          "id": "vault_content_search_02",
-          "tests": [
-            "test_content_search_enforces_a_global_result_limit"
           ],
-          "contract": "Global match limit truncates and reports truncation.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
-              "line": 29,
-              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
-            }
-          ],
-          "rationale": "Scenario asserts one-match limit and truncated true. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
-          "dependencies": [
-            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
-          ],
-          "review_questions": [
-            "Can missing executable and timeout be controlled externally and portably?"
-          ]
-        },
-        {
-          "id": "vault_content_search_03",
-          "tests": [
-            "test_content_search_treats_leading_dash_query_as_literal"
-          ],
-          "contract": "A leading-dash query is treated literally rather than as a process option.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
-              "line": 29,
-              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
-            }
-          ],
-          "rationale": "Literal bracket query differs from option-like input. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
-          "dependencies": [
-            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
-          ],
-          "review_questions": [
-            "Can missing executable and timeout be controlled externally and portably?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/vault_content_search",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
-            }
-          ]
-        },
-        {
-          "id": "vault_content_search_04",
-          "tests": [
-            "test_content_search_reports_character_column_after_non_ascii_text"
-          ],
-          "contract": "Unicode prefix yields character rather than byte column.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
-              "line": 29,
-              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
-            }
-          ],
-          "rationale": "Scenario does not assert column. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
-          "dependencies": [
-            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
-          ],
-          "review_questions": [
-            "Can missing executable and timeout be controlled externally and portably?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/vault_content_search",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
-            }
-          ]
-        },
-        {
-          "id": "vault_content_search_05",
-          "tests": [
-            "test_content_search_rejects_a_scope_outside_the_vault"
-          ],
-          "contract": "Outside-vault scope is rejected with invalid_scope.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
-              "line": 29,
-              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
-            }
-          ],
-          "rationale": "Scope confinement happy path only; traversal negative absent. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
-          "dependencies": [
-            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
-          ],
-          "review_questions": [
-            "Can missing executable and timeout be controlled externally and portably?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/vault_content_search",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
-            }
-          ]
-        },
-        {
-          "id": "vault_content_search_06",
-          "tests": [
-            "test_content_search_rejects_subprocess_unsafe_queries"
-          ],
-          "contract": "NUL and oversized queries fail safely with invalid_query.",
-          "disposition": "covered",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
-              "line": 29,
-              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
-            }
-          ],
-          "rationale": "Oversize covered, NUL not covered. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
-          "dependencies": [
-            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
-          ],
-          "review_questions": [
-            "Can missing executable and timeout be controlled externally and portably?"
-          ],
-          "scenario_progress": [
-            {
-              "scenario": "integration/core/vault_content_search",
-              "verification": "focused scenario passed",
-              "scope": "covered",
-              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
-            }
-          ]
+          "review_notes": "Retain exact scoped [query] column/snippet and untruncated projection until those are asserted in the scenario; the Unicode fixture tests another projection."
         },
         {
           "id": "vault_content_search_07",
@@ -5956,9 +5903,178 @@
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "ad5bdd0352e1456d988833afc17d05a6f993f5a62462a93b72e407bd3a80d735",
+      "sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retired_groups": [
+        {
+          "id": "vault_content_search_02",
+          "tests": [
+            "test_content_search_enforces_a_global_result_limit"
+          ],
+          "contract": "Global match limit truncates and reports truncation.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "line": 29,
+              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
+            }
+          ],
+          "rationale": "Scenario asserts one-match limit and truncated true. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
+          "dependencies": [
+            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
+          ],
+          "review_questions": [
+            "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_vault_content_search.py"
+          }
+        },
+        {
+          "id": "vault_content_search_03",
+          "tests": [
+            "test_content_search_treats_leading_dash_query_as_literal"
+          ],
+          "contract": "A leading-dash query is treated literally rather than as a process option.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "line": 29,
+              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
+            }
+          ],
+          "rationale": "Literal bracket query differs from option-like input. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
+          "dependencies": [
+            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
+          ],
+          "review_questions": [
+            "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_vault_content_search.py"
+          }
+        },
+        {
+          "id": "vault_content_search_04",
+          "tests": [
+            "test_content_search_reports_character_column_after_non_ascii_text"
+          ],
+          "contract": "Unicode prefix yields character rather than byte column.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "line": 29,
+              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
+            }
+          ],
+          "rationale": "Scenario does not assert column. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
+          "dependencies": [
+            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
+          ],
+          "review_questions": [
+            "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_vault_content_search.py"
+          }
+        },
+        {
+          "id": "vault_content_search_05",
+          "tests": [
+            "test_content_search_rejects_a_scope_outside_the_vault"
+          ],
+          "contract": "Outside-vault scope is rejected with invalid_scope.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "line": 29,
+              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
+            }
+          ],
+          "rationale": "Scope confinement happy path only; traversal negative absent. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
+          "dependencies": [
+            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
+          ],
+          "review_questions": [
+            "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_vault_content_search.py"
+          }
+        },
+        {
+          "id": "vault_content_search_06",
+          "tests": [
+            "test_content_search_rejects_subprocess_unsafe_queries"
+          ],
+          "contract": "NUL and oversized queries fail safely with invalid_query.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "line": 29,
+              "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
+            }
+          ],
+          "rationale": "Oversize covered, NUL not covered. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault content search API scenario with controlled real executable dependency.",
+          "dependencies": [
+            "Real temporary files and ripgrep; startup/timeout cases replace subprocess or select."
+          ],
+          "review_questions": [
+            "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
+          ],
+          "retirement": {
+            "reason": "Independently reviewed durable behavior is covered by the passing integration scenarios recorded in scenario_progress/coverage.",
+            "source_path": "validation/test_vault_content_search.py"
+          }
+        }
+      ]
     },
     {
       "path": "validation/test_vault_explorer_batch_moves_module.py",

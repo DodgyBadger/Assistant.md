@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, Mock
-
 import anthropic
 import httpx
 import openai
@@ -104,41 +101,3 @@ def test_explicit_safe_errors_and_wrapped_sdk_failures() -> None:
     cyclic = RuntimeError("PRIVATE")
     cyclic.__cause__ = cyclic
     assert provider_exception_details(cyclic) == {}
-
-
-def test_quoted_credential_fields_inside_provider_message_are_redacted() -> None:
-    details = provider_response_error_details(
-        401,
-        {
-            "message": 'Invalid credentials: "api_key":"PRIVATE_QUOTED", refresh_token=PRIVATE_REFRESH'
-        },
-    )
-    assert "PRIVATE_QUOTED" not in str(details)
-    assert "PRIVATE_REFRESH" not in str(details)
-
-
-def test_oauth_reason_preserved_without_tokens() -> None:
-    from core.llm.openai_oauth import OpenAIOAuthHTTPTokenAdapter, OpenAIOAuthStateError
-
-    response = httpx.Response(
-        400,
-        json={
-            "error": "invalid_grant",
-            "error_description": "Refresh expired SECRET_REFRESH",
-            "access_token": "PRIVATE_ACCESS",
-        },
-    )
-    client = Mock()
-    client.post = AsyncMock(return_value=response)
-    transport = OpenAIOAuthHTTPTokenAdapter(http_client=client)
-    with pytest.raises(OpenAIOAuthStateError) as caught:
-        asyncio.run(
-            transport._post(
-                "https://provider.example/token",
-                headers={},
-                data={"refresh_token": "SECRET_REFRESH"},
-            )
-        )
-    assert "Refresh expired" in str(caught.value)
-    assert "SECRET_REFRESH" not in str(caught.value)
-    assert "PRIVATE_ACCESS" not in str(caught.value)

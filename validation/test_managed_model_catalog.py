@@ -15,61 +15,6 @@ def isolated_roots(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "_bootstrap_data_root", tmp_path / "data")
 
 
-def test_retired_typesafe_provider_is_removed_only_when_unused() -> None:
-    from core.settings.upgrades import retire_builtin_providers
-
-    builtin = {"api_key": "TYPESAFE_API_KEY", "base_url": None, "user_editable": False}
-    assert retire_builtin_providers({"typesafe": builtin}, {}) == {}
-    custom = {**builtin, "user_editable": True}
-    assert retire_builtin_providers({"typesafe": custom}, {}) == {"typesafe": custom}
-    dependent = {"my-decision": {"provider": "typesafe"}}
-    retained = retire_builtin_providers({"typesafe": builtin}, dependent)
-    assert retained == {"typesafe": custom}
-    customized = {**builtin, "base_url": "https://custom.example.test"}
-    assert retire_builtin_providers({"typesafe": customized}, {}) == {
-        "typesafe": {**customized, "user_editable": True}
-    }
-    assert builtin["user_editable"] is False
-
-
-def test_load_persists_unused_provider_retirement_with_backup(
-    tmp_path, monkeypatch
-) -> None:
-    import yaml
-
-    from core.settings import store
-
-    path = tmp_path / "settings.yaml"
-    template = tmp_path / "template.yaml"
-    active = {
-        "providers": {
-            "typesafe": {
-                "api_key": "TYPESAFE_API_KEY",
-                "base_url": None,
-                "user_editable": False,
-            }
-        }
-    }
-    path.write_text(yaml.safe_dump(active))
-    template.write_text("models: {}\nproviders: {}\n")
-    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
-    monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template)
-    store.refresh_settings_cache()
-    try:
-        loaded = store.load_settings()
-        assert loaded.providers == {}
-        assert loaded._retired_provider_updates == ["typesafe"]
-        assert store.load_settings().providers == {}
-        backups = list((tmp_path / "migration_backups").iterdir())
-        assert len(backups) == 1
-        assert yaml.safe_load(backups[0].read_text()) == active
-        store.refresh_settings_cache()
-        assert store.load_settings()._retired_provider_updates == []
-        assert len(list((tmp_path / "migration_backups").iterdir())) == 1
-    finally:
-        store.refresh_settings_cache()
-
-
 def test_standard_alias_adopts_matching_family_even_when_explicitly_unmanaged() -> None:
     template = {
         "sonnet": {
@@ -116,33 +61,6 @@ def test_standard_alias_family_conflict_preserves_settings_and_blocks_upgrade() 
         assert not result.renames
 
 
-def test_unmanaged_historical_openai_aliases_adopt_before_renaming() -> None:
-    import yaml
-
-    from core.settings.model_registry import build_model_registry
-    from core.settings.store import SETTINGS_TEMPLATE, ModelConfig
-
-    catalog = yaml.safe_load(SETTINGS_TEMPLATE.read_text())["models"]
-    for old, primary, binding in (
-        ("gpt", "sol", "gpt-5.6-sol"),
-        ("gpt-mini", "terra", "gpt-5.6-terra"),
-        ("gpt-nano", "luna", "gpt-5.6-luna"),
-    ):
-        active = {old: entry(None, binding=binding, aliases=["historical"])}
-        result = upgrade_model_catalog(active, catalog)
-        assert not result.issues
-        assert result.renames == [(old, primary)]
-        assert result.models[primary]["managed_id"] == catalog[primary]["managed_id"]
-        assert result.models[primary]["alternate_aliases"] == ["historical", old]
-        registry = build_model_registry(
-            {
-                key: ModelConfig.model_validate(value)
-                for key, value in result.models.items()
-            }
-        )
-        assert registry.resolve(old) == primary
-
-
 def test_older_provider_naming_formats_still_identify_their_model_family() -> None:
     import yaml
 
@@ -176,28 +94,6 @@ def test_shipped_anthropic_models_support_adaptive_thinking() -> None:
         assert profile is not None
         assert profile["anthropic_supports_adaptive_thinking"], name
         assert profile["supports_json_schema_output"], name
-
-
-def test_jev_retirement_preserves_custom_models_and_is_idempotent() -> None:
-    managed = {
-        **entry("builtin-jev", aliases=["old-decision"]),
-        "provider": "typesafe",
-        "model_string": "jev-latest",
-        "capabilities": ["decision"],
-    }
-    legacy = {key: value for key, value in managed.items() if key != "managed_id"}
-    custom = {**managed, "managed_id": None, "user_editable": True}
-    for retired in (managed, legacy):
-        active = {"jev": retired, "my-decision": custom}
-        result = upgrade_model_catalog(active, {})
-        assert not result.issues
-        assert result.models == {"my-decision": custom}
-        assert result.removed == ["jev"]
-        assert "jev" in active
-        assert not upgrade_model_catalog(result.models, {}).removed
-    assert upgrade_model_catalog({"jev": custom}, {}).models == {"jev": custom}
-    customized_legacy = {**legacy, "model_string": "my-jev"}
-    assert "jev" in upgrade_model_catalog({"jev": customized_legacy}, {}).models
 
 
 def entry(
@@ -329,34 +225,6 @@ def test_load_collision_preserves_file_and_exposes_issue(tmp_path, monkeypatch) 
         assert (
             len(list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))) == 1
         )
-    finally:
-        store.refresh_settings_cache()
-
-
-def test_load_persists_retirement_without_other_catalog_updates(
-    tmp_path, monkeypatch
-) -> None:
-    import yaml
-
-    from core.settings import store
-
-    active_path = tmp_path / "settings.yaml"
-    template_path = tmp_path / "template.yaml"
-    active = {"models": {"jev": entry("builtin-jev")}}
-    active_path.write_text(yaml.safe_dump(active))
-    template_path.write_text(yaml.safe_dump({"models": {}}))
-    monkeypatch.setattr(store, "_resolve_system_root", lambda: tmp_path)
-    monkeypatch.setattr(store, "SETTINGS_TEMPLATE", template_path)
-    store.refresh_settings_cache()
-    try:
-        assert store.load_settings().models == {}
-        assert store.load_settings().models == {}
-        backups = list((tmp_path / "migration_backups").glob("settings.yaml.bak*"))
-        assert len(backups) == 1
-        assert yaml.safe_load(backups[0].read_text()) == active
-        store.refresh_settings_cache()
-        assert store.load_settings().models == {}
-        assert len(list((tmp_path / "migration_backups").iterdir())) == 1
     finally:
         store.refresh_settings_cache()
 

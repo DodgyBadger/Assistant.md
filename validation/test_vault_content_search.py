@@ -32,64 +32,6 @@ def test_content_search_is_literal_structured_and_scope_bounded(tmp_path: Path) 
     assert result.matches[0].snippet == "Literal [query] appears here"
 
 
-def test_content_search_enforces_a_global_result_limit(tmp_path: Path) -> None:
-    vault = tmp_path / "Vault"
-    vault.mkdir()
-    (vault / "many.md").write_text("\n".join(["needle"] * 10), encoding="utf-8")
-
-    result = search_vault_content(vault_path=vault, query="needle", limit=3)
-
-    assert len(result.matches) == 3
-    assert result.truncated is True
-
-
-def test_content_search_treats_leading_dash_query_as_literal(tmp_path: Path) -> None:
-    vault = tmp_path / "Vault"
-    vault.mkdir()
-    (vault / "visible.md").write_text(
-        "A literal --hidden option-like value\n", encoding="utf-8"
-    )
-
-    result = search_vault_content(vault_path=vault, query="--hidden")
-
-    assert [match.path for match in result.matches] == ["visible.md"]
-
-
-def test_content_search_reports_character_column_after_non_ascii_text(
-    tmp_path: Path,
-) -> None:
-    vault = tmp_path / "Vault"
-    vault.mkdir()
-    (vault / "visible.md").write_text("é needle\n", encoding="utf-8")
-
-    result = search_vault_content(vault_path=vault, query="needle")
-
-    assert result.matches[0].column == 3
-
-
-def test_content_search_rejects_a_scope_outside_the_vault(tmp_path: Path) -> None:
-    vault = tmp_path / "Vault"
-    vault.mkdir()
-
-    with pytest.raises(VaultContentSearchError, match="safe vault-relative") as exc:
-        search_vault_content(vault_path=vault, path="../outside", query="needle")
-
-    assert exc.value.code == "invalid_scope"
-
-
-@pytest.mark.parametrize("query", ["needle\x00suffix", "x" * 501])
-def test_content_search_rejects_subprocess_unsafe_queries(
-    tmp_path: Path, query: str
-) -> None:
-    vault = tmp_path / "Vault"
-    vault.mkdir()
-
-    with pytest.raises(VaultContentSearchError) as exc:
-        search_vault_content(vault_path=vault, query=query)
-
-    assert exc.value.code == "invalid_query"
-
-
 @pytest.mark.parametrize(
     ("failure", "expected_code"),
     [
