@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "standalone_experiments": [
+    "scenarios/experiments/advanced_shell_lsp_skill_probe.py",
+    "scenarios/experiments/advanced_shell_stdio_mcp_probe.py",
+    "scenarios/experiments/advanced_shell_tool_probe.py",
+    "scenarios/experiments/advanced_shell_wrapper_probe.py"
+  ]
+}

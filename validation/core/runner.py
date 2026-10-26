@@ -1,9 +1,4 @@
-"""
-Validation Runner - Adapted from V1 with pytest integration.
-
-Discovers and executes scenarios while preserving evidence collection
-and error classification from V1.
-"""
+"""Execute real application scenarios with evidence and failure classification."""
 
 import asyncio
 import importlib
@@ -11,8 +6,6 @@ import inspect
 import shutil
 import sys
 import traceback
-
-# Removed pytest dependency - using direct scenario execution
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.logger import UnifiedLogger
 
+from .inventory import InventoryError, ScenarioCatalog, describe_scenario
 from .paths import resolve_validation_root
 from .results import ErrorClassification, ScenarioResult, ValidationRun
 
@@ -39,52 +33,8 @@ class ValidationRunner:
         self.runs_dir.mkdir(parents=True, exist_ok=True)
 
     def discover_scenarios(self) -> list[str]:
-        """
-        Discover V2 validation scenarios by finding BaseScenario subclasses.
-
-        Supports organizing scenarios into subdirectories. Scenario names include
-        the relative path from scenarios directory (e.g., 'integration/basic_haiku').
-
-        Directories starting with underscore are skipped.
-        """
-        scenarios = []
-
-        # Look for .py files recursively in scenarios directory
-        for py_file in self.scenarios_dir.rglob("*.py"):
-            # Skip files starting with underscore or __init__.py
-            if py_file.name.startswith("_") or py_file.name == "__init__.py":
-                continue
-
-            # Skip if any parent directory starts with underscore
-            relative_path = py_file.relative_to(self.scenarios_dir)
-            if any(part.startswith("_") for part in relative_path.parts[:-1]):
-                continue
-
-            try:
-                # Create scenario name from relative path (e.g., "integration/basic_haiku")
-                # Use forward slashes for consistency across platforms
-                scenario_name = str(relative_path.with_suffix("")).replace("\\", "/")
-
-                # Convert path to module name (e.g., "validation.scenarios.integration.basic_haiku")
-                module_parts = relative_path.with_suffix("").parts
-                module_name = f"validation.scenarios.{'.'.join(module_parts)}"
-                module = importlib.import_module(module_name)
-
-                # Find BaseScenario subclasses
-                for _name, obj in inspect.getmembers(module, inspect.isclass):
-                    if (
-                        obj.__module__ == module_name
-                        and hasattr(obj, "test_scenario")
-                        and obj.__name__ != "BaseScenario"
-                    ):
-
-                        scenarios.append(scenario_name)
-                        break  # Only take first valid scenario class per file
-            except Exception as e:
-                logger.warning(f"Failed to import scenario {scenario_name}: {e}")
-                continue
-
-        return sorted(scenarios)
+        """Collect all declared scenarios without importing application modules."""
+        return ScenarioCatalog(self.validation_root).discover_scenarios()
 
     def execute_scenario(self, scenario_name: str) -> ScenarioResult:
         """
@@ -106,21 +56,16 @@ class ValidationRunner:
 
             # Convert scenario name to module name (e.g., "integration/basic_haiku" -> "validation.scenarios.integration.basic_haiku")
             module_name = f"validation.scenarios.{scenario_name.replace('/', '.')}"
+            definition = describe_scenario(scenario_file, self.scenarios_dir)
             module = importlib.import_module(module_name)
 
-            # Look for BaseScenario subclass
-            scenario_class = None
-            for _name, obj in inspect.getmembers(module, inspect.isclass):
-                if (
-                    obj.__module__ == module_name
-                    and hasattr(obj, "test_scenario")
-                    and obj.__name__ != "BaseScenario"
-                ):
-                    scenario_class = obj
-                    break
+            from validation.core.base_scenario import BaseScenario
 
-            if not scenario_class:
-                raise AttributeError(f"No scenario class found in {module_name}")
+            scenario_class = getattr(module, definition.class_name, None)
+            if not inspect.isclass(scenario_class) or not issubclass(
+                scenario_class, BaseScenario
+            ):
+                raise InventoryError(f"Invalid runtime scenario class: {scenario_name}")
 
             # Execute the scenario (async support)
             scenario_instance = scenario_class()
@@ -240,7 +185,12 @@ class ValidationRunner:
                 recommendation="Review scenario assertions and expected outputs",
                 emoji="❌",
             )
-        if exception_type in ["FileNotFoundError", "PermissionError", "OSError"]:
+        if exception_type in [
+            "FileNotFoundError",
+            "PermissionError",
+            "OSError",
+            "InventoryError",
+        ]:
             return ErrorClassification(
                 type="FRAMEWORK ERROR",
                 status="framework_error",

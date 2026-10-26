@@ -92,6 +92,9 @@ jobs:
         with:
           python-version: ${{ env.CI_PYTHON_VERSION }}
 
+      - name: Check validation inventory
+        run: python validation/run_validation.py inventory
+
       - name: Check vault mutation routing
         run: python scripts/check_vault_mutation_routing.py
 

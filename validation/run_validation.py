@@ -8,31 +8,18 @@ with enhanced evidence collection and user-focused reporting.
 
 import argparse
 import fnmatch
+import json
+import logging
 import sys
 from pathlib import Path
 
 # Add project root to path FIRST
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.runtime.paths import set_bootstrap_roots
-from validation.core.paths import (
-    resolve_validation_data_root,
-    resolve_validation_system_root,
-)
+from validation.core.inventory import InventoryError, ScenarioCatalog, build_inventory
+from validation.core.paths import resolve_validation_root
 
-# Prime bootstrap roots for validation CLI before importing path-dependent modules
-_BOOTSTRAP_DATA_ROOT = resolve_validation_data_root()
-_BOOTSTRAP_SYSTEM_ROOT = resolve_validation_system_root()
-set_bootstrap_roots(_BOOTSTRAP_DATA_ROOT, _BOOTSTRAP_SYSTEM_ROOT)
-
-from core.logger import UnifiedLogger  # noqa: E402
-from validation.core.reporting import (  # noqa: E402
-    render_terminal_summary,
-    write_run_reports,
-)
-from validation.core.runner import ValidationRunner  # noqa: E402
-
-logger = UnifiedLogger(tag="validation-cli", default_sinks=["validation", "logfire"])
+logger = logging.getLogger("validation-cli")
 
 
 def expand_scenario_paths(runner, scenario_specs, *, allow_unmatched: bool = True):
@@ -86,6 +73,26 @@ def expand_scenario_paths(runner, scenario_specs, *, allow_unmatched: bool = Tru
 
 def run_scenarios(args):
     """Run validation scenarios."""
+    # A temporary evidence root may link to checkout-owned scenarios/governance.
+    source_root = (resolve_validation_root() / "scenarios").resolve().parent
+    preflight = build_inventory(source_root)
+    if preflight.issues:
+        raise InventoryError("\n".join(preflight.issues))
+
+    # Execution keeps the existing application bootstrap boundary. Collection and
+    # inventory intentionally do not import or initialize the application.
+    from core.runtime.paths import set_bootstrap_roots
+    from validation.core.paths import (
+        resolve_validation_data_root,
+        resolve_validation_system_root,
+    )
+
+    set_bootstrap_roots(
+        resolve_validation_data_root(), resolve_validation_system_root()
+    )
+    from validation.core.reporting import render_terminal_summary, write_run_reports
+    from validation.core.runner import ValidationRunner
+
     runner = ValidationRunner()
 
     # Expand folder paths to individual scenarios
@@ -131,7 +138,7 @@ def run_scenarios(args):
 
 def list_scenarios(args):
     """List available scenarios."""
-    runner = ValidationRunner()
+    runner = ScenarioCatalog(resolve_validation_root())
     if args.patterns:
         scenarios = expand_scenario_paths(runner, args.patterns, allow_unmatched=False)
     else:
@@ -183,6 +190,29 @@ def list_scenarios(args):
         print("   3. Implement the test_scenario() method")
 
 
+def inventory(args):
+    """Check structural accounting without executing or importing the app."""
+    root = Path(args.root) if args.root else resolve_validation_root()
+    report = build_inventory(root)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(f"Scenarios: {len(report.scenarios)}")
+        print(
+            f"Standalone opt-in experiment scripts: {len(report.standalone_experiments)}"
+        )
+        print(
+            f"Legacy root suites: {report.legacy_test_files} files, {report.legacy_named_tests} named tests"
+        )
+        print(
+            "Legacy accounting is not execution or proof of complete behavioral coverage."
+        )
+        print("Structural inventory: " + ("FAILED" if report.issues else "complete"))
+        for issue in report.issues:
+            print(f"- {issue}")
+    sys.exit(1 if report.issues else 0)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -227,6 +257,17 @@ Features:
         help="Optional glob patterns to filter scenarios",
     )
 
+    inventory_parser = subparsers.add_parser(
+        "inventory",
+        help="Check scenario and legacy-test inventory without executing tests",
+    )
+    inventory_parser.add_argument("--root", help="Validation directory to inspect")
+    inventory_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable structural inventory",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -234,10 +275,16 @@ Features:
         sys.exit(1)
 
     # Run the appropriate command
-    if args.command == "run":
-        run_scenarios(args)
-    elif args.command == "list":
-        list_scenarios(args)
+    try:
+        if args.command == "run":
+            run_scenarios(args)
+        elif args.command == "list":
+            list_scenarios(args)
+        elif args.command == "inventory":
+            inventory(args)
+    except InventoryError as exc:
+        print(f"Validation collection failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
