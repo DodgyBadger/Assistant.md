@@ -1,5 +1,6 @@
 """Integration scenario for chat-native vault file reference API contracts."""
 
+import shutil
 import sqlite3
 import sys
 from pathlib import Path
@@ -116,12 +117,38 @@ class VaultFileReferenceApiScenario(BaseScenario):
             params={"scope": "vault", "query": "spanish", "limit": 20},
         )
         assert basename_search.status_code == 200
-        basename_paths = {item["path"] for item in basename_search.json()["items"]}
+        assert basename_search.json()["truncated"] is False
+        basename_items = basename_search.json()["items"]
+        basename_paths = {item["path"] for item in basename_items}
+        assert len(basename_items) == len(
+            basename_paths
+        ), "Search results must not duplicate paths"
         assert "Spanish" in basename_paths
         assert "Spanish-vocabulary.md" in basename_paths
         assert (
             "Spanish/lesson.md" not in basename_paths
         ), "Name search should match item basenames, not ancestor folder names"
+
+        # Exceed the real scan budget without producing matching results.
+        scan_dir = vault / "ScanLimit"
+        scan_dir.mkdir()
+        try:
+            for index in range(50_001):
+                (scan_dir / f"file-{index:05}.md").touch()
+            scan_search = self.call_api(
+                f"/api/vaults/{vault.name}/file-refs",
+                params={
+                    "path": "ScanLimit",
+                    "scope": "vault",
+                    "query": "missing",
+                    "limit": 100,
+                },
+            )
+            assert scan_search.status_code == 200
+            assert scan_search.json()["items"] == []
+            assert scan_search.json()["truncated"] is True
+        finally:
+            shutil.rmtree(scan_dir)
 
         stale_search = self.call_api(
             f"/api/vaults/{vault.name}/file-refs",

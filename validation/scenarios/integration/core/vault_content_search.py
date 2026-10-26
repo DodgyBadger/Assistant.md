@@ -24,6 +24,7 @@ class VaultContentSearchScenario(BaseScenario):
         self.create_file(vault, "Outside.md", "Literal [query] outside\n")
         self.create_file(vault, "Notes/.hidden/secret.md", "Literal [query] hidden\n")
         (vault / "Notes/binary.bin").write_bytes(b"\x00Literal [query] binary\x00")
+        self.create_file(vault, "Unicode.md", "é needle and --hidden\n")
         await self.start_system()
 
         response = self.call_api(
@@ -105,3 +106,31 @@ class VaultContentSearchScenario(BaseScenario):
             "invalid_query",
             "Invalid query rejection has a stable code",
         )
+
+        for query, column in (("needle", 3), ("--hidden", 14)):
+            literal = self.call_api(
+                f"/api/vaults/{vault.name}/content-search", params={"query": query}
+            )
+            assert literal.status_code == 200
+            assert literal.json()["matches"] == [
+                {
+                    "path": "Unicode.md",
+                    "line": 1,
+                    "column": column,
+                    "snippet": "é needle and --hidden",
+                }
+            ]
+
+        for query in ("needle\x00suffix", "x" * 501):
+            rejected = self.call_api(
+                f"/api/vaults/{vault.name}/content-search", params={"query": query}
+            )
+            assert rejected.status_code == 400
+            assert rejected.json().get("details", {}).get("code") == "invalid_query"
+
+        outside_scope = self.call_api(
+            f"/api/vaults/{vault.name}/content-search",
+            params={"query": "needle", "path": "../outside"},
+        )
+        assert outside_scope.status_code == 400
+        assert outside_scope.json().get("details", {}).get("code") == "invalid_scope"

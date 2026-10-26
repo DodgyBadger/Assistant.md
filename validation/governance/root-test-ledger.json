@@ -5622,7 +5622,7 @@
             "test_content_search_is_literal_structured_and_scope_bounded"
           ],
           "contract": "Literal scoped search returns structured path, line, character column and snippet.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5637,6 +5637,14 @@
           ],
           "review_questions": [
             "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
           ]
         },
         {
@@ -5668,7 +5676,7 @@
             "test_content_search_treats_leading_dash_query_as_literal"
           ],
           "contract": "A leading-dash query is treated literally rather than as a process option.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5683,6 +5691,14 @@
           ],
           "review_questions": [
             "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
           ]
         },
         {
@@ -5691,7 +5707,7 @@
             "test_content_search_reports_character_column_after_non_ascii_text"
           ],
           "contract": "Unicode prefix yields character rather than byte column.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5706,6 +5722,14 @@
           ],
           "review_questions": [
             "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
           ]
         },
         {
@@ -5714,7 +5738,7 @@
             "test_content_search_rejects_a_scope_outside_the_vault"
           ],
           "contract": "Outside-vault scope is rejected with invalid_scope.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5729,6 +5753,14 @@
           ],
           "review_questions": [
             "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
           ]
         },
         {
@@ -5737,7 +5769,7 @@
             "test_content_search_rejects_subprocess_unsafe_queries"
           ],
           "contract": "NUL and oversized queries fail safely with invalid_query.",
-          "disposition": "gap",
+          "disposition": "covered",
           "coverage": [
             {
               "path": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5752,6 +5784,14 @@
           ],
           "review_questions": [
             "Can missing executable and timeout be controlled externally and portably?"
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_content_search",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Real API with real rg covers literal scoped results, structured columns/snippets, Unicode character offsets, leading-dash input, invalid scope and unsafe/oversized queries. Existing result-limit scenario retained. Startup/timeout simulation checks remain in root suite."
+            }
           ]
         },
         {
@@ -6166,62 +6206,6 @@
       "execution_in_core": "not_executed_as_a_root_suite"
     },
     {
-      "path": "validation/test_vault_file_reference_search.py",
-      "summary": "2 direct tests, each separately assessed against concrete scenario assertions.",
-      "groups": [
-        {
-          "id": "vault_file_reference_search_01",
-          "tests": [
-            "test_filename_search_stops_at_the_scan_limit"
-          ],
-          "contract": "Filename search stops at scan limit and marks results truncated.",
-          "disposition": "gap",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
-              "line": 118,
-              "detail": "API basename match for directory and file and no duplicate path match at lines 118\u2013123; no scan-limit case."
-            }
-          ],
-          "rationale": "Pagination truncated is not scan-limit exhaustion. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault file reference API scenario.",
-          "dependencies": [
-            "Direct domain/schema operation with isolated fixtures."
-          ],
-          "review_questions": [
-            "Confirm required cases and exact proof surface before removal."
-          ]
-        },
-        {
-          "id": "vault_file_reference_search_02",
-          "tests": [
-            "test_filename_search_matches_basename_without_duplicating_path_matches"
-          ],
-          "contract": "Basename directory match is not duplicated when path also matches.",
-          "disposition": "gap",
-          "coverage": [
-            {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
-              "line": 118,
-              "detail": "API asserts basename paths after converting items to a set at lines 118\u2013123; set conversion masks duplicates."
-            }
-          ],
-          "rationale": "Scenario converts response paths to a set, so it proves basename matching but cannot prove duplicate occurrences are absent. Static source inspection only; no execution or pass evidence.",
-          "proposed_destination": "Vault file reference API scenario.",
-          "dependencies": [
-            "Direct domain/schema operation with isolated fixtures."
-          ],
-          "review_questions": [
-            "Confirm required cases and exact proof surface before removal."
-          ]
-        }
-      ],
-      "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "be3e2eca7e312731fa0e068f38e6c5d127e49f0d1044986de69b635930e2348e",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
-    },
-    {
       "path": "validation/test_vault_path_picker_modules.py",
       "summary": "5 test(s): Node/frontend module or static source checks.",
       "groups": [
@@ -6387,6 +6371,85 @@
       "scenario": "integration/core/settings_lifecycle",
       "status": "focused_scenario_passed",
       "scope": "Real backup revision rejects later committed edit; matching revision succeeds. API internal interleaving/error translation remains uncovered."
+    }
+  ],
+  "retired_files": [
+    {
+      "path": "validation/test_vault_file_reference_search.py",
+      "summary": "2 direct tests, each separately assessed against concrete scenario assertions.",
+      "groups": [
+        {
+          "id": "vault_file_reference_search_01",
+          "tests": [
+            "test_filename_search_stops_at_the_scan_limit"
+          ],
+          "contract": "Filename search stops at scan limit and marks results truncated.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "line": 118,
+              "detail": "API basename match for directory and file and no duplicate path match at lines 118\u2013123; no scan-limit case."
+            }
+          ],
+          "rationale": "Pagination truncated is not scan-limit exhaustion. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault file reference API scenario.",
+          "dependencies": [
+            "Direct domain/schema operation with isolated fixtures."
+          ],
+          "review_questions": [
+            "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_file_reference_api",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual API exercises default scan budget with 50,001 real files and verifies empty truncated results; basename results are unique, untruncated, and exclude ancestor-only matches."
+            }
+          ]
+        },
+        {
+          "id": "vault_file_reference_search_02",
+          "tests": [
+            "test_filename_search_matches_basename_without_duplicating_path_matches"
+          ],
+          "contract": "Basename directory match is not duplicated when path also matches.",
+          "disposition": "covered",
+          "coverage": [
+            {
+              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "line": 118,
+              "detail": "API asserts basename paths after converting items to a set at lines 118\u2013123; set conversion masks duplicates."
+            }
+          ],
+          "rationale": "Scenario converts response paths to a set, so it proves basename matching but cannot prove duplicate occurrences are absent. Static source inspection only; no execution or pass evidence.",
+          "proposed_destination": "Vault file reference API scenario.",
+          "dependencies": [
+            "Direct domain/schema operation with isolated fixtures."
+          ],
+          "review_questions": [
+            "Confirm required cases and exact proof surface before removal."
+          ],
+          "scenario_progress": [
+            {
+              "scenario": "integration/core/vault_file_reference_api",
+              "verification": "focused scenario passed",
+              "scope": "covered",
+              "notes": "Actual API exercises default scan budget with 50,001 real files and verifies empty truncated results; basename results are unique, untruncated, and exclude ancestor-only matches."
+            }
+          ]
+        }
+      ],
+      "area": "settings, storage, search, decision, and configuration editors",
+      "sha256": "be3e2eca7e312731fa0e068f38e6c5d127e49f0d1044986de69b635930e2348e",
+      "review_status": "source_audit_candidate",
+      "execution_in_core": "not_executed_as_a_root_suite",
+      "retirement": {
+        "reason": "Both durable contracts passed through the real API scenario before removing helper-level duplicate suite.",
+        "replacement": "integration/core/vault_file_reference_api",
+        "verification_log": "/tmp/test-cleanup-backend-focused.log"
+      }
     }
   ]
 }
