@@ -6,11 +6,12 @@
     "Source-audit classifications are candidates, not permission to delete or claims that tests pass.",
     "Root suites remain intact; structural accounting does not make them execute in integration/core.",
     "A covered group records matching scenario assertions; gaps and rewrite/retirement candidates require review.",
-    "Fingerprints detect changed legacy sources, not independent approval of changes to this ledger."
+    "Fingerprints detect changed legacy sources, not independent approval of changes to this ledger.",
+    "Unresolved backend checks reside in ephemeral and UI/browser checks in browser. Both remain accounted for; location does not imply a disposable contract or execution in integration/core. The npm audit policy remains required CI infrastructure."
   ],
   "files": [
     {
-      "path": "validation/test_advanced_shell_config.py",
+      "path": "validation/ephemeral/test_advanced_shell_config.py",
       "summary": "23 configuration, bootstrap, status, readiness, gating and telemetry tests.",
       "groups": [
         {
@@ -215,10 +216,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "e668c29cc31bfb88e0c5d0d0176a5ca9e4ba6e4a8cca64152c0d2ef5dd61c7dd",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_advanced_shell_config.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_app_shell.py",
+      "path": "validation/browser/test_app_shell.py",
       "summary": "4 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -230,7 +233,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_app_shell.py",
+              "path": "validation/browser/test_app_shell.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -254,7 +257,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_app_shell.py",
+              "path": "validation/browser/test_app_shell.py",
               "line": 39,
               "detail": "Current test assertions: 41: const assert = require('assert');; 79: assert.deepStrictEqual(pollingStates, [true, false]);; 80: assert.strictEqual(refreshCount, 1);"
             }
@@ -278,7 +281,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_app_shell.py",
+              "path": "validation/browser/test_app_shell.py",
               "line": 89,
               "detail": "Current test assertions: 95: assert shell_position < application_position"
             }
@@ -302,7 +305,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_app_shell.py",
+              "path": "validation/browser/test_app_shell.py",
               "line": 98,
               "detail": "Current test assertions: 101: assert \"<base \" not in markup"
             }
@@ -319,12 +322,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "676a5fef516011beab55e16bf4c70fccd92264b3be0f1f52317b6f11b441e110",
+      "sha256": "6a5167e413f62c341b864cf1cc9a4291a90e5f4948ec3a3b91868778e0910107",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_app_shell.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_authentication_middleware.py",
+      "path": "validation/ephemeral/test_authentication_middleware.py",
       "summary": "12 isolated ASGI middleware boundary tests.",
       "groups": [
         {
@@ -379,10 +384,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "5105bd33c0732c31586e9880fce907adb0bc2bd1838fc14783120f43ff506293",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_authentication_middleware.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_authentication_policy.py",
+      "path": "validation/ephemeral/test_authentication_policy.py",
       "summary": "14 policy primitive tests covering modes, secret and proxy configuration.",
       "groups": [
         {
@@ -465,10 +472,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "d317315ea87590955a6f43236e5b87d393ecfb074a14b078898fab70136e3a35",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_authentication_policy.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_authentication_rate_limit.py",
+      "path": "validation/ephemeral/test_authentication_rate_limit.py",
       "summary": "Two direct limiter clock and bounded-state checks.",
       "groups": [
         {
@@ -495,10 +504,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "81d3ce49bd794a90313791f0cade0c32d7e02d7227cd3eadecfe05067a340962",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_authentication_rate_limit.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_authentication_session.py",
+      "path": "validation/ephemeral/test_authentication_session.py",
       "summary": "11 session-codec correctness and security tests.",
       "groups": [
         {
@@ -581,10 +592,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "54241d38495990916f965610b8917520f770572a463cf547807602f2642cfce0",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_authentication_session.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_chat_composer.py",
+      "path": "validation/browser/test_chat_composer.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -596,7 +609,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_composer.py",
+              "path": "validation/browser/test_chat_composer.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -620,7 +633,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_composer.py",
+              "path": "validation/browser/test_chat_composer.py",
               "line": 53,
               "detail": "Current test assertions: 61: assert composer_position < application_position"
             }
@@ -637,12 +650,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "21f1b4276bafe2e0c498c6d0ec44eaa2b90c8af6cd4e77c192ba7b2771fd10fa",
+      "sha256": "2a314fdc730888f3b5f582032c2b9fbbc1404d2f4d895179a51b7c6a95765a7b",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_composer.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_chat_instructions.py",
+      "path": "validation/ephemeral/test_chat_instructions.py",
       "summary": "One direct instruction composition test.",
       "groups": [
         {
@@ -673,10 +688,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "a3691e67eaf273d3e1dc6aa36ccc9806f450ef0956e889847a0b5207a6c7bcee",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_instructions.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_chat_mcp_lifecycle.py",
+      "path": "validation/ephemeral/test_chat_mcp_lifecycle.py",
       "summary": "Three mocked preparation lifecycle and instruction tests.",
       "groups": [
         {
@@ -727,10 +744,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "12bd2d1b08fb5347208d059faa037b24b8486c8dadac3cb87a5dbbcac3694994",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_mcp_lifecycle.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_chat_rendering_modules.py",
+      "path": "validation/browser/test_chat_rendering_modules.py",
       "summary": "11 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -742,7 +761,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 19,
               "detail": "Current test assertions: 21: const assert = require('assert');; 37: assert(body.innerHTML.includes('<br>'), 'User-entered line breaks should survive Markdown rendering.');; 39: assert(body.innerHTML.includes('<pre><code>'), 'Leading indentation remains Markdown code.');; 40: assert(!body.innerHTML.includes('data-vault-wikilink'), 'User code is not linkified.');"
             }
@@ -766,7 +785,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 89,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -790,7 +809,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 148,
               "detail": "Current test assertions: 150: const assert = require('assert');; 184: assert.strictEqual(scrollCount, 1, 'Normal rendering should follow the live response.');; 186: assert.strictEqual(scrollCount, 1, 'Historical prepending must not force a scroll.');; 192: assert.strictEqual(copySources[0](), context.fullText, 'Live and loaded assistant footers must copy source, not rendered DOM.');"
             }
@@ -814,7 +833,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 203,
               "detail": "Current test assertions: 228: assert ("
             }
@@ -838,7 +857,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 239,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -862,7 +881,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 304,
               "detail": "Current test assertions: 306: const assert = require('assert');; 349: assert.deepStrictEqual(; 354: assert.strictEqual(rendered.length, 1, 'User messages must reuse shared sanitized Markdown.');; 355: assert.strictEqual(rendered[0].options.softBreaks, true, 'User-entered line breaks remain visible.');"
             }
@@ -886,7 +905,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 378,
               "detail": "Current test assertions: 380: const assert = require('assert');; 434: assert.deepStrictEqual(assistantForkIndexes, [null, 42]);; 435: assert.deepStrictEqual(userDisplayIndexes, [2]);"
             }
@@ -910,7 +929,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 444,
               "detail": "Current test assertions: 446: const assert = require('assert');; 513: assert.deepStrictEqual(; 517: assert(!displayed.some(message => message.content.includes('Private tool result')),; 519: if (completed) assert(displayed.some(message => message.content === 'The response.'));"
             }
@@ -934,7 +953,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 530,
               "detail": "Current test assertions: 532: const assert = require('assert');; 606: assert.deepStrictEqual(rendered, [{; 627: assert.deepStrictEqual("
             }
@@ -958,7 +977,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 640,
               "detail": "Current test assertions: 644: const assert = require('assert');; 820: assert.ok(loadRow, 'The newest page should offer older history.');; 823: assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), loadRow, 'Refreshing compaction must not reset loaded-page controls.');; 824: assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]'), originalRows, 'Refreshing compaction must retain message DOM identities.');"
             }
@@ -982,7 +1001,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_rendering_modules.py",
+              "path": "validation/browser/test_chat_rendering_modules.py",
               "line": 911,
               "detail": "Current test assertions: 913: const assert = require('assert');; 947: assert.strictEqual(context.sequenceIndex, 17);"
             }
@@ -999,12 +1018,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "5f8b9725739300f5dbc791823b6c632835e9745a90cd0123dbe5b46ecffed690",
+      "sha256": "913191c1612d1c3fd84aaf38417f1068061197e42e222218258ace709663907c",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_rendering_modules.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_chat_selection.py",
+      "path": "validation/browser/test_chat_selection.py",
       "summary": "3 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1016,7 +1037,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_selection.py",
+              "path": "validation/browser/test_chat_selection.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1045,7 +1066,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_selection.py",
+              "path": "validation/browser/test_chat_selection.py",
               "line": 49,
               "detail": "Current test assertions: 57: assert selection_position < application_position"
             },
@@ -1074,7 +1095,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_selection.py",
+              "path": "validation/browser/test_chat_selection.py",
               "line": 60,
               "detail": "Current test assertions: 62: const assert = require('assert');; 79: assert.equal(elements.modelSelector.value, 'preferred');; 80: assert.equal(new Set(elements.modelSelector.options.map(option => option.textContent)).size, 2);; 81: assert.equal(elements.modelSelector.options.filter(item => item.value === 'old').length, 0);"
             },
@@ -1096,12 +1117,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "aa771b892c4e43e898586ed04c623988f35d456e4ec4c6d6ba0fe1a5e63b69eb",
+      "sha256": "14db44e96046d911a2b81bfcfb9d9a10e6ec4b0cd2d99b67f9de8f4291305dfb",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_selection.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_chat_sessions.py",
+      "path": "validation/browser/test_chat_sessions.py",
       "summary": "4 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1113,7 +1136,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_sessions.py",
+              "path": "validation/browser/test_chat_sessions.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1142,7 +1165,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_sessions.py",
+              "path": "validation/browser/test_chat_sessions.py",
               "line": 43,
               "detail": "Current test assertions: 45: const assert = require('assert');; 90: assert.deepStrictEqual(state.sessions, [{ session_id: 'new' }]);; 91: assert.strictEqual(state.sessionId, 'new');; 95: assert.strictEqual(state.isLoading, true);"
             },
@@ -1171,7 +1194,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_sessions.py",
+              "path": "validation/browser/test_chat_sessions.py",
               "line": 182,
               "detail": "Current test assertions: 190: assert sessions_position < application_position"
             },
@@ -1200,7 +1223,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_sessions.py",
+              "path": "validation/browser/test_chat_sessions.py",
               "line": 193,
               "detail": "Current test assertions: 195: const assert = require('assert');; 233: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');; 235: assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session\u2019s mode.');; 241: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B\u2019s mode.');"
             },
@@ -1222,12 +1245,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "c3c83741e74ee61d817ea142e88e9ff9a4850e7e21af5ac67599672092abff58",
+      "sha256": "2f222681fa1270ed500a4d7fa072626696dd3bbe2069e5c16915c2fef4ef6537",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_sessions.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_chat_task_stream.py",
+      "path": "validation/browser/test_chat_task_stream.py",
       "summary": "4 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1239,7 +1264,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_task_stream.py",
+              "path": "validation/browser/test_chat_task_stream.py",
               "line": 13,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1268,7 +1293,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_chat_task_stream.py",
+              "path": "validation/browser/test_chat_task_stream.py",
               "line": 95,
               "detail": "Current test assertions: 106: assert module_position < actions_position < application_position"
             },
@@ -1297,7 +1322,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_task_stream.py",
+              "path": "validation/browser/test_chat_task_stream.py",
               "line": 109,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1326,7 +1351,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_task_stream.py",
+              "path": "validation/browser/test_chat_task_stream.py",
               "line": 283,
               "detail": "Current test assertions: 285: const assert = require('assert');; 298: assert.strictEqual(url, 'api/tasks/task-1');; 299: assert.strictEqual(options.cache, 'no-store');; 300: assert.strictEqual(options.signal, signal);"
             },
@@ -1348,12 +1373,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "0c055b17e8eebd82dfc91c3c8f1adaad432c9ab69723b08afc0e3a4b5a71cb10",
+      "sha256": "9b81fa2ddff3906cc291dff178ae9ebccf12a2173407d0e1547d9bb6be0fd491",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_task_stream.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_chat_tool_details_module.py",
+      "path": "validation/browser/test_chat_tool_details_module.py",
       "summary": "1 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1365,7 +1392,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_chat_tool_details_module.py",
+              "path": "validation/browser/test_chat_tool_details_module.py",
               "line": 12,
               "detail": "Current test assertions: 16: const assert = require('assert');; 78: assert.strictEqual(document.activeElement, activeModal.dialog, 'Opening the detail should focus its dialog.');; 80: assert.strictEqual(backCalled, true, 'The nested Back action should return to the parent map.');; 81: assert.strictEqual(document.activeElement, mapDialog, 'Back should not steal focus from the reopened map.');"
             }
@@ -1382,12 +1409,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "637d31437d2b3cb8a2a7238a8a8c4944d09c6e4ec209f31a4b845f26d7736d64",
+      "sha256": "68b976889cbfc2767253820a602192d8a3ee9ce514a917febd4703a0bf99d3f6",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_chat_tool_details_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_configuration_modules.py",
+      "path": "validation/browser/test_configuration_modules.py",
       "summary": "8 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1399,7 +1428,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 42,
               "detail": "Current test assertions: 52: assert configuration_sources == _EXPECTED_SCRIPTS"
             },
@@ -1428,7 +1457,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 116,
               "detail": "Current test assertions: 118: const assert = require('assert');; 130: assert.match(output, /<details class=\"activity-log-detail\">/);; 131: assert.match(output, /Traceback start/);; 132: assert.match(output, /Traceback end/);"
             },
@@ -1457,7 +1486,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 150,
               "detail": "Current test assertions: 159: assert 'id=\"import-defaults-save\"' in markup; 160: assert 'id=\"import-open-explorer\"' in markup; 161: assert 'id=\"import-jobs-list\"' in markup; 162: assert 'id=\"import-scan\"' not in markup"
             },
@@ -1486,7 +1515,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 172,
               "detail": "Current test assertions: 174: const assert = require('assert');; 207: assert.match(runtime.elements.providerList.innerHTML, /OpenAI OAuth/);; 208: assert.match(runtime.elements.modelList.innerHTML, /Unable to load model mappings/);"
             },
@@ -1515,7 +1544,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 225,
               "detail": "Current test assertions: 227: const assert = require('assert');; 280: assert.deepStrictEqual(started, loaderNames);; 283: assert.strictEqual(ConfigurationPanelRuntime.state.hasLoadedOnce, true);; 284: assert.strictEqual(reportedErrors.length, 2);"
             },
@@ -1544,7 +1573,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 303,
               "detail": "Current test assertions: 305: const assert = require('assert');; 338: assert.deepStrictEqual(started, ['loadSecrets', 'loadImportVaults', 'loadImportJobs']);; 341: assert.strictEqual(reportedErrors.length, 1);"
             },
@@ -1573,7 +1602,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 360,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1603,7 +1632,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_configuration_modules.py",
+              "path": "validation/browser/test_configuration_modules.py",
               "line": 368,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -1626,12 +1655,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "6c54f5fc903b9ed2ff6d7800d4b9bda10621bfdad0c40b0480ad8125c93ac930",
+      "sha256": "1524c77420a8ac85051b82c3517e0662840223fccd4f6783abc876ed45822456",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_configuration_modules.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_configuration_status_module.py",
+      "path": "validation/browser/test_configuration_status_module.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1643,7 +1674,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_configuration_status_module.py",
+              "path": "validation/browser/test_configuration_status_module.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -1667,7 +1698,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_configuration_status_module.py",
+              "path": "validation/browser/test_configuration_status_module.py",
               "line": 47,
               "detail": "Current test assertions: 55: assert status_position < application_position"
             }
@@ -1684,12 +1715,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "68a6272bade9b3b0d523da1e0843c8ad1b064c9f6f118234a1a713c50f4145a6",
+      "sha256": "f032fafddcb2c76ab1e6a8a916e0eb1c62f6c2e864b8946ece94634cdb349c95",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_configuration_status_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_dashboard_view.py",
+      "path": "validation/browser/test_dashboard_view.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1701,7 +1734,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_dashboard_view.py",
+              "path": "validation/browser/test_dashboard_view.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 23: assert.strictEqual(delay, 2000);; 47: assert.strictEqual(state.executionTaskPollTimer, null);; 51: assert.strictEqual(state.executionTaskPollTimer, 17);"
             }
@@ -1725,7 +1758,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_dashboard_view.py",
+              "path": "validation/browser/test_dashboard_view.py",
               "line": 68,
               "detail": "Current test assertions: 70: const assert = require('assert');; 94: assert.match(executionTasksStatus.innerHTML, /Unable to refresh task status/);; 95: assert.match(executionTasksStatus.innerHTML, /task-1/);"
             }
@@ -1742,12 +1775,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "600146ecc7b9a3585b3f78c4ef86910c1e722da544443c2c19df1d57b84e8dd8",
+      "sha256": "24dab59eb64ec86706e88365a063eabc6a3dab7c129b118aecff183b722aafa2",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_dashboard_view.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_decision_runtime.py",
+      "path": "validation/ephemeral/test_decision_runtime.py",
       "summary": "5 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -1863,10 +1898,12 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "db13da59229f98fd61c53c9f1a4abd1d2d119fca10a091b84bf92f0ed9c16464",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_decision_runtime.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_file_reference_modules.py",
+      "path": "validation/browser/test_file_reference_modules.py",
       "summary": "6 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -1878,7 +1915,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 13,
               "detail": "Current test assertions: 15: const assert = require('assert');; 54: assert.strictEqual(chatInput.value, 'See [[Library/! Primary Sources/index.md]]');; 55: assert.strictEqual(chatInput.selectionStart, chatInput.value.length);; 70: assert.strictEqual(pickerOptions.workspacePath, '');"
             },
@@ -1907,7 +1944,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 110,
               "detail": "Current test assertions: 120: assert links_position < references_position"
             },
@@ -1936,7 +1973,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 123,
               "detail": "Current test assertions: 125: const assert = require('assert'), fs = require('fs'), vm = require('vm');; 172: assert(!overlay.querySelector('[data-vault-file-back]'), 'Direct chat open has no previous view.');; 173: assert(overlay.querySelector('[data-vault-file-tree]'), 'A separate tree action is always available.');; 180: assert(editor().value.includes('path=B.md'), 'Back restores the previous file, not the tree.');"
             },
@@ -1965,7 +2002,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 228,
               "detail": "Current test assertions: 230: const assert = require('assert');; 251: assert.deepStrictEqual(; 268: assert.deepStrictEqual("
             },
@@ -1994,7 +2031,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 283,
               "detail": "Current test assertions: 285: const assert = require('assert');; 354: assert.deepStrictEqual(requests[0], {; 358: assert.deepStrictEqual(root.children.map(node => node.textContent), [; 361: assert.strictEqual(root.children[4], external);"
             },
@@ -2023,7 +2060,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_file_reference_modules.py",
+              "path": "validation/browser/test_file_reference_modules.py",
               "line": 480,
               "detail": "Current test assertions: 486: assert header.index('class=\"app-modal-actions\"') < header.index(; 490: assert \".vault-file-modal-header {\\n    flex-wrap: wrap;\\n}\" in stylesheet; 491: assert ("
             },
@@ -2045,12 +2082,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "10c734ade634066c91604cb6c9bbc2a44d14c9463345b614f446adcb7b9e0bb1",
+      "sha256": "94ac5b23cd43e2957f05ccb3475f8e2f0532e4e8d68581ff34632b3ce5797ae6",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_file_reference_modules.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_ingestion_storage.py",
+      "path": "validation/ephemeral/test_ingestion_storage.py",
       "summary": "5 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -2157,7 +2196,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "877b58c7daf97f6b5af842af9287671d6f17e502ef2dbd658f8f5cddec48c4f0",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "ingestion_storage_01",
@@ -2194,10 +2233,12 @@
             "source_path": "validation/test_ingestion_storage.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_ingestion_storage.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_managed_model_catalog.py",
+      "path": "validation/ephemeral/test_managed_model_catalog.py",
       "summary": "16 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -2483,7 +2524,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "9130e9addaa9e7ba02fe2d271c77b9fa87d953f8b16f46d55c60b0f96722ea6f",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "managed_model_catalog_01",
@@ -2675,10 +2716,12 @@
             "source_path": "validation/test_managed_model_catalog.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_managed_model_catalog.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_mcp_manager_hardening.py",
+      "path": "validation/ephemeral/test_mcp_manager_hardening.py",
       "summary": "10 tests of cancellation, capacity, invalidation and credential races.",
       "groups": [
         {
@@ -2820,10 +2863,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "6d5542632f908999b3fc531c5788e9a5e82fc5c70298c5bbfa98e1c35cc9e203",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_mcp_manager_hardening.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_mcp_oauth_hardening.py",
+      "path": "validation/ephemeral/test_mcp_oauth_hardening.py",
       "summary": "Three race and committed OAuth state tests.",
       "groups": [
         {
@@ -2907,10 +2952,12 @@
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "06a392ea79f6ecd14645e9fcb75c5f0f2cec454272704f4070f4ff6607dfa1a7",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_mcp_oauth_hardening.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_model_alias_registry.py",
+      "path": "validation/ephemeral/test_model_alias_registry.py",
       "summary": "6 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -3095,10 +3142,12 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "e97052ead2844f3844fc59e6095787df34f81fda63bb1949e471d74927a06b58",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_model_alias_registry.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_model_editors.cjs",
+      "path": "validation/browser/test_model_editors.cjs",
       "summary": "5 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -3218,12 +3267,14 @@
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "d53958f31386921ad301595af3f9e3378dfc09081e1cbbf6ef6942e6c2cd0ec1",
+      "sha256": "39c3cb524db79b44b508a61fedab050ab4c19e136c5bdf58d740e94f732c4399",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_model_editors.cjs",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_npm_audit_policy.cjs",
+      "path": "validation/infrastructure/test_npm_audit_policy.cjs",
       "summary": "9 test(s): npm audit policy self-check.",
       "groups": [
         {
@@ -3235,7 +3286,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 22,
               "detail": "Current test assertions: 24: assert.equal(result.ignored.length, 1);; 25: assert.deepEqual(result.blocking, []);"
             }
@@ -3256,7 +3307,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 27,
               "detail": "Current test assertions: 31: assert.equal(evaluate(data).blocking.length, 1);"
             }
@@ -3277,7 +3328,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 34,
               "detail": "Current test assertions: 37: assert.match(evaluate(data).blocking[0], /critical findings/);"
             }
@@ -3298,7 +3349,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 39,
               "detail": "Current test assertions: 43: if (name === 'braces') assert.throws(() => evaluate(data), /no longer applicable/);; 44: else assert.match(evaluate(data).blocking[0], /runtime dependency/);"
             }
@@ -3319,7 +3370,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 47,
               "detail": "Current test assertions: 48: for (const date of ['2026-10-30', '2026-10-31']) assert.throws(() => evaluate(fixture(), date), /expired/);; 49: assert.deepEqual(evaluate(fixture(), '2026-10-29').blocking, []);"
             }
@@ -3340,7 +3391,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 51,
               "detail": "Current test assertions: 54: assert.throws(() => evaluate(clean), /no longer applicable/);; 57: assert.throws(() => evaluate(changed), /no longer applicable/);"
             }
@@ -3361,7 +3412,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 59,
               "detail": "Current test assertions: 61: assert.throws(() => evaluate({ ...fixture(), report }), /unsupported or failed/);; 73: assert.throws(() => evaluate(data));"
             }
@@ -3382,7 +3433,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 76,
               "detail": "Current test assertions: 85: assert.throws(() => evaluate(data), /Invalid or duplicate/);"
             }
@@ -3403,7 +3454,7 @@
           "disposition": "framework_infrastructure",
           "coverage": [
             {
-              "path": "validation/test_npm_audit_policy.cjs",
+              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
               "line": 88,
               "detail": "Current test assertions: 91: assert(evaluate(data).blocking.length > 0);; 93: assert.deepEqual(evaluate(data).blocking, []);"
             }
@@ -3417,12 +3468,15 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "452dfcd5bede288ad157755ef2c465991c5d939460d28bea17187ea169ddf587",
+      "sha256": "77cf4a72e9a201bbeb714d7107afe1e5f9c2e73760600e244c4adc26dc5446fe",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_npm_audit_policy.cjs",
+      "location_classification": "required_ci_policy",
+      "ci_command": "node --test validation/infrastructure/test_npm_audit_policy.cjs"
     },
     {
-      "path": "validation/test_provider_errors.py",
+      "path": "validation/ephemeral/test_provider_errors.py",
       "summary": "6 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -3513,7 +3567,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "provider_errors_05",
@@ -3573,10 +3627,12 @@
             "source_path": "validation/test_provider_errors.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_provider_errors.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_quote_selection.cjs",
+      "path": "validation/browser/test_quote_selection.cjs",
       "summary": "3 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -3588,7 +3644,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection.cjs",
+              "path": "validation/browser/test_quote_selection.cjs",
               "line": 10,
               "detail": "Current test assertions: 12: assert.equal(block, '[[Notes/A.md]]\\n\\n> first\\n>\\n> last\\n\\nExplain\\nthis');; 13: assert.equal(VaultSelectionPrompt.formatBlock('A.md', 'quote', ''), '[[A.md]]\\n\\n> quote');"
             },
@@ -3617,7 +3673,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection.cjs",
+              "path": "validation/browser/test_quote_selection.cjs",
               "line": 16,
               "detail": "Current test assertions: 25: assert.equal(chatInput.value, 'Keep my draft\\n\\nfirst\\n\\nsecond');; 26: assert.equal(events, 2);; 27: assert.equal(attachments.length, 1);"
             },
@@ -3646,7 +3702,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection.cjs",
+              "path": "validation/browser/test_quote_selection.cjs",
               "line": 30,
               "detail": "Current test assertions: 31: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A%20B.md', 'text', ''),; 33: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A]#|.md', 'text', ''),"
             },
@@ -3668,12 +3724,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "394a3f2415bd3f3ae9f732d70d72726e0a1bde38caca5a4cd38a09ac82368ba6",
+      "sha256": "46b6a59e6c8f585697302a278c988e427d1a9f32ab2f722a541b344f8bcccc52",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_quote_selection.cjs",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_quote_selection_browser.py",
+      "path": "validation/browser/test_quote_selection_browser.py",
       "summary": "21 test(s): browser fixture with injected modules.",
       "groups": [
         {
@@ -3685,7 +3743,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 110,
               "detail": "Current test assertions: 114: assert page.locator(\"#chat-input\").input_value() == (; 118: assert page.locator(\"#vault-file-modal\").count() == 1; 122: assert (; 127: assert page.evaluate(\"compose.pendingAttachments.length\") == 1"
             },
@@ -3714,7 +3772,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 131,
               "detail": "Current test assertions: 140: assert (; 144: assert page.locator(\"#chat-input\").input_value() == \"Existing draft\"; 145: assert page.evaluate(\"compose.pendingAttachments.length\") == 1; 146: assert page.evaluate(\"!closedPicker && state.isLoading\")"
             },
@@ -3743,7 +3801,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 150,
               "detail": "Current test assertions: 156: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 157: assert \"Start failed\" in page.locator(\".vault-selection-feedback\").inner_text(); 158: assert page.locator(\"[data-quote-send]\").is_enabled(); 164: assert page.evaluate(\"compose.pendingAttachments.length\") == 1"
             },
@@ -3772,7 +3830,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 167,
               "detail": "Current test assertions: 171: assert page.locator(\"#vault-file-modal\").count() == 1; 173: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 175: assert page.locator(\"[data-quote-send]\").is_disabled(); 176: assert page.locator(\"[data-quote-append]\").is_disabled()"
             },
@@ -3801,7 +3859,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 195,
               "detail": "Current test assertions: 203: assert box and box[\"x\"] >= 0 and box[\"x\"] + box[\"width\"] <= 390; 204: assert box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 640; 210: assert page.locator(\"[data-quote-open]\").is_hidden()"
             },
@@ -3830,7 +3888,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 213,
               "detail": "Current test assertions: 220: assert original.strip(); 223: assert page.locator(\"[data-quote-text]\").inner_text() == original; 229: assert draft.index(\"[[Notes/A.md]]\") < draft.index(\"[[Notes/B.md]]\"); 230: assert \"Keep this instruction\" in draft and \"Second file\" in draft"
             },
@@ -3859,7 +3917,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 233,
               "detail": "Current test assertions: 238: assert page.evaluate(\"sent[0]\") == {; 242: assert page.locator(\"#chat-input\").input_value() == \"\"; 243: assert page.evaluate(\"compose.pendingAttachments.length\") == 0"
             },
@@ -3888,7 +3946,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 246,
               "detail": "Current test assertions: 254: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 255: assert page.locator(\"[data-quote-dismiss]\").is_disabled(); 257: assert page.evaluate(\"sent.length\") == 1; 260: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep until accepted\""
             },
@@ -3917,7 +3975,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 265,
               "detail": "Current test assertions: 277: assert box and box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 320; 279: assert ("
             },
@@ -3946,7 +4004,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 285,
               "detail": "Current test assertions: 293: assert page.evaluate(\"sent.length\") == 0; 294: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 295: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"Unsaved changes\""
             },
@@ -3975,7 +4033,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 303,
               "detail": "Current test assertions: 308: expect(page.locator(\"[data-quote-open]\")).to_be_focused(); 310: expect(page.locator(\"#vault-selection-input\")).to_be_focused(); 314: assert (; 318: assert page.evaluate(\"sent.length\") == 0"
             },
@@ -4004,7 +4062,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 322,
               "detail": "Current test assertions: 336: assert page.locator(\"#vault-file-modal\").count() == 0; 337: assert page.locator(\"#vault-explorer-modal\").count() == 0; 338: assert not page.evaluate(\"files.isPickerOpen()\"); 339: expect(page.locator(\"#chat-input\")).to_be_focused()"
             },
@@ -4033,7 +4091,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 344,
               "detail": "Current test assertions: 352: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/A.md\"); 353: assert page.locator(\"#vault-explorer-modal\").count() == 1; 357: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep this prompt\"; 358: assert page.locator(\"#vault-explorer-modal\").count() == 1"
             },
@@ -4062,7 +4120,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 376,
               "detail": "Current test assertions: 383: assert page.locator(\"#vault-file-modal\").count() == 1; 386: assert page.locator(\"[data-quote-send]\").is_disabled(); 388: assert page.evaluate(\"sent.length\") == 1; 392: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text("
             },
@@ -4091,7 +4149,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 403,
               "detail": "Current test assertions: 409: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/B.md\"); 411: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text("
             },
@@ -4120,7 +4178,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 416,
               "detail": "Current test assertions: 424: assert page.locator(\"#vault-file-modal\").count() == 0"
             },
@@ -4149,7 +4207,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 427,
               "detail": "Current test assertions: 435: expect(page.locator(\"#vault-file-modal-status\")).to_contain_text(; 438: assert page.locator(\"#vault-file-modal\").count() == 1; 439: assert page.locator(\"#passage\").count() == 1"
             },
@@ -4178,7 +4236,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 442,
               "detail": "Current test assertions: 450: assert scroll > 0; 454: expect(preview).to_contain_text(\"Long update with a document edit\"); 455: assert preview.evaluate(\"element => element.scrollTop\") == scroll"
             },
@@ -4207,7 +4265,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 458,
               "detail": "Current test assertions: 478: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"New local edits\""
             },
@@ -4236,7 +4294,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 481,
               "detail": "Current test assertions: 493: expect(preview).to_be_focused()"
             },
@@ -4265,7 +4323,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_quote_selection_browser.py",
+              "path": "validation/browser/test_quote_selection_browser.py",
               "line": 496,
               "detail": "Current test assertions: 519: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 522: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 523: assert page.locator(\"[data-quote-dismiss]\").is_disabled()"
             },
@@ -4287,12 +4345,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "4f53ea3a9225bfb7649602b3f133a324b0ff8b06735d4a06fe7a92b191f3a219",
+      "sha256": "61bc4a3e976382299cfffe8c11d23e487ad50052e52ef81819fa60193045fcb0",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_quote_selection_browser.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_session_controls_module.py",
+      "path": "validation/browser/test_session_controls_module.py",
       "summary": "3 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -4304,7 +4364,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_controls_module.py",
+              "path": "validation/browser/test_session_controls_module.py",
               "line": 12,
               "detail": "Current test assertions: 16: const assert = require('assert');; 39: global.fetch = async (_url, options) => { assert.strictEqual(options.cache, 'no-store'); return response(120); };; 41: assert.strictEqual(fill.style.width, '100%');; 42: assert(classes.has('compaction-hot'));"
             }
@@ -4328,7 +4388,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_controls_module.py",
+              "path": "validation/browser/test_session_controls_module.py",
               "line": 85,
               "detail": "Current test assertions: 87: const assert = require('assert');; 154: assert.strictEqual(timers.size, 1);; 167: assert(list.innerHTML.includes('First session') && !list.innerHTML.includes('Second session'));; 168: assert.strictEqual(requests.length, 0, 'Names filtering must stay local');"
             }
@@ -4352,7 +4412,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_controls_module.py",
+              "path": "validation/browser/test_session_controls_module.py",
               "line": 239,
               "detail": "Current test assertions: 241: const assert = require('assert');; 290: assert.match(url, /upgrade-context-strategy/);; 332: assert.strictEqual(loadCalled, true, 'The active session should be refreshed after upgrade.');; 333: assert.strictEqual(alerts.length, 1, 'The operation should report one outcome.');"
             }
@@ -4369,12 +4429,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "75dff4eecc408f8c8652d3fc9c322afca1b4c1ca8085e349a2a3dd9dbd6ff83b",
+      "sha256": "68b2a576f554fa15fd53af8300f05d7c41f19e0e0a7dd10b7f009a55fddbf12c",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_session_controls_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_session_map.py",
+      "path": "validation/browser/test_session_map.py",
       "summary": "6 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -4386,7 +4448,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -4415,7 +4477,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 40,
               "detail": "Current test assertions: 42: const assert = require('assert');; 108: assert.strictEqual(document.activeElement, activeModal.dialog, 'Opening the map should focus its dialog.');; 112: assert.strictEqual(activeModal, null, 'Escape should close the session-map modal.');; 113: assert.strictEqual(document.activeElement, trigger, 'Closing should restore focus to the invoker.');"
             },
@@ -4444,7 +4506,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 138,
               "detail": "Current test assertions: 140: const assert = require('assert');; 206: assert.match(modal.body.innerHTML, /latest revision/);; 207: assert.doesNotMatch(modal.body.innerHTML, /stale revision/);; 218: assert.match(modal.body.innerHTML, /latest after error/);"
             },
@@ -4473,7 +4535,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 229,
               "detail": "Current test assertions: 235: assert map_position < application_position"
             },
@@ -4502,7 +4564,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 238,
               "detail": "Current test assertions: 241: assert \"How We Got Here\" in source; 242: assert \"renderSources(trajectory)\" in source; 243: assert '<div class=\"session-map-content\"' in source; 244: assert \"formatDate(selected?.created_at)\" in source"
             },
@@ -4531,7 +4593,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_session_map.py",
+              "path": "validation/browser/test_session_map.py",
               "line": 249,
               "detail": "Current test assertions: 255: assert \"renderTranscript\" not in map_source; 256: assert \"data-session-map-transcript-page\" not in map_source; 257: assert \"payload.transcript\" not in map_source; 258: assert \"session-map-checkpoint-link\" in history_source"
             },
@@ -4553,12 +4615,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "859b0b714c673f9e7d97dbeb65c40f5819755ee73646fb8c57e15ebd66fdb309",
+      "sha256": "3670db26b67be6ed7f3c3a3ebfa293022cd6aff20bd492d853a2d655c540375e",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_session_map.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_settings_availability_browser.py",
+      "path": "validation/browser/test_settings_availability_browser.py",
       "summary": "1 test(s): browser fixture with injected modules.",
       "groups": [
         {
@@ -4570,7 +4634,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_settings_availability_browser.py",
+              "path": "validation/browser/test_settings_availability_browser.py",
               "line": 12,
               "detail": "Current test assertions: 52: expect(; 57: assert page.evaluate(\"ConfigurationPanelRuntime.state.isSavingSetting\") is False; 59: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible(); 61: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible()"
             },
@@ -4592,12 +4656,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "74839d8f0b1c1ab2ddd2c1c956d87e54ddbc2f4946b51bca09708f671c007da5",
+      "sha256": "9ba08c3a5a5f8db9b9144482c4e9f220ccf3ad71b8a94355ede3a7899927485c",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_settings_availability_browser.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_settings_database.py",
+      "path": "validation/ephemeral/test_settings_database.py",
       "summary": "9 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -4690,7 +4756,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "304d2b9eac8a14058fbfc4899221503b0434d563d739f33772a4b6cbb9ae1f13",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "settings_database_01",
@@ -4827,10 +4893,12 @@
             "source_path": "validation/test_settings_database.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_settings_database.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_settings_editors.cjs",
+      "path": "validation/browser/test_settings_editors.cjs",
       "summary": "20 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -5289,12 +5357,14 @@
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "00efd5b962baf79b922a619a37215047fde298bcd497a16eb8c58fd2137953e7",
+      "sha256": "e37f83e712d356432115e4a75ba1e4ba4b7fd7e51052979c54994449327bff79",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_settings_editors.cjs",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_settings_lifecycle.py",
+      "path": "validation/ephemeral/test_settings_lifecycle.py",
       "summary": "10 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -5378,7 +5448,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "f374e50ea578085c20832b85fe2fc4efccbfaacc79bb2f0514a13732959366a8",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "settings_lifecycle_02",
@@ -5631,10 +5701,12 @@
             "source_path": "validation/test_settings_lifecycle.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_settings_lifecycle.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_shipped_settings_defaults.py",
+      "path": "validation/ephemeral/test_shipped_settings_defaults.py",
       "summary": "2 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -5687,10 +5759,12 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "1448147e6d41e4c9240955dd44dd86085d3f3901bbfcf8a83ca64b36665e5ac3",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_shipped_settings_defaults.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_system_status_module.py",
+      "path": "validation/browser/test_system_status_module.py",
       "summary": "5 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -5702,7 +5776,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_system_status_module.py",
+              "path": "validation/browser/test_system_status_module.py",
               "line": 12,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             }
@@ -5726,7 +5800,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_system_status_module.py",
+              "path": "validation/browser/test_system_status_module.py",
               "line": 42,
               "detail": "Current test assertions: 48: assert status_position < application_position"
             }
@@ -5750,7 +5824,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_system_status_module.py",
+              "path": "validation/browser/test_system_status_module.py",
               "line": 51,
               "detail": "Current test assertions: 57: assert \"await fetchMetadata();\" in init_source; 58: assert \"await fetchSystemStatus();\" not in init_source; 59: assert init_source.index(\"renderChatEmptyState();\") < init_source.index("
             }
@@ -5774,7 +5848,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_system_status_module.py",
+              "path": "validation/browser/test_system_status_module.py",
               "line": 64,
               "detail": "Current test assertions: 68: const assert = require('assert');; 118: assert.strictEqual(modelSelector.value, 'first');; 121: assert.strictEqual(modelSelector.value, 'first');; 124: assert.strictEqual(modelSelector.value, 'preferred');"
             }
@@ -5798,7 +5872,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_system_status_module.py",
+              "path": "validation/browser/test_system_status_module.py",
               "line": 140,
               "detail": "Current test assertions: 142: const assert = require('assert');; 181: assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);; 182: assert.strictEqual(state.executionTasksError, null);; 187: assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);"
             }
@@ -5815,12 +5889,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "3a401363bf353067eb67a1a359a7f63ad3e903c06e4dc3ddaf9a5ba0132a14eb",
+      "sha256": "4534cb0c3d270ab392442c315de586f0636c6b10fbe9f02c8e58d5b33af66e0a",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_system_status_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_content_search.py",
+      "path": "validation/ephemeral/test_vault_content_search.py",
       "summary": "8 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
         {
@@ -5905,7 +5981,7 @@
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite",
+      "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
           "id": "vault_content_search_02",
@@ -6074,10 +6150,12 @@
             "source_path": "validation/test_vault_content_search.py"
           }
         }
-      ]
+      ],
+      "original_path": "validation/test_vault_content_search.py",
+      "location_classification": "unresolved_review"
     },
     {
-      "path": "validation/test_vault_explorer_batch_moves_module.py",
+      "path": "validation/browser/test_vault_explorer_batch_moves_module.py",
       "summary": "1 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6089,7 +6167,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_batch_moves_module.py",
+              "path": "validation/browser/test_vault_explorer_batch_moves_module.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 24: assert.deepStrictEqual("
             },
@@ -6111,12 +6189,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "4940708c867bd14c64375c26c4de4d6374828303f9ffebf0a5722ffa2568ed9f",
+      "sha256": "b19e04d00ed32b835472d61c0758f9a7d04c5587c637753e283c1f3fd7996a15",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_batch_moves_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_controller_module.py",
+      "path": "validation/browser/test_vault_explorer_controller_module.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6128,7 +6208,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_controller_module.py",
+              "path": "validation/browser/test_vault_explorer_controller_module.py",
               "line": 14,
               "detail": "Current test assertions: 16: const assert = require('assert');; 41: assert.deepStrictEqual(; 53: assert.strictEqual(controller.snapshot().activeFolder, 'Projects');; 54: assert.deepStrictEqual(controller.snapshot().selectedPaths, ['Projects/new.md']);"
             }
@@ -6152,7 +6232,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_controller_module.py",
+              "path": "validation/browser/test_vault_explorer_controller_module.py",
               "line": 77,
               "detail": "Current test assertions: 79: const assert = require('assert');; 113: assert.strictEqual(path, 'Projects');; 133: assert.strictEqual(latestRenderOptions.workspaceMissing, true);; 136: assert.strictEqual(options.workspacePath, 'Projects');"
             }
@@ -6169,12 +6249,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "fa776255acd0788d99c2fdb43f9f5ae3e36a9876f2669442f6a7a3af491c1599",
+      "sha256": "2c4a2680b1c9295bbfcb24bf8369faf93c3fac3316e593d020b9c1131f96ed15",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_controller_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_destination_module.py",
+      "path": "validation/browser/test_vault_explorer_destination_module.py",
       "summary": "1 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6186,7 +6268,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_destination_module.py",
+              "path": "validation/browser/test_vault_explorer_destination_module.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 27: assert.deepStrictEqual(; 37: assert.strictEqual(destination.snapshot().path, 'Projects/Archive');; 39: assert.strictEqual(destination.snapshot().path, '');"
             },
@@ -6208,12 +6290,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "bf2d588a29e0898ab869e46d50d2cb7016af4bb846e2b8b8dd61b1ea6a00945f",
+      "sha256": "7935d55b2e5e92360b9fdd1006bbd4182e0cca661a06e2430349a81097eaf330",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_destination_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_imports_module.py",
+      "path": "validation/browser/test_vault_explorer_imports_module.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6225,7 +6309,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_imports_module.py",
+              "path": "validation/browser/test_vault_explorer_imports_module.py",
               "line": 13,
               "detail": "Current test assertions: 15: const assert = require('assert');; 27: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/report.PDF'), true);; 28: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/scan.webp'), true);; 29: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/notes.txt'), false);"
             },
@@ -6254,7 +6338,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_imports_module.py",
+              "path": "validation/browser/test_vault_explorer_imports_module.py",
               "line": 150,
               "detail": "Current test assertions: 154: assert \"vault-explorer-import-primary\" in source; 155: assert \"vault-explorer-import-source-count\" in source; 156: assert \"sources.map\" not in source; 157: assert \"vault-explorer-import-footer\" in source"
             },
@@ -6276,12 +6360,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "10fb5cd38ae4957df2bbcf988b0f41c4d966df8165b1dc8f722647448ec92ed8",
+      "sha256": "c615101fec5eeb1e7acad7d4c394786fd5587bf15f83d822f3b6c99e112844a0",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_imports_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_search_module.py",
+      "path": "validation/browser/test_vault_explorer_search_module.py",
       "summary": "1 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6293,7 +6379,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_search_module.py",
+              "path": "validation/browser/test_vault_explorer_search_module.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 33: assert.deepStrictEqual(; 55: assert.match(rendered, /Notes\\/&lt;unsafe&gt;\\.md/);; 56: assert.match(rendered, /Line 7 \u00b7 A &lt;script&gt; &amp; more/);"
             },
@@ -6315,12 +6401,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "59ba1d9729c0526aeea37cbc038968aef59350076a5fa9c5f87f1fc80e4e22df",
+      "sha256": "af758cf677b9a9531b8a78f4e2a300ece53595fcd9ebc3ea75da7176785543e3",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_search_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_state_module.py",
+      "path": "validation/browser/test_vault_explorer_state_module.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6332,7 +6420,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_state_module.py",
+              "path": "validation/browser/test_vault_explorer_state_module.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 28: assert.deepStrictEqual(; 45: assert.strictEqual(snapshot.activeFolder, '');; 46: assert.strictEqual(snapshot.selectedCount, 0);"
             }
@@ -6356,7 +6444,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_state_module.py",
+              "path": "validation/browser/test_vault_explorer_state_module.py",
               "line": 128,
               "detail": "Current test assertions: 138: assert state_position < picker_position"
             }
@@ -6373,12 +6461,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "16589bb1efc590b43513bd1999a57bd88624af5e00f1a42d6a7887c85ed9899b",
+      "sha256": "765f5ae2bb3edd1fb2a9b8b7f5bbd8905a0c8bf6eea8db16d0085092efd1785d",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_state_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_explorer_toolbar_module.py",
+      "path": "validation/browser/test_vault_explorer_toolbar_module.py",
       "summary": "2 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6390,7 +6480,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_toolbar_module.py",
+              "path": "validation/browser/test_vault_explorer_toolbar_module.py",
               "line": 12,
               "detail": "Current test assertions: 14: const assert = require('assert');; 141: assert.deepStrictEqual(; 168: assert.strictEqual(selectionContainer.innerHTML, '');; 169: assert.doesNotMatch(locationContainer.innerHTML, /Personal:/);"
             }
@@ -6414,7 +6504,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_explorer_toolbar_module.py",
+              "path": "validation/browser/test_vault_explorer_toolbar_module.py",
               "line": 373,
               "detail": "Current test assertions: 383: assert toolbar_position < picker_position"
             }
@@ -6431,12 +6521,14 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "2beda5acb2f74e8e4c068a9465b53b9f4a02aa8290c5f4d4fe9a52896676987b",
+      "sha256": "ee60a3dd734a83fc70ef58896e6cebd5af7ac3a93f03461f300b3034bb238f9e",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_explorer_toolbar_module.py",
+      "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/test_vault_path_picker_modules.py",
+      "path": "validation/browser/test_vault_path_picker_modules.py",
       "summary": "5 test(s): Node/frontend module or static source checks.",
       "groups": [
         {
@@ -6448,7 +6540,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_path_picker_modules.py",
+              "path": "validation/browser/test_vault_path_picker_modules.py",
               "line": 21,
               "detail": "Current test assertions: 23: const assert = require('assert');; 54: assert.strictEqual(position, 'beforebegin');; 117: cancel() {}, async load({query: value}) { contentLoads += 1; assert.strictEqual(value, 'needle'); results.innerHTML = '<p>Content results</p>'; },; 144: assert.strictEqual(query.value, 'selected');"
             },
@@ -6477,7 +6569,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_path_picker_modules.py",
+              "path": "validation/browser/test_vault_path_picker_modules.py",
               "line": 308,
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
@@ -6506,7 +6598,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/test_vault_path_picker_modules.py",
+              "path": "validation/browser/test_vault_path_picker_modules.py",
               "line": 356,
               "detail": "Current test assertions: 358: const assert = require('assert');; 409: assert.strictEqual(mutationCalls, 1);; 412: assert.strictEqual(mutationCalls, 1);"
             },
@@ -6535,7 +6627,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_path_picker_modules.py",
+              "path": "validation/browser/test_vault_path_picker_modules.py",
               "line": 425,
               "detail": "Current test assertions: 459: assert ("
             },
@@ -6564,7 +6656,7 @@
           "disposition": "retire_candidate",
           "coverage": [
             {
-              "path": "validation/test_vault_path_picker_modules.py",
+              "path": "validation/browser/test_vault_path_picker_modules.py",
               "line": 473,
               "detail": "Current test assertions: 476: assert \"data-vault-explorer-toolbar\" in source; 477: assert \"data-vault-explorer-header-location\" in source; 478: assert \"vault-path-picker-body\" in source; 479: assert \"vault-explorer-search-control\" in source"
             },
@@ -6586,9 +6678,11 @@
         }
       ],
       "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "9f2ba6bfe3ec53a93b8d4e7c71861c3add095c049902633f536e2b6f0790f409",
+      "sha256": "12118d113906134cfb5fe2414d82ae3e05420d9438c0154c33dbd392c0ce817b",
       "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_root_suite"
+      "execution_in_core": "not_executed_as_a_standalone_suite",
+      "original_path": "validation/test_vault_path_picker_modules.py",
+      "location_classification": "browser_deferred"
     }
   ],
   "followups": [
@@ -6840,6 +6934,14 @@
         "replacement": "integration/core/code_execution",
         "verification_log": "/tmp/test-cleanup-monty-values.log"
       }
+    }
+  ],
+  "manual_browser_checks": [
+    {
+      "path": "validation/browser/check_ui_enhancements_obscura.py",
+      "original_path": "validation/check_ui_enhancements_obscura.py",
+      "sha256": "c57a44dda6462af19c7929faa99ea018bd423f9c3e9402aa9f52123ab5fdb690",
+      "execution": "Opt-in external Obscura CDP diagnostic; excluded from named-test counts and integration/core."
     }
   ]
 }

@@ -28,6 +28,7 @@ class InventoryReport:
     standalone_experiments: list[str] = field(default_factory=list)
     legacy_test_files: int = 0
     legacy_named_tests: int = 0
+    legacy_locations: dict[str, int] = field(default_factory=dict)
     disposition_counts: dict[str, int] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
 
@@ -39,6 +40,7 @@ class InventoryReport:
             "standalone_experiments": self.standalone_experiments,
             "legacy_test_files": self.legacy_test_files,
             "legacy_named_tests": self.legacy_named_tests,
+            "legacy_locations": self.legacy_locations,
             "disposition_counts": self.disposition_counts,
             "structural_inventory_complete": not self.issues,
             "behavioral_coverage_complete": False,
@@ -233,9 +235,14 @@ def named_tests(path: Path) -> list[str]:
 
 def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
     actual = {
-        "validation/" + path.name: path
-        for path in root.glob("test_*")
+        "validation/" + path.relative_to(root).as_posix(): path
+        for path in root.rglob("test_*")
         if path.is_file()
+        and path.relative_to(root).parts[0] not in {"runs", "scenarios", "templates"}
+        and not any(
+            part.startswith(".") or part == "__pycache__"
+            for part in path.relative_to(root).parts
+        )
     }
     ledger_path = root / "governance" / "root-test-ledger.json"
     entries = (
@@ -243,6 +250,7 @@ def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
     )
     registered = set()
     dispositions: Counter[str] = Counter()
+    locations: Counter[str] = Counter()
     for item in entries:
         entry = _record(item)
         name = _text(entry.get("path"))
@@ -251,11 +259,13 @@ def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
         registered.add(name)
         path = actual.get(name)
         if path is None:
-            report.issues.append(f"Registered root test is missing: {name}")
+            report.issues.append(f"Registered legacy test is missing: {name}")
             continue
         report.legacy_test_files += 1
+        relative = path.relative_to(root)
+        locations[relative.parts[0] if len(relative.parts) > 1 else "root"] += 1
         if hashlib.sha256(path.read_bytes()).hexdigest() != entry.get("sha256"):
-            report.issues.append(f"Root test changed since its ledger review: {name}")
+            report.issues.append(f"Legacy test changed since its ledger review: {name}")
         tests = named_tests(path)
         report.legacy_named_tests += len(tests)
         accounted = []
@@ -279,8 +289,9 @@ def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
                 f"{name}: ledger test names do not match source declarations"
             )
     for name in sorted(actual.keys() - registered):
-        report.issues.append(f"Unaccounted root test: {name}")
+        report.issues.append(f"Unaccounted legacy test: {name}")
     report.disposition_counts = dict(sorted(dispositions.items()))
+    report.legacy_locations = dict(sorted(locations.items()))
 
 
 def build_inventory(root: Path) -> InventoryReport:

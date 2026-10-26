@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { checkAudit } = require('../scripts/audit-npm.cjs');
+const { checkAudit } = require('../../scripts/audit-npm.cjs');
 
 const url = 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm';
 function fixture() {

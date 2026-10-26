@@ -7,7 +7,7 @@ import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _STATIC_ROOT = _PROJECT_ROOT / "static"
 _EXPECTED_SCRIPTS = [
     "static/js/configuration/runtime.js",
@@ -359,7 +359,7 @@ ConfigurationPanel.init({});
 
 def test_settings_editor_behaviors() -> None:
     subprocess.run(
-        ["node", "--test", "validation/test_settings_editors.cjs"],
+        ["node", "--test", "validation/browser/test_settings_editors.cjs"],
         check=True,
         cwd=_PROJECT_ROOT,
     )
@@ -367,7 +367,7 @@ def test_settings_editor_behaviors() -> None:
 
 def test_model_editor_behaviors() -> None:
     subprocess.run(
-        ["node", "--test", "validation/test_model_editors.cjs"],
+        ["node", "--test", "validation/browser/test_model_editors.cjs"],
         check=True,
         cwd=_PROJECT_ROOT,
     )

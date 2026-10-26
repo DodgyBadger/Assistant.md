@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MODULE_PATH = _PROJECT_ROOT / "static/js/chat-task-stream.js"
 _ACTIONS_MODULE_PATH = _PROJECT_ROOT / "static/js/chat-task-actions.js"
 

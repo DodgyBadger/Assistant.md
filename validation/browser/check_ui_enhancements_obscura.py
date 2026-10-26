@@ -9,7 +9,7 @@ from typing import Any
 
 from websockets.asyncio.client import connect
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 
 _APPROVAL_CHECK = r"""(async () => {
     document.body.innerHTML = '<select id="vault"><option value="Vault">Vault</option></select><select id="mode"><option value="normal">Off</option><option value="inline_edit">On</option></select><button id="toggle"></button>';

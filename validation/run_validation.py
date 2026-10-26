@@ -202,8 +202,10 @@ def inventory(args):
             f"Standalone opt-in experiment scripts: {len(report.standalone_experiments)}"
         )
         print(
-            f"Legacy root suites: {report.legacy_test_files} files, {report.legacy_named_tests} named tests"
+            f"Legacy standalone suites: {report.legacy_test_files} files, {report.legacy_named_tests} named tests"
         )
+        for location, count in report.legacy_locations.items():
+            print(f"  {location}: {count} files")
         print(
             "Legacy accounting is not execution or proof of complete behavioral coverage."
         )

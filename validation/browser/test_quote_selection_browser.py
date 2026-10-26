@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Page, expect, sync_playwright
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture()

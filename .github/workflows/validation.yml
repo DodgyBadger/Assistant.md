@@ -37,7 +37,7 @@ jobs:
 
       - name: Audit npm dependencies (high+)
         run: |
-          node --test validation/test_npm_audit_policy.cjs
+          node --test validation/infrastructure/test_npm_audit_policy.cjs
           node scripts/audit-npm.cjs
 
       - name: Set up Python

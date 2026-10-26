@@ -12,7 +12,7 @@ function harness() {
     });
     context.window = context;
     for (const name of ['runtime', 'settings']) {
-        vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/configuration/${name}.js`), 'utf8'), context);
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../../static/js/configuration/${name}.js`), 'utf8'), context);
     }
     const runtime = context.ConfigurationPanelRuntime;
     const element = () => ({ innerHTML: '', textContent: '', hidden: false, querySelector: () => null, classList: { add() {}, remove() {} } });
@@ -202,7 +202,7 @@ test('failed global reset keeps the unsaved draft and exposes the conflict', asy
 test('successful global reset discards settings, model and provider drafts before refreshing cards', async () => {
     const { context, actions, state } = harness();
     for (const name of ['models', 'providers']) {
-        vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/configuration/${name}.js`), 'utf8'), context);
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../../static/js/configuration/${name}.js`), 'utf8'), context);
     }
     state.settingEditKey = 'limit';
     state.settingDraftValue = '9';
@@ -236,7 +236,7 @@ test('successful global reset discards settings, model and provider drafts befor
 test('global reset refreshes models and providers after delayed pre-reset reads finish', async () => {
     const { context, actions, state, elements } = harness();
     for (const name of ['models', 'providers']) {
-        vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/configuration/${name}.js`), 'utf8'), context);
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../../static/js/configuration/${name}.js`), 'utf8'), context);
     }
     const element = () => ({ innerHTML: '', textContent: '', querySelector: () => null, classList: { add() {}, remove() {} } });
     elements.modelList = element();
@@ -274,7 +274,7 @@ test('global reset refreshes models and providers after delayed pre-reset reads 
 
 test('custom setting reset renders the shared Undo icon instead of the fallback gear', () => {
     const { context, actions, helpers } = harness();
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js/icons.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../../static/js/icons.js'), 'utf8'), context);
     const icons = context.AssistantMDIcons;
     assert.equal(helpers.iconSvg('undo'), icons.UNDO_ICON_SVG);
     const card = actions.renderSettingViewCard({ key: 'limit', value: '9', default_value: '3', source: 'custom', editor: numeric, issues: [] });

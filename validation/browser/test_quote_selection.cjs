@@ -1,11 +1,12 @@
+const path = require('node:path');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 global.window = global;
 global.document = {};
-vm.runInThisContext(fs.readFileSync('static/js/vault-selection-prompt.js', 'utf8'));
-vm.runInThisContext(fs.readFileSync('static/js/chat-composer.js', 'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../../static/js/vault-selection-prompt.js'), 'utf8'));
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../../static/js/chat-composer.js'), 'utf8'));
 
 test('quote blocks retain multiline text and keep prompt outside the quote', () => {
     const block = VaultSelectionPrompt.formatBlock('Notes/A.md', 'first\n\nlast', 'Explain\nthis');

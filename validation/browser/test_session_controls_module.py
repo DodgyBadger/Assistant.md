@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _SESSION_CONTROLS_MODULE = _PROJECT_ROOT / "static/js/session-controls.js"
 
 

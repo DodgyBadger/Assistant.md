@@ -1,3 +1,4 @@
+const path = require('node:path');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -10,9 +11,9 @@ function harness() {
         console,
     });
     context.window = context;
-    vm.runInContext(fs.readFileSync("static/js/icons.js", "utf8"), context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../../static/js/icons.js'), "utf8"), context);
     for (const file of ['runtime', 'models']) {
-        vm.runInContext(fs.readFileSync(`static/js/configuration/${file}.js`, 'utf8'), context);
+        vm.runInContext(fs.readFileSync(path.join(__dirname, `../../static/js/configuration/${file}.js`), 'utf8'), context);
     }
     const runtime = context.ConfigurationPanelRuntime;
     runtime.elements.modelList = { innerHTML: '', querySelector() { return null; } };

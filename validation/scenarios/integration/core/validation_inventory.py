@@ -143,6 +143,45 @@ class ValidationInventoryScenario(BaseScenario):
         )
         node_test.unlink()
         ledger.unlink()
+        # Moving a suite must not let it disappear from structural accounting.
+        entries = []
+        for category in ("browser", "ephemeral", "infrastructure"):
+            directory = root / category
+            directory.mkdir(exist_ok=True)
+            candidate = directory / "test_pending.py"
+            candidate.write_text("def test_pending_contract():\n    assert True\n")
+            unregistered = self._inventory(root)
+            assert unregistered.returncode != 0
+            assert any(
+                "unaccounted" in issue.lower()
+                for issue in json.loads(unregistered.stdout)["issues"]
+            )
+            entries.append(
+                {
+                    "path": f"validation/{category}/test_pending.py",
+                    "sha256": hashlib.sha256(candidate.read_bytes()).hexdigest(),
+                    "groups": [
+                        {
+                            "id": f"{category}-contract",
+                            "contract": "An unresolved behavioral contract",
+                            "rationale": "Relocation must preserve accounting",
+                            "proposed_destination": "integration/core/example",
+                            "disposition": "gap",
+                            "tests": ["test_pending_contract"],
+                        }
+                    ],
+                }
+            )
+            ledger.write_text(json.dumps({"schema_version": 1, "files": entries}))
+            registered = self._inventory(root)
+            assert registered.returncode == 0, registered.stdout
+        report = json.loads(registered.stdout)
+        assert report["legacy_locations"] == {
+            "browser": 1,
+            "ephemeral": 1,
+            "infrastructure": 1,
+        }
+        assert report["behavioral_coverage_complete"] is False
         final = self._inventory(root)
         assert final.returncode == 0, final.stderr
         assert not marker.exists()
