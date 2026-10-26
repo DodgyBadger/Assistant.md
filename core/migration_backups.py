@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 MIGRATION_BACKUP_DIRECTORY = "migration_backups"
 ROOT_BACKUP_FILENAMES = frozenset({"secrets.yaml.bak", "settings.yaml.bak"})
@@ -30,6 +31,16 @@ def prepare_migration_backup_path(system_root: str | Path, filename: str) -> Pat
     backup_directory = get_migration_backup_directory(system_root)
     backup_directory.mkdir(parents=True, exist_ok=True)
     return next_available_backup_path(backup_directory / filename)
+
+
+def reserve_migration_backup_path(system_root: str | Path, filename: str) -> Path:
+    """Reserve an owned backup file atomically for concurrent operations."""
+    backup_directory = get_migration_backup_directory(system_root)
+    backup_directory.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(
+        dir=backup_directory, prefix=f"{filename}-", delete=False
+    ) as reserved_backup:
+        return Path(reserved_backup.name)
 
 
 def organize_legacy_migration_backups(system_root: str | Path) -> int:
