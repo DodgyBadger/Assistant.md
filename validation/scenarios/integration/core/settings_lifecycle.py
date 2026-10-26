@@ -10,7 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from core.settings.store import get_default_settings
+from core.settings import config_editor, repository
+from core.settings.store import get_default_settings, load_settings
 from validation.core.base_scenario import BaseScenario
 
 
@@ -195,6 +196,65 @@ class SettingsLifecycleScenario(BaseScenario):
                 "validation-fixture-only" not in json.dumps(event)
                 for event in lifecycle
             )
+
+            # This proves domain concurrency admission, not the API service's
+            # internal backup-to-reset scheduling or error translation.
+            root = self._get_system_controller()._system_root
+            earlier = self.call_api(
+                "/api/system/settings/general/default_api_timeout",
+                method="PUT",
+                data={"value": "11"},
+            )
+            assert earlier.status_code == 200, earlier.text
+            backup_path = root / "lifecycle-concurrency-backup.db"
+            backed_up_revision = repository.backup(root, backup_path)
+            assert backed_up_revision is not None
+            with sqlite3.connect(backup_path) as conn:
+                assert repository.revision(conn) == backed_up_revision
+                assert (
+                    repository.read_records(conn)["settings"]["default_api_timeout"][
+                        "value"
+                    ]
+                    == 11
+                )
+
+            later = self.call_api(
+                "/api/system/settings/general/default_api_timeout",
+                method="PUT",
+                data={"value": "12"},
+            )
+            assert later.status_code == 200, later.text
+            edited = self.configuration_snapshot()
+            edited_revision = load_settings()._revision
+            assert edited_revision > backed_up_revision
+            try:
+                config_editor.reset_managed_configuration(
+                    expected_revision=backed_up_revision
+                )
+            except repository.StaleSettingsError:
+                pass
+            else:
+                raise AssertionError("Reset must reject an edit newer than its backup")
+            assert self.configuration_snapshot() == edited
+            assert settings()["default_api_timeout"]["value"] == "12"
+            assert load_settings()._revision == edited_revision
+            with sqlite3.connect(backup_path) as conn:
+                assert repository.revision(conn) == backed_up_revision
+                assert (
+                    repository.read_records(conn)["settings"]["default_api_timeout"][
+                        "value"
+                    ]
+                    == 11
+                )
+
+            matching_backup = root / "lifecycle-matching-backup.db"
+            matching_revision = repository.backup(root, matching_backup)
+            assert matching_revision == edited_revision
+            accepted = config_editor.reset_managed_configuration(
+                expected_revision=matching_revision
+            )
+            assert accepted.settings["default_api_timeout"].source == "default"
+            assert load_settings()._revision == matching_revision + 1
         finally:
             await self.stop_system()
             self.teardown_scenario()

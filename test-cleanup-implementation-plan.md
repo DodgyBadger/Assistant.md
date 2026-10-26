@@ -239,6 +239,10 @@ Added `validation/scenarios/integration/core/ingress_authentication.py`. It boot
 
 Focused execution must use an isolated `VALIDATION_ROOT` as well as temporary bootstrap data/system roots. An initial run used the old default validation root, whose built-in retention removed older generated run artifacts; subsequent execution uses a temporary validation root with a scenarios symlink to avoid that retention side effect. No persistent application data was used.
 
+### Backup-fenced reset admission
+
+Extended `validation/scenarios/integration/core/settings_lifecycle.py` with real SQLite backups, an intervening edit through the real settings API, and the real reset domain operation. A stale captured revision is rejected while current values/revision and the earlier backup remain unchanged; a matching backup revision admits reset. This proves domain-level concurrency admission, not the API service's internal backup-to-reset interleaving or its error translation. The focused scenario passed on an isolated temporary validation root; `/tmp/test-cleanup-settings-lifecycle.log` retains both the initial API representation assertion failure and the corrected passing run. API scheduling/error translation and backup-name allocation remain separate ledger gaps; no root tests were removed.
+
 ## Proposed implementation sequence after investigation review
 
 1. Review the outcome-based requirements and earlier generic-runtime-adapter brainstorm above, choose a bounded evaluation of the runner/lifecycle separation, and agree on the audit classifications and single validation entry point. Keep the immediate scope to validation architecture and cleanup; do not mix the favorites branch or quick-prompts implementation into it.
