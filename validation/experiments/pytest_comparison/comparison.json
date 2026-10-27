@@ -9,7 +9,7 @@
       "original_assert_statements": 0,
       "original_soft_asserts": 12,
       "pytest_assert_statements": 12,
-      "pytest_event_queries": 0,
+      "pytest_event_queries": 1,
       "original_event_queries": 0
     },
     {
@@ -28,7 +28,7 @@
       "source_sha256": "9069c1dfaa5709496c4822c133d62371c666cd9ec0842ea8f1d250f6247e2607",
       "original_assert_statements": 0,
       "original_soft_asserts": 14,
-      "pytest_assert_statements": 14,
+      "pytest_assert_statements": 19,
       "pytest_event_queries": 2,
       "original_event_queries": 2
     },
@@ -38,22 +38,31 @@
       "source_sha256": "c53d2bdceae492dca89faafe28c9279758fb30428272c6f44a0fc22c7e3c25d1",
       "original_assert_statements": 0,
       "original_soft_asserts": 13,
-      "pytest_assert_statements": 13,
+      "pytest_assert_statements": 14,
       "pytest_event_queries": 2,
       "original_event_queries": 2
     }
   ],
   "fixture_changes": [
     "Application lifecycle belongs to pytest fixtures; manual stop/teardown/assert_no_failures calls removed.",
-    "Configuration PUT helper synthetic status-200 assertions replaced by successful real fixture-domain installs. API response assertions remain unchanged."
+    "Configuration PUT helper synthetic status-200 assertions replaced by successful real fixture-domain installs. API response assertions remain unchanged.",
+    "The asynchronous workflow fixture uses the production job wait timer for a real long-running operation; the original repeated file-read loop reaches the 1000-suspension limit before real heartbeat staleness can occur."
   ],
   "known_coupling": [
-    "Existing heartbeat formatter check is retained for parity and remains coupled to a private formatter; event assertions do not depend on it."
+    "Scenario actions and expectations use production tool/API contracts and published event fields; fixture utilities seed inputs and read persisted outputs."
   ],
   "run_command": "uv run python -m pytest -c validation/experiments/pytest_comparison/pytest.ini validation/experiments/pytest_comparison/test_scenarios.py --evidence-root <empty-output-directory> --junitxml <output-directory>/junit.xml",
   "execution_differences": [
     "Function-scoped application roots and event loops in one pytest process, rather than a fresh supervised worker and filtered environment for every scenario.",
     "Ordinary assertions stop at the first failure; soft assertion aggregation is not implemented.",
     "Hard process timeout/crash handling and manual CI governance enforcement are not reproduced by the experiment."
-  ]
+  ],
+  "application_boundaries": {
+    "file_edits": "Production FileWrite tool dispatch and tool_invoked sink events, plus actual filesystem outputs.",
+    "task_state": "GET /api/tasks/{task_id} through the real application ASGI TestClient.",
+    "workflow_history": "GET /api/workflows/runs through the real application.",
+    "scheduler": "GET /api/status, with a real managed scheduled workflow as positive control.",
+    "heartbeat_staleness": "Production WorkflowRun status operation after real elapsed time; fixed product threshold currently 60 seconds, bounded by a 90-second observation timeout.",
+    "fixture_inputs": "Files and deliberate configuration-corruption fixtures are seeded as inputs; actual operations and assertions use production services/results."
+  }
 }

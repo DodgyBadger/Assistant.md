@@ -45,9 +45,16 @@ class Application:
         await self.controller.start_system()
         self.evidence.step("application_started")
 
-    def request(self, endpoint: str, method: str = "GET", data: Any = None) -> Response:
+    def request(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        data: Any = None,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> Response:
         response = self.controller.get_api_test_client().request(
-            method, endpoint, json=data
+            method, endpoint, json=data, params=params
         )
         try:
             body = response.json()
@@ -59,6 +66,7 @@ class Application:
                 "method": method,
                 "endpoint": endpoint,
                 "request": data,
+                "params": params,
                 "status": response.status_code,
                 "response": body,
             },
@@ -86,15 +94,24 @@ class Application:
             reload_configuration()
         self.evidence.step("configuration_fixture_installed")
 
-    async def wait_task(self, task_id: str) -> dict[str, Any]:
-        # Retain the original scenario's task-coordinator read boundary.
-        from core.runtime.state import get_runtime_context
+    async def request_async(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        data: Any = None,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> Response:
+        return await asyncio.to_thread(
+            self.request, endpoint, method, data, params=params
+        )
 
+    async def wait_task(self, task_id: str) -> dict[str, Any]:
         deadline = asyncio.get_running_loop().time() + 60
         while True:
-            snapshot = await get_runtime_context().task_coordinator.get_task(task_id)
-            assert snapshot is not None, task_id
-            task = {**snapshot.__dict__, "metadata": dict(snapshot.metadata or {})}
+            response = await self.request_async(f"/api/tasks/{task_id}")
+            assert response.status_code == 200, response.text
+            task: dict[str, Any] = response.json()
             if task["status"] in {
                 "completed",
                 "failed",

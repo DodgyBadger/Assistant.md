@@ -6,19 +6,43 @@ from .application import Application
 
 
 async def test_extensionless_file_edits(app: Application) -> None:
-    from core.vault_state.file_operations import (
-        edit_vault_line_operation,
-        overwrite_vault_file_operation,
-        replace_text_vault_file_operation,
-    )
+    from typing import Any
+
+    from pydantic_ai.messages import ToolReturn
+
+    from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
+    from core.tools.file_write import FileWrite
 
     vault = app.vault("FileOpsExtensionlessTextMutationsVault")
     app.write(vault, "notes/edit-target.md", "first\nreplace me\nlast\n")
     app.write(vault, "notes/no-extension", "alpha\n")
     app.write(vault, "notes/crlf-target.md", "first\r\nreplace me\r\nlast\r\n")
     await app.start()
-    edited = edit_vault_line_operation(
-        vault_path=str(vault),
+    tool = FileWrite.get_tool(str(vault))
+
+    def file_write(**arguments: Any) -> ToolReturn:
+        checkpoint = app.events.checkpoint()
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            result = tool.function(**arguments)
+        app.evidence.append(
+            "tool-results.jsonl",
+            {
+                "tool": "file_write",
+                "arguments": arguments,
+                "metadata": result.metadata,
+                "result": result.return_value,
+            },
+        )
+        app.events.require(
+            "tool_invoked",
+            after=checkpoint,
+            tool="file_write",
+            operation=arguments["operation"],
+        )
+        return result
+
+    edited = file_write(
+        operation="edit_line",
         path="notes/edit-target",
         line_number=2,
         old_text="replace me",
@@ -38,8 +62,8 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ) == "first\nchanged\nlast\n", (
         "edit_line should mutate the markdown file selected by extensionless resolution"
     )
-    crlf_edit = edit_vault_line_operation(
-        vault_path=str(vault),
+    crlf_edit = file_write(
+        operation="edit_line",
         path="notes/crlf-target.md",
         line_number=2,
         old_text="replace me",
@@ -53,8 +77,8 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ).read_bytes() == b"first\r\nchanged\r\nlast\r\n", (
         "edit_line should preserve CRLF line endings when replacing a line"
     )
-    replaced = replace_text_vault_file_operation(
-        vault_path=str(vault),
+    replaced = file_write(
+        operation="replace_text",
         path="notes/edit-target",
         old_text="changed",
         new_text="done",
@@ -66,8 +90,8 @@ async def test_extensionless_file_edits(app: Application) -> None:
     assert (vault / "notes" / "edit-target.md").read_text(
         encoding="utf-8"
     ) == "first\ndone\nlast\n", "replace_text should mutate the markdown file selected by extensionless resolution"
-    truncated = overwrite_vault_file_operation(
-        vault_path=str(vault), path="notes/edit-target", content=""
+    truncated = file_write(
+        operation="write", path="notes/edit-target", content="", overwrite=True
     )
     assert (
         truncated.metadata.get("path") == "notes/edit-target.md"
@@ -77,8 +101,8 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ) == "", (
         "truncate should clear the markdown file selected by extensionless resolution"
     )
-    fallback = replace_text_vault_file_operation(
-        vault_path=str(vault),
+    fallback = file_write(
+        operation="replace_text",
         path="notes/no-extension",
         old_text="alpha",
         new_text="beta",
@@ -92,7 +116,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ) == "beta\n", "Extensionless fallback should mutate the original target when no markdown sibling exists"
 
 
-async def test_settings_editors(app) -> None:
+async def test_settings_editors(app: Application) -> None:
     import json
 
     vault = app.vault("SettingsEditorsVault")
@@ -248,12 +272,14 @@ async def test_vault_relative_workflows(app: Application) -> None:
     from pydantic_ai.messages import ToolReturn
 
     from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
-    from core.runtime.state import get_runtime_context
     from core.tools.workflow_run import WorkflowRun
 
     vault = app.vault("VaultRelativeWorkflowVault")
     workflow_path = "Research/Forest/automation/process-library.md"
     app.write(vault, workflow_path, PROJECT_WORKFLOW)
+    app.write(
+        vault, "AssistantMD/Authoring/scheduled_control.md", SCHEDULED_CONTROL_WORKFLOW
+    )
     app.write(vault, "Research/Forest/automation/context.md", CONTEXT_TEMPLATE)
     app.write(vault, "Research/Forest/notes/code-example.md", ORDINARY_MARKDOWN)
     failing_workflow_path = "Research/Forest/automation/failing-workflow.md"
@@ -280,12 +306,14 @@ async def test_vault_relative_workflows(app: Application) -> None:
     ).is_file(), "The vault-relative workflow should retain normal tool capabilities"
     app.events.require("workflow_task_completed", **{"workflow_path": workflow_path})
     workflow_id = f"{vault.name}/@path:{workflow_path}"
-    history = get_runtime_context().workflow_run_store.list_runs(workflow_id)
-    assert (
-        history[0].workflow_name if history else None
-    ) == f"@path:{workflow_path}", (
-        "Durable workflow history should retain the explicit source path"
+    history_response = await app.request_async(
+        "/api/workflows/runs", params={"global_id": workflow_id}
     )
+    assert history_response.status_code == 200, history_response.text
+    history = history_response.json()["runs"]
+    assert (
+        history and history[0]["workflow_name"] == f"@path:{workflow_path}"
+    ), "Durable workflow history should retain the explicit source path"
     with use_execution_authority(LOCAL_USER_AUTHORITY):
         start_out = await tool.function(operation="start", workflow_path=workflow_path)
     start_data = app.parse_result(start_out)
@@ -346,9 +374,15 @@ async def test_vault_relative_workflows(app: Application) -> None:
         isinstance(unsupported, ToolReturn)
         and "only supported for run and start" in unsupported.return_value
     ), "Non-execution operations should reject workflow_path explicitly"
-    scheduler_job_ids = {
-        str(job.id) for job in get_runtime_context().scheduler.get_jobs()
-    }
+    status_response = await app.request_async("/api/status")
+    assert status_response.status_code == 200, status_response.text
+    scheduler = status_response.json()["scheduler"]
+    assert scheduler["running"] is True
+    assert scheduler["total_jobs"] == len(scheduler["job_details"])
+    scheduler_job_ids = {job["id"] for job in scheduler["job_details"]}
+    assert (
+        f"{vault.name}__scheduled_control" in scheduler_job_ids
+    ), "The scheduler API must expose the real scheduled positive control"
     assert all(
         "@path:" not in job_id for job_id in scheduler_job_ids
     ), "Explicit vault-relative workflows should not become scheduled jobs"
@@ -362,12 +396,9 @@ FAILING_WORKFLOW = '---\nrun_type: workflow\ndescription: Project-local workflow
 
 async def test_async_cancellation_rollback(app: Application) -> None:
     import asyncio
-    from dataclasses import replace
-    from datetime import UTC, datetime, timedelta
     from pathlib import Path
 
     from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
-    from core.runtime.state import get_runtime_context
     from core.tools.workflow_run import WorkflowRun
 
     vault = app.vault("WorkflowRunAsyncVault")
@@ -407,16 +438,21 @@ async def test_async_cancellation_rollback(app: Application) -> None:
         "execution_task_heartbeat",
         **{"task_id": task_id, "heartbeat_status": "workflow_running"},
     )
-    stale_status_out = WorkflowRun._format_task_status(
-        replace(
-            await get_runtime_context().task_coordinator.get_task(task_id),
-            last_heartbeat_at=datetime.now(UTC) - timedelta(seconds=120),
-        )
-    )
-    stale_status_data = app.parse_result(stale_status_out)
+    # Exercise the actual published status with real elapsed time, without
+    # fabricating task state or patching the application clock or threshold.
+    async with asyncio.timeout(90):
+        while True:
+            observed_status = app.parse_result(
+                await tool.function(operation="status", task_id=task_id)
+            )
+            assert observed_status.get("status") == "running", observed_status
+            if observed_status.get("heartbeat_stale") == "True":
+                break
+            await asyncio.sleep(2)
+    app.evidence.save("stale-heartbeat.json", observed_status)
     assert (
-        stale_status_data.get("heartbeat_stale") == "True"
-    ), "workflow_run status should mark old heartbeat data stale"
+        observed_status.get("heartbeat_stale") == "True"
+    ), "A running workflow without a recent heartbeat should be reported stale"
     checkpoint = app.events.checkpoint()
     cancel_out = await tool.function(operation="cancel", task_id=task_id)
     cancel_data = app.parse_result(cancel_out)
@@ -438,4 +474,15 @@ async def test_async_cancellation_rollback(app: Application) -> None:
     )
 
 
-ASYNC_PROBE_WORKFLOW = '---\nrun_type: workflow\nenabled: false\ndescription: Async workflow_run probe\n---\n```python\nawait file_write(\n    operation="write",\n    path="notes/workflow-run-async-write.md",\n    content="created before cancellation\\n",\n)\nwhile True:\n    await file_read(operation="list", path=".")\n```\n'
+ASYNC_PROBE_WORKFLOW = '---\nrun_type: workflow\nenabled: false\ndescription: Async workflow_run probe\n---\n```python\nawait file_write(\n    operation="write",\n    path="notes/workflow-run-async-write.md",\n    content="created before cancellation\\n",\n)\nawait job(operation="wait", timeout_seconds=120)\n```\n'
+
+
+SCHEDULED_CONTROL_WORKFLOW = """---
+run_type: workflow
+enabled: true
+schedule: cron: 0 0 1 1 *
+---
+```python
+await finish(status="completed", reason="scheduled-control")
+```
+"""
