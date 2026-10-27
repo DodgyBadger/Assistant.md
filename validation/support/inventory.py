@@ -10,11 +10,9 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from scenario_harness.discovery import describe_scenario as generic_describe_scenario
 from scenario_harness.governance import validate_catalog
-
-
-class InventoryError(ValueError):
-    """Collection cannot safely identify the complete requested suite."""
+from scenario_harness.project import InventoryError
 
 
 @dataclass(frozen=True)
@@ -108,47 +106,12 @@ def _standalone_scripts(root: Path) -> set[str]:
 
 
 def describe_scenario(path: Path, scenarios_root: Path) -> ScenarioDefinition:
-    relative = path.relative_to(scenarios_root)
-    label = relative.as_posix()
-    if any(
-        part.startswith("_") or not part.isidentifier()
-        for part in (*relative.parts[:-1], relative.stem)
-    ):
-        raise InventoryError(f"{label}: unsupported or hidden scenario module")
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, SyntaxError, UnicodeError) as exc:
-        raise InventoryError(f"{label}: source/syntax error: {exc}") from exc
-    base_names = {
-        alias.asname or alias.name
-        for node in tree.body
-        if isinstance(node, ast.ImportFrom)
-        and node.module == "validation.support.base_scenario"
-        for alias in node.names
-        if alias.name == "BaseScenario"
-    }
-    classes = [
-        node
-        for node in tree.body
-        if isinstance(node, ast.ClassDef)
-        and any(
-            isinstance(base, ast.Name) and base.id in base_names for base in node.bases
-        )
-    ]
-    if len(classes) != 1:
-        raise InventoryError(
-            f"{label}: expected exactly one directly imported BaseScenario subclass, found {len(classes)}"
-        )
-    entrypoints = [
-        node
-        for node in classes[0].body
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-        and node.name == "test_scenario"
-    ]
-    if len(entrypoints) != 1:
-        raise InventoryError(f"{label}: expected exactly one test_scenario entry point")
+    definition = generic_describe_scenario(
+        path, scenarios_root, base_class="validation.support.base_scenario:BaseScenario"
+    )
+    assert definition.class_name is not None
     return ScenarioDefinition(
-        relative.with_suffix("").as_posix(), label, classes[0].name
+        definition.selector, definition.path, definition.class_name
     )
 
 
@@ -281,7 +244,7 @@ def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
             report.issues.append(f"Legacy test changed since its ledger review: {name}")
         tests = named_tests(path)
         report.legacy_named_tests += len(tests)
-        accounted = []
+        accounted: list[str] = []
         for group_data in _items(entry.get("groups")):
             group = _record(group_data)
             disposition = _text(group.get("disposition"))

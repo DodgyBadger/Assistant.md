@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from checks_consumer import check as check_consumer
 from checks_lifecycle import check as check_lifecycle
 from checks_process import check as check_process
 
@@ -15,12 +16,19 @@ from checks_process import check as check_process
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "check", nargs="?", default="all", choices=("lifecycle", "process", "all")
+        "check",
+        nargs="?",
+        default="all",
+        choices=("lifecycle", "process", "consumer", "all"),
     )
     parser.add_argument("output_root", type=Path)
     args = parser.parse_args()
     args.output_root.mkdir(parents=True, exist_ok=True)
-    for name, check in (("lifecycle", check_lifecycle), ("process", check_process)):
+    for name, check in (
+        ("lifecycle", check_lifecycle),
+        ("process", check_process),
+        ("consumer", check_consumer),
+    ):
         if args.check in (name, "all"):
             root = args.output_root / name
             root.mkdir()

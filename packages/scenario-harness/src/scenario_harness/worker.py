@@ -6,11 +6,15 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
+
+# Execute directly from an unpackaged source tree without importing a project.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scenario_harness.lifecycle import current_run_context
-
-from validation.support.runner import ValidationRunner
+from scenario_harness.project import ProjectSpec
+from scenario_harness.runner import GenericRunner
 
 
 class _RedactedStream:
@@ -33,7 +37,7 @@ class _RedactedStream:
     def flush(self) -> None:
         self._stream.flush()
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._stream, name)
 
 
@@ -47,8 +51,8 @@ def main() -> int:
     sys.stdout = _RedactedStream(sys.stdout, secrets)
     sys.stderr = _RedactedStream(sys.stderr, secrets)
     root = Path(request["evidence_root"])
-    runner = ValidationRunner(
-        request["validation_root"],
+    runner = GenericRunner(
+        ProjectSpec.from_dict(request["project"]),
         timeout_seconds=request["timeout_seconds"],
         cleanup_timeout_seconds=request["cleanup_timeout_seconds"],
     )

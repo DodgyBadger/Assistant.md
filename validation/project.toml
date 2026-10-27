@@ -1,0 +1,20 @@
+schema_version = 1
+name = "AssistantMD"
+root = ".."
+suite_root = "."
+scenario_module = "validation.scenarios"
+base_class = "validation.support.base_scenario:BaseScenario"
+entrypoint = "test_scenario"
+adapter = "validation.support.adapter:AssistantMDAdapter"
+scenario_loader = "validation.support.execution:create_program"
+discovery_hook = "validation.support.project:collect"
+inventory_hook = "validation.support.project:check_inventory"
+inventory_formatter = "validation.support.project:format_inventory"
+governance_hook = "validation.support.ci.audit:audit_git"
+rerun_prefix = ["uv", "run", "python", "validation/run_validation.py", "run"]
+suite_root_environment = "VALIDATION_ROOT"
+reserved_environment = ["CONTAINER_DATA_ROOT", "CONTAINER_SYSTEM_ROOT"]
+
+[environment_paths]
+VALIDATION_ROOT = "suite_root"
+VALIDATION_APP_ROOT = "root"
