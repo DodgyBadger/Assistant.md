@@ -7,7 +7,7 @@
     "Root suites remain intact; structural accounting does not make them execute in integration/core.",
     "A covered group records matching scenario assertions; gaps and rewrite/retirement candidates require review.",
     "Fingerprints detect changed legacy sources, not independent approval of changes to this ledger.",
-    "Unresolved backend checks reside in ephemeral and UI/browser checks in browser. Both remain accounted for; location does not imply a disposable contract or execution in integration/core. The npm audit policy remains required CI infrastructure."
+    "Unresolved backend checks reside in legacy/pending and UI/browser checks in legacy/browser. Both remain accounted for; location does not imply a disposable contract or execution in integration/core."
   ],
   "files": [
     {
@@ -321,7 +321,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "6d08346563c6a883c8dea5aadcf5cfb5883572654d01d7ddf88ff576656fb65d",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -649,7 +649,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "4bd4746d70288a4ed1e56b9aef50539a41fed7018c55bd2e2021892b6726a248",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1017,7 +1017,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "44fd935f7e3e0cc1030499fefa63c845e26bf20f9d77f4b72c6492bf1507c55f",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1116,7 +1116,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "0e7bc1a83fd836280ad30c7e5bb72e7baad3160502c42c2f5b5c5b586592c93b",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1244,7 +1244,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "b768eaf67eb8ba8ba820b4c1728a6d6bcf61b441a0941b2d20171a066e3bd2df",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1372,7 +1372,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "2d2ce7d7f78dc471679523a408ae745acf485e0edb313a674022091f4e102e61",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1408,7 +1408,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "7257ee36fd30ab53edca72ecbd0b691530b755db3c45f2c04f86bb8e649a63b0",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1654,7 +1654,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "960e04f0972abbcffa6d290deedbce054ce30cd442459f41b4b3c4622758145f",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1714,7 +1714,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "76b6bfc275827aeb918b2ba376d377d9555e377d757abe8ed16db6f8777b1257",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -1774,7 +1774,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "c27ce108e3913ad79beefdc3bd602d0c78c33c1250451b6b9ac45b9c4a58a896",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -2081,7 +2081,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "051e2ca544cbf01f0ae3ba765cb3937f225086c142fb41f009ce380c7bbfb2ba",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -3274,208 +3274,6 @@
       "location_classification": "browser_deferred"
     },
     {
-      "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-      "summary": "9 test(s): npm audit policy self-check.",
-      "groups": [
-        {
-          "id": "npm_audit_policy:only the approved originating advisory and its transitive findings are exempted",
-          "tests": [
-            "only the approved originating advisory and its transitive findings are exempted"
-          ],
-          "contract": "only the approved originating advisory and its transitive findings are exempted. Current assertion examples: 24: assert.equal(result.ignored.length, 1);; 25: assert.deepEqual(result.blocking, []);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 22,
-              "detail": "Current test assertions: 24: assert.equal(result.ignored.length, 1);; 25: assert.deepEqual(result.blocking, []);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:new high and critical advisories still block, including on the excepted package",
-          "tests": [
-            "new high and critical advisories still block, including on the excepted package"
-          ],
-          "contract": "new high and critical advisories still block, including on the excepted package. Current assertion examples: 31: assert.equal(evaluate(data).blocking.length, 1);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 27,
-              "detail": "Current test assertions: 31: assert.equal(evaluate(data).blocking.length, 1);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:a critical severity escalation of the approved advisory still blocks",
-          "tests": [
-            "a critical severity escalation of the approved advisory still blocks"
-          ],
-          "contract": "a critical severity escalation of the approved advisory still blocks. Current assertion examples: 37: assert.match(evaluate(data).blocking[0], /critical findings/);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 34,
-              "detail": "Current test assertions: 37: assert.match(evaluate(data).blocking[0], /critical findings/);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:a runtime dependency anywhere in the chain cannot use the exception",
-          "tests": [
-            "a runtime dependency anywhere in the chain cannot use the exception"
-          ],
-          "contract": "a runtime dependency anywhere in the chain cannot use the exception. Current assertion examples: 43: if (name === 'braces') assert.throws(() => evaluate(data), /no longer applicable/);; 44: else assert.match(evaluate(data).blocking[0], /runtime dependency/);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 39,
-              "detail": "Current test assertions: 43: if (name === 'braces') assert.throws(() => evaluate(data), /no longer applicable/);; 44: else assert.match(evaluate(data).blocking[0], /runtime dependency/);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:review deadline fails on that UTC date and afterward",
-          "tests": [
-            "review deadline fails on that UTC date and afterward"
-          ],
-          "contract": "review deadline fails on that UTC date and afterward. Current assertion examples: 48: for (const date of ['2026-10-30', '2026-10-31']) assert.throws(() => evaluate(fixture(), date), /expired/);; 49: assert.deepEqual(evaluate(fixture(), '2026-10-29').blocking, []);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 47,
-              "detail": "Current test assertions: 48: for (const date of ['2026-10-30', '2026-10-31']) assert.throws(() => evaluate(fixture(), date), /expired/);; 49: assert.deepEqual(evaluate(fixture(), '2026-10-29').blocking, []);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:a removed advisory or changed dependency version requires exception cleanup",
-          "tests": [
-            "a removed advisory or changed dependency version requires exception cleanup"
-          ],
-          "contract": "a removed advisory or changed dependency version requires exception cleanup. Current assertion examples: 54: assert.throws(() => evaluate(clean), /no longer applicable/);; 57: assert.throws(() => evaluate(changed), /no longer applicable/);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 51,
-              "detail": "Current test assertions: 54: assert.throws(() => evaluate(clean), /no longer applicable/);; 57: assert.throws(() => evaluate(changed), /no longer applicable/);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:malformed, failed and unsupported audits fail closed",
-          "tests": [
-            "malformed, failed and unsupported audits fail closed"
-          ],
-          "contract": "malformed, failed and unsupported audits fail closed. Current assertion examples: 61: assert.throws(() => evaluate({ ...fixture(), report }), /unsupported or failed/);; 73: assert.throws(() => evaluate(data));",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 59,
-              "detail": "Current test assertions: 61: assert.throws(() => evaluate({ ...fixture(), report }), /unsupported or failed/);; 73: assert.throws(() => evaluate(data));"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:exceptions require a unique advisory, valid calendar deadline and rationale",
-          "tests": [
-            "exceptions require a unique advisory, valid calendar deadline and rationale"
-          ],
-          "contract": "exceptions require a unique advisory, valid calendar deadline and rationale. Current assertion examples: 85: assert.throws(() => evaluate(data), /Invalid or duplicate/);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 76,
-              "detail": "Current test assertions: 85: assert.throws(() => evaluate(data), /Invalid or duplicate/);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        },
-        {
-          "id": "npm_audit_policy:without exceptions, high findings block while moderate findings do not",
-          "tests": [
-            "without exceptions, high findings block while moderate findings do not"
-          ],
-          "contract": "without exceptions, high findings block while moderate findings do not. Current assertion examples: 91: assert(evaluate(data).blocking.length > 0);; 93: assert.deepEqual(evaluate(data).blocking, []);",
-          "disposition": "framework_infrastructure",
-          "coverage": [
-            {
-              "path": "validation/infrastructure/test_npm_audit_policy.cjs",
-              "line": 88,
-              "detail": "Current test assertions: 91: assert(evaluate(data).blocking.length > 0);; 93: assert.deepEqual(evaluate(data).blocking, []);"
-            }
-          ],
-          "rationale": "Policy checker is the subject; synthetic audit and lock reports intentionally exercise advisory exceptions and fail-closed rules. Retain as infrastructure check with explicit execution ownership.",
-          "proposed_destination": "Explicit infrastructure policy-check profile; preserve checkAudit negative cases.",
-          "dependencies": [
-            "Node test runner, actual audit policy function, synthetic report/lock/exception fixtures."
-          ],
-          "review_questions": []
-        }
-      ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
-      "sha256": "77cf4a72e9a201bbeb714d7107afe1e5f9c2e73760600e244c4adc26dc5446fe",
-      "review_status": "source_audit_candidate",
-      "execution_in_core": "not_executed_as_a_standalone_suite",
-      "original_path": "validation/test_npm_audit_policy.cjs",
-      "location_classification": "required_ci_policy",
-      "ci_command": "node --test validation/infrastructure/test_npm_audit_policy.cjs"
-    },
-    {
       "path": "validation/legacy/pending/test_provider_errors.py",
       "summary": "6 direct tests, each separately assessed against concrete scenario assertions.",
       "groups": [
@@ -3723,7 +3521,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "35686320666130616901f70ea523be0085e83b6dc57102ac9015cf2cb5854985",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -4344,7 +4142,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "287fc453f409d61fa91a0aeb525e6e60730354a358f3828aa10b1b85a8da6887",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -4428,7 +4226,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "9efcc5ac074ea825ba089976e07a3e9c709b5730638312f5061741674ba022f4",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -4614,7 +4412,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "e7db08f8532992313b9d6fa4a7e073a41db88c76e16885e6ff5b5facfb5f6f74",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -4655,7 +4453,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "9ff7adaff9ed08d6d61c15b9479485182d6410f781e0adb20040176f68ed3940",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -5888,7 +5686,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "c573650eacd6caebe75811e0ccfb02e578fe26794c4dd739d2f8d4aabef17fa4",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6188,7 +5986,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "4334eb73f62eb9353f7d5e898625eb3c0790bd49b8787117ae333f6909f0f283",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6248,7 +6046,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "d4188d5e4bfc7e53acba439a712ff623f946c4c0dd1617bf8507d89ca5deb7f2",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6289,7 +6087,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "e32ce5f1c6cdcb10b88d2da0e8965b678614e2db87e70c833a741a86b1e69cb2",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6359,7 +6157,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "3f8135a56426333b79d9ce53dc3c79644eca3156e5963feb3574921bd6fe574a",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6400,7 +6198,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "b7b9e1fd6d6f61f998c032275e0c2a5127b66368f74d20986fdab0f33928e319",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6460,7 +6258,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "a6deb1994d193171a10e2b1f06d4268d0683cc8556e115695d4bf1c8f4daee22",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6520,7 +6318,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "53ffdddd4f574eef01eb5cef644e261e792cee1fc5e221dfeb40792b7702407e",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
@@ -6677,7 +6475,7 @@
           ]
         }
       ],
-      "area": "frontend, browser, quotation and npm audit policy semantic inventory; static inspection only",
+      "area": "frontend, browser and quotation semantic inventory; static inspection only",
       "sha256": "78d08618c12d37a6172cfadcb7b0da0f9d91c2df71461c609a8d9b98ef5e4c0e",
       "review_status": "source_audit_candidate",
       "execution_in_core": "not_executed_as_a_standalone_suite",
