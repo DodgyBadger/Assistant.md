@@ -64,6 +64,15 @@ class RunEvidence:
     root: Path
     items: dict[str, Evidence] = field(default_factory=dict)
     reports: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    is_worker: bool = False
+    external_paths: dict[str, str] = field(default_factory=dict)
+    worker_events: list[dict[str, Any]] = field(default_factory=list)
+
+    def worker_event(self, event: str, worker: str, **details: Any) -> None:
+        record = {"event": event, "worker": worker, **details}
+        self.worker_events.append(record)
+        with (self.root / "worker-events.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, default=str) + "\n")
 
     def evidence(self, nodeid: str) -> Evidence:
         if nodeid not in self.items:
@@ -82,13 +91,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    config.pluginmanager.register(
+        ReportCollector(config), "comparison-report-collector"
+    )
     if not config.getoption("file_or_dir"):
         raise pytest.UsageError(
             "Provide an explicit comparison test file; this experiment never falls back to repository-wide discovery"
         )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session: pytest.Session) -> None:
+    worker_input = getattr(session.config, "workerinput", None)
+    if worker_input is not None:
+        root = (
+            Path(worker_input["comparison_evidence_root"])
+            / "workers"
+            / worker_input["workerid"]
+        )
+        root.mkdir(parents=True)
+        session.config.stash[_STATE] = RunEvidence(root, is_worker=True)
+        return
     configured = session.config.getoption("evidence_root")
     root = (
         Path(configured).resolve()
@@ -99,6 +122,32 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         raise pytest.UsageError("--evidence-root must be empty")
     root.mkdir(parents=True, exist_ok=True)
     session.config.stash[_STATE] = RunEvidence(root)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    state = node.config.stash[_STATE]
+    node.workerinput["comparison_evidence_root"] = str(state.root)
+    state.worker_event("worker_created", node.gateway.id)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_node_collection_finished(node: Any, ids: list[str]) -> None:
+    state = node.config.stash[_STATE]
+    for nodeid in ids:
+        state.evidence(nodeid)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node: Any, error: Any) -> None:
+    node.config.stash[_STATE].worker_event(
+        "worker_down", node.gateway.id, error=str(error) if error else None
+    )
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_handlecrashitem(crashitem: str, report: pytest.TestReport) -> None:
+    report.user_properties.append(("comparison_worker_crash", True))
 
 
 def pytest_collection_modifyitems(
@@ -122,6 +171,14 @@ def pytest_runtest_makereport(
     state = item.config.stash[_STATE]
     evidence = state.evidence(item.nodeid)
     phase = {
+        "exception": (
+            {
+                "type": f"{type(call.excinfo.value).__module__}.{type(call.excinfo.value).__qualname__}",
+                "summary": call.excinfo.exconly(),
+            }
+            if call.excinfo is not None
+            else None
+        ),
         "phase": report.when,
         "outcome": report.outcome,
         "duration": report.duration,
@@ -130,13 +187,57 @@ def pytest_runtest_makereport(
             {"name": name, "text": content} for name, content in report.sections
         ],
     }
-    state.reports.setdefault(item.nodeid, []).append(evidence.redact(phase))
-    evidence.save("pytest-phases.json", state.reports[item.nodeid])
-    evidence.step("pytest_phase", phase=report.when, outcome=report.outcome)
+    report.user_properties.extend(
+        [
+            ("comparison_phase", evidence.redact(phase)),
+            ("comparison_evidence_path", str(evidence.root)),
+        ]
+    )
+
+
+class ReportCollector:
+    def __init__(self, config: pytest.Config) -> None:
+        self.config = config
+
+    def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
+        state = self.config.stash[_STATE]
+        evidence = state.evidence(report.nodeid)
+        properties = dict(report.user_properties)
+        path = properties.get("comparison_evidence_path")
+        if isinstance(path, str):
+            state.external_paths[report.nodeid] = path
+        transported_phase = properties.get("comparison_phase")
+        phase: dict[str, Any]
+        if isinstance(transported_phase, dict):
+            phase = dict(transported_phase)
+        else:
+            phase = {
+                "exception": None,
+                "phase": (
+                    "worker"
+                    if properties.get("comparison_worker_crash")
+                    else report.when
+                ),
+                "outcome": report.outcome,
+                "duration": report.duration,
+                "traceback": str(report.longrepr) if report.longrepr else None,
+                "captures": [
+                    {"name": name, "text": text} for name, text in report.sections
+                ],
+            }
+        phase = {
+            **phase,
+            "worker_crash": bool(properties.get("comparison_worker_crash")),
+        }
+        state.reports.setdefault(report.nodeid, []).append(evidence.redact(phase))
+        evidence.save("pytest-phases.json", state.reports[report.nodeid])
+        evidence.step("pytest_phase", phase=phase["phase"], outcome=phase["outcome"])
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     state = session.config.stash[_STATE]
+    if state.is_worker:
+        return
     tests = []
     lines = ["# Pytest scenario comparison", "", f"Exit status: {int(exitstatus)}", ""]
     for nodeid, evidence in state.items.items():
@@ -156,11 +257,30 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                 else "incomplete"
             )
         )
+        crashed = any(phase.get("worker_crash") for phase in phases)
+        evidence_path = state.external_paths.get(nodeid, str(evidence.root))
+        fatal_stack = Path(evidence_path) / "artifacts/fatal-stack.txt"
+        cleanup_status = (
+            "unconfirmed"
+            if crashed
+            else (
+                "completed"
+                if any(
+                    phase["phase"] == "teardown" and phase["outcome"] == "passed"
+                    for phase in phases
+                )
+                else "failed_or_incomplete"
+            )
+        )
         tests.append(
             {
                 "nodeid": nodeid,
                 "status": status,
-                "evidence_path": str(evidence.root),
+                "evidence_path": evidence_path,
+                "controller_evidence_path": str(evidence.root),
+                "worker_crashed": crashed,
+                "cleanup_status": cleanup_status,
+                "fatal_stack_path": str(fatal_stack) if fatal_stack.exists() else None,
                 "phases": phases,
             }
         )
@@ -169,10 +289,18 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                 f"## {nodeid}",
                 "",
                 f"Result: **{status}**",
-                f"Evidence: [{evidence.root.name}]({evidence.root.name}/artifacts/)",
+                f"Cleanup: **{cleanup_status}**",
+                f"Evidence: [{Path(evidence_path).name}]({Path(evidence_path).relative_to(state.root).as_posix()}/artifacts/)",
                 "",
             ]
         )
+        if fatal_stack.exists():
+            lines.extend(
+                [
+                    f"Fatal-signal stack: [fatal-stack.txt]({fatal_stack.relative_to(state.root).as_posix()})",
+                    "",
+                ]
+            )
         for phase in phases:
             lines.append(
                 f"- {phase['phase']}: {phase['outcome']} ({phase['duration']:.3f}s)"
@@ -180,7 +308,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             if phase["traceback"]:
                 lines.extend(["", "```text", phase["traceback"], "```", ""])
         lines.append("")
-    payload = {"schema_version": 1, "exit_status": int(exitstatus), "tests": tests}
+    payload = {
+        "schema_version": 1,
+        "exit_status": int(exitstatus),
+        "tests": tests,
+        "worker_events": state.worker_events,
+    }
     (state.root / "report.json").write_text(
         json.dumps(payload, indent=2) + "\n", encoding="utf-8"
     )
@@ -188,5 +321,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 def pytest_terminal_summary(terminalreporter: Any) -> None:
-    root = terminalreporter.config.stash[_STATE].root
+    state = terminalreporter.config.stash[_STATE]
+    if state.is_worker:
+        return
+    root = state.root
     terminalreporter.write_sep("=", f"Scenario evidence: {root / 'report.md'}")

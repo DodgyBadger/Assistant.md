@@ -64,5 +64,17 @@
     "scheduler": "GET /api/status, with a real managed scheduled workflow as positive control.",
     "heartbeat_staleness": "Production WorkflowRun status operation after real elapsed time; fixed product threshold currently 60 seconds, bounded by a 90-second observation timeout.",
     "fixture_inputs": "Files and deliberate configuration-corruption fixtures are seeded as inputs; actual operations and assertions use production services/results."
+  },
+  "crash_profile": {
+    "source": "validation/experiments/pytest_comparison/test_crash_recovery.py",
+    "command": "uv run python -m pytest -c validation/experiments/pytest_comparison/pytest.ini validation/experiments/pytest_comparison/test_crash_recovery.py -n 1 --max-worker-restart=1 --evidence-root <empty-output-directory> --junitxml <output-directory>/junit.xml",
+    "expected_exit_code": 1,
+    "expected_results": [
+      "failed: unhandled real bootstrap DatabaseError",
+      "passed: real app after exception in same worker",
+      "failed: intentional native worker abort, cleanup unconfirmed",
+      "passed: real app in replacement worker"
+    ],
+    "platform": "Native SIGABRT probe tested on Linux; core dumps disabled in the fault worker."
   }
 }

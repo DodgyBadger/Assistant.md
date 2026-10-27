@@ -6501,6 +6501,26 @@
         }
       ],
       "sha256": "4a416fd2face5b6b2e40bab020093f7e380a96648d8859e7d9641a235cd6593f"
+    },
+    {
+      "path": "validation/experiments/pytest_comparison/test_crash_recovery.py",
+      "summary": "Explicit opt-in application startup exception and native worker-abort recovery experiment; expected pytest exit 1 with two failed cases and two passing recovery cases.",
+      "groups": [
+        {
+          "id": "pytest-crash-recovery",
+          "contract": "Record unhandled real application bootstrap exceptions, survive worker termination and execute real application recovery cases with preserved evidence.",
+          "rationale": "Maintainer-authorized pytest-xdist fault experiment, not an automatically executed core scenario.",
+          "proposed_destination": "Evaluate pytest worker/crash evidence before any runner migration.",
+          "disposition": "framework_infrastructure",
+          "tests": [
+            "test_01_unhandled_application_startup_exception",
+            "test_02_real_app_recovers_after_exception",
+            "test_03_abort_running_application_worker",
+            "test_04_real_app_recovers_after_worker_crash"
+          ]
+        }
+      ],
+      "sha256": "017e4c32e37923db35f9815ccf5d90f34e1a01c32da09917909f6f9e69c623c6"
     }
   ],
   "followups": [
