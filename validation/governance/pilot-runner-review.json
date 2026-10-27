@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "contract_id": "framework.execution.preserves_failure_accounting",
+  "evidence_kind": "pilot_contract_review",
+  "scenario": "integration/core/validation_runner_lifecycle",
+  "base_commit": "e666b254f3d2e596093f66d8cab281d09217eb64",
+  "scenario_sha256": "500855ea1e433469cbdcf1dd9840355158456bcd3e30a43abefddeb030c3c5a0",
+  "recommended_requirement": "For the exercised lifecycle cases, the CLI preserves the primary execution failure alongside cleanup and evidence failures, reports worker crashes and hard deadlines as failures, and records the remaining selected scenario as not started when the first of two scenarios is interrupted.",
+  "proof_surface": [
+    "The actual validation CLI executes nested real workers and application resources through fourteen lifecycle fixture modes, checking outcomes, exit codes, report counters, and supervisor and lifecycle artifacts.",
+    "A combined execution and cleanup failure retains the primary assertion and records cleanup and evidence failure phases; isolated production runner fault injection confirms the scenario rejects a replacement primary error.",
+    "For a two-scenario interrupted selection, the report includes the interrupted first scenario and a second not-started result; isolated production runner fault injection confirms the scenario rejects omitting that result.",
+    "The exercised crash, forged-success, synchronous body and cleanup deadline paths produce framework errors instead of passing; isolation, explicit secret capture, and evidence-write failure are also exercised."
+  ],
+  "exclusions": [
+    "The scenario does not establish complete accounting for arbitrary multi-scenario selections, ordering, duplicated names, or all possible report counter and selector mismatches.",
+    "The scenario exercises specified fault and lifecycle cases, not every possible crash, cancellation, cleanup failure, or evidence failure.",
+    "A passing scenario or fault rejection is evidence for the tested boundary; it does not grant admission or prove all related reporting semantics."
+  ],
+  "coupling": [
+    "The scenario inspects the current CLI result schema, lifecycle and supervisor evidence, and a fixed set of fixture modes.",
+    "Nested fixture scenarios use the same source checkout as the executing runner and isolate their runtime roots."
+  ],
+  "outcome_evidence": {
+    "baseline": {
+      "result": "passed",
+      "run_id": "20261027_050817_532991",
+      "report": "/tmp/runner-baseline.0Vhwsg/runs/reports/20261027_050817_532991.json",
+      "observed": {
+        "cli_exit_code": 0,
+        "scenario_status": "passed",
+        "execution_phase": null,
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    },
+    "mutations": [
+      {
+        "file": "validation/core/runner.py",
+        "old": "primary = outcome.primary_error",
+        "new": "primary = RuntimeError('secondary replaced primary') if outcome.cleanup_errors else outcome.primary_error",
+        "result": "execution assertion failure in combined_failure",
+        "run_id": "20261027_050817_729353",
+        "report": "/tmp/runner-primary-mutant.aQLKoj/root/runs/reports/20261027_050817_729353.json",
+        "patch": "/tmp/runner-primary-mutant.aQLKoj/mutation.patch",
+        "observed": {
+          "cli_exit_code": 1,
+          "scenario_status": "failed",
+          "execution_phase": "execution",
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0,
+          "exception_type": "AssertionError"
+        }
+      },
+      {
+        "file": "validation/core/runner.py",
+        "old": "for scenario_name in scenario_names[len(scenario_results) :]:",
+        "new": "for scenario_name in []:",
+        "result": "execution assertion failure in cancel accounting",
+        "run_id": "20261027_050818_238338",
+        "report": "/tmp/runner-interrupted-mutant.VqWeiR/root/runs/reports/20261027_050818_238338.json",
+        "patch": "/tmp/runner-interrupted-mutant.VqWeiR/mutation.patch",
+        "observed": {
+          "cli_exit_code": 1,
+          "scenario_status": "failed",
+          "execution_phase": "execution",
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0,
+          "exception_type": "AssertionError"
+        }
+      }
+    ],
+    "method": "Each source fault modified the actual runner in an isolated detached HEAD worktree. Each run used a separate validation root with scenarios linked to that same checkout and the original Python 3.13 environment."
+  },
+  "source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64",
+  "contract_fingerprint": "dd64bdaf4864150053ed0cf043d48c9920334781d405aaa70908d88de1fec679",
+  "requirement": "Combined execution and cleanup/evidence failures retain the primary error; the lifecycle pilot reports crashes and hard deadlines as non-passing and records the unstarted second selection after interruption of a two-scenario batch.",
+  "review_status": "evidence_recorded_awaiting_maintainer_review",
+  "oracle_patch": "",
+  "proof_summary": [
+    "The actual validation CLI executes nested real workers and application resources through fourteen lifecycle fixture modes, checking outcomes, exit codes, report counters, and supervisor and lifecycle artifacts.",
+    "A combined execution and cleanup failure retains the primary assertion and records cleanup and evidence failure phases; isolated production runner fault injection confirms the scenario rejects a replacement primary error.",
+    "For a two-scenario interrupted selection, the report includes the interrupted first scenario and a second not-started result; isolated production runner fault injection confirms the scenario rejects omitting that result.",
+    "The exercised crash, forged-success, synchronous body and cleanup deadline paths produce framework errors instead of passing; isolation, explicit secret capture, and evidence-write failure are also exercised."
+  ],
+  "baseline": {
+    "result": "passed",
+    "run_id": "20261027_050817_532991",
+    "report": "/tmp/runner-baseline.0Vhwsg/runs/reports/20261027_050817_532991.json",
+    "observed": {
+      "cli_exit_code": 0,
+      "scenario_status": "passed",
+      "execution_phase": null,
+      "total_scenarios": 1,
+      "passed_scenarios": 1,
+      "failed_scenarios": 0,
+      "error_scenarios": 0
+    },
+    "observation": {
+      "scenario_name": "integration/core/validation_runner_lifecycle",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_050817_532991",
+      "report_sha256": "e2f28cf82fb5120808210c4d809531e4eef6f22eeef886c738de65f5fe1a9b3a",
+      "counts": {
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    }
+  },
+  "negative_examples": [
+    {
+      "fault": "execution assertion failure in combined_failure",
+      "source_change": {
+        "path": "validation/core/runner.py",
+        "before": "primary = outcome.primary_error",
+        "after": "primary = RuntimeError('secondary replaced primary') if outcome.cleanup_errors else outcome.primary_error",
+        "patch": "diff --git a/validation/core/runner.py b/validation/core/runner.py\nindex 716f25a..f00027d 100644\n--- a/validation/core/runner.py\n+++ b/validation/core/runner.py\n@@ -375,7 +375,7 @@ class ValidationRunner:\n                 asdict(error)\n                 for error in (*outcome.cleanup_errors, *outcome.evidence_errors)\n             ]\n-            primary = outcome.primary_error\n+            primary = RuntimeError('secondary replaced primary') if outcome.cleanup_errors else outcome.primary_error\n             if primary is None and outcome.timed_out:\n                 primary = TimeoutError(\n                     \"Validation execution or cleanup exceeded its deadline\"\n"
+      },
+      "assertion": "Combined failure retains the original execution assertion.",
+      "observation": {
+        "scenario_name": "integration/core/validation_runner_lifecycle",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_runner_lifecycle.py:241 (in test_scenario)\nFailing code: assert result[\"status\"] == \"failed\"\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_runner_lifecycle.py\", line 241, in test_scenario\n    assert result[\"status\"] == \"failed\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050817_729353",
+        "report_sha256": "3e31c2e936c944ea3837c11fb9fcf6e2f203bd2c9698afae2f2560ecff89d767",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/runner-primary-mutant.aQLKoj/root/runs/reports/20261027_050817_729353.json"
+    },
+    {
+      "fault": "execution assertion failure in cancel accounting",
+      "source_change": {
+        "path": "validation/core/runner.py",
+        "before": "for scenario_name in scenario_names[len(scenario_results) :]:",
+        "after": "for scenario_name in []:",
+        "patch": "diff --git a/validation/core/runner.py b/validation/core/runner.py\nindex 716f25a..e7a523c 100644\n--- a/validation/core/runner.py\n+++ b/validation/core/runner.py\n@@ -674,7 +674,7 @@ class ValidationRunner:\n                 )\n \n         if interrupted:\n-            for scenario_name in scenario_names[len(scenario_results) :]:\n+            for scenario_name in []:\n                 scenario_results.append(\n                     ScenarioResult(\n                         scenario_name,\n"
+      },
+      "assertion": "Interrupted two-scenario selection includes its unstarted second result.",
+      "observation": {
+        "scenario_name": "integration/core/validation_runner_lifecycle",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_runner_lifecycle.py:255 (in test_scenario)\nFailing code: assert report[\"interrupted\"] and report[\"total_scenarios\"] == 2\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_runner_lifecycle.py\", line 255, in test_scenario\n    assert report[\"interrupted\"] and report[\"total_scenarios\"] == 2\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050818_238338",
+        "report_sha256": "8e99a7e6a37410d0d4d0f2d9686a8c207760e797d9711d44bdb046c9a668616c",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/runner-interrupted-mutant.VqWeiR/root/runs/reports/20261027_050818_238338.json"
+    }
+  ],
+  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission."
+}

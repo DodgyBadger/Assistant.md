@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.settings import config_editor, repository
-from core.settings.store import get_default_settings, load_settings
+from core.settings.store import get_default_settings
 from validation.core.base_scenario import BaseScenario
 
 
@@ -287,7 +287,9 @@ class SettingsLifecycleScenario(BaseScenario):
             )
             assert later.status_code == 200, later.text
             edited = self.configuration_snapshot()
-            edited_revision = load_settings()._revision
+            with sqlite3.connect(root / "settings.db") as conn:
+                edited_revision = repository.revision(conn)
+            assert edited_revision is not None
             assert edited_revision > backed_up_revision
             try:
                 config_editor.reset_managed_configuration(
@@ -299,7 +301,8 @@ class SettingsLifecycleScenario(BaseScenario):
                 raise AssertionError("Reset must reject an edit newer than its backup")
             assert self.configuration_snapshot() == edited
             assert settings()["default_api_timeout"]["value"] == "12"
-            assert load_settings()._revision == edited_revision
+            with sqlite3.connect(root / "settings.db") as conn:
+                assert repository.revision(conn) == edited_revision
             with sqlite3.connect(backup_path) as conn:
                 assert repository.revision(conn) == backed_up_revision
                 assert (
@@ -316,7 +319,8 @@ class SettingsLifecycleScenario(BaseScenario):
                 expected_revision=matching_revision
             )
             assert accepted.settings["default_api_timeout"].source == "default"
-            assert load_settings()._revision == matching_revision + 1
+            with sqlite3.connect(root / "settings.db") as conn:
+                assert repository.revision(conn) == matching_revision + 1
         finally:
             await self.stop_system()
             self.teardown_scenario()

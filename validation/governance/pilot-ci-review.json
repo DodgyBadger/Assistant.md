@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "contract_id": "framework.governance.requires_current_manual_approval",
+  "evidence_kind": "pilot_contract_review",
+  "scenario": "integration/core/validation_governance_ci",
+  "recommended_requirement": "The governance CI helper requires the expected audit and approval outcomes and the current pull request head and base before posting success, while validating the configured reviewer, environment, and branch policy.",
+  "proof_surface": [
+    "Runs the production governance CI helper against an isolated Git repository and loopback HTTP GitHub protocol fixture.",
+    "Checks pending and final commit status requests for the intended context and head; exercises approval outcomes, stale head and base, environment, reviewer, branch policy, and API failure.",
+    "Checks that the candidate scenario source is not imported and closes the HTTP server and thread in a finally block."
+  ],
+  "exclusions": [
+    "The fixture does not exercise actual GitHub Actions jobs, environment approval, GitHub authorization, or branch protection enforcement.",
+    "Commit statuses are associated with a head SHA rather than a pull request or base; reuse of a previously successful status is not prevented by this scenario.",
+    "These tests do not establish semantic adequacy of all governance checks or grant approval."
+  ],
+  "coupling": [
+    "Uses the current production helper API and current trusted reviewer and required-context policy with a protocol fixture.",
+    "HTTP fixture responses model a subset of the GitHub API, not the service implementation."
+  ],
+  "outcome_evidence": {
+    "base_commit": "e666b25",
+    "baseline": {
+      "result": "passed",
+      "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
+      "run_id": "20261027_050649_338585"
+    },
+    "mutations": [
+      {
+        "fault": "Replace the production helper condition rejecting unsuccessful approval when review is required with false.",
+        "result": "execution assertion failure",
+        "report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json",
+        "run_id": "20261027_050707_661656"
+      },
+      {
+        "fault": "Replace the production helper condition rejecting a stale pull request head with false.",
+        "result": "execution assertion failure",
+        "report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json",
+        "run_id": "20261027_050721_193009"
+      }
+    ],
+    "method": "Each mutation changed the actual helper in an isolated detached worktree, with its own linked scenario root and the original Python 3.13 environment."
+  },
+  "source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64",
+  "scenario_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+  "contract_fingerprint": "792ade4ed99d0a24927d476a8e8a3c19a6e317db31224a42cdb1a309c859c80a",
+  "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
+  "review_status": "evidence_recorded_awaiting_maintainer_review",
+  "oracle_patch": "",
+  "proof_summary": [
+    "Runs the production governance CI helper against an isolated Git repository and loopback HTTP GitHub protocol fixture.",
+    "Checks pending and final commit status requests for the intended context and head; exercises approval outcomes, stale head and base, environment, reviewer, branch policy, and API failure.",
+    "Checks that the candidate scenario source is not imported and closes the HTTP server and thread in a finally block."
+  ],
+  "baseline": {
+    "result": "passed",
+    "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
+    "run_id": "20261027_050649_338585",
+    "observation": {
+      "scenario_name": "integration/core/validation_governance_ci",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_050649_338585",
+      "report_sha256": "7be4d8daa2297d9aa524213262579d85f1571ca7567b85ddba0e48fa600af799",
+      "counts": {
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    }
+  },
+  "negative_examples": [
+    {
+      "fault": "Replace the production helper condition rejecting unsuccessful approval when review is required with false.",
+      "source_change": {
+        "path": "validation/framework/governance_ci.py",
+        "before": "or (review_required == \"true\" and approval_result != \"success\")",
+        "after": "or False",
+        "occurrence": 1
+      },
+      "assertion": "Required review with failed, cancelled or skipped approval must post failure.",
+      "observation": {
+        "scenario_name": "integration/core/validation_governance_ci",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py:210 (in test_scenario)\nFailing code: assert finish(sensitive, approval, \"true\") == \"failure\"\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py\", line 210, in test_scenario\n    assert finish(sensitive, approval, \"true\") == \"failure\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050707_661656",
+        "report_sha256": "277b1f93ba177a7ceca8a610db8cc079713274068285d48e9f268c13f5136a18",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json"
+    },
+    {
+      "fault": "Replace the production helper condition rejecting a stale pull request head with false.",
+      "source_change": {
+        "path": "validation/framework/governance_ci.py",
+        "before": "or head.get(\"sha\") != head_sha",
+        "after": "or False",
+        "occurrence": 1
+      },
+      "assertion": "An approved audit for a stale PR head must post failure.",
+      "observation": {
+        "scenario_name": "integration/core/validation_governance_ci",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py:214 (in test_scenario)\nFailing code: assert finish(sensitive, \"success\", \"true\") == \"failure\"\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py\", line 214, in test_scenario\n    assert finish(sensitive, \"success\", \"true\") == \"failure\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050721_193009",
+        "report_sha256": "f91b4e4c11e70412cc800456a7b2085ffe0922104f12f3ff744124ed886c5162",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json"
+    }
+  ],
+  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission."
+}

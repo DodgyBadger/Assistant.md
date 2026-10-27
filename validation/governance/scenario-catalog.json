@@ -3,27 +3,39 @@
   "contracts": [
     {
       "id": "ingress.owner_and_csrf_boundaries",
-      "requirement": "Protected application access requires owner authentication; authenticated mutation requires valid CSRF admission.",
-      "proof_surface": "Real application HTTP admission responses, cookie/session behavior and structured authentication activity in ingress_authentication.",
-      "review_reference": "Existing scenario evidence in test-cleanup-implementation-plan.md; pilot semantic admission awaits maintainer review."
+      "requirement": "In owner-token mode, protected access requires valid owner authentication and owner-cookie mutations require valid session-bound CSRF proof.",
+      "proof_surface": "Real production ASGI application/runtime responses for owner authentication, cookie-bound mutation admission and authentication activity; browser, live TCP/TLS and deployment topology are outside this pilot.",
+      "review_reference": "pilot-ingress-review.json: discriminating execution evidence recorded; external maintainer acceptance remains pending.",
+      "review_evidence": [
+        "pilot-ingress-review.json"
+      ]
     },
     {
       "id": "settings.reset.preserves_newer_edit",
       "requirement": "A domain settings reset fenced to a backup revision rejects a conflicting newer edit and preserves that edit.",
-      "proof_surface": "Real repository backup/reset operations and persisted settings snapshots in settings_lifecycle. API-level reset-race scheduling remains uncovered.",
-      "review_reference": "Existing domain-boundary evidence in test-cleanup-implementation-plan.md; API concurrency remains coverage debt."
+      "proof_surface": "Actual repository backup/domain reset operations, persisted SQLite revision and settings snapshots, plus API reads; API backup-to-reset race scheduling remains outside this pilot.",
+      "review_reference": "pilot-settings-review.json: discriminating execution evidence recorded; external maintainer acceptance remains pending.",
+      "review_evidence": [
+        "pilot-settings-review.json"
+      ]
     },
     {
       "id": "framework.execution.preserves_failure_accounting",
-      "requirement": "Execution failures survive cleanup/evidence failures; crashes, interrupted or incomplete execution never pass or disappear from selected-run accounting.",
-      "proof_surface": "Real CLI worker journeys, primary/secondary results, authoritative lifecycle/supervisor artifacts and exit statuses in validation_runner_lifecycle.",
-      "review_reference": "Runner/worker evidence in test-cleanup-implementation-plan.md; pilot semantic admission awaits maintainer review."
+      "requirement": "Combined execution and cleanup/evidence failures retain the primary error; the lifecycle pilot reports crashes and hard deadlines as non-passing and records the unstarted second selection after interruption of a two-scenario batch.",
+      "proof_surface": "Fourteen real CLI worker fixture modes inspect primary/secondary results, lifecycle/supervisor artifacts and exit statuses; interruption accounting is demonstrated with a two-scenario selection, not arbitrary selector permutations.",
+      "review_reference": "pilot-runner-review.json: discriminating execution evidence recorded; external maintainer acceptance remains pending.",
+      "review_evidence": [
+        "pilot-runner-review.json"
+      ]
     },
     {
       "id": "framework.governance.requires_current_manual_approval",
-      "requirement": "Governance-sensitive changes receive a passing authorization only after the required manual approval for the current PR head and base; failed stages, stale identities or weakened external protection fail closed.",
-      "proof_surface": "Trusted CI audit/finalization exercised with real Git trees and a loopback GitHub protocol fixture in validation_governance_ci.",
-      "review_reference": "Manual CI approval selected by the user; bootstrap semantic review remains required before enforcing the new status."
+      "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
+      "proof_surface": "Actual governance CI helper decisions using real Git trees and a loopback GitHub protocol fixture; native GitHub approval enforcement and PR-specific commit-status invalidation remain outside this pilot.",
+      "review_reference": "pilot-ci-review.json: discriminating execution evidence recorded; external maintainer acceptance remains pending.",
+      "review_evidence": [
+        "pilot-ci-review.json"
+      ]
     }
   ],
   "scenarios": [
