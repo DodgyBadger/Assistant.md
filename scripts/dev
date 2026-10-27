@@ -338,7 +338,7 @@ run_scenarios() {
   require_command uv "Install it from https://docs.astral.sh/uv/getting-started/installation/."
   require_environment
   cd "${REPO_ROOT}"
-  uv run python validation/run_validation.py run "$@"
+  uv run python -m scenario_harness --project validation/project.toml run "$@"
 }
 
 doctor() {

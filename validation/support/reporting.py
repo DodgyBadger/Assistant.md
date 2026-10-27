@@ -15,7 +15,16 @@ __all__ = [
     "write_run_reports",
 ]
 
-_RERUN_PREFIX = ("uv", "run", "python", "validation/run_validation.py", "run")
+_RERUN_PREFIX = (
+    "uv",
+    "run",
+    "python",
+    "-m",
+    "scenario_harness",
+    "--project",
+    "validation/project.toml",
+    "run",
+)
 
 
 def rerun_command(selectors: list[str]) -> str:

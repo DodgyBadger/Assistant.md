@@ -55,13 +55,13 @@ class ValidationRunReportingScenario(BaseScenario):
             "Failure output should point directly to evidence and its timeline",
         )
         self.soft_assert(
-            "uv run python validation/run_validation.py run integration/core/failing_example"
+            "uv run python -m scenario_harness --project validation/project.toml run integration/core/failing_example"
             in summary,
             "Each failure should include a copy/paste rerun command",
         )
         self.soft_assert(
             summary.rstrip().endswith(
-                "uv run python validation/run_validation.py run "
+                "uv run python -m scenario_harness --project validation/project.toml run "
                 "integration/core/failing_example "
                 "integration/core/system_example "
                 "integration/core/framework_example"

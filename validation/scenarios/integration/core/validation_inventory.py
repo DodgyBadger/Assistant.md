@@ -206,7 +206,10 @@ class ValidationInventoryScenario(BaseScenario):
     def _inventory(self, root: Path) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
-            str(Path(__file__).resolve().parents[4] / "validation/run_validation.py"),
+            "-m",
+            "scenario_harness",
+            "--project",
+            str(Path(__file__).resolve().parents[4] / "validation/project.toml"),
             "inventory",
             "--root",
             str(root),

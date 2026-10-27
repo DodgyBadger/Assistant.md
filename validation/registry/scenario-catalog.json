@@ -856,7 +856,7 @@
       "selector": "integration/core/validation_inventory",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "4ce15996e1eccfe6b935295031fae443cd932fdb453fbaa80cbef13e362475b7"
+      "sha256": "1a02d8d9972f8fa8a12df0ff318c0aa719a4e21a5496cd1f8323c7dd146ff56e"
     },
     {
       "selector": "integration/core/validation_lifecycle",
@@ -874,7 +874,7 @@
       "selector": "integration/core/validation_run_reporting",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "46f25868c7ccc969674cab2a8eb061d3420557aac8056faee4393677fbf04e26"
+      "sha256": "57bed2ac1dfbde6ee6900eb868f547f831bd7d85cdc05cfc3a1c5f4b7a3d4bc6"
     },
     {
       "selector": "integration/core/validation_runner_lifecycle",

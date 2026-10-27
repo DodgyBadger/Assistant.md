@@ -130,7 +130,10 @@ class ValidationRunnerLifecycleScenario(BaseScenario):
                 )
             command = [
                 sys.executable,
-                str(checkout / "validation/run_validation.py"),
+                "-m",
+                "scenario_harness",
+                "--project",
+                str(checkout / "validation/project.toml"),
                 "run",
                 _SELECTOR,
             ]

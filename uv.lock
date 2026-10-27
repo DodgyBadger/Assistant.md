@@ -1561,6 +1561,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "scenario-harness" },
     { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
@@ -1611,6 +1612,7 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "scenario-harness", editable = "packages/scenario-harness" },
     { name = "types-python-dateutil", specifier = ">=2.9.0.20260716" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260724" },
     { name = "types-requests", specifier = ">=2.32.4.20250809" },
@@ -2314,6 +2316,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f6/dc/a2873b7c5001c62f46266685863bee2888caf469d1edac84bf3242074be2/ruff-0.12.8-py3-none-win_amd64.whl", hash = "sha256:7209531f1a1fcfbe8e46bcd7ab30e2f43604d8ba1c49029bb420b103d0b5f76e", size = 12740482, upload-time = "2025-08-07T19:05:40.391Z" },
     { url = "https://files.pythonhosted.org/packages/cb/5c/799a1efb8b5abab56e8a9f2a0b72d12bd64bb55815e9476c7d0a2887d2f7/ruff-0.12.8-py3-none-win_arm64.whl", hash = "sha256:c90e1a334683ce41b0e7a04f41790c429bf5073b62c1ae701c9dc5b3d14f0749", size = 11884718, upload-time = "2025-08-07T19:05:42.866Z" },
 ]
+
+[[package]]
+name = "scenario-harness"
+version = "0.1.0"
+source = { editable = "packages/scenario-harness" }
 
 [[package]]
 name = "secretstorage"

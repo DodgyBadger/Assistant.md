@@ -4,7 +4,7 @@
   "evidence_kind": "pilot_contract_review",
   "scenario": "integration/core/validation_runner_lifecycle",
   "base_commit": "e666b254f3d2e596093f66d8cab281d09217eb64",
-  "scenario_sha256": "8c3df9ded147fbb1815aad23d949c1611f2152752643ef3f1a09c6dff8ae601b",
+  "scenario_sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79",
   "recommended_requirement": "For the exercised lifecycle cases, the CLI preserves the primary execution failure alongside cleanup and evidence failures, reports worker crashes and hard deadlines as failures, and records the remaining selected scenario as not started when the first of two scenarios is interrupted.",
   "proof_surface": [
     "The actual validation CLI executes nested real workers and application resources through fourteen lifecycle fixture modes, checking outcomes, exit codes, report counters, and supervisor and lifecycle artifacts.",
@@ -90,8 +90,8 @@
     "The exercised crash, forged-success, synchronous body and cleanup deadline paths produce framework errors instead of passing; isolation, explicit secret capture, and evidence-write failure are also exercised."
   ],
   "baseline": {
-    "report": "/tmp/validation-layout-70584f81/runs/reports/20261027_165116_979864.json",
-    "scenario_sha256": "8c3df9ded147fbb1815aad23d949c1611f2152752643ef3f1a09c6dff8ae601b",
+    "report": "/tmp/validation-launcher-deletion-k43lu06f/runs/reports/20261027_181850_791301.json",
+    "scenario_sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79",
     "observation": {
       "scenario_name": "integration/core/validation_runner_lifecycle",
       "status": "passed",
@@ -99,10 +99,16 @@
       "error_message": null,
       "timed_out": false,
       "interrupted": false,
-      "run_id": "20261027_165116_979864",
-      "report_sha256": "df37cdd670b0ea241804a15cdd8d4752d1ed5b3cac76e281d848ea1e8b276846"
+      "run_id": "20261027_181850_791301",
+      "report_sha256": "f97d9054612bd593476379302ce17854217774fd97f4ee400e6ab1f1ac3c3ea3",
+      "counts": {
+        "total_scenarios": 3,
+        "passed_scenarios": 3,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
     },
-    "source_state": "Application layout relocation on the declared parent revision, preserved in this changeset."
+    "source_state": "Working-tree command-only entry-point change on b8ddfde; normalized AST equivalence and patch recorded in source_relocations. Historical fault observations remain unchanged."
   },
   "negative_examples": [
     {
@@ -203,6 +209,14 @@
       },
       "patch": "diff --git a/validation/scenarios/integration/core/validation_runner_lifecycle.py b/validation/scenarios/integration/core/validation_runner_lifecycle.py\nindex a7ad8f6..25dbc89 100644\n--- a/validation/scenarios/integration/core/validation_runner_lifecycle.py\n+++ b/validation/scenarios/integration/core/validation_runner_lifecycle.py\n@@ -13,8 +13,8 @@ from pathlib import Path\n \n from scenario_harness.lifecycle import current_run_context\n \n-from validation.core.base_scenario import BaseScenario\n-from validation.core.results import ScenarioResult\n+from validation.support.base_scenario import BaseScenario\n+from validation.support.results import ScenarioResult\n \n _MODE_ENV = \"ASSISTANTMD_VALIDATION_RUNNER_FIXTURE_MODE\"\n _SELECTOR = \"integration/core/validation_runner_lifecycle\"\n@@ -119,7 +119,7 @@ class ValidationRunnerLifecycleScenario(BaseScenario):\n                 candidate = root / \"scenarios\" / f\"{_SELECTOR}.py\"\n                 candidate.parent.mkdir(parents=True)\n                 candidate.write_text(\n-                    \"from validation.core.base_scenario import BaseScenario\\n\"\n+                    \"from validation.support.base_scenario import BaseScenario\\n\"\n                     \"class ValidationRunnerLifecycleScenario(BaseScenario):\\n\"\n                     \"    async def test_scenario(self):\\n\"\n                     \"        raise AssertionError('selected fixture source')\\n\"\n",
       "scope": "Only application import namespaces, declared fixture/registry paths and import ordering changed; original counterexample observations remain historical."
+    },
+    {
+      "before_sha256": "8c3df9ded147fbb1815aad23d949c1611f2152752643ef3f1a09c6dff8ae601b",
+      "after_sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79",
+      "equivalent_ast_sha256": "e2f627f23738cd8acd89f41db264b1d8cc9a49d913c47da315b74357f8a15f0d",
+      "mapping": "Replace the deleted application script command with the installed scenario_harness module and explicit project configuration. Normalized command-list/string ASTs are equal; assertions and fixture behavior are unchanged.",
+      "source_revision": "b8ddfde082b6ac4a02debd15039674c8d8789a51",
+      "patch": "diff --git a/validation/scenarios/integration/core/validation_runner_lifecycle.py b/validation/scenarios/integration/core/validation_runner_lifecycle.py\nindex 25dbc89..a9980ea 100644\n--- a/validation/scenarios/integration/core/validation_runner_lifecycle.py\n+++ b/validation/scenarios/integration/core/validation_runner_lifecycle.py\n@@ -130,7 +130,10 @@ class ValidationRunnerLifecycleScenario(BaseScenario):\n                 )\n             command = [\n                 sys.executable,\n-                str(checkout / \"validation/run_validation.py\"),\n+                \"-m\",\n+                \"scenario_harness\",\n+                \"--project\",\n+                str(checkout / \"validation/project.toml\"),\n                 \"run\",\n                 _SELECTOR,\n             ]\n"
     }
   ],
   "historical_baseline": {
@@ -251,6 +265,21 @@
         "report_sha256": "8911f1674464374005515584c4cb4066e9ac3f81f9f5bc8d7fe6b5d34a97a815"
       },
       "source_state": "Working-tree source relocation on the declared parent revision; preserved in this changeset."
+    },
+    {
+      "report": "/tmp/validation-layout-70584f81/runs/reports/20261027_165116_979864.json",
+      "scenario_sha256": "8c3df9ded147fbb1815aad23d949c1611f2152752643ef3f1a09c6dff8ae601b",
+      "observation": {
+        "scenario_name": "integration/core/validation_runner_lifecycle",
+        "status": "passed",
+        "execution_phase": null,
+        "error_message": null,
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_165116_979864",
+        "report_sha256": "df37cdd670b0ea241804a15cdd8d4752d1ed5b3cac76e281d848ea1e8b276846"
+      },
+      "source_state": "Application layout relocation on the declared parent revision, preserved in this changeset."
     }
   ]
 }

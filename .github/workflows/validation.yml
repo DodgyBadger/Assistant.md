@@ -53,6 +53,9 @@ jobs:
           UV_PROJECT_ENVIRONMENT: ${{ env.UV_PROJECT_ENVIRONMENT }}
         run: uv sync --frozen --all-extras --no-install-project
 
+      - name: Check validation inventory
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml inventory
+
       - name: Audit Python dependencies
         run: |
           uv export --frozen --all-extras --all-groups --no-emit-project --output-file "$RUNNER_TEMP/audit-requirements.txt"
@@ -92,9 +95,6 @@ jobs:
         with:
           python-version: ${{ env.CI_PYTHON_VERSION }}
 
-      - name: Check validation inventory
-        run: python validation/run_validation.py inventory
-
       - name: Check vault mutation routing
         run: python scripts/check_vault_mutation_routing.py
 
@@ -109,12 +109,15 @@ jobs:
           UV_PROJECT_ENVIRONMENT: ${{ env.UV_PROJECT_ENVIRONMENT }}
         run: uv sync --frozen --all-extras --no-install-project
 
+      - name: Check validation inventory
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml inventory
+
       - name: Install Playwright Chromium
         run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m playwright install --with-deps chromium
 
       - name: Run deterministic core integration scenarios
         run: |
-          ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python validation/run_validation.py run integration/core
+          ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml run integration/core
 
       - name: Package validation artifacts
         if: ${{ always() }}

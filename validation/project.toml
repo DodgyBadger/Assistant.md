@@ -11,7 +11,7 @@ discovery_hook = "validation.support.project:collect"
 inventory_hook = "validation.support.project:check_inventory"
 inventory_formatter = "validation.support.project:format_inventory"
 governance_hook = "validation.support.ci.audit:audit_git"
-rerun_prefix = ["uv", "run", "python", "validation/run_validation.py", "run"]
+rerun_prefix = ["uv", "run", "python", "-m", "scenario_harness", "--project", "validation/project.toml", "run"]
 suite_root_environment = "VALIDATION_ROOT"
 reserved_environment = ["CONTAINER_DATA_ROOT", "CONTAINER_SYSTEM_ROOT"]
 
