@@ -3,31 +3,49 @@
 import asyncio
 import importlib
 import inspect
+import logging
+import math
 import shutil
 import sys
+import tempfile
 import traceback
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.logger import UnifiedLogger
+from validation.framework.lifecycle import ExecutionOutcome, RunContext, execute
 
 from .inventory import InventoryError, ScenarioCatalog, describe_scenario
 from .paths import resolve_validation_root
 from .results import ErrorClassification, ScenarioResult, ValidationRun
 
-logger = UnifiedLogger(tag="validation-runner", default_sinks=["validation", "logfire"])
+logger = logging.getLogger("validation-runner")
 
 
 class ValidationRunner:
     """Validation execution engine with scenario-based testing."""
 
-    def __init__(self, validation_root: str | Path | None = None):
+    def __init__(
+        self,
+        validation_root: str | Path | None = None,
+        *,
+        timeout_seconds: float | None = None,
+        cleanup_timeout_seconds: float = 30,
+    ):
+        if timeout_seconds is not None and (
+            timeout_seconds <= 0 or not math.isfinite(timeout_seconds)
+        ):
+            raise InventoryError("Execution timeout must be a finite positive number")
+        if cleanup_timeout_seconds <= 0 or not math.isfinite(cleanup_timeout_seconds):
+            raise InventoryError("Cleanup timeout must be a finite positive number")
         self.validation_root = (
             Path(validation_root) if validation_root else resolve_validation_root()
         )
+        self.timeout_seconds = timeout_seconds
+        self.cleanup_timeout_seconds = cleanup_timeout_seconds
         self.scenarios_dir = self.validation_root / "scenarios"
         self.runs_dir = self.validation_root / "runs"
         self.runs_dir.mkdir(parents=True, exist_ok=True)
@@ -44,87 +62,199 @@ class ValidationRunner:
             scenario_name: Scenario name, may include folder path (e.g., "integration/basic_haiku")
         """
         start_time = datetime.now()
-
-        # Normalize path separators for cross-platform support
         scenario_name = scenario_name.replace("\\", "/")
-
+        scenario_instance = None
+        context = None
         try:
-            # Build file path from scenario name
             scenario_file = self.scenarios_dir / f"{scenario_name}.py"
             if not scenario_file.exists():
                 raise FileNotFoundError(f"Scenario file not found: {scenario_file}")
-
-            # Convert scenario name to module name (e.g., "integration/basic_haiku" -> "validation.scenarios.integration.basic_haiku")
-            module_name = f"validation.scenarios.{scenario_name.replace('/', '.')}"
             definition = describe_scenario(scenario_file, self.scenarios_dir)
-            module = importlib.import_module(module_name)
-
-            from validation.core.base_scenario import BaseScenario
-
-            scenario_class = getattr(module, definition.class_name, None)
-            if not inspect.isclass(scenario_class) or not issubclass(
-                scenario_class, BaseScenario
-            ):
-                raise InventoryError(f"Invalid runtime scenario class: {scenario_name}")
-
-            # Execute the scenario (async support)
-            scenario_instance = scenario_class()
-
-            if asyncio.iscoroutinefunction(scenario_instance.test_scenario):
-                asyncio.run(scenario_instance.test_scenario())
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pass
             else:
-                scenario_instance.test_scenario()
-            if hasattr(scenario_instance, "assert_no_failures"):
+                raise InventoryError(
+                    "The synchronous runner cannot execute inside an active event loop; use the async lifecycle API"
+                )
+            from validation.adapters.assistantmd import AssistantMDAdapter
+
+            directory = Path(
+                tempfile.mkdtemp(
+                    prefix=f"{datetime.now():%Y%m%d_%H%M%S}_{scenario_name.split('/')[-1]}_",
+                    dir=self.runs_dir,
+                )
+            )
+            context = RunContext(directory)
+            adapter = AssistantMDAdapter()
+
+            async def body() -> None:
+                nonlocal scenario_instance
+                # This facade owns asyncio.run's loop and its default executor.
+                # Drain worker threads after application closure, while capture is active.
+                loop = asyncio.get_running_loop()
+                context.defer_cleanup("runner.executor", loop.shutdown_default_executor)
+                module = importlib.import_module(
+                    f"validation.scenarios.{scenario_name.replace('/', '.')}"
+                )
+                from validation.core.base_scenario import BaseScenario
+
+                imported_source = getattr(module, "__file__", None)
+                if (
+                    imported_source is None
+                    or Path(imported_source).resolve() != scenario_file.resolve()
+                ):
+                    raise InventoryError(
+                        f"Imported scenario source differs from selected source: {scenario_file}"
+                    )
+                scenario_class = getattr(module, definition.class_name, None)
+                if not inspect.isclass(scenario_class) or not issubclass(
+                    scenario_class, BaseScenario
+                ):
+                    raise InventoryError(
+                        f"Invalid runtime scenario class: {scenario_name}"
+                    )
+                scenario_instance = scenario_class()
+                value = scenario_instance.test_scenario()
+                if inspect.isawaitable(value):
+                    await value
                 scenario_instance.assert_no_failures()
-            if hasattr(scenario_instance, "mark_scenario_outcome"):
-                scenario_instance.mark_scenario_outcome("passed")
-            if hasattr(scenario_instance, "teardown_scenario"):
-                scenario_instance.teardown_scenario()
 
-            execution_time = (datetime.now() - start_time).total_seconds()
+            def finalize(outcome: ExecutionOutcome) -> None:
+                if scenario_instance is None:
+                    return
+                details = ""
+                if outcome.primary_error is not None:
+                    details = context.redact(
+                        self._format_scenario_error(
+                            outcome.primary_error, scenario_name
+                        )
+                    )
+                elif outcome.cleanup_errors or outcome.evidence_errors:
+                    details = "Validation cleanup or evidence finalization failed"
+                scenario_instance.mark_scenario_outcome(
+                    "passed" if outcome.passed else "failed", details
+                )
 
-            scenario_result = ScenarioResult(
-                scenario_name=scenario_name,
-                status="passed",
-                execution_time=execution_time,
-                evidence_path=str(scenario_instance.run_path),
+            outcome = asyncio.run(
+                execute(
+                    context,
+                    adapter,
+                    body,
+                    timeout_seconds=self.timeout_seconds,
+                    cleanup_timeout_seconds=self.cleanup_timeout_seconds,
+                    finalize=finalize,
+                )
             )
-
-            return scenario_result
-
-        except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            error_msg = self._format_scenario_error(e, scenario_name)
-            stack_trace = traceback.format_exc()
-
-            # Reuse V1 error classification
-            error_classification = self._classify_error(e, scenario_name)
-            evidence_path = str(self.runs_dir)
-            if "scenario_instance" in locals() and hasattr(
-                scenario_instance, "run_path"
-            ):
-                evidence_path = str(scenario_instance.run_path)
-                if hasattr(scenario_instance, "mark_scenario_outcome"):
-                    scenario_instance.mark_scenario_outcome("failed", error_msg)
-                if hasattr(scenario_instance, "teardown_scenario"):
-                    try:
-                        scenario_instance.teardown_scenario()
-                    except Exception:
-                        # Preserve original scenario failure as primary signal.
-                        pass
-
-            scenario_result = ScenarioResult(
+            secondary = [
+                asdict(error)
+                for error in (*outcome.cleanup_errors, *outcome.evidence_errors)
+            ]
+            primary = outcome.primary_error
+            if primary is None and outcome.timed_out:
+                primary = TimeoutError(
+                    "Validation execution or cleanup exceeded its deadline"
+                )
+            if primary is None and secondary:
+                primary = RuntimeError(
+                    "Validation lifecycle did not complete: " + secondary[0]["message"]
+                )
+            classification = None
+            error_msg = None
+            stack_trace = None
+            if primary is not None:
+                classification = self._classify_error(primary, scenario_name)
+                if (
+                    outcome.primary_phase == "setup"
+                    or outcome.primary_error is None
+                    or outcome.cancelled
+                    or outcome.timed_out
+                ):
+                    classification = self._classify_error(
+                        InventoryError(str(primary)), scenario_name
+                    )
+                error_msg = context.redact(
+                    self._format_scenario_error(primary, scenario_name)
+                )
+                stack_trace = context.redact(
+                    "".join(traceback.format_exception(primary))
+                )
+            status = (
+                "passed"
+                if outcome.passed
+                else classification.status if classification else "framework_error"
+            )
+            return ScenarioResult(
                 scenario_name=scenario_name,
-                status=error_classification.status,
-                execution_time=execution_time,
-                evidence_path=evidence_path,
+                status=status,
+                execution_time=(datetime.now() - start_time).total_seconds(),
                 error_message=error_msg,
-                error_classification=error_classification,
+                error_classification=classification,
+                evidence_path=str(directory),
                 stack_trace=stack_trace,
+                execution_phase=outcome.primary_phase
+                or (
+                    "cleanup"
+                    if outcome.cleanup_errors
+                    else "evidence" if outcome.evidence_errors else None
+                ),
+                lifecycle_errors=secondary,
+                timed_out=outcome.timed_out,
+                interrupted=outcome.cancelled
+                or isinstance(outcome.primary_error, SystemExit),
             )
-            return scenario_result
+        except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+            closing_errors = self._close_unmanaged_context(context)
+            return ScenarioResult(
+                scenario_name,
+                "framework_error",
+                (datetime.now() - start_time).total_seconds(),
+                error_message="Validation interrupted before lifecycle completion",
+                evidence_path=str(context.root if context else self.runs_dir),
+                execution_phase="interrupted",
+                interrupted=True,
+                lifecycle_errors=closing_errors,
+            )
+        except Exception as error:
+            closing_errors = self._close_unmanaged_context(context)
+            classification = self._classify_error(error, scenario_name)
+            message = self._format_scenario_error(error, scenario_name)
+            trace = traceback.format_exc()
+            return ScenarioResult(
+                scenario_name=scenario_name,
+                status=classification.status,
+                execution_time=(datetime.now() - start_time).total_seconds(),
+                error_message=context.redact(message) if context else message,
+                error_classification=classification,
+                lifecycle_errors=closing_errors,
+                evidence_path=str(context.root if context else self.runs_dir),
+                stack_trace=context.redact(trace) if context else trace,
+            )
 
-    def _format_scenario_error(self, exception: Exception, scenario_name: str) -> str:
+    @staticmethod
+    def _close_unmanaged_context(context: RunContext | None) -> list[dict[str, str]]:
+        if context is None or context.closed:
+            return []
+        try:
+            context.close()
+        except BaseException as error:
+            return [
+                {
+                    "phase": "evidence",
+                    "name": "unmanaged_close",
+                    "exception_type": type(error).__name__,
+                    "message": context.redact(str(error)),
+                    "traceback": context.redact(
+                        "".join(traceback.format_exception(error))
+                    ),
+                }
+            ]
+        return []
+
+    def _format_scenario_error(
+        self, exception: BaseException, scenario_name: str
+    ) -> str:
         """Build a concise, actionable error message for scenario failures."""
         exc_type = type(exception).__name__
         exc_text = str(exception).strip()
@@ -172,9 +302,9 @@ class ValidationRunner:
         return "\n".join(lines)
 
     def _classify_error(
-        self, exception: Exception, scenario_name: str
+        self, exception: BaseException, scenario_name: str
     ) -> ErrorClassification:
-        """Classify errors using V1 logic."""
+        """Classify scenario and infrastructure failures for reports."""
         exception_type = type(exception).__name__
 
         if exception_type in ["AssertionError"]:
@@ -281,26 +411,56 @@ class ValidationRunner:
         *,
         requested_scenarios: list[str] | None = None,
     ) -> ValidationRun:
-        """Run V2 validation scenarios."""
+        """Execute the selection and preserve terminal accounting on interruption."""
         run_start = datetime.now()
         run_id = run_start.strftime("%Y%m%d_%H%M%S_%f")
 
-        # Clean up old runs before starting new ones (keep 9 + 1 new = 10 total)
-        self._cleanup_old_runs(keep_count=9)
-
-        # Discover scenarios if not specified
         if scenario_names is None:
             scenario_names = self.discover_scenarios()
-
         if not scenario_names:
-            logger.warning("No scenarios found to execute")
+            raise InventoryError("No scenarios selected to execute")
 
-        # Execute scenarios sequentially
         scenario_results = []
-        for scenario_name in scenario_names:
-            logger.info(f"Executing scenario: {scenario_name}")
-            result = self.execute_scenario(scenario_name)
-            scenario_results.append(result)
+        interrupted = False
+        active_index = None
+        try:
+            # Retention only runs after a non-empty selection is established.
+            self._cleanup_old_runs(keep_count=9)
+            for index, scenario_name in enumerate(scenario_names):
+                active_index = index
+                logger.info(f"Executing scenario: {scenario_name}")
+                result = self.execute_scenario(scenario_name)
+                scenario_results.append(result)
+                active_index = None
+                if result.interrupted:
+                    interrupted = True
+                    break
+        except (KeyboardInterrupt, SystemExit, asyncio.CancelledError) as error:
+            interrupted = True
+            if active_index is not None and len(scenario_results) == active_index:
+                scenario_results.append(
+                    ScenarioResult(
+                        scenario_names[len(scenario_results)],
+                        "framework_error",
+                        0,
+                        error_message=f"Validation interrupted: {type(error).__name__}",
+                        execution_phase="execution",
+                        interrupted=True,
+                    )
+                )
+
+        if interrupted:
+            for scenario_name in scenario_names[len(scenario_results) :]:
+                scenario_results.append(
+                    ScenarioResult(
+                        scenario_name,
+                        "framework_error",
+                        0,
+                        error_message="Not started because validation was interrupted",
+                        execution_phase="not_started",
+                        interrupted=True,
+                    )
+                )
 
         # Calculate statistics
         run_end = datetime.now()
@@ -323,7 +483,10 @@ class ValidationRunner:
             error_scenarios=errors,
             success_rate=success_rate,
             scenario_results=scenario_results,
-            requested_scenarios=list(requested_scenarios or scenario_names),
+            requested_scenarios=list(
+                scenario_names if requested_scenarios is None else requested_scenarios
+            ),
+            interrupted=interrupted,
             expanded_scenarios=list(scenario_names),
         )
 

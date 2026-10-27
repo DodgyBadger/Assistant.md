@@ -9,8 +9,17 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator, Iterable, Iterator, Mapping, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -63,6 +72,105 @@ _NOISY_LOGFIRE_MESSAGES = frozenset(
 _NOISY_PYDANTIC_SCHEMAS = frozenset({"nullable", "union"})
 ACTIVITY_LOG_RETENTION_DAYS = DEFAULT_RETENTION_DAYS
 ACTIVITY_LOG_MAX_TOTAL_BYTES = DEFAULT_MAX_TOTAL_BYTES
+
+
+@dataclass
+class _ValidationCapture:
+    artifacts_dir: Path
+    sink: Callable[[dict[str, Any]], None] | None
+    projector: Callable[[dict[str, Any]], dict[str, Any]] | None
+    handlers: list[logging.Handler] = field(default_factory=list)
+    borrowed_logger: logging.Logger | None = None
+    borrowed_path: Path | None = None
+    borrowed_handlers: list[logging.Handler] = field(default_factory=list)
+
+
+_validation_capture: ContextVar[_ValidationCapture | None] = ContextVar(
+    "assistantmd_validation_capture", default=None
+)
+_capture_registry_lock = Lock()
+_capture_registry: dict[Path, _ValidationCapture] = {}
+
+
+def _active_validation_capture() -> _ValidationCapture | None:
+    """Resolve capture for this context or its exclusively owned runtime root."""
+    local = _validation_capture.get()
+    if local is not None:
+        with _capture_registry_lock:
+            if _capture_registry.get(local.artifacts_dir.resolve()) is local:
+                return local
+        return None
+    features = _validation_features()
+    artifacts = features.get("validation_artifacts_dir")
+    try:
+        if artifacts:
+            candidates = [Path(artifacts).resolve()]
+        else:
+            root = Path(get_system_root()).resolve()
+            candidates = [parent / "artifacts" for parent in root.parents]
+    except Exception:
+        candidates = []
+    with _capture_registry_lock:
+        matched = next(
+            (
+                _capture_registry[path]
+                for path in candidates
+                if path in _capture_registry
+            ),
+            None,
+        )
+        if matched is not None:
+            return matched
+        if len(_capture_registry) == 1:
+            return next(iter(_capture_registry.values()))
+        return None
+
+
+@contextmanager
+def capture_validation_events(
+    artifacts_dir: Path,
+    *,
+    sink: Callable[[dict[str, Any]], None] | None = None,
+    projector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+) -> Iterator[None]:
+    """Capture validation events for the current execution context."""
+    global _activity_logger, _activity_log_path
+    capture = _ValidationCapture(Path(artifacts_dir).resolve(), sink, projector)
+    with _activity_logger_lock:
+        capture.borrowed_logger = _activity_logger
+        capture.borrowed_path = _activity_log_path
+        if _activity_logger is not None:
+            capture.borrowed_handlers = [
+                handler
+                for handler in _activity_logger.handlers
+                if isinstance(handler, _BoundedTimedActivityHandler)
+            ]
+    with _capture_registry_lock:
+        if capture.artifacts_dir in _capture_registry:
+            raise RuntimeError(
+                "Validation capture is already active for this artifact directory"
+            )
+        _capture_registry[capture.artifacts_dir] = capture
+    token = _validation_capture.set(capture)
+    try:
+        yield
+    finally:
+        _validation_capture.reset(token)
+        with _capture_registry_lock:
+            if _capture_registry.get(capture.artifacts_dir) is capture:
+                del _capture_registry[capture.artifacts_dir]
+        with _activity_logger_lock:
+            logger = logging.getLogger("project_assistant.activity")
+            for handler in capture.handlers:
+                if handler in logger.handlers:
+                    logger.removeHandler(handler)
+                handler.close()
+            if capture.borrowed_logger is not None:
+                for handler in capture.borrowed_handlers:
+                    if handler not in capture.borrowed_logger.handlers:
+                        capture.borrowed_logger.addHandler(handler)
+            _activity_logger = capture.borrowed_logger
+            _activity_log_path = capture.borrowed_path
 
 
 class _BoundedTimedActivityHandler(TimedRotatingFileHandler):
@@ -222,6 +330,29 @@ def refresh_logfire_configuration(force: bool = False) -> None:
     _logfire_config_state = desired_state
 
 
+def close_activity_log_for_root(system_root: Path) -> None:
+    """Close the application-owned activity handler for one system root."""
+    global _activity_logger, _activity_log_path
+
+    target = (Path(system_root) / "activity.log").resolve()
+    capture = _active_validation_capture()
+    with _activity_logger_lock:
+        if _activity_logger is None or _activity_log_path is None:
+            return
+        if _activity_log_path.resolve() != target:
+            return
+        for handler in list(_activity_logger.handlers):
+            if (
+                isinstance(handler, _BoundedTimedActivityHandler)
+                and Path(handler.baseFilename).resolve() == target
+            ):
+                _activity_logger.removeHandler(handler)
+                if capture is None or handler not in capture.borrowed_handlers:
+                    handler.close()
+        _activity_logger = None
+        _activity_log_path = None
+
+
 def _ensure_activity_logger() -> logging.Logger:
     """Create or return the process-wide activity logger."""
 
@@ -229,6 +360,7 @@ def _ensure_activity_logger() -> logging.Logger:
     global _activity_log_path
 
     desired_path = _resolve_activity_log_path()
+    capture = _active_validation_capture()
 
     if _activity_logger and _activity_log_path == desired_path:
         return _activity_logger
@@ -240,8 +372,10 @@ def _ensure_activity_logger() -> logging.Logger:
         # Tear down existing logger if the target path changes between runs
         if _activity_logger and _activity_log_path != desired_path:
             for handler in list(_activity_logger.handlers):
-                _activity_logger.removeHandler(handler)
-                handler.close()
+                if isinstance(handler, _BoundedTimedActivityHandler):
+                    _activity_logger.removeHandler(handler)
+                    if capture is None or handler not in capture.borrowed_handlers:
+                        handler.close()
             _activity_logger = None
 
         log_path = desired_path
@@ -262,9 +396,9 @@ def _ensure_activity_logger() -> logging.Logger:
         logger.setLevel(logging.INFO)
         logger.propagate = False
 
-        # Avoid duplicate handlers if logger already configured externally
-        if not logger.handlers:
-            logger.addHandler(handler)
+        logger.addHandler(handler)
+        if capture is not None:
+            capture.handlers.append(handler)
 
         _activity_logger = logger
         _activity_log_path = log_path
@@ -293,7 +427,9 @@ def _validation_features() -> dict[str, Any]:
 
 def _validation_enabled() -> bool:
     """Return True when the runtime is in validation mode."""
-    return bool(_validation_features().get("validation"))
+    return _active_validation_capture() is not None or bool(
+        _validation_features().get("validation")
+    )
 
 
 def _warnings_deduped() -> bool:
@@ -306,6 +442,10 @@ def _resolve_validation_artifact_dir() -> Path | None:
     """Resolve the validation artifact directory for validation-only logging."""
     if not _validation_enabled():
         return None
+
+    capture = _active_validation_capture()
+    if capture is not None:
+        return capture.artifacts_dir / "validation_events"
 
     features = _validation_features()
     artifacts_dir = features.get("validation_artifacts_dir")
@@ -326,6 +466,9 @@ def _write_validation_record(record: dict[str, Any]) -> None:
     directory = _resolve_validation_artifact_dir()
     if directory is None:
         return
+    capture = _active_validation_capture()
+    if capture is not None and capture.projector is not None:
+        record = capture.projector(record)
 
     with _validation_log_lock:
         global _validation_event_counter
@@ -349,6 +492,8 @@ def _write_validation_record(record: dict[str, Any]) -> None:
         payload = yaml.safe_dump(record, allow_unicode=False, sort_keys=False)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(payload)
+    if capture is not None and capture.sink is not None:
+        capture.sink(record)
 
 
 def _sanitize_validation_name(value: str) -> str:
@@ -605,10 +750,29 @@ class UnifiedLogger:
         if boot_id is not None:
             record["boot_id"] = boot_id
 
+        capture = _active_validation_capture()
+        tag = self.tag
+        if capture is not None and capture.projector is not None:
+            record = capture.projector(record)
+            projected_tag = record.get("tag")
+            projected_message = record.get("message")
+            projected_data = record.get("data")
+            if not isinstance(projected_tag, str) or not isinstance(
+                projected_message, str
+            ):
+                raise ValueError(
+                    "Validation projection must preserve string tag and message"
+                )
+            if projected_data is not None and not isinstance(projected_data, dict):
+                raise ValueError("Validation projection must preserve object data")
+            tag = projected_tag
+            message = projected_message
+            payload = projected_data if projected_data is not None else {}
+
         if level == "warning" and _warnings_deduped():
             raw_issue = payload.get("issue")
             issue = str(raw_issue) if raw_issue is not None else None
-            dedupe_key = (self.tag, message, issue)
+            dedupe_key = (tag, message, issue)
             with _warning_dedupe_lock:
                 global _warning_dedupe_boot_id
                 global _warning_dedupe_keys
@@ -623,10 +787,10 @@ class UnifiedLogger:
             _emit_activity_record(record)
 
         if "validation" in resolved_sinks:
-            _emit_validation_record(self.tag, message, level, payload)
+            _emit_validation_record(tag, message, level, payload)
 
         if "logfire" in resolved_sinks:
-            _emit_logfire_record(self._logfire, level, message, self.tag, payload)
+            _emit_logfire_record(self._logfire, level, message, tag, payload)
 
     # Instrumentation Setup
 

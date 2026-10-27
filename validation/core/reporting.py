@@ -68,6 +68,16 @@ def _render_failure(result: ScenarioResult) -> list[str]:
         f"{symbol} {result.scenario_name} — {label} ({result.execution_time:.2f}s)",
         f"   Cause: {_error_summary(result)}",
     ]
+    if result.execution_phase:
+        lines.append(f"   Phase: {result.execution_phase}")
+    if result.timed_out:
+        lines.append("   Timed out: yes")
+    if result.interrupted:
+        lines.append("   Interrupted: yes")
+    for error in result.lifecycle_errors:
+        lines.append(
+            f"   Lifecycle error ({error.get('phase', 'unknown')}): {error.get('message', '')}"
+        )
     location = _failure_location(result)
     if location:
         lines.append(f"   Location: {location}")
@@ -160,6 +170,16 @@ def render_markdown_report(validation_run: ValidationRun) -> str:
                     f"- Duration: {result.execution_time:.2f}s",
                 ]
             )
+            if result.execution_phase:
+                lines.append(f"- Phase: {result.execution_phase}")
+            if result.timed_out:
+                lines.append("- Timed out: yes")
+            if result.interrupted:
+                lines.append("- Interrupted: yes")
+            for error in result.lifecycle_errors:
+                lines.append(
+                    f"- Lifecycle error ({error.get('phase', 'unknown')}): {error.get('message', '')}"
+                )
             location = _failure_location(result)
             if location:
                 lines.append(f"- Location: `{location}`")

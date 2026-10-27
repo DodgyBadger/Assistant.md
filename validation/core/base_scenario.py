@@ -25,6 +25,8 @@ from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.logger import UnifiedLogger
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
+from validation.adapters.assistantmd import AssistantMDAdapter
+from validation.framework.lifecycle import current_run_context
 
 from .api_client import APIClient, APIResponse
 from .paths import resolve_validation_root
@@ -86,8 +88,11 @@ class BaseScenario(ABC):
 
         # Create run directory for this scenario
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        context = current_run_context()
         self.run_path = (
-            resolve_validation_root()
+            context.root
+            if context is not None
+            else resolve_validation_root()
             / "runs"
             / f"{timestamp}_{self.scenario_name.lower()}"
         )
@@ -109,6 +114,14 @@ class BaseScenario(ABC):
         self._api_client = None
         self._soft_failures: list[dict[str, str]] = []
         self._teardown_completed = False
+        self._adapter = (
+            context.application
+            if context is not None
+            and isinstance(context.application, AssistantMDAdapter)
+            else None
+        )
+        if self._adapter is not None:
+            self._adapter.attach_scenario(self)
 
     # === ABSTRACT METHOD ===
 
@@ -218,7 +231,8 @@ class BaseScenario(ABC):
     async def stop_system(self):
         """Stop the system gracefully."""
         self._log_timeline("Stopping AssistantMD system")
-        await self._get_system_controller().stop_system()
+        if self._system_controller is not None:
+            await self._system_controller.stop_system()
 
     async def restart_system(self):
         """Full system restart cycle."""
@@ -355,7 +369,11 @@ class BaseScenario(ABC):
         if not events_dir.exists():
             return events
 
-        for path in sorted(events_dir.glob("*.yaml")):
+        # File identifiers include boot counters, so lexical order changes on restart.
+        # Immutable records are consumed in publication order for checkpoint slicing.
+        for path in sorted(
+            events_dir.glob("*.yaml"), key=lambda item: item.stat().st_mtime_ns
+        ):
             events.append(self.load_yaml(path) or {})
 
         return events
@@ -725,13 +743,20 @@ class BaseScenario(ABC):
     def _log_timeline(self, message: str):
         """Log action to timeline."""
         timestamp = datetime.now().strftime("%H:%M:%S")
+        context = current_run_context()
+        if context is not None:
+            message = context.redact(message)
         with open(self.timeline_file, "a") as f:
             f.write(f"**{timestamp}**: {message}\n")
 
     def _save_system_interactions(self):
         """Save system interaction logs."""
         if self._api_client:
-            self._api_client.save_interaction_log(self.system_interactions_file)
+            context = current_run_context()
+            self._api_client.save_interaction_log(
+                self.system_interactions_file,
+                projector=context.redact if context else None,
+            )
 
     def load_yaml(self, path: Path):
         """Load YAML content from a file."""
@@ -774,7 +799,12 @@ class BaseScenario(ABC):
     def _get_system_controller(self):
         """Lazy load system controller."""
         if not self._system_controller:
-            self._system_controller = SystemController(self.run_path)
+            self._system_controller = (
+                self._adapter.create_controller(self)
+                if self._adapter is not None
+                else SystemController(self.run_path)
+            )
+            self._system_controller.prepare()
         return self._system_controller
 
     def _get_time_controller(self):

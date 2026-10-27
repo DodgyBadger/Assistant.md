@@ -7,6 +7,8 @@ that the validation runtime bootstraps.
 """
 
 import json
+from collections.abc import Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +17,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from core.logger import UnifiedLogger
+from validation.framework.lifecycle import current_run_context
 
 
 @dataclass
@@ -27,6 +30,48 @@ class APIResponse:
 
     def json(self) -> dict:
         return self.data or {}
+
+
+_CREDENTIAL_FIELDS = frozenset({"access_token", "refresh_token", "client_secret"})
+
+
+def _register_credentials(value: Any) -> None:
+    """Register explicitly named credentials without treating ordinary values as secrets."""
+    context = current_run_context()
+    if context is None:
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if key in _CREDENTIAL_FIELDS and isinstance(item, str):
+                context.register_secret(item)
+            _register_credentials(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            _register_credentials(item)
+
+
+def _register_request_credentials(
+    endpoint: str, data: dict | None, params: dict | None
+) -> None:
+    context = current_run_context()
+    if context is None:
+        return
+    _register_credentials(data)
+    _register_credentials(params)
+    path = endpoint.split("?", 1)[0].rstrip("/")
+    key = (
+        "value"
+        if path == "/api/system/secrets"
+        else (
+            "owner_token"
+            if path == "/auth/session"
+            else "code" if "/oauth/complete" in path else None
+        )
+    )
+    if key is not None:
+        for source in (data, params):
+            if source is not None and isinstance(source.get(key), str):
+                context.register_secret(source[key])
 
 
 class APIClient:
@@ -53,6 +98,7 @@ class APIClient:
     ) -> APIResponse:
         """Call AssistantMD API endpoint through FastAPI TestClient."""
         method = method.upper()
+        _register_request_credentials(endpoint, data, params)
         interaction = {
             "timestamp": datetime.now().isoformat(),
             "method": method,
@@ -84,6 +130,7 @@ class APIClient:
             except ValueError:
                 payload = None
 
+            _register_credentials(payload)
             interaction["status_code"] = response.status_code
             if payload is not None:
                 interaction["response"] = payload
@@ -96,14 +143,21 @@ class APIClient:
             text=text,
         )
 
-    def save_interaction_log(self, log_file: Path):
+    def save_interaction_log(
+        self,
+        log_file: Path,
+        projector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    ) -> None:
         """Save all API and CLI interactions to single log file."""
         with open(log_file, "w") as handle:
             handle.write("# System Interactions Log\n\n")
 
             if self.api_calls:
                 handle.write("## API Calls\n\n")
-                for call in self.api_calls:
+                for original_call in self.api_calls:
+                    call = deepcopy(original_call)
+                    if projector is not None:
+                        call = projector(call)
                     timestamp = call["timestamp"]
                     method = call["method"]
                     endpoint = call["endpoint"]

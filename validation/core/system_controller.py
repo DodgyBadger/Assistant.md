@@ -24,8 +24,17 @@ from core.authoring.template_discovery import discover_vaults
 from core.logger import UnifiedLogger
 from core.runtime.bootstrap import bootstrap_runtime
 from core.runtime.config import RuntimeConfig
-from core.runtime.paths import set_bootstrap_roots
-from core.runtime.state import clear_runtime_context
+from core.runtime.paths import (
+    BootstrapRoots,
+    restore_bootstrap_roots,
+    set_bootstrap_roots,
+    snapshot_bootstrap_roots,
+)
+from core.runtime.state import (
+    clear_runtime_context,
+    get_runtime_context,
+    has_runtime_context,
+)
 from core.secrets import reset_secrets_bootstrap_status
 from core.secrets.crypto import SECRET_KEY_ENV
 from core.settings import AppSettings
@@ -44,7 +53,7 @@ class SchedulerJobInfo:
 class SystemController:
     """Controls AssistantMD system lifecycle for validation."""
 
-    def __init__(self, run_path: Path):
+    def __init__(self, run_path: Path, *, secret_key: str | None = None) -> None:
         self.run_path = run_path
         self.logger = UnifiedLogger(
             tag="system-controller",
@@ -55,20 +64,17 @@ class SystemController:
 
         # Test data root for scheduler jobs
         self.test_data_root = str(self.run_path / "test_vaults")
-        Path(self.test_data_root).mkdir(parents=True, exist_ok=True)
-
         self._system_root = self.run_path / "system"
-        self._system_root.mkdir(parents=True, exist_ok=True)
-
-        # Make bootstrap roots available before runtime is started
-        set_bootstrap_roots(Path(self.test_data_root), self._system_root)
-        self._seed_validation_settings()
-
-        self._original_secret_key = os.environ.get(SECRET_KEY_ENV)
+        self._original_secret_key: str | None = None
+        self._original_roots: BootstrapRoots | None = None
+        self._original_datetime: Any = None
+        self._prepared = False
+        self._acquiring = False
         self._validation_secret_key = (
-            base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+            secret_key
+            if secret_key is not None
+            else base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
         )
-        os.environ[SECRET_KEY_ENV] = self._validation_secret_key
 
         # Store current date for restoration
         self._current_test_date = None
@@ -85,8 +91,38 @@ class SystemController:
         self._pending_jobs: dict[str, asyncio.Future] = {}
 
         # FastAPI app + test client mirroring production router
-        self._api_app = self._create_api_app()
-        self._api_client = TestClient(self._api_app)
+        self._api_app: FastAPI | None = None
+        self._api_client: TestClient | None = None
+
+    def prepare(self) -> None:
+        """Acquire isolated roots, secrets and the shared API client."""
+        if self._prepared:
+            return
+        if self._acquiring:
+            raise RuntimeError(
+                "Validation preparation failed; close controller before retrying"
+            )
+        if has_runtime_context():
+            raise RuntimeError(
+                "Cannot prepare validation while another runtime is active"
+            )
+        self._original_roots = snapshot_bootstrap_roots()
+        self._original_secret_key = os.environ.get(SECRET_KEY_ENV)
+        self._original_datetime = authoring_host_module.datetime
+        self._acquiring = True
+        Path(self.test_data_root).mkdir(parents=True, exist_ok=True)
+        self._system_root.mkdir(parents=True, exist_ok=True)
+        set_bootstrap_roots(Path(self.test_data_root), self._system_root)
+        self._seed_validation_settings()
+        from core.llm.model_utils import refresh_model_cache
+
+        refresh_model_cache()
+        os.environ[SECRET_KEY_ENV] = self._validation_secret_key
+        if self._api_app is None:
+            self._api_app = self._create_api_app()
+        if self._api_client is None:
+            self._api_client = TestClient(self._api_app)
+        self._prepared = True
 
     def _seed_validation_settings(self) -> None:
         """Seed validation settings with the deterministic model provider."""
@@ -110,20 +146,23 @@ class SystemController:
         """Start real system components with test data isolation using runtime bootstrap."""
         if self.is_running:
             return
-
-        os.environ[SECRET_KEY_ENV] = self._validation_secret_key
-        # Clear any existing runtime context for test isolation
-        clear_runtime_context()
-        reset_secrets_bootstrap_status()
-
+        bootstrapping = False
         try:
+            self.prepare()
+            if has_runtime_context():
+                raise RuntimeError(
+                    "Cannot start validation while another runtime is active"
+                )
+            reset_secrets_bootstrap_status()
             # Create runtime configuration for validation
             config = RuntimeConfig.for_validation(
                 run_path=self.run_path, test_data_root=Path(self.test_data_root)
             )
 
             # Bootstrap runtime services with test configuration
+            bootstrapping = True
             self._runtime = await bootstrap_runtime(config)
+            bootstrapping = False
             if self._context_manager_now is not None:
                 self._runtime.config.features["context_manager_now"] = (
                     self._context_manager_now.isoformat()
@@ -152,47 +191,68 @@ class SystemController:
             }
 
             self.is_running = True
+            assert self._api_app is not None
             self._api_app.state.runtime = self._runtime
 
-        except Exception as e:
-            self.logger.error(f"System startup failed: {str(e)}")
-            if self._runtime:
-                await self._runtime.shutdown()
-                self._runtime = None
-            clear_runtime_context()
+        except BaseException as e:
+            if bootstrapping and self._runtime is None and has_runtime_context():
+                self._runtime = get_runtime_context()
+            try:
+                await self.stop_system()
+            except BaseException as cleanup_error:
+                e.add_note(
+                    f"Validation startup cleanup failed: {type(cleanup_error).__name__}"
+                )
             raise
 
     async def stop_system(self):
         """Stop the system gracefully using runtime context."""
-        if not self.is_running:
-            return
-
-        # Restore original datetime module
-        if self._current_test_date:
-            authoring_host_module.datetime = dt_module.datetime
-            self._current_test_date = None
-
-        # Stop runtime services
-        if self._runtime:
-            await self._runtime.shutdown()
+        runtime = self._runtime
+        try:
+            if runtime is not None:
+                await runtime.shutdown()
+        finally:
             self._runtime = None
+            if (
+                runtime is not None
+                and has_runtime_context()
+                and get_runtime_context() is runtime
+            ):
+                clear_runtime_context()
+            if self._acquiring:
+                if not has_runtime_context():
+                    reset_secrets_bootstrap_status()
+                authoring_host_module.datetime = self._original_datetime
+                self._current_test_date = None
+                if self._original_secret_key is None:
+                    os.environ.pop(SECRET_KEY_ENV, None)
+                else:
+                    os.environ[SECRET_KEY_ENV] = self._original_secret_key
+                assert self._original_roots is not None
+                restore_bootstrap_roots(self._original_roots)
+                self._prepared = False
+                self._acquiring = False
+            if self._api_app is not None:
+                self._api_app.state.runtime = None
+            for future in self._pending_jobs.values():
+                if not future.done():
+                    future.cancel()
+            self._pending_jobs.clear()
+            self.is_running = False
+            if self._process:
+                process, self._process = self._process, None
+                process.terminate()
+                process.wait(timeout=10)
 
-        # Clear runtime context for test isolation
-        clear_runtime_context()
-        reset_secrets_bootstrap_status()
-        self._api_app.state.runtime = None
-
-        if self._process:
-            self._process.terminate()
-            self._process.wait(timeout=10)
-            self._process = None
-
-        self.is_running = False
-
-        if self._original_secret_key is None:
-            os.environ.pop(SECRET_KEY_ENV, None)
-        else:
-            os.environ[SECRET_KEY_ENV] = self._original_secret_key
+    async def close(self) -> None:
+        """Release all controller resources, including its owned test client."""
+        try:
+            await self.stop_system()
+        finally:
+            if self._api_client is not None:
+                self._api_client.close()
+                self._api_client = None
+            self._api_app = None
 
     def set_context_manager_now(self, value: datetime | None) -> None:
         """Override cache clock used by context manager in validation runs."""
@@ -261,6 +321,8 @@ class SystemController:
 
     def get_api_test_client(self) -> TestClient:
         """Expose shared FastAPI TestClient matching production routing."""
+        self.prepare()
+        assert self._api_client is not None
         return self._api_client
 
     def get_job_property(self, global_id: str, property_name: str):
@@ -423,6 +485,7 @@ class SystemController:
 
     def set_test_date(self, test_date):
         """Set test date for scheduled job execution."""
+        self.prepare()
         self._current_test_date = test_date
 
         # Apply datetime monkey patch for scheduled jobs

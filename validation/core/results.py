@@ -47,6 +47,10 @@ class ScenarioResult:
     error_classification: ErrorClassification | None = None
     evidence_path: str | None = None
     stack_trace: str | None = None
+    execution_phase: str | None = None
+    lifecycle_errors: list[dict[str, str]] = field(default_factory=list)
+    timed_out: bool = False
+    interrupted: bool = False
 
     @property
     def passed(self) -> bool:
@@ -67,6 +71,10 @@ class ScenarioResult:
             ),
             "evidence_path": self.evidence_path,
             "stack_trace": self.stack_trace,
+            "execution_phase": self.execution_phase,
+            "lifecycle_errors": self.lifecycle_errors,
+            "timed_out": self.timed_out,
+            "interrupted": self.interrupted,
         }
 
 
@@ -85,6 +93,7 @@ class ValidationRun:
     scenario_results: list[ScenarioResult] = field(default_factory=list)
     requested_scenarios: list[str] = field(default_factory=list)
     expanded_scenarios: list[str] = field(default_factory=list)
+    interrupted: bool = False
 
     @property
     def non_passing_results(self) -> list[ScenarioResult]:
@@ -109,6 +118,7 @@ class ValidationRun:
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat(),
             "status": self.status,
+            "interrupted": self.interrupted,
             "total_scenarios": self.total_scenarios,
             "passed_scenarios": self.passed_scenarios,
             "failed_scenarios": self.failed_scenarios,

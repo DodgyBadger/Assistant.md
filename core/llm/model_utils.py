@@ -91,6 +91,26 @@ def refresh_model_cache() -> None:
         _refresh_model_cache_unlocked()
 
 
+def capture_model_cache() -> ModelCache:
+    """Capture the current cache generation without loading configuration."""
+    with _MODEL_CACHE_LOCK:
+        return _MODEL_CACHE
+
+
+def restore_model_cache(snapshot: ModelCache) -> None:
+    """Restore a captured cache generation without reading runtime state."""
+    global _MODEL_CACHE
+    with _MODEL_CACHE_LOCK:
+        _MODEL_CACHE = snapshot
+
+
+def invalidate_model_cache() -> None:
+    """Discard mappings until the next explicit cache refresh."""
+    global _MODEL_CACHE
+    with _MODEL_CACHE_LOCK:
+        _MODEL_CACHE = ModelCache(build_model_registry({}), {}, {}, {})
+
+
 # Initialise cache on import so that lookups work immediately.
 _refresh_model_cache_unlocked()
 

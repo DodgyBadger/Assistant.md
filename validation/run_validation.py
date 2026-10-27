@@ -79,21 +79,13 @@ def run_scenarios(args):
     if preflight.issues:
         raise InventoryError("\n".join(preflight.issues))
 
-    # Execution keeps the existing application bootstrap boundary. Collection and
-    # inventory intentionally do not import or initialize the application.
-    from core.runtime.paths import set_bootstrap_roots
-    from validation.core.paths import (
-        resolve_validation_data_root,
-        resolve_validation_system_root,
-    )
-
-    set_bootstrap_roots(
-        resolve_validation_data_root(), resolve_validation_system_root()
-    )
     from validation.core.reporting import render_terminal_summary, write_run_reports
     from validation.core.runner import ValidationRunner
 
-    runner = ValidationRunner()
+    runner = ValidationRunner(
+        timeout_seconds=args.timeout,
+        cleanup_timeout_seconds=args.cleanup_timeout,
+    )
 
     # Expand folder paths to individual scenarios
     scenario_names = expand_scenario_paths(runner, args.scenarios, allow_unmatched=True)
@@ -128,11 +120,15 @@ def run_scenarios(args):
 
     # Exit with appropriate code
     sys.exit(
-        0
-        if validation_run.failed_scenarios == 0
-        and validation_run.error_scenarios == 0
-        and reporting_error is None
-        else 1
+        130
+        if validation_run.interrupted
+        else (
+            0
+            if validation_run.failed_scenarios == 0
+            and validation_run.error_scenarios == 0
+            and reporting_error is None
+            else 1
+        )
     )
 
 
@@ -252,6 +248,19 @@ Features:
     )
 
     # List command
+    run_parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="Optional async setup/execution deadline in seconds",
+    )
+    run_parser.add_argument(
+        "--cleanup-timeout",
+        type=float,
+        default=30,
+        help="Async cleanup deadline in seconds",
+    )
+
     list_parser = subparsers.add_parser("list", help="List available scenarios")
     list_parser.add_argument(
         "patterns",
