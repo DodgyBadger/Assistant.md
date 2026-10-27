@@ -564,3 +564,9 @@ The focused nine-scenario CLI run passed (`/tmp/test-cleanup-validation-layout.l
 Local replay data remains a deliberate persistent-data exception, not unreviewed disposable artifacts. Remaining work includes legacy coverage/admission, draft execution and consumer configuration, packaging and separate-repository extraction before any push, CI activation after main bootstrap, and the deferred browser capability. Final documentation and root-plan disposition require exact drafts and explicit approval before protected-document edits or merge preparation.
 
 A final read-only comparison also verified all 46 relocated legacy/manual source files: Python ASTs match after only the declared import, path-string and project-root-depth changes; the three CJS files match after only the static-root path adjustment. No additional assertion differences were found. Final documentation drafts and root-plan disposition remain pending explicit approval.
+
+## Experimental data removal
+
+The user identified `validation/data` as disposable session-memory experiment material and authorized its deletion. Removed the ignored directory containing 21 JSON/SQLite files (159,543,021 bytes). No tracked fixtures, application data/system roots or validation runs were removed. The earlier local replay-data exception is resolved.
+
+`validation/infrastructure` currently contains the npm audit policy checks. The security-audit job explicitly executes `node --test validation/infrastructure/test_npm_audit_policy.cjs`; the checks protect exception scope, severity escalation, runtime dependencies, expiry and failed/malformed audit handling. Retain this active CI coverage. The folder is application-repository infrastructure, outside the reusable package. No infrastructure test or workflow was changed by this inspection. Protected documentation and root-plan disposition remain pending explicit review.
