@@ -9,7 +9,7 @@ from core.vault_state.file_operations import (
     delete_vault_path_operation,
     list_vault_paths_operation,
 )
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class FileWriteDirectoryDeleteScenario(BaseScenario):

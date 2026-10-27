@@ -28,7 +28,7 @@ from core.memory.session_map.models import (
     SourceRange,
 )
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class SessionOpsChatToolScenario(BaseScenario):

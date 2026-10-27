@@ -23,7 +23,7 @@ from core.runtime.task_runner import (
     ExecutionTaskHooks,
     ExecutionTaskSpec,
 )
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ExecutionTaskRunnerScenario(BaseScenario):

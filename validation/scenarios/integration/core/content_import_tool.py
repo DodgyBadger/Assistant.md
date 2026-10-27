@@ -17,7 +17,7 @@ from core.ingestion.jobs import claim_queued_job, count_jobs, fail_processing_jo
 from core.runtime.state import get_runtime_context
 from core.tools.content_import import ContentImport
 from core.web.models import WebFetchResult
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class ContentImportToolScenario(BaseScenario):

@@ -53,7 +53,7 @@ from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
 from core.utils.messages import project_message  # noqa: E402
 from core.utils.tokens import estimate_token_count  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SessionMapRetainedEvidenceScenario(BaseScenario):

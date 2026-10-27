@@ -50,7 +50,7 @@ from core.memory.session_map.retained_evidence import (  # noqa: E402
     project_retrieved_session_map_evidence,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SessionMapEvidenceAdmissionScenario(BaseScenario):

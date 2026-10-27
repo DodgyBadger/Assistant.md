@@ -27,7 +27,7 @@ from pydantic_ai.models.openai import (  # noqa: E402
 from pydantic_ai.providers.openai import OpenAIProvider  # noqa: E402
 
 from core.llm.model_factory import _apply_openai_oauth_responses_settings  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class OpenAIOAuthCodexRequestShapeProbeScenario(BaseScenario):

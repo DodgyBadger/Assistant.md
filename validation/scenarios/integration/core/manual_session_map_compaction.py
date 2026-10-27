@@ -38,8 +38,8 @@ from core.runtime.state import get_runtime_context  # noqa: E402
 from core.runtime.task_runner import ExecutionTaskSpec  # noqa: E402
 from core.settings.store import get_general_settings  # noqa: E402
 from core.tools.chat_history_compact import ChatHistoryCompact  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
-from validation.core.tool_history_fixtures import tool_reply_cases  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
+from validation.support.tool_history_fixtures import tool_reply_cases  # noqa: E402
 
 
 class ManualSessionMapCompactionScenario(BaseScenario):

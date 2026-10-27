@@ -17,7 +17,7 @@ from core.runtime.execution_tasks import (
 from core.runtime.state import get_runtime_context
 from core.vault_state.file_mutations import mutate_vault_file
 from core.vault_state.identity import resolve_or_create_vault_identity
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class VaultStateMutationRecorderScenario(BaseScenario):

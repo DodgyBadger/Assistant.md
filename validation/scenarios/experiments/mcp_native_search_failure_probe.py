@@ -35,7 +35,7 @@ from pydantic_ai.messages import (  # noqa: E402
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class MCPNativeSearchFailureProbeScenario(BaseScenario):

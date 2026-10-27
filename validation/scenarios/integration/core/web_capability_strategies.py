@@ -31,7 +31,7 @@ from core.web.security import (
 )
 from core.web.service import WebCapabilityService
 from core.web.strategies.extract_curl import extract_with_curl
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class WebCapabilityStrategiesScenario(BaseScenario):

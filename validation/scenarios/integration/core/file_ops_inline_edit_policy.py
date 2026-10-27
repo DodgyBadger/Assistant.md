@@ -23,7 +23,7 @@ from core.authoring.shared.tool_binding import resolve_tool_binding
 from core.chat.chat_store import ChatStore
 from core.chat.deferred_reviews import create_deferred_review
 from core.chat.executor import INLINE_EDIT_CHAT_MODE, approval_tools_for_chat_mode
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class FileOpsInlineEditPolicyScenario(BaseScenario):

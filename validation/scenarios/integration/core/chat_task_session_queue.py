@@ -18,8 +18,8 @@ from core.chat.executor import PreparedChatExecution
 from core.chat.task_execution import start_queued_chat_stream_task, stream_chat_task_sse
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _FakeStreamResult:

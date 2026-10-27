@@ -23,7 +23,7 @@ from core.runtime.execution_tasks import (
 from core.runtime.state import get_runtime_context
 from core.system_migrations import get_system_migration_status
 from core.vault_state.file_mutations import mutate_vault_file
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class GoalOpsScenario(BaseScenario):

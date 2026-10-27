@@ -44,7 +44,7 @@ from core.llm.openai_oauth import (  # noqa: E402
 from core.mcp import MCPConnectionTestResult  # noqa: E402
 from core.runtime.execution_tasks import ExecutionTaskSource  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class ApiEndpointsScenario(BaseScenario):

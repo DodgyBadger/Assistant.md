@@ -41,7 +41,7 @@ from core.tools.base import (  # noqa: E402
     recovery_policy_from_tool_metadata,
 )
 from core.tools.gmail import Gmail  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 _PDF = b"%PDF-1.7\nuntrusted attachment"
 _ATTACHMENT = GmailAttachment(

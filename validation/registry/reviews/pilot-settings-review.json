@@ -1,0 +1,189 @@
+{
+  "contract_id": "settings.reset.preserves_newer_edit",
+  "requirement": "A domain settings reset fenced to a backup revision rejects a conflicting newer edit and preserves that edit.",
+  "scenario": "integration/core/settings_lifecycle",
+  "baseline_commit": "e666b254f3d2e596093f66d8cab281d09217eb64",
+  "scenario_sha256": "b66d7a0836f3e118310ecf10e69798f83cd8e2b3da92f14ecff4b25804eb42ba",
+  "proof_scope": [
+    "API persists values 11 then 12; real repository backup captures earlier revision and value.",
+    "Domain reset rejects stale backup revision; persisted snapshot, API read and database revision remain unchanged; backup retains earlier value.",
+    "Matching revision reset succeeds and advances database revision."
+  ],
+  "limits": [
+    "Does not force an API service backup-to-reset race, prove API error translation, or prove multiple concurrent processes.",
+    "A finite successful refactor demonstration does not prove general refactor insensitivity."
+  ],
+  "coupling": [
+    "Pilot uses public repository and domain reset APIs and persisted SQLite revision; scenario no longer reads private SettingsFile._revision.",
+    "Larger scenario uses controller._system_root, configuration fixture installation, SQLite schema and activity event structures; no production mocks in this pilot slice.",
+    "Expected StaleSettingsError and revision admission are intentional domain contract coupling."
+  ],
+  "fault": {
+    "file": "core/settings/config_editor.py",
+    "original": "    if candidate._revision != expected_revision:\n        raise StaleSettingsError(\n            \"Settings changed after the pre-reset backup. Reload and retry.\"\n        )\n",
+    "replacement": "",
+    "expected_failure": "AssertionError: Reset must reject an edit newer than its backup",
+    "observed_phase": "execution"
+  },
+  "harmless_refactor": {
+    "file": "core/settings/config_editor.py",
+    "original": "candidate",
+    "replacement": "reset_candidate",
+    "scope": "Rename local identifier throughout reset_managed_configuration only; no interface or behavior change."
+  },
+  "source_guard": "Mutant and refactor copies insert an assertion inside reset_managed_configuration that resolved __file__ is inside PILOT_CHECKOUT, passed to fresh worker with --env PILOT_CHECKOUT. Both runs reach the guarded function.",
+  "execution": "Each checkout is a git archive of baseline commit plus reviewed scenario, with independent temporary VALIDATION_ROOT symlinking checkout scenarios and temporary data/system roots; original Python 3.13 venv launches validation/run_validation.py run integration/core/settings_lifecycle --show-passed in checkout cwd. Mutant/refactor add --env PILOT_CHECKOUT.",
+  "runs": {
+    "baseline": {
+      "report": "/tmp/assistantmd-settings-pilot-b6NjSS/baseline/review-validation/runs/reports/20261027_050748_520314.json",
+      "output": "/tmp/assistantmd-settings-pilot-b6NjSS/baseline/review-output.log",
+      "exit_code": 0,
+      "scenario_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5"
+    },
+    "mutant": {
+      "report": "/tmp/assistantmd-settings-pilot-b6NjSS/mutant/review-validation/runs/reports/20261027_050808_888880.json",
+      "output": "/tmp/assistantmd-settings-pilot-b6NjSS/mutant/review-output.log",
+      "exit_code": 1,
+      "scenario_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5"
+    },
+    "refactor": {
+      "report": "/tmp/assistantmd-settings-pilot-b6NjSS/refactor/review-validation/runs/reports/20261027_050808_877611.json",
+      "output": "/tmp/assistantmd-settings-pilot-b6NjSS/refactor/review-output.log",
+      "exit_code": 0,
+      "scenario_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5"
+    }
+  },
+  "recommendation": "Candidate for manual review at this narrow domain contract; API race remains separate coverage debt.",
+  "schema_version": 1,
+  "source_revision": "3f5fb5117b8dbddf55862d6f3d026a6b0e2a7b07",
+  "contract_fingerprint": "e40a47f7a92e7621f6128af6082730343ac6e5c27e4b2fca86f0aaf98bc3f653",
+  "review_status": "evidence_recorded_awaiting_maintainer_review",
+  "oracle_patch": "diff --git a/validation/scenarios/integration/core/settings_lifecycle.py b/validation/scenarios/integration/core/settings_lifecycle.py\nindex 005e33b..e31bcec 100644\n--- a/validation/scenarios/integration/core/settings_lifecycle.py\n+++ b/validation/scenarios/integration/core/settings_lifecycle.py\n@@ -11,7 +11,7 @@ from pathlib import Path\n sys.path.insert(0, str(Path(__file__).resolve().parents[4]))\n \n from core.settings import config_editor, repository\n-from core.settings.store import get_default_settings, load_settings\n+from core.settings.store import get_default_settings\n from validation.core.base_scenario import BaseScenario\n \n \n@@ -287,7 +287,9 @@ class SettingsLifecycleScenario(BaseScenario):\n             )\n             assert later.status_code == 200, later.text\n             edited = self.configuration_snapshot()\n-            edited_revision = load_settings()._revision\n+            with sqlite3.connect(root / \"settings.db\") as conn:\n+                edited_revision = repository.revision(conn)\n+            assert edited_revision is not None\n             assert edited_revision > backed_up_revision\n             try:\n                 config_editor.reset_managed_configuration(\n@@ -299,7 +301,8 @@ class SettingsLifecycleScenario(BaseScenario):\n                 raise AssertionError(\"Reset must reject an edit newer than its backup\")\n             assert self.configuration_snapshot() == edited\n             assert settings()[\"default_api_timeout\"][\"value\"] == \"12\"\n-            assert load_settings()._revision == edited_revision\n+            with sqlite3.connect(root / \"settings.db\") as conn:\n+                assert repository.revision(conn) == edited_revision\n             with sqlite3.connect(backup_path) as conn:\n                 assert repository.revision(conn) == backed_up_revision\n                 assert (\n@@ -316,7 +319,8 @@ class SettingsLifecycleScenario(BaseScenario):\n                 expected_revision=matching_revision\n             )\n             assert accepted.settings[\"default_api_timeout\"].source == \"default\"\n-            assert load_settings()._revision == matching_revision + 1\n+            with sqlite3.connect(root / \"settings.db\") as conn:\n+                assert repository.revision(conn) == matching_revision + 1\n         finally:\n             await self.stop_system()\n             self.teardown_scenario()\n",
+  "proof_summary": [
+    "API persists values 11 then 12; real repository backup captures earlier revision and value.",
+    "Domain reset rejects stale backup revision; persisted snapshot, API read and database revision remain unchanged; backup retains earlier value.",
+    "Matching revision reset succeeds and advances database revision."
+  ],
+  "exclusions": [
+    "Does not force an API service backup-to-reset race, prove API error translation, or prove multiple concurrent processes.",
+    "A finite successful refactor demonstration does not prove general refactor insensitivity."
+  ],
+  "benign_refactor_evidence": {
+    "source_change": {
+      "path": "core/settings/config_editor.py",
+      "patch": "--- a/core/settings/config_editor.py\n+++ b/core/settings/config_editor.py\n@@ -109,8 +109,9 @@\n \n def reset_managed_configuration(*, expected_revision: int) -> SettingsFile:\n     \"\"\"Restore managed defaults atomically, retaining independently owned entries.\"\"\"\n-    candidate = load_settings()\n-    if candidate._revision != expected_revision:\n+    assert __import__(\"pathlib\").Path(__file__).resolve().is_relative_to(__import__(\"pathlib\").Path(__import__(\"os\").environ[\"PILOT_CHECKOUT\"]).resolve()), \"wrong checkout imported\"\n+    reset_candidate = load_settings()\n+    if reset_candidate._revision != expected_revision:\n         raise StaleSettingsError(\n             \"Settings changed after the pre-reset backup. Reload and retry.\"\n         )\n@@ -119,54 +120,54 @@\n     catalog = upgrade_model_catalog(\n         {\n             name: model.model_dump(mode=\"json\")\n-            for name, model in candidate.models.items()\n+            for name, model in reset_candidate.models.items()\n         },\n         raw.get(\"models\", {}),\n     )\n     if catalog.issues:\n         raise SettingsError(\" \".join(catalog.issues))\n-    candidate.models = SettingsFile.model_validate({\"models\": catalog.models}).models\n+    reset_candidate.models = SettingsFile.model_validate({\"models\": catalog.models}).models\n     catalog_ids = {\n         model.managed_id for model in defaults.models.values() if model.managed_id\n     }\n-    candidate.models = {\n+    reset_candidate.models = {\n         name: model\n-        for name, model in candidate.models.items()\n+        for name, model in reset_candidate.models.items()\n         if model.managed_id in catalog_ids or not model.managed_id\n     }\n     managed_ids = {\n-        model.managed_id for model in candidate.models.values() if model.managed_id\n+        model.managed_id for model in reset_candidate.models.values() if model.managed_id\n     }\n     for name, model in defaults.models.items():\n         if model.managed_id not in managed_ids:\n-            if name in candidate.models:\n+            if name in reset_candidate.models:\n                 raise SettingsError(\n                     f\"Custom model '{name}' conflicts with a managed default. Rename it before resetting.\"\n                 )\n-            candidate.models[name] = model\n+            reset_candidate.models[name] = model\n     for section in (\"providers\", \"tools\"):\n-        active = getattr(candidate, section)\n+        active = getattr(reset_candidate, section)\n         baseline = getattr(defaults, section)\n         # Packaged provider/tool names remain managed even when their fields\n         # are editable (for example Ollama). Independently named entries survive.\n         preserved = {\n             name: entry for name, entry in active.items() if name not in baseline\n         }\n-        setattr(candidate, section, {**baseline, **preserved})\n-    candidate.settings = get_default_settings()\n-    try:\n-        build_model_registry(candidate.models).validate()\n+        setattr(reset_candidate, section, {**baseline, **preserved})\n+    reset_candidate.settings = get_default_settings()\n+    try:\n+        build_model_registry(reset_candidate.models).validate()\n     except ValueError as exc:\n         raise SettingsError(str(exc)) from exc\n-    editors = build_editors(candidate, candidate.settings)\n-    issues = settings_issues(candidate.settings, editors)\n+    editors = build_editors(reset_candidate, reset_candidate.settings)\n+    issues = settings_issues(reset_candidate.settings, editors)\n     invalid = [\n         f\"{name}: {issue.message}\" for name, items in issues.items() for issue in items\n     ]\n     if invalid:\n         raise SettingsError(\" \".join(invalid))\n-    _persist_changes(candidate)\n-    return candidate\n+    _persist_changes(reset_candidate)\n+    return reset_candidate\n \n \n def _merged_general_settings(\n"
+    },
+    "same_scenario_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5",
+    "observation": {
+      "scenario_name": "integration/core/settings_lifecycle",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_050808_877611",
+      "report_sha256": "7cc587e5ba407655918c940d0c85b82d725c1c6269df463b67f5191631ee56c9",
+      "counts": {
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    },
+    "scope_note": "Local rename plus explicit isolated-checkout source guard; scenario bytes unchanged. This is one observed refactor, not a general guarantee."
+  },
+  "baseline": {
+    "report": "/tmp/validation-layout-70584f81/runs/reports/20261027_165116_979864.json",
+    "scenario_sha256": "b66d7a0836f3e118310ecf10e69798f83cd8e2b3da92f14ecff4b25804eb42ba",
+    "observation": {
+      "scenario_name": "integration/core/settings_lifecycle",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_165116_979864",
+      "report_sha256": "df37cdd670b0ea241804a15cdd8d4752d1ed5b3cac76e281d848ea1e8b276846"
+    },
+    "source_state": "Application layout relocation on the declared parent revision, preserved in this changeset."
+  },
+  "negative_examples": [
+    {
+      "fault": "stale-backup revision fence removed",
+      "source_change": {
+        "path": "core/settings/config_editor.py",
+        "before": "    if candidate._revision != expected_revision:\n        raise StaleSettingsError(\n            \"Settings changed after the pre-reset backup. Reload and retry.\"\n        )\n",
+        "after": "",
+        "patch": "--- a/core/settings/config_editor.py\n+++ b/core/settings/config_editor.py\n@@ -109,11 +109,8 @@\n \n def reset_managed_configuration(*, expected_revision: int) -> SettingsFile:\n     \"\"\"Restore managed defaults atomically, retaining independently owned entries.\"\"\"\n+    assert __import__(\"pathlib\").Path(__file__).resolve().is_relative_to(__import__(\"pathlib\").Path(__import__(\"os\").environ[\"PILOT_CHECKOUT\"]).resolve()), \"wrong checkout imported\"\n     candidate = load_settings()\n-    if candidate._revision != expected_revision:\n-        raise StaleSettingsError(\n-            \"Settings changed after the pre-reset backup. Reload and retry.\"\n-        )\n     raw = yaml.safe_load(SETTINGS_TEMPLATE.read_text(encoding=\"utf-8\")) or {}\n     defaults = SettingsFile.model_validate(raw)\n     catalog = upgrade_model_catalog(\n"
+      },
+      "assertion": "AssertionError: Reset must reject an edit newer than its backup",
+      "observation": {
+        "scenario_name": "integration/core/settings_lifecycle",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Reset must reject an edit newer than its backup\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/settings_lifecycle.py:301 (in test_scenario)\nFailing code: raise AssertionError(\"Reset must reject an edit newer than its backup\")\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/settings_lifecycle.py\", line 301, in test_scenario\n    raise AssertionError(\"Reset must reject an edit newer than its backup\")",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050808_888880",
+        "report_sha256": "b032bda6c2e63d1a5d21c2d25767124c45dfa506b05972d614b97def9d518c50",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/assistantmd-settings-pilot-b6NjSS/mutant/review-validation/runs/reports/20261027_050808_888880.json",
+      "historical_oracle_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5",
+      "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
+    }
+  ],
+  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission.",
+  "source_relocations": [
+    {
+      "kind": "application_layout_relocation",
+      "source_parent": "3f5fb5117b8dbddf55862d6f3d026a6b0e2a7b07",
+      "before_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5",
+      "after_sha256": "b66d7a0836f3e118310ecf10e69798f83cd8e2b3da92f14ecff4b25804eb42ba",
+      "equivalent_ast_sha256": "845e4b094479cdba7f530a34be7fa2c54febf30849220b8a68f802f0b230e461",
+      "module_map": {
+        "validation.core": "validation.support",
+        "validation.adapters.assistantmd": "validation.support.adapter",
+        "validation.ci": "validation.support.ci"
+      },
+      "literal_path_map": {
+        "validation/core/": "validation/support/",
+        "validation/ci/": "validation/support/ci/",
+        "validation/governance/": "validation/registry/",
+        "validation/templates/AssistantMD": "validation/fixtures/workspaces/AssistantMD",
+        "validation/templates/files": "validation/fixtures/files"
+      },
+      "patch": "diff --git a/validation/scenarios/integration/core/settings_lifecycle.py b/validation/scenarios/integration/core/settings_lifecycle.py\nindex e31bcec..29cb4bd 100644\n--- a/validation/scenarios/integration/core/settings_lifecycle.py\n+++ b/validation/scenarios/integration/core/settings_lifecycle.py\n@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))\n \n from core.settings import config_editor, repository\n from core.settings.store import get_default_settings\n-from validation.core.base_scenario import BaseScenario\n+from validation.support.base_scenario import BaseScenario\n \n \n class SettingsLifecycleScenario(BaseScenario):\n",
+      "scope": "Only application import namespaces, declared fixture/registry paths and import ordering changed; original counterexample observations remain historical."
+    }
+  ],
+  "baseline_history": [
+    {
+      "report": "/tmp/assistantmd-settings-pilot-b6NjSS/baseline/review-validation/runs/reports/20261027_050748_520314.json",
+      "output": "/tmp/assistantmd-settings-pilot-b6NjSS/baseline/review-output.log",
+      "exit_code": 0,
+      "scenario_sha256": "cd662c7dc654f9b0086389cb35f0e3132c55979ea4a90e43de41c4dc9d3c50e5",
+      "observation": {
+        "scenario_name": "integration/core/settings_lifecycle",
+        "status": "passed",
+        "execution_phase": null,
+        "error_message": null,
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050748_520314",
+        "report_sha256": "e8b58f60c250bf67a2c07c7d869cf69ee9dc3ac82adc5c9b0105acf449a34c14",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 1,
+          "failed_scenarios": 0,
+          "error_scenarios": 0
+        }
+      }
+    }
+  ]
+}

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 import core.tools.browser as browser_module
 from core.runtime.resources import CgroupMemoryStatus
 from core.tools.browser import BrowserTool
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class BrowserResourcePolicyScenario(BaseScenario):

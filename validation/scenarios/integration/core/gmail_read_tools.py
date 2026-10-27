@@ -32,7 +32,7 @@ if __name__ == "__main__":
 from core.integrations.google.gmail import GmailAPIClient, GmailError  # noqa: E402
 from core.integrations.google.oauth import GoogleOAuthError  # noqa: E402
 from core.tools.gmail import _write_numbered_attachment  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class GmailReadToolsScenario(BaseScenario):

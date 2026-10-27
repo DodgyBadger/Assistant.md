@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.settings import config_editor, repository
 from core.settings.store import get_default_settings
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SettingsLifecycleScenario(BaseScenario):

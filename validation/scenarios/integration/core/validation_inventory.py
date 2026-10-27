@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ValidationInventoryScenario(BaseScenario):
@@ -22,7 +22,7 @@ class ValidationInventoryScenario(BaseScenario):
             "from pathlib import Path\n"
             f"Path({str(marker)!r}).write_text('unexpected import')\n"
             "raise RuntimeError('must not execute during collection')\n"
-            "from validation.core.base_scenario import BaseScenario\n"
+            "from validation.support.base_scenario import BaseScenario\n"
             "class ExampleScenario(BaseScenario):\n"
             "    async def test_scenario(self):\n"
             "        pass\n"
@@ -57,6 +57,22 @@ class ValidationInventoryScenario(BaseScenario):
         assert self._inventory(root).returncode != 0
         hidden.unlink()
 
+        image = root / "fixtures/files/test_image.jpg"
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b"fixture image data")
+        assert self._inventory(root).returncode == 0
+        for location in ("fixtures/test_escaped.py", "templates/test_escaped.py"):
+            candidate = root / location
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            candidate.write_text("def test_required_behavior():\n    assert True\n")
+            escaped_fixture = self._inventory(root)
+            assert escaped_fixture.returncode != 0
+            assert any(
+                "unaccounted" in issue.lower()
+                for issue in json.loads(escaped_fixture.stdout)["issues"]
+            )
+            candidate.unlink()
+
         root_test = root / "test_escaped.py"
         root_test.write_text("def test_required_behavior():\n    assert True\n")
         escaped = self._inventory(root)
@@ -66,9 +82,9 @@ class ValidationInventoryScenario(BaseScenario):
             for issue in json.loads(escaped.stdout)["issues"]
         )
         root_test.unlink()
-        ledger_dir = root / "governance"
+        ledger_dir = root / "registry"
         ledger_dir.mkdir()
-        ledger = ledger_dir / "root-test-ledger.json"
+        ledger = ledger_dir / "legacy-ledger.json"
         ledger.write_text(
             json.dumps(
                 {
@@ -145,9 +161,9 @@ class ValidationInventoryScenario(BaseScenario):
         ledger.unlink()
         # Moving a suite must not let it disappear from structural accounting.
         entries = []
-        for category in ("browser", "ephemeral", "infrastructure"):
+        for category in ("legacy/browser", "legacy/pending", "infrastructure"):
             directory = root / category
-            directory.mkdir(exist_ok=True)
+            directory.mkdir(parents=True, exist_ok=True)
             candidate = directory / "test_pending.py"
             candidate.write_text("def test_pending_contract():\n    assert True\n")
             unregistered = self._inventory(root)
@@ -177,8 +193,8 @@ class ValidationInventoryScenario(BaseScenario):
             assert registered.returncode == 0, registered.stdout
         report = json.loads(registered.stdout)
         assert report["legacy_locations"] == {
-            "browser": 1,
-            "ephemeral": 1,
+            "legacy/browser": 1,
+            "legacy/pending": 1,
             "infrastructure": 1,
         }
         assert report["behavioral_coverage_complete"] is False

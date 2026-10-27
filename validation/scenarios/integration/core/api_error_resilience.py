@@ -11,7 +11,7 @@ import openai
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ApiErrorResilienceScenario(BaseScenario):

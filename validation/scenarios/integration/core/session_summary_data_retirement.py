@@ -22,7 +22,7 @@ from core.memory.session_map.models import (
     SourceRange,
 )
 from core.system_migrations import get_system_migration_status, run_system_migrations
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SessionSummaryDataRetirementScenario(BaseScenario):

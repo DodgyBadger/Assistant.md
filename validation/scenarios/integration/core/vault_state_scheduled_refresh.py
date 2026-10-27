@@ -11,7 +11,7 @@ from core.scheduling.system_jobs import (
     run_scheduled_ingestion_worker,
     run_scheduled_vault_state_refresh,
 )
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class VaultStateScheduledRefreshScenario(BaseScenario):

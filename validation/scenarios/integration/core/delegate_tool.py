@@ -24,7 +24,7 @@ from pydantic_ai.messages import (
     ToolReturnPart,
 )
 
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class DelegateToolScenario(BaseScenario):
@@ -34,7 +34,7 @@ class DelegateToolScenario(BaseScenario):
     async def test_scenario(self):
         vault = self.create_vault("DelegateToolVault")
         self.create_file(vault, "notes/content.md", "DELEGATE_CONTENT")
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
         self.create_file(
             vault,
             "notes/with-image.md",

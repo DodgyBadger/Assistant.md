@@ -15,7 +15,7 @@ from core.authoring.template_discovery import seed_system_templates
 from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class SessionDiscoveryCutoverScenario(BaseScenario):

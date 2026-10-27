@@ -28,7 +28,7 @@ from core.identity import (  # noqa: E402
     ExecutionAuthority,
     use_execution_authority,
 )
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class TranscriptRetrievalStorageScenario(BaseScenario):

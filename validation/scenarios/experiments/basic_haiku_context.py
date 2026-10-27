@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class BasicHaikuContextTemplateScenario(BaseScenario):
@@ -21,7 +21,7 @@ class BasicHaikuContextTemplateScenario(BaseScenario):
     async def test_scenario(self):
         vault = self.create_vault("HaikuContextVault")
 
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
         self.create_file(
             vault,
             "AssistantMD/Authoring/basic_haiku_context.md",

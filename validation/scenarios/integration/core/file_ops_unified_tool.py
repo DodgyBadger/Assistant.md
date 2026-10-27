@@ -12,7 +12,7 @@ from core.authoring.helpers.runtime_common import (
     normalize_tool_result,
 )
 from core.authoring.shared.tool_binding import resolve_tool_binding
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class FileOpsUnifiedToolScenario(BaseScenario):
@@ -30,7 +30,7 @@ class FileOpsUnifiedToolScenario(BaseScenario):
         )
         self.create_file(vault, "notes/lines.md", "same\ntarget\nsame\n")
         self.create_file(vault, "archive/existing.md", "Existing destination\n")
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
 
         await self.start_system()
         try:

@@ -17,7 +17,7 @@ from core.vault_state.file_mutations import (
     write_vault_file,
 )
 from core.vault_state.service import VaultStateService
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class VaultActivityRollbackScenario(BaseScenario):

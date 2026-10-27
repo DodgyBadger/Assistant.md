@@ -8,8 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.chat.executor import PreparedChatExecution
 from core.runtime.execution_tasks import chat_session_scope
 from core.vault_state.file_mutations import write_vault_file
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _FailingAgent:

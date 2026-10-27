@@ -56,7 +56,7 @@ from core.mcp import (  # noqa: E402
     MCPTransport,
     MCPUnavailableConnection,
 )
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class MCPChatToolSearchScenario(BaseScenario):

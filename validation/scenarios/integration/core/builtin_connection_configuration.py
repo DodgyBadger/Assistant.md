@@ -48,7 +48,7 @@ from core.integrations.google.connection import (  # noqa: E402
     GoogleOAuthStateChangedError,
 )
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class BuiltInConnectionConfigurationScenario(BaseScenario):

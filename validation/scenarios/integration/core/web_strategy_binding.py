@@ -12,7 +12,7 @@ from core.authoring.shared.tool_binding import resolve_tool_binding
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.settings import validate_settings
 from core.web.config import get_web_tool_strategy_requirements
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class WebStrategyBindingScenario(BaseScenario):

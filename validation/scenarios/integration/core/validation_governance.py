@@ -7,7 +7,7 @@ import hashlib
 import json
 import subprocess
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ValidationGovernanceScenario(BaseScenario):
@@ -17,7 +17,7 @@ class ValidationGovernanceScenario(BaseScenario):
             validate_catalog,
         )
 
-        from validation.ci.audit import audit_git
+        from validation.support.ci.audit import audit_git
 
         root = self.artifacts_dir / "governance-validation"
         source_dir = root / "scenarios" / "integration" / "core"
@@ -28,7 +28,7 @@ class ValidationGovernanceScenario(BaseScenario):
         pilot.write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n")
         legacy.write_text("# legacy fixture\n")
         sources = {"integration/core/pilot": pilot, "integration/core/legacy": legacy}
-        catalog_path = root / "governance" / "scenario-catalog.json"
+        catalog_path = root / "registry" / "scenario-catalog.json"
         catalog_path.parent.mkdir()
         catalog = {
             "schema_version": 1,
@@ -38,7 +38,7 @@ class ValidationGovernanceScenario(BaseScenario):
                     "requirement": "Fixture behavior",
                     "proof_surface": "pilot",
                     "review_reference": "fixture",
-                    "review_evidence": ["pilot-review.json"],
+                    "review_evidence": ["reviews/pilot-review.json"],
                 }
             ],
             "scenarios": [
@@ -61,7 +61,8 @@ class ValidationGovernanceScenario(BaseScenario):
                 }
             },
         }
-        review_path = catalog_path.parent / "pilot-review.json"
+        review_path = catalog_path.parent / "reviews/pilot-review.json"
+        review_path.parent.mkdir()
         review = {
             "schema_version": 1,
             "contract_id": "required",
@@ -94,7 +95,7 @@ class ValidationGovernanceScenario(BaseScenario):
 
         def check(value: dict) -> dict:
             catalog_path.write_text(json.dumps(value))
-            return validate_catalog(root, sources)
+            return validate_catalog(root, sources, registry_root=root / "registry")
 
         report = check(catalog)
         assert report["issues"] == [], report["issues"]
@@ -208,8 +209,8 @@ class ValidationGovernanceScenario(BaseScenario):
         git("config", "user.email", "fixture@example.invalid")
         write("app.py", "initial\n")
         empty_base = commit("before governance")
-        write("validation/ci/audit.py", "# fixture checker\n")
-        write("validation/governance/scenario-catalog.json", json.dumps(catalog))
+        write("validation/support/ci/audit.py", "# fixture checker\n")
+        write("validation/registry/scenario-catalog.json", json.dumps(catalog))
         base = commit("governance baseline")
         assert audit_git(repo, empty_base, base)["bootstrap_review_required"]
         write("app.py", "changed\n")
@@ -226,14 +227,10 @@ class ValidationGovernanceScenario(BaseScenario):
 
         removed = copy.deepcopy(catalog)
         removed["contracts"] = []
-        review_change(
-            "validation/governance/scenario-catalog.json", json.dumps(removed)
-        )
+        review_change("validation/registry/scenario-catalog.json", json.dumps(removed))
         changed = copy.deepcopy(catalog)
         changed["contracts"][0]["proof_surface"] = "changed"
-        review_change(
-            "validation/governance/scenario-catalog.json", json.dumps(changed)
-        )
+        review_change("validation/registry/scenario-catalog.json", json.dumps(changed))
         excluded = copy.deepcopy(catalog)
         excluded["scenarios"].append(
             {
@@ -243,10 +240,8 @@ class ValidationGovernanceScenario(BaseScenario):
                 "contracts": [],
             }
         )
-        review_change(
-            "validation/governance/scenario-catalog.json", json.dumps(excluded)
-        )
-        review_change("validation/ci/audit.py", "# changed checker\n")
+        review_change("validation/registry/scenario-catalog.json", json.dumps(excluded))
+        review_change("validation/support/ci/audit.py", "# changed checker\n")
         review_change(".github/workflows/validation.yml", "name: fixture\n")
         review_change(".github/actions/gate/action.yml", "name: fixture\n")
         review_change("scripts/audit-npm.cjs", "// changed gate script\n")

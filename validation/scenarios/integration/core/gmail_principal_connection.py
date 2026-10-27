@@ -46,7 +46,7 @@ from core.integrations.google import (  # noqa: E402
 )
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
 from core.settings.store import get_enabled_tools_config  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class GmailPrincipalConnectionScenario(BaseScenario):

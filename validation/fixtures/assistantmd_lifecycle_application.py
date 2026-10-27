@@ -14,7 +14,7 @@ from threading import Thread
 
 from scenario_harness.lifecycle import RunContext, execute
 
-from validation.adapters.assistantmd import AssistantMDAdapter
+from validation.support.adapter import AssistantMDAdapter
 
 
 async def run(root: Path, mode: str) -> None:
@@ -28,7 +28,7 @@ async def run(root: Path, mode: str) -> None:
         caller_system.mkdir(parents=True)
         caller_data.mkdir(parents=True)
         set_bootstrap_roots(caller_data, caller_system)
-        from validation.core.configuration import seed_configuration
+        from validation.support.configuration import seed_configuration
 
         seed_configuration(caller_system)
         from core.llm.model_utils import refresh_model_cache
@@ -100,7 +100,7 @@ async def run(root: Path, mode: str) -> None:
         nonlocal client, original_clock
         import core.authoring.runtime.host as host
         from core.logger import UnifiedLogger
-        from validation.core.base_scenario import BaseScenario
+        from validation.support.base_scenario import BaseScenario
 
         original_clock = host.datetime
         logger = UnifiedLogger(

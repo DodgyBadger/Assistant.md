@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority  # noqa: E402
 from core.settings.store import ModelConfig  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 _RETIRED_SETTING_FIXTURE = {
     "context_reduction_strategy": "stepped_session_map",

@@ -45,7 +45,7 @@ from core.integrations.google import (  # noqa: E402
 )
 from core.oauth import EncryptedOAuthStorage  # noqa: E402
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class GoogleOAuthCoordinatorScenario(BaseScenario):

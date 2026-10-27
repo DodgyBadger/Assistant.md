@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
 from core.runtime.bootstrap import bootstrap_runtime  # noqa: E402
 from core.runtime.config import RuntimeConfig, RuntimeConfigError  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class _FakeMCPConnectionService:

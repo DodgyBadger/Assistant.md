@@ -49,7 +49,7 @@ from core.secrets.crypto import (  # noqa: E402
     SECRET_KEY_ENV,
 )
 from core.system_migrations import run_system_migrations  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class EncryptedSecretsBoundariesScenario(BaseScenario):

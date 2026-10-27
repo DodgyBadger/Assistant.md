@@ -6,7 +6,7 @@ from core.llm.openai_oauth import (
     OpenAIOAuthHTTPTokenAdapter,
     set_openai_oauth_token_adapter,
 )
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class OpenAIOAuthRejectionScenario(BaseScenario):

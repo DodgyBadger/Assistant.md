@@ -13,7 +13,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.llm.agents import generate_response
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class _StructuredResult(BaseModel):

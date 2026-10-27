@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.activity_log import prune_activity_segments
 from core.logger import UnifiedLogger
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SystemActivityHistoryScenario(BaseScenario):

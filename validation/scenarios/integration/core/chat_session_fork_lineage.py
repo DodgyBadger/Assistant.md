@@ -42,8 +42,8 @@ from core.memory.session_map.checkpoints import (
 )
 from core.memory.session_map.models import SessionMapDraft  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
-from validation.core.tool_history_fixtures import tool_reply_cases  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
+from validation.support.tool_history_fixtures import tool_reply_cases  # noqa: E402
 
 
 class ChatSessionForkLineageScenario(BaseScenario):

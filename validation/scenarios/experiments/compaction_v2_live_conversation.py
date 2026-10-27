@@ -32,7 +32,7 @@ from core.llm.openai_auth import OPENAI_OAUTH_TOKEN_SECRET  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
 from core.secrets.crypto import SECRET_KEY_ENV, SecretKeyring  # noqa: E402
 from core.secrets.service import EncryptedSecretsService  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 MODEL_ALIAS = "gpt-mini"
 OPENAI_OAUTH_NAMESPACE = "oauth.openai"
@@ -289,7 +289,7 @@ def _capture_new_checkpoints(
 
 
 def _load_live_settings(system_root: Path) -> dict[str, Any]:
-    from validation.core.configuration import read_database_snapshot
+    from validation.support.configuration import read_database_snapshot
 
     return read_database_snapshot(system_root / "settings.db")
 
@@ -338,7 +338,10 @@ def _access_token_only(raw_token: str) -> str:
 
 
 def _configure_isolated_settings(controller: Any, live: dict[str, Any]) -> None:
-    from validation.core.configuration import install_configuration, read_configuration
+    from validation.support.configuration import (
+        install_configuration,
+        read_configuration,
+    )
 
     root = controller._system_root  # noqa: SLF001
     isolated = read_configuration(root)

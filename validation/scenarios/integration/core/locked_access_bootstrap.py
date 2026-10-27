@@ -54,7 +54,7 @@ from core.secrets import (  # noqa: E402
     reset_secrets_bootstrap_status,
 )
 from core.system_migrations import get_system_migration_status  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class LockedAccessBootstrapScenario(BaseScenario):

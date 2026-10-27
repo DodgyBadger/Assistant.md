@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.ingestion.jobs import IngestionJobCreate, count_jobs, create_jobs
 from core.runtime.state import get_runtime_context
 from core.web.models import WebFetchResult
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class VaultDirectImportScenario(BaseScenario):

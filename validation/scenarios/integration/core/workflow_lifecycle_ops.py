@@ -18,7 +18,7 @@ from apscheduler.triggers.cron import CronTrigger
 from core.runtime.state import get_runtime_context
 from core.scheduling.jobs import setup_scheduler_jobs
 from core.tools.workflow_run import WorkflowRun
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class WorkflowLifecycleOpsScenario(BaseScenario):

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.memory.session_map.evidence import SessionMapEvidence  # noqa: E402
 from core.memory.session_map.models import SourceRange  # noqa: E402
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SessionMapSchemaScenario(BaseScenario):

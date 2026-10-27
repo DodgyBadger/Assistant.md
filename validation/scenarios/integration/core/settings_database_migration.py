@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.database_migrations import apply_sqlite_migrations
 from core.settings import repository, store
 from core.settings import schema as settings_schema
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SettingsDatabaseMigrationScenario(BaseScenario):

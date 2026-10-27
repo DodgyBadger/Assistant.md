@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class OpenAIOAuthCodexLiveStressProbeScenario(BaseScenario):
@@ -175,7 +175,7 @@ def _configure_live_openai_settings(scenario: BaseScenario) -> str:
         "OPENAI_OAUTH_STRESS_SETTINGS"
     )
 
-    from validation.core.configuration import read_database_snapshot
+    from validation.support.configuration import read_database_snapshot
 
     live_settings = read_database_snapshot(live_settings_path)
     live_general = live_settings.get("settings", {})

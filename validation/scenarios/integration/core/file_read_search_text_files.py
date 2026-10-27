@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.vault_state.file_operations import search_vault_files_operation
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class FileReadSearchTextFilesScenario(BaseScenario):

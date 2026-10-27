@@ -10,7 +10,7 @@ from core.vault_state.file_operations import (
     overwrite_vault_file_operation,
     replace_text_vault_file_operation,
 )
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class FileOpsExtensionlessTextMutationsScenario(BaseScenario):

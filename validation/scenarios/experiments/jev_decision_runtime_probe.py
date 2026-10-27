@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority  # noqa: E402
 from core.llm.decision import DecisionRequest, build_decision_classifier  # noqa: E402
 from core.settings.secrets_store import set_secret_value  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SmokeSignals(BaseModel):

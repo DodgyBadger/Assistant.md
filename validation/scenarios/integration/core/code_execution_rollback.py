@@ -12,8 +12,8 @@ from pydantic_ai.usage import RunUsage
 from core.chat.executor import PreparedChatExecution
 from core.runtime.execution_tasks import chat_session_scope
 from core.tools.code_execution import CodeExecution
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _CodeExecutionFailingAgent:

@@ -47,7 +47,7 @@ from core.mcp.network import (  # noqa: E402
 )
 from core.mcp.testing import test_mcp_connection_runtime  # noqa: E402
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class MCPConnectionIsolationScenario(BaseScenario):

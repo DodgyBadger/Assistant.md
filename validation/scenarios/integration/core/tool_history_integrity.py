@@ -17,8 +17,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
-from validation.core.tool_history_fixtures import tool_reply_cases
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.tool_history_fixtures import tool_reply_cases
 
 
 class ToolHistoryIntegrityScenario(BaseScenario):

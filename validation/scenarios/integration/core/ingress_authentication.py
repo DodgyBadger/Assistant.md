@@ -20,7 +20,7 @@ from core.authentication import (
 )
 from core.runtime.state import get_runtime_context
 from core.settings import AppSettings
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 _SECRET = "validation-owner-secret-" + "x" * 32
 

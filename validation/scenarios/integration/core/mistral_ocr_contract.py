@@ -16,7 +16,7 @@ from core.chat.compaction import _compaction_failure_details
 from core.ingestion.import_service import ContentImportService
 from core.llm import decision
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class MistralOcrContractScenario(BaseScenario):

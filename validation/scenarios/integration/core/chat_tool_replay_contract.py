@@ -17,7 +17,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ChatToolReplayContractScenario(BaseScenario):

@@ -17,7 +17,7 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserProm
 from core.chat.chat_store import ChatStore
 from core.chat.history_service import ChatHistoryContext, ChatHistoryService
 from core.utils.messages import extract_role_and_text
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ContextHistorySequenceProbeScenario(BaseScenario):

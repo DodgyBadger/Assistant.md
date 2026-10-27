@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 MAIN_CONTENT_FIXTURE_URL = (
     "https://dodgybadger.github.io/PIP/examples/browser_main_content.html"

@@ -69,7 +69,7 @@ def contract_fingerprint(contract: Mapping[str, object]) -> str:
 
 
 def _review_evidence(
-    root: Path,
+    registry_root: Path,
     contract: Mapping[str, object],
     selectors: list[str],
     sources: Mapping[str, Path],
@@ -80,7 +80,7 @@ def _review_evidence(
     if not references or not selectors:
         raise CatalogError(f"Contract has no pilot review evidence: {identity}")
     covered: set[str] = set()
-    governance_root = (root / "governance").resolve()
+    governance_root = registry_root.resolve()
     for reference in references:
         relative = PurePosixPath(reference)
         path = governance_root / reference
@@ -158,8 +158,11 @@ def _review_evidence(
         )
 
 
-def validate_catalog(root: Path, sources: Mapping[str, Path]) -> dict[str, object]:
+def validate_catalog(
+    root: Path, sources: Mapping[str, Path], *, registry_root: Path | None = None
+) -> dict[str, object]:
     """Check declarations and identities, without asserting semantic adequacy."""
+    registry_root = root / "governance" if registry_root is None else registry_root
     report: dict[str, object] = {
         "issues": [],
         "contract_matrix": {},
@@ -171,7 +174,7 @@ def validate_catalog(root: Path, sources: Mapping[str, Path]) -> dict[str, objec
     try:
         data = _object(
             json.loads(
-                (root / "governance/scenario-catalog.json").read_text(encoding="utf-8"),
+                (registry_root / "scenario-catalog.json").read_text(encoding="utf-8"),
                 object_pairs_hook=_pairs,
             )
         )
@@ -237,7 +240,7 @@ def validate_catalog(root: Path, sources: Mapping[str, Path]) -> dict[str, objec
                 + ", ".join(sorted(set(sources) - registered))
             )
         for identity, contract in contracts.items():
-            _review_evidence(root, contract, matrix[identity], sources)
+            _review_evidence(registry_root, contract, matrix[identity], sources)
         profiles = _object(data.get("profiles"))
         if not profiles:
             raise CatalogError("Scenario catalog has no required profile")

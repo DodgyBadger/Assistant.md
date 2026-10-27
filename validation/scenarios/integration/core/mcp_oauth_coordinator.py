@@ -46,7 +46,7 @@ from core.mcp.oauth import (  # noqa: E402
 )
 from core.runtime.paths import get_system_root, set_bootstrap_roots  # noqa: E402
 from core.secrets import EncryptedSecretsService, SecretKeyring  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class _DeterministicCoordinator(MCPOAuthCoordinator):

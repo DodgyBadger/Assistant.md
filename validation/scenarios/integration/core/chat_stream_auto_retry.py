@@ -32,8 +32,8 @@ from core.chat.executor import PreparedChatExecution
 from core.chat.run_recovery import ChatRunRecoveryCoordinator
 from core.tools.base import ToolRecoveryPolicy
 from core.vault_state.file_mutations import write_vault_file
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _FakeStreamResult:

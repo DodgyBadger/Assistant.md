@@ -22,7 +22,7 @@ from core.authoring.shared.tool_binding import resolve_tool_binding  # noqa: E40
 from core.chat.transcript_retrieval import TranscriptRetrievalService  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
 from core.utils.tokens import estimate_token_count  # noqa: E402
-from validation.core.base_scenario import (  # noqa: E402
+from validation.support.base_scenario import (  # noqa: E402
     BaseScenario,
     with_local_user_authority,
 )

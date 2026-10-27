@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class RepeatedChatHistoryCompactionScenario(BaseScenario):

@@ -34,8 +34,8 @@ from core.chat.task_execution import (
 )
 from core.constants import INLINE_EDIT_DENIAL_MESSAGE
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _DeferredReviewResult:

@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class BasicHaikuWorkflowScenario(BaseScenario):
@@ -25,7 +25,7 @@ class BasicHaikuWorkflowScenario(BaseScenario):
         self.create_file(
             vault, "AssistantMD/Authoring/haiku_writer.md", HAIKU_WRITER_WORKFLOW
         )
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
         self.create_file(vault, "notes/haiku_seed.md", HAIKU_SEED_NOTE)
 
         # === SYSTEM STARTUP VALIDATION ===

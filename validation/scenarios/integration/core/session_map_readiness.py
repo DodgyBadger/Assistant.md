@@ -21,7 +21,7 @@ from core.memory.session_map.readiness import (  # noqa: E402
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
 from core.settings.upgrades import upgrade_settings_mapping  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SessionMapReadinessScenario(BaseScenario):

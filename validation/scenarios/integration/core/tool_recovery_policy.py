@@ -39,7 +39,7 @@ from core.tools.base import (
     tool_recovery_metadata,
 )
 from core.tools.code_execution import CodeExecution
-from validation.core.base_scenario import BaseScenario, with_local_user_authority
+from validation.support.base_scenario import BaseScenario, with_local_user_authority
 
 
 class ToolRecoveryPolicyScenario(BaseScenario):

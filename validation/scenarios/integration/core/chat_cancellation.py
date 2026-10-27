@@ -15,7 +15,7 @@ from core.runtime.execution_tasks import chat_session_scope
 from core.runtime.state import get_runtime_context
 from core.utils.messages import extract_role_and_text
 from core.vault_state.file_mutations import write_vault_file
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ChatCancellationScenario(BaseScenario):

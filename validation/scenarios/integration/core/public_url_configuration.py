@@ -25,7 +25,7 @@ from core.mcp.oauth import resolve_mcp_oauth_redirect  # noqa: E402
 from core.runtime.config import RuntimeConfig  # noqa: E402
 from core.runtime.public_url import PublicOrigin, PublicUrlError  # noqa: E402
 from core.settings import AppSettings  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class PublicUrlConfigurationScenario(BaseScenario):

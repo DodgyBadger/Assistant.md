@@ -16,8 +16,8 @@ from core.chat.executor import PreparedChatExecution
 from core.chat.task_events import ChatTaskEventBuffer
 from core.chat.task_execution import start_prepared_chat_stream_task
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _FakeStreamResult:

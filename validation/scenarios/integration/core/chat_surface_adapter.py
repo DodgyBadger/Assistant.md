@@ -21,8 +21,8 @@ from core.chat.surface_adapter import (
 )
 from core.identity import LOCAL_USER_AUTHORITY, LOCAL_USER_PRINCIPAL_ID
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _FakeStreamResult:

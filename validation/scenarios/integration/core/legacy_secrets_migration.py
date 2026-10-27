@@ -33,7 +33,7 @@ from core.secrets.legacy_migration import (  # noqa: E402
     LEGACY_BACKUP_FILENAME,
     migrate_legacy_secrets_yaml,
 )
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class LegacySecretsMigrationScenario(BaseScenario):

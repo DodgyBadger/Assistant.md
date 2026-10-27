@@ -36,7 +36,7 @@ from core.system_migrations import (  # noqa: E402
     get_system_migration_status,
     run_system_migrations,
 )
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SystemDatabaseMigrationsScenario(BaseScenario):

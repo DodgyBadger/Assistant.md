@@ -38,7 +38,7 @@ from core.runtime.execution_tasks import (  # noqa: E402
     get_current_execution_task,
 )
 from core.runtime.state import get_runtime_context  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SessionMapAuthoringTaskScenario(BaseScenario):

@@ -13,8 +13,8 @@ from pathlib import Path
 
 from scenario_harness.lifecycle import current_run_context
 
-from validation.core.base_scenario import BaseScenario
-from validation.core.results import ScenarioResult
+from validation.support.base_scenario import BaseScenario
+from validation.support.results import ScenarioResult
 
 _MODE_ENV = "ASSISTANTMD_VALIDATION_RUNNER_FIXTURE_MODE"
 _SELECTOR = "integration/core/validation_runner_lifecycle"
@@ -119,7 +119,7 @@ class ValidationRunnerLifecycleScenario(BaseScenario):
                 candidate = root / "scenarios" / f"{_SELECTOR}.py"
                 candidate.parent.mkdir(parents=True)
                 candidate.write_text(
-                    "from validation.core.base_scenario import BaseScenario\n"
+                    "from validation.support.base_scenario import BaseScenario\n"
                     "class ValidationRunnerLifecycleScenario(BaseScenario):\n"
                     "    async def test_scenario(self):\n"
                     "        raise AssertionError('selected fixture source')\n"

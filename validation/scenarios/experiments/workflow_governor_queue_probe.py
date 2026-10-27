@@ -17,7 +17,7 @@ from core.runtime.execution_tasks import ExecutionTaskSource, TaskCoordinator
 from core.runtime.task_runner import ExecutionTaskRunner
 from core.runtime.workflow_governor import WorkflowGovernor
 from core.workflow_runs import WorkflowRunStore
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class WorkflowGovernorQueueProbeScenario(BaseScenario):

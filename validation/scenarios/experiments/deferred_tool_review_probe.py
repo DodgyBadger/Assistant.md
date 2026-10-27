@@ -21,7 +21,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import Tool
 
 from core.tools.file_write import FileWrite
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class DeferredToolReviewProbeScenario(BaseScenario):

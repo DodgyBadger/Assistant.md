@@ -28,7 +28,7 @@ from pydantic_ai.models.function import (  # noqa: E402
 )
 
 from core.tools.failures import classify_exception  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class PydanticStreamDisconnectProbeScenario(BaseScenario):

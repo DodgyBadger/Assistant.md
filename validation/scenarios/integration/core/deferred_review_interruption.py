@@ -33,7 +33,7 @@ from core.chat.deferred_reviews import (
 from core.chat.tool_history import analyze_tool_history
 from core.runtime.state import get_runtime_context
 from core.vault_state.file_mutations import write_vault_file
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 def _reviewed_tool(vault, session_id, executions, started, release):

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.runtime.state import get_runtime_context
 from core.tools.workflow_run import WorkflowRun
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class WorkflowRunAsyncScenario(BaseScenario):

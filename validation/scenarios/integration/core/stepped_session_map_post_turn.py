@@ -29,7 +29,7 @@ from core.memory.session_map.models import (  # noqa: E402
 )
 from core.runtime.execution_tasks import ExecutionTaskKind  # noqa: E402
 from core.runtime.state import get_runtime_context  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SteppedSessionMapPostTurnScenario(BaseScenario):

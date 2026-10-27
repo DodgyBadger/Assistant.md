@@ -44,7 +44,7 @@ from core.integrations.google import (  # noqa: E402
     GoogleConnectionStatus,
     GoogleOAuthStart,
 )
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class GmailConnectionAPIScenario(BaseScenario):

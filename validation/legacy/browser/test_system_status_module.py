@@ -1,0 +1,200 @@
+"""Frontend smoke tests for system and task status coordination."""
+
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_MODULE = _PROJECT_ROOT / "static/js/system-status.js"
+
+
+def test_system_status_controller_contract() -> None:
+    harness = r"""
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), { filename: process.argv[1] });
+
+const controller = SystemStatus.create({
+    state: {},
+    chatElements: {},
+    dashElements: {},
+    configElements: { advancedShellCoordinates: [] },
+    dashboardView: {},
+    callbacks: {},
+});
+
+for (const name of ['fetchSystemStatus', 'fetchExecutionTasks', 'display']) {
+    if (typeof controller[name] !== 'function') {
+        throw new Error(`Missing system status method: ${name}`);
+    }
+}
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
+def test_system_status_loads_before_application() -> None:
+    markup = (_PROJECT_ROOT / "static/index.html").read_text(encoding="utf-8")
+
+    status_position = markup.index('<script src="static/js/system-status.js"></script>')
+    application_position = markup.index('<script src="static/app.js"></script>')
+
+    assert status_position < application_position
+
+
+def test_initial_render_does_not_wait_for_system_status() -> None:
+    source = (_PROJECT_ROOT / "static/app.js").read_text(encoding="utf-8")
+    init_source = source[
+        source.index("async function init()") : source.index("// Setup tab switching")
+    ]
+
+    assert "await fetchMetadata();" in init_source
+    assert "await fetchSystemStatus();" not in init_source
+    assert init_source.index("renderChatEmptyState();") < init_source.index(
+        "void fetchSystemStatus();"
+    )
+
+
+def test_late_system_status_preserves_valid_models_and_falls_back_for_missing_models() -> (
+    None
+):
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const state = {
+    metadata: {
+        models: [
+            { name: 'first', available: true },
+            { name: 'preferred', available: true, alternate_aliases: ['old-preferred'] },
+        ],
+    },
+    modelSelectionTouched: true,
+};
+const modelSelector = { value: 'first' };
+global.fetch = async (url) => ({
+    ok: true,
+    async json() {
+        if (url === 'api/status') {
+            return {
+                advanced_shell: {},
+                configuration_status: { default_model: 'old-preferred' },
+            };
+        }
+        return { tasks: [] };
+    },
+});
+const controller = SystemStatus.create({
+    state,
+    chatElements: { modelSelector },
+    dashElements: {},
+    configElements: { advancedShellCoordinates: [] },
+    dashboardView: {
+        displaySystemStatus() {},
+        syncExecutionTaskPolling() {},
+    },
+    callbacks: {
+        isChatSelectableModel() { return true; },
+        syncRestartFlag() {},
+        updateStatus() {},
+        refreshChatEmptyState() {},
+    },
+});
+
+(async () => {
+    await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, 'first');
+    state.modelSelectionTouched = false;
+    await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, 'first');
+    modelSelector.value = 'removed-model';
+    await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, 'preferred');
+    state.metadata.models = [{ name: 'first', available: true }];
+    await controller.fetchSystemStatus();
+    assert.strictEqual(modelSelector.value, '');
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )
+
+
+def test_execution_task_refresh_preserves_state_and_ignores_stale_responses() -> None:
+    harness = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+global.window = global;
+vm.runInThisContext(fs.readFileSync(process.argv[1], 'utf8'), {
+    filename: process.argv[1],
+});
+
+const pending = [];
+global.fetch = () => new Promise((resolve, reject) => pending.push({ resolve, reject }));
+let renders = 0;
+let pollSyncs = 0;
+const state = { executionTasks: [{ task_id: 'last-known' }] };
+const controller = SystemStatus.create({
+    state,
+    chatElements: {},
+    dashElements: {},
+    configElements: { advancedShellCoordinates: [] },
+    dashboardView: {
+        displaySystemStatus() { renders += 1; },
+        syncExecutionTaskPolling() { pollSyncs += 1; },
+    },
+    callbacks: {},
+});
+
+(async () => {
+    const olderRequest = controller.fetchExecutionTasks();
+    const newerRequest = controller.fetchExecutionTasks();
+    pending[1].resolve({
+        ok: true,
+        async json() { return { tasks: [{ task_id: 'newer' }] }; },
+    });
+    await newerRequest;
+    pending[0].resolve({
+        ok: true,
+        async json() { return { tasks: [{ task_id: 'stale' }] }; },
+    });
+    await olderRequest;
+    assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);
+    assert.strictEqual(state.executionTasksError, null);
+
+    const failedRequest = controller.fetchExecutionTasks();
+    pending[2].reject(new Error('temporary outage'));
+    await failedRequest;
+    assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);
+    assert.strictEqual(state.executionTasksError, 'temporary outage');
+    assert.strictEqual(renders, 2);
+    assert.strictEqual(pollSyncs, 2);
+})().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+"""
+    subprocess.run(
+        ["node", "-e", harness, str(_MODULE)],
+        check=True,
+        cwd=_PROJECT_ROOT,
+    )

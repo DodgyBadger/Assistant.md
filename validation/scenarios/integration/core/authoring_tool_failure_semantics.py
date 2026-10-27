@@ -15,7 +15,7 @@ from core.memory.session_discovery import SessionDiscoveryService
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
 from core.tools.file_read import FileRead
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class AuthoringToolFailureSemanticsScenario(BaseScenario):

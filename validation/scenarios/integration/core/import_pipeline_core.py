@@ -17,7 +17,7 @@ from core.ingestion.models import SourceKind
 from core.ingestion.task_execution import process_ingestion_job_in_task
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ImportPipelineScenario(BaseScenario):

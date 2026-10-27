@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class CodeExecutionScenario(BaseScenario):
@@ -22,7 +22,7 @@ class CodeExecutionScenario(BaseScenario):
         self.create_file(vault, "notes/structured.md", STRUCTURED_NOTE)
         self.create_file(vault, "notes/blocked.md", "BLOCKED_CONTENT")
         self.create_file(vault, "tasks/pending-one.md", "PENDING_ONE")
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
 
         await self.start_system()
 

@@ -37,7 +37,7 @@ from core.integrations.google.gmail_service import (  # noqa: E402
 )
 from core.integrations.google.oauth import GoogleOAuthError  # noqa: E402
 from core.tools.gmail import Gmail  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class GmailDraftToolScenario(BaseScenario):

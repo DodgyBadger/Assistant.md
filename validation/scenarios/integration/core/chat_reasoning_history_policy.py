@@ -16,7 +16,7 @@ from pydantic_ai.messages import (
 
 from core.chat.chat_store import ChatStore
 from core.identity import LOCAL_USER_PRINCIPAL_ID
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ChatReasoningHistoryPolicyScenario(BaseScenario):

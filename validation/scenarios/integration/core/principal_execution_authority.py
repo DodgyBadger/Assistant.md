@@ -51,7 +51,7 @@ from core.runtime.workflow_governor import (  # noqa: E402
     _authority_for_workflow_source,
 )
 from core.system_migrations import run_system_migrations  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class PrincipalExecutionAuthorityScenario(BaseScenario):

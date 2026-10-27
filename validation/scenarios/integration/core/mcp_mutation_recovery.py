@@ -43,7 +43,7 @@ from core.runtime.paths import set_bootstrap_roots  # noqa: E402
 from core.secrets import SecretGuardMismatchError  # noqa: E402
 from core.secrets.crypto import SecretKeyring  # noqa: E402
 from core.secrets.service import EncryptedSecretsService  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class MCPMutationRecoveryScenario(BaseScenario):

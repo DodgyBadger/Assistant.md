@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 from core.chat.chat_store import ChatStore
 from core.chat.schema import DB_NAME
 from core.database import connect_sqlite_from_system_db
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class EditProposalArtifactsScenario(BaseScenario):

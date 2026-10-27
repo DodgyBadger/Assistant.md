@@ -25,7 +25,7 @@ if __name__ == "__main__":
     set_bootstrap_roots(data_root=data_root, system_root=bootstrap_system_root)
 
 from core.system_migrations import get_system_migration_status  # noqa: E402
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class SystemStartupMigrationsScenario(BaseScenario):

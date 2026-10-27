@@ -1,0 +1,1038 @@
+{
+  "schema_version": 1,
+  "contracts": [
+    {
+      "id": "ingress.owner_and_csrf_boundaries",
+      "requirement": "In owner-token mode, protected access requires valid owner authentication and owner-cookie mutations require valid session-bound CSRF proof.",
+      "proof_surface": "Real production ASGI application/runtime responses for owner authentication, cookie-bound mutation admission and authentication activity; browser, live TCP/TLS and deployment topology are outside this pilot.",
+      "review_reference": "reviews/pilot-ingress-review.json: structured evidence; external acceptance remains pending.",
+      "review_evidence": [
+        "reviews/pilot-ingress-review.json"
+      ]
+    },
+    {
+      "id": "settings.reset.preserves_newer_edit",
+      "requirement": "A domain settings reset fenced to a backup revision rejects a conflicting newer edit and preserves that edit.",
+      "proof_surface": "Actual repository backup/domain reset operations, persisted SQLite revision and settings snapshots, plus API reads; API backup-to-reset race scheduling remains outside this pilot.",
+      "review_reference": "reviews/pilot-settings-review.json: structured evidence; external acceptance remains pending.",
+      "review_evidence": [
+        "reviews/pilot-settings-review.json"
+      ]
+    },
+    {
+      "id": "framework.execution.preserves_failure_accounting",
+      "requirement": "Combined execution and cleanup/evidence failures retain the primary error; the lifecycle pilot reports crashes and hard deadlines as non-passing and records the unstarted second selection after interruption of a two-scenario batch.",
+      "proof_surface": "Fourteen real CLI worker fixture modes inspect primary/secondary results, lifecycle/supervisor artifacts and exit statuses; interruption accounting is demonstrated with a two-scenario selection, not arbitrary selector permutations.",
+      "review_reference": "reviews/pilot-runner-review.json: structured evidence; external acceptance remains pending.",
+      "review_evidence": [
+        "reviews/pilot-runner-review.json"
+      ]
+    },
+    {
+      "id": "framework.governance.requires_current_manual_approval",
+      "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
+      "proof_surface": "Actual governance CI helper decisions using real Git trees and a loopback GitHub protocol fixture; native GitHub approval enforcement and PR-specific commit-status invalidation remain outside this pilot.",
+      "review_reference": "reviews/pilot-ci-review.json: structured evidence; external acceptance remains pending.",
+      "review_evidence": [
+        "reviews/pilot-ci-review.json"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "selector": "experiments/basic_haiku_context",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ee30724c510143486309bf17a837435e6bf9b3f2a8b92aa472409f18e1ea8059"
+    },
+    {
+      "selector": "experiments/basic_haiku_workflow",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5c5252e4208613517fa2e386f9d0b14988a2f462e30f1474723983aac730d3cd"
+    },
+    {
+      "selector": "experiments/compaction_v2_live_conversation",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f4897508c211aaa2b25add064c07dd60de7dd36646c071f9982745cc55cb3f63"
+    },
+    {
+      "selector": "experiments/context_history_sequence_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "aef8fa4040f965af9cb9f6681c4100930541ff9b22ecc2b5594d773a2c6e9b4d"
+    },
+    {
+      "selector": "experiments/deferred_tool_review_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "fb2176c610bdda7e2767dbad8f447b861e8d0ca87d14f5cc39415c1476d59c5a"
+    },
+    {
+      "selector": "experiments/harness_step_persistence_parity_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a3a7b220a036fea4f38c8ad307c1632309ca6a47c0cde34d2b4afb9f46e450af"
+    },
+    {
+      "selector": "experiments/import_pipeline_live_url",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "def467e6a2dc9f19f4091f16ccaeb552552bb1dffe924572fc60132a4d6fffdc"
+    },
+    {
+      "selector": "experiments/jev_decision_runtime_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "cf7dc8ebd57baf526210fd2aa86f68dd4ad66fb38c07e4d670b69c22beed2cae"
+    },
+    {
+      "selector": "experiments/mcp_native_search_failure_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "38a2364f681f3a094c7f9853d1c26af08f2662bf8d88f03eceefb56183be144a"
+    },
+    {
+      "selector": "experiments/mcp_tool_search_contract_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b96d588e29c957a5836ce6b76b015fe9edb9114d67a2b754b32caf1dfe3b64ae"
+    },
+    {
+      "selector": "experiments/openai_oauth_codex_live_stress_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1f23443cb305dfb6f0274fb099d8a1d75408943ee42b2b7c7618ac32cff69fa4"
+    },
+    {
+      "selector": "experiments/openai_oauth_codex_request_shape_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b10fee96a043422dbf13e09e8f3e61bdb6132fded4d7dd084e9447b1f88edd91"
+    },
+    {
+      "selector": "experiments/prompt_injection_security",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f3835c8a2ea836b2d9b2d323ad3c4b95adfa198b3e054d9485b7fa500c19dcf4"
+    },
+    {
+      "selector": "experiments/pydantic_stream_disconnect_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f8c8991e24c9d9a8d6746beaa271cb6cc90db4571ea70e095a7a888882b5b64c"
+    },
+    {
+      "selector": "experiments/workflow_governor_queue_probe",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "3c4caad7c5f6922b7a25fb1810f7e0974c44a00f677250d973fc9e62549555b6"
+    },
+    {
+      "selector": "integration/core/api_endpoints",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "11e7d47cb6697c1de1061c1ab764255e4e356dc8d15319418001de9477028c01"
+    },
+    {
+      "selector": "integration/core/api_error_resilience",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "16e903ab7013128d5c495f0a87878d9a7ad2bac1fc7dfade4c63f59b01c1954a"
+    },
+    {
+      "selector": "integration/core/authoring_context_assembly",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "9aae295851b2a7abf5ccedb1fff7a118320dcd4c18af5851f542c25712f8dc82"
+    },
+    {
+      "selector": "integration/core/authoring_contract",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "0e8c48e197e71b7d82c372b438f80adc8ab8dd17dbccd5e0248bf28d14573ffc"
+    },
+    {
+      "selector": "integration/core/authoring_tool_failure_semantics",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "e1d04d70b411e3953d3104e6c66d94c3f9c239047a214cc30826eeff1c1dd056"
+    },
+    {
+      "selector": "integration/core/auto_chat_history_compaction",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a53db27024f8b2916f2687b1d046a37f51fe3a4c7f9d0f58691cd7f46796bffa"
+    },
+    {
+      "selector": "integration/core/browser_resource_policy",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "e3d6907874cb031b6608beaa33f1a71c29e616a83f625860aa7aded8d82fbc6c"
+    },
+    {
+      "selector": "integration/core/builtin_connection_configuration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ab7aa2c8dd22429d54b19d1ac4053a06417db790c8377c6cb795330d687b46c7"
+    },
+    {
+      "selector": "integration/core/cache_manual_purge",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c2af5623cde1ebcb0c12c1ccfe5803c33f08ec9b8b2a0db249f528f1d1c84b93"
+    },
+    {
+      "selector": "integration/core/chat_cache_multi_pass",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ed0da825ce8844e21b27f834fbff1f58efbdccf39a34100de3814af1aefa9444"
+    },
+    {
+      "selector": "integration/core/chat_cancellation",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "cf7a357d0c4524e6712092da2adbd5c70ff0e4a17fcd39dd37696b2c53759533"
+    },
+    {
+      "selector": "integration/core/chat_failure_logging",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "902b4e758c4ca3d1445e13f6cdf8cfff32231a4b48143e2a26570277ca02fc69"
+    },
+    {
+      "selector": "integration/core/chat_failure_rollback",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "4a6e749a5c9f3ad1530b294e5af6d058d063885ea0df0f88109a950cc451e0b0"
+    },
+    {
+      "selector": "integration/core/chat_history_compaction",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "38c58ad077004096e44dc7dd85d8f69f1ac7d0a431289d23e24057c28da16a95"
+    },
+    {
+      "selector": "integration/core/chat_manual_retry",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "9abdc81e8262fb0741c7285ef447945fde1f0e8f79683a1ebf32b8669daa1dd2"
+    },
+    {
+      "selector": "integration/core/chat_model_alias_fallback",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "fb683ed4f6679653fd5bc7999b900864b8167c62cc4232e74aaf2d5d5b9dce2f"
+    },
+    {
+      "selector": "integration/core/chat_multipart_upload_limits",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "10ea6522cfb28c16f69089e10746a935008670d5ce8e01258c8123b630554c39"
+    },
+    {
+      "selector": "integration/core/chat_reasoning_history_policy",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "918a1141f3b504a67b5671b0709602b04b56506f0decbff870c26af0f90c1f6c"
+    },
+    {
+      "selector": "integration/core/chat_session_fork_lineage",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "244060758d17bfa78dc52a85910cc4ee8779873128c944c0a09d1b842720c215"
+    },
+    {
+      "selector": "integration/core/chat_session_persistence_contract",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "3df94f56ce9c2420333fb75714b134c4f45d6a441be55c98c636cbf6c0bbf522"
+    },
+    {
+      "selector": "integration/core/chat_stream_auto_retry",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "01320a3520d376c6c9b980caa47a29ae8e3c396398e918ba3b55f17d63b16c04"
+    },
+    {
+      "selector": "integration/core/chat_stream_background_task",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "2fcce79e3f4e07fd6efed47cc98bb2a6abd848d5e90febc3265f1a78a651aa47"
+    },
+    {
+      "selector": "integration/core/chat_stream_failure_logging",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ceb7016e196334e5798bbff1c5b4990e97d00039f4b7ef78b34662b6468bb890"
+    },
+    {
+      "selector": "integration/core/chat_stream_keepalive",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "7117b95d837944a8619a52db0bdcd5d00fbc2473cbc768d12f49a52d25172b9c"
+    },
+    {
+      "selector": "integration/core/chat_surface_adapter",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "6966baf2b1a761430f3ed0c4dbc0f135e35aeb4f988b8884e77c7bf050adcb95"
+    },
+    {
+      "selector": "integration/core/chat_task_event_buffer",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "8ab6a2b4e6043381994c205f99cdc8355f31b5aed6c2bfd861908c342c9ff7b3"
+    },
+    {
+      "selector": "integration/core/chat_task_event_stream_api",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a6af19643e7f5524978e98dee6da2a6b377c0f23332e8577b6443da79732a182"
+    },
+    {
+      "selector": "integration/core/chat_task_session_queue",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "571fffaef7c2b6bba2d112b9379d8abcdecee9cb2e493aab2e29e9f6a9c6bf57"
+    },
+    {
+      "selector": "integration/core/chat_tool_metadata_visibility",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5aecb4c51fc63ee776c1f1900e8140f22bf77144decf79ae9ef8500037648e9a"
+    },
+    {
+      "selector": "integration/core/chat_tool_overflow_cache",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b4cd279486571594c5b719d7355e239f21f2260b52d79121d069fc732f56d663"
+    },
+    {
+      "selector": "integration/core/chat_tool_replay_contract",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "9c69384ce9b09c97b1277695f01fd9d1fcc09c92c18bdf92830a224eab51f9e7"
+    },
+    {
+      "selector": "integration/core/chat_usage_limits",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "9fbf6f21704d58eaa07fcd561cc9e9127193e9071d7c8b3cb8f1487aaef99e4b"
+    },
+    {
+      "selector": "integration/core/code_execution",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "32fba22b03fd1cc264a73f78142fc05e04aaaf15588901162b008dd178c72dc9"
+    },
+    {
+      "selector": "integration/core/code_execution_rollback",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c18c637df82afb583fe149a4196c28e26e61c41163c5bdc3db42870177c30688"
+    },
+    {
+      "selector": "integration/core/content_import_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "19a6aeb727e66d887f7f4043ba9bdec7e246c2b34177e9613f50755ea3a14ee7"
+    },
+    {
+      "selector": "integration/core/context_history_tool_passthrough",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "0fae73df3e51d07ae58a2b0b4391ec42c63a427048dee62e1adbe79efa3d063a"
+    },
+    {
+      "selector": "integration/core/decision_model_configuration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ff853565e4762fe964aa9f353ad4113b6f84c8c82149d34e1b909dcc405faa1f"
+    },
+    {
+      "selector": "integration/core/default_context",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "cbb7b0f0eafc8590c2435346fff4430dd955bee41e3fbf9ea4fac95d3f768cc5"
+    },
+    {
+      "selector": "integration/core/deferred_review_interruption",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "48a6cb199f6c4ccb43f3407e3009014c23a552d9bd82a15da5fc4a656fb5a4db"
+    },
+    {
+      "selector": "integration/core/deferred_review_task_skeleton",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5f30ac52509d8d1f60e3af126127e112d4991891d37ddccb0ef77f7b25140fb2"
+    },
+    {
+      "selector": "integration/core/delegate_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "6a71631190579f07591943d7af910e92eecb76ec6f50527f28b82e073c45ce42"
+    },
+    {
+      "selector": "integration/core/disabled_tools_registry",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "68ef66dd17531715aeaa70184cd52cadc54f64b1b39958a52fe9e2b2bb03e0ca"
+    },
+    {
+      "selector": "integration/core/edit_proposal_artifacts",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "656b297f525cab8070c8d96d0940b5fe88e4a659d6ac66e706bd6a2b852d4ee5"
+    },
+    {
+      "selector": "integration/core/encrypted_secrets_boundaries",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "217b3978d9561169d85025397339ba0fa3541183251cca1bacba9a3aecd3eb1b"
+    },
+    {
+      "selector": "integration/core/execution_task_runner",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "7974fc1f2113c64f53f03fe925ab1ac24b4075eede77d1f95bd3a52cb32475c8"
+    },
+    {
+      "selector": "integration/core/file_ops_extensionless_text_mutations",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b4af10e5fef2a1880ae813b72db758fd67d1ac9733518c06a1e7d92e9e27cf78"
+    },
+    {
+      "selector": "integration/core/file_ops_inline_edit_policy",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "2ed65428907e541f31dd588c89b3784443db11a463c7fd194498b7d5758f8fc9"
+    },
+    {
+      "selector": "integration/core/file_ops_unified_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "4fef8e08e581a740a2ffccd7f226aa7464ef0618df4ec8d9146c592735cb9a7e"
+    },
+    {
+      "selector": "integration/core/file_read_recursive_list",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "0774c85632e7e7bab9c32a292333c359f2bfc6eb3da4291bb9f12dd6ae0f5a96"
+    },
+    {
+      "selector": "integration/core/file_read_search_text_files",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5027876448d578c026ae57b9a9553a7c052bc2c0213dcb54da2ba885214d5c1d"
+    },
+    {
+      "selector": "integration/core/file_write_directory_delete",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f1034d9b9f5dfd6317a20f22f5d1e13ee7a5404cb46f5151830437a4001f1cfc"
+    },
+    {
+      "selector": "integration/core/file_write_same_path_concurrency",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a8862f14e9182f30df289e56230ef85748ef157cbee43226b1bef1444f3c40d0"
+    },
+    {
+      "selector": "integration/core/gmail_attachment_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "37f587fdd7660c182e0c69d71d5b307953ff22379dc79c768291ffadd033048f"
+    },
+    {
+      "selector": "integration/core/gmail_connection_api",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1c9e7531ddd0a308e98452e1d080dc0dc87055c95587f5d8253205fea4ef0934"
+    },
+    {
+      "selector": "integration/core/gmail_draft_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "2660877da2562b8cdde0046017708f56cc64974e0456c2befd80dcd086aa67c4"
+    },
+    {
+      "selector": "integration/core/gmail_principal_connection",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b24c0a99536ce25e39a2667f11b6054cece79e8a8dff6fbf85ad06b59ce1dc3a"
+    },
+    {
+      "selector": "integration/core/gmail_read_tools",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f254e8d326646cedb892c65935deb065e9b8d2e6830d1791ef585aef9d5abdad"
+    },
+    {
+      "selector": "integration/core/gmail_tool_failure_chat",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "04f4d357a5f181ec45e17529be1486ff1721847f191198d150e03553055a161d"
+    },
+    {
+      "selector": "integration/core/goal_ops",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "89e6943b2d175d31f64c3b54f92e2c04c031343d4e43d23e7cf5afde76c6b4d9"
+    },
+    {
+      "selector": "integration/core/google_oauth_coordinator",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f101755efcc6fc18675a6a06b1f9211ff2f2d618a40b60225c9c16fdfb56840a"
+    },
+    {
+      "selector": "integration/core/import_pipeline_core",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "2f99e46b33ef58201014bd7f658ac6ed02d43bc61c3a14a21eb37890fd48a825"
+    },
+    {
+      "selector": "integration/core/import_pipeline_scheduler",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "bd5a2cf71198374b40e6e7272feb330a9bc0172ec3978a7902b077ec189da995"
+    },
+    {
+      "selector": "integration/core/ingress_authentication",
+      "classification": "pilot",
+      "contracts": [
+        "ingress.owner_and_csrf_boundaries"
+      ]
+    },
+    {
+      "selector": "integration/core/job_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "ae209c3e44a7c396dcbd46a9571f03b3ccedadf4be8e4e7e0e7e17b193943175"
+    },
+    {
+      "selector": "integration/core/legacy_secrets_migration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "abdc2b9ace6006455b1aa0fc9a15433e204ddcde72221f5f52114abad973ce95"
+    },
+    {
+      "selector": "integration/core/locked_access_bootstrap",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "8407f57c02731e3cb7722b932d78b81f2170982bb0d05fe2270b191b9616d159"
+    },
+    {
+      "selector": "integration/core/manual_session_map_compaction",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "dff6c6034ed5b1f0f9d776fbedf2dbc5951cd54fcd1aeada427360186446149a"
+    },
+    {
+      "selector": "integration/core/mcp_advanced_shell_stdio_connections",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "cf57148da008d19dbc713f39d2c2eaa5ad91240de44218c0d885efd8d9a17706"
+    },
+    {
+      "selector": "integration/core/mcp_chat_tool_search",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c7f4a8471992fa3d7441bdff1ca10dfe489992f8aabdcd66a1583d116b0bf69c"
+    },
+    {
+      "selector": "integration/core/mcp_connection_isolation",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5b8f818e6c2355fefd51fef3714804db9cca21a36beb43815e7194ca5aafdd13"
+    },
+    {
+      "selector": "integration/core/mcp_mutation_recovery",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "955015d15149c038bd8e7e39eddb0f834546d238d763e39fc80441c47889198c"
+    },
+    {
+      "selector": "integration/core/mcp_oauth_coordinator",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c88d0771cc70101e75885690b5820959c89b869e2f3a6923afb0dfd0179cac98"
+    },
+    {
+      "selector": "integration/core/mcp_oauth_storage",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a2635bc85a5786d1e79dbd589e243dd0947887a9224799b738808fe7950b1d56"
+    },
+    {
+      "selector": "integration/core/mistral_ocr_contract",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "919f161ed3a79c824f941d80b5cdcb85b28ddc2a0285b5cae32340833e355a90"
+    },
+    {
+      "selector": "integration/core/model_alias_resolution",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1e1e2e4e72255915dc8342819c38da58f54006b819ff9452c25a7002fbb19c3a"
+    },
+    {
+      "selector": "integration/core/model_failure_classification",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "963c9e35023b8f12739418c5b68462049944dc3d83db1da26911a4deedaded6d"
+    },
+    {
+      "selector": "integration/core/openai_oauth_rejection",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "73845ac176f15a060241aa79dc8fec9c2707e72211aa27e804805b409b11bb1d"
+    },
+    {
+      "selector": "integration/core/pending_diff_metadata",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "b0f3bde6e9baef8502b0fc31b6d82079599fe2406abf0b61b84760c98f5e286b"
+    },
+    {
+      "selector": "integration/core/pending_hybrid",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "d05113649974280336507ea24e85306dbbb2c3b04022226864537ddcca5aeaeb"
+    },
+    {
+      "selector": "integration/core/principal_authority_boundaries",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "3fe0aadd76d1966af0c956b93d8cb355d96dce2a6fecd33db7fb352daa64d938"
+    },
+    {
+      "selector": "integration/core/principal_execution_authority",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f7798481b57fa33514659659a7ae2e0cd9f7a368f2fb6b4006e8cf759bd5fcb2"
+    },
+    {
+      "selector": "integration/core/public_url_configuration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "bcd06241d0916e0f5bc6e10b7290791baa5a833abef4e0b649857808be0528fc"
+    },
+    {
+      "selector": "integration/core/recovery_card_compaction_concurrency",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "d871df0c20faf159bc0ad8afdac5ca3b6f77abb5d391b2837f0c0a181913eb21"
+    },
+    {
+      "selector": "integration/core/repeated_chat_history_compaction",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f92cc9dab1daab0cc6763c2155bcebadbac0449c4da18daa48e1d83ac3230fa2"
+    },
+    {
+      "selector": "integration/core/runtime_bootstrap_cleanup",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "7a15c5fde646badbad22c7ebfd72ab178b9f7f472418b6d61d8100cc376718e3"
+    },
+    {
+      "selector": "integration/core/session_context_strategy_upgrade",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1b609bfe69e0ea500c4a185aa6c66916d3b5c69ac0735b83c2c961b243c45dbb"
+    },
+    {
+      "selector": "integration/core/session_discovery",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "d60150fdede6fb7d527951b644e7ef577a066944b6786d54cc836e60a3690785"
+    },
+    {
+      "selector": "integration/core/session_discovery_cutover",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "279a1d012aa3aedf8c9f6ba81610d0889c514b739fb0ef290aa6eb0d9685fa04"
+    },
+    {
+      "selector": "integration/core/session_map_authoring_task",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "6302fbab06d41f196c0827b3ae38e0b7b6613173d29c0f04cb3f61aa4aebc311"
+    },
+    {
+      "selector": "integration/core/session_map_checkpoint",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "2cab4081e0bff5826e9a4d478e07cdc8b92a1e25ad6dfdcb43130cb9da480d48"
+    },
+    {
+      "selector": "integration/core/session_map_evidence_admission",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "8d199b5c0f591ecb62ea5f08e5c1229e9690b46837147858e4dba85dfa60961a"
+    },
+    {
+      "selector": "integration/core/session_map_pending_evidence",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "20d80a6dc936a630ecc2fd6774558ad2435cff4eb0334ae7ee5c00b82f48dd77"
+    },
+    {
+      "selector": "integration/core/session_map_readiness",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "596ab621819d9191c99307beb2f9673645091d9129dc3a7060c89d08ecfe1a4b"
+    },
+    {
+      "selector": "integration/core/session_map_retained_evidence",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "066f7af3b93eac1b98ab83d5191ead51f2e6c0f730101777aa469adefb87b1cc"
+    },
+    {
+      "selector": "integration/core/session_map_schema",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "bef7b4938569d3c43d5702296580302d815e4c0bc498246d6298f555eb292626"
+    },
+    {
+      "selector": "integration/core/session_ops_chat_tool",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "44fe2cfb84102d24b95b95bb71cc19aba9dba153e60cdd275d15c0b66824f56d"
+    },
+    {
+      "selector": "integration/core/session_ops_transcript_retrieval",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "e2f93fa90770337ab50ec674426d7292d383d1f44d58f8922dc16c171b59b64e"
+    },
+    {
+      "selector": "integration/core/session_summary_data_retirement",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "187707fc1b258145758358427d52a184d216a991a2b4a5f4d7144e8e135d890c"
+    },
+    {
+      "selector": "integration/core/settings_database_migration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f523e2e4c5ea2cafac09d2f88c8d03e83b3a4ed277417fa420e04ae307df1ca5"
+    },
+    {
+      "selector": "integration/core/settings_editors",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1c970a7a0cebbde77db18783d855bf225e81135ea4a3eb785ef31913e941a4f9"
+    },
+    {
+      "selector": "integration/core/settings_lifecycle",
+      "classification": "pilot",
+      "contracts": [
+        "settings.reset.preserves_newer_edit"
+      ]
+    },
+    {
+      "selector": "integration/core/shared_oauth_foundation",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "390e4db05aa35320e7dda27a0a977011e7178aa9a66189e3941d56e0a1b0658f"
+    },
+    {
+      "selector": "integration/core/sqlite_migrations",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "7b58ffb928088557f1c7d191a42598d52eb4d79d7b1e14723b90db2f21c76505"
+    },
+    {
+      "selector": "integration/core/stepped_eviction_envelopes",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5a26ecedfcf1feec32f90948d28d12919b390a04ea06733b40a113f2d01e5811"
+    },
+    {
+      "selector": "integration/core/stepped_eviction_planner",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "06e9e73047099842c5886d7539cda385fa1bd9d33118a5664b859e651b4c64ff"
+    },
+    {
+      "selector": "integration/core/stepped_session_map_post_turn",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "52d364ccb0b2bad5db8622648d8f7723eb5098aa32412452a972e6a8ccefc622"
+    },
+    {
+      "selector": "integration/core/structured_output_retry",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "061f3346167e9162e9ff490ca075db2578d9cd94c1ce874385f4a9af6e48bd98"
+    },
+    {
+      "selector": "integration/core/structured_tool_failure",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "de5ca24d2b83cc1b30d1d1201b485b2e670c01d5da9182b0d32dc911766839bd"
+    },
+    {
+      "selector": "integration/core/system_activity_history",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "a26dc9ef9ebec66c5e1ab0abd18f3d97ea535801752ad99a13ebd994ab2aee17"
+    },
+    {
+      "selector": "integration/core/system_database_migrations",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "19cf98f4fbe6edd585177f4b8cba3872ffd2ee13aa0e5cf3a31129e9a0132a4c"
+    },
+    {
+      "selector": "integration/core/system_startup",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "8a8df9e6c5abd2b0e1d16165e9413fedb1766bef1ba847c0dd2d90b1072144c5"
+    },
+    {
+      "selector": "integration/core/system_startup_migrations",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "3b984fb8a82dd99d91eff8a31dbdf2ef6dfd4122d7d2faf3917d26b9ce11cc1f"
+    },
+    {
+      "selector": "integration/core/system_template_seed_refresh",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "d8c2c4f1056c5652e6b4a5c33e09296198455600f7acf16c855fa814519e26f1"
+    },
+    {
+      "selector": "integration/core/tool_history_integrity",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "59fba0bb866b56be4f8d38721d5089337b645db9c033307ab6c636520227b167"
+    },
+    {
+      "selector": "integration/core/tool_recovery_policy",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "68b998c1fd904372cbbd3934f4072fa0f0f0f861fa6694bb8d19fe69b8f54477"
+    },
+    {
+      "selector": "integration/core/transcript_retrieval_storage",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "0587c00efb00708af19ccfe306c137811ab149f04ee5333fe1fbb659c7036db4"
+    },
+    {
+      "selector": "integration/core/user_notes_compaction_workflow",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "4f936c23d97b6c9eaa908c6978bba1e15eaf455e407f7269cdc9ec88568697fb"
+    },
+    {
+      "selector": "integration/core/validation_adapter_lifecycle",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "952e682cf4d19ffa084272cb6a8ddd4c5659abd7a9698d0280d1e83cbdecdd45"
+    },
+    {
+      "selector": "integration/core/validation_governance",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c1ff9cdbccf9dd8cd8cf07cfb75a89e9a64e2e553aa3e416cd2427593a20fadd"
+    },
+    {
+      "selector": "integration/core/validation_governance_ci",
+      "classification": "pilot",
+      "contracts": [
+        "framework.governance.requires_current_manual_approval"
+      ]
+    },
+    {
+      "selector": "integration/core/validation_inventory",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "4ce15996e1eccfe6b935295031fae443cd932fdb453fbaa80cbef13e362475b7"
+    },
+    {
+      "selector": "integration/core/validation_lifecycle",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "05e462b4fec3a11cc893612d307005bc259fe4c73bdc827f09af2c3b87260f04"
+    },
+    {
+      "selector": "integration/core/validation_process",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f0fc4602b67bd57176c73cacb51009461961739f5a3d2b92c3b98ec0a4ab5aa7"
+    },
+    {
+      "selector": "integration/core/validation_run_reporting",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "46f25868c7ccc969674cab2a8eb061d3420557aac8056faee4393677fbf04e26"
+    },
+    {
+      "selector": "integration/core/validation_runner_lifecycle",
+      "classification": "pilot",
+      "contracts": [
+        "framework.execution.preserves_failure_accounting"
+      ]
+    },
+    {
+      "selector": "integration/core/vault_activity_migration",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "f41aba829df30593f2a8553947d5761203868bb16b63169cecde62fa07b39d36"
+    },
+    {
+      "selector": "integration/core/vault_activity_rollback",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "880e5801d5274399f5bb1fd3d0433c645de90b4ee015402b05a21da57a073b1d"
+    },
+    {
+      "selector": "integration/core/vault_content_search",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "bf89e0c32c1ea0edeaed23fdd722935804dc0a4ef4600ba7b3bcbee67c769433"
+    },
+    {
+      "selector": "integration/core/vault_direct_import",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "47a8029953bed56e6a00ca6fac3c0a901d4960a5f4e71ec6195ebd14b5a65d9b"
+    },
+    {
+      "selector": "integration/core/vault_directory_mutation_concurrency",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "443f9c94697b1a7320ce32b51f67166b73e5247fdf7cd2c064b6589f1d67d53e"
+    },
+    {
+      "selector": "integration/core/vault_explorer_batch_move",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "977fcba2ffb8f1bb0eff9709e71bd29c2598f645fbf3eeeeb9aa3436f4518a23"
+    },
+    {
+      "selector": "integration/core/vault_explorer_upload",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "0c777432d7a7da6d9927d6b09d46686bd463078136381eb41d559404a9b03595"
+    },
+    {
+      "selector": "integration/core/vault_file_reference_api",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c418a1f46afa2b995a7ddf5efd7e5b4a52191fb19dcdbf776c8ee995cd121307"
+    },
+    {
+      "selector": "integration/core/vault_relative_workflow_run",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "9069c1dfaa5709496c4822c133d62371c666cd9ec0842ea8f1d250f6247e2607"
+    },
+    {
+      "selector": "integration/core/vault_state_cleanup",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "1fdeb0b91b9e6a4b3a020ee5ead64352ffe81d58e526461aaac0ee642b93fe82"
+    },
+    {
+      "selector": "integration/core/vault_state_manifest",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "4401f68fea7927c3a0e1763047a8fe1c7d426418b3f05a2de50663a661cee43b"
+    },
+    {
+      "selector": "integration/core/vault_state_mutation_recorder",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "099890264e33656639378f0b67fb55bbbae547449f57a8f6bbfd9cf788932c3e"
+    },
+    {
+      "selector": "integration/core/vault_state_rollback",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "92c5346ff978cc04fcb1430622ed501550c6e7d4a840e3e0bae2ba51ae09d46e"
+    },
+    {
+      "selector": "integration/core/vault_state_scheduled_refresh",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "837406fe570c9d9c5d3343cd35239953c5f2f9e158de4a98317071010f9b29e6"
+    },
+    {
+      "selector": "integration/core/vault_state_startup_rescan",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "15ad91c4accb70cc38d490e589131045d1cc98071121692bebb8a5d0af61671c"
+    },
+    {
+      "selector": "integration/core/web_capability_strategies",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "fc6aabce42a1d22150f678384986b66d1bf5fd1e988e295ab7c36a025a6b6727"
+    },
+    {
+      "selector": "integration/core/web_strategy_binding",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "eab344d1a0f30c39328afa18c39c5082dd8e41c0410d4806b99e74047dc4297b"
+    },
+    {
+      "selector": "integration/core/workflow_cancellation",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "fdc82da40570ac45ea4e69d9ca9684f6ddb54d89c9d13d4a85295897f2548334"
+    },
+    {
+      "selector": "integration/core/workflow_governor_queue",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "796632cd61200342498d4c7ba978d5f3cacfbcec6e5f2c78960e3705cd9edd54"
+    },
+    {
+      "selector": "integration/core/workflow_governor_timeout",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "51fab3c01cb841be8fc51c6b8ca87c6c55690800cb487e3c701d87d3f734ac98"
+    },
+    {
+      "selector": "integration/core/workflow_lifecycle_ops",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "5ae12def50139534f58808043baed93f9804b5451b12b09e1177a82297c77ba2"
+    },
+    {
+      "selector": "integration/core/workflow_run_async",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "c53d2bdceae492dca89faafe28c9279758fb30428272c6f44a0fc22c7e3c25d1"
+    },
+    {
+      "selector": "integration/core/workflow_run_history",
+      "classification": "legacy",
+      "contracts": [],
+      "sha256": "acccbfd6d91a8174b2390112dd6614ed4a6b25c986e75c8490a79e6172f4ea6b"
+    }
+  ],
+  "profiles": {
+    "integration/core": {
+      "selectors": [
+        "integration/core"
+      ],
+      "required_contracts": [
+        "ingress.owner_and_csrf_boundaries",
+        "settings.reset.preserves_newer_edit",
+        "framework.execution.preserves_failure_accounting",
+        "framework.governance.requires_current_manual_approval"
+      ]
+    }
+  }
+}

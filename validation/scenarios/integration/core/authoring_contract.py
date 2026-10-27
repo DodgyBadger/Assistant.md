@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class AuthoringContractScenario(BaseScenario):
@@ -20,7 +20,7 @@ class AuthoringContractScenario(BaseScenario):
         vault = self.create_vault("AuthoringContractVault")
 
         self.create_file(vault, "notes/seed.md", "SEED_CONTENT")
-        self.copy_files("validation/templates/files/test_image.jpg", vault, "images")
+        self.copy_files("validation/fixtures/files/test_image.jpg", vault, "images")
         self.create_file(vault, "notes/structured.md", STRUCTURED_NOTE)
         self.create_file(vault, "tasks/pending-one.md", "PENDING_ONE")
 

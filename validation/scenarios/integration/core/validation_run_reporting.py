@@ -6,11 +6,15 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from validation.core.base_scenario import BaseScenario
-from validation.core.inventory import InventoryError
-from validation.core.reporting import render_terminal_summary, write_run_reports
-from validation.core.results import ErrorClassification, ScenarioResult, ValidationRun
-from validation.core.runner import ValidationRunner
+from validation.support.base_scenario import BaseScenario
+from validation.support.inventory import InventoryError
+from validation.support.reporting import render_terminal_summary, write_run_reports
+from validation.support.results import (
+    ErrorClassification,
+    ScenarioResult,
+    ValidationRun,
+)
+from validation.support.runner import ValidationRunner
 
 
 class ValidationRunReportingScenario(BaseScenario):

@@ -13,8 +13,8 @@ from core.chat.executor import (
     PreparedChatExecution,
     _failure_recovery_message,
 )
-from validation.core.base_scenario import BaseScenario
-from validation.core.streaming import stream_events_context
+from validation.support.base_scenario import BaseScenario
+from validation.support.streaming import stream_events_context
 
 
 class _RequestLimitAgent:

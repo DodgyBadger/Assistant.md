@@ -16,8 +16,12 @@ from pathlib import Path
 # Add project root to path FIRST
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from validation.core.inventory import InventoryError, ScenarioCatalog, build_inventory
-from validation.core.paths import resolve_validation_root
+from validation.support.inventory import (
+    InventoryError,
+    ScenarioCatalog,
+    build_inventory,
+)
+from validation.support.paths import resolve_validation_root
 
 logger = logging.getLogger("validation-cli")
 
@@ -73,14 +77,14 @@ def expand_scenario_paths(runner, scenario_specs, *, allow_unmatched: bool = Tru
 
 def run_scenarios(args):
     """Run validation scenarios."""
-    # A temporary evidence root may link to checkout-owned scenarios/governance.
+    # A temporary evidence root may link to checkout-owned scenarios/registry.
     source_root = (resolve_validation_root() / "scenarios").resolve().parent
     preflight = build_inventory(source_root)
     if preflight.issues:
         raise InventoryError("\n".join(preflight.issues))
 
-    from validation.core.reporting import render_terminal_summary, write_run_reports
-    from validation.core.runner import ValidationRunner
+    from validation.support.reporting import render_terminal_summary, write_run_reports
+    from validation.support.runner import ValidationRunner
 
     runner = ValidationRunner(
         timeout_seconds=args.timeout,
@@ -223,7 +227,7 @@ def inventory(args):
 
 def governance(args):
     """Diagnose immutable-tree changes; external authority owns approval."""
-    from validation.ci.audit import audit_git
+    from validation.support.ci.audit import audit_git
 
     try:
         report = audit_git(args.repo, args.base_ref, args.candidate_ref)

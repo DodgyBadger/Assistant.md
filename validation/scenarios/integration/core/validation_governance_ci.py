@@ -8,12 +8,12 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class ValidationGovernanceCiScenario(BaseScenario):
     async def test_scenario(self) -> None:
-        from validation.ci.governance import GitHubAPI, finalize, run_audit
+        from validation.support.ci.governance import GitHubAPI, finalize, run_audit
 
         repo = self.artifacts_dir / "governance-ci-git"
         repo.mkdir()
@@ -52,8 +52,8 @@ class ValidationGovernanceCiScenario(BaseScenario):
             "scenarios": [],
             "profiles": {},
         }
-        write("validation/ci/audit.py", "# baseline checker\n")
-        write("validation/governance/scenario-catalog.json", json.dumps(catalog))
+        write("validation/support/ci/audit.py", "# baseline checker\n")
+        write("validation/registry/scenario-catalog.json", json.dumps(catalog))
         write("app.py", "initial\n")
         base = commit("baseline")
         write("app.py", "production change\n")

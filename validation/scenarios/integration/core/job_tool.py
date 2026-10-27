@@ -16,7 +16,7 @@ from core.identity import (
     use_execution_authority,
 )
 from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class JobToolScenario(BaseScenario):

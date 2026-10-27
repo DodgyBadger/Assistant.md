@@ -25,7 +25,7 @@ from pydantic_ai_harness.step_persistence import (  # noqa: E402
     StepPersistence,
 )
 
-from validation.core.base_scenario import BaseScenario  # noqa: E402
+from validation.support.base_scenario import BaseScenario  # noqa: E402
 
 
 class HarnessStepPersistenceParityProbeScenario(BaseScenario):

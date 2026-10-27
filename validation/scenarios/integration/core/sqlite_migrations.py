@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.database_migrations import SQLiteMigration, apply_sqlite_migrations
-from validation.core.base_scenario import BaseScenario
+from validation.support.base_scenario import BaseScenario
 
 
 class SQLiteMigrationsScenario(BaseScenario):
