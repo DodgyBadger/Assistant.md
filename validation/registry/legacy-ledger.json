@@ -6481,6 +6481,26 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_vault_path_picker_modules.py",
       "location_classification": "browser_deferred"
+    },
+    {
+      "path": "validation/experiments/pytest_comparison/test_scenarios.py",
+      "summary": "Explicit opt-in four-scenario pytest comparison authorized by the maintainer; current integration/core scenarios remain authoritative.",
+      "groups": [
+        {
+          "id": "pytest-scenario-comparison",
+          "contract": "Compare real application outputs, structured validation-sink expectations and inspectable pytest evidence with four existing scenarios.",
+          "rationale": "A bounded framework experiment, not migrated application coverage or an ephemeral unregistered test.",
+          "proposed_destination": "Decision pending experimental comparison; run explicitly with its pytest configuration.",
+          "disposition": "framework_infrastructure",
+          "tests": [
+            "test_extensionless_file_edits",
+            "test_settings_editors",
+            "test_vault_relative_workflows",
+            "test_async_cancellation_rollback"
+          ]
+        }
+      ],
+      "sha256": "8a60986971ccd6ee91d53facca6750b27458d93c1152502a26a3941aef70a0bc"
     }
   ],
   "followups": [

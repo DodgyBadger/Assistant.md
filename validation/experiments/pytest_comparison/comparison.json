@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "purpose": "explicitly opted-in pytest scenario comparison; not a migration",
+  "scenarios": [
+    {
+      "test": "test_extensionless_file_edits",
+      "source": "validation/scenarios/integration/core/file_ops_extensionless_text_mutations.py",
+      "source_sha256": "b4af10e5fef2a1880ae813b72db758fd67d1ac9733518c06a1e7d92e9e27cf78",
+      "original_assert_statements": 0,
+      "original_soft_asserts": 12,
+      "pytest_assert_statements": 12,
+      "pytest_event_queries": 0,
+      "original_event_queries": 0
+    },
+    {
+      "test": "test_settings_editors",
+      "source": "validation/scenarios/integration/core/settings_editors.py",
+      "source_sha256": "1c970a7a0cebbde77db18783d855bf225e81135ea4a3eb785ef31913e941a4f9",
+      "original_assert_statements": 41,
+      "original_soft_asserts": 0,
+      "pytest_assert_statements": 34,
+      "pytest_event_queries": 0,
+      "original_event_queries": 0
+    },
+    {
+      "test": "test_vault_relative_workflows",
+      "source": "validation/scenarios/integration/core/vault_relative_workflow_run.py",
+      "source_sha256": "9069c1dfaa5709496c4822c133d62371c666cd9ec0842ea8f1d250f6247e2607",
+      "original_assert_statements": 0,
+      "original_soft_asserts": 14,
+      "pytest_assert_statements": 14,
+      "pytest_event_queries": 2,
+      "original_event_queries": 2
+    },
+    {
+      "test": "test_async_cancellation_rollback",
+      "source": "validation/scenarios/integration/core/workflow_run_async.py",
+      "source_sha256": "c53d2bdceae492dca89faafe28c9279758fb30428272c6f44a0fc22c7e3c25d1",
+      "original_assert_statements": 0,
+      "original_soft_asserts": 13,
+      "pytest_assert_statements": 13,
+      "pytest_event_queries": 2,
+      "original_event_queries": 2
+    }
+  ],
+  "fixture_changes": [
+    "Application lifecycle belongs to pytest fixtures; manual stop/teardown/assert_no_failures calls removed.",
+    "Configuration PUT helper synthetic status-200 assertions replaced by successful real fixture-domain installs. API response assertions remain unchanged."
+  ],
+  "known_coupling": [
+    "Existing heartbeat formatter check is retained for parity and remains coupled to a private formatter; event assertions do not depend on it."
+  ],
+  "run_command": "uv run python -m pytest -c validation/experiments/pytest_comparison/pytest.ini validation/experiments/pytest_comparison/test_scenarios.py --evidence-root <empty-output-directory> --junitxml <output-directory>/junit.xml",
+  "execution_differences": [
+    "Function-scoped application roots and event loops in one pytest process, rather than a fresh supervised worker and filtered environment for every scenario.",
+    "Ordinary assertions stop at the first failure; soft assertion aggregation is not implemented.",
+    "Hard process timeout/crash handling and manual CI governance enforcement are not reproduced by the experiment."
+  ]
+}
