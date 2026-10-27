@@ -18,6 +18,12 @@
       "requirement": "Execution failures survive cleanup/evidence failures; crashes, interrupted or incomplete execution never pass or disappear from selected-run accounting.",
       "proof_surface": "Real CLI worker journeys, primary/secondary results, authoritative lifecycle/supervisor artifacts and exit statuses in validation_runner_lifecycle.",
       "review_reference": "Runner/worker evidence in test-cleanup-implementation-plan.md; pilot semantic admission awaits maintainer review."
+    },
+    {
+      "id": "framework.governance.requires_current_manual_approval",
+      "requirement": "Governance-sensitive changes receive a passing authorization only after the required manual approval for the current PR head and base; failed stages, stale identities or weakened external protection fail closed.",
+      "proof_surface": "Trusted CI audit/finalization exercised with real Git trees and a loopback GitHub protocol fixture in validation_governance_ci.",
+      "review_reference": "Manual CI approval selected by the user; bootstrap semantic review remains required before enforcing the new status."
     }
   ],
   "scenarios": [
@@ -828,6 +834,13 @@
       "sha256": "1a1686e30ea84ca0d72de7e9beae1b9969e378211c72c2a2846591c2988fab47"
     },
     {
+      "selector": "integration/core/validation_governance_ci",
+      "classification": "pilot",
+      "contracts": [
+        "framework.governance.requires_current_manual_approval"
+      ]
+    },
+    {
       "selector": "integration/core/validation_inventory",
       "classification": "legacy",
       "contracts": [],
@@ -1005,7 +1018,8 @@
       "required_contracts": [
         "ingress.owner_and_csrf_boundaries",
         "settings.reset.preserves_newer_edit",
-        "framework.execution.preserves_failure_accounting"
+        "framework.execution.preserves_failure_accounting",
+        "framework.governance.requires_current_manual_approval"
       ]
     }
   }
