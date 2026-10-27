@@ -37,6 +37,13 @@ async def run(root: Path, mode: str) -> None:
             assert context.secret("credential") == secret
             append("opened")
             context.defer_cleanup("file-resource", lambda: append("closed"))
+            if mode == "unprintable_failure":
+
+                class UnprintableError(Exception):
+                    def __str__(self) -> str:
+                        raise RuntimeError("formatting failed")
+
+                raise UnprintableError(secret)
             if mode == "setup_failure":
                 raise ValueError(f"startup rejected {secret}")
             context.emit("application_ready", credential=secret)
@@ -71,6 +78,19 @@ async def run(root: Path, mode: str) -> None:
 
                 context.defer_cleanup("failed-resource", failed_cleanup)
             raise AssertionError(f"missing output {secret}")
+        if mode == "parallel_events":
+            await asyncio.gather(
+                *[
+                    asyncio.to_thread(
+                        context.emit,
+                        "concurrent_fixture",
+                        producer=index,
+                        sequence=sequence,
+                    )
+                    for index in range(4)
+                    for sequence in range(25)
+                ]
+            )
         (root / "output.md").write_text("# Actual fixture output\n")
         context.emit("output_written", path="output.md")
         if mode == "evidence_failure":

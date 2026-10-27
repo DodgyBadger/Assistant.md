@@ -27,6 +27,8 @@ class ValidationLifecycleScenario(BaseScenario):
             ("cleanup_timeout", None, None),
             ("cleanup_only_failure", None, None),
             ("cleanup_interrupt", None, None),
+            ("parallel_events", None, None),
+            ("unprintable_failure", "UnprintableError", "setup"),
         ):
             root = self.artifacts_dir / mode
             root.mkdir()
@@ -57,7 +59,7 @@ class ValidationLifecycleScenario(BaseScenario):
             assert report["same_loop"] is True
             assert report["close_attempts"] == (2 if mode == "evidence_failure" else 1)
             assert report["application_imported"] is False
-            assert report["passed"] is (mode == "success")
+            assert report["passed"] is (mode in {"success", "parallel_events"})
             resources = (root / "resource.log").read_text().splitlines()
             assert (
                 resources.count("opened")
@@ -66,7 +68,7 @@ class ValidationLifecycleScenario(BaseScenario):
                 == 1
             )
             assert resources.index("closed") < resources.index("stopped")
-            if mode == "success":
+            if mode in {"success", "parallel_events"}:
                 assert (root / "output.md").read_text() == "# Actual fixture output\n"
                 events = [
                     json.loads(line)
@@ -76,6 +78,17 @@ class ValidationLifecycleScenario(BaseScenario):
                 ]
                 assert any(event["event"] == "application_stopped" for event in events)
                 assert events[-1]["event"] == "lifecycle_finished"
+            if mode == "parallel_events":
+                assert (
+                    len(
+                        [
+                            event
+                            for event in events
+                            if event["event"] == "concurrent_fixture"
+                        ]
+                    )
+                    == 100
+                )
             if mode == "cleanup_failure":
                 assert [error["name"] for error in report["cleanup_errors"]] == [
                     "failed-resource",

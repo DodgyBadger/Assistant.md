@@ -7,6 +7,7 @@ import inspect
 import json
 import os
 import tempfile
+import threading
 import traceback
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
@@ -63,6 +64,7 @@ class RunContext:
         for value in self._secret_inputs.values():
             self.register_secret(value)
         self._cleanups: list[tuple[str, Callback]] = []
+        self._events_lock = threading.Lock()
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
         self._events = self.events_path.open("a", encoding="utf-8")
 
@@ -99,14 +101,22 @@ class RunContext:
         record = self._redact(
             {"timestamp": datetime.now(UTC).isoformat(), "event": event, **data}
         )
-        self._events.write(json.dumps(record, allow_nan=False) + "\n")
-        self._events.flush()
+        payload = json.dumps(record, allow_nan=False) + "\n"
+        with self._events_lock:
+            self._events.write(payload)
+            self._events.flush()
 
     def defer_cleanup(self, name: str, callback: Callback) -> None:
         self._cleanups.append((name, callback))
 
     def close(self) -> None:
-        self._events.close()
+        with self._events_lock:
+            self._events.close()
+
+    @property
+    def closed(self) -> bool:
+        with self._events_lock:
+            return self._events.closed
 
 
 class ApplicationAdapter(Protocol):
@@ -121,12 +131,20 @@ def current_run_context() -> RunContext | None:
 def _phase_error(
     context: RunContext, name: str, phase: str, exc: BaseException
 ) -> PhaseError:
+    try:
+        message = str(exc)
+    except BaseException:
+        message = f"<{type(exc).__name__}: message unavailable>"
+    try:
+        formatted_traceback = "".join(traceback.format_exception(exc))
+    except BaseException:
+        formatted_traceback = f"<{type(exc).__name__}: traceback unavailable>"
     return PhaseError(
         name=context._redact(name),
         phase=phase,
         exception_type=type(exc).__name__,
-        message=context._redact(str(exc)),
-        traceback=context._redact("".join(traceback.format_exception(exc))),
+        message=context._redact(message),
+        traceback=context._redact(formatted_traceback),
     )
 
 
@@ -267,6 +285,7 @@ async def execute(
                 )
                 payload = context.redact(
                     {
+                        "schema_version": 1,
                         "passed": outcome.passed,
                         "cancelled": outcome.cancelled,
                         "timed_out": outcome.timed_out,
