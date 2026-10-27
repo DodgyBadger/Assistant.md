@@ -843,7 +843,7 @@
       "selector": "integration/core/validation_governance",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "1a1686e30ea84ca0d72de7e9beae1b9969e378211c72c2a2846591c2988fab47"
+      "sha256": "f120e32eb70c488911f4b475cd159dac21c5e7adeb75775a2ea394ac134be6b4"
     },
     {
       "selector": "integration/core/validation_governance_ci",

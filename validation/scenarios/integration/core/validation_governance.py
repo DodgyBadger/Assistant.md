@@ -12,7 +12,10 @@ from validation.core.base_scenario import BaseScenario
 
 class ValidationGovernanceScenario(BaseScenario):
     async def test_scenario(self) -> None:
-        from validation.framework.governance import validate_catalog
+        from validation.framework.governance import (
+            contract_fingerprint,
+            validate_catalog,
+        )
         from validation.framework.governance_audit import audit_git
 
         root = self.artifacts_dir / "governance-validation"
@@ -34,6 +37,7 @@ class ValidationGovernanceScenario(BaseScenario):
                     "requirement": "Fixture behavior",
                     "proof_surface": "pilot",
                     "review_reference": "fixture",
+                    "review_evidence": ["pilot-review.json"],
                 }
             ],
             "scenarios": [
@@ -56,6 +60,36 @@ class ValidationGovernanceScenario(BaseScenario):
                 }
             },
         }
+        review_path = catalog_path.parent / "pilot-review.json"
+        review = {
+            "schema_version": 1,
+            "contract_id": "required",
+            "contract_fingerprint": contract_fingerprint(catalog["contracts"][0]),
+            "scenario": "integration/core/pilot",
+            "scenario_sha256": hashlib.sha256(pilot.read_bytes()).hexdigest(),
+            "source_revision": "1" * 40,
+            "proof_summary": ["The fixture checks a persisted outcome."],
+            "exclusions": ["This fixture is metadata, not semantic admission."],
+            "baseline": {
+                "observation": {
+                    "status": "passed",
+                    "scenario_name": "integration/core/pilot",
+                }
+            },
+            "negative_examples": [
+                {
+                    "fault": "An intentionally wrong result",
+                    "assertion": "The scenario rejects the wrong result",
+                    "observation": {
+                        "status": "failed",
+                        "execution_phase": "execution",
+                        "scenario_name": "integration/core/pilot",
+                        "error_message": "AssertionError: wrong outcome",
+                    },
+                }
+            ],
+        }
+        review_path.write_text(json.dumps(review))
 
         def check(value: dict) -> dict:
             catalog_path.write_text(json.dumps(value))
@@ -67,6 +101,54 @@ class ValidationGovernanceScenario(BaseScenario):
         assert report["legacy_scenarios"] == 1 and report["pilot_scenarios"] == 1
         assert report["required_contracts"] == 1
         assert not marker.exists(), "Governance must not import scenario sources"
+        review_path.unlink()
+        assert check(catalog)["issues"], "Missing review evidence must fail"
+        review_path.write_text(json.dumps(review))
+        invalid = copy.deepcopy(catalog)
+        invalid["contracts"][0]["requirement"] = "A different behavior"
+        assert check(invalid)["issues"], "A changed requirement needs renewed evidence"
+        invalid = copy.deepcopy(catalog)
+        invalid["contracts"][0]["proof_surface"] = "A different proof boundary"
+        assert check(invalid)[
+            "issues"
+        ], "A changed proof surface needs renewed evidence"
+        original_pilot = pilot.read_text()
+        pilot.write_text(original_pilot + "# changed oracle\n")
+        assert check(catalog)["issues"], "A changed oracle needs renewed evidence"
+        pilot.write_text(original_pilot)
+        for mutate in (
+            "no_negative",
+            "setup_failure",
+            "passing_negative",
+            "stale_hash",
+            "wrong_identity",
+            "unclean_baseline",
+        ):
+            invalid_review = copy.deepcopy(review)
+            if mutate == "no_negative":
+                invalid_review["negative_examples"] = []
+            elif mutate == "setup_failure":
+                invalid_review["negative_examples"][0]["observation"][
+                    "execution_phase"
+                ] = "setup"
+            elif mutate == "passing_negative":
+                invalid_review["negative_examples"][0]["observation"][
+                    "status"
+                ] = "passed"
+            elif mutate == "stale_hash":
+                invalid_review["scenario_sha256"] = "0" * 64
+            elif mutate == "unclean_baseline":
+                invalid_review["baseline"]["observation"]["timed_out"] = True
+            else:
+                invalid_review["contract_id"] = "another.contract"
+            # A branch-authored approval claim cannot override invalid evidence.
+            invalid_review["approved"] = True
+            review_path.write_text(json.dumps(invalid_review))
+            assert check(catalog)["issues"], (
+                mutate,
+                "Invalid review evidence must fail",
+            )
+        review_path.write_text(json.dumps(review))
 
         invalid = copy.deepcopy(catalog)
         invalid["scenarios"][0]["contracts"] = ["unknown"]
