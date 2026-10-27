@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "scenario_catalog": "scenario-catalog.json",
   "standalone_experiments": [
     "scenarios/experiments/advanced_shell_lsp_skill_probe.py",
     "scenarios/experiments/advanced_shell_stdio_mcp_probe.py",

@@ -10,6 +10,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from validation.framework.governance import validate_catalog
+
 
 class InventoryError(ValueError):
     """Collection cannot safely identify the complete requested suite."""
@@ -31,6 +33,7 @@ class InventoryReport:
     legacy_locations: dict[str, int] = field(default_factory=dict)
     disposition_counts: dict[str, int] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
+    scenario_governance: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -45,6 +48,7 @@ class InventoryReport:
             "structural_inventory_complete": not self.issues,
             "behavioral_coverage_complete": False,
             "issues": self.issues,
+            "scenario_governance": self.scenario_governance,
         }
 
 
@@ -305,5 +309,26 @@ def build_inventory(root: Path) -> InventoryReport:
     try:
         _check_legacy_tests(root, report)
     except (OSError, SyntaxError, UnicodeError, InventoryError) as exc:
+        report.issues.append(str(exc))
+    try:
+        source_root = (root / "scenarios").resolve().parent
+        policy_path = source_root / "governance/inventory-policy.json"
+        if policy_path.exists():
+            policy = _read_json(policy_path)
+            catalog = policy.get("scenario_catalog")
+            if catalog is not None:
+                if catalog != "scenario-catalog.json":
+                    raise InventoryError("Unsupported scenario catalog policy")
+                report.scenario_governance = validate_catalog(
+                    source_root,
+                    {
+                        item.selector: source_root / "scenarios" / f"{item.selector}.py"
+                        for item in report.scenarios
+                    },
+                )
+                report.issues.extend(
+                    str(issue) for issue in _items(report.scenario_governance["issues"])
+                )
+    except (OSError, ValueError) as exc:
         report.issues.append(str(exc))
     return report

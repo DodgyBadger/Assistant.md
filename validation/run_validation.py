@@ -208,9 +208,29 @@ def inventory(args):
             "Legacy accounting is not execution or proof of complete behavioral coverage."
         )
         print("Structural inventory: " + ("FAILED" if report.issues else "complete"))
+        if report.scenario_governance:
+            governance = report.scenario_governance
+            print(
+                f"Contract pilots: {governance['pilot_scenarios']}; exact legacy scenarios: {governance['legacy_scenarios']}; required contracts: {governance['required_contracts']}"
+            )
+            print(
+                "Catalog registration does not establish semantic admission or external approval."
+            )
         for issue in report.issues:
             print(f"- {issue}")
     sys.exit(1 if report.issues else 0)
+
+
+def governance(args):
+    """Diagnose immutable-tree changes; external authority owns approval."""
+    from validation.framework.governance_audit import audit_git
+
+    try:
+        report = audit_git(args.repo, args.base_ref, args.candidate_ref)
+    except (ValueError, OSError, UnicodeError) as error:
+        raise InventoryError("Unable to inspect governance Git revisions") from error
+    print(json.dumps(report, indent=2))
+    sys.exit(2 if report["review_required"] else 0)
 
 
 def main():
@@ -294,6 +314,19 @@ Features:
         action="store_true",
         help="Print machine-readable structural inventory",
     )
+    governance_parser = subparsers.add_parser(
+        "governance",
+        help="Audit governance changes against an explicit Git base; does not grant approval",
+    )
+    governance_parser.add_argument(
+        "--repo", type=Path, default=Path(__file__).resolve().parent.parent
+    )
+    governance_parser.add_argument("--base-ref", required=True)
+    governance_parser.add_argument(
+        "--candidate-ref",
+        default="HEAD",
+        help="Committed Git tree to inspect; working-tree edits are excluded (default: HEAD)",
+    )
 
     args = parser.parse_args()
 
@@ -309,6 +342,8 @@ Features:
             list_scenarios(args)
         elif args.command == "inventory":
             inventory(args)
+        elif args.command == "governance":
+            governance(args)
     except InventoryError as exc:
         print(f"Validation collection failed: {exc}", file=sys.stderr)
         sys.exit(1)
