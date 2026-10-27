@@ -3,13 +3,15 @@
 import asyncio
 import importlib
 import inspect
+import json
 import logging
 import math
+import os
 import shutil
 import sys
 import tempfile
 import traceback
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from validation.framework.lifecycle import ExecutionOutcome, RunContext, execute
+from validation.framework.process import supervise
 
 from .inventory import InventoryError, ScenarioCatalog, describe_scenario
 from .paths import resolve_validation_root
@@ -32,8 +35,10 @@ class ValidationRunner:
         self,
         validation_root: str | Path | None = None,
         *,
-        timeout_seconds: float | None = None,
+        timeout_seconds: float | None = 300,
         cleanup_timeout_seconds: float = 30,
+        environment_names: tuple[str, ...] = (),
+        secret_environment_names: tuple[str, ...] = (),
     ):
         if timeout_seconds is not None and (
             timeout_seconds <= 0 or not math.isfinite(timeout_seconds)
@@ -46,6 +51,8 @@ class ValidationRunner:
         )
         self.timeout_seconds = timeout_seconds
         self.cleanup_timeout_seconds = cleanup_timeout_seconds
+        self.environment_names = environment_names
+        self.secret_environment_names = secret_environment_names
         self.scenarios_dir = self.validation_root / "scenarios"
         self.runs_dir = self.validation_root / "runs"
         self.runs_dir.mkdir(parents=True, exist_ok=True)
@@ -55,6 +62,220 @@ class ValidationRunner:
         return ScenarioCatalog(self.validation_root).discover_scenarios()
 
     def execute_scenario(self, scenario_name: str) -> ScenarioResult:
+        """Supervise one fresh worker without importing the application."""
+        scenario_name = scenario_name.replace("\\", "/")
+        try:
+            directory = Path(
+                tempfile.mkdtemp(
+                    prefix=f"{datetime.now():%Y%m%d_%H%M%S}_{scenario_name.split('/')[-1]}_",
+                    dir=self.runs_dir,
+                )
+            ).resolve()
+            artifacts = directory / "artifacts"
+            artifacts.mkdir()
+        except OSError as error:
+            return ScenarioResult(
+                scenario_name,
+                "framework_error",
+                0,
+                error_message=f"Worker evidence allocation failed ({type(error).__name__})",
+                evidence_path=str(self.runs_dir),
+                execution_phase="worker",
+            )
+        try:
+            describe_scenario(
+                self.scenarios_dir / f"{scenario_name}.py", self.scenarios_dir
+            )
+            environment = {
+                name: os.environ[name]
+                for name in (
+                    "PATH",
+                    "SYSTEMROOT",
+                    "WINDIR",
+                    "PATHEXT",
+                    "LANG",
+                    "LC_ALL",
+                    "LC_CTYPE",
+                    "TZ",
+                )
+                if name in os.environ
+            }
+            for name in (*self.environment_names, *self.secret_environment_names):
+                if name in {
+                    "VALIDATION_ROOT",
+                    "VALIDATION_APP_ROOT",
+                    "CONTAINER_DATA_ROOT",
+                    "CONTAINER_SYSTEM_ROOT",
+                    "PYTHONPATH",
+                    "PYTHONHOME",
+                    "PYTHONUSERBASE",
+                    "HOME",
+                    "TMPDIR",
+                    "TMP",
+                    "TEMP",
+                    "XDG_CONFIG_HOME",
+                    "XDG_CACHE_HOME",
+                    "XDG_DATA_HOME",
+                }:
+                    raise InventoryError(
+                        f"Worker execution path is framework-owned: {name}"
+                    )
+                if name not in os.environ:
+                    raise InventoryError(
+                        f"Requested worker environment variable is unset: {name}"
+                    )
+                environment[name] = os.environ[name]
+            environment["VALIDATION_ROOT"] = str(self.validation_root.resolve())
+            environment["VALIDATION_APP_ROOT"] = str(
+                Path(__file__).resolve().parents[2]
+            )
+            for name, relative in {
+                "HOME": "home",
+                "TMPDIR": "tmp",
+                "TMP": "tmp",
+                "TEMP": "tmp",
+                "XDG_CONFIG_HOME": "home/config",
+                "XDG_CACHE_HOME": "home/cache",
+                "XDG_DATA_HOME": "home/data",
+            }.items():
+                owned_path = directory / relative
+                owned_path.mkdir(parents=True, exist_ok=True)
+                environment[name] = str(owned_path)
+            environment["PYTHONUNBUFFERED"] = "1"
+            request = {
+                "schema_version": 1,
+                "scenario_name": scenario_name,
+                "validation_root": str(self.validation_root.resolve()),
+                "evidence_root": str(directory),
+                "timeout_seconds": self.timeout_seconds,
+                "cleanup_timeout_seconds": self.cleanup_timeout_seconds,
+                "secret_environment_names": list(self.secret_environment_names),
+            }
+            request_path = directory / "worker-request.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            outcome = supervise(
+                [
+                    sys.executable,
+                    "-s",
+                    "-m",
+                    "validation.core.worker",
+                    str(request_path),
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                env=environment,
+                artifacts_dir=artifacts / "process",
+                interrupt_grace_seconds=self.cleanup_timeout_seconds,
+                redact_values=tuple(
+                    os.environ[name] for name in self.secret_environment_names
+                ),
+                timeout_seconds=(
+                    None
+                    if self.timeout_seconds is None
+                    else self.timeout_seconds + self.cleanup_timeout_seconds
+                ),
+            )
+            process_result = asdict(outcome)
+            (artifacts / "process-result.json").write_text(
+                json.dumps(process_result), encoding="utf-8"
+            )
+            if outcome.interrupted or outcome.timed_out:
+                result = ScenarioResult(
+                    scenario_name,
+                    "framework_error",
+                    outcome.elapsed,
+                    error_message=(
+                        "Worker interrupted"
+                        if outcome.interrupted
+                        else "Worker exceeded its hard process deadline; cleanup is unconfirmed"
+                    ),
+                    evidence_path=str(directory),
+                    execution_phase="worker",
+                    timed_out=outcome.timed_out,
+                    interrupted=outcome.interrupted,
+                )
+            else:
+                payload = json.loads(
+                    (directory / "worker-result.json").read_text(encoding="utf-8")
+                )
+                if payload.get("schema_version") != 1:
+                    raise InventoryError("Invalid worker result version")
+                result = ScenarioResult.from_dict(payload["result"])
+                expected_exit = 130 if result.interrupted else 0 if result.passed else 1
+                if (
+                    result.scenario_name != scenario_name
+                    or result.evidence_path != str(directory)
+                    or outcome.returncode != expected_exit
+                ):
+                    raise InventoryError(
+                        "Worker result identity or exit status mismatch"
+                    )
+                if result.passed:
+                    lifecycle = json.loads(
+                        (artifacts / "lifecycle-result.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    if (
+                        lifecycle.get("schema_version") != 1
+                        or lifecycle.get("passed") is not True
+                    ):
+                        raise InventoryError(
+                            "Worker success lacks a passing lifecycle result"
+                        )
+        except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+            result = ScenarioResult(
+                scenario_name,
+                "framework_error",
+                0,
+                error_message="Worker supervision interrupted",
+                evidence_path=str(directory),
+                execution_phase="worker",
+                interrupted=True,
+            )
+        except Exception as error:
+            # Do not echo environment values or untrusted worker payloads here.
+            result = ScenarioResult(
+                scenario_name,
+                "framework_error",
+                0,
+                error_message=f"Worker protocol or launch failed ({type(error).__name__}); inspect process evidence",
+                evidence_path=str(directory),
+                execution_phase="worker",
+            )
+        final = artifacts / "supervisor-result.json"
+        temporary = final.with_suffix(".tmp")
+        try:
+            temporary.write_text(
+                json.dumps({"schema_version": 1, "result": result.to_dict()}),
+                encoding="utf-8",
+            )
+            temporary.replace(final)
+        except OSError as error:
+            result = replace(
+                result,
+                status="framework_error" if result.passed else result.status,
+                error_message=result.error_message
+                or "Could not persist supervisor result",
+                execution_phase=result.execution_phase or "evidence",
+                lifecycle_errors=[
+                    *result.lifecycle_errors,
+                    {
+                        "phase": "evidence",
+                        "name": "supervisor_result",
+                        "exception_type": type(error).__name__,
+                        "message": "Could not persist supervisor result",
+                    },
+                ],
+            )
+        return result
+
+    def _execute_scenario_in_process(
+        self,
+        scenario_name: str,
+        directory: Path,
+        *,
+        secret_inputs: dict[str, str] | None = None,
+    ) -> ScenarioResult:
         """
         Execute a single scenario directly.
 
@@ -65,6 +286,15 @@ class ValidationRunner:
         scenario_name = scenario_name.replace("\\", "/")
         scenario_instance = None
         context = None
+
+        def redact_error(value: str) -> str:
+            if context is not None:
+                return context.redact(value)
+            for secret in sorted((secret_inputs or {}).values(), key=len, reverse=True):
+                if secret:
+                    value = value.replace(secret, "[REDACTED]")
+            return value
+
         try:
             scenario_file = self.scenarios_dir / f"{scenario_name}.py"
             if not scenario_file.exists():
@@ -80,13 +310,7 @@ class ValidationRunner:
                 )
             from validation.adapters.assistantmd import AssistantMDAdapter
 
-            directory = Path(
-                tempfile.mkdtemp(
-                    prefix=f"{datetime.now():%Y%m%d_%H%M%S}_{scenario_name.split('/')[-1]}_",
-                    dir=self.runs_dir,
-                )
-            )
-            context = RunContext(directory)
+            context = RunContext(directory, secrets=secret_inputs)
             adapter = AssistantMDAdapter()
 
             async def body() -> None:
@@ -225,11 +449,11 @@ class ValidationRunner:
                 scenario_name=scenario_name,
                 status=classification.status,
                 execution_time=(datetime.now() - start_time).total_seconds(),
-                error_message=context.redact(message) if context else message,
+                error_message=redact_error(message),
                 error_classification=classification,
                 lifecycle_errors=closing_errors,
                 evidence_path=str(context.root if context else self.runs_dir),
-                stack_trace=context.redact(trace) if context else trace,
+                stack_trace=redact_error(trace),
             )
 
     @staticmethod

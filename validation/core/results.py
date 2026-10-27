@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -51,6 +52,64 @@ class ScenarioResult:
     lifecycle_errors: list[dict[str, str]] = field(default_factory=list)
     timed_out: bool = False
     interrupted: bool = False
+
+    @classmethod
+    def from_dict(cls, value: object) -> ScenarioResult:
+        """Decode the worker protocol, rejecting malformed terminal outcomes."""
+        if not isinstance(value, dict):
+            raise ValueError("Worker result must be an object")
+        if value.get("status") not in {
+            "passed",
+            "failed",
+            "system_bug",
+            "framework_error",
+            "error",
+        }:
+            raise ValueError("Invalid worker status")
+        for name in ("scenario_name", "evidence_path"):
+            if not isinstance(value.get(name), str):
+                raise ValueError(f"Invalid worker {name}")
+        duration = value.get("execution_time")
+        if (
+            not isinstance(duration, int | float)
+            or isinstance(duration, bool)
+            or not math.isfinite(duration)
+            or duration < 0
+        ):
+            raise ValueError("Invalid worker duration")
+        for name in ("error_message", "stack_trace", "execution_phase"):
+            if value.get(name) is not None and not isinstance(value[name], str):
+                raise ValueError(f"Invalid worker {name}")
+        for name in ("timed_out", "interrupted"):
+            if type(value.get(name)) is not bool:
+                raise ValueError(f"Invalid worker {name}")
+        errors = value.get("lifecycle_errors")
+        if not isinstance(errors, list) or any(
+            not isinstance(error, dict)
+            or any(
+                not isinstance(k, str) or not isinstance(v, str)
+                for k, v in error.items()
+            )
+            for error in errors
+        ):
+            raise ValueError("Invalid worker lifecycle errors")
+        classification = value.get("error_classification")
+        if classification is not None:
+            if not isinstance(classification, dict) or any(
+                not isinstance(item, str) for item in classification.values()
+            ):
+                raise ValueError("Invalid worker classification")
+            classification = ErrorClassification(**classification)
+            if classification.status != value["status"]:
+                raise ValueError("Worker classification status mismatch")
+        if value["status"] == "passed" and (
+            errors
+            or value["timed_out"]
+            or value["interrupted"]
+            or value.get("error_message")
+        ):
+            raise ValueError("Contradictory worker success")
+        return cls(**{**value, "error_classification": classification})
 
     @property
     def passed(self) -> bool:

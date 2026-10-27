@@ -85,6 +85,8 @@ def run_scenarios(args):
     runner = ValidationRunner(
         timeout_seconds=args.timeout,
         cleanup_timeout_seconds=args.cleanup_timeout,
+        environment_names=tuple(args.env),
+        secret_environment_names=tuple(args.secret_env),
     )
 
     # Expand folder paths to individual scenarios
@@ -251,14 +253,28 @@ Features:
     run_parser.add_argument(
         "--timeout",
         type=float,
-        default=None,
-        help="Optional async setup/execution deadline in seconds",
+        default=300,
+        help="Setup/execution budget in seconds (default: 300); process bound also includes cleanup budget",
     )
     run_parser.add_argument(
         "--cleanup-timeout",
         type=float,
         default=30,
         help="Async cleanup deadline in seconds",
+    )
+    run_parser.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="Pass a named non-secret environment variable to scenario workers",
+    )
+    run_parser.add_argument(
+        "--secret-env",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="Pass a named secret environment variable and register its value for redaction",
     )
 
     list_parser = subparsers.add_parser("list", help="List available scenarios")
