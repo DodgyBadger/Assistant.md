@@ -12,7 +12,9 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from validation.framework.process import supervise
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+
+from scenario_harness.process import supervise
 
 
 def worker(root: Path, mode: str) -> None:

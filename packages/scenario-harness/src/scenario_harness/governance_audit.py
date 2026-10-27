@@ -6,14 +6,19 @@ select and run trusted checker code and bind the base to its protected branch.
 
 from __future__ import annotations
 
-import argparse
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-_CATALOG = "validation/governance/scenario-catalog.json"
-_CHECKER = "validation/framework/governance_audit.py"
+
+@dataclass(frozen=True)
+class AuditPolicy:
+    catalog_path: str
+    checker_path: str
+    sensitive_prefixes: tuple[str, ...]
+    sensitive_files: tuple[str, ...]
 
 
 def _git(repo: Path, *args: str) -> bytes:
@@ -97,19 +102,13 @@ def _catalog(data: bytes) -> dict[str, Any]:
         raise ValueError("Malformed governance catalog") from exc
 
 
-def _sensitive(path: str) -> bool:
-    return path.startswith(
-        ("validation/", ".github/", "scripts/", "docs/agent-guides/")
-    ) or path in {
-        "AGENTS.md",
-        "pyproject.toml",
-        "uv.lock",
-        "package.json",
-        "package-lock.json",
-    }
+def _sensitive(path: str, policy: AuditPolicy) -> bool:
+    return path.startswith(policy.sensitive_prefixes) or path in policy.sensitive_files
 
 
-def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[str, Any]:
+def audit_git(
+    repo: Path, base_ref: str, candidate_ref: str = "HEAD", *, policy: AuditPolicy
+) -> dict[str, Any]:
     """Compare Git trees and report changes needing human review."""
     base = _commit(repo, base_ref)
     candidate = _commit(repo, candidate_ref)
@@ -120,27 +119,27 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
 
     bootstrap = False
     try:
-        checker = _blob(repo, base, _CHECKER)
+        checker = _blob(repo, base, policy.checker_path)
     except ValueError:
         checker = None
     if checker is None:
         bootstrap = True
         reason(
             "bootstrap_checker_missing",
-            _CHECKER,
+            policy.checker_path,
             "Trusted base has no regular audit checker",
         )
     catalogs: dict[str, dict[str, Any]] = {}
     blobs: dict[str, bytes] = {}
     for label, commit in (("base", base), ("candidate", candidate)):
         try:
-            data = _blob(repo, commit, _CATALOG)
+            data = _blob(repo, commit, policy.catalog_path)
             if data is None:
                 if label == "base":
                     bootstrap = True
                 reason(
                     f"{label}_catalog_missing",
-                    _CATALOG,
+                    policy.catalog_path,
                     "Catalog is absent from Git tree",
                 )
                 continue
@@ -151,7 +150,7 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
                 bootstrap = True
             reason(
                 f"{label}_catalog_invalid",
-                _CATALOG,
+                policy.catalog_path,
                 "Catalog is malformed or is not a regular Git blob",
             )
     if "base" in catalogs and "candidate" in catalogs:
@@ -160,7 +159,11 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
         old_contracts = {c["id"]: c for c in before["contracts"]}
         new_contracts = {c["id"]: c for c in after["contracts"]}
         for _contract_id in sorted(old_contracts.keys() - new_contracts.keys()):
-            reason("contract_removed", _CATALOG, "A registered contract was removed")
+            reason(
+                "contract_removed",
+                policy.catalog_path,
+                "A registered contract was removed",
+            )
         for contract_id in sorted(old_contracts.keys() & new_contracts.keys()):
             if (
                 old_contracts[contract_id]["requirement"]
@@ -170,11 +173,11 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
             ):
                 reason(
                     "contract_proof_changed",
-                    _CATALOG,
+                    policy.catalog_path,
                     "A contract requirement or proof surface changed",
                 )
         if blobs["base"] != blobs["candidate"]:
-            reason("catalog_changed", _CATALOG, "Governance catalog changed")
+            reason("catalog_changed", policy.catalog_path, "Governance catalog changed")
     changed = _git(
         repo,
         "diff",
@@ -189,7 +192,7 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
     for raw_path in changed.split(b"\0"):
         if raw_path:
             path = raw_path.decode("utf-8", errors="replace")
-            if _sensitive(path):
+            if _sensitive(path, policy):
                 reason(
                     "sensitive_path_changed",
                     path,
@@ -204,34 +207,3 @@ def audit_git(repo: Path, base_ref: str, candidate_ref: str = "HEAD") -> dict[st
         "reasons": reasons,
         "approval_status": "not_evaluated",
     }
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", type=Path, required=True)
-    parser.add_argument("--base-ref", required=True)
-    parser.add_argument("--candidate-ref", default="HEAD")
-    parser.add_argument("--json", action="store_true")
-    args = parser.parse_args()
-    try:
-        report = audit_git(args.repo, args.base_ref, args.candidate_ref)
-    except (ValueError, UnicodeError, OSError):
-        report = {
-            "schema_version": 1,
-            "review_required": True,
-            "bootstrap_review_required": False,
-            "approval_status": "not_evaluated",
-            "reasons": [
-                {
-                    "kind": "audit_error",
-                    "path": "",
-                    "details": "Unable to inspect Git objects",
-                }
-            ],
-        }
-    print(json.dumps(report, indent=2 if args.json else None))
-    return 2 if report["review_required"] else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -18,8 +18,8 @@ from pathlib import Path
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from validation.framework.lifecycle import ExecutionOutcome, RunContext, execute
-from validation.framework.process import supervise
+from scenario_harness.lifecycle import ExecutionOutcome, RunContext, execute
+from scenario_harness.process import supervise
 
 from .inventory import InventoryError, ScenarioCatalog, describe_scenario
 from .paths import resolve_validation_root

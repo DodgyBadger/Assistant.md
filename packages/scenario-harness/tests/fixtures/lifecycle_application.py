@@ -8,7 +8,9 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from validation.framework.lifecycle import RunContext, current_run_context, execute
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+
+from scenario_harness.lifecycle import RunContext, current_run_context, execute
 
 
 async def run(root: Path, mode: str) -> None:
@@ -122,6 +124,8 @@ async def run(root: Path, mode: str) -> None:
             or name.startswith("core.")
             or name == "api"
             or name.startswith("api.")
+            or name == "validation"
+            or name.startswith("validation.")
             for name in sys.modules
         ),
     }

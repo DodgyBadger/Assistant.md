@@ -7,7 +7,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Any
 
-from validation.framework.lifecycle import RunContext
+from scenario_harness.lifecycle import RunContext
 
 if TYPE_CHECKING:
     from core.llm.model_utils import ModelCache

@@ -48,7 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python -I -S validation/framework/governance_ci.py audit \
+          python -I -S validation/ci/governance.py audit \
             --repo-path "$GITHUB_WORKSPACE" --repository "$GITHUB_REPOSITORY" \
             --pr-number "$GOVERNANCE_PR" --base-sha "$GOVERNANCE_BASE" --head-sha "$GOVERNANCE_HEAD"
       - name: Upload review evidence
@@ -99,7 +99,7 @@ jobs:
           GOVERNANCE_APPROVAL_RESULT: ${{ needs.approval.result }}
           GOVERNANCE_REVIEW_REQUIRED: ${{ needs.audit.outputs.review_required }}
         run: |
-          python -I -S validation/framework/governance_ci.py finalize \
+          python -I -S validation/ci/governance.py finalize \
             --repo-path "$GITHUB_WORKSPACE" --repository "$GITHUB_REPOSITORY" --pr-number "$GOVERNANCE_PR" \
             --base-sha "$GOVERNANCE_BASE" --head-sha "$GOVERNANCE_HEAD" \
             --audit-result "$GOVERNANCE_AUDIT_RESULT" --approval-result "$GOVERNANCE_APPROVAL_RESULT" \

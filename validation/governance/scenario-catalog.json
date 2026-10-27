@@ -843,7 +843,7 @@
       "selector": "integration/core/validation_governance",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "f120e32eb70c488911f4b475cd159dac21c5e7adeb75775a2ea394ac134be6b4"
+      "sha256": "e8b7df0f8e10f7044ac1c2d431d7f32f16cfc2e5798eab58e137b4600fdabeb1"
     },
     {
       "selector": "integration/core/validation_governance_ci",
@@ -862,13 +862,13 @@
       "selector": "integration/core/validation_lifecycle",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "ba9515e7124ae5fc3ab21791493f5b1ba0395e8b6b06dcdcfab20bad48407642"
+      "sha256": "a5a2ec6bcd08cadc1eee02a2476d0a143a7cd057fc9e0c2d99ddb3dd99b94c45"
     },
     {
       "selector": "integration/core/validation_process",
       "classification": "legacy",
       "contracts": [],
-      "sha256": "49c8b17527fd64e0266446d9f15dd1736d08775f65cae99fa1970d006c94696e"
+      "sha256": "4bfc021763d881f157ee96d900357269b2d4aa13ab85c752f9635517cb3a829f"
     },
     {
       "selector": "integration/core/validation_run_reporting",

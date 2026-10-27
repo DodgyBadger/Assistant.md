@@ -10,7 +10,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from validation.framework.governance import validate_catalog
+from scenario_harness.governance import validate_catalog
 
 
 class InventoryError(ValueError):

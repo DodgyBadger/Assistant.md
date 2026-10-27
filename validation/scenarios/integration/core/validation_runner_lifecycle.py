@@ -11,9 +11,10 @@ import tempfile
 import time
 from pathlib import Path
 
+from scenario_harness.lifecycle import current_run_context
+
 from validation.core.base_scenario import BaseScenario
 from validation.core.results import ScenarioResult
-from validation.framework.lifecycle import current_run_context
 
 _MODE_ENV = "ASSISTANTMD_VALIDATION_RUNNER_FIXTURE_MODE"
 _SELECTOR = "integration/core/validation_runner_lifecycle"

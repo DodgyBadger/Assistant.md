@@ -7,11 +7,16 @@ import json
 import os
 import re
 import runpy
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+
+# Isolated invocation needs the trusted checkout root before importing its bootstrap.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import validation  # noqa: E402,F401
 
 _CONTEXT = "validation-governance"
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -204,7 +209,7 @@ def run_audit(
     try:
         _status(api, repository, head_sha, "pending")
         _verify_policy(api, repository, pr_number, base_sha, head_sha)
-        namespace = runpy.run_path(str(Path(__file__).with_name("governance_audit.py")))
+        namespace = runpy.run_path(str(Path(__file__).with_name("audit.py")))
         report = namespace["audit_git"](repo_path, base_sha, head_sha)
         if (
             not isinstance(report, dict)

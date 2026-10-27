@@ -41,21 +41,20 @@
     ],
     "method": "Each mutation changed the actual helper in an isolated detached worktree, with its own linked scenario root and the original Python 3.13 environment."
   },
-  "source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64",
-  "scenario_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+  "source_revision": "7ea20656197322f3296d797e1b6900f40d2b75ac",
+  "scenario_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
   "contract_fingerprint": "792ade4ed99d0a24927d476a8e8a3c19a6e317db31224a42cdb1a309c859c80a",
   "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
   "review_status": "evidence_recorded_awaiting_maintainer_review",
-  "oracle_patch": "",
+  "oracle_patch": "diff --git a/validation/scenarios/integration/core/validation_governance_ci.py b/validation/scenarios/integration/core/validation_governance_ci.py\nindex 527934e..602ee6d 100644\n--- a/validation/scenarios/integration/core/validation_governance_ci.py\n+++ b/validation/scenarios/integration/core/validation_governance_ci.py\n@@ -13,7 +13,7 @@ from validation.core.base_scenario import BaseScenario\n \n class ValidationGovernanceCiScenario(BaseScenario):\n     async def test_scenario(self) -> None:\n-        from validation.framework.governance_ci import GitHubAPI, finalize, run_audit\n+        from validation.ci.governance import GitHubAPI, finalize, run_audit\n \n         repo = self.artifacts_dir / \"governance-ci-git\"\n         repo.mkdir()\n@@ -52,7 +52,7 @@ class ValidationGovernanceCiScenario(BaseScenario):\n             \"scenarios\": [],\n             \"profiles\": {},\n         }\n-        write(\"validation/framework/governance_audit.py\", \"# baseline checker\\n\")\n+        write(\"validation/ci/audit.py\", \"# baseline checker\\n\")\n         write(\"validation/governance/scenario-catalog.json\", json.dumps(catalog))\n         write(\"app.py\", \"initial\\n\")\n         base = commit(\"baseline\")\n",
   "proof_summary": [
     "Runs the production governance CI helper against an isolated Git repository and loopback HTTP GitHub protocol fixture.",
     "Checks pending and final commit status requests for the intended context and head; exercises approval outcomes, stale head and base, environment, reviewer, branch policy, and API failure.",
     "Checks that the candidate scenario source is not imported and closes the HTTP server and thread in a finally block."
   ],
   "baseline": {
-    "result": "passed",
-    "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
-    "run_id": "20261027_050649_338585",
+    "report": "/tmp/harness-relocation-fko4uh6_/runs/reports/20261027_160952_805240.json",
+    "scenario_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
     "observation": {
       "scenario_name": "integration/core/validation_governance_ci",
       "status": "passed",
@@ -63,15 +62,10 @@
       "error_message": null,
       "timed_out": false,
       "interrupted": false,
-      "run_id": "20261027_050649_338585",
-      "report_sha256": "7be4d8daa2297d9aa524213262579d85f1571ca7567b85ddba0e48fa600af799",
-      "counts": {
-        "total_scenarios": 1,
-        "passed_scenarios": 1,
-        "failed_scenarios": 0,
-        "error_scenarios": 0
-      }
-    }
+      "run_id": "20261027_160952_805240",
+      "report_sha256": "8911f1674464374005515584c4cb4066e9ac3f81f9f5bc8d7fe6b5d34a97a815"
+    },
+    "source_state": "Working-tree source relocation on the declared parent revision; preserved in this changeset."
   },
   "negative_examples": [
     {
@@ -99,7 +93,9 @@
           "error_scenarios": 0
         }
       },
-      "local_report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json"
+      "local_report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json",
+      "historical_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
     },
     {
       "fault": "Replace the production helper condition rejecting a stale pull request head with false.",
@@ -126,8 +122,51 @@
           "error_scenarios": 0
         }
       },
-      "local_report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json"
+      "local_report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json",
+      "historical_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
     }
   ],
-  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission."
+  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission.",
+  "historical_evidence_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+  "source_relocations": [
+    {
+      "kind": "import_and_fixture_path_relocation",
+      "before_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "after_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
+      "equivalent_ast_sha256": "c841fe6e70be53bad3ab22181c3ca415582d2d7ac3b8eac44e618349b4ee3d80",
+      "module_map": {
+        "validation.framework.lifecycle": "scenario_harness.lifecycle",
+        "validation.framework.governance_ci": "validation.ci.governance"
+      },
+      "literal_map": {
+        "validation/framework/governance_audit.py": "validation/ci/audit.py"
+      },
+      "patch": "diff --git a/validation/scenarios/integration/core/validation_governance_ci.py b/validation/scenarios/integration/core/validation_governance_ci.py\nindex 527934e..602ee6d 100644\n--- a/validation/scenarios/integration/core/validation_governance_ci.py\n+++ b/validation/scenarios/integration/core/validation_governance_ci.py\n@@ -13,7 +13,7 @@ from validation.core.base_scenario import BaseScenario\n \n class ValidationGovernanceCiScenario(BaseScenario):\n     async def test_scenario(self) -> None:\n-        from validation.framework.governance_ci import GitHubAPI, finalize, run_audit\n+        from validation.ci.governance import GitHubAPI, finalize, run_audit\n \n         repo = self.artifacts_dir / \"governance-ci-git\"\n         repo.mkdir()\n@@ -52,7 +52,7 @@ class ValidationGovernanceCiScenario(BaseScenario):\n             \"scenarios\": [],\n             \"profiles\": {},\n         }\n-        write(\"validation/framework/governance_audit.py\", \"# baseline checker\\n\")\n+        write(\"validation/ci/audit.py\", \"# baseline checker\\n\")\n         write(\"validation/governance/scenario-catalog.json\", json.dumps(catalog))\n         write(\"app.py\", \"initial\\n\")\n         base = commit(\"baseline\")\n",
+      "scope": "Only import order/module references and the declared audit fixture path changed. Historical counterexample observations remain historical; no behavioral oracle or expected result was regenerated.",
+      "verification": "AST equality after the declared import-order/module and fixture-path mapping; fresh real-worker scenario passed. Counterfactual source-fault observations remain explicitly historical."
+    }
+  ],
+  "historical_baseline": {
+    "result": "passed",
+    "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
+    "run_id": "20261027_050649_338585",
+    "observation": {
+      "scenario_name": "integration/core/validation_governance_ci",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_050649_338585",
+      "report_sha256": "7be4d8daa2297d9aa524213262579d85f1571ca7567b85ddba0e48fa600af799",
+      "counts": {
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    }
+  },
+  "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
 }

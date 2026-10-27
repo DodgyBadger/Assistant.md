@@ -223,7 +223,7 @@ def inventory(args):
 
 def governance(args):
     """Diagnose immutable-tree changes; external authority owns approval."""
-    from validation.framework.governance_audit import audit_git
+    from validation.ci.audit import audit_git
 
     try:
         report = audit_git(args.repo, args.base_ref, args.candidate_ref)

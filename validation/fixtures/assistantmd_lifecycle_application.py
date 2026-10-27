@@ -12,8 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from threading import Thread
 
+from scenario_harness.lifecycle import RunContext, execute
+
 from validation.adapters.assistantmd import AssistantMDAdapter
-from validation.framework.lifecycle import RunContext, execute
 
 
 async def run(root: Path, mode: str) -> None:

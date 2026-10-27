@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from scenario_harness.lifecycle import current_run_context
 
 from core.logger import UnifiedLogger
-from validation.framework.lifecycle import current_run_context
 
 
 @dataclass

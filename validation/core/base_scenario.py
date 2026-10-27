@@ -20,13 +20,13 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import yaml
+from scenario_harness.lifecycle import current_run_context
 
 from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
 from core.logger import UnifiedLogger
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
 from validation.adapters.assistantmd import AssistantMDAdapter
-from validation.framework.lifecycle import current_run_context
 
 from .api_client import APIClient, APIResponse
 from .paths import resolve_validation_root

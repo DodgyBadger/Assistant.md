@@ -12,11 +12,12 @@ from validation.core.base_scenario import BaseScenario
 
 class ValidationGovernanceScenario(BaseScenario):
     async def test_scenario(self) -> None:
-        from validation.framework.governance import (
+        from scenario_harness.governance import (
             contract_fingerprint,
             validate_catalog,
         )
-        from validation.framework.governance_audit import audit_git
+
+        from validation.ci.audit import audit_git
 
         root = self.artifacts_dir / "governance-validation"
         source_dir = root / "scenarios" / "integration" / "core"
@@ -207,7 +208,7 @@ class ValidationGovernanceScenario(BaseScenario):
         git("config", "user.email", "fixture@example.invalid")
         write("app.py", "initial\n")
         empty_base = commit("before governance")
-        write("validation/framework/governance_audit.py", "# fixture checker\n")
+        write("validation/ci/audit.py", "# fixture checker\n")
         write("validation/governance/scenario-catalog.json", json.dumps(catalog))
         base = commit("governance baseline")
         assert audit_git(repo, empty_base, base)["bootstrap_review_required"]
@@ -245,7 +246,7 @@ class ValidationGovernanceScenario(BaseScenario):
         review_change(
             "validation/governance/scenario-catalog.json", json.dumps(excluded)
         )
-        review_change("validation/framework/governance_audit.py", "# changed checker\n")
+        review_change("validation/ci/audit.py", "# changed checker\n")
         review_change(".github/workflows/validation.yml", "name: fixture\n")
         review_change(".github/actions/gate/action.yml", "name: fixture\n")
         review_change("scripts/audit-npm.cjs", "// changed gate script\n")

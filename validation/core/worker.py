@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
+from scenario_harness.lifecycle import current_run_context
+
 from validation.core.runner import ValidationRunner
-from validation.framework.lifecycle import current_run_context
 
 
 class _RedactedStream:

@@ -13,7 +13,7 @@ from validation.core.base_scenario import BaseScenario
 
 class ValidationGovernanceCiScenario(BaseScenario):
     async def test_scenario(self) -> None:
-        from validation.framework.governance_ci import GitHubAPI, finalize, run_audit
+        from validation.ci.governance import GitHubAPI, finalize, run_audit
 
         repo = self.artifacts_dir / "governance-ci-git"
         repo.mkdir()
@@ -52,7 +52,7 @@ class ValidationGovernanceCiScenario(BaseScenario):
             "scenarios": [],
             "profiles": {},
         }
-        write("validation/framework/governance_audit.py", "# baseline checker\n")
+        write("validation/ci/audit.py", "# baseline checker\n")
         write("validation/governance/scenario-catalog.json", json.dumps(catalog))
         write("app.py", "initial\n")
         base = commit("baseline")
