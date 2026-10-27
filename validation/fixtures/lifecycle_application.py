@@ -13,7 +13,17 @@ from validation.framework.lifecycle import RunContext, current_run_context, exec
 
 async def run(root: Path, mode: str) -> None:
     secret = "fixture-private-credential"
-    context = RunContext(root, secrets={"credential": secret})
+
+    class EvidenceContext(RunContext):
+        close_attempts = 0
+
+        def close(self) -> None:
+            self.close_attempts += 1
+            super().close()
+            if mode == "close_failure":
+                raise OSError(f"evidence close rejected {secret}")
+
+    context = EvidenceContext(root, secrets={"credential": secret})
     loop_ids: list[int] = []
 
     def append(value: str) -> None:
@@ -35,11 +45,17 @@ async def run(root: Path, mode: str) -> None:
             loop_ids.append(id(asyncio.get_running_loop()))
             append("stopped")
             context.emit("application_stopped")
-            if mode == "cleanup_failure":
+            if mode == "cleanup_timeout":
+                await asyncio.Event().wait()
+            if mode == "cleanup_interrupt":
+                raise SystemExit("stop during cleanup")
+            if mode in {"cleanup_failure", "cleanup_only_failure"}:
                 raise RuntimeError(f"shutdown rejected {secret}")
 
     async def body() -> None:
         loop_ids.append(id(asyncio.get_running_loop()))
+        if mode == "application_timeout":
+            raise TimeoutError("application request timed out")
         if mode in {"timeout", "cancel"}:
             if mode == "cancel":
                 task = asyncio.current_task()
@@ -66,6 +82,7 @@ async def run(root: Path, mode: str) -> None:
         FileApplication(),
         body,
         timeout_seconds=0.02 if mode == "timeout" else None,
+        cleanup_timeout_seconds=0.02 if mode == "cleanup_timeout" else 30,
     )
     assert current_run_context() is None
     report = {
@@ -79,6 +96,7 @@ async def run(root: Path, mode: str) -> None:
         "cleanup_errors": [asdict(error) for error in outcome.cleanup_errors],
         "evidence_errors": [asdict(error) for error in outcome.evidence_errors],
         "same_loop": len(set(loop_ids)) == 1,
+        "close_attempts": context.close_attempts,
         "application_imported": any(
             name == "core"
             or name.startswith("core.")

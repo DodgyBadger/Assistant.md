@@ -22,6 +22,11 @@ class ValidationLifecycleScenario(BaseScenario):
             ("timeout", "TimeoutError", "execution"),
             ("cancel", "CancelledError", "execution"),
             ("evidence_failure", None, None),
+            ("close_failure", None, None),
+            ("application_timeout", "TimeoutError", "execution"),
+            ("cleanup_timeout", None, None),
+            ("cleanup_only_failure", None, None),
+            ("cleanup_interrupt", None, None),
         ):
             root = self.artifacts_dir / mode
             root.mkdir()
@@ -43,9 +48,14 @@ class ValidationLifecycleScenario(BaseScenario):
             )
             assert completed.returncode == 0, completed.stderr
             report = json.loads((root / "fixture-result.json").read_text())
+            terminal = json.loads(
+                (root / "artifacts/lifecycle-result.json").read_text()
+            )
+            assert terminal["passed"] is report["passed"]
             assert report["primary_type"] == primary, report
             assert report["primary_phase"] == phase, report
             assert report["same_loop"] is True
+            assert report["close_attempts"] == (2 if mode == "evidence_failure" else 1)
             assert report["application_imported"] is False
             assert report["passed"] is (mode == "success")
             resources = (root / "resource.log").read_text().splitlines()
@@ -65,7 +75,7 @@ class ValidationLifecycleScenario(BaseScenario):
                     .splitlines()
                 ]
                 assert any(event["event"] == "application_stopped" for event in events)
-                assert events[-1]["event"] == "run_completed"
+                assert events[-1]["event"] == "lifecycle_finished"
             if mode == "cleanup_failure":
                 assert [error["name"] for error in report["cleanup_errors"]] == [
                     "failed-resource",
@@ -73,8 +83,8 @@ class ValidationLifecycleScenario(BaseScenario):
                 ]
             if mode == "evidence_failure":
                 assert report["evidence_errors"]
-            assert report["cancelled"] is (mode == "cancel")
-            assert report["timed_out"] is (mode == "timeout")
+            assert report["cancelled"] is (mode in {"cancel", "cleanup_interrupt"})
+            assert report["timed_out"] is (mode in {"timeout", "cleanup_timeout"})
             for artifact in (
                 root / "fixture-result.json",
                 root / "artifacts/events.jsonl",

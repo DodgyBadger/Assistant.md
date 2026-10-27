@@ -5,15 +5,19 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import os
+import tempfile
 import traceback
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
 Callback = Callable[[], Awaitable[None] | None]
+Finalizer = Callable[["ExecutionOutcome"], Awaitable[None] | None]
+_INTERRUPTIONS = (asyncio.CancelledError, KeyboardInterrupt, SystemExit)
 _current_context: ContextVar[RunContext | None] = ContextVar(
     "validation_run_context", default=None
 )
@@ -139,6 +143,7 @@ async def _execute(
     outcome: ExecutionOutcome,
     timeout_seconds: float | None = None,
     cleanup_timeout_seconds: float = 30,
+    finalize: Finalizer | None = None,
 ) -> ExecutionOutcome:
     phase = "setup"
 
@@ -146,6 +151,7 @@ async def _execute(
         try:
             context.emit(event, **data)
         except BaseException as exc:
+            outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
             outcome.evidence_errors.append(
                 _phase_error(context, event, "evidence", exc)
             )
@@ -162,39 +168,52 @@ async def _execute(
 
     context.defer_cleanup("adapter.teardown", lambda: adapter.teardown(context))
     journal("run_started")
+    work_timeout = asyncio.timeout(timeout_seconds)
     try:
-        async with asyncio.timeout(timeout_seconds):
+        async with work_timeout:
             await work()
     except BaseException as exc:
         outcome.primary_error = exc
         outcome.primary_phase = phase
-        outcome.cancelled = isinstance(exc, asyncio.CancelledError | KeyboardInterrupt)
-        outcome.timed_out = isinstance(exc, TimeoutError)
+        outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
+        outcome.timed_out |= work_timeout.expired()
         journal(
             f"{phase}_failed", error=_phase_error(context, phase, phase, exc).__dict__
         )
+    outcome.timed_out |= work_timeout.expired()
 
     journal("cleanup_started")
     deadline = asyncio.get_running_loop().time() + max(0.0, cleanup_timeout_seconds)
     while context._cleanups:
         name, callback = context._cleanups.pop()
         journal("cleanup_callback_started", name=name)
+        remaining = deadline - asyncio.get_running_loop().time()
+        cleanup_timeout = asyncio.timeout(max(0.0, remaining))
         try:
-            remaining = deadline - asyncio.get_running_loop().time()
-            async with asyncio.timeout(max(0.0, remaining)):
+            async with cleanup_timeout:
                 await _invoke(callback)
         except BaseException as exc:
-            if isinstance(exc, asyncio.CancelledError | KeyboardInterrupt):
-                outcome.cancelled = True
+            outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
+            outcome.timed_out |= cleanup_timeout.expired()
             error = _phase_error(context, name, "cleanup", exc)
             outcome.cleanup_errors.append(error)
             journal("cleanup_callback_failed", error=error.__dict__)
         else:
             journal("cleanup_callback_completed", name=name)
+        outcome.timed_out |= cleanup_timeout.expired()
     journal("cleanup_completed", errors=len(outcome.cleanup_errors))
+    if finalize is not None:
+        try:
+            result = finalize(outcome)
+            if inspect.isawaitable(result):
+                await result
+        except BaseException as exc:
+            outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
+            outcome.evidence_errors.append(
+                _phase_error(context, "finalize", "evidence", exc)
+            )
     journal(
-        "run_completed",
-        passed=outcome.passed,
+        "lifecycle_finished",
         cancelled=outcome.cancelled,
         timed_out=outcome.timed_out,
         primary_phase=outcome.primary_phase,
@@ -210,20 +229,80 @@ async def execute(
     body: Callback,
     timeout_seconds: float | None = None,
     cleanup_timeout_seconds: float = 30,
+    finalize: Finalizer | None = None,
 ) -> ExecutionOutcome:
     token = _current_context.set(context)
     outcome = ExecutionOutcome()
     try:
         return await _execute(
-            context, adapter, body, outcome, timeout_seconds, cleanup_timeout_seconds
+            context,
+            adapter,
+            body,
+            outcome,
+            timeout_seconds,
+            cleanup_timeout_seconds,
+            finalize,
         )
     finally:
         try:
             try:
                 context.close()
             except BaseException as exc:
+                outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
                 outcome.evidence_errors.append(
                     _phase_error(context, "close", "evidence", exc)
+                )
+            try:
+                primary = (
+                    asdict(
+                        _phase_error(
+                            context,
+                            outcome.primary_phase or "primary",
+                            outcome.primary_phase or "execution",
+                            outcome.primary_error,
+                        )
+                    )
+                    if outcome.primary_error is not None
+                    else None
+                )
+                payload = context.redact(
+                    {
+                        "passed": outcome.passed,
+                        "cancelled": outcome.cancelled,
+                        "timed_out": outcome.timed_out,
+                        "primary_phase": outcome.primary_phase,
+                        "primary_error": primary,
+                        "cleanup_error_count": len(outcome.cleanup_errors),
+                        "evidence_error_count": len(outcome.evidence_errors),
+                        "cleanup_errors": [
+                            asdict(error) for error in outcome.cleanup_errors
+                        ],
+                        "evidence_errors": [
+                            asdict(error) for error in outcome.evidence_errors
+                        ],
+                    }
+                )
+                temporary = None
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        mode="w",
+                        encoding="utf-8",
+                        dir=context.artifacts_dir,
+                        prefix=".lifecycle-result-",
+                        delete=False,
+                    ) as stream:
+                        temporary = stream.name
+                        json.dump(payload, stream, allow_nan=False)
+                    os.replace(
+                        temporary, context.artifacts_dir / "lifecycle-result.json"
+                    )
+                finally:
+                    if temporary is not None and os.path.exists(temporary):
+                        os.unlink(temporary)
+            except BaseException as exc:
+                outcome.cancelled |= isinstance(exc, _INTERRUPTIONS)
+                outcome.evidence_errors.append(
+                    _phase_error(context, "lifecycle-result", "evidence", exc)
                 )
         finally:
             _current_context.reset(token)
