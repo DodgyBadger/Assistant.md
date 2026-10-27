@@ -13,7 +13,6 @@
     "checker_path": "validation/support/ci/audit.py",
     "sensitive_prefixes": [
       "validation/",
-      "packages/scenario-harness/",
       ".github/",
       "scripts/",
       "docs/agent-guides/"

@@ -1612,7 +1612,7 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "scenario-harness", editable = "packages/scenario-harness" },
+    { name = "scenario-harness", git = "https://github.com/DodgyBadger/scenario-harness.git?rev=a066ef61894fb5ec4101ae254f8affe9cd85426c" },
     { name = "types-python-dateutil", specifier = ">=2.9.0.20260716" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260724" },
     { name = "types-requests", specifier = ">=2.32.4.20250809" },
@@ -2320,7 +2320,7 @@ wheels = [
 [[package]]
 name = "scenario-harness"
 version = "0.1.0"
-source = { editable = "packages/scenario-harness" }
+source = { git = "https://github.com/DodgyBadger/scenario-harness.git?rev=a066ef61894fb5ec4101ae254f8affe9cd85426c#a066ef61894fb5ec4101ae254f8affe9cd85426c" }
 
 [[package]]
 name = "secretstorage"

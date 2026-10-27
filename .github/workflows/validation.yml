@@ -58,7 +58,8 @@ jobs:
 
       - name: Audit Python dependencies
         run: |
-          uv export --frozen --all-extras --all-groups --no-emit-project --output-file "$RUNNER_TEMP/audit-requirements.txt"
+          # The commit-pinned harness has no registry artifact hash; retain its registry dependencies in the audit.
+          uv export --frozen --all-extras --all-groups --no-emit-project --no-emit-package scenario-harness --output-file "$RUNNER_TEMP/audit-requirements.txt"
           uv tool run --from pip-audit pip-audit --progress-spinner=off --disable-pip -r "$RUNNER_TEMP/audit-requirements.txt"
 
   validation:

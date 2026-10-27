@@ -7,16 +7,11 @@ import json
 import os
 import re
 import runpy
-import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
-
-# Isolated invocation needs the trusted checkout root before importing its bootstrap.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-import validation  # noqa: E402,F401
 
 _CONTEXT = "validation-governance"
 _SHA = re.compile(r"[0-9a-f]{40}\Z")

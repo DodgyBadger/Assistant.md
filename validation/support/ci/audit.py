@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-importlib.import_module("validation")
-
-import scenario_harness.governance_audit as harness_audit  # noqa: E402
+import scenario_harness.governance_audit as harness_audit
 
 
 def _policy() -> harness_audit.AuditPolicy:

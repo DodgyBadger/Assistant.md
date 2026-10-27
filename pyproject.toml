@@ -105,7 +105,7 @@ python_files = ["test_*.py", "*_test.py"]
 addopts = "-v --tb=short"
 
 [tool.uv.sources]
-scenario-harness = { path = "packages/scenario-harness", editable = true }
+scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "a066ef61894fb5ec4101ae254f8affe9cd85426c" }
 
 [dependency-groups]
 dev = [
