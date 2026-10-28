@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "purpose": "Canonical end-of-migration cleanup backlog. Partial ports retain original coverage until replacement evidence or reviewed retirement resolves each gap.",
+  "gaps": [
+    {
+      "id": "settings-api-conflict-translation",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/settings_database_migration"
+      ],
+      "missing_proof": "Real settings API 409 SettingsConflict translation; original manufactures a repository.StaleSettingsError with a private save patch.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/settings_database_migration.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_152922_783295.json"
+      ],
+      "cleanup_action": "Find a deterministic real request/revision conflict that exercises the translation, or explicitly review retirement/reclassification of the private-injection oracle."
+    },
+    {
+      "id": "legacy-secrets-abrupt-death",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/legacy_secrets_migration"
+      ],
+      "missing_proof": "Abrupt process-death recovery during import, after import and after source rename. New real SQLite/filesystem exception fixtures prove retry behavior but are not equivalent crash proof.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/legacy_secrets_migration.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_154045_955516.json",
+        "validation/runs/pytest_migration/legacy_secrets_20261028/report.json"
+      ],
+      "cleanup_action": "Establish real process-death observations at meaningful durable boundaries without private strategy substitution, or review the intended guarantee and disposition."
+    },
+    {
+      "id": "vault-root-alias-contract",
+      "status": "open",
+      "category": "product_contract_review",
+      "source_scenarios": [
+        "integration/core/file_write_directory_delete"
+      ],
+      "missing_proof": "Whether root cleanup via dot/dot-slash is intended product behavior. The evaluation contract required rejection, but that contract was not a historical product specification.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/file_write_directory_delete.py"
+      ],
+      "evidence": [
+        "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md"
+      ],
+      "cleanup_action": "Resolve product intent, then add the accepted regression behavior and any required fix. Do not promote the evaluation requirement or discard the observed discrepancy implicitly."
+    },
+    {
+      "id": "runner-timeout-descendant-guarantees",
+      "status": "open",
+      "category": "cutover_capability",
+      "source_scenarios": [
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "missing_proof": "The new plugin declares no hard-hang timeout or descendant-process cleanup guarantee; old runner protections must not disappear silently at cutover.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/validation_runner_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md"
+      ],
+      "cleanup_action": "Implement/test supported timeout and process-tree policy or explicitly accept a changed guarantee before removing the old execution path."
+    },
+    {
+      "id": "same-path-active-mutation-serialization",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/file_write_same_path_concurrency"
+      ],
+      "missing_proof": "Original max_active_writes==1 assertion required patching the replacement function. New real concurrent operations establish successful statuses and no lost updates, not an observed non-overlap interval.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/file_write_same_path_concurrency.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_161227_753784.json",
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+      ],
+      "cleanup_action": "Establish stable application-owned mutation interval/lock observations or a supported deterministic synchronization boundary; alternatively review whether internal serialization is required beyond atomic final outcomes."
+    },
+    {
+      "id": "directory-move-active-child-contention",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_directory_mutation_concurrency"
+      ],
+      "missing_proof": "Original child edit waits during an active directory move depends on pausing os.replace via a patch. Sequential real move and stale-path rejection do not prove active contention/waiting.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_directory_mutation_concurrency.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_161227_753784.json",
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+      ],
+      "cleanup_action": "Exercise real concurrent move/edit with stable lifecycle/lock observations or a sanctioned controllable I/O boundary, without claiming sequential results prove waiting."
+    }
+  ]
+}

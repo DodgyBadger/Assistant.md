@@ -2683,7 +2683,10 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
-      }
+      },
+      "gap_ids": [
+        "legacy-secrets-abrupt-death"
+      ]
     },
     {
       "source": "validation/scenarios/integration/core/locked_access_bootstrap.py",
@@ -4084,7 +4087,10 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
-      }
+      },
+      "gap_ids": [
+        "settings-api-conflict-translation"
+      ]
     },
     {
       "source": "validation/scenarios/integration/core/settings_editors.py",
@@ -9009,7 +9015,9 @@
       "observation": "Confirmed dot and dot-slash paths resolve to the vault root and remove empty directories, while the empty path is rejected.",
       "evaluation_requirement": "R5 in evaluator-provided directory cleanup requirements; not a claim of previously approved product requirements.",
       "evidence": "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md",
-      "migration_scope": "Original file_write_directory_delete coverage does not exercise root representations; its port preserves that scope. No product fix or failing-trial admission has been made."
+      "migration_scope": "Original file_write_directory_delete coverage does not exercise root representations; its port preserves that scope. No product fix or failing-trial admission has been made.",
+      "cleanup_gap_id": "vault-root-alias-contract"
     }
-  ]
+  ],
+  "cleanup_backlog": "validation/registry/pytest-gaps.json"
 }

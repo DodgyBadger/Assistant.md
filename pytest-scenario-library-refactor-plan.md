@@ -16,6 +16,12 @@ The existing runner and its a066ef6 dependency pin stay operational during stage
 
 Next steps are semantic review and subsystem migration batches, fixture lifecycle edge cases, timeout/descendant-cleanup decisions, critical-contract evidence reconciliation and the eventual atomic dependency/collection/CI cutover. Browser work, protected documentation updates, full-suite execution and maintainer acceptance remain pending. No original scenario, deferred source or historical run artifact has been removed.
 
+## End-of-migration cleanup backlog
+
+Keep the canonical actionable gap list at validation/registry/pytest-gaps.json. Per-source gap_ids in pytest-migration.json link ports to that backlog. Add every newly discovered non-equivalence with its missing proof, retained original coverage, evidence and proposed resolution; avoid blocking unrelated migration work. Close a gap only with real replacement evidence or an explicit reviewed disposition. Keep product-contract questions distinct from migration parity and runner capability decisions.
+
+The initial backlog covers settings API conflict translation, legacy-secrets abrupt-death boundaries, the unresolved root-alias evaluation contract and timeout/descendant cleanup guarantees required for cutover. Subsequent batches append their gaps there. Existing originals remain authoritative while those gaps are open.
+
 ## Cleanup and migration batches: 2026-10-28
 
 Removed the superseded validation/experiments pytest prototype after its generic reporter/observation responsibilities moved into scenario-harness and its app cases/fault profile passed against the installed wheel. Archived its source and comparison metadata under validation/runs/skill_evaluations/retired_pytest_comparison_source, and moved its two standalone ledger entries to retired_files with replacement/evidence pointers. The active standalone inventory is now 45 files / 248 named tests; deferred browser/backend sources remain intact.
@@ -201,3 +207,7 @@ This plan does not authorize changing application behavior to make a port pass, 
 After the implementation contract stabilizes, prepare exact drafts/diffs for the affected local files, starting with AGENTS.md and docs/agent-guides/testing-and-validation.md. Also inspect feature-development.md, planning.md, project-structure.md, relevant architecture/ADR text, README.md and RELEASE_NOTES.md for changes actually needed. Discuss the affected files and proposed text with the user and obtain explicit approval before creating, editing, moving or deleting protected documentation.
 
 The new local testing guide should focus on AssistantMD integration and link to the generic package's approved installation/usage and skills. Product documentation must describe the current contract. Planning documents intentionally live at the repository root during this effort; before merge, agree their final disposition and any protected destination, rather than weakening the existing root-Markdown CI rule. Apply only approved documentation changes, validate the final references/commands and finish the merge-readiness review.
+
+## Migration continuation: 2026-10-28
+
+Continue three parallel Sol batches after recording gaps for end cleanup: file listing/search/concurrency (four original sources), workflow cancellation/governor/lifecycle (four), and system startup/migrations/template refresh (three). The parent owns baseline selections, shared admission metadata, the gap backlog, cross-batch checks and logical commits. Keep the installed environments separate and the full-suite stop in force.
