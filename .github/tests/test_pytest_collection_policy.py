@@ -142,3 +142,24 @@ def test_unknown_explicit_node_is_rejected(tmp_path: Path) -> None:
     result = _run(config, tmp_path, str(core) + "::test_not_admitted")
     assert result.returncode == 4
     assert "not an admitted test" in result.stderr
+
+
+def test_generated_run_sources_are_not_collected(tmp_path: Path) -> None:
+    validation = tmp_path / "validation"
+    artifacts = validation / "runs/saved-evaluation"
+    artifacts.mkdir(parents=True)
+    (artifacts / "test_saved_source.py").write_text(
+        "raise RuntimeError('generated evidence must not be imported')\n"
+    )
+    (validation / "test_application.py").write_text("def test_output(): pass\n")
+    (validation / "conftest.py").write_text(
+        (_REPOSITORY / "validation/conftest.py").read_text()
+    )
+    config = tmp_path / "pytest.ini"
+    config.write_text("[pytest]\n")
+    result = _run(config, tmp_path, str(validation))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 test collected" in result.stdout
+    assert (
+        "generated evidence must not be imported" not in result.stdout + result.stderr
+    )
