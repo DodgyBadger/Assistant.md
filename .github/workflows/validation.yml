@@ -54,7 +54,7 @@ jobs:
         run: uv sync --frozen --all-extras --no-install-project
 
       - name: Check validation inventory
-        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml inventory
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m validation.support.inventory
 
       - name: Audit Python dependencies
         run: |
@@ -63,7 +63,7 @@ jobs:
           uv tool run --from pip-audit pip-audit --progress-spinner=off --disable-pip -r "$RUNNER_TEMP/audit-requirements.txt"
 
       - name: Check repository validation admission policy
-        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py .github/tests/test_validation_governance_ci.py
 
   validation:
     needs: security-audit
@@ -114,14 +114,14 @@ jobs:
         run: uv sync --frozen --all-extras --no-install-project
 
       - name: Check validation inventory
-        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml inventory
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m validation.support.inventory
 
       - name: Install Playwright Chromium
         run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m playwright install --with-deps chromium
 
       - name: Run deterministic core integration scenarios
         run: |
-          ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m scenario_harness --project validation/project.toml run integration/core
+          ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest --scenario-root validation/runs/ci-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Package validation artifacts
         if: ${{ always() }}

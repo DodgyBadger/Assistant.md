@@ -11,7 +11,7 @@
       ],
       "missing_proof": "Real settings API 409 SettingsConflict translation; original manufactures a repository.StaleSettingsError with a private save patch.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/settings_database_migration.py"
+        "validation/legacy/scenarios/integration/core/settings_database_migration.py"
       ],
       "evidence": [
         "validation/runs/reports/20261028_152922_783295.json"
@@ -27,7 +27,7 @@
       ],
       "missing_proof": "Abrupt process-death recovery during import, after import and after source rename. New real SQLite/filesystem exception fixtures prove retry behavior but are not equivalent crash proof.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/legacy_secrets_migration.py"
+        "validation/legacy/scenarios/integration/core/legacy_secrets_migration.py"
       ],
       "evidence": [
         "validation/runs/reports/20261028_154045_955516.json",
@@ -44,7 +44,7 @@
       ],
       "missing_proof": "Whether root cleanup via dot/dot-slash is intended product behavior. The evaluation contract required rejection, but that contract was not a historical product specification.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/file_write_directory_delete.py"
+        "validation/legacy/scenarios/integration/core/file_write_directory_delete.py"
       ],
       "evidence": [
         "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md"
@@ -60,7 +60,7 @@
       ],
       "missing_proof": "The new plugin declares no hard-hang timeout or descendant-process cleanup guarantee; old runner protections must not disappear silently at cutover.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/validation_runner_lifecycle.py"
+        "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
       ],
       "evidence": [
         "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md"
@@ -76,7 +76,7 @@
       ],
       "missing_proof": "Original max_active_writes==1 assertion required patching the replacement function. New real concurrent operations establish successful statuses and no lost updates, not an observed non-overlap interval.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/file_write_same_path_concurrency.py"
+        "validation/legacy/scenarios/integration/core/file_write_same_path_concurrency.py"
       ],
       "evidence": [
         "validation/runs/reports/20261028_161227_753784.json",
@@ -93,7 +93,7 @@
       ],
       "missing_proof": "Original child edit waits during an active directory move depends on pausing os.replace via a patch. Sequential real move and stale-path rejection do not prove active contention/waiting.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_directory_mutation_concurrency.py"
+        "validation/legacy/scenarios/integration/core/vault_directory_mutation_concurrency.py"
       ],
       "evidence": [
         "validation/runs/reports/20261028_161227_753784.json",
@@ -109,7 +109,7 @@
       ],
       "missing_proof": "Original retry fixture deleted mutation history and reactivated an already-rolled-back snapshot. New active-task external-edit conflict and real retry preserve safety outcomes but do not reproduce that manipulated retry state.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_state_rollback.py"
+        "validation/legacy/scenarios/integration/core/vault_state_rollback.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
@@ -126,7 +126,7 @@
       ],
       "missing_proof": "Original restore_calls==1 while the first restore was paused is not established by real concurrent submissions yielding one success/one rejection and correct final files.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_activity_rollback.py"
+        "validation/legacy/scenarios/integration/core/vault_activity_rollback.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
@@ -142,7 +142,7 @@
       ],
       "missing_proof": "Original guarded-write concurrency window pauses private service._select_row; the new public mutation/integrity/rotation checks do not prove that exact serialization window.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/encrypted_secrets_boundaries.py"
+        "validation/legacy/scenarios/integration/core/encrypted_secrets_boundaries.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/security_migrations_20261028/report.json"
@@ -158,7 +158,7 @@
       ],
       "missing_proof": "Generated missing-README scan/create advice and absence of named packaged default-stance/WorkPolicy/GoalTracking prose lack equivalent semantic assertions. Input inclusion, truncation sentinels, custom headings, workspace data and structured activity checks are preserved.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/default_context.py"
+        "validation/legacy/scenarios/integration/core/default_context.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/authoring_20261028/report.json"
@@ -174,7 +174,7 @@
       ],
       "missing_proof": "Cold target-root module imports create an unrelated chat database and migration backup. Passing locked cases match the original prewarmed-module/outer-root lifecycle, not every cold import ordering.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/locked_access_bootstrap.py"
+        "validation/legacy/scenarios/integration/core/locked_access_bootstrap.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/security_migrations_retry_20261028/report.json",
@@ -213,8 +213,8 @@
       ],
       "missing_proof": "The capture projector sanitizes actual application activity/validation/Logfire emission and warning identity before observation. Registered-secret log-absence assertions cannot establish that the application itself sanitized emissions.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/settings_lifecycle.py",
-        "validation/scenarios/integration/core/ingress_authentication.py"
+        "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
+        "validation/legacy/scenarios/integration/core/ingress_authentication.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
@@ -222,7 +222,7 @@
       ],
       "code_locations": [
         "core/logger.py:755",
-        "validation/pytest_scenarios/application.py:172",
+        "validation/scenarios/application.py:172",
         "validation/support/adapter.py:63"
       ],
       "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
@@ -245,7 +245,7 @@
       "code_locations": [
         "validation/support/system_controller.py:212",
         "core/runtime/context.py:115",
-        "validation/pytest_scenarios/application.py:148"
+        "validation/scenarios/application.py:148"
       ],
       "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
       "status": "resolved",
@@ -261,8 +261,8 @@
       ],
       "missing_proof": "Public-URL direct-import success and destination handling originally use patched URL fetch success. New PDF input proves actual local ingestion, not public network admission/fetch. Content-import tool successful remote PDF octet-stream signature routing/URL provenance/default remote path and extensionless URL PDF strategy intent also remain source-only. Actual outbound-policy denial proves its real durable failure path, not an arbitrary accepted-network fetch error or remote success.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_direct_import.py",
-        "validation/scenarios/integration/core/content_import_tool.py"
+        "validation/legacy/scenarios/integration/core/vault_direct_import.py",
+        "validation/legacy/scenarios/integration/core/content_import_tool.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
@@ -279,7 +279,7 @@
       ],
       "missing_proof": "Immediate-import missing execution authority must fail before durable job creation; original patches the endpoint authority resolver. New real preflight/repository atomicity does not prove this authority exception ordering.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_direct_import.py"
+        "validation/legacy/scenarios/integration/core/vault_direct_import.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json"
@@ -295,7 +295,7 @@
       ],
       "missing_proof": "Original injects mid-batch, post-second-file and post-second-directory mutation failures to assert compensation. Passing real API/preflight cases do not establish any of those compensation branches.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_explorer_batch_move.py"
+        "validation/legacy/scenarios/integration/core/vault_explorer_batch_move.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
@@ -311,7 +311,7 @@
       ],
       "missing_proof": "Original patches io.open to fail during writing and proves no partial upload remains. New size/preflight/collision cases do not prove interrupted-write cleanup.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_explorer_upload.py"
+        "validation/legacy/scenarios/integration/core/vault_explorer_upload.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
@@ -327,7 +327,7 @@
       ],
       "missing_proof": "Patched future SETTINGS_TEMPLATE catalog rename and two update-blocked collision event cases are not replaced. Current-catalog legacy import, adoption/conflict/recovery and retired removal are covered; the synthetic configuration_request validation response is a legacy adapter oracle rather than new HTTP evidence.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/model_alias_resolution.py"
+        "validation/legacy/scenarios/integration/core/model_alias_resolution.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
@@ -344,7 +344,7 @@
       ],
       "missing_proof": "Original constructed HTTP 503 classification, Retry-After values 7/5 and redaction of a query embedded in a provider exception remain unproven through real web transport. The new missing-key path is additional proof only.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/structured_tool_failure.py"
+        "validation/legacy/scenarios/integration/core/structured_tool_failure.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json"
@@ -362,8 +362,8 @@
       "cleanup_action": "Review semantic behavioral replacement or explicit retirement of these editorial oracles before removing originals.",
       "status": "open",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_map_schema.py",
-        "validation/scenarios/integration/core/session_map_readiness.py"
+        "validation/legacy/scenarios/integration/core/session_map_schema.py",
+        "validation/legacy/scenarios/integration/core/session_map_readiness.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/session_maps_batch6_20261028/report.json"
@@ -379,7 +379,7 @@
       "cleanup_action": "Check existing migration coverage, then construct actual legacy missing-index input or correct the coverage claim; retain the current index lifecycle proof.",
       "status": "open",
       "retained_coverage": [
-        "validation/scenarios/integration/core/transcript_retrieval_storage.py"
+        "validation/legacy/scenarios/integration/core/transcript_retrieval_storage.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json"
@@ -396,8 +396,8 @@
       "cleanup_action": "Find a genuine bounded provider/storage error containing sensitive text at this boundary or explicitly retain/classify the original narrow fault-injection oracle.",
       "status": "open",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_ops_chat_tool.py",
-        "validation/scenarios/integration/core/authoring_tool_failure_semantics.py"
+        "validation/legacy/scenarios/integration/core/session_ops_chat_tool.py",
+        "validation/legacy/scenarios/integration/core/authoring_tool_failure_semantics.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json",
@@ -414,7 +414,7 @@
       "missing_proof": "Original patched interleavings for deleted replacement default, changed client identity before transaction, stale credential/grant observation, authorization change before disconnect and deletion before token commit remain unproved. Forced reused UUID integrity failure is also retained only in original. Real concurrent create/default and ordinary cleanup rollback do not prove those race windows.",
       "cleanup_action": "Establish genuine bounded concurrent/database inputs or review narrow controlled fault-injection classification before retiring originals.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/builtin_connection_configuration.py"
+        "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
@@ -431,7 +431,7 @@
       "missing_proof": "Original injected disconnect cleanup failure/rollback is not independently replaced; client identity update and secret rotation have genuine SQLite-abort rollback proof. HTTP cleanup-failure translation is not inferred from those successful domain exception cases.",
       "cleanup_action": "Exercise actual disconnect/delete cleanup failure and retained grant/credential state, and review whether a separate HTTP error mapping contract is required.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/builtin_connection_configuration.py"
+        "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
@@ -448,7 +448,7 @@
       "missing_proof": "Original static JavaScript policy/save-before-authorization and missing-compose warning text/style assertions are not migrated. Real API OAuth scopes/readiness/activity do not establish rendered UI behavior; browser work remains deferred.",
       "cleanup_action": "Move accepted user-visible policy/warning behavior into the deferred browser plan or explicitly retire editorial/static-source oracles.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/gmail_connection_api.py"
+        "validation/legacy/scenarios/integration/core/gmail_connection_api.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
@@ -464,7 +464,7 @@
       "missing_proof": "Original unresolved-tool fork suppression, injected fork-projection rollback, API cursor preflight/race410, compact snapshot after raw expiry/API terminal retention miss, and reasoning/tool projection remain unproved end to end. Public buffer expiry/tool-state reduction is retained, but is not API retention evidence. Ordinary cursor replay, handoff, snapshot task boundaries and running cancellation now have real API proof.",
       "cleanup_action": "Use controlled real provider/tool/event-retention inputs where supported, or review isolated fault/retention injection boundaries; keep original source until resolved.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_task_event_stream_api.py"
+        "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
@@ -480,7 +480,7 @@
       "missing_proof": "Accepted approval-mode capture versus changed preferences, queued cancellation during actual preflight and explicit no-preflight-invocation assertions remain unproved. Captured provider requests demonstrate narrower no-model-invocation while queued, actual serialized history and queued cancellation.",
       "cleanup_action": "Introduce genuine controlled preflight input/gates and accepted-policy observations, or review the original private preparation hooks before retiring them.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_task_session_queue.py"
+        "validation/legacy/scenarios/integration/core/chat_task_session_queue.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
@@ -496,7 +496,7 @@
       "missing_proof": "The original delegated-image case and this port assert delegate completion without independently observing image consumption. Image fixture availability plus a successful delegate response does not establish that image bytes reached the intended model boundary. This is a retained original scope limit, not dropped parity.",
       "cleanup_action": "Inspect existing delegate/image coverage, then add actual provider request evidence or correct the coverage claim before counting image consumption as tested.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/code_execution.py"
+        "validation/legacy/scenarios/integration/core/code_execution.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
@@ -512,7 +512,7 @@
       "missing_proof": "Original patches resolved addresses and httpcore backend to return HTTP200 and asserts MCP OAuth socket-authoritative request succeeds. New port checks actual client redirect/environment policy and all storage/fence contracts, but does not execute equivalent guarded public-address transport. Client policy flags alone are not socket or DNS boundary proof.",
       "cleanup_action": "Provide a controlled accepted public-address transport environment or explicitly review the isolated backend/DNS fixture classification before retiring original proof.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_oauth_storage.py"
+        "validation/legacy/scenarios/integration/core/mcp_oauth_storage.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
@@ -528,7 +528,7 @@
       "missing_proof": "Original substitutes a nonempty WorkflowExecutionResult.output_files. Current production executor sets output_files=[] on real paths, so this artificial governor propagation input is not reproduced. Public store finalization/reload separately proves nonempty output-path persistence; actual failed-domain/task/history outcomes pass.",
       "cleanup_action": "Review output_files ownership/contract and whether a real producer exists; add genuine producer propagation or classify/retire the artificial adapter-result test before removing original.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/workflow_run_history.py"
+        "validation/legacy/scenarios/integration/core/workflow_run_history.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json"
@@ -545,8 +545,8 @@
       "missing_proof": "Original injects generic RuntimeError into preparation/agent streaming and expects its exact type and diagnostic text. Real missing-image ValueError and provider ModelHTTPError now prove their actual diagnostic/marker/recovery boundaries, but are not evidence that arbitrary unexpected RuntimeError inputs retain those original semantics.",
       "cleanup_action": "Provide genuine bounded unexpected preflight/agent failure inputs or explicitly classify/retain the former narrow exception injections; do not equate user-correctable or HTTP provider errors with generic runtime failure.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_failure_logging.py",
-        "validation/scenarios/integration/core/chat_stream_failure_logging.py"
+        "validation/legacy/scenarios/integration/core/chat_failure_logging.py",
+        "validation/legacy/scenarios/integration/core/chat_stream_failure_logging.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
@@ -567,11 +567,11 @@
       "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics. Manual/automatic recovery-card source prompt/settings description and MCP unavailable-instruction prose oracles are also deferred; structural card identity/preamble dedup and actual author payload partition/provenance remain asserted.",
       "cleanup_action": "Choose behavioral replacement for important guidance or explicitly retire editorial wording oracles before removing originals.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_tool_metadata_visibility.py",
-        "validation/scenarios/integration/core/chat_usage_limits.py",
-        "validation/scenarios/integration/core/chat_history_compaction.py",
-        "validation/scenarios/integration/core/auto_chat_history_compaction.py",
-        "validation/scenarios/integration/core/mcp_chat_tool_search.py"
+        "validation/legacy/scenarios/integration/core/chat_tool_metadata_visibility.py",
+        "validation/legacy/scenarios/integration/core/chat_usage_limits.py",
+        "validation/legacy/scenarios/integration/core/chat_history_compaction.py",
+        "validation/legacy/scenarios/integration/core/auto_chat_history_compaction.py",
+        "validation/legacy/scenarios/integration/core/mcp_chat_tool_search.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/tool_metadata_batch10_reviewed_20261028/report.json",
@@ -593,7 +593,7 @@
       "missing_proof": "Original static CSS/JavaScript/source-string checks are not migrated; passing ingestion APIs/tools do not prove rendered import UI interactions or warnings. Browser work remains deferred.",
       "cleanup_action": "Capture accepted user-visible import behavior in the browser plan, or explicitly retire incidental static-source/copy assertions.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/content_import_tool.py"
+        "validation/legacy/scenarios/integration/core/content_import_tool.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
@@ -609,7 +609,7 @@
       "missing_proof": "Original pauses private mark_started, mark_completed and mark_failed publication, create_queued_task returning after reservation, parent terminal transition before child admission, and private concurrency cleanup guard. Real same-loop immediate cancellation, published-failure hook cancellation, public gates/capacity and constructor observer shutdown preserve portable outcomes, but do not deterministically establish those six exact earlier interleavings.",
       "cleanup_action": "Use genuine supported event/observer/barrier inputs where possible or review classification of narrow private race injections before removing original assertions.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/execution_task_runner.py"
+        "validation/legacy/scenarios/integration/core/execution_task_runner.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json"
@@ -625,7 +625,7 @@
       "missing_proof": "Original fake agent raises raw openai.APIError and requires transient_provider. Current real adapter normalizes both typed and untyped HTTP200 SSE error inputs to ModelServerError/provider_unavailable. Actual transport interruption proves transient_network manual recovery, not the original raw legacy SDK compatibility branch. Both failed SSE probes are retained.",
       "cleanup_action": "Review legacy SDK compatibility contract or provide a genuine supported producer for that raw exception; retain original classification assertion meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_manual_retry.py"
+        "validation/legacy/scenarios/integration/core/chat_manual_retry.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/manual_retry_batch11_transport_final_20261028/report.json",
@@ -643,7 +643,7 @@
       "missing_proof": "Real no-tool partial retry, disable behavior and shared request-budget semantics pass. Original fake stalled idle timeout, active slow-tool idle exemption/state, injected long/private diagnostic truncation, checkpoint replay after read-only effects, rollback-restart and rollback-disabled recovery branches remain unproved by these real wire inputs.",
       "cleanup_action": "Construct bounded actual provider/tool/checkpoint inputs for remaining recovery modes or explicitly classify retained fault fixtures; do not infer them from ordinary no-tool retry.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_stream_auto_retry.py"
+        "validation/legacy/scenarios/integration/core/chat_stream_auto_retry.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
@@ -660,7 +660,7 @@
       "missing_proof": "Current real case cancels while the model waits after a real mutation tool completed. Original cancellation during a hanging tool and its exact private preflight-history comparison are not replaced by that later boundary. Actual rollback/history/follow-up proof is narrower.",
       "cleanup_action": "Exercise a genuine bounded active tool/delegate workload and observable model/history projection, or review disposition of the original private preparation oracle.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_cancellation.py"
+        "validation/legacy/scenarios/integration/core/chat_cancellation.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json"
@@ -694,8 +694,8 @@
       "missing_proof": "The supported GmailResourceService client_factory receives execution authority but not the selected connection ID. The real fixture resolves the saved default grant. Selector/policy/activity and default grant HTTP behavior pass, but do not establish that each explicitly selected account supplies its own token as the original private client stub asserted.",
       "cleanup_action": "Establish a supported deterministic multiaccount transport construction boundary and assert actual outgoing token/account correspondence before retiring originals. Do not infer account routing from logged selected metadata.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/gmail_attachment_tool.py",
-        "validation/scenarios/integration/core/gmail_draft_tool.py"
+        "validation/legacy/scenarios/integration/core/gmail_attachment_tool.py",
+        "validation/legacy/scenarios/integration/core/gmail_draft_tool.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
@@ -711,7 +711,7 @@
       "missing_proof": "Source patches public URL resolution and fetch response to prove mixed successful/rejected extraction and PDF binary failure guidance. New real inputs prove local policy rejection and separate raw transport, not public-policy accepted extraction or binary classification through that path.",
       "cleanup_action": "Provide a supported deterministic public-resolution/transport boundary without disabling SSRF checks, then exercise mixed-item preservation and binary document rejection.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/web_capability_strategies.py"
+        "validation/legacy/scenarios/integration/core/web_capability_strategies.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
@@ -727,7 +727,7 @@
       "missing_proof": "Real invalid startup and repaired restart pass, but runtime sentinel/cleanup success do not prove the original fake MCP manager started and shutdown exactly once.",
       "cleanup_action": "Observe real MCP lifecycle through supported events or resources; preserve exact count oracle until its contract is reviewed.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/runtime_bootstrap_cleanup.py"
+        "validation/legacy/scenarios/integration/core/runtime_bootstrap_cleanup.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
@@ -743,7 +743,7 @@
       "missing_proof": "Actual successful scoped retirement and dependency refusals pass. The original injected failure after owned table drops but before migration bookkeeping demonstrated transaction rollback and subsequent successful retry; that exact interruption is not reproduced.",
       "cleanup_action": "Use a genuine supported database failure or migration workload boundary to establish atomic rollback and retry, or review the retained injection contract explicitly.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_summary_data_retirement.py"
+        "validation/legacy/scenarios/integration/core/session_summary_data_retirement.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
@@ -759,7 +759,7 @@
       "missing_proof": "Real owned compaction success, HTTP author failure and SQLite checkpoint failure pass. Original injected pre-domain callback failure, coordinator admission rejection and missing/stopped runtime boundary remain unproved.",
       "cleanup_action": "Exercise genuine supported admission/runtime lifecycle inputs and distinct pre-domain failure logging without replacing application methods.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/auto_chat_history_compaction.py"
+        "validation/legacy/scenarios/integration/core/auto_chat_history_compaction.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
@@ -776,7 +776,7 @@
       "missing_proof": "Actual resumed tool write completes before a subsequent provider failure. This does not establish cancellation/failure during an active reviewed tool with a missing durable return, follow-up no replay of interrupted calls, or injected settlement-warning privacy.",
       "cleanup_action": "Use a genuine bounded active reviewed workload with observable entry/cancellation and next-turn history; retain original warning failure contract for explicit review.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/deferred_review_interruption.py"
+        "validation/legacy/scenarios/integration/core/deferred_review_interruption.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json"
@@ -792,7 +792,7 @@
       "missing_proof": "Actual sequential stale snapshots/adapters and abrupt shared-transaction death pass. Original before-lock OAuth client-secret and credential-mode interleavings, plus exact death inside composed public credential mutation before commit, remain unproved.",
       "cleanup_action": "Establish real concurrency barriers through supported workload/transaction inputs or review precise private injection scope before removing originals.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_mutation_recovery.py"
+        "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json"
@@ -808,7 +808,7 @@
       "missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
       "cleanup_action": "Provide opt-in deterministic local SSH infrastructure or classify transport fixture ownership; retain successful launch/root/lifecycle assertions meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
+        "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json"
@@ -824,7 +824,7 @@
       "missing_proof": "Actual numeric-address policy and pinned HTTP sockets pass. Original fake DNS rebinding between discovery and request, multiple resolved-address attempts under one total budget, cancellation of blocked DNS resolution and HTTPS SNI/host verification against controlled resolver outputs remain unproved.",
       "cleanup_action": "Provide deterministic local DNS/TLS infrastructure or supported resolution workload inputs without bypassing public target policy; retain those source assertions meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_connection_isolation.py"
+        "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
@@ -842,7 +842,7 @@
       "missing_proof": "Original fake timeout requires status timeout. Actual9s delayed initialization raises SDK-normalized RuntimeError and yields connection_failed. Actual6s initialization plus blocked list hits the production total deadline near10s but stream closure returns HTTP500 and the app reports http_error. These real failures do not certify the timeout oracle. Both failed reports and original assertions remain; the unsupported staged timeout probe was removed rather than accepting another result as equivalent.",
       "cleanup_action": "Review intended timeout classification across current MCP SDK cancellation/initialization boundaries; add a genuine regression producer and fix or explicitly adjudicate the contract before retiring the original timeout assertion.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_connection_isolation.py"
+        "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
@@ -862,7 +862,7 @@
       "missing_proof": "Actual HTTP mutation races and stale credential guards pass. Original exact supersede-before-conditional-pending-delete, disconnect before transaction with concurrent secret/client replacement, and start metadata/credential pre/post-write/disconnect/competing-start interleavings remain unproved.",
       "cleanup_action": "Use supported real transaction/concurrency workloads or review exact synchronous injection contracts; retain original pending cleanup/new-attempt preservation assertions.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/google_oauth_coordinator.py"
+        "validation/legacy/scenarios/integration/core/google_oauth_coordinator.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
@@ -878,7 +878,7 @@
       "missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
       "cleanup_action": "Provide deterministic local authorization discovery plus MCP server and real attempt barriers, retaining original lifecycle/timeout/durable supersede assertions meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/mcp_oauth_coordinator.py"
+        "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
@@ -894,7 +894,7 @@
       "missing_proof": "Real manual OpenAI OAuth completion/readiness passes. Original mocked device-code start/pending/poll/authorized and API-key-mode fallback while connected are not replaced; production device URLs are hardcoded remote endpoints.",
       "cleanup_action": "Establish a supported deterministic device-provider transport seam or local endpoint infrastructure; do not introduce live authorization into core.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/api_endpoints.py"
+        "validation/legacy/scenarios/integration/core/api_endpoints.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
@@ -912,7 +912,7 @@
       "missing_proof": "Actual HTTP and OpenAI SDK status classification passes. Original non-status APIError/transient_provider, overloaded RuntimeError/provider_overloaded, model stream idle timeout, httpx/httpx2 ConnectError retry predicates and OpenRouter attribution environment headers remain unproved. SDK500 provider_unavailable does not replace generic APIError.",
       "cleanup_action": "Construct genuine bounded connection/stream/provider/environment inputs or explicitly review retained constructed exception oracles; preserve distinctions between status and non-status error branches.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/api_error_resilience.py"
+        "validation/legacy/scenarios/integration/core/api_error_resilience.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
@@ -930,7 +930,7 @@
       "missing_proof": "Real HTTP provider failures establish safe bounded provider detail and distinct warnings, not original long private RuntimeError/generic100-character fallback. Repeated invalid provenance ends as UnexpectedModelBehavior/maximum output retries in the real pipeline; the old stub bypassed that retry layer and required SessionMapProvenanceError. The failed real probe and its source are retained; its expectation was not changed to count as parity.",
       "cleanup_action": "Exercise a genuine non-provider workload failure with private diagnostic and adjudicate actual structured-author exhaustion classification before retiring original generic/provenance failure assertions.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_map_authoring_task.py"
+        "validation/legacy/scenarios/integration/core/session_map_authoring_task.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
@@ -950,7 +950,7 @@
       "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4\u20137/citable4\u20135and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4\u20137/8\u20139/10\u201311 to checkpoint11; this complete sequence remains unproved.",
       "cleanup_action": "Recreate actual legacy checkpoint/pending/native evidence inputs and real structured author failures/success across eviction reduction, including direct commit guards and pending repair.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_map_evidence_admission.py"
+        "validation/legacy/scenarios/integration/core/session_map_evidence_admission.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
@@ -967,7 +967,7 @@
       "missing_proof": "Real explicit compact API drives the same reduction and retained citation boundaries; it does not establish original automatic post-turn invocation/task-parent semantics. Controlled author output preserves artifact/citation semantics rather than exact original authored draft.",
       "cleanup_action": "Exercise real automatic post-turn retained-evidence reduction and actual author input/output provenance; keep source automatic boundary until reviewed.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_map_retained_evidence.py"
+        "validation/legacy/scenarios/integration/core/session_map_retained_evidence.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/session_map_evidence_batch15_20261028/report.json",
@@ -987,7 +987,7 @@
       "missing_proof": "Actual public tool budget is proved without browser launch. Original concurrent successful browser work and low-memory admission used private browse/memory replacement and remain unproved; real host cgroup maximum is unbounded. Browser execution remains explicitly deferred.",
       "cleanup_action": "Add genuine browser-resource fixtures/local browser workloads and a supported resource observation boundary when browser capability work resumes; do not launch Chromium to work around the current deferral.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/browser_resource_policy.py"
+        "validation/legacy/scenarios/integration/core/browser_resource_policy.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
@@ -1003,7 +1003,7 @@
       "missing_proof": "Public origin/checkpoint/tool/protocol outcomes and genuine SQLite rollback pass. Original instrumented no-prefix hydration and metadata-scan no-hydration assertions, plus source rewrite precisely inside raw-fetch to prove writer exclusion/same-snapshot/later independence remain unproved.",
       "cleanup_action": "Exercise real snapshot/transaction barriers or explicitly review the private hydration and exact fork rewrite fixtures; retain original probes meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/chat_session_fork_lineage.py"
+        "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
@@ -1020,7 +1020,7 @@
       "missing_proof": "Real tasks/models/tools/queued cancellation pass. Original preattachment spawn/cancel interception, private observer RetryPrompt counters and distinct attention issue IDs, pure helper denied/interrupted/benign/cyclic/compaction/redaction/unsettled branches and synthetic inner TimeoutError/internal classification remain unproved. Actual init config/disconnect error types differ from injected RuntimeError/ReadError; direct model-limit result does not prove original parent-chat completion/prose guidance.",
       "cleanup_action": "Use supported workload/event barriers and actual private-input producers for remaining contracts; classify helper-only assertions and error substitutions explicitly before retiring originals.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/delegate_tool.py"
+        "validation/legacy/scenarios/integration/core/delegate_tool.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_delegate_20261028/report.json",
@@ -1039,7 +1039,7 @@
       "missing_proof": "Actual API compaction/tool-history validity/no-op and author/task provenance pass. Original tool-sourced compaction parent/result, detailed recovery-card/session-map failure and cancellation/activity variants, no-op classification branches and per-failure/API/export diagnostic projections remain unproved.",
       "cleanup_action": "Exercise a real parent agent/tool producer, bounded provider/database faults and public activity/task outputs for remaining manual compaction branches.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/manual_session_map_compaction.py"
+        "validation/legacy/scenarios/integration/core/manual_session_map_compaction.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
@@ -1057,7 +1057,7 @@
       "missing_proof": "Public real checkpoint/revision/timeline/map/corruption outputs pass. Source specialized checkpoint boundary matrix, canonical tool timeline projection/filtering/paging and deliberate private metadata-display drift injection remain unproved.",
       "cleanup_action": "Port native boundary/tool histories through public reads; review disposition of the private display-drift injection separately.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_map_checkpoint.py"
+        "validation/legacy/scenarios/integration/core/session_map_checkpoint.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
@@ -1074,7 +1074,7 @@
       "missing_proof": "Real complete upgrade, valid/invalid tool histories and provider-gated duplicate/cancel pass. Original plan shape/floor matrix, fork/start/stale append/delete races, serial gate/manual contention, full sanitized failure/dedup projections and shutdown/restart/successful retry after cancellation remain unproved.",
       "cleanup_action": "Construct real legacy input/task/author barriers and actual restart/provider/database failures for the remaining upgrade contracts; retain originals meanwhile.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_context_strategy_upgrade.py"
+        "validation/legacy/scenarios/integration/core/session_context_strategy_upgrade.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
@@ -1092,7 +1092,7 @@
       "missing_proof": "Actual tool and service search/windows/cursors/paging/echo/starvation boundaries pass. Original tool-level multi-message serialized budget and fragment continuation, max query/list title projection, explicit cross-workspace/deep/access matrix, genuine FTS failure correlation/privacy and untrusted-operation logging remain unproved.",
       "cleanup_action": "Exercise actual session_ops tool inputs and bounded SQLite failures with task/activity evidence for those output and security contracts.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_ops_transcript_retrieval.py"
+        "validation/legacy/scenarios/integration/core/session_ops_transcript_retrieval.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
@@ -1109,7 +1109,7 @@
       "missing_proof": "Real automatic success and genuine commit/provider failure pass. Source pinned map after global strategy switch plus failing author, direct recovery-card rejection, exact high-watermark equality, exact repeated8-row/unavailable-model sequence and distinct-warning dedup remain unproved. Actual IntegrityError/ModelHTTPError do not certify fake ValueError/RuntimeError-specific classification.",
       "cleanup_action": "Use real session settings, exact canonical histories and local provider/database workloads to establish pinned/no-fallback/policy/failure event boundaries.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/stepped_session_map_post_turn.py"
+        "validation/legacy/scenarios/integration/core/stepped_session_map_post_turn.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
@@ -1126,7 +1126,7 @@
       "missing_proof": "The original old adapter self-test fails its requirement that producer activity.log itself is rewritten to [REDACTED]. Current capture preserves producer observations and redacts exported evidence; generic observation-fidelity tests pass, as do actual app startup failure/crash recovery and cleanup-stop probes. Exact eleven old adapter injection modes/caller cache and handler restoration oracles are not claimed from that evidence.",
       "cleanup_action": "Review old adapter-only lifecycle/producer-log expectations against the accepted current fixture/capture contract, retaining the original and failing baseline until explicitly dispositioned.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/validation_adapter_lifecycle.py"
+        "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final-current-owner-evidence.json",
@@ -1143,7 +1143,7 @@
       "missing_proof": "Current generic pytest plugin owns collection/verdict/reporting and worker-crash evidence; the app fixture owns startup/cleanup safety. Tests pass for these current owners. The old dedicated runner also enforced per-scenario fresh process/HOME/TMP/environment whitelist and hard execution/cleanup process deadlines; these policies are not certified by current reused xdist workers and are not silently treated as parity.",
       "cleanup_action": "Decide any required per-project environment and hard-timeout policy before cutover, using existing pytest tooling where appropriate; preserve the old runner self-test and its passing baseline as reference.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/validation_runner_lifecycle.py"
+        "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final-current-owner-evidence.json",

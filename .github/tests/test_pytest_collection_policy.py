@@ -16,7 +16,7 @@ _REPOSITORY = Path(__file__).resolve().parents[2]
 
 def _project(tmp_path: Path) -> tuple[Path, Path, Path]:
     validation = tmp_path / "validation"
-    stage = validation / "pytest_scenarios"
+    stage = validation / "scenarios"
     core = stage / "integration/core/test_behavior.py"
     fault = stage / "experiments/test_fault.py"
     core.parent.mkdir(parents=True)
@@ -43,7 +43,7 @@ def _project(tmp_path: Path) -> tuple[Path, Path, Path]:
         if tests is not None:
             entry["tests"] = tests
         entries.append(entry)
-    (registry / "pytest-staging.json").write_text(
+    (registry / "pytest-admission.json").write_text(
         json.dumps({"schema_version": 1, "files": entries})
     )
     return config, core, fault
@@ -128,7 +128,7 @@ def test_source_change_requires_readmission(tmp_path: Path) -> None:
 def test_matching_hash_does_not_admit_extra_collected_function(tmp_path: Path) -> None:
     config, core, _ = _project(tmp_path)
     core.write_text(core.read_text() + "def test_extra(): pass\n")
-    manifest = config.parent.parent / "registry/pytest-staging.json"
+    manifest = config.parent.parent / "registry/pytest-admission.json"
     payload = json.loads(manifest.read_text())
     payload["files"][0]["sha256"] = hashlib.sha256(core.read_bytes()).hexdigest()
     manifest.write_text(json.dumps(payload))

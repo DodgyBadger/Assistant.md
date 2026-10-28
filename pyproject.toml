@@ -100,12 +100,15 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["validation"]
+testpaths = ["validation/scenarios/integration/core"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+scenario_mode = "protected"
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --tb=short"
+addopts = "-p validation.support.pytest_policy -v --tb=short -n 1 --max-worker-restart=1"
 
 [tool.uv.sources]
-scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "a066ef61894fb5ec4101ae254f8affe9cd85426c" }
+scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "acfc1511f322f5ed3e7b4d863b622c4c55ed2741" }
 
 [dependency-groups]
 dev = [

@@ -1,3 +1,3 @@
-"""Keep generated run artifacts out of ordinary pytest source discovery."""
+"""Exclude generated artifacts and archived suites from pytest discovery."""
 
-collect_ignore = ["runs"]
+collect_ignore = ["runs", "legacy"]

@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
-class StagingAdmission:
+class ScenarioAdmission:
     relative: str
     source: Path
     kind: str
@@ -17,8 +17,8 @@ class StagingAdmission:
     hash_matches: bool
 
 
-def load_staging_admissions(root: Path) -> list[StagingAdmission]:
-    payload = json.loads((root / "registry/pytest-staging.json").read_text())
+def load_admissions(root: Path) -> list[ScenarioAdmission]:
+    payload = json.loads((root / "registry/pytest-admission.json").read_text())
     if (
         not isinstance(payload, dict)
         or type(payload.get("schema_version")) is not int
@@ -26,9 +26,9 @@ def load_staging_admissions(root: Path) -> list[StagingAdmission]:
         or not isinstance(payload.get("files"), list)
     ):
         raise ValueError("Unsupported pytest staging schema version")
-    entries: list[StagingAdmission] = []
+    entries: list[ScenarioAdmission] = []
     seen: set[Path] = set()
-    staging = (root / "pytest_scenarios").resolve()
+    staging = (root / "scenarios").resolve()
     for entry in payload["files"]:
         if (
             not isinstance(entry, dict)
@@ -42,7 +42,7 @@ def load_staging_admissions(root: Path) -> list[StagingAdmission]:
         if (
             path.is_absolute()
             or ".." in path.parts
-            or not relative.startswith("pytest_scenarios/")
+            or not relative.startswith("scenarios/")
             or source in seen
         ):
             raise ValueError(f"Invalid or duplicate pytest staging path: {relative}")
@@ -76,7 +76,7 @@ def load_staging_admissions(root: Path) -> list[StagingAdmission]:
         elif source.name.startswith("test_"):
             raise ValueError(f"Test source cannot be admitted as support: {relative}")
         entries.append(
-            StagingAdmission(
+            ScenarioAdmission(
                 relative,
                 source,
                 kind,

@@ -40,7 +40,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
               "line": 78,
               "detail": "Restricted stdio creation denied; does not exercise configuration combinations."
             }
@@ -64,7 +64,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
               "line": 195,
               "detail": "Checks roots and launch prefix/executable; no full payload limit."
             }
@@ -146,7 +146,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
               "line": 161,
               "detail": "Stable stdio unavailable result only."
             }
@@ -200,7 +200,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
               "line": 86,
               "detail": "Other principal denied stdio creation; unavailable stdio result at 161."
             }
@@ -672,7 +672,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/deferred_review_task_skeleton.py",
+              "path": "validation/legacy/scenarios/integration/core/deferred_review_task_skeleton.py",
               "line": 463,
               "detail": "Review submission and resumed task linked; preparation replaced at line 577."
             }
@@ -728,7 +728,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/deferred_review_task_skeleton.py",
+              "path": "validation/legacy/scenarios/integration/core/deferred_review_task_skeleton.py",
               "line": 463,
               "detail": "Resumed task linkage, not its actual instruction context."
             }
@@ -1042,7 +1042,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API checks alternate aliases and backend resolution; no frontend dropdown selection proof."
             }
@@ -1071,7 +1071,7 @@
               "detail": "Current test assertions: 57: assert selection_position < application_position"
             },
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API checks alternate aliases and backend resolution; no frontend dropdown selection proof."
             }
@@ -1100,7 +1100,7 @@
               "detail": "Current test assertions: 62: const assert = require('assert');; 79: assert.equal(elements.modelSelector.value, 'preferred');; 80: assert.equal(new Set(elements.modelSelector.options.map(option => option.textContent)).size, 2);; 81: assert.equal(elements.modelSelector.options.filter(item => item.value === 'old').length, 0);"
             },
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API checks alternate aliases and backend resolution; no frontend dropdown selection proof."
             }
@@ -1141,7 +1141,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_persistence_contract.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_persistence_contract.py",
               "line": 69,
               "detail": "Scenario checks actual session persistence, with a patched agent configuration; it does not prove browser response ordering."
             }
@@ -1170,7 +1170,7 @@
               "detail": "Current test assertions: 45: const assert = require('assert');; 90: assert.deepStrictEqual(state.sessions, [{ session_id: 'new' }]);; 91: assert.strictEqual(state.sessionId, 'new');; 95: assert.strictEqual(state.isLoading, true);"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_persistence_contract.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_persistence_contract.py",
               "line": 69,
               "detail": "Scenario checks actual session persistence, with a patched agent configuration; it does not prove browser response ordering."
             }
@@ -1199,7 +1199,7 @@
               "detail": "Current test assertions: 190: assert sessions_position < application_position"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_persistence_contract.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_persistence_contract.py",
               "line": 69,
               "detail": "Scenario checks actual session persistence, with a patched agent configuration; it does not prove browser response ordering."
             }
@@ -1228,7 +1228,7 @@
               "detail": "Current test assertions: 195: const assert = require('assert');; 233: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');; 235: assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session\u2019s mode.');; 241: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B\u2019s mode.');"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_persistence_contract.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_persistence_contract.py",
               "line": 69,
               "detail": "Scenario checks actual session persistence, with a patched agent configuration; it does not prove browser response ordering."
             }
@@ -1269,7 +1269,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_task_event_stream_api.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py",
               "line": 146,
               "detail": "Task API checks completion and replay snapshots at line 163; task is created using a prepared agent, not a browser send."
             }
@@ -1298,7 +1298,7 @@
               "detail": "Current test assertions: 106: assert module_position < actions_position < application_position"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_task_event_stream_api.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py",
               "line": 146,
               "detail": "Task API checks completion and replay snapshots at line 163; task is created using a prepared agent, not a browser send."
             }
@@ -1327,7 +1327,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_task_event_stream_api.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py",
               "line": 146,
               "detail": "Task API checks completion and replay snapshots at line 163; task is created using a prepared agent, not a browser send."
             }
@@ -1356,7 +1356,7 @@
               "detail": "Current test assertions: 285: const assert = require('assert');; 298: assert.strictEqual(url, 'api/tasks/task-1');; 299: assert.strictEqual(options.cache, 'no-store');; 300: assert.strictEqual(options.signal, signal);"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_task_event_stream_api.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py",
               "line": 146,
               "detail": "Task API checks completion and replay snapshots at line 163; task is created using a prepared agent, not a browser send."
             }
@@ -1433,7 +1433,7 @@
               "detail": "Current test assertions: 52: assert configuration_sources == _EXPECTED_SCRIPTS"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1462,7 +1462,7 @@
               "detail": "Current test assertions: 118: const assert = require('assert');; 130: assert.match(output, /<details class=\"activity-log-detail\">/);; 131: assert.match(output, /Traceback start/);; 132: assert.match(output, /Traceback end/);"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1491,7 +1491,7 @@
               "detail": "Current test assertions: 159: assert 'id=\"import-defaults-save\"' in markup; 160: assert 'id=\"import-open-explorer\"' in markup; 161: assert 'id=\"import-jobs-list\"' in markup; 162: assert 'id=\"import-scan\"' not in markup"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1520,7 +1520,7 @@
               "detail": "Current test assertions: 174: const assert = require('assert');; 207: assert.match(runtime.elements.providerList.innerHTML, /OpenAI OAuth/);; 208: assert.match(runtime.elements.modelList.innerHTML, /Unable to load model mappings/);"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1549,7 +1549,7 @@
               "detail": "Current test assertions: 227: const assert = require('assert');; 280: assert.deepStrictEqual(started, loaderNames);; 283: assert.strictEqual(ConfigurationPanelRuntime.state.hasLoadedOnce, true);; 284: assert.strictEqual(reportedErrors.length, 2);"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1578,7 +1578,7 @@
               "detail": "Current test assertions: 305: const assert = require('assert');; 338: assert.deepStrictEqual(started, ['loadSecrets', 'loadImportVaults', 'loadImportJobs']);; 341: assert.strictEqual(reportedErrors.length, 1);"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1607,7 +1607,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1637,7 +1637,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 46,
               "detail": "API checks editor metadata and validation plus typed persisted settings; no browser editor proof."
             }
@@ -1811,7 +1811,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -1834,7 +1834,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -1857,7 +1857,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -1880,7 +1880,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -1920,7 +1920,7 @@
               "detail": "Current test assertions: 15: const assert = require('assert');; 54: assert.strictEqual(chatInput.value, 'See [[Library/! Primary Sources/index.md]]');; 55: assert.strictEqual(chatInput.selectionStart, chatInput.value.length);; 70: assert.strictEqual(pickerOptions.workspacePath, '');"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -1949,7 +1949,7 @@
               "detail": "Current test assertions: 120: assert links_position < references_position"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -1978,7 +1978,7 @@
               "detail": "Current test assertions: 125: const assert = require('assert'), fs = require('fs'), vm = require('vm');; 172: assert(!overlay.querySelector('[data-vault-file-back]'), 'Direct chat open has no previous view.');; 173: assert(overlay.querySelector('[data-vault-file-tree]'), 'A separate tree action is always available.');; 180: assert(editor().value.includes('path=B.md'), 'Back restores the previous file, not the tree.');"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -2007,7 +2007,7 @@
               "detail": "Current test assertions: 230: const assert = require('assert');; 251: assert.deepStrictEqual(; 268: assert.deepStrictEqual("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -2036,7 +2036,7 @@
               "detail": "Current test assertions: 285: const assert = require('assert');; 354: assert.deepStrictEqual(requests[0], {; 358: assert.deepStrictEqual(root.children.map(node => node.textContent), [; 361: assert.strictEqual(root.children[4], external);"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -2065,7 +2065,7 @@
               "detail": "Current test assertions: 486: assert header.index('class=\"app-modal-actions\"') < header.index(; 490: assert \".vault-file-modal-header {\\n    flex-wrap: wrap;\\n}\" in stylesheet; 491: assert ("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 152,
               "detail": "API resolves paths and verifies file read at line 193; no browser link or modal proof."
             }
@@ -2101,7 +2101,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "path": "validation/legacy/scenarios/integration/core/import_pipeline_core.py",
               "line": 44,
               "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
             }
@@ -2132,7 +2132,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "path": "validation/legacy/scenarios/integration/core/import_pipeline_core.py",
               "line": 44,
               "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
             }
@@ -2155,7 +2155,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "path": "validation/legacy/scenarios/integration/core/import_pipeline_core.py",
               "line": 44,
               "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
             }
@@ -2178,7 +2178,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "path": "validation/legacy/scenarios/integration/core/import_pipeline_core.py",
               "line": 44,
               "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
             }
@@ -2207,7 +2207,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/import_pipeline_core.py",
+              "path": "validation/legacy/scenarios/integration/core/import_pipeline_core.py",
               "line": 44,
               "detail": "Real PDF import: job completion, fallback, persisted Markdown and source cleanup (lines 44\u201370); no injected storage compensation."
             }
@@ -2250,7 +2250,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2282,7 +2282,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2306,7 +2306,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2346,7 +2346,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2369,7 +2369,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2392,7 +2392,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2423,7 +2423,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2446,12 +2446,12 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             },
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -2483,7 +2483,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2506,7 +2506,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2535,7 +2535,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -2570,12 +2570,12 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             },
             {
-              "path": "validation/scenarios/integration/core/decision_model_configuration.py",
+              "path": "validation/legacy/scenarios/integration/core/decision_model_configuration.py",
               "line": 112,
               "detail": "Asserts retired typesafe absent; configured decision model behavior also exercised, not TypeSafe protocol."
             }
@@ -2610,7 +2610,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             }
@@ -2645,12 +2645,12 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             },
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -2685,12 +2685,12 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 206,
               "detail": "Retires managed jev; reload with catalog fixture verifies rename, blocked collision and structured activity, then family adoption and conflict at 225\u2013310."
             },
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -2736,7 +2736,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_connection_isolation.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py",
               "line": 322,
               "detail": "Active lease protects eviction; release and invalidation behavior at 340."
             }
@@ -2764,7 +2764,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
               "line": 181,
               "detail": "Stdio manager launch with substituted transport and client, no capacity contention."
             }
@@ -2790,7 +2790,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_mutation_recovery.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py",
               "line": 398,
               "detail": "Stale endpoint snapshot cannot resolve current credentials; different timing from in-flight connect."
             }
@@ -2816,7 +2816,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_connection_isolation.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py",
               "line": 350,
               "detail": "Normal lease close and shutdown, not cleanup failures."
             }
@@ -2842,12 +2842,12 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_connection_isolation.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py",
               "line": 340,
               "detail": "Invalidates, releases lease and asserts fresh next client; no pre-release close check."
             },
             {
-              "path": "validation/scenarios/integration/core/mcp_mutation_recovery.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py",
               "line": 221,
               "detail": "Mutation completion waits for acknowledged invalidation via controlled replacements."
             }
@@ -2883,12 +2883,12 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_oauth_storage.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_oauth_storage.py",
               "line": 217,
               "detail": "Stale storage adapter cannot delete or write after fence rotation."
             },
             {
-              "path": "validation/scenarios/integration/core/mcp_oauth_coordinator.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py",
               "line": 204,
               "detail": "Completion persists token and later disconnect checks; no matching held completion race."
             }
@@ -2912,7 +2912,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_mutation_recovery.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py",
               "line": 221,
               "detail": "Generic mutation completion waits for invalidation and failure projection at 241."
             }
@@ -2936,7 +2936,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/mcp_oauth_coordinator.py",
+              "path": "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py",
               "line": 437,
               "detail": "Superseding attempts and cancellation activity; does not prove shutdown drain."
             }
@@ -2969,7 +2969,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3000,7 +3000,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3031,7 +3031,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3054,7 +3054,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3085,7 +3085,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3116,7 +3116,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3159,7 +3159,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3182,7 +3182,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3205,7 +3205,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3228,7 +3228,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3251,7 +3251,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/model_alias_resolution.py",
+              "path": "validation/legacy/scenarios/integration/core/model_alias_resolution.py",
               "line": 32,
               "detail": "API alternate alias normalization/resolution, collision rejection, rename and configuration preservation at lines 32\u201382; ambiguous names rejected at 160\u2013183."
             }
@@ -3447,7 +3447,7 @@
               "detail": "Current test assertions: 12: assert.equal(block, '[[Notes/A.md]]\\n\\n> first\\n>\\n> last\\n\\nExplain\\nthis');; 13: assert.equal(VaultSelectionPrompt.formatBlock('A.md', 'quote', ''), '[[A.md]]\\n\\n> quote');"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3476,7 +3476,7 @@
               "detail": "Current test assertions: 25: assert.equal(chatInput.value, 'Keep my draft\\n\\nfirst\\n\\nsecond');; 26: assert.equal(events, 2);; 27: assert.equal(attachments.length, 1);"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3505,7 +3505,7 @@
               "detail": "Current test assertions: 31: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A%20B.md', 'text', ''),; 33: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A]#|.md', 'text', ''),"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3546,7 +3546,7 @@
               "detail": "Current test assertions: 114: assert page.locator(\"#chat-input\").input_value() == (; 118: assert page.locator(\"#vault-file-modal\").count() == 1; 122: assert (; 127: assert page.evaluate(\"compose.pendingAttachments.length\") == 1"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3575,7 +3575,7 @@
               "detail": "Current test assertions: 140: assert (; 144: assert page.locator(\"#chat-input\").input_value() == \"Existing draft\"; 145: assert page.evaluate(\"compose.pendingAttachments.length\") == 1; 146: assert page.evaluate(\"!closedPicker && state.isLoading\")"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3604,7 +3604,7 @@
               "detail": "Current test assertions: 156: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 157: assert \"Start failed\" in page.locator(\".vault-selection-feedback\").inner_text(); 158: assert page.locator(\"[data-quote-send]\").is_enabled(); 164: assert page.evaluate(\"compose.pendingAttachments.length\") == 1"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3633,7 +3633,7 @@
               "detail": "Current test assertions: 171: assert page.locator(\"#vault-file-modal\").count() == 1; 173: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 175: assert page.locator(\"[data-quote-send]\").is_disabled(); 176: assert page.locator(\"[data-quote-append]\").is_disabled()"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3662,7 +3662,7 @@
               "detail": "Current test assertions: 203: assert box and box[\"x\"] >= 0 and box[\"x\"] + box[\"width\"] <= 390; 204: assert box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 640; 210: assert page.locator(\"[data-quote-open]\").is_hidden()"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3691,7 +3691,7 @@
               "detail": "Current test assertions: 220: assert original.strip(); 223: assert page.locator(\"[data-quote-text]\").inner_text() == original; 229: assert draft.index(\"[[Notes/A.md]]\") < draft.index(\"[[Notes/B.md]]\"); 230: assert \"Keep this instruction\" in draft and \"Second file\" in draft"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3720,7 +3720,7 @@
               "detail": "Current test assertions: 238: assert page.evaluate(\"sent[0]\") == {; 242: assert page.locator(\"#chat-input\").input_value() == \"\"; 243: assert page.evaluate(\"compose.pendingAttachments.length\") == 0"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3749,7 +3749,7 @@
               "detail": "Current test assertions: 254: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 255: assert page.locator(\"[data-quote-dismiss]\").is_disabled(); 257: assert page.evaluate(\"sent.length\") == 1; 260: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep until accepted\""
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3778,7 +3778,7 @@
               "detail": "Current test assertions: 277: assert box and box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 320; 279: assert ("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3807,7 +3807,7 @@
               "detail": "Current test assertions: 293: assert page.evaluate(\"sent.length\") == 0; 294: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 295: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"Unsaved changes\""
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3836,7 +3836,7 @@
               "detail": "Current test assertions: 308: expect(page.locator(\"[data-quote-open]\")).to_be_focused(); 310: expect(page.locator(\"#vault-selection-input\")).to_be_focused(); 314: assert (; 318: assert page.evaluate(\"sent.length\") == 0"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3865,7 +3865,7 @@
               "detail": "Current test assertions: 336: assert page.locator(\"#vault-file-modal\").count() == 0; 337: assert page.locator(\"#vault-explorer-modal\").count() == 0; 338: assert not page.evaluate(\"files.isPickerOpen()\"); 339: expect(page.locator(\"#chat-input\")).to_be_focused()"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3894,7 +3894,7 @@
               "detail": "Current test assertions: 352: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/A.md\"); 353: assert page.locator(\"#vault-explorer-modal\").count() == 1; 357: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep this prompt\"; 358: assert page.locator(\"#vault-explorer-modal\").count() == 1"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3923,7 +3923,7 @@
               "detail": "Current test assertions: 383: assert page.locator(\"#vault-file-modal\").count() == 1; 386: assert page.locator(\"[data-quote-send]\").is_disabled(); 388: assert page.evaluate(\"sent.length\") == 1; 392: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3952,7 +3952,7 @@
               "detail": "Current test assertions: 409: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/B.md\"); 411: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -3981,7 +3981,7 @@
               "detail": "Current test assertions: 424: assert page.locator(\"#vault-file-modal\").count() == 0"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4010,7 +4010,7 @@
               "detail": "Current test assertions: 435: expect(page.locator(\"#vault-file-modal-status\")).to_contain_text(; 438: assert page.locator(\"#vault-file-modal\").count() == 1; 439: assert page.locator(\"#passage\").count() == 1"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4039,7 +4039,7 @@
               "detail": "Current test assertions: 450: assert scroll > 0; 454: expect(preview).to_contain_text(\"Long update with a document edit\"); 455: assert preview.evaluate(\"element => element.scrollTop\") == scroll"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4068,7 +4068,7 @@
               "detail": "Current test assertions: 478: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"New local edits\""
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4097,7 +4097,7 @@
               "detail": "Current test assertions: 493: expect(preview).to_be_focused()"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4126,7 +4126,7 @@
               "detail": "Current test assertions: 519: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 522: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 523: assert page.locator(\"[data-quote-dismiss]\").is_disabled()"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 193,
               "detail": "Real API file read returns content and hash; no quotation, composer or browser integration proof."
             }
@@ -4251,7 +4251,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4280,7 +4280,7 @@
               "detail": "Current test assertions: 42: const assert = require('assert');; 108: assert.strictEqual(document.activeElement, activeModal.dialog, 'Opening the map should focus its dialog.');; 112: assert.strictEqual(activeModal, null, 'Escape should close the session-map modal.');; 113: assert.strictEqual(document.activeElement, trigger, 'Closing should restore focus to the invoker.');"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4309,7 +4309,7 @@
               "detail": "Current test assertions: 140: const assert = require('assert');; 206: assert.match(modal.body.innerHTML, /latest revision/);; 207: assert.doesNotMatch(modal.body.innerHTML, /stale revision/);; 218: assert.match(modal.body.innerHTML, /latest after error/);"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4338,7 +4338,7 @@
               "detail": "Current test assertions: 235: assert map_position < application_position"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4367,7 +4367,7 @@
               "detail": "Current test assertions: 241: assert \"How We Got Here\" in source; 242: assert \"renderSources(trajectory)\" in source; 243: assert '<div class=\"session-map-content\"' in source; 244: assert \"formatDate(selected?.created_at)\" in source"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4396,7 +4396,7 @@
               "detail": "Current test assertions: 255: assert \"renderTranscript\" not in map_source; 256: assert \"data-session-map-transcript-page\" not in map_source; 257: assert \"payload.transcript\" not in map_source; 258: assert \"session-map-checkpoint-link\" in history_source"
             },
             {
-              "path": "validation/scenarios/integration/core/chat_session_fork_lineage.py",
+              "path": "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py",
               "line": 214,
               "detail": "Fork API map response is asserted; no browser focus, navigation, or rendering proof."
             }
@@ -4437,7 +4437,7 @@
               "detail": "Current test assertions: 52: expect(; 57: assert page.evaluate(\"ConfigurationPanelRuntime.state.isSavingSetting\") is False; 59: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible(); 61: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible()"
             },
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API checks save and reset values and source; no proof of controls unlocking during delayed refresh."
             }
@@ -4473,7 +4473,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4496,7 +4496,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4519,7 +4519,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4565,7 +4565,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4592,7 +4592,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4619,7 +4619,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4646,7 +4646,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4673,7 +4673,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_database_migration.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_database_migration.py",
               "line": 55,
               "detail": "Legacy import exact backup and retirement, stale writes, failed transaction, new install and invalid import recovery; corrupt database/event at lines 55\u2013190. Scenario patches store and repository internals."
             }
@@ -4708,7 +4708,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4731,7 +4731,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4754,7 +4754,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4777,7 +4777,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4800,7 +4800,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4823,7 +4823,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4846,7 +4846,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4869,7 +4869,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4892,7 +4892,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -4915,7 +4915,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -4938,7 +4938,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -4961,7 +4961,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -4984,7 +4984,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5007,7 +5007,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5047,7 +5047,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -5070,7 +5070,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5093,7 +5093,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -5116,7 +5116,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -5139,7 +5139,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5174,7 +5174,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5197,7 +5197,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5220,7 +5220,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5257,7 +5257,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "path": "validation/legacy/scenarios/integration/core/sqlite_migrations.py",
               "line": 82,
               "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
             }
@@ -5292,7 +5292,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "path": "validation/legacy/scenarios/integration/core/sqlite_migrations.py",
               "line": 82,
               "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
             }
@@ -5327,7 +5327,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/sqlite_migrations.py",
+              "path": "validation/legacy/scenarios/integration/core/sqlite_migrations.py",
               "line": 82,
               "detail": "Generic SQLite migration duplicate-version rejection, failed migration and rollback/retry at lines 82\u2013131; not settings schema checkpoints."
             }
@@ -5368,7 +5368,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5403,7 +5403,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5438,7 +5438,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5473,7 +5473,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_lifecycle.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
               "line": 41,
               "detail": "API save/reset provenance, dependency rejection and global backup/reset/collision atomicity at lines 41\u2013169; no post-backup concurrent edit."
             }
@@ -5516,7 +5516,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -5539,7 +5539,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/settings_editors.py",
+              "path": "validation/legacy/scenarios/integration/core/settings_editors.py",
               "line": 47,
               "detail": "API editor metadata, validation issues and persisted choices at lines 47\u2013215; no browser draft or delayed response behavior."
             }
@@ -5706,7 +5706,7 @@
           "disposition": "gap",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5738,7 +5738,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5761,7 +5761,7 @@
           "disposition": "rewrite",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5790,7 +5790,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5817,7 +5817,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5852,7 +5852,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5887,7 +5887,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5922,7 +5922,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 29,
               "detail": "API literal case-insensitive scoped search, structured path/line, truncation, hidden/binary exclusion and invalid query at lines 29\u2013103; no column/snippet assertion."
             }
@@ -5970,7 +5970,7 @@
               "detail": "Current test assertions: 14: const assert = require('assert');; 24: assert.deepStrictEqual("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_explorer_batch_move.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_explorer_batch_move.py",
               "line": 35,
               "detail": "API returns success and actual moved files exist; collision preflight preserves files (lines 60\u201365)."
             }
@@ -6071,7 +6071,7 @@
               "detail": "Current test assertions: 14: const assert = require('assert');; 27: assert.deepStrictEqual(; 37: assert.strictEqual(destination.snapshot().path, 'Projects/Archive');; 39: assert.strictEqual(destination.snapshot().path, '');"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_explorer_batch_move.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_explorer_batch_move.py",
               "line": 80,
               "detail": "API rejects overlapping resolved sources and preserves tree; does not prove selector behavior."
             }
@@ -6112,7 +6112,7 @@
               "detail": "Current test assertions: 15: const assert = require('assert');; 27: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/report.PDF'), true);; 28: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/scan.webp'), true);; 29: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/notes.txt'), false);"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_explorer_upload.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_explorer_upload.py",
               "line": 29,
               "detail": "API upload preserves bytes and rejects collisions; does not exercise import controls."
             }
@@ -6141,7 +6141,7 @@
               "detail": "Current test assertions: 154: assert \"vault-explorer-import-primary\" in source; 155: assert \"vault-explorer-import-source-count\" in source; 156: assert \"sources.map\" not in source; 157: assert \"vault-explorer-import-footer\" in source"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_explorer_upload.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_explorer_upload.py",
               "line": 29,
               "detail": "API upload preserves bytes and rejects collisions; does not exercise import controls."
             }
@@ -6182,7 +6182,7 @@
               "detail": "Current test assertions: 14: const assert = require('assert');; 33: assert.deepStrictEqual(; 55: assert.match(rendered, /Notes\\/&lt;unsafe&gt;\\.md/);; 56: assert.match(rendered, /Line 7 \u00b7 A &lt;script&gt; &amp; more/);"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_content_search.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_content_search.py",
               "line": 33,
               "detail": "API returns scoped literal search results and structured line numbers (line 51); no UI proof."
             }
@@ -6343,7 +6343,7 @@
               "detail": "Current test assertions: 23: const assert = require('assert');; 54: assert.strictEqual(position, 'beforebegin');; 117: cancel() {}, async load({query: value}) { contentLoads += 1; assert.strictEqual(value, 'needle'); results.innerHTML = '<p>Content results</p>'; },; 144: assert.strictEqual(query.value, 'selected');"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 78,
               "detail": "API validates paging offsets and candidate resolution at line 152; does not prove tree state or keyboard behavior."
             }
@@ -6372,7 +6372,7 @@
               "detail": "Current test assertions: method availability, source order or subprocess success"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 78,
               "detail": "API validates paging offsets and candidate resolution at line 152; does not prove tree state or keyboard behavior."
             }
@@ -6401,7 +6401,7 @@
               "detail": "Current test assertions: 358: const assert = require('assert');; 409: assert.strictEqual(mutationCalls, 1);; 412: assert.strictEqual(mutationCalls, 1);"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 78,
               "detail": "API validates paging offsets and candidate resolution at line 152; does not prove tree state or keyboard behavior."
             }
@@ -6430,7 +6430,7 @@
               "detail": "Current test assertions: 459: assert ("
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 78,
               "detail": "API validates paging offsets and candidate resolution at line 152; does not prove tree state or keyboard behavior."
             }
@@ -6459,7 +6459,7 @@
               "detail": "Current test assertions: 476: assert \"data-vault-explorer-toolbar\" in source; 477: assert \"data-vault-explorer-header-location\" in source; 478: assert \"vault-path-picker-body\" in source; 479: assert \"vault-explorer-search-control\" in source"
             },
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 78,
               "detail": "API validates paging offsets and candidate resolution at line 152; does not prove tree state or keyboard behavior."
             }
@@ -6509,7 +6509,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 118,
               "detail": "API basename match for directory and file and no duplicate path match at lines 118\u2013123; no scan-limit case."
             }
@@ -6540,7 +6540,7 @@
           "disposition": "covered",
           "coverage": [
             {
-              "path": "validation/scenarios/integration/core/vault_file_reference_api.py",
+              "path": "validation/legacy/scenarios/integration/core/vault_file_reference_api.py",
               "line": 118,
               "detail": "API asserts basename paths after converting items to a set at lines 118\u2013123; set conversion masks duplicates."
             }
@@ -6754,7 +6754,7 @@
       "sha256": "4a416fd2face5b6b2e40bab020093f7e380a96648d8859e7d9641a235cd6593f",
       "retirement_reason": "Superseded by installed scenario-harness plugin and admitted real-app pytest pilot/fault profile; original prototype sources and comparison metadata archived as evidence.",
       "source_archive": "validation/runs/skill_evaluations/retired_pytest_comparison_source",
-      "replacement": "validation/pytest_scenarios/integration/core"
+      "replacement": "validation/scenarios/integration/core"
     },
     {
       "path": "validation/experiments/pytest_comparison/test_crash_recovery.py",
@@ -6777,7 +6777,7 @@
       "sha256": "017e4c32e37923db35f9815ccf5d90f34e1a01c32da09917909f6f9e69c623c6",
       "retirement_reason": "Superseded by installed scenario-harness plugin and admitted real-app pytest pilot/fault profile; original prototype sources and comparison metadata archived as evidence.",
       "source_archive": "validation/runs/skill_evaluations/retired_pytest_comparison_source",
-      "replacement": "validation/pytest_scenarios/experiments/test_crash_recovery.py"
+      "replacement": "validation/scenarios/experiments/test_crash_recovery.py"
     }
   ],
   "manual_browser_checks": [

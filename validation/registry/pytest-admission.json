@@ -1,0 +1,2138 @@
+{
+  "schema_version": 1,
+  "purpose": "Exact canonical pytest source admission; does not grant behavioral parity acceptance.",
+  "files": [
+    {
+      "path": "scenarios/application.py",
+      "sha256": "e69d8e0c8a922d75c96735047f7a438bdd653dd37dfee2dba8d6fd1430754c1f",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/conftest.py",
+      "sha256": "fd6edf82fcdff114b32a73509ecfc63d82d90dd63762a5e790b3767360971f9c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/experiments/test_cleanup_failure.py",
+      "sha256": "4dc9fa8be29935200e6ce208af66e292916cd690997bdfc2f6db840cd071cc43",
+      "kind": "behavioral",
+      "tests": [
+        "test_shutdown_failure_blocks_reuse",
+        "test_following_application_must_not_start"
+      ]
+    },
+    {
+      "path": "scenarios/experiments/test_crash_recovery.py",
+      "sha256": "2a2044e10a9795bf3a349043257dd0ce65201eb37344b8b6d0c4f166f947fb7e",
+      "kind": "behavioral",
+      "tests": [
+        "test_01_unhandled_application_startup_exception",
+        "test_02_real_app_recovers_after_exception",
+        "test_03_abort_running_application_worker",
+        "test_04_real_app_recovers_after_worker_crash"
+      ]
+    },
+    {
+      "path": "scenarios/experiments/test_evidence_controls.py",
+      "sha256": "4086d8144bf1bb1115ce295699d3904963f50fa8c1b192cd799b467ebd7610a4",
+      "kind": "behavioral",
+      "tests": [
+        "test_wrong_registered_value_is_rejected",
+        "test_unsafe_application_log_is_detected"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_endpoint_chat_limits.py",
+      "sha256": "68dd061a37b902a4e64f9ac01c1f786dc492d38a4a502186082c9cfd24f87d20",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_call_limit_rejects_multiple_real_model_calls",
+        "test_text_only_model_rejects_image_input"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_endpoint_openai_oauth.py",
+      "sha256": "a3a395fea4ba2712238032d126f50f4ee875647e361ba213bbfa5743c3ef8275",
+      "kind": "behavioral",
+      "tests": [
+        "test_openai_oauth_manual_completion_and_readiness"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_endpoint_system.py",
+      "sha256": "a900bfcaf0a974fff712c366a97ce4946b65c614df1d977651b2cefb0711b79e",
+      "kind": "behavioral",
+      "tests": [
+        "test_system_health_settings_models_providers_and_secrets",
+        "test_mcp_configuration_api_preserves_owner_and_write_only_credentials"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_endpoint_workflow_chat.py",
+      "sha256": "a1a910b9c277148d2089d624e79ec279d30e138c1e3d102723bec27d8746ff8b",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_api_task_status_and_system_scoping",
+        "test_chat_metadata_title_export_and_replay_api"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_error_resilience.py",
+      "sha256": "5c0754cda7bb84b8db3ea9b00ad82a76baf6c16c18466c85054ccaf27c10785a",
+      "kind": "behavioral",
+      "tests": [
+        "test_api_error_envelopes_identify_missing_and_unexpected_failures",
+        "test_provider_http_failures_and_retry_transport_contracts"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_mcp_connection_readiness.py",
+      "sha256": "9643d88dcc2a5925ec9ad2ffeba973e58e10d98a74c97dd1ea147e0d774f64a0",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_test_api_reports_real_catalog_and_sanitizes_auth_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_openai_error_classification.py",
+      "sha256": "ab430899cc840899a6bcd26c4226020bd7d9d8b09567a673ae5ef15b7d822fa5",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_openai_sdk_status_failures_classify_retryability"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_api_provider_readiness.py",
+      "sha256": "f25f60edf031240de40aa78a5a20d4d54064b426694e0eddf9474f367ba6a8b9",
+      "kind": "behavioral",
+      "tests": [
+        "test_custom_provider_url_secret_and_invalid_openai_endpoint"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_async_workflow_cancellation.py",
+      "sha256": "fdbda2b0f653b5e12999637503d86969ca009f7d1812bb4fdd9597a713f93281",
+      "kind": "behavioral",
+      "tests": [
+        "test_async_cancellation_rollback"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_authoring_context.py",
+      "sha256": "0d63b7c4bc88c0baad3f8b8368d58b08b8a7e831dd8e530f84466292e808e24a",
+      "kind": "behavioral",
+      "tests": [
+        "test_history_assembly_groups_tool_exchange"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_authoring_contract.py",
+      "sha256": "a1b41a707d92ec6d4e17db20f047289ac43f15afa00b4484887737b1efa6cd59",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_helpers_with_configured_test_model"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_authoring_tool_failure_semantics.py",
+      "sha256": "329bd2af5ddfa591479bb8a121958bc2dd622a73bd8e49d8c4367b2fadc48f98",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_tool_failures_preserve_selected_and_uncaught_outcomes"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_auto_chat_history_compaction.py",
+      "sha256": "c833b99f4599ede8c4ecf458f06b7dfd824dec091448f18d14d27f0acc47ff8b",
+      "kind": "behavioral",
+      "tests": [
+        "test_automatic_compaction_is_child_of_chat",
+        "test_automatic_compaction_commit_failure_is_safe"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_auto_compaction_author_failure.py",
+      "sha256": "2119b8e38d45d10b42fc45ea39b8a86c3d36814d328aaf73b389093c875aa6ec",
+      "kind": "behavioral",
+      "tests": [
+        "test_automatic_compaction_author_provider_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_call_budget.py",
+      "sha256": "b51a529b809c0476f58a1e389aac379451e0f09a4115ba40b577fff1c46678a7",
+      "kind": "behavioral",
+      "tests": [
+        "test_browser_budget_is_scoped_to_actual_execution_task"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_builtin_connection_configuration.py",
+      "sha256": "f80414c6525e813e2f7034e00691ce649001300a50cd7715ba37ac57caa62473",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_connection_configuration_and_atomic_cleanup",
+        "test_invalid_gmail_preferences_are_rejected"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_cache_manual_purge.py",
+      "sha256": "a01be55a1540fe4d92fb8f47fcd96962968a95f05c81710ac6bbeb3e1677e3ca",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_cache_purge"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_cache_journeys.py",
+      "sha256": "53c1483424a84a1e9940fbb1e5b769a2cdbc7eee24c756730601e56bfaae3fad",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_tool_overflow_cache_and_readback",
+        "test_chat_cache_multi_pass_file_exploration"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_cancellation.py",
+      "sha256": "16eb7b51b7a489f2d3a970dec7c8feb75e8ff113884eb8904dd8b74b2fb83612",
+      "kind": "behavioral",
+      "tests": [
+        "test_cancel_chat_rolls_back_tool_write_and_retains_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_compaction_continuation.py",
+      "sha256": "833f7c4211206bde1b632e9738ac3e939f7efbf20e75cf8fecac828c04808d1f",
+      "kind": "behavioral",
+      "tests": [
+        "test_second_compaction_and_post_checkpoint_history",
+        "test_compaction_author_receives_shaped_tool_results"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_failure_logging.py",
+      "sha256": "8ce9b149111bae82765b92e1c627a6c549d40e4a9594869272d73eb697ddd4b8",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_preflight_failure_activity_and_actionable_error"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_failure_rollback.py",
+      "sha256": "f47497f27b16e5fec36ee9bf54766d9369f534069ac95bd369151aed9dec82c2",
+      "kind": "behavioral",
+      "tests": [
+        "test_failed_chat_rolls_back_real_file_write"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_history_compaction.py",
+      "sha256": "ceeefe3e0831ccfafa88beb8e8fa6c2698fbc3b190f250b4cc1372560d0d3cf3",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_compaction_and_fork_preserve_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_manual_retry.py",
+      "sha256": "10b1d887ed2c1ccac86db20b96a4071c442b3d6b73a40478873fd13464dc156d",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_retry_interrupted_chat"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_model_alias_fallback.py",
+      "sha256": "bd38030177b58f7c7f40e50db0d4689c6c1312bfd14694bfd0435becb7102259",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_alias_fallback_and_unavailable_provider"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_multipart_upload_limits.py",
+      "sha256": "981e24b474b6d850d646e8c16f7f87642b7758b31112eb16a59df72561d4590b",
+      "kind": "behavioral",
+      "tests": [
+        "test_oversized_multipart_image_creates_no_task"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_prepared_stream_buffer.py",
+      "sha256": "dfcfb664ac6af6dd11c9e5f999271938920aa10d0a7054c046c3bcbcd341518a",
+      "kind": "behavioral",
+      "tests": [
+        "test_prepared_stream_uses_isolated_event_buffer",
+        "test_prepared_stream_cancellation_uses_isolated_event_buffer"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_reasoning_history_policy.py",
+      "sha256": "b96ed8c4088ee33d1f721b36a5364bf4d3de7b5004149d4e9a17c32330049360",
+      "kind": "behavioral",
+      "tests": [
+        "test_reasoning_retention_and_checkpoint_policy_transitions"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_retry_usage_budget.py",
+      "sha256": "07ce0637538e7f90f758d7343a92a70b30d3596c10af4101bb23e8c4b6477ed0",
+      "kind": "behavioral",
+      "tests": [
+        "test_retry_does_not_reset_model_request_budget"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_session_persistence.py",
+      "sha256": "60ebd10c081448a9dcb86a4b0ae5c1a36d24eab48ef67221e3327980ab110624",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_session_persistence_and_export"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_stream_auto_retry.py",
+      "sha256": "b90ca48cd674ea54caa9540d1604fe6a7d4190f706e4d338df05d2b5fec419d9",
+      "kind": "behavioral",
+      "tests": [
+        "test_partial_stream_retry_and_disable"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_stream_background_task.py",
+      "sha256": "8c774d61d282df1ca02463bb67f39d544cd383e3b166c4b5e63871d5efed2026",
+      "kind": "behavioral",
+      "tests": [
+        "test_background_stream_completion_and_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_stream_failure_logging.py",
+      "sha256": "cf2c355ae29eae8bdaf8eed104bb275b92b23319e2b4d312253be44c2ebc2fd2",
+      "kind": "behavioral",
+      "tests": [
+        "test_stream_failure_marker_logging_and_recovery"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_stream_keepalive.py",
+      "sha256": "5eeaa6d055ebf6ff3219816607fa5186db7e51a7b34507230d6a900d60b2e2a8",
+      "kind": "behavioral",
+      "tests": [
+        "test_keepalive_then_completion_and_cancel"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_surface_adapter.py",
+      "sha256": "93404560fae9de1fd17e0df1d1dd585181e477f65b70724c2df7bcf364cc7d12",
+      "kind": "behavioral",
+      "tests": [
+        "test_surface_adapter_completion_and_cancel"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_task_api_boundaries.py",
+      "sha256": "48b61de4c6000dd6676c7c9b9a85b47efabc84585a3830efddb73bf7197a6ab9",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_snapshot_cursor_handoff_and_task_boundaries",
+        "test_running_chat_can_be_cancelled_after_disconnect"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_task_event_buffer.py",
+      "sha256": "c86a01deac9ba9572e2325f6f1e40656e4464a65d63969bd11f0d8bf83b432b6",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_task_event_buffer"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_task_stream_queue.py",
+      "sha256": "b94847214c4a279ed77742eb9927bb1f58e202e077f8c681f509344149bf6b5f",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_stream_replay_and_disconnect",
+        "test_chat_session_queue_and_queued_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_tool_metadata_visibility.py",
+      "sha256": "a14368e93e82a27f9fe0a38a3ddb8de0492e4c02d475da7b3ae52cb58d708973",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_tool_metadata_visibility"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_tool_replay_contract.py",
+      "sha256": "d1e6679979345af514f255d08fc2b82f48ddb46bfc4258ecb289482de3ee53fc",
+      "kind": "behavioral",
+      "tests": [
+        "test_bracket_prompts_and_tool_content_privacy",
+        "test_tool_parts_without_ids_remain_hidden",
+        "test_committed_replay_and_compaction_collisions",
+        "test_duplicate_event_identity_is_not_replayed"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_usage_limits.py",
+      "sha256": "5c9760a42615299f99e379cbdaad36fc619c53c39e1d832df2e0b999812a7dc5",
+      "kind": "behavioral",
+      "tests": [
+        "test_model_request_limit_reports_and_persists_recovery"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_code_execution.py",
+      "sha256": "2b5b1c80cd9fa3e7d122765af93bac9898bb7e34cf989f51873219fcc0e6a9e4",
+      "kind": "behavioral",
+      "tests": [
+        "test_code_execution_chat_helper_surface"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_code_execution_rollback.py",
+      "sha256": "2fe82a74d60e2d191eb19b13f708a695d86ba7523cf1decc0b05434aa11a0947",
+      "kind": "behavioral",
+      "tests": [
+        "test_code_execution_mutation_rolls_back_with_failed_chat"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_content_import_tool.py",
+      "sha256": "ea5d3d0771e26f20c24f12272e0789d5bc253eaea7e86bd25ef7ffe345b85432",
+      "kind": "behavioral",
+      "tests": [
+        "test_content_import_local_lifecycle_and_scheduler_trigger",
+        "test_content_import_real_fetch_failure_and_authority_path_denials"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_content_search.py",
+      "sha256": "d8f52c75b15270b28cba0b33a95c637758b82fbd51605e24d70b51e933f8166f",
+      "kind": "behavioral",
+      "tests": [
+        "test_literal_content_search_bounds_and_scope"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_database_migrations.py",
+      "sha256": "950150fbe9661c52b4b2b5366b009094dba3c93f7979d807282c8d9e1f93e4e7",
+      "kind": "behavioral",
+      "tests": [
+        "test_sqlite_migration_order_validation_and_rollback",
+        "test_registered_system_migration_backups_and_retirement",
+        "test_system_migration_failure_phases_are_correlated_and_sanitized"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_decision_model_configuration.py",
+      "sha256": "1860cb6886b76acf5619cef74188cd77b07a813885434c1664fcf00814aa8caf",
+      "kind": "behavioral",
+      "tests": [
+        "test_decision_model_configuration_and_repair"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_default_context.py",
+      "sha256": "5d979f141338faeedf2f8229ff571e8a3ea847f4226dfa1efacffe04f2fed150",
+      "kind": "behavioral",
+      "tests": [
+        "test_default_context_sources_and_effective_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_deferred_review_alias_fallback.py",
+      "sha256": "9bedae41e0cb1ede4e7aae2f900a381307ea9b0b83ceca563dcb28666ed39522",
+      "kind": "behavioral",
+      "tests": [
+        "test_deferred_review_resume_uses_fallback_after_model_removal"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_deferred_review_denials.py",
+      "sha256": "a640e30119b2dbcf42c9201c44d81765c365bddee04ed6610e7b6b82a03c41d7",
+      "kind": "behavioral",
+      "tests": [
+        "test_two_denials_reach_resumed_model_with_optional_reason"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_deferred_review_interruption.py",
+      "sha256": "fe6d18e7be678d0d0a62295b35486b2a63c623af215c9f50de0c22615c55f6cf",
+      "kind": "behavioral",
+      "tests": [
+        "test_terminal_review_closes_only_matching_pending_calls",
+        "test_failed_resume_rolls_back_approved_write_and_settles_review",
+        "test_review_creation_failure_rolls_back_messages_and_failure_marker"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_deferred_review_task_lifecycle.py",
+      "sha256": "6abb1ed8746db54e8ac9f00f99f8a289ecc1db24f440f400ceffc08155c64473",
+      "kind": "behavioral",
+      "tests": [
+        "test_review_submission_checks_stale_targets_and_claims_once",
+        "test_two_reviews_block_new_turn_and_preserve_denial"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_authoring.py",
+      "sha256": "d573df32af7b69efc68b39218f40576c391e087d66c3c0f94c1cfd2a1824b4f8",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_authoring_outputs_and_binding_events"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_execution.py",
+      "sha256": "a8a546ffa6d95a84cacf85f8e263704b64ce95f5ad94c005a33a967e2d5bf6e6",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_real_chat_streams_child_and_filters_tools",
+        "test_delegate_real_child_can_complete_forty_tool_calls",
+        "test_delegate_omitted_child_model_inherits_real_parent_model"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_failure_guard.py",
+      "sha256": "1017d3271a963591f616acbe56a80ea56b2d3d08a4ddeed7fb64017c4923a36e",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_failure_guard_uses_actual_file_results"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_limits.py",
+      "sha256": "b67506d5440861ffb8000d3e682fcab7cf3c30a6d5e79914228b8a9222738995",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_real_model_request_limit_returns_checkpoint_guidance",
+        "test_delegate_retry_settings_accept_valid_inputs_and_reject_unsafe_bounds"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_model_setup.py",
+      "sha256": "e9c7543d59244544dcadc053fa4e79c751ec82b8aec60f78fd8249979d867516",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_real_model_request_preserves_instruction_layer_order",
+        "test_delegate_invalid_real_model_configuration_returns_structured_failure",
+        "test_delegate_without_chat_parent_uses_runtime_default"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_provider_failures.py",
+      "sha256": "7ff4ff4ff549aecaebece8663f26a64b45d0e8ecd7ff124f528f8c296043c48f",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_provider_billing_failure_retains_http_status",
+        "test_delegate_disconnected_http_response_schedules_correlated_retry"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_queued_cancellation.py",
+      "sha256": "c0e9df1a69a6460763391264ef36062cb50296ab84741b0040840aa23de0fa45",
+      "kind": "behavioral",
+      "tests": [
+        "test_queued_managed_delegate_cancellation_retains_result_and_reason"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_task_lifecycle.py",
+      "sha256": "3898db2cc5ee4e730d41cb260bc4c3707287ab2ff4fc669a1d9d752dc4ebde44",
+      "kind": "behavioral",
+      "tests": [
+        "test_managed_delegate_survives_parent_and_exposes_terminal_result",
+        "test_delegate_real_deadline_settles_failed_child",
+        "test_cancelling_real_delegate_publishes_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_directory_cleanup.py",
+      "sha256": "6fcd1de9f2551a294c9917d155e29e3346ad40dc5172051cf3a5989e903a77bb",
+      "kind": "behavioral",
+      "tests": [
+        "test_empty_directory_cleanup_preserves_files"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_disabled_tools_registry.py",
+      "sha256": "3ee33334eb8d69e7b4f258e5e283b43b817bbb8daf45f7aea3718469732e22cd",
+      "kind": "behavioral",
+      "tests": [
+        "test_disabled_tools_registry"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_edit_proposal_artifacts.py",
+      "sha256": "0a47345dd1fe6f7bbb6212f336ef900dc9539585fe03b35164c8e2558b57512d",
+      "kind": "behavioral",
+      "tests": [
+        "test_historical_edit_proposal_is_readable_and_cannot_mutate_files"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_encrypted_secrets.py",
+      "sha256": "78a05de084d8948cf5820ea281c76573fecc9f43a32d671f41be683e5e46d6d8",
+      "kind": "behavioral",
+      "tests": [
+        "test_encrypted_secret_boundaries",
+        "test_secret_key_configuration_and_locked_bootstrap"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_capacity.py",
+      "sha256": "e48a362d381e90fd27b4d8036f82fec8c3953474f629d55da15cef58f9102c59",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_gate_serializes_and_reports_queue_holder",
+        "test_runner_capacity_cancellation_and_live_queue_positions",
+        "test_runner_dynamic_limits_share_existing_capacity"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_diagnostics.py",
+      "sha256": "fbb30fb2089e2a048feb8794cb465565f33aaf195128c45e1b8eb4328cc97e44",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_timeouts_remain_distinct_and_failure_diagnostics_are_bounded",
+        "test_runner_inference_failures_preserve_original_exception_and_safe_records",
+        "test_runner_bounds_actual_workload_result_and_preserves_valid_artifact_references"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_lifecycle.py",
+      "sha256": "5a0d0998c1ef80cc1149534e63573509baab7ee9a8156db13b494656847e34ae",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_background_inline_and_terminal_start_contracts",
+        "test_runner_cancellation_failure_and_timeout_hooks",
+        "test_runner_immediate_cancellation_survives_failing_cancellation_hook",
+        "test_runner_late_cancellation_cannot_replace_published_failure_or_repeat_hooks"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_lineage.py",
+      "sha256": "859479e9a7cd48df071943353285d0e5c4f15cfe5747bc58f2ed020c5dcfd659",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_child_authority_cancellation_and_detachment"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_observation.py",
+      "sha256": "3608924b5c9225b52992442dc963de22aa0d62b2b72da12afbd72977603680f6",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_revision_waits_attention_terminal_and_eviction"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_execution_runner_shutdown.py",
+      "sha256": "509f127385c4826c763e76558b8af2fe619eb5e3fb45e19c2174e1824b62672a",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_extensionless_file_edits.py",
+      "sha256": "702dd7273dcff3ddfee87ca614a9e692a43e28ec84db7595c8a6869b0fba8b9a",
+      "kind": "behavioral",
+      "tests": [
+        "test_extensionless_file_edits"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_file_concurrency.py",
+      "sha256": "df3adaf1af1a5b4fdf90be462e6341340d28effd8c2c9768851e55103ffa1604",
+      "kind": "behavioral",
+      "tests": [
+        "test_concurrent_same_path_edits_preserve_all_changes",
+        "test_directory_move_rejects_stale_child_path"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_file_listing.py",
+      "sha256": "8099dc0ccfee0893eb54b1d69c7c5a395817879242bd5f2f2579ca4d06e4ffdf",
+      "kind": "behavioral",
+      "tests": [
+        "test_recursive_root_and_virtual_mount_listing"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_file_ops_inline_edit_policy.py",
+      "sha256": "866a3627877cf0615284ec36651408e5dfb7509c67e3057b9df7a80feff1149a",
+      "kind": "behavioral",
+      "tests": [
+        "test_normal_writes_and_inline_reads_execute_without_review",
+        "test_inline_mkdir_review_preserves_operation_and_policy",
+        "test_inline_mkdir_overrides_cannot_escape_vault",
+        "test_inline_write_review_keeps_target_immutable"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_file_search.py",
+      "sha256": "a3d86430ad0b460c6bac12d392a83d53cc395fc1c0fa02c82725fc8ab08d7850",
+      "kind": "behavioral",
+      "tests": [
+        "test_search_all_text_files_with_literal_queries_and_caps"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_file_tools.py",
+      "sha256": "9afd690edda18929f7c6872ca6dc5ae3e963c9728174c29e222847655c7449ba",
+      "kind": "behavioral",
+      "tests": [
+        "test_split_file_tool_contract"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_legacy_origin.py",
+      "sha256": "f27d637a354bffb7972a46007e1f119e15f03a59e2d80bd931cca88dd293a2d8",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_checkpoint_uniquely_retained_origin"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_lineage_canonical.py",
+      "sha256": "edf4b6fba64af3ebe39f0ab7512b2b64ddaf12390d8c2f805894af1c53b33ab0",
+      "kind": "behavioral",
+      "tests": [
+        "test_fork_canonical_prefix_and_safe_checkpoint_lineage"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_lineage_checkpoint_integrity.py",
+      "sha256": "ac3ab69a14d61f6bbec3da2d67ce91016f6a2ab7bef40ad73ebc070dbfd4c003",
+      "kind": "behavioral",
+      "tests": [
+        "test_checkpoint_origin_validation",
+        "test_checkpoint_payload_validation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_lineage_protocol.py",
+      "sha256": "418b97fc04067405f5fbcbad0f07898e95aa1f87dbf454f9179c3595ac42fc08",
+      "kind": "behavioral",
+      "tests": [
+        "test_retry_fork_points",
+        "test_fork_protocol_parity"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_lineage_tool_events.py",
+      "sha256": "2cd7ef14902bc0c3b532a3d2f13cc8a379bff86ac3d236455153f6fa5db47ae9",
+      "kind": "behavioral",
+      "tests": [
+        "test_reused_tool_event_lineage",
+        "test_tool_event_group_lineage"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_attachment_tool.py",
+      "sha256": "a1eec4890351e092dde057cfe3e8acc7b5ac20f1685a5477bce002054903db4f",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_attachment_policy_and_numbered_tool_writes"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_callback_failures.py",
+      "sha256": "73e46d5fefe6505f673d84de3df9bdacac5bdc3232529dac43bb2806e0eec604",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_constructor_callback_parse_failures_propagate_without_http"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_connection_api.py",
+      "sha256": "628d44e500cc031f9e0321b65dafbd95d30b6a6629b57715176f84b4fd1bbd47",
+      "kind": "behavioral",
+      "tests": [
+        "test_persisted_gmail_policy_controls_oauth_scopes_and_draft_readiness"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_draft_tool.py",
+      "sha256": "67923d0bcb43d3d170af629c8102572965818a0f3c786a3e90367f34833f655f",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_draft_policy_scope_bounds_and_confidential_activity",
+        "test_gmail_missing_resource_and_real_configuration_network_failures_settle",
+        "test_gmail_locked_storage_returns_actionable_configuration_result"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_failure_chat.py",
+      "sha256": "706b04b827843d4685a554b23adf63ba0da4185643a15dd28498cdcbb2054f86",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_not_found_tool_result_preserves_guidance_and_chat_continues"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_http_failures.py",
+      "sha256": "9fb8a700b0e34aa9061bfe5fa6a19e0b664100a8ef3222a38ceee127676a6d3a",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_draft_dispatch_outcomes_and_pre_request_authorization",
+        "test_gmail_attachment_bounds_decode_and_retry_real_http",
+        "test_gmail_search_authentication_empty_retry_timeout_and_malformed_mime"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_principal_connection.py",
+      "sha256": "15cf65f68fbfa681e4cb00ebc50f199a821d7bbcf4ed801b148fa84443a243ad",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_grants_are_owner_scoped_encrypted_and_invalidated_atomically"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_gmail_read_resources.py",
+      "sha256": "747e9e4bf920235b1fa1dbe4bde94fe19452595185b400c8c51d2e341ce4f103",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_search_message_thread_and_draft_mime"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_goal_ops.py",
+      "sha256": "61d58ceb528f2edaa11d3b7e7c6d8540e8082999d131d7c41549bcadfaf66ce7",
+      "kind": "behavioral",
+      "tests": [
+        "test_goal_tool_provenance_activity_and_retention"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_google_connection_api_mutations.py",
+      "sha256": "ee54e6f2f6dc5d4ae9ff2e66314e6ccd11afe499b9cdd7773f4c257eb29217ad",
+      "kind": "behavioral",
+      "tests": [
+        "test_default_and_duplicate_name_errors_preserve_connections"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_google_oauth_coordinator.py",
+      "sha256": "76d7d1a08e248b1ac0c10f71d5894b8ba7760382a47e8f4c9173a9f42972f86e",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_oauth_pkce_callback_identity_and_serialized_refresh",
+        "test_google_oauth_rejects_responses_crossing_connection_mutations",
+        "test_google_oauth_refresh_preserves_newer_reauthorization"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_google_oauth_credential_fences.py",
+      "sha256": "13489613e2b6119eeb96cc02780639445bb14bbe0cd54f20aa3125187fbd389e",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_oauth_changed_client_rejects_callback_before_exchange",
+        "test_google_oauth_stale_credential_cannot_recreate_cleared_grant"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_history_passthrough.py",
+      "sha256": "8308b0505d273a1620c9b0ba685bfa213ded7d4d66fb4b99986c8d5bfad06c81",
+      "kind": "behavioral",
+      "tests": [
+        "test_context_preserves_active_tool_turn"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_import_pipeline_core.py",
+      "sha256": "0b4bd2204e1f7459419d40f779b6fceeed89aa8aaf067a084f9ba16bd7a0acc2",
+      "kind": "behavioral",
+      "tests": [
+        "test_pdf_inbox_import_and_preserved_source",
+        "test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_import_pipeline_scheduler.py",
+      "sha256": "75af293be40fbbff85632420441da29959aebdddecfa0c5f31222f0fb3ec1baf",
+      "kind": "behavioral",
+      "tests": [
+        "test_scheduler_worker_processes_queued_pdf_with_owned_task"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_ingress_authentication.py",
+      "sha256": "d50273eae77dce572f6315be86e52f79ed63fd63b476d6bb64533b1bd41b46e2",
+      "kind": "behavioral",
+      "tests": [
+        "test_health_before_runtime_start",
+        "test_owner_session",
+        "test_session_time_boundaries",
+        "test_invalid_requests_and_rate_limit",
+        "test_peer_modes"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_job_tool.py",
+      "sha256": "39a3538502f9b6078a0fb113d8a3b51ddd0b9cc26b23a18a100fa78e2fb8a68b",
+      "kind": "behavioral",
+      "tests": [
+        "test_job_tool_observes_and_controls_owned_tasks"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_legacy_model_catalog.py",
+      "sha256": "c99676538d3b79a8c5836fee11aee78acc7efb122a98657439f8d800c38b6b6d",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_catalog_import_preserves_identity",
+        "test_retired_managed_catalog_entry_is_removed_and_logged"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_legacy_secrets_migration.py",
+      "sha256": "7455c95ee7bff46f2ed698b573f79f82d830172d2be0f366f5f5c1b85b82be4e",
+      "kind": "behavioral",
+      "tests": [
+        "test_verified_legacy_import_and_backup_collision",
+        "test_invalid_legacy_secret_preserves_source_and_empty_database",
+        "test_legacy_secret_retry_after_durable_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_locked_bootstrap.py",
+      "sha256": "19c7ddcea112f470db69d582590ee42306bf7dde1c5a14b4885097bda5444bee",
+      "kind": "behavioral",
+      "tests": [
+        "test_locked_runtime_preserves_access_storage",
+        "test_existing_connection_schema_remains_usable"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_logging_capture.py",
+      "sha256": "6911c79a8714f61b5164684f42cced6cb8ceb323630112e2876f570cd3216169",
+      "kind": "behavioral",
+      "tests": [
+        "test_logging_capture_preserves_application_records",
+        "test_logging_capture_callbacks_cannot_mutate_application_data"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_manual_compaction_tool_integrity.py",
+      "sha256": "13a74dc1d16a91bacf266b924a8227135d22dfdc9c9cff565f6c2e57f49cb5f8",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_compaction_rejects_invalid_tool_replies_without_changing_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_manual_session_map_compaction_journey.py",
+      "sha256": "51a88f08e88f9625ea4b97a69e320f7e109890c9a6759282da75cca546e34a86",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_map_compaction_pins_strategy_and_records_governed_tasks"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py",
+      "sha256": "d755131f1dfbbfb29f8a65b96be98794ae6f6e5cdcea2ab5c70cdfa665253e03",
+      "kind": "behavioral",
+      "tests": [
+        "test_stdio_restricted_authority_import_and_readiness"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_chat_tool_search.py",
+      "sha256": "c91212e2293c6521eab616ee2ebe340c64b503c6a9c886dc5b8a3855e9c68fd8",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_chat_deferred_search_and_tool_activity"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_cold_start_races.py",
+      "sha256": "142d2b23e062c645d05ed11841e41b08e628ea9a8ea820b8b3cdc82bb82ff319",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_configuration_change_rejects_inflight_cold_start",
+        "test_mcp_server_catalog_notification_rejects_cold_start",
+        "test_mcp_shutdown_cancels_and_closes_inflight_cold_start"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_connection_isolation.py",
+      "sha256": "a7f2a9bf22093273b8bdb465668bdf5299626dd5f5b5a5974369ac69c37f1d09",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_principals_keep_credentials_and_immutable_slugs",
+        "test_mcp_connection_test_filters_tools_and_sanitizes_real_failures",
+        "test_mcp_network_policy_uses_real_pinned_loopback_sockets"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_managed_lifecycle.py",
+      "sha256": "c7ea4e49c00f9568c232f44bf69ef7d43e05adbad85fad8bc63f21f69841cd9e",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_manager_shares_initialization_and_closes_each_real_session"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_mutation_recovery.py",
+      "sha256": "f24b2d38407d314c9e634ac5ee66e37dd573d400e45c95ef34fc32df4c692333",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_metadata_and_ciphertext_share_atomic_rollback",
+        "test_mcp_oauth_adapters_and_stale_snapshots_are_fenced",
+        "test_mcp_abrupt_process_exit_preserves_one_complete_access_state",
+        "test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_oauth_resume.py",
+      "sha256": "2430b86849a3d5f1701d2fb8a7015d4fb74af7f0229b9e792d911649a74ae3fa",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
+        "test_mcp_oauth_resume_failure_is_correlated_and_hides_provider_credentials"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mcp_oauth_storage.py",
+      "sha256": "0ce23950b8063cb37f6dee21942608d45124ca2e177fb74a9485a2756bd11d34",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_oauth_storage_is_encrypted_and_fenced"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mistral_direct_url_import.py",
+      "sha256": "f5859a6b5c214bf10e8b79e27c082b1b9d5cd3070db9ef574bb735e461993e98",
+      "kind": "behavioral",
+      "tests": [
+        "test_public_pdf_ocr_only_import_delivers_document_reference"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mistral_ocr_contract.py",
+      "sha256": "935ffca5f8e39bc124a5e62cabcd2d31f8718c26243e429cf2f2d70db0f29426",
+      "kind": "behavioral",
+      "tests": [
+        "test_ocr_enrichment_and_direct_document_transport",
+        "test_ocr_provider_rejections_and_local_fallback"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_model_alias_resolution.py",
+      "sha256": "d1343379d385139ea3eb7a67c3de3d3695026b5690ed751a01577c82eb1fce5c",
+      "kind": "behavioral",
+      "tests": [
+        "test_model_aliases_survive_rename_and_settings_edits"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_model_failure_classification.py",
+      "sha256": "4aac68fc497da3b5acfceac850806713346b84054d6c2b489b6ac1e6d9e94a82",
+      "kind": "behavioral",
+      "tests": [
+        "test_provider_billing_failure_is_classified_and_sanitized"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_openai_oauth_rejection.py",
+      "sha256": "eb760fa80edca9db327aa880a18f05871684b526e87eebeab319d649c1f6b929",
+      "kind": "behavioral",
+      "tests": [
+        "test_openai_oauth_exchange_and_refresh_rejection_are_sanitized"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_pending_diff_metadata.py",
+      "sha256": "1cbba3f26dcf2addf77d83b9692d178ca725ddf1f8d44c483ddf9d523c8b88a6",
+      "kind": "behavioral",
+      "tests": [
+        "test_pending_diff_uses_last_completed_snapshot_and_advances_baseline"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_pending_hybrid.py",
+      "sha256": "2665f87447e062b7d17196cf02d22260078f53ee478401516cac136f3450a6c0",
+      "kind": "behavioral",
+      "tests": [
+        "test_pending_hybrid_ignores_old_mtime_edits_and_requeues_later_changes"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_principal_authority_boundaries.py",
+      "sha256": "40d93069ff517366410d2f4a59c764e7dd70e8e25a5b2ffa0090f19e495b50b8",
+      "kind": "behavioral",
+      "tests": [
+        "test_foreign_session_and_task_identifiers_cannot_rebind_or_cancel"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_principal_execution_authority.py",
+      "sha256": "ab00f4e84051c8e02d2d8a718123f54c048d6d008d023612678ae3cdb92f26d5",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_session_ownership_migrates_and_cannot_be_rebound",
+        "test_runtime_authority_is_captured_for_nested_threaded_and_connected_tasks"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_provider_denial_diagnostics.py",
+      "sha256": "04e33ba37c3f79ce0d7706e03c48b745105729387d799b4359d9d5de8519c6ad",
+      "kind": "behavioral",
+      "tests": [
+        "test_decision_denial_and_generic_compaction_diagnostics"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_public_url_configuration.py",
+      "sha256": "632b650c15ee09e27794be56fa148b7397ebafdd08ff2521ea41bf11318b1cd2",
+      "kind": "behavioral",
+      "tests": [
+        "test_public_origin_and_runtime_configuration"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_recovery_card_compaction_concurrency.py",
+      "sha256": "9447811e5d3ccf2dcc38239c524efa6c0586e052288984ee147b475e4615d83f",
+      "kind": "behavioral",
+      "tests": [
+        "test_concurrent_history_mutation_rejects_stale_compaction"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_repeated_chat_history_compaction.py",
+      "sha256": "2645b4136c0056931b28d3ad1abbb4973a05e9c62d3f66e90ad2c33944bfd8c9",
+      "kind": "behavioral",
+      "tests": [
+        "test_repeated_compaction_replaces_effective_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_runtime_bootstrap_cleanup.py",
+      "sha256": "b3060502bc813dc0182b3ef9be5b8525f0483ffa16fd3450b57a95dc5b74f80f",
+      "kind": "behavioral",
+      "tests": [
+        "test_invalid_runtime_configuration_then_clean_restart"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_context_upgrade_journey.py",
+      "sha256": "cdc7609ad8742d416dd31eaf79ddbc249ae7545fca28e1ec6c2883d40addb851",
+      "kind": "behavioral",
+      "tests": [
+        "test_recovery_card_history_upgrades_to_session_map"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_discovery.py",
+      "sha256": "c5f0634c5db30d46912257bb812e08e4eb67fd742ce834e30cf153c2593a1e7a",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_discovery_indexes_and_authorization"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_discovery_cutover.py",
+      "sha256": "d52b1188b2849c8db49fda9fe787b40c3219d3faaed78bad78557d42f6997023",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_summary_retirement_preserves_authored_state"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_admission_checkpoint.py",
+      "sha256": "b15536a72e6ac65b4b598f6a33c5e4520eb7ae34fc41c82247fdcc995273f858",
+      "kind": "behavioral",
+      "tests": [
+        "test_recursive_windows_and_verified_admission_marker"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_author_provider_failures.py",
+      "sha256": "277757118218f3c3e43ef1b8513b51fe4e49fa6ca99bda4fff2f579336adb9ea",
+      "kind": "behavioral",
+      "tests": [
+        "test_distinct_session_map_author_provider_failures"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_author_retry_cancel.py",
+      "sha256": "5b5083b95828a578a0df857083c38eda6bb02568bda0009662c64bc73b00b193",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_author_retries_invalid_output",
+        "test_session_map_author_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_authoring_task.py",
+      "sha256": "ea99e567651b34ba4b4aab16e53851e649b27599032e0c42280c9099eda7c626",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_authoring_task_provenance_and_lifecycle"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_checkpoint_journey.py",
+      "sha256": "a5e887e02e49104db2f842d15b5bed1c59f6819a21d8e1ec1dee2892c5f1f008",
+      "kind": "behavioral",
+      "tests": [
+        "test_map_checkpoints_preserve_provenance_and_reject_stale_commits"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_corruption.py",
+      "sha256": "1984e549f0b59932f1ed8b2972dacdbe32def8e9f4671b3eea41653eafe6ce3f",
+      "kind": "behavioral",
+      "tests": [
+        "test_corrupt_map_and_replacement_are_identified_without_private_data"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_evidence_admission.py",
+      "sha256": "9d08395e0da6abda5d916f43dd5d80b27807eab8dd79331d78055f36929bb533",
+      "kind": "behavioral",
+      "tests": [
+        "test_mixed_retrieval_evidence_admission"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_mixed_retained_return.py",
+      "sha256": "f86076d65e8cee391334cc07670fd90b48a7c8ed74ae29115abd2a714b01fb75",
+      "kind": "behavioral",
+      "tests": [
+        "test_mixed_retained_tool_return_preserves_independent_result"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_pending_evidence.py",
+      "sha256": "2f9fed07645a4b2c7862089d8ac30c039ca2c6af5101f672793758875132d677",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_pending_evidence_is_canonical_and_ready"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_readiness.py",
+      "sha256": "a5f575f9d021a896789e407fb570a2cb5536ef46aa1dfcebf165b001e9b450b3",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_readiness_fails_closed_for_invalid_settings"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_retained_evidence.py",
+      "sha256": "bf04a6789bad48767294698ff6f789b042c53e81d4eae8351f41a757a92e1f24",
+      "kind": "behavioral",
+      "tests": [
+        "test_retained_completion_authors_citable_map"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_retrieval_boundaries.py",
+      "sha256": "7c7b1dec1734439aa81784d478cc98fd0ddc41a1737829423a702f1dc165b7ab",
+      "kind": "behavioral",
+      "tests": [
+        "test_nested_fork_retrieval_rejects_parent_future",
+        "test_retrieval_fragment_dedup_budget_and_unrelated_corruption"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_retrieved_authoring.py",
+      "sha256": "7326738ecd7b008d10806efbab6686f9cbfd5ebedeb1b4cf481cf738c14ecec6",
+      "kind": "behavioral",
+      "tests": [
+        "test_verified_fragment_in_governed_author_request"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_retrieved_evidence.py",
+      "sha256": "d1d9a6e2122064a7fd3521ac150b96e88587a3648e5df8d944723ccd90f7aec3",
+      "kind": "behavioral",
+      "tests": [
+        "test_retrieved_evidence_verification_and_corruption"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_schema.py",
+      "sha256": "e6c39987a7aeb599c7cb1f24f691e90a8099b0c8980ec00f39a65597808ddb79",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_provenance_and_authoring_inputs",
+        "test_session_map_schema_rejects_unbounded_or_unsupported_state"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_timeline.py",
+      "sha256": "ec505b15b5360eac04e35ce727c865f6c4f80af307e72bf0158b96ed83eb9c1f",
+      "kind": "behavioral",
+      "tests": [
+        "test_mapped_history_pages_and_historical_checkpoint_remain_accessible"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_valid_tool_histories.py",
+      "sha256": "b6391fec9f50d67fd402be837ed9c01282b8d8a2147aa5736b8450cb323f48d5",
+      "kind": "behavioral",
+      "tests": [
+        "test_valid_tool_exchanges_compact_and_upgrade_through_real_author"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_ops_chat_tool.py",
+      "sha256": "51d61800dbce9dbc74f744e33fbf8b3329c55973b45b5ed28f6bc2b463853de3",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_ops_chat_discovery_and_safe_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_ops_transcript_paging.py",
+      "sha256": "1608d8d269d25e1a1f83919778e6281ef489c84e1697afde3f863419eb3c08e8",
+      "kind": "behavioral",
+      "tests": [
+        "test_transcript_paging_cursor_and_echo_exclusion"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_ops_transcript_retrieval.py",
+      "sha256": "15f8d412810cd431f2e0afd1588e934f4b4ec85cad9159a306f58040d43ab9b3",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_ops_transcript_search_and_windows"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_summary_data_retirement.py",
+      "sha256": "0ece33af469c8a18a2a5fadec161563008913968d823a130cddcd2ceec13f20a",
+      "kind": "behavioral",
+      "tests": [
+        "test_summary_retirement_backup_scope_and_repeatability",
+        "test_summary_retirement_rejects_external_foreign_keys"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_upgrade_cancellation.py",
+      "sha256": "51cf14465da692347a8596c2f66cd0f46dc6bb331b9f171194415eb1e6803f60",
+      "kind": "behavioral",
+      "tests": [
+        "test_active_upgrade_is_deduplicated_and_cancellation_preserves_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_upgrade_tool_admission.py",
+      "sha256": "a732963dc125eae01a57a004af36bfd7b425f2a7bf99ef0a93396260878f3ed8",
+      "kind": "behavioral",
+      "tests": [
+        "test_upgrade_readiness_and_admission_follow_tool_history_integrity"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_settings_database_migration.py",
+      "sha256": "a5ce814de9c9e4da915c14c795a5db18f76f78ad2787b1d0cc810f368946c73f",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_numbered_upgrade",
+        "test_settings_import_persistence_and_recovery"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_settings_editors.py",
+      "sha256": "4dd1429b2d6ec5f329ef9919fd23cd145be4f720c724e7a35d547929b710fd46",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_editors"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_settings_lifecycle.py",
+      "sha256": "84e0bb7b0d0872d928cbb5a39118e71b3032544b8ef83569b251c7378343947d",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_lifecycle"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_shared_oauth_foundation.py",
+      "sha256": "69547ee629fc691cc18522dfcd33850fe168b907128027feedf74b5c2467d81a",
+      "kind": "behavioral",
+      "tests": [
+        "test_shared_oauth_storage_and_pkce"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_startup_migrations.py",
+      "sha256": "67d9d4e5d6bbc92a35093cfdbf55fee91d96afaccaa41958eb15e2c169b6a2f8",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_migrates_system_databases"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_stepped_eviction_envelopes.py",
+      "sha256": "7034a5cf55b33dd570971bb536526a63a469bbb24c3bdb4108d769d556d0877c",
+      "kind": "behavioral",
+      "tests": [
+        "test_canonical_envelopes_are_stable_and_reject_stale_or_synthetic_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_stepped_eviction_planner.py",
+      "sha256": "d08a15a3041d2f343b94be8eba1852c7bc1962e210f7ea1cd61d079c818fcc1a",
+      "kind": "behavioral",
+      "tests": [
+        "test_eviction_planner_preserves_turn_and_tool_boundaries"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_stepped_map_author_failure.py",
+      "sha256": "2f3906600033117cb944e88b1be2e086ff6d09b92b4e5b2345951a78424d339e",
+      "kind": "behavioral",
+      "tests": [
+        "test_post_turn_author_failure_preserves_chat"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_stepped_session_map_post_turn.py",
+      "sha256": "9410ae361efbf703d978fa8417812019472b3e90e073c2e628479a2e19b7e526",
+      "kind": "behavioral",
+      "tests": [
+        "test_post_turn_map_and_checkpoint_commit_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_structured_output_retry.py",
+      "sha256": "72557840585273f79605211ccb0e1dbfc1231e81ffffb9977d6c51edb56b8303",
+      "kind": "behavioral",
+      "tests": [
+        "test_streamed_structured_output_retries_invalid_result"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_structured_tool_failure.py",
+      "sha256": "6741e592b90439476a8a7daef16f0b9a755540b3952202a832125633ba6c789a",
+      "kind": "behavioral",
+      "tests": [
+        "test_web_search_missing_credentials_returns_failure_metadata"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_system_activity_history.py",
+      "sha256": "3b9eb7f5108d41874efa9909262309275d4991800c9d4dd4c6db9e649e549008",
+      "kind": "behavioral",
+      "tests": [
+        "test_retained_system_activity_history_and_pruning"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_system_startup.py",
+      "sha256": "e27911af4685210b27d7fbd68616bc4c5657ed28dfb5cfb94a8ee5d17fabe1d6",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_scheduler_persistence_and_resilience"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_template_seed_refresh.py",
+      "sha256": "fe5ac136928e0bdf00133d4be405c8561339bd35aa22e12755e04650f32bfe06",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_repair_and_explicit_template_refresh"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_tool_history_integrity.py",
+      "sha256": "6c2c4b2e340fbdfa53533a39758793ecf38b7907aeaa528c582a1951cc444762",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_history_preserves_batches_and_reports_orphans",
+        "test_actual_tool_retry_retains_admissible_canonical_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_tool_recovery_policy.py",
+      "sha256": "b99ba0e761eced064e0f2953a11bd8c962a48e835e701c44c2deddf45f4ee79e",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_recovery_policies_decide_and_replay_real_read"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_transcript_retrieval_storage.py",
+      "sha256": "923d23c86523b8b975761d3edd41e4d8b0c31d464615532d36b34f7ce0c3139a",
+      "kind": "behavioral",
+      "tests": [
+        "test_transcript_index_lifecycle_and_authorization"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_user_notes_compaction_workflow.py",
+      "sha256": "0d2e782ecc362f30c26463264f6e4747870cb50b244d28842fec686df821dee3",
+      "kind": "behavioral",
+      "tests": [
+        "test_small_user_notes_skip_packaged_compaction"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_activity_migration.py",
+      "sha256": "eeba363bd2742ef0797e71cf5fbe2e6ef800fe174a941d069b8b1d252115e972",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_migrates_legacy_vault_activity_and_snapshots"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_activity_rollback.py",
+      "sha256": "9e547860cc52fb11666b0dbccd8685201bba16f5edbec6d42bf112db52981266",
+      "kind": "behavioral",
+      "tests": [
+        "test_activity_rollback_conflicts_chaining_and_directory_limits",
+        "test_duplicate_activity_rollback_submissions_reject_one"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_cleanup.py",
+      "sha256": "142a7d63d2e29a362219d5e5872f71b68037e85efc7a89ab0c52db920122d24f",
+      "kind": "behavioral",
+      "tests": [
+        "test_cleanup_removes_only_expired_safety_artifacts"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_direct_import.py",
+      "sha256": "e368745a9ebd46c2a053cc4824dee99c964968f3d25f4d646be8da7ef9e3c4d9",
+      "kind": "behavioral",
+      "tests": [
+        "test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers_outputs"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_explorer_batch_move.py",
+      "sha256": "d17826de3c031398a70b3b1af29d76d26b3192296f75a14e337c30fd0b5a6ab4",
+      "kind": "behavioral",
+      "tests": [
+        "test_explorer_batch_move_groups_activity_and_rejects_preflight_conflicts"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_explorer_upload.py",
+      "sha256": "77eadee9c5d0ad5794b3c53cc6f0bb37fde65e14d4aebe4b5ff6e50aa2d169bf",
+      "kind": "behavioral",
+      "tests": [
+        "test_explorer_upload_preserves_bytes_and_enforces_boundaries"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_file_references.py",
+      "sha256": "8fc069a4fb5008dd98744498747106e366fe4f43be5f15d121bcd6da21ec43cf",
+      "kind": "behavioral",
+      "tests": [
+        "test_reference_listing_and_resolution",
+        "test_inline_edits_and_revision_restoration",
+        "test_explorer_moves_deletes_and_activity",
+        "test_vault_root_boundaries"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_mutation_recording.py",
+      "sha256": "fc3f6b7dd11e5e568f803f79d193c7b92f715ee76711bd95cd43cf105c530396",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_mutations_record_snapshots_and_activity"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_relative_workflows.py",
+      "sha256": "4a60ee2766a4e2a2185456d40e0fcf6cb459434cbcf29540aff126b85db7f9ab",
+      "kind": "behavioral",
+      "tests": [
+        "test_vault_relative_workflows"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_rollback.py",
+      "sha256": "c360b8b01eb605c22a61a30392046f7f897cb227cdd251f1e25237f5ba22a067",
+      "kind": "behavioral",
+      "tests": [
+        "test_failed_workflow_rolls_back_files_and_reports_partial_directory_recovery",
+        "test_task_rollback_conflict_preserves_every_path"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_state_manifest.py",
+      "sha256": "dc58ad4b620da313ac6ecbdfc9ea4a911b4a18de6d4df9f095ea3e4bd3a3ceb9",
+      "kind": "behavioral",
+      "tests": [
+        "test_manifest_tracks_identity_exclusions_and_changes"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_state_rescan.py",
+      "sha256": "a8f8f5342dfe34289477c0ca592c731bc49209f464676cf32c50346740ccd068",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_manual_and_restart_refresh"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_vault_state_scheduled_refresh.py",
+      "sha256": "b53790027806c15c0bd9593fa513f15c6a18a9402790843ee449a906d6f36086",
+      "kind": "behavioral",
+      "tests": [
+        "test_scheduled_refresh_registration_and_external_edits"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_web_capability_strategies.py",
+      "sha256": "6a26baca142507cc067f4003438db8dd7b4b39cb4651786725b3599eab81b16e",
+      "kind": "behavioral",
+      "tests": [
+        "test_builtin_web_strategy_selection_and_url_policy",
+        "test_shared_html_conversion_and_legacy_strategy_migration",
+        "test_registered_search_dispatch_runs_only_selected_http_workload",
+        "test_pinned_raw_curl_fetch_bypasses_configured_proxy"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_web_strategy_binding.py",
+      "sha256": "4bef87a2bba1d5a3b6e17e34fa0ab3def2bd6feb7fc614235a6f5fe137eae45b",
+      "kind": "behavioral",
+      "tests": [
+        "test_web_binding_tracks_strategy_credentials_and_invalid_configuration"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_workflow_cancellation.py",
+      "sha256": "2aac3e8bfc27d454cc743665be84762ecba1b3751c775485a58f25912b392098",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_workflow_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_workflow_governor.py",
+      "sha256": "7a2b03a7f05d4a227ac1b470e4876ec47e42ccc7330aa4f2dcac2d25d0bd309e",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_queue_capacity",
+        "test_workflow_timeout_metadata_and_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_workflow_lifecycle.py",
+      "sha256": "a0f3bdbf45015e93d74d9f6156db8d9b85663096b038b235a8334887bbed7c42",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_enable_disable_and_scheduler_admission"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_workflow_run_history.py",
+      "sha256": "12a0ee56fd671e4ec3557db0f0c4fcff53b63cf1626ec49a2456ff86d141b59a",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
+        "test_workflow_history_retention_and_cross_vault_template_projection"
+      ]
+    },
+    {
+      "path": "scenarios/pytest.ini",
+      "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/__init__.py",
+      "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/activity_history.py",
+      "sha256": "6b82c5f28db5921b2e2fd1e530d5ee8e1be50363fedfcca75656312d253fdf25",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/activity_migration.py",
+      "sha256": "6a1e96b63fdeae8e9c7fe578675dabdcf2a5f2a0ac68a1097df2a5d0206af900",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/api_endpoint_inputs.py",
+      "sha256": "10acbdb3f9a8e56eaa120e50f24a74dc5b9ddb62a4239fedccc22bb30d5b0373",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/api_failure_http.py",
+      "sha256": "04de0cac42432849b6c6db991f815c43162b8fd60ad80e4aad6121f96d2f7cbb",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/authentication.py",
+      "sha256": "8f713ce3908bc63596acd6a206835df772550cefdaea0ec476e8ac8ad35f2e64",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/authoring.py",
+      "sha256": "c79616c9028847faf92ecd2fcfa423b9bd3bd8fd073b973633e81eceb9a1b32b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/authoring_failure_inputs.py",
+      "sha256": "3995f587a36cecb0c74ace7a87b6c100545072773a75662ad8de81fdc9adad5e",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_cache_journeys.py",
+      "sha256": "52617f4dd5bc38f0378deb60e5f9a2e5cfe7cf65aa27f90d61886c9c08348912",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_idle_provider.py",
+      "sha256": "f65a307a82a726e3937364d8c84a8e49e6b01f4d1b72cf51053a64a4776371c1",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_persistence.py",
+      "sha256": "824ebdf53fc061778f1ede51a2c64fa58570440b43902dddc011b28f563be68f",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_retry_provider.py",
+      "sha256": "eaf3c70473a30bee12062ee5854e789d40194516cfa0b5a81874ec02488d88ea",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_retry_setup.py",
+      "sha256": "d61ba6576a6fa418127fd590d8e1548711e0f0eb3f54cd73e629e2a926d433a8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_stream_provider.py",
+      "sha256": "b3f696107e1949e8a8c255716d60b32267c6531130df53ca5ee5caa67efa11ec",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_surface_journeys.py",
+      "sha256": "88ca4455e8cf4213b12c421056af66d8aa8649ee7fad904d55f437e97948c414",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_task_journeys.py",
+      "sha256": "60440ad5edd5a11bb4cf800b3dac29d1bad1cc0f7898963d5a913d749bb8b537",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_tasks.py",
+      "sha256": "47ec285a48e38d0953fe370748395175e294cc9d63283c5c8d71d19fcfcaf483",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/code_tool_chat.py",
+      "sha256": "26fd18f1131545876068407069b68ceafedc7fb5c4472a55e0a5232d887f255b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/compaction_continuation_inputs.py",
+      "sha256": "12c906a0718c17e565806fc85718c340b50162bddd62111b1f853e8c2c94d931",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/compaction_journeys.py",
+      "sha256": "8534dd2d5076913bafbd09cd5eebf791600f7e59d463a7920d255708095e84af",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/decision_model_inputs.py",
+      "sha256": "5ed430aac421e5f6e9bbef93a0c2556072bf01aae98b363c7e84c05d1bb30bf8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_error_inputs.py",
+      "sha256": "32b74a82037a89916d373f23e2a96b87bada367f3fc33b1874929d1cd8e566d0",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_guard_inputs.py",
+      "sha256": "1e734ede965d306b72da9902c1e6635b7540cd5452e56ac771765c3a9ea1ef50",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_inputs.py",
+      "sha256": "3f2c57a831af9a3e02a760041d1746304f8675b296371472fa275431675cc537",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_queue_inputs.py",
+      "sha256": "38f6d063deadee668f2aad15a81a0ca0f2b7498ce8fbd0826ca529b659fd8385",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_tasks.py",
+      "sha256": "660daf7eacdeb843674b097d810e548ce2975f1f2f3246dd5efad8a490281534",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_workflow_inputs.py",
+      "sha256": "20c0b596373b4533d54582038735b129d25c9fd9aaf9dde172cc36e943827b6c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/file_boundaries.py",
+      "sha256": "94a08d735e8a949c76951cbec4c6639f467c008aef1bb9c8ae0ad64adcb096f8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/file_references.py",
+      "sha256": "98b3dd0275256eb2f4869e59b71dc739b773711e2585493c527291fb55ec7271",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/file_tools.py",
+      "sha256": "fbd3ae15857327a039a7460f57cd27c77e10964848cf86647269272b2abda7e5",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/fork_failure_inputs.py",
+      "sha256": "616e4f2ff7632bbb8d5828c2ba9065b73db46ac6fa2916f91cb6b540ca923cf1",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/fork_lineage_inputs.py",
+      "sha256": "82b4f51d4e1479bde517c9ba74988bf04b708ea33bd125ca20e245203d4e4efc",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/gated_compaction_author.py",
+      "sha256": "4a69d5237958126a6279cb760b0e3c977b4a54b8dbf7d4f21209b92b63080ebe",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/gmail_callback_inputs.py",
+      "sha256": "6716124cb546ec5b3ec3047e19e7cb4b09558f5f28cb6e024dd2c8590e5ef298",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/gmail_http.py",
+      "sha256": "7e15f5fb4d44eb19ae25aa6f863190626a37706cf857debd5c19446f765912bf",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/gmail_locked.py",
+      "sha256": "8c85d7ababe2be8a3e9998d6b4ba33f088402b4f4d5bea4ca179264db397f6aa",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/goal_job_inputs.py",
+      "sha256": "51a9d7c7ebdfaa189a82980c0db6a43004d536694e43b421210744152378dd1e",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/google_connections.py",
+      "sha256": "278f356131ed6c76fb52632eef27d787232d5870d8abcc42c230d3913694ebd6",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/historical_proposals.py",
+      "sha256": "2a945065b609386fddf7b3352a75b02e63c305a4a02e863a5f064c34c2c4ff8c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/ingestion_inputs.py",
+      "sha256": "60490fa61b7872483ef1ed9a01fd128e0f63b662538c34f5481afccbebd6b66a",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/inline_edit_reviews.py",
+      "sha256": "58039429fcca9b3e6237e02b1437c8b82146e3c6abf160f82d116c7cbd245649",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/legacy_model_catalog.py",
+      "sha256": "907fef0cf299a3461295892ac6262056386f0c8aa9d5cc1f64642690a9a6ad64",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/map_author_barrier.py",
+      "sha256": "c1516a486e61298999b864bd9839289494d1001a567e57176e6bff6ee72c9c16",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/map_author_citable.py",
+      "sha256": "2632f4e815584adc61802767d08ed2a23e33944d151ff7402691e2a31a91b1cd",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/map_author_transport.py",
+      "sha256": "ca80c5f0379f2aa05df9e65587ad74b7642c5a60cf2dba34547975811576ec6d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_chat_search_model.py",
+      "sha256": "7830f91a0e30d980cfd1389379ddddb41110e6549622baef382eb11f98cf1d4c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_http_inputs.py",
+      "sha256": "8d9190fd680702555ae68dbf4af2b5b1d89bca3b7bb8921e4f908d1880069549",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_mutation_inputs.py",
+      "sha256": "2202dd0b270c1e27f3a9b1db2f39c1cc5a8681b87627d7a9dfab5f6a06a7d54b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_oauth_inputs.py",
+      "sha256": "99fe3a6fbe651cd7faad0f14e7d635fcdb7f8086d95c11bd2eecd615c36a75da",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_race_inputs.py",
+      "sha256": "6c36101769fe033fba10f1320c70f7376151d1f277aceb130c4be3a3e6c745ce",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_stdio_inputs.py",
+      "sha256": "64b1631aea4369e112d4bd45b6f8827ebfe4d23d2d04963ea6b4eafa6235b3d5",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mistral_ocr_inputs.py",
+      "sha256": "7143407e70bf817bfd8db8d544eb5b33c246178f27eee513df04daa2420c5db2",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/model_configuration.py",
+      "sha256": "66ed1a2b36c54b785e1a296c0a9edf06157a7393acc7c5ba00d0777fd82ce445",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/model_failures.py",
+      "sha256": "0138cde3d8f3f47649c5ca719c89eedbfd821f0f1fc289991e83e294a1aad78d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/oauth_http_inputs.py",
+      "sha256": "8038590415db231b6bed53c2f011294c0094fbe7d6a76e5f90beb530538fe496",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/openai_oauth_http.py",
+      "sha256": "49bd001b78c00e79cca89eb00ac1c4fd7decd0f2c7b7016de9eaa5f988f63c47",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/openai_status_http.py",
+      "sha256": "724db7bc06f4766570c337f0486884d759c11944d037aacf0061a4159c23180c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/pending_inputs.py",
+      "sha256": "f0e2b22490b7e98e4d616514e63075da0e815f86e6cb87a5eccc714ba0c45468",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/principal_authority.py",
+      "sha256": "d1cc2be54d2421a90a23ce333b11e3a8067d1a4f96fd2c65feb34f19c8e76cd1",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/provider_denial_http.py",
+      "sha256": "ec54907c46e1f23835f9318390ffd04bf0c93bf0743b3478d429d67431286bd4",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/recovery_inputs.py",
+      "sha256": "03bd6ae205f83ba7e0c820babf207369e492b78af6f667f46cebece6260a1330",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/recovery_replay.py",
+      "sha256": "17307da32141ff8704d94c1287d83bf2be26741c0d5f4601d2d29af2ba86fa36",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/replay_inputs.py",
+      "sha256": "aad1d78a8eadeb17b4e7868d098d1fa2a23ec5a12d42a714818f8e996b2446c8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/retained_map_author.py",
+      "sha256": "d57afcc2845fe9dd159e1f0f951eb309adeec3a5318795c59a23da9f3033b769",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/retrieved_map_author.py",
+      "sha256": "99ce686ef5bb2b6755b97f2ccd047dc24bd519c0cb251f22e12631b370397beb",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/retry_provider.py",
+      "sha256": "c9ac9f5457427bff457dde68760ad27f0b61385b08daeb5ce96e7daba9dff6b9",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/secrets_migration.py",
+      "sha256": "5488a75441b146c216f1ed76574ccd98f02d5782ae315a8b28a566d78db176a0",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/security_migrations.py",
+      "sha256": "83eab404f10cb91821cdff7514ada131753a09b50969bcf4674980b5b8e3cfc2",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_cutover.py",
+      "sha256": "db424ecf885f0baff3ec4f1a6a1ff65f35bebf4eb29a713d3afca28143946500",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_discovery.py",
+      "sha256": "038f9b99fc3a442de0b393d2d2e84fcc6595146854ee496725789252759f739c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_admission_extra_inputs.py",
+      "sha256": "66c5571713c84197b0152bb717ff87300aaa5dfbfceba483f029c1163c7c9184",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_author_http.py",
+      "sha256": "df64da06a3b03f45fb9f0ecdf1723ef64a896e094433d494cc952571ebc27460",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_batch15_inputs.py",
+      "sha256": "9a7207cd884f27f9f93b975a31a8613693dc44d2d845a9eeefc5f6729f95bebf",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_boundary_inputs.py",
+      "sha256": "7f3d2dd351b741263cfa9bb575882ed258cbd0bd87c081ff31f431815b2dfdaa",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_journey_inputs.py",
+      "sha256": "a283638128607091e5c8a394a4d86f185351b4f93e33746b052904159e65f2f3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_readiness.py",
+      "sha256": "2ef017fe4d6be3eca4bc3ebd2275a85f2fe61c009ded5e21370cdb7579258609",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_retrieval_inputs.py",
+      "sha256": "b1e9a35beef18cc0a850940f1610a862f02de2aab447851cb071bcfaae84c286",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_retry_author.py",
+      "sha256": "be1a52bc7d91ca825752ae1de11c34a59278661e356f82748a71016e39239bbd",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_schema.py",
+      "sha256": "0d1909499b469865f94a6b9bcb6dcbd98be984b6dfaa064231a97b12c52fde87",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_ops_chat.py",
+      "sha256": "d43e7fc19349f506dcdda06d07b112f4a1b3f16243f48a13ae53a37208458ff3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_summary_retirement.py",
+      "sha256": "37ece3cc35b78a1566ee219f418d7c1a7f13f62b69fb6fec24915e103bf4279d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/settings.py",
+      "sha256": "a06cb459b8ff10ff18e6756aebc16b6650a2f74198a470f40ec41fe14cf74b36",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/startup.py",
+      "sha256": "3201e14a5f5282bdeda683cfba7d5da22c6ea32e51e80bfa19c0e90ddf73cd79",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/stepped_post_turn_inputs.py",
+      "sha256": "44416dd3152ea35c41a5307d48a1a134ff5e9cd0927e3497e053cc13a19c6cb3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/task_runner_workloads.py",
+      "sha256": "a3ba4c9de010afd940925ffe2dc5b4af95e453cc2640d75caf6271cfb5933f68",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/tool_history_inputs.py",
+      "sha256": "6514ed3e47fc9aad9e1f60fc278b303b61af57a214ab0f9001fe652f3515f36d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/transcript_chat_inputs.py",
+      "sha256": "2599e8cb3bee5681ba978d2db1c438e01ee965cd30d115d4121becaa68949aa4",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/transcript_paging_inputs.py",
+      "sha256": "85173d335eb505de5625c4ac231c8515f51a290a3faf8c573f9cb8b09bba70b0",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/transcript_storage.py",
+      "sha256": "7a376a7128a5cb06c2ced41545379fb97d7ca76a6235320ec169586aff26300f",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/two_review_provider.py",
+      "sha256": "585d460671fdfc5485f194d7c8f97912b473325abef26d38ecdb03abf97cf0f6",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/vault_inputs.py",
+      "sha256": "f1b5aac0c95a6b6c6984f070760ece611e8b1c29062c501fbf89ab11d6bc8869",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/vault_mutation_inputs.py",
+      "sha256": "7fc30de93203e77485d7b93f0dbce045b7fca32928413e63e6a5701478664130",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/vault_recovery.py",
+      "sha256": "f5a73e21731fce4306378b977742ac7ed1a87b9b366e56b808d5806416c29f52",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/vault_state.py",
+      "sha256": "96dc5d1b74c17617bb0de3dc1fac5fed266090b60774e823e05d7c2e0855e3fe",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/web_strategy_loopback.py",
+      "sha256": "b95e7408af68bc8d618ef28c5fd124d17d0d94709edf726e34b34f6bae65db93",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/workflow_history_inputs.py",
+      "sha256": "2c698e2335cac6573a56734d8ae688bf3465ac9c92352c68e7e283cf345d52de",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/workflow_runtime.py",
+      "sha256": "35bc42d466bce1aec40f947ec55eec994550fd02c2c4f36eae1d74a4a3d02b7a",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/workflows.py",
+      "sha256": "c0d4e82e1696ba701e327a530d8b6a85c9dd43f6ad3adac7a9e109bfb2d3e371",
+      "kind": "support"
+    }
+  ]
+}

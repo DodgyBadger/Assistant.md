@@ -17,7 +17,7 @@ Commands:
   setup [--browser]    Create or repair .venv, install dependencies, and build CSS
   run [options]        Start the development server with checkout-local state
   check                Run Ruff, Black, and MyPy
-  scenario <selector>  Run one validation scenario selector
+  scenario <selector>  Run one pytest scenario path or node
   doctor               Diagnose required tools and the checkout environment
   help                 Show this help
 
@@ -338,7 +338,7 @@ run_scenarios() {
   require_command uv "Install it from https://docs.astral.sh/uv/getting-started/installation/."
   require_environment
   cd "${REPO_ROOT}"
-  uv run python -m scenario_harness --project validation/project.toml run "$@"
+  uv run python -m pytest "$@"
 }
 
 doctor() {
