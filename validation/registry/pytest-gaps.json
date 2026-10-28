@@ -256,14 +256,17 @@
       "status": "open",
       "category": "migration_parity",
       "source_scenarios": [
-        "integration/core/vault_direct_import"
+        "integration/core/vault_direct_import",
+        "integration/core/content_import_tool"
       ],
-      "missing_proof": "Public-URL direct-import success and destination handling originally use patched URL fetch success. New PDF input proves actual local ingestion, not public network admission/fetch.",
+      "missing_proof": "Public-URL direct-import success and destination handling originally use patched URL fetch success. New PDF input proves actual local ingestion, not public network admission/fetch. Content-import tool successful remote PDF octet-stream signature routing/URL provenance/default remote path and extensionless URL PDF strategy intent also remain source-only. Actual outbound-policy denial proves its real durable failure path, not an arbitrary accepted-network fetch error or remote success.",
       "retained_coverage": [
-        "validation/scenarios/integration/core/vault_direct_import.py"
+        "validation/scenarios/integration/core/vault_direct_import.py",
+        "validation/scenarios/integration/core/content_import_tool.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json"
+        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
       ],
       "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle."
     },
@@ -548,6 +551,41 @@
       "evidence": [
         "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
         "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json"
+      ]
+    },
+    {
+      "id": "chat-guidance-editorial-oracles",
+      "status": "open",
+      "category": "oracle_scope_review",
+      "source_scenarios": [
+        "integration/core/chat_tool_metadata_visibility",
+        "integration/core/chat_usage_limits"
+      ],
+      "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics.",
+      "cleanup_action": "Choose behavioral replacement for important guidance or explicitly retire editorial wording oracles before removing originals.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/chat_tool_metadata_visibility.py",
+        "validation/scenarios/integration/core/chat_usage_limits.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/tool_metadata_batch10_reviewed_20261028/report.json",
+        "validation/runs/pytest_migration/usage_limits_batch10_reviewed_20261028/report.json"
+      ]
+    },
+    {
+      "id": "content-import-ui-behavior",
+      "status": "open",
+      "category": "deferred_ui",
+      "source_scenarios": [
+        "integration/core/content_import_tool"
+      ],
+      "missing_proof": "Original static CSS/JavaScript/source-string checks are not migrated; passing ingestion APIs/tools do not prove rendered import UI interactions or warnings. Browser work remains deferred.",
+      "cleanup_action": "Capture accepted user-visible import behavior in the browser plan, or explicitly retire incidental static-source/copy assertions.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/content_import_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
       ]
     }
   ]

@@ -83,6 +83,23 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_cache_manual_purge.py",
+      "sha256": "5379607043881ba27523433b085689b592dfe8693a20a9d351beeb7765680263",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_cache_purge"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_cache_journeys.py",
+      "sha256": "ee777337fbc46289886e3567a4e6462c0c09fe3c94f12f426d3d2a37dadf4f7a",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_tool_overflow_cache_and_readback",
+        "test_chat_cache_multi_pass_file_exploration"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_failure_logging.py",
       "sha256": "8362e02978ae4ae9a4c80b29c134f8cdb8e46fb294838c66c17da15c5ed42dac",
       "kind": "behavioral",
@@ -96,6 +113,14 @@
       "kind": "behavioral",
       "tests": [
         "test_chat_alias_fallback_and_unavailable_provider"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_reasoning_history_policy.py",
+      "sha256": "7a7434f729e4cffdc4bf66c85d44e13ce4e611a6d010820806a444554bf65a25",
+      "kind": "behavioral",
+      "tests": [
+        "test_reasoning_retention_and_checkpoint_policy_transitions"
       ]
     },
     {
@@ -141,6 +166,22 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_tool_metadata_visibility.py",
+      "sha256": "93c0e8a4ccc0294108891d8bb6b853ff0debf3eabe59991ecf462904578bb3d9",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_tool_metadata_visibility"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_usage_limits.py",
+      "sha256": "6becbd1c79fd127367dfd21a407c13d62fb198085ef8127a2e8134e843094320",
+      "kind": "behavioral",
+      "tests": [
+        "test_model_request_limit_reports_and_persists_recovery"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_code_execution.py",
       "sha256": "10a23b41411a3c8a49d930e6f2b1527e586d8a8938e8ae6e716d467e53305dec",
       "kind": "behavioral",
@@ -154,6 +195,15 @@
       "kind": "behavioral",
       "tests": [
         "test_code_execution_mutation_rolls_back_with_failed_chat"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_content_import_tool.py",
+      "sha256": "832c37efa32dc977859242e1d76b02fd6f1693844bbba2903753443a27f17910",
+      "kind": "behavioral",
+      "tests": [
+        "test_content_import_local_lifecycle_and_scheduler_trigger",
+        "test_content_import_real_fetch_failure_and_authority_path_denials"
       ]
     },
     {
@@ -305,6 +355,23 @@
       "kind": "behavioral",
       "tests": [
         "test_context_preserves_active_tool_turn"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_import_pipeline_core.py",
+      "sha256": "36cf86db5657c28cbfe8e679d88db30c49ad5088f7dd21d6702cfb23369775a6",
+      "kind": "behavioral",
+      "tests": [
+        "test_pdf_inbox_import_and_preserved_source",
+        "test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_import_pipeline_scheduler.py",
+      "sha256": "213569b8e26dffe7e5082dfb5c360e975f242164d05b1d7da705fd428a7adca5",
+      "kind": "behavioral",
+      "tests": [
+        "test_scheduler_worker_processes_queued_pdf_with_owned_task"
       ]
     },
     {
@@ -739,6 +806,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/chat_cache_journeys.py",
+      "sha256": "07dba598bffed5cc616bddc551f9dc8ef61e94bd2e3cb55d41604d1c70f7ace5",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/chat_persistence.py",
       "sha256": "2c892dad93bf77b998ff68990cebf08a2da671686daa16e7fed29c8885957ada",
       "kind": "support"
@@ -786,6 +858,11 @@
     {
       "path": "pytest_scenarios/support/google_connections.py",
       "sha256": "fb946ae3ba6ea64c7cd6d1e210fd96d1a23baab00bb847be2ce7b3b83551b258",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/ingestion_inputs.py",
+      "sha256": "38adbe562806116ed3cead075218a0b9bc32f6ea08fbf5bafc575f95557304cc",
       "kind": "support"
     },
     {
