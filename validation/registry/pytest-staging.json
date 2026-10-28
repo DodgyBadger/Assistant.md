@@ -32,6 +32,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_directory_cleanup.py",
+      "sha256": "b285ce2845c7a1fbd06d54498d194d4ca7a74f1de953bd4a42bdbe65a6233131",
+      "kind": "behavioral",
+      "tests": [
+        "test_empty_directory_cleanup_preserves_files"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_extensionless_file_edits.py",
       "sha256": "543db33322405eb9caba9808459aba579687a61a59ef7651642251196920a3ae",
       "kind": "behavioral",
@@ -40,11 +48,47 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_file_tools.py",
+      "sha256": "095abef2ce9f9e53c9936e5db9344509e8ae72001437cce215c985f01da2cb66",
+      "kind": "behavioral",
+      "tests": [
+        "test_split_file_tool_contract"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_settings_database_migration.py",
+      "sha256": "1012834961aee712c21cb3cf59e0d8d6d88ea14380030c2ce5b7d65232582167",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_numbered_upgrade",
+        "test_settings_import_persistence_and_recovery"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_settings_editors.py",
       "sha256": "85502d3ad2dbaa8b0c57c2178bf4a1d331680f1b71c1da8473719cc360e47787",
       "kind": "behavioral",
       "tests": [
         "test_settings_editors"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_settings_lifecycle.py",
+      "sha256": "a7dc1a7c11cf0582f78e895dc380ec03e229c9e1e98c27d8656cea46e9aadd06",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_lifecycle"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_file_references.py",
+      "sha256": "71dc507bdf50497cdcb4ab63e2c7474b69c577a7d124c998dca206d3da0d2e1c",
+      "kind": "behavioral",
+      "tests": [
+        "test_reference_listing_and_resolution",
+        "test_inline_edits_and_revision_restoration",
+        "test_explorer_moves_deletes_and_activity",
+        "test_vault_root_boundaries"
       ]
     },
     {
@@ -63,6 +107,21 @@
     {
       "path": "pytest_scenarios/support/__init__.py",
       "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/file_references.py",
+      "sha256": "a08fcb9ae45941de19a3d0e756b964610d480e5b89a883239317606be5092589",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/file_tools.py",
+      "sha256": "b2e6694d22dec0e17ee76d9680591fb7751b06be3da91b631d37fc84cd44df03",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/settings.py",
+      "sha256": "46cf96e08a1bdba6355295aa7444e4825443b08f42df5b57f93a8f172e4e29ba",
       "kind": "support"
     },
     {

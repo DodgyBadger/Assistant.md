@@ -1851,10 +1851,10 @@
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
       "planned_pytest_cases": [
-        "validation/pytest_scenarios/integration/core/test_pilot.py::test_extensionless_file_edits"
+        "validation/pytest_scenarios/integration/core/test_extensionless_file_edits.py::test_extensionless_file_edits"
       ],
-      "disposition": "shadow_pilot_pending_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "staged_pilot_retain_original",
+      "review_status": "Existing pilot comparison and installed-wheel proof retained; domain reorganization verified, broader source/evidence reconciliation remains pending.",
       "coverage_gaps": [
         "Semantic review and production-boundary proof remain required before cutover."
       ],
@@ -1866,6 +1866,15 @@
         "evidence_path": "/tmp/assistantmd-staged-pilot-protected/workers/gw0/test_extensionless_file_edits-ef314b2a56",
         "acceptance": "shadow observation; behavioral parity and cutover not accepted",
         "dependency_scope": "Production runtime and ASGI/tool boundaries with seeded deterministic model provider; not live provider behavior."
+      },
+      "migration": {
+        "batch": "prior-pilot-reorganization",
+        "evidence": [
+          "validation/runs/pytest_migration/domain_profile_split/report.json"
+        ],
+        "comparison": "validation/runs/skill_evaluations/retired_pytest_comparison_source/pytest_comparison/comparison.json",
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
       }
     },
     {
@@ -1930,12 +1939,26 @@
         "self._call"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_tools.py::test_split_file_tool_contract"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "file-api-settings-20261028",
+        "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
+        "behavioral_contracts": [
+          "Binding names and one-mutation tool schema; range/list/directory/search/glob/frontmatter/image outputs.",
+          "Create/duplicate/blank-path/overwrite/append/text+line edits, move/overwrite, mkdir, unsupported batch and confirmed deletion; actual file contents preserved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_tools_final_buffers/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_read_recursive_list.py",
@@ -2026,12 +2049,26 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_directory_cleanup.py::test_empty_directory_cleanup_preserves_files"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "file-api-settings-20261028",
+        "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
+        "behavioral_contracts": [
+          "Listing cleanup candidates, hidden and non-Markdown blockers, directory-first capped listing.",
+          "Partial cleanup paths/skips/remaining files followed by explicit file removal and complete cleanup."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_tools_directory_cleanup/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_write_same_path_concurrency.py",
@@ -3988,12 +4025,30 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_settings_database_migration.py::test_settings_numbered_upgrade",
+        "validation/pytest_scenarios/integration/core/test_settings_database_migration.py::test_settings_import_persistence_and_recovery"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "API 409 SettingsConflict translation was exercised only by a patched repository.save exception in the original. No honest deterministic real-entry-point replacement is established; retain original source and evidence."
+      ],
+      "migration": {
+        "batch": "file-api-settings-20261028",
+        "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
+        "behavioral_contracts": [
+          "Legacy import, persistence, invalid/corrupt input, backups, stale writes, effective metadata, numbered upgrades, failure rollback/retry and future-version rejection.",
+          "Atomic-save failure now uses real SQLite constraint input; expected error class changes from injected RuntimeError to actual IntegrityError, preserving rollback outcome."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/settings_20261028/report.json",
+          "validation/runs/pytest_migration/settings_retry_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/settings_editors.py",
@@ -4016,10 +4071,10 @@
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
       "planned_pytest_cases": [
-        "validation/pytest_scenarios/integration/core/test_pilot.py::test_settings_editors"
+        "validation/pytest_scenarios/integration/core/test_settings_editors.py::test_settings_editors"
       ],
-      "disposition": "shadow_pilot_pending_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "staged_pilot_retain_original",
+      "review_status": "Existing pilot comparison and installed-wheel proof retained; domain reorganization verified, broader source/evidence reconciliation remains pending.",
       "coverage_gaps": [
         "Semantic review and production-boundary proof remain required before cutover."
       ],
@@ -4031,6 +4086,15 @@
         "evidence_path": "/tmp/assistantmd-staged-pilot-protected/workers/gw0/test_settings_editors-32e2e56b8c",
         "acceptance": "shadow observation; behavioral parity and cutover not accepted",
         "dependency_scope": "Production runtime and ASGI/tool boundaries with seeded deterministic model provider; not live provider behavior."
+      },
+      "migration": {
+        "batch": "prior-pilot-reorganization",
+        "evidence": [
+          "validation/runs/pytest_migration/domain_profile_split/report.json"
+        ],
+        "comparison": "validation/runs/skill_evaluations/retired_pytest_comparison_source/pytest_comparison/comparison.json",
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
       }
     },
     {
@@ -4074,12 +4138,27 @@
       "required_contract_links": [
         "settings.reset.preserves_newer_edit"
       ],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "file-api-settings-20261028",
+        "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
+        "behavioral_contracts": [
+          "Real general-setting edits and dependency rejection; defaults/provenance and custom overrides.",
+          "Reset ownership of settings/models/providers/tools, secrets/custom authoring preservation, operation correlations/redaction, backups and alias collision.",
+          "Real stale store save and reset revision fencing remain covered."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/settings_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/shared_oauth_foundation.py",
@@ -5088,12 +5167,30 @@
         "self._vault_file_events"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_file_references.py::test_reference_listing_and_resolution",
+        "validation/pytest_scenarios/integration/core/test_vault_file_references.py::test_inline_edits_and_revision_restoration",
+        "validation/pytest_scenarios/integration/core/test_vault_file_references.py::test_explorer_moves_deletes_and_activity",
+        "validation/pytest_scenarios/integration/core/test_vault_file_references.py::test_vault_root_boundaries"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "file-api-settings-20261028",
+        "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
+        "behavioral_contracts": [
+          "Workspace/vault listing, real 50001-file scan budget, pagination, basename search, path resolution and traversal confinement.",
+          "Real inline read/write, stale hashes, snapshots/revisions/restores and persisted event hashes; Explorer move/delete/history/activity outcomes.",
+          "Added production API symlink root/read/write rejection and unchanged outside-file checks."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_references_20261028_retry/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_relative_workflow_run.py",
@@ -5127,10 +5224,10 @@
       ],
       "required_contract_links": [],
       "planned_pytest_cases": [
-        "validation/pytest_scenarios/integration/core/test_pilot.py::test_vault_relative_workflows"
+        "validation/pytest_scenarios/integration/core/test_vault_relative_workflows.py::test_vault_relative_workflows"
       ],
-      "disposition": "shadow_pilot_pending_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "staged_pilot_retain_original",
+      "review_status": "Existing pilot comparison and installed-wheel proof retained; domain reorganization verified, broader source/evidence reconciliation remains pending.",
       "coverage_gaps": [
         "Semantic review and production-boundary proof remain required before cutover."
       ],
@@ -5142,6 +5239,15 @@
         "evidence_path": "/tmp/assistantmd-staged-pilot-protected/workers/gw0/test_vault_relative_workflows-95735e2edc",
         "acceptance": "shadow observation; behavioral parity and cutover not accepted",
         "dependency_scope": "Production runtime and ASGI/tool boundaries with seeded deterministic model provider; not live provider behavior."
+      },
+      "migration": {
+        "batch": "prior-pilot-reorganization",
+        "evidence": [
+          "validation/runs/pytest_migration/domain_profile_split/report.json"
+        ],
+        "comparison": "validation/runs/skill_evaluations/retired_pytest_comparison_source/pytest_comparison/comparison.json",
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
       }
     },
     {
@@ -5642,10 +5748,10 @@
       ],
       "required_contract_links": [],
       "planned_pytest_cases": [
-        "validation/pytest_scenarios/integration/core/test_pilot.py::test_async_cancellation_rollback"
+        "validation/pytest_scenarios/integration/core/test_async_workflow_cancellation.py::test_async_cancellation_rollback"
       ],
-      "disposition": "shadow_pilot_pending_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "staged_pilot_retain_original",
+      "review_status": "Existing pilot comparison and installed-wheel proof retained; domain reorganization verified, broader source/evidence reconciliation remains pending.",
       "coverage_gaps": [
         "Semantic review and production-boundary proof remain required before cutover."
       ],
@@ -5657,6 +5763,15 @@
         "evidence_path": "/tmp/assistantmd-staged-pilot-protected/workers/gw0/test_async_cancellation_rollback-bfa4e58098",
         "acceptance": "shadow observation; behavioral parity and cutover not accepted",
         "dependency_scope": "Production runtime and ASGI/tool boundaries with seeded deterministic model provider; not live provider behavior."
+      },
+      "migration": {
+        "batch": "prior-pilot-reorganization",
+        "evidence": [
+          "validation/runs/pytest_migration/domain_profile_split/report.json"
+        ],
+        "comparison": "validation/runs/skill_evaluations/retired_pytest_comparison_source/pytest_comparison/comparison.json",
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
       }
     },
     {
@@ -8761,5 +8876,23 @@
       "test_async_cancellation_rollback": "test_async_workflow_cancellation.py"
     },
     "behavior_change": false
-  }
+  },
+  "migration_batches": [
+    {
+      "id": "file-api-settings-20261028",
+      "source_identities": [
+        "integration/core/file_ops_unified_tool",
+        "integration/core/file_write_directory_delete",
+        "integration/core/vault_file_reference_api",
+        "integration/core/settings_database_migration",
+        "integration/core/settings_lifecycle"
+      ],
+      "pytest_cases": 9,
+      "evidence_scope": "All nine cases passed across focused runs. Initial fixture failures remain in reports; only affected cases were rerun.",
+      "required_contract_admission": "not_granted",
+      "partial_ports": [
+        "integration/core/settings_database_migration"
+      ]
+    }
+  ]
 }
