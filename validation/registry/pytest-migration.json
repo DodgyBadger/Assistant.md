@@ -2558,12 +2558,30 @@
       "required_contract_links": [
         "ingress.owner_and_csrf_boundaries"
       ],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
+        "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_owner_session",
+        "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_session_time_boundaries",
+        "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_invalid_requests_and_rate_limit",
+        "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_peer_modes"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "vault-ingress-secrets-20261028",
+        "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
+        "behavioral_contracts": [
+          "Real starting/healthy ingress outcomes, owner login/logout and CSRF/session/bearer boundaries, secret-safe headers/audit, session expiry/malformed/oversized/future tokens, request validation/rate limiting, loopback/proxy/forwarded/duplicate-header trust boundaries.",
+          "All original assertions retained; exclusive expiry now uses pytest.raises. Real ASGI applications attach the actual running runtime; cookie and owner/rotated secrets are registered for evidence redaction."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/ingress_authentication_20261028_final/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/job_tool.py",
@@ -2642,12 +2660,30 @@
         "self._assert_crash_recovery"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_legacy_secrets_migration.py::test_verified_legacy_import_and_backup_collision",
+        "validation/pytest_scenarios/integration/core/test_legacy_secrets_migration.py::test_invalid_legacy_secret_preserves_source_and_empty_database",
+        "validation/pytest_scenarios/integration/core/test_legacy_secrets_migration.py::test_legacy_secret_retry_after_durable_failure"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Abrupt process-death recovery at during-import, after-import and after-rename private injection boundaries has no new equivalent proof. Real exception-state fixtures are additional coverage, not crash parity; retain original crash sources and baseline evidence."
+      ],
+      "migration": {
+        "batch": "vault-ingress-secrets-20261028",
+        "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
+        "behavioral_contracts": [
+          "Verified import/ownership/encrypted persistence, invalid-input rollback, backup collisions, idempotence and repeated durable failure retries.",
+          "Three private-injection process-death probes are not relabelled as migrated. Additional real SQLite constraint and filesystem-obstruction inputs establish exception/rollback/retry behavior and preservation of newer credentials after rename."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/legacy_secrets_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/locked_access_bootstrap.py",
@@ -4994,12 +5030,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_content_search.py::test_literal_content_search_bounds_and_scope"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "vault-ingress-secrets-20261028",
+        "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
+        "behavioral_contracts": [
+          "Literal case-insensitive content search, folder scope/global limits, colon paths/line numbers, hidden/binary exclusion, tool-adapter output, invalid/NUL/oversize query rejection, Unicode columns, option-like literals and traversal denial."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_state_content_batch2/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_direct_import.py",
@@ -5321,12 +5370,25 @@
         "self._manifest_rows"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_state_manifest.py::test_manifest_tracks_identity_exclusions_and_changes"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "vault-ingress-secrets-20261028",
+        "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
+        "behavioral_contracts": [
+          "Concurrent stable vault identity, metadata/exclusions, persisted manifest classifications, refresh create/change/delete outcomes, rename identity/current aliases, soft deletes and monotonic change feed."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_state_content_batch2/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_state_mutation_recorder.py",
@@ -5495,12 +5557,26 @@
         "self._wait_for_event"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_state_rescan.py::test_startup_manual_and_restart_refresh"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "vault-ingress-secrets-20261028",
+        "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
+        "behavioral_contracts": [
+          "Real startup/manual rescan/background events and persisted rows; restart observes deletion and soft-deleted state.",
+          "Event polling now explicitly fails if the awaited refresh-all event is absent rather than silently returning unrelated records; existing expectations remain intact."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_state_content_batch2/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/web_capability_strategies.py",
@@ -8893,6 +8969,47 @@
       "partial_ports": [
         "integration/core/settings_database_migration"
       ]
+    },
+    {
+      "id": "vault-ingress-secrets-20261028",
+      "source_identities": [
+        "integration/core/vault_content_search",
+        "integration/core/vault_state_manifest",
+        "integration/core/vault_state_startup_rescan",
+        "integration/core/ingress_authentication",
+        "integration/core/legacy_secrets_migration"
+      ],
+      "pytest_cases": 13,
+      "evidence_scope": "Three vault/search cases, five ingress cases and five legacy-secrets cases passed in focused runs. All app lifecycle artifacts report runtime inactive after close.",
+      "required_contract_admission": "not_granted",
+      "partial_ports": [
+        "integration/core/legacy_secrets_migration"
+      ]
+    }
+  ],
+  "migration_progress": {
+    "original_core_scenarios": 146,
+    "sources_with_staged_nodes": 14,
+    "sources_without_staged_nodes": 132,
+    "prior_pilot_cases": 4,
+    "new_focused_passing_cases": 22,
+    "staged_default_core_cases": 26,
+    "partial_source_ports": [
+      "integration/core/settings_database_migration",
+      "integration/core/legacy_secrets_migration"
+    ],
+    "coverage_complete": false,
+    "original_sources_retained": true,
+    "dependency_and_ci_cutover": false
+  },
+  "known_open_behaviors": [
+    {
+      "id": "vault-directory-cleanup-root-aliases",
+      "status": "unresolved_product_contract_after_evaluation",
+      "observation": "Confirmed dot and dot-slash paths resolve to the vault root and remove empty directories, while the empty path is rejected.",
+      "evaluation_requirement": "R5 in evaluator-provided directory cleanup requirements; not a claim of previously approved product requirements.",
+      "evidence": "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md",
+      "migration_scope": "Original file_write_directory_delete coverage does not exercise root representations; its port preserves that scope. No product fix or failing-trial admission has been made."
     }
   ]
 }

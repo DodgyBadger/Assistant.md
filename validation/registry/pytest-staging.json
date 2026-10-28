@@ -32,6 +32,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_content_search.py",
+      "sha256": "541f292531c4160509ddddb2ddc417bd671245d24595a06c721cb2c2eb5dd927",
+      "kind": "behavioral",
+      "tests": [
+        "test_literal_content_search_bounds_and_scope"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_directory_cleanup.py",
       "sha256": "b285ce2845c7a1fbd06d54498d194d4ca7a74f1de953bd4a42bdbe65a6233131",
       "kind": "behavioral",
@@ -53,6 +61,28 @@
       "kind": "behavioral",
       "tests": [
         "test_split_file_tool_contract"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_ingress_authentication.py",
+      "sha256": "26f69b837fe420bb13bd555c0872beed68a4256b5a57d74f9f5a9fef24a6a368",
+      "kind": "behavioral",
+      "tests": [
+        "test_health_before_runtime_start",
+        "test_owner_session",
+        "test_session_time_boundaries",
+        "test_invalid_requests_and_rate_limit",
+        "test_peer_modes"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_legacy_secrets_migration.py",
+      "sha256": "8c89dcb071a63f2191697d69c83ae79ebbdc6997e98111e2b6a6933feced910b",
+      "kind": "behavioral",
+      "tests": [
+        "test_verified_legacy_import_and_backup_collision",
+        "test_invalid_legacy_secret_preserves_source_and_empty_database",
+        "test_legacy_secret_retry_after_durable_failure"
       ]
     },
     {
@@ -100,6 +130,22 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_vault_state_manifest.py",
+      "sha256": "eb446bdf31add31f92e7e4ba04806a4f579aa9ddef60374e0e1209f9596124e8",
+      "kind": "behavioral",
+      "tests": [
+        "test_manifest_tracks_identity_exclusions_and_changes"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_state_rescan.py",
+      "sha256": "2bc32e307d5b4bde2930f6d213207ab53585609fe4797e5037a8e8223f030002",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_manual_and_restart_refresh"
+      ]
+    },
+    {
       "path": "pytest_scenarios/pytest.ini",
       "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
       "kind": "support"
@@ -107,6 +153,11 @@
     {
       "path": "pytest_scenarios/support/__init__.py",
       "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/authentication.py",
+      "sha256": "467ff26c78dc8a4c1ffb00ed29ce0a5ff78eabc7708ccfbeda22951acfadb41f",
       "kind": "support"
     },
     {
@@ -120,8 +171,18 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/secrets_migration.py",
+      "sha256": "b329de99d1b22fb880f6b7a784a11f85408b5d44a8bfb150591aee9e3419a909",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/settings.py",
       "sha256": "46cf96e08a1bdba6355295aa7444e4825443b08f42df5b57f93a8f172e4e29ba",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/vault_state.py",
+      "sha256": "f2a9a92b8960af5988ec34b8125d24dcda12c7410149ba49902f4fdc1aaa4716",
       "kind": "support"
     },
     {
