@@ -16,6 +16,18 @@ The existing runner and its a066ef6 dependency pin stay operational during stage
 
 Next steps are semantic review and subsystem migration batches, fixture lifecycle edge cases, timeout/descendant-cleanup decisions, critical-contract evidence reconciliation and the eventual atomic dependency/collection/CI cutover. Browser work, protected documentation updates, full-suite execution and maintainer acceptance remain pending. No original scenario, deferred source or historical run artifact has been removed.
 
+## Cleanup and migration batches: 2026-10-28
+
+Removed the superseded validation/experiments pytest prototype after its generic reporter/observation responsibilities moved into scenario-harness and its app cases/fault profile passed against the installed wheel. Archived its source and comparison metadata under validation/runs/skill_evaluations/retired_pytest_comparison_source, and moved its two standalone ledger entries to retired_files with replacement/evidence pointers. The active standalone inventory is now 45 files / 248 named tests; deferred browser/backend sources remain intact.
+
+Archived completed skill-evaluation and earlier harness-cleanup plans with ignored evidence and removed disposable temporary app snapshots. Keep this file as the active root implementation plan. Historical run artifacts and the known root-path discrepancy remain preserved. Protected documentation is unchanged.
+
+Reorganized test_pilot.py into four domain-named staged test modules with shared workflow/context input templates under support/workflows.py. The four existing behavior functions are unchanged and passed after the move (4 passed, 98.30 seconds, validation/runs/pytest_migration/domain_profile_split/report.json). The old omnibus source is preserved as evaluation evidence and in Git history.
+
+Three Sol agents are porting independent subsystem batches while the parent owns cleanup, admission metadata and cross-batch checks. The first five original scenarios all passed their isolated baseline (run 20261028_152922_783295): unified file tools, directory cleanup, vault file-reference API, settings database migration and settings lifecycle. Their staged ports have focused passing evidence; mappings, limitations and logical commits are recorded as batches finish. The next five originals also passed their selected baseline (run 20261028_154045_955516): content search, vault manifest, startup/rescan, ingress authentication and legacy secrets migration.
+
+Original sources/catalog stay authoritative until reviewed cutover. Installed old/new environments remain separate, the committed dependency pin and CI execution remain unchanged, and the full-suite stop remains in force. A staged port is not automatic critical-contract acceptance. Known non-equivalence must remain visible, including the mocked settings API conflict translation and any old private-injection crash assertions without replacement proof.
+
 ## Current inventory and evidence
 
 Inventory checked on 2026-10-28 at AssistantMD commit fe60474:
@@ -27,12 +39,12 @@ Inventory checked on 2026-10-28 at AssistantMD commit fe60474:
 | Standalone opt-in experiment scripts | 4 | Preserve explicit ownership and admission; assess separately from core |
 | Deferred legacy browser/UI files | 27 | Preserve and account; browser refactor remains deferred |
 | Deferred legacy backend files | 18 | Inventory behavior, resolve known gaps and identify duplicated/private-interface checks |
-| Pytest comparison/fault experiment files | 2 files / 8 functions | Use as migration evidence; fault cases intentionally fail |
-| All standalone sources in the current ledger | 47 files / 256 names | Structural accounting, not execution or coverage completeness |
+| Retired pytest comparison/fault prototype | 2 files / 8 functions archived | Installed package/staged profiles own active execution; historical evidence retained |
+| Active standalone sources in the current ledger | 45 files / 248 names | Structural accounting, not execution or coverage completeness |
 
 There are 161 registered scenario declarations in total, not 161 deterministic core scenarios. Four pilot contracts currently have review/evidence bindings. The current inventory is structurally complete but does not establish complete behavioral coverage or maintainer acceptance of those pilots.
 
-The four-case pytest comparison passed using the real application and production tool/API paths. The refined heartbeat case observed real staleness at 60.8 seconds and cancelled/rolled back through production operations. The crash profile captured a genuine startup DatabaseError, continued in the same worker, then survived a native abort by replacing the worker and running another real app. See validation/experiments/pytest_comparison/comparison.json and the comparison reports under validation/runs/pytest_comparison. This is a successful pilot, not proof that every scenario or execution guarantee has migrated.
+The four-case pytest comparison passed using the real application and production tool/API paths. The refined heartbeat case observed real staleness at 60.8 seconds and cancelled/rolled back through production operations. The crash profile captured a genuine startup DatabaseError, continued in the same worker, then survived a native abort by replacing the worker and running another real app. See validation/runs/skill_evaluations/retired_pytest_comparison_source/pytest_comparison/comparison.json and the comparison reports under validation/runs/pytest_comparison. This is a successful pilot, not proof that every scenario or execution guarantee has migrated.
 
 ## Target testing model
 

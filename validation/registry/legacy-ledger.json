@@ -6481,46 +6481,6 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_vault_path_picker_modules.py",
       "location_classification": "browser_deferred"
-    },
-    {
-      "path": "validation/experiments/pytest_comparison/test_scenarios.py",
-      "summary": "Explicit opt-in four-scenario pytest comparison authorized by the maintainer; current integration/core scenarios remain authoritative.",
-      "groups": [
-        {
-          "id": "pytest-scenario-comparison",
-          "contract": "Compare real application outputs, structured validation-sink expectations and inspectable pytest evidence with four existing scenarios.",
-          "rationale": "A bounded framework experiment, not migrated application coverage or an ephemeral unregistered test.",
-          "proposed_destination": "Decision pending experimental comparison; run explicitly with its pytest configuration.",
-          "disposition": "framework_infrastructure",
-          "tests": [
-            "test_extensionless_file_edits",
-            "test_settings_editors",
-            "test_vault_relative_workflows",
-            "test_async_cancellation_rollback"
-          ]
-        }
-      ],
-      "sha256": "4a416fd2face5b6b2e40bab020093f7e380a96648d8859e7d9641a235cd6593f"
-    },
-    {
-      "path": "validation/experiments/pytest_comparison/test_crash_recovery.py",
-      "summary": "Explicit opt-in application startup exception and native worker-abort recovery experiment; expected pytest exit 1 with two failed cases and two passing recovery cases.",
-      "groups": [
-        {
-          "id": "pytest-crash-recovery",
-          "contract": "Record unhandled real application bootstrap exceptions, survive worker termination and execute real application recovery cases with preserved evidence.",
-          "rationale": "Maintainer-authorized pytest-xdist fault experiment, not an automatically executed core scenario.",
-          "proposed_destination": "Evaluate pytest worker/crash evidence before any runner migration.",
-          "disposition": "framework_infrastructure",
-          "tests": [
-            "test_01_unhandled_application_startup_exception",
-            "test_02_real_app_recovers_after_exception",
-            "test_03_abort_running_application_worker",
-            "test_04_real_app_recovers_after_worker_crash"
-          ]
-        }
-      ],
-      "sha256": "017e4c32e37923db35f9815ccf5d90f34e1a01c32da09917909f6f9e69c623c6"
     }
   ],
   "followups": [
@@ -6772,6 +6732,52 @@
         "replacement": "integration/core/code_execution",
         "verification_log": "/tmp/test-cleanup-monty-values.log"
       }
+    },
+    {
+      "path": "validation/experiments/pytest_comparison/test_scenarios.py",
+      "summary": "Explicit opt-in four-scenario pytest comparison authorized by the maintainer; current integration/core scenarios remain authoritative.",
+      "groups": [
+        {
+          "id": "pytest-scenario-comparison",
+          "contract": "Compare real application outputs, structured validation-sink expectations and inspectable pytest evidence with four existing scenarios.",
+          "rationale": "A bounded framework experiment, not migrated application coverage or an ephemeral unregistered test.",
+          "proposed_destination": "Decision pending experimental comparison; run explicitly with its pytest configuration.",
+          "disposition": "framework_infrastructure",
+          "tests": [
+            "test_extensionless_file_edits",
+            "test_settings_editors",
+            "test_vault_relative_workflows",
+            "test_async_cancellation_rollback"
+          ]
+        }
+      ],
+      "sha256": "4a416fd2face5b6b2e40bab020093f7e380a96648d8859e7d9641a235cd6593f",
+      "retirement_reason": "Superseded by installed scenario-harness plugin and admitted real-app pytest pilot/fault profile; original prototype sources and comparison metadata archived as evidence.",
+      "source_archive": "validation/runs/skill_evaluations/retired_pytest_comparison_source",
+      "replacement": "validation/pytest_scenarios/integration/core"
+    },
+    {
+      "path": "validation/experiments/pytest_comparison/test_crash_recovery.py",
+      "summary": "Explicit opt-in application startup exception and native worker-abort recovery experiment; expected pytest exit 1 with two failed cases and two passing recovery cases.",
+      "groups": [
+        {
+          "id": "pytest-crash-recovery",
+          "contract": "Record unhandled real application bootstrap exceptions, survive worker termination and execute real application recovery cases with preserved evidence.",
+          "rationale": "Maintainer-authorized pytest-xdist fault experiment, not an automatically executed core scenario.",
+          "proposed_destination": "Evaluate pytest worker/crash evidence before any runner migration.",
+          "disposition": "framework_infrastructure",
+          "tests": [
+            "test_01_unhandled_application_startup_exception",
+            "test_02_real_app_recovers_after_exception",
+            "test_03_abort_running_application_worker",
+            "test_04_real_app_recovers_after_worker_crash"
+          ]
+        }
+      ],
+      "sha256": "017e4c32e37923db35f9815ccf5d90f34e1a01c32da09917909f6f9e69c623c6",
+      "retirement_reason": "Superseded by installed scenario-harness plugin and admitted real-app pytest pilot/fault profile; original prototype sources and comparison metadata archived as evidence.",
+      "source_archive": "validation/runs/skill_evaluations/retired_pytest_comparison_source",
+      "replacement": "validation/pytest_scenarios/experiments/test_crash_recovery.py"
     }
   ],
   "manual_browser_checks": [

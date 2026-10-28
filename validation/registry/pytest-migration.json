@@ -8735,5 +8735,31 @@
       "crash cleanup unconfirmed"
     ],
     "scope": "Focused pilot only; no full-suite run, immutable dependency cutover or coverage acceptance."
+  },
+  "retired_pytest_prototype": {
+    "paths": [
+      "validation/experiments/pytest_comparison/test_scenarios.py",
+      "validation/experiments/pytest_comparison/test_crash_recovery.py"
+    ],
+    "archive": "validation/runs/skill_evaluations/retired_pytest_comparison_source",
+    "replacement_business_profile": [
+      "validation/pytest_scenarios/integration/core/test_extensionless_file_edits.py",
+      "validation/pytest_scenarios/integration/core/test_settings_editors.py",
+      "validation/pytest_scenarios/integration/core/test_vault_relative_workflows.py",
+      "validation/pytest_scenarios/integration/core/test_async_workflow_cancellation.py"
+    ],
+    "replacement_fault_profile": "validation/pytest_scenarios/experiments/test_crash_recovery.py",
+    "reason": "Generic reporter and observations are package-owned; duplicate experiment sources removed after installed-wheel proof."
+  },
+  "pilot_reorganization": {
+    "source": "validation/pytest_scenarios/integration/core/test_pilot.py",
+    "archive": "validation/runs/skill_evaluations/retired_staged_pilot.py",
+    "destinations": {
+      "test_extensionless_file_edits": "test_extensionless_file_edits.py",
+      "test_settings_editors": "test_settings_editors.py",
+      "test_vault_relative_workflows": "test_vault_relative_workflows.py",
+      "test_async_cancellation_rollback": "test_async_workflow_cancellation.py"
+    },
+    "behavior_change": false
   }
 }

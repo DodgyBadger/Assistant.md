@@ -24,19 +24,50 @@
       ]
     },
     {
-      "path": "pytest_scenarios/integration/core/test_pilot.py",
-      "sha256": "5a09de730e94f48a722eba0326d7e144e8d7fe79fa6a3eb42e677948c0bad860",
+      "path": "pytest_scenarios/integration/core/test_async_workflow_cancellation.py",
+      "sha256": "142b70f4563f9fc9a63c4f021ca3d07c95ef3905513ea3dfc79f6bfdd646fbc6",
       "kind": "behavioral",
       "tests": [
-        "test_extensionless_file_edits",
-        "test_settings_editors",
-        "test_vault_relative_workflows",
         "test_async_cancellation_rollback"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_extensionless_file_edits.py",
+      "sha256": "543db33322405eb9caba9808459aba579687a61a59ef7651642251196920a3ae",
+      "kind": "behavioral",
+      "tests": [
+        "test_extensionless_file_edits"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_settings_editors.py",
+      "sha256": "85502d3ad2dbaa8b0c57c2178bf4a1d331680f1b71c1da8473719cc360e47787",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_editors"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_relative_workflows.py",
+      "sha256": "8445b7ca45487bbbd6a01a2ca4b5c2b2a6d41f6fe880f2f080a4cc1abc677e30",
+      "kind": "behavioral",
+      "tests": [
+        "test_vault_relative_workflows"
       ]
     },
     {
       "path": "pytest_scenarios/pytest.ini",
       "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/__init__.py",
+      "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/workflows.py",
+      "sha256": "c0d4e82e1696ba701e327a530d8b6a85c9dd43f6ad3adac7a9e109bfb2d3e371",
       "kind": "support"
     }
   ]
