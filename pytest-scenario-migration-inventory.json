@@ -8674,7 +8674,7 @@
   },
   "application_fault_profile": {
     "source": "validation/pytest_scenarios/experiments/test_crash_recovery.py",
-    "selection": "explicit path only; excluded from normal staged core testpaths",
+    "selection": "explicit file/node selection only; excluded from the default admitted core selection",
     "report": "/tmp/assistantmd-staged-app-faults/report.json",
     "exit_status": 1,
     "observed_outcomes": [
@@ -8687,5 +8687,53 @@
     "worker_abort_cleanup": "unconfirmed",
     "fatal_stack_path": "/tmp/assistantmd-staged-app-faults/workers/gw0/test_03_abort_running_application_worker-16abdabe85/artifacts/fatal-stack.txt",
     "scope": "Real corrupt isolated SQLite startup input followed by same-worker recovery; real SIGABRT of running app followed by replacement-worker recovery. Not a generic plugin substitute or full app lifecycle proof."
+  },
+  "installed_wheel_verification": {
+    "package_revision": "4b9daa3",
+    "wheel_sha256": "f72a01d22e1b2e289bc0bba7a2363efd7ee00f4bb84d596c83ea82f83300eb26",
+    "environment": "/tmp/assistantmd-pytest-migration",
+    "editable": false,
+    "versions": {
+      "python": "3.13.16",
+      "pytest": "9.2.0",
+      "pytest-xdist": "3.8.0",
+      "scenario-harness": "0.2.0"
+    },
+    "core_report": "/tmp/assistantmd-pytest-final-wheel-core/report.json",
+    "core_result": "4 passed in 90.83s; every lifecycle confirms runtime inactive after close",
+    "fault_report": "/tmp/assistantmd-pytest-final-wheel-faults/report.json",
+    "fault_exit_status": 1,
+    "fault_outcomes": [
+      "failed",
+      "passed",
+      "failed",
+      "passed"
+    ],
+    "fault_processes": [
+      {
+        "pid": 39956,
+        "worker": "gw0"
+      },
+      {
+        "pid": 39956,
+        "worker": "gw0"
+      },
+      {
+        "pid": 39956,
+        "worker": "gw0"
+      },
+      {
+        "pid": 39994,
+        "worker": "gw1"
+      }
+    ],
+    "verified": [
+      "original sqlite3.DatabaseError preserved",
+      "fatal signal stack retained",
+      "same-worker recovery",
+      "replacement-worker recovery",
+      "crash cleanup unconfirmed"
+    ],
+    "scope": "Focused pilot only; no full-suite run, immutable dependency cutover or coverage acceptance."
   }
 }

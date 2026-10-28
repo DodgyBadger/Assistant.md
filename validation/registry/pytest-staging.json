@@ -36,7 +36,7 @@
     },
     {
       "path": "pytest_scenarios/pytest.ini",
-      "sha256": "2c90cf1b4880b3c759ae151c9c96ce6ae8b9ce3c013e2cb7eeb70bfc325caace",
+      "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
       "kind": "support"
     }
   ]
