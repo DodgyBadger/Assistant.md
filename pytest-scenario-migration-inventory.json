@@ -8671,5 +8671,21 @@
     "exit_status": 0,
     "plugin": "scenario-harness 0.2.0 editable sibling checkout; coordinated local pilot only",
     "result": "4 passed in 100.00s; same worker cleanup, genuine production heartbeat timer retained"
+  },
+  "application_fault_profile": {
+    "source": "validation/pytest_scenarios/experiments/test_crash_recovery.py",
+    "selection": "explicit path only; excluded from normal staged core testpaths",
+    "report": "/tmp/assistantmd-staged-app-faults/report.json",
+    "exit_status": 1,
+    "observed_outcomes": [
+      "failed",
+      "passed",
+      "failed",
+      "passed"
+    ],
+    "startup_exception": "sqlite3.DatabaseError: file is not a database",
+    "worker_abort_cleanup": "unconfirmed",
+    "fatal_stack_path": "/tmp/assistantmd-staged-app-faults/workers/gw0/test_03_abort_running_application_worker-16abdabe85/artifacts/fatal-stack.txt",
+    "scope": "Real corrupt isolated SQLite startup input followed by same-worker recovery; real SIGABRT of running app followed by replacement-worker recovery. Not a generic plugin substitute or full app lifecycle proof."
   }
 }
