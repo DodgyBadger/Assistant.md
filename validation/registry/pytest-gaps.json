@@ -250,6 +250,103 @@
       "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
       "status": "resolved",
       "resolution": "A sticky controller cleanup failure rejects restart. The app fixture marks the pytest session failed on uncertain fixture release and retains the original error. Real filesystem-induced shutdown failures, including a caught earlier close exception, abort the invocation with exit 2 and leave the next selected application incomplete with no phases. Ordinary cleaned-up startup exceptions continue in the worker; native crashes use xdist replacement."
+    },
+    {
+      "id": "direct-import-public-url-success",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_direct_import"
+      ],
+      "missing_proof": "Public-URL direct-import success and destination handling originally use patched URL fetch success. New PDF input proves actual local ingestion, not public network admission/fetch.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_direct_import.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json"
+      ],
+      "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle."
+    },
+    {
+      "id": "direct-import-authority-before-enqueue",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_direct_import"
+      ],
+      "missing_proof": "Immediate-import missing execution authority must fail before durable job creation; original patches the endpoint authority resolver. New real preflight/repository atomicity does not prove this authority exception ordering.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_direct_import.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json"
+      ],
+      "cleanup_action": "Exercise a genuine missing authority at the same admission boundary, or review disposition of the endpoint fault injection."
+    },
+    {
+      "id": "explorer-batch-move-compensation",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_explorer_batch_move"
+      ],
+      "missing_proof": "Original injects mid-batch, post-second-file and post-second-directory mutation failures to assert compensation. Passing real API/preflight cases do not establish any of those compensation branches.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_explorer_batch_move.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
+      ],
+      "cleanup_action": "Find deterministic real filesystem/transaction failure inputs, or explicitly classify the controlled fault-injection contracts before retiring originals."
+    },
+    {
+      "id": "explorer-upload-interrupted-write-cleanup",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_explorer_upload"
+      ],
+      "missing_proof": "Original patches io.open to fail during writing and proves no partial upload remains. New size/preflight/collision cases do not prove interrupted-write cleanup.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_explorer_upload.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
+      ],
+      "cleanup_action": "Establish a genuine bounded write failure and verify partial-file cleanup, or explicitly retain a narrow fault-injection test."
+    },
+    {
+      "id": "managed-catalog-future-update-conflicts",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/model_alias_resolution"
+      ],
+      "missing_proof": "Patched future SETTINGS_TEMPLATE catalog rename and two update-blocked collision event cases are not replaced. Current-catalog legacy import, adoption/conflict/recovery and retired removal are covered; the synthetic configuration_request validation response is a legacy adapter oracle rather than new HTTP evidence.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/model_alias_resolution.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/legacy_catalog_batch5_20261028/report.json"
+      ],
+      "cleanup_action": "Choose a controlled catalog-input seam or reviewed classification for future-template transition tests; retain original assertions meanwhile."
+    },
+    {
+      "id": "structured-web-transient-provider-failure",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/structured_tool_failure"
+      ],
+      "missing_proof": "Original constructed HTTP 503 classification, Retry-After values 7/5 and redaction of a query embedded in a provider exception remain unproven through real web transport. The new missing-key path is additional proof only.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/structured_tool_failure.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json"
+      ],
+      "cleanup_action": "Provide a configurable controlled provider transport or explicitly classify the original exception/formatter boundary tests; do not equate missing configuration with transient HTTP failure."
     }
   ]
 }
