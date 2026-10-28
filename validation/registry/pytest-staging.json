@@ -32,6 +32,22 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_authoring_context.py",
+      "sha256": "5bc8c94c9e0d53e476c87671f6c6d2284440c8a75857e0a69ca4da5a29b83c6b",
+      "kind": "behavioral",
+      "tests": [
+        "test_history_assembly_groups_tool_exchange"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_authoring_contract.py",
+      "sha256": "ec78c5a8d3fd3bc6b128bfeaf4f5d386f59d4ecc426bc29964315d16265ad5f5",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_helpers_with_configured_test_model"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_content_search.py",
       "sha256": "541f292531c4160509ddddb2ddc417bd671245d24595a06c721cb2c2eb5dd927",
       "kind": "behavioral",
@@ -40,11 +56,38 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_database_migrations.py",
+      "sha256": "2a46c015f3943a36344a97dfe1a815a4c93675e25d6fa32e35b209bc84490c4f",
+      "kind": "behavioral",
+      "tests": [
+        "test_sqlite_migration_order_validation_and_rollback",
+        "test_registered_system_migration_backups_and_retirement",
+        "test_system_migration_failure_phases_are_correlated_and_sanitized"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_default_context.py",
+      "sha256": "88fc728184c304c598e6f0e9c97a879e6c1aac0a7f4a5d94d85751a677f54c16",
+      "kind": "behavioral",
+      "tests": [
+        "test_default_context_sources_and_effective_history"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_directory_cleanup.py",
       "sha256": "b285ce2845c7a1fbd06d54498d194d4ca7a74f1de953bd4a42bdbe65a6233131",
       "kind": "behavioral",
       "tests": [
         "test_empty_directory_cleanup_preserves_files"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_encrypted_secrets.py",
+      "sha256": "1a4183a71e4620e13e444a88ceb511e66c72ff56b089b167ec2b6d317aea5365",
+      "kind": "behavioral",
+      "tests": [
+        "test_encrypted_secret_boundaries",
+        "test_secret_key_configuration_and_locked_bootstrap"
       ]
     },
     {
@@ -89,6 +132,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_history_passthrough.py",
+      "sha256": "1b1c21552886c24ea84a76f19db6a0baecc8089f3b0384552a2269de74473d42",
+      "kind": "behavioral",
+      "tests": [
+        "test_context_preserves_active_tool_turn"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_ingress_authentication.py",
       "sha256": "26f69b837fe420bb13bd555c0872beed68a4256b5a57d74f9f5a9fef24a6a368",
       "kind": "behavioral",
@@ -108,6 +159,15 @@
         "test_verified_legacy_import_and_backup_collision",
         "test_invalid_legacy_secret_preserves_source_and_empty_database",
         "test_legacy_secret_retry_after_durable_failure"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_locked_bootstrap.py",
+      "sha256": "ec4f8aac28055b87b24c2d41d1e651e37e65530359fb5a408103e169835ab6e0",
+      "kind": "behavioral",
+      "tests": [
+        "test_locked_runtime_preserves_access_storage",
+        "test_existing_connection_schema_remains_usable"
       ]
     },
     {
@@ -160,6 +220,23 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_vault_activity_rollback.py",
+      "sha256": "4395b02a1917b92f4fee44935fc590321f0092c8fd762a954bac82ae0715ea09",
+      "kind": "behavioral",
+      "tests": [
+        "test_activity_rollback_conflicts_chaining_and_directory_limits",
+        "test_duplicate_activity_rollback_submissions_reject_one"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_cleanup.py",
+      "sha256": "ebe2ee224f1c72ee9114c025b311d3e034c2466fb83e7fc5044857ee751830fb",
+      "kind": "behavioral",
+      "tests": [
+        "test_cleanup_removes_only_expired_safety_artifacts"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_vault_file_references.py",
       "sha256": "71dc507bdf50497cdcb4ab63e2c7474b69c577a7d124c998dca206d3da0d2e1c",
       "kind": "behavioral",
@@ -176,6 +253,15 @@
       "kind": "behavioral",
       "tests": [
         "test_vault_relative_workflows"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_rollback.py",
+      "sha256": "c505ff7d88666ef6d3554a26ff29e6ca0df900254d161fa11cf4929745d119d4",
+      "kind": "behavioral",
+      "tests": [
+        "test_failed_workflow_rolls_back_files_and_reports_partial_directory_recovery",
+        "test_task_rollback_conflict_preserves_every_path"
       ]
     },
     {
@@ -235,6 +321,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/authoring.py",
+      "sha256": "c4cdf182f29fb7f72b23875e6ed2b6a7f6fa14c2d2e3ca36fbe6dbe31c36a985",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/file_boundaries.py",
       "sha256": "3bbeeaa3561c6ea1146d781bc5147d36cf4769016cedbadf9474d9f400e0cbc8",
       "kind": "support"
@@ -255,6 +346,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/security_migrations.py",
+      "sha256": "7829ecf5daede200754087022d13738149d4bd3199c53e4665bfc606fc5f9f11",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/settings.py",
       "sha256": "46cf96e08a1bdba6355295aa7444e4825443b08f42df5b57f93a8f172e4e29ba",
       "kind": "support"
@@ -262,6 +358,11 @@
     {
       "path": "pytest_scenarios/support/startup.py",
       "sha256": "757b29042cfacd8f21701b5dc270b76227b4796032c124212d6b2122ba600dd3",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/vault_recovery.py",
+      "sha256": "bf23b55fb6bed12a672460ff84a5ad8d0e9b3750a0128a2ba48836e30cea42c7",
       "kind": "support"
     },
     {

@@ -125,12 +125,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_authoring_context.py::test_history_assembly_groups_tool_exchange"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real history assembly and tool-exchange grouping with app runtime inputs and retained context outputs."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/authoring_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/authoring_contract.py",
@@ -158,12 +171,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_authoring_contract.py::test_authoring_helpers_with_configured_test_model"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real authoring host/runtime/tool/artifact contract through the configured test provider. Real RunContext replaces namespace stand-ins; no live-provider claim."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/authoring_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/authoring_tool_failure_semantics.py",
@@ -1374,12 +1400,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_history_passthrough.py::test_context_preserves_active_tool_turn"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real context processor preserves active tool-turn messages and ordering from actual history artifacts."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/authoring_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/decision_model_configuration.py",
@@ -1461,12 +1500,29 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_default_context.py::test_default_context_sources_and_effective_history"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Generated missing-README scan/create advice and absence of named packaged default-stance/WorkPolicy/GoalTracking prose lack equivalent semantic assertions. Input inclusion, truncation sentinels, custom headings, workspace data and structured activity checks are preserved."
+      ],
+      "gap_ids": [
+        "default-context-instruction-semantics"
+      ],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Input source inclusion, head/tail truncation sentinels, controlled custom headings, workspace data and structured activity replace brittle generated-prose assertions where equivalent semantics are available."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/authoring_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/deferred_review_interruption.py",
@@ -1755,12 +1811,31 @@
         "patch.object"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_encrypted_secrets.py::test_encrypted_secret_boundaries",
+        "validation/pytest_scenarios/integration/core/test_encrypted_secrets.py::test_secret_key_configuration_and_locked_bootstrap"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Original guarded-write concurrency window pauses private service._select_row; the new public mutation/integrity/rotation checks do not prove that exact serialization window."
+      ],
+      "gap_ids": [
+        "encrypted-guarded-write-serialization"
+      ],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Actual encryption/namespace authorization/storage/rotation/integrity/atomic mutations/rollback and legacy/modern key configuration. Private guarded-select pause proof remains unported."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/security_migrations_20261028/report.json",
+          "validation/runs/pytest_migration/security_migrations_retry_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/execution_task_runner.py",
@@ -2770,11 +2845,29 @@
         "self._assert_locked_startup"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_locked_bootstrap.py::test_locked_runtime_preserves_access_storage",
+        "validation/pytest_scenarios/integration/core/test_locked_bootstrap.py::test_existing_connection_schema_remains_usable"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real locked bootstrap/services/public migration-status diagnostics preserve access bytes and ready schemas without old healthy-service mocks. Prewarmed-module lifecycle matches the original; no cold-import claim."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/security_migrations_20261028/report.json",
+          "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      },
+      "scope_review_ids": [
+        "locked-bootstrap-cold-import-scope"
       ]
     },
     {
@@ -4299,12 +4392,25 @@
       "fixture_input_candidates": [],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_database_migrations.py::test_sqlite_migration_order_validation_and_rollback"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real SQLite migration ordering, validation and transactional rollback over actual database state."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/security_migrations_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/stepped_eviction_envelopes.py",
@@ -4529,12 +4635,26 @@
         "self._table_exists"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_database_migrations.py::test_registered_system_migration_backups_and_retirement",
+        "validation/pytest_scenarios/integration/core/test_database_migrations.py::test_system_migration_failure_phases_are_correlated_and_sanitized"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Actual registered migrations, backup contents/histories and retirement; real filesystem backup obstruction and SQLite apply failure preserve phase/database/operation correlation and all-activity exception-sentinel sanitization."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/security_migrations_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/system_startup.py",
@@ -5088,12 +5208,30 @@
         "self._preview"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_activity_rollback.py::test_activity_rollback_conflicts_chaining_and_directory_limits",
+        "validation/pytest_scenarios/integration/core/test_vault_activity_rollback.py::test_duplicate_activity_rollback_submissions_reject_one"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Original restore_calls==1 while the first restore was paused is not established by real concurrent submissions yielding one success/one rejection and correct final files."
+      ],
+      "gap_ids": [
+        "activity-rollback-paused-restore-serialization"
+      ],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real activity rollback conflict/chaining/directory limits and concurrent duplicate submission public outcomes; private paused-restore call-count proof retained as a gap."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_content_search.py",
@@ -5437,12 +5575,25 @@
         "self._snapshot_task_ids"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_cleanup.py::test_cleanup_removes_only_expired_safety_artifacts"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Explicit expired/unexpired SQLite inputs, real cleanup API, events, retained active state and deletion of only eligible safety artifacts."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_state_manifest.py",
@@ -5585,12 +5736,31 @@
         "self._snapshot_status"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_rollback.py::test_failed_workflow_rolls_back_files_and_reports_partial_directory_recovery",
+        "validation/pytest_scenarios/integration/core/test_vault_rollback.py::test_task_rollback_conflict_preserves_every_path"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Original retry fixture deleted mutation history and reactivated an already-rolled-back snapshot. New active-task external-edit conflict and real retry preserve safety outcomes but do not reproduce that manipulated retry state."
+      ],
+      "gap_ids": [
+        "task-rollback-reactivated-snapshot-retry"
+      ],
+      "migration": {
+        "batch": "recovery-authoring-security-20261028",
+        "original_baseline": "validation/runs/reports/20261028_162011_211070.json",
+        "behavioral_contracts": [
+          "Real failed workflow/partial directory recovery/idempotent retry; actual public task failure and active-task external edit create a genuine atomic rollback conflict. Original manipulated snapshot-reactivation state remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
+          "validation/runs/pytest_migration/vault_task_rollback_corrected_batch4/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_state_scheduled_refresh.py",
@@ -9164,20 +9334,48 @@
         "integration/core/vault_directory_mutation_concurrency"
       ],
       "evidence_scope": "Four file cases, six real workflow cases and three startup cases passed; initial workflow collection/import fixture fault retained separately."
+    },
+    {
+      "id": "recovery-authoring-security-20261028",
+      "source_identities": [
+        "integration/core/vault_state_rollback",
+        "integration/core/vault_activity_rollback",
+        "integration/core/vault_state_cleanup",
+        "integration/core/authoring_context_assembly",
+        "integration/core/authoring_contract",
+        "integration/core/context_history_tool_passthrough",
+        "integration/core/default_context",
+        "integration/core/encrypted_secrets_boundaries",
+        "integration/core/locked_access_bootstrap",
+        "integration/core/system_database_migrations",
+        "integration/core/sqlite_migrations"
+      ],
+      "pytest_cases": 19,
+      "partial_ports": [
+        "integration/core/vault_state_rollback",
+        "integration/core/vault_activity_rollback",
+        "integration/core/default_context",
+        "integration/core/encrypted_secrets_boundaries"
+      ],
+      "evidence_scope": "All19 cases have actual passing verdicts across retained focused runs. Fixture failures and source revisions remain inspectable; prewarmed locked boot is explicitly scoped."
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 25,
-    "sources_without_staged_nodes": 121,
+    "sources_with_staged_nodes": 36,
+    "sources_without_staged_nodes": 110,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 35,
-    "staged_default_core_cases": 39,
+    "new_focused_passing_cases": 54,
+    "staged_default_core_cases": 58,
     "partial_source_ports": [
+      "integration/core/default_context",
+      "integration/core/encrypted_secrets_boundaries",
       "integration/core/file_write_same_path_concurrency",
       "integration/core/legacy_secrets_migration",
       "integration/core/settings_database_migration",
-      "integration/core/vault_directory_mutation_concurrency"
+      "integration/core/vault_activity_rollback",
+      "integration/core/vault_directory_mutation_concurrency",
+      "integration/core/vault_state_rollback"
     ],
     "coverage_complete": false,
     "original_sources_retained": true,

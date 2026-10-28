@@ -100,6 +100,142 @@
         "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
       ],
       "cleanup_action": "Exercise real concurrent move/edit with stable lifecycle/lock observations or a sanctioned controllable I/O boundary, without claiming sequential results prove waiting."
+    },
+    {
+      "id": "task-rollback-reactivated-snapshot-retry",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_state_rollback"
+      ],
+      "missing_proof": "Original retry fixture deleted mutation history and reactivated an already-rolled-back snapshot. New active-task external-edit conflict and real retry preserve safety outcomes but do not reproduce that manipulated retry state.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_state_rollback.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
+        "validation/runs/pytest_migration/vault_task_rollback_corrected_batch4/report.json"
+      ],
+      "cleanup_action": "Review whether the inconsistent persisted retry state is an intended corruption/recovery contract; recreate honestly with explicit fixture-state justification or record accepted retirement.",
+      "status": "open"
+    },
+    {
+      "id": "activity-rollback-paused-restore-serialization",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_activity_rollback"
+      ],
+      "missing_proof": "Original restore_calls==1 while the first restore was paused is not established by real concurrent submissions yielding one success/one rejection and correct final files.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/vault_activity_rollback.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
+      ],
+      "cleanup_action": "Establish observable restore/lock intervals or review whether the stronger internal call-count assertion is required beyond the proven public outcomes.",
+      "status": "open"
+    },
+    {
+      "id": "encrypted-guarded-write-serialization",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/encrypted_secrets_boundaries"
+      ],
+      "missing_proof": "Original guarded-write concurrency window pauses private service._select_row; the new public mutation/integrity/rotation checks do not prove that exact serialization window.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/encrypted_secrets_boundaries.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/security_migrations_20261028/report.json"
+      ],
+      "cleanup_action": "Add supported correlated concurrency observations or a controlled real contention case; otherwise review disposition of the private-pause oracle.",
+      "status": "open"
+    },
+    {
+      "id": "default-context-instruction-semantics",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/default_context"
+      ],
+      "missing_proof": "Generated missing-README scan/create advice and absence of named packaged default-stance/WorkPolicy/GoalTracking prose lack equivalent semantic assertions. Input inclusion, truncation sentinels, custom headings, workspace data and structured activity checks are preserved.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/default_context.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/authoring_20261028/report.json"
+      ],
+      "cleanup_action": "Decide which instructional semantics are durable behavior and expose/assert them structurally, or explicitly retire editorial-string oracles.",
+      "status": "open"
+    },
+    {
+      "id": "locked-bootstrap-cold-import-scope",
+      "category": "fixture_scope_review",
+      "source_scenarios": [
+        "integration/core/locked_access_bootstrap"
+      ],
+      "missing_proof": "Cold target-root module imports create an unrelated chat database and migration backup. Passing locked cases match the original prewarmed-module/outer-root lifecycle, not every cold import ordering.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/locked_access_bootstrap.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/security_migrations_retry_20261028/report.json",
+        "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json"
+      ],
+      "cleanup_action": "Review cold production entry-point ordering and intended backup behavior; retain the observed side effect and do not generalize the prewarmed proof.",
+      "status": "open"
+    },
+    {
+      "id": "observation-redaction-equality",
+      "category": "review_blocker",
+      "priority": "before_further_migration",
+      "source_scenarios": [],
+      "missing_proof": "Confirmed false-positive assertion: distinct registered secrets compare equal after both observed and expected values become [REDACTED]. contains and require accept an incorrect value.",
+      "retained_coverage": [],
+      "evidence": [
+        "validation/runs/pytest_migration/architecture_review/redaction-result.json"
+      ],
+      "code_locations": [
+        "../scenario-harness/src/scenario_harness/context.py:85",
+        "../scenario-harness/src/scenario_harness/context.py:113"
+      ],
+      "cleanup_action": "Preserve original matching semantics and redact only exported copies. Add regressions proving unequal sensitive values remain unequal; do not publish the current matcher.",
+      "status": "open"
+    },
+    {
+      "id": "capture-mutates-application-logging",
+      "category": "review_blocker",
+      "priority": "before_trusting_affected_evidence",
+      "source_scenarios": [
+        "integration/core/settings_lifecycle",
+        "integration/core/ingress_authentication"
+      ],
+      "missing_proof": "The capture projector sanitizes actual application activity/validation/Logfire emission and warning identity before observation. Registered-secret log-absence assertions cannot establish that the application itself sanitized emissions.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/settings_lifecycle.py",
+        "validation/scenarios/integration/core/ingress_authentication.py"
+      ],
+      "evidence": [],
+      "code_locations": [
+        "core/logger.py:755",
+        "validation/pytest_scenarios/application.py:172"
+      ],
+      "cleanup_action": "Make capture observational, keep exported evidence sanitization separate, and rerun affected logging/security assertions with a negative probe demonstrating that an actual unsafe emission is detectable.",
+      "status": "open"
+    },
+    {
+      "id": "failed-teardown-worker-reuse",
+      "category": "review_blocker",
+      "priority": "before_cutover",
+      "source_scenarios": [],
+      "missing_proof": "Shutdown may fail before background tasks or scheduler stop, yet controller clears global runtime and the next fixture admits another app based only on that cleared sentinel. No active leak was reproduced; the failure-path weakness is established by control flow.",
+      "retained_coverage": [],
+      "evidence": [],
+      "code_locations": [
+        "validation/support/system_controller.py:212",
+        "core/runtime/context.py:115",
+        "validation/pytest_scenarios/application.py:148"
+      ],
+      "cleanup_action": "Define failed-teardown isolation/worker-retirement policy and exercise actual teardown failure. A cleared global context must not be treated as proof that all prior services stopped.",
+      "status": "open"
     }
   ]
 }
