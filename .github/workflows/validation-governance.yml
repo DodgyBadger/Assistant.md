@@ -39,8 +39,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install harness from the trusted base pin
-        run: python -I .github/scripts/install_validation_harness.py
       - name: Read candidate Git objects without checkout
         run: |
           git fetch --no-tags origin "refs/pull/${GOVERNANCE_PR}/head"
@@ -94,8 +92,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install harness from the trusted base pin
-        run: python -I .github/scripts/install_validation_harness.py
       - name: Verify authorization and current PR identity
         env:
           GH_TOKEN: ${{ github.token }}
