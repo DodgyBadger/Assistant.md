@@ -35,3 +35,19 @@ Proposed narrow skill improvement: when execution contradicts an intended invari
 The authored source, plan, input manifest, initial failed source, both run directories, author report and separate self-review are preserved under validation/runs/skill_evaluations/directory_delete_blind_20261028_834lnj8h. Start with evaluator-assessment.md for the comparison and limitations. The snapshot-path assertion in the authored test is trial provenance instrumentation and should not become a permanent product contract.
 
 Protected documentation, full-suite execution, application behavior changes and remote publication were outside this trial. No existing scenario or registry admission was changed.
+
+## Revised methodology skill rerun
+
+Rerun requested after the core draft was renamed test-application-behavior and revised to lead with the testing philosophy, preservation of behavioral expectations, developer-chosen internal observations and real application-produced evidence. Use skill revision 31c0b5c48ab5263babe0e736d6ba0b625fd8d67d from scenario-harness.
+
+Use a new Sol agent without inherited history and /tmp/assistantmd-skill-rerun-hyol076k/application. Reconstruct exactly the same 484 production/fixture/instruction files from the original source revision 91d1837220b115f4d3f6e92f83b69f3f07bd3e83, with the same bounded pytest configuration and installed wheel environment. The new input manifest records the revised skill digest. Supply the same directory-deletion topic and starting module, without the original scenario, earlier authored cases, failure details, evaluator conclusions or prior reports.
+
+Keep the authoring instructions equivalent to the first run apart from the skill name and workspace. Evaluate the resulting contract, real actions, observations and handling of any failure before providing feedback. Preserve source and evidence, and verify production/fixture source bytes remain unchanged. A single unconstrained authoring trial may choose different cases; a passing result without a comparable discrepancy does not establish that test weakening has been prevented.
+
+Completed: baseline and final focused runs each passed one real-app scenario, with the final run taking 11.44 seconds. Ruff and Black passed. The author explicitly labelled implementation-described behavior as characterization, recorded meaningful actual outputs/internal events and observed runtime context release. The frozen source digest is 4e391843cd823865afeea4d29f36b6c146d5c6f6cb222f7ab35b700ac11da255. All 484 production/fixture/instruction files were byte-compared with the starting revision and remained unchanged; the exact supplied skill digest also matches the manifest. The author reported no prohibited access or accidental exposure.
+
+No behavioral failure occurred. The author reported no changed behavioral expectations, and the only reported source correction was import ordering. The root rejection input was empty string throughout; equivalent root spellings were not exercised. This demonstrates useful independent authoring and more explicit reporting of correctness limits, but does not establish that the revised skill prevents weakening a failing contract. A fixed independently justified failing-contract trial would be needed to assess that separately. Keep the original dot-path discrepancy unresolved.
+
+The final tree snapshot helper excludes the application's AssistantMD metadata subtree, limiting any broad unchanged-vault claim. Module import-path assertions are evaluation provenance checks rather than durable application behavior. The scenario was not admitted as replacement coverage.
+
+Evidence is preserved under validation/runs/skill_evaluations/directory_delete_revised_skill_20261028_hyol076k, including the new source, author plan, input manifest, exact skill, baseline/final reports and evaluator-assessment.md. No migration admission, product fix, full-suite execution, skill publication or remote push occurred.
