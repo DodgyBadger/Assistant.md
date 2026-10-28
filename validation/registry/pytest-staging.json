@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "purpose": "Explicit shadow comparison sources; does not grant behavioral coverage acceptance.",
+  "files": [
+    {
+      "path": "pytest_scenarios/application.py",
+      "sha256": "dd89ec145ebc807663b17c1d9dc0a763d1cf9f4f72fa8a20167a6865010fcc39",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/conftest.py",
+      "sha256": "a4d476ed08da8a5858e1e07189cca533f72f59d4d62a959f6c3d688f1e1c850a",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/experiments/test_crash_recovery.py",
+      "sha256": "d9396d654cce76d2a0a6dee217f24043d843b443cee7bba04e6ea26eb1621a36",
+      "kind": "behavioral",
+      "tests": [
+        "test_01_unhandled_application_startup_exception",
+        "test_02_real_app_recovers_after_exception",
+        "test_03_abort_running_application_worker",
+        "test_04_real_app_recovers_after_worker_crash"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_pilot.py",
+      "sha256": "5a09de730e94f48a722eba0326d7e144e8d7fe79fa6a3eb42e677948c0bad860",
+      "kind": "behavioral",
+      "tests": [
+        "test_extensionless_file_edits",
+        "test_settings_editors",
+        "test_vault_relative_workflows",
+        "test_async_cancellation_rollback"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/pytest.ini",
+      "sha256": "2c90cf1b4880b3c759ae151c9c96ce6ae8b9ce3c013e2cb7eeb70bfc325caace",
+      "kind": "support"
+    }
+  ]
+}

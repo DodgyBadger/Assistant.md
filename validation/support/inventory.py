@@ -11,8 +11,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from scenario_harness.discovery import describe_scenario as generic_describe_scenario
-from scenario_harness.governance import validate_catalog
 from scenario_harness.project import InventoryError
+
+from validation.support.catalog import validate_catalog
+from validation.support.pytest_admission import load_staging_admissions
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,7 @@ class InventoryReport:
     disposition_counts: dict[str, int] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
     scenario_governance: dict[str, object] = field(default_factory=dict)
+    pytest_staging: list[dict[str, object]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -47,6 +50,7 @@ class InventoryReport:
             "behavioral_coverage_complete": False,
             "issues": self.issues,
             "scenario_governance": self.scenario_governance,
+            "pytest_staging": self.pytest_staging,
         }
 
 
@@ -200,11 +204,54 @@ def named_tests(path: Path) -> list[str]:
     return tests
 
 
-def _check_legacy_tests(root: Path, report: InventoryReport) -> None:
+def _check_pytest_staging(root: Path, report: InventoryReport) -> set[str]:
+    """Admit exact shadow sources without importing candidate Python code."""
+    manifest = root / "registry" / "pytest-staging.json"
+    if not manifest.exists():
+        return set()
+    try:
+        entries = load_staging_admissions(root)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise InventoryError(str(error)) from error
+    admitted = {entry.relative for entry in entries}
+    for entry in entries:
+        relative = entry.relative
+        if not entry.hash_matches:
+            report.issues.append(
+                f"Pytest staging source changed since admission: {relative}"
+            )
+        if entry.kind == "behavioral":
+            actual = named_tests(entry.source)
+            if Counter(actual) != Counter(entry.tests):
+                report.issues.append(f"Pytest staging declarations differ: {relative}")
+            report.pytest_staging.append(
+                {
+                    "path": relative,
+                    "nodes": [f"validation/{relative}::{name}" for name in actual],
+                    "coverage_status": "shadow_pending_review",
+                }
+            )
+    staged_root = root / "pytest_scenarios"
+    actual_sources = {
+        path.relative_to(root).as_posix()
+        for path in staged_root.rglob("*")
+        if path.is_file()
+        and path.suffix in {".py", ".ini", ".toml"}
+        and "__pycache__" not in path.parts
+    }
+    for relative in sorted(actual_sources - admitted):
+        report.issues.append(f"Unregistered pytest staging source: {relative}")
+    return admitted
+
+
+def _check_legacy_tests(
+    root: Path, report: InventoryReport, admitted_pytest: set[str]
+) -> None:
     actual = {
         "validation/" + path.relative_to(root).as_posix(): path
         for path in root.rglob("test_*")
         if path.is_file()
+        and path.relative_to(root).as_posix() not in admitted_pytest
         and path.relative_to(root).parts[0] not in {"runs", "scenarios"}
         and not (
             path.relative_to(root).parts[0] == "fixtures"
@@ -279,7 +326,8 @@ def build_inventory(root: Path) -> InventoryReport:
     except InventoryError as exc:
         report.issues.extend(str(exc).splitlines())
     try:
-        _check_legacy_tests(root, report)
+        admitted_pytest = _check_pytest_staging(root, report)
+        _check_legacy_tests(root, report, admitted_pytest)
     except (OSError, SyntaxError, UnicodeError, InventoryError) as exc:
         report.issues.append(str(exc))
     try:

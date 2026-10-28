@@ -62,6 +62,9 @@ jobs:
           uv export --frozen --all-extras --all-groups --no-emit-project --no-emit-package scenario-harness --output-file "$RUNNER_TEMP/audit-requirements.txt"
           uv tool run --from pip-audit pip-audit --progress-spinner=off --disable-pip -r "$RUNNER_TEMP/audit-requirements.txt"
 
+      - name: Check repository validation admission policy
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
+
   validation:
     needs: security-audit
     runs-on: ubuntu-latest
