@@ -100,11 +100,27 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_cancellation.py",
+      "sha256": "c40ecca7f72c5a81f7e2c62ef440c56776022c8efd2ca8828b2b89720b756a67",
+      "kind": "behavioral",
+      "tests": [
+        "test_cancel_chat_rolls_back_tool_write_and_retains_history"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_failure_logging.py",
       "sha256": "8362e02978ae4ae9a4c80b29c134f8cdb8e46fb294838c66c17da15c5ed42dac",
       "kind": "behavioral",
       "tests": [
         "test_chat_preflight_failure_activity_and_actionable_error"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_manual_retry.py",
+      "sha256": "a977ddb1bb9b9745dea0fb5d3f6e6b1d6b25fe1a7d8d6ab8c6d464ba551cfaa9",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_retry_interrupted_chat"
       ]
     },
     {
@@ -124,11 +140,27 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_retry_usage_budget.py",
+      "sha256": "c5fd137b8e54196323a8eedb2d1a85b60fd4a86b5a5074138b5688275a688b35",
+      "kind": "behavioral",
+      "tests": [
+        "test_retry_does_not_reset_model_request_budget"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_session_persistence.py",
       "sha256": "2534af74fdfd22c48e2bba5aa41490f56fa44abdbe53ca18d46be6cb3bf54e99",
       "kind": "behavioral",
       "tests": [
         "test_chat_session_persistence_and_export"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_stream_auto_retry.py",
+      "sha256": "b392d573f0df539b680a34f887297164e690be9e15d531afd542a87a361eaacd",
+      "kind": "behavioral",
+      "tests": [
+        "test_partial_stream_retry_and_disable"
       ]
     },
     {
@@ -271,6 +303,61 @@
       "tests": [
         "test_encrypted_secret_boundaries",
         "test_secret_key_configuration_and_locked_bootstrap"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_capacity.py",
+      "sha256": "ae2e9da558a3cfc307e297fd3b7ba5214179331fb46f8e6e4c584a4427e2835e",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_gate_serializes_and_reports_queue_holder",
+        "test_runner_capacity_cancellation_and_live_queue_positions",
+        "test_runner_dynamic_limits_share_existing_capacity"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_diagnostics.py",
+      "sha256": "7e3684f6a63fdc6794f10e458783c89136513b453f356c35ac2a9a8b86425e76",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_timeouts_remain_distinct_and_failure_diagnostics_are_bounded",
+        "test_runner_inference_failures_preserve_original_exception_and_safe_records",
+        "test_runner_bounds_actual_workload_result_and_preserves_valid_artifact_references"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_lifecycle.py",
+      "sha256": "32e715aac3af4c02cb4b5a68613ec71b82fe882e6a420bce0b724c7556112f25",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_background_inline_and_terminal_start_contracts",
+        "test_runner_cancellation_failure_and_timeout_hooks",
+        "test_runner_immediate_cancellation_survives_failing_cancellation_hook",
+        "test_runner_late_cancellation_cannot_replace_published_failure_or_repeat_hooks"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_lineage.py",
+      "sha256": "a99a229526cba170c3992902223d475938fcf3c162e7df3b35c1d4fb1013598a",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_child_authority_cancellation_and_detachment"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_observation.py",
+      "sha256": "27c2ab9738451bcc69b36831ac1eaf5325d712f0c81733a5ad22194ae563e244",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_revision_waits_attention_terminal_and_eviction"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_execution_runner_shutdown.py",
+      "sha256": "a7832c4881f44b5351749c7121b8268d3de88997cee0b03113a101f1e1dcc40b",
+      "kind": "behavioral",
+      "tests": [
+        "test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
       ]
     },
     {
@@ -497,6 +584,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_session_map_pending_evidence.py",
+      "sha256": "9d3f385424bf7232fa81dcd8b68feeaa1fd96b86aa233c1c6136ba3570848607",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_pending_evidence_is_canonical_and_ready"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_session_map_readiness.py",
       "sha256": "833e51a8b9d37dcf0d86f02bf5a26496affae540ffd28989aff1645a25df0851",
       "kind": "behavioral",
@@ -560,6 +655,22 @@
       "kind": "behavioral",
       "tests": [
         "test_startup_migrates_system_databases"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_stepped_eviction_envelopes.py",
+      "sha256": "a1677c70d21f755bd56c91e5562a5c85fd187bef5f10fabb5e9d4cdf13fd62da",
+      "kind": "behavioral",
+      "tests": [
+        "test_canonical_envelopes_are_stable_and_reject_stale_or_synthetic_history"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_stepped_eviction_planner.py",
+      "sha256": "add2557d265b70dc5b5adc1eb95e5fa832a4a96c718f6678f407a056573d0a2d",
+      "kind": "behavioral",
+      "tests": [
+        "test_eviction_planner_preserves_turn_and_tool_boundaries"
       ]
     },
     {
@@ -816,6 +927,16 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/chat_retry_provider.py",
+      "sha256": "eaf3c70473a30bee12062ee5854e789d40194516cfa0b5a81874ec02488d88ea",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/chat_retry_setup.py",
+      "sha256": "4ed4ff5dc7220be37c70cc3fa1af4ea4b081396e7d83a4029bb52d9eb163bb0a",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/chat_stream_provider.py",
       "sha256": "b3f696107e1949e8a8c255716d60b32267c6531130df53ca5ee5caa67efa11ec",
       "kind": "support"
@@ -931,6 +1052,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/session_map_author_http.py",
+      "sha256": "650ab35eabdf60423de6244dd9d7a5a33725381b94ea5eaa14848ac24f5636cd",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/session_map_readiness.py",
       "sha256": "a937b4a6264a756725e86438988fa1405c3e9026e8d7811ee8e56c8d5f066faa",
       "kind": "support"
@@ -953,6 +1079,11 @@
     {
       "path": "pytest_scenarios/support/startup.py",
       "sha256": "757b29042cfacd8f21701b5dc270b76227b4796032c124212d6b2122ba600dd3",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/task_runner_workloads.py",
+      "sha256": "a3ba4c9de010afd940925ffe2dc5b4af95e453cc2640d75caf6271cfb5933f68",
       "kind": "support"
     },
     {

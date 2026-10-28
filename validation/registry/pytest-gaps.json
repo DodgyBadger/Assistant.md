@@ -587,6 +587,90 @@
       "evidence": [
         "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
       ]
+    },
+    {
+      "id": "execution-runner-private-race-windows",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/execution_task_runner"
+      ],
+      "missing_proof": "Original pauses private mark_started, mark_completed and mark_failed publication, create_queued_task returning after reservation, parent terminal transition before child admission, and private concurrency cleanup guard. Real same-loop immediate cancellation, published-failure hook cancellation, public gates/capacity and constructor observer shutdown preserve portable outcomes, but do not deterministically establish those six exact earlier interleavings.",
+      "cleanup_action": "Use genuine supported event/observer/barrier inputs where possible or review classification of narrow private race injections before removing original assertions.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/execution_task_runner.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json"
+      ]
+    },
+    {
+      "id": "manual-retry-legacy-sdk-error-classification",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_manual_retry"
+      ],
+      "missing_proof": "Original fake agent raises raw openai.APIError and requires transient_provider. Current real adapter normalizes both typed and untyped HTTP200 SSE error inputs to ModelServerError/provider_unavailable. Actual transport interruption proves transient_network manual recovery, not the original raw legacy SDK compatibility branch. Both failed SSE probes are retained.",
+      "cleanup_action": "Review legacy SDK compatibility contract or provide a genuine supported producer for that raw exception; retain original classification assertion meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/chat_manual_retry.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/manual_retry_batch11_transport_final_20261028/report.json",
+        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json",
+        "validation/runs/pytest_migration/manual_retry_batch11_generic_error_20261028/report.json"
+      ]
+    },
+    {
+      "id": "automatic-retry-recovery-branches",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_stream_auto_retry"
+      ],
+      "missing_proof": "Real no-tool partial retry, disable behavior and shared request-budget semantics pass. Original fake stalled idle timeout, active slow-tool idle exemption/state, injected long/private diagnostic truncation, checkpoint replay after read-only effects, rollback-restart and rollback-disabled recovery branches remain unproved by these real wire inputs.",
+      "cleanup_action": "Construct bounded actual provider/tool/checkpoint inputs for remaining recovery modes or explicitly classify retained fault fixtures; do not infer them from ordinary no-tool retry.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/chat_stream_auto_retry.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
+        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json"
+      ]
+    },
+    {
+      "id": "chat-cancellation-active-tool-boundary",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_cancellation"
+      ],
+      "missing_proof": "Current real case cancels while the model waits after a real mutation tool completed. Original cancellation during a hanging tool and its exact private preflight-history comparison are not replaced by that later boundary. Actual rollback/history/follow-up proof is narrower.",
+      "cleanup_action": "Exercise a genuine bounded active tool/delegate workload and observable model/history projection, or review disposition of the original private preparation oracle.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/chat_cancellation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json"
+      ]
+    },
+    {
+      "id": "deterministic-core-model-call-audit",
+      "status": "open",
+      "category": "governance_scope_review",
+      "priority": "follow_up_discussion_before_cutover",
+      "source_scenarios": [],
+      "missing_proof": "User requires core scenarios never depend on live models and requested review of the Terra call/reference. Current audit found Terra as a development subagent and model-alias lookup fixture; latest model-driven scenarios use TestModel or configured loopback HTTP providers. This audit is not fail-closed enforcement against every possible accidental external model dispatch.",
+      "cleanup_action": "Review the referenced Terra call and distinguish development-agent work, alias resolution, controlled provider input and actual inference. Review legacy SDK-classification proof using deterministic inputs, and choose a fail-closed policy/guard for core model dispatch before cutover; do not solve the compatibility gap by calling a live model.",
+      "retained_coverage": [],
+      "related_gap_ids": [
+        "manual-retry-legacy-sdk-error-classification"
+      ],
+      "evidence": [
+        "pytest-scenario-library-refactor-plan.md",
+        "validation/runs/pytest_migration/batch11-evidence-index.json"
+      ]
     }
   ]
 }

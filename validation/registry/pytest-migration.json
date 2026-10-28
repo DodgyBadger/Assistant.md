@@ -497,12 +497,27 @@
         "chat_executor._CHAT_STORE.get_history"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_cancellation.py::test_cancel_chat_rolls_back_tool_write_and_retains_history"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "chat-cancellation-active-tool-boundary"
+      ],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Real code_execution writes then model request waits; cancellation API produces terminal cancelled state, actual file rollback/event, retained user history and successful follow-up/tool-history behavior. Cancellation during an active tool itself remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_failure_logging.py",
@@ -644,12 +659,27 @@
         "_collect_retry_events"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_manual_retry.py::test_manual_retry_interrupted_chat"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "manual-retry-legacy-sdk-error-classification"
+      ],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Actual interrupted HTTP stream yields retryable transient_network marker; manual retry uses real task/API/provider, no duplicated user history, semantic system failure phase/type context, one committed user/assistant and cleared marker/activity. Original injected legacy SDK transient_provider classification is not claimed from this transport error."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/manual_retry_batch11_transport_final_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_model_alias_fallback.py",
@@ -948,12 +978,29 @@
         "chat_executor._CHAT_STORE.get_history"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_stream_auto_retry.py::test_partial_stream_retry_and_disable",
+        "validation/pytest_scenarios/integration/core/test_chat_retry_usage_budget.py::test_retry_does_not_reset_model_request_budget"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "automatic-retry-recovery-branches"
+      ],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Actual tool-free configured chat plus explicit full-history context receives partial transport failure, one reset/retry and successful deduplicated snapshot/history, or fails once with retries disabled. New real cap1 check proves the retry cannot reset the request budget: one physical HTTP request followed by UsageLimitExceeded. This replaces private usage-object identity with observable budget behavior."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
+          "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_stream_background_task.py",
@@ -2180,12 +2227,41 @@
         "self._wait_for_task_terminal"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_execution_runner_lifecycle.py::test_runner_background_inline_and_terminal_start_contracts",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_lifecycle.py::test_runner_cancellation_failure_and_timeout_hooks",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_lifecycle.py::test_runner_immediate_cancellation_survives_failing_cancellation_hook",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_lifecycle.py::test_runner_late_cancellation_cannot_replace_published_failure_or_repeat_hooks",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_observation.py::test_runner_revision_waits_attention_terminal_and_eviction",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_lineage.py::test_runner_child_authority_cancellation_and_detachment",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_capacity.py::test_runner_gate_serializes_and_reports_queue_holder",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_capacity.py::test_runner_capacity_cancellation_and_live_queue_positions",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_capacity.py::test_runner_dynamic_limits_share_existing_capacity",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_timeouts_remain_distinct_and_failure_diagnostics_are_bounded",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_inference_failures_preserve_original_exception_and_safe_records[history_compaction]",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_inference_failures_preserve_original_exception_and_safe_records[session_map_authoring]",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_inference_failures_preserve_original_exception_and_safe_records[context_strategy_upgrade]",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_bounds_actual_workload_result_and_preserves_valid_artifact_references",
+        "validation/pytest_scenarios/integration/core/test_execution_runner_shutdown.py::test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "execution-runner-private-race-windows"
+      ],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Fifteen real workload cases preserve background/inline/terminal-start/cancel/fail/timeout hooks, exception identity and bounded safe diagnostics/results, revision/attention/eviction waits, parent-child authority/cancellation/detachment, gate FIFO/capacity/live queues/dynamic limits, and admission-closing shutdown/observer cleanup. Public callback/observer inputs replace service mutation. Six exact private race windows remain original-only."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_ops_extensionless_text_mutations.py",
@@ -4396,12 +4472,25 @@
         "_user"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_map_pending_evidence.py::test_legacy_pending_evidence_is_canonical_and_ready"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Actual legacy checkpoint/pending privacy/canonical readiness and real structured author transport reconcile ordered pending plus new evidence. Original [(2,3),(4,5),(6,7)] wire ranges, one request, final checkpoint/pending/classification cleanup, raw/effective history and completed author/no-classifier tasks all retain proof. Real credential access uses explicit local authority rather than bypass."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/pending_evidence_batch11_authorized_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_map_readiness.py",
@@ -4993,12 +5082,25 @@
         "_user"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_stepped_eviction_envelopes.py::test_canonical_envelopes_are_stable_and_reject_stale_or_synthetic_history"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "Canonical envelope/source ranges/digests/projected transcript stability and stale/synthetic/opaque invocation identity rejection retain all original input/output contracts."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/eviction_evidence_batch11_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/stepped_eviction_planner.py",
@@ -5017,12 +5119,25 @@
         "_user"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_stepped_eviction_planner.py::test_eviction_planner_preserves_turn_and_tool_boundaries"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "execution-eviction-chat-recovery-20261028",
+        "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
+        "behavioral_contracts": [
+          "All original structured plans, token watermarks/floor/oversized group/tool boundary/order scenarios and both semantic ValueError reasons remain under actual app startup; explicit provider messages are inputs, not generated history claims."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/eviction_evidence_batch11_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/stepped_session_map_post_turn.py",
@@ -10231,19 +10346,43 @@
       ],
       "evidence_scope": "Eleven cases passed focused runs. Real production overflow producer preserves generic name/ref correspondence instead of synthetic probe identity. Editorial assertions are explicitly deferred, not counted as proved semantics.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "execution-eviction-chat-recovery-20261028",
+      "source_identities": [
+        "integration/core/execution_task_runner",
+        "integration/core/stepped_eviction_planner",
+        "integration/core/stepped_eviction_envelopes",
+        "integration/core/session_map_pending_evidence",
+        "integration/core/chat_manual_retry",
+        "integration/core/chat_stream_auto_retry",
+        "integration/core/chat_cancellation"
+      ],
+      "pytest_cases": 22,
+      "partial_ports": [
+        "integration/core/execution_task_runner",
+        "integration/core/chat_manual_retry",
+        "integration/core/chat_stream_auto_retry",
+        "integration/core/chat_cancellation"
+      ],
+      "evidence_scope": "Twenty-two cases passed focused runs. Execution runner15 passed one reused worker; true structured author and shared retry budget replace earlier source callbacks/identity checks. Initial authority/tool-configuration and legacy SDK probe failures retained.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 87,
-    "sources_without_staged_nodes": 59,
+    "sources_with_staged_nodes": 94,
+    "sources_without_staged_nodes": 52,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 128,
-    "staged_default_core_cases": 134,
+    "new_focused_passing_cases": 150,
+    "staged_default_core_cases": 156,
     "partial_source_ports": [
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/builtin_connection_configuration",
+      "integration/core/chat_cancellation",
       "integration/core/chat_failure_logging",
+      "integration/core/chat_manual_retry",
+      "integration/core/chat_stream_auto_retry",
       "integration/core/chat_stream_failure_logging",
       "integration/core/chat_task_event_stream_api",
       "integration/core/chat_task_session_queue",
@@ -10252,6 +10391,7 @@
       "integration/core/content_import_tool",
       "integration/core/default_context",
       "integration/core/encrypted_secrets_boundaries",
+      "integration/core/execution_task_runner",
       "integration/core/file_write_same_path_concurrency",
       "integration/core/gmail_connection_api",
       "integration/core/legacy_secrets_migration",
