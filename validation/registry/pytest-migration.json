@@ -762,12 +762,25 @@
         "self._get_api_client()._client.post"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_multipart_upload_limits.py::test_oversized_multipart_image_creates_no_task"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Actual multipart image above size limit is rejected before task creation; no model request is required."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_surfaces_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_reasoning_history_policy.py",
@@ -1034,12 +1047,28 @@
         "self._wait_for_task_terminal"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_stream_background_task.py::test_background_stream_completion_and_cancellation",
+        "validation/pytest_scenarios/integration/core/test_chat_prepared_stream_buffer.py::test_prepared_stream_uses_isolated_event_buffer",
+        "validation/pytest_scenarios/integration/core/test_chat_prepared_stream_buffer.py::test_prepared_stream_cancellation_uses_isolated_event_buffer"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real API/global-buffer background stream completes/cancels and persists results; real prepared agents also complete/cancel using caller-supplied isolated buffers, terminal events absent from global buffer."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_surfaces_batch12_20261028/report.json",
+          "validation/runs/pytest_migration/chat_private_cancel_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_stream_failure_logging.py",
@@ -1115,12 +1144,25 @@
         "_consume_stream"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_stream_keepalive.py::test_keepalive_then_completion_and_cancel"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Gated actual provider before response/first delta establishes keepalive without earlier model events, followed by real completion and cancellation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_surfaces_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_surface_adapter.py",
@@ -1160,12 +1202,25 @@
         "self._wait_for_task_terminal"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_surface_adapter.py::test_surface_adapter_completion_and_cancel"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real surface adapter start/subscribe/cancel, owner/workspace/traversal/history/metadata and local provider completion preserve app behavior; recording surface is the external transport input."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_surfaces_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_task_event_buffer.py",
@@ -2644,12 +2699,27 @@
         "self._assert_tool_contract"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_attachment_tool.py::test_gmail_attachment_policy_and_numbered_tool_writes"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "gmail-selected-connection-token-routing"
+      ],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real saved encrypted connection/grants and real resource/tool stack enforce policy, data bounds, attachment writes and numbered collisions. Default grant transport succeeds; selected multiaccount token routing remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_connection_api.py",
@@ -2748,12 +2818,31 @@
         "self._assert_tool"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_draft_policy_scope_bounds_and_confidential_activity",
+        "validation/pytest_scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_missing_resource_and_real_configuration_network_failures_settle",
+        "validation/pytest_scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_locked_storage_returns_actionable_configuration_result",
+        "validation/pytest_scenarios/integration/core/test_gmail_callback_failures.py::test_gmail_constructor_callback_parse_failures_propagate_without_http"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "gmail-selected-connection-token-routing"
+      ],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Actual saved grants, real resource/tool operations, policy/scope/bounds/confidential activity, locked encrypted storage, missing-resource and configuration/network failures settle correctly. Actual constructor callback parse failure propagates. Selected multiaccount token routing remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
+          "validation/runs/pytest_migration/gmail_callback_inputs_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_principal_connection.py",
@@ -2836,12 +2925,30 @@
         "httpx.MockTransport"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_read_resources.py::test_gmail_search_message_thread_and_draft_mime",
+        "validation/pytest_scenarios/integration/core/test_gmail_http_failures.py::test_gmail_draft_dispatch_outcomes_and_pre_request_authorization",
+        "validation/pytest_scenarios/integration/core/test_gmail_http_failures.py::test_gmail_attachment_bounds_decode_and_retry_real_http",
+        "validation/pytest_scenarios/integration/core/test_gmail_http_failures.py::test_gmail_search_authentication_empty_retry_timeout_and_malformed_mime",
+        "validation/pytest_scenarios/integration/core/test_gmail_callback_failures.py::test_gmail_constructor_callback_parse_failures_propagate_without_http"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Actual HTTP search/message/thread/draft MIME, empty/authentication/retry/read-timeout/malformed MIME outcomes, draft dispatch/authorization and attachment bounds/base64 retain actual client results. Genuine constructor callback JSON parse failures propagate unchanged before HTTP. Intended Gmail HTTPS host/path are checked before controlled loopback routing; no live Google/TLS claim."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
+          "validation/runs/pytest_migration/gmail_callback_inputs_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_tool_failure_chat.py",
@@ -2874,12 +2981,25 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_failure_chat.py::test_gmail_not_found_tool_result_preserves_guidance_and_chat_continues"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real Gmail404 reaches the actual model request as tool failure guidance; persisted metadata and failed activity retain not_found and chat continues through loopback model output."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/goal_ops.py",
@@ -2924,12 +3044,25 @@
         "self._validate_goal_cleanup_endpoint"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_goal_ops.py::test_goal_tool_provenance_activity_and_retention"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real goal store/tool/task/activity preserve caller provenance, plans/checkpoints/filtering, migrations, retention and API deletion cascade. Explicit caller dependencies are scenario inputs."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/goals_jobs_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/google_oauth_coordinator.py",
@@ -3178,12 +3311,25 @@
         "self._runtime"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_job_tool.py::test_job_tool_observes_and_controls_owned_tasks"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "gmail-goals-chat-surfaces-20261028",
+        "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
+        "behavioral_contracts": [
+          "Real owned coordinator tasks prove list/status/wait, actual timeout, single and batch cancellation, missing/foreign-task authority and fifty-item cap. Queued input records do not claim workflow body execution."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/goals_jobs_batch12_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/legacy_secrets_migration.py",
@@ -10367,15 +10513,37 @@
       ],
       "evidence_scope": "Twenty-two cases passed focused runs. Execution runner15 passed one reused worker; true structured author and shared retry budget replace earlier source callbacks/identity checks. Initial authority/tool-configuration and legacy SDK probe failures retained.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "gmail-goals-chat-surfaces-20261028",
+      "source_identities": [
+        "integration/core/gmail_read_tools",
+        "integration/core/gmail_attachment_tool",
+        "integration/core/gmail_draft_tool",
+        "integration/core/gmail_tool_failure_chat",
+        "integration/core/goal_ops",
+        "integration/core/job_tool",
+        "integration/core/chat_multipart_upload_limits",
+        "integration/core/chat_stream_background_task",
+        "integration/core/chat_stream_keepalive",
+        "integration/core/chat_surface_adapter"
+      ],
+      "pytest_cases": 18,
+      "partial_ports": [
+        "integration/core/gmail_attachment_tool",
+        "integration/core/gmail_draft_tool"
+      ],
+      "evidence_scope": "Eighteen cases passed focused runs with completed cleanup. Real loopback HTTP replaces Gmail mocks; real configured agents replace chat fakes. Constructor callback failures execute genuine malformed parsing. Multiaccount token routing remains explicit partial scope.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 94,
-    "sources_without_staged_nodes": 52,
+    "sources_with_staged_nodes": 104,
+    "sources_without_staged_nodes": 42,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 150,
-    "staged_default_core_cases": 156,
+    "new_focused_passing_cases": 168,
+    "staged_default_core_cases": 174,
     "partial_source_ports": [
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/builtin_connection_configuration",
@@ -10393,7 +10561,9 @@
       "integration/core/encrypted_secrets_boundaries",
       "integration/core/execution_task_runner",
       "integration/core/file_write_same_path_concurrency",
+      "integration/core/gmail_attachment_tool",
       "integration/core/gmail_connection_api",
+      "integration/core/gmail_draft_tool",
       "integration/core/legacy_secrets_migration",
       "integration/core/mcp_oauth_storage",
       "integration/core/model_alias_resolution",

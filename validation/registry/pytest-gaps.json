@@ -671,6 +671,24 @@
         "pytest-scenario-library-refactor-plan.md",
         "validation/runs/pytest_migration/batch11-evidence-index.json"
       ]
+    },
+    {
+      "id": "gmail-selected-connection-token-routing",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/gmail_attachment_tool",
+        "integration/core/gmail_draft_tool"
+      ],
+      "missing_proof": "The supported GmailResourceService client_factory receives execution authority but not the selected connection ID. The real fixture resolves the saved default grant. Selector/policy/activity and default grant HTTP behavior pass, but do not establish that each explicitly selected account supplies its own token as the original private client stub asserted.",
+      "cleanup_action": "Establish a supported deterministic multiaccount transport construction boundary and assert actual outgoing token/account correspondence before retiring originals. Do not infer account routing from logged selected metadata.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/gmail_attachment_tool.py",
+        "validation/scenarios/integration/core/gmail_draft_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
+      ]
     }
   ]
 }

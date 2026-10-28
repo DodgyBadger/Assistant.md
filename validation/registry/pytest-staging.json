@@ -132,6 +132,23 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_multipart_upload_limits.py",
+      "sha256": "7c5859e5cc17460ef36bdb0ee5d7871f47b1a2e096241d81677cc30734ccda33",
+      "kind": "behavioral",
+      "tests": [
+        "test_oversized_multipart_image_creates_no_task"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_prepared_stream_buffer.py",
+      "sha256": "108412246d76450db7492eafc3f484f0522e8d42c51975d801ce540d49e77acf",
+      "kind": "behavioral",
+      "tests": [
+        "test_prepared_stream_uses_isolated_event_buffer",
+        "test_prepared_stream_cancellation_uses_isolated_event_buffer"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_reasoning_history_policy.py",
       "sha256": "7a7434f729e4cffdc4bf66c85d44e13ce4e611a6d010820806a444554bf65a25",
       "kind": "behavioral",
@@ -164,11 +181,35 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_stream_background_task.py",
+      "sha256": "dda18eff5ff5c6c21a7e26156e3c0b043ee35b33567a62e41bd922b724939e95",
+      "kind": "behavioral",
+      "tests": [
+        "test_background_stream_completion_and_cancellation"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_stream_failure_logging.py",
       "sha256": "9d5dd86e6b712a83b73b230cb5af9543441df80441fdc0cc8d3e21547542bfb4",
       "kind": "behavioral",
       "tests": [
         "test_stream_failure_marker_logging_and_recovery"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_stream_keepalive.py",
+      "sha256": "6cce29d692ca69002ed1064fea9f510b31dfcb08c92d2b2acf5de8b9ac6396f5",
+      "kind": "behavioral",
+      "tests": [
+        "test_keepalive_then_completion_and_cancel"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_surface_adapter.py",
+      "sha256": "2d79699bb0fa6c12b953535119ae4c78e4b62acf62c26918bcda7bec518068b3",
+      "kind": "behavioral",
+      "tests": [
+        "test_surface_adapter_completion_and_cancel"
       ]
     },
     {
@@ -413,6 +454,22 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_gmail_attachment_tool.py",
+      "sha256": "8a1fcee36087c3be8c3645171b136019e683b4b064be9fbc3e5395453b2501b2",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_attachment_policy_and_numbered_tool_writes"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_gmail_callback_failures.py",
+      "sha256": "215ca1cfdd5656c7b08bfad9ef9d9204b4dd2e982c7c3d3b68f1b7d3be2533f6",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_constructor_callback_parse_failures_propagate_without_http"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_gmail_connection_api.py",
       "sha256": "e8db73963bb64646d55afeb2d78dbff9aefa5333e54d01bebf6403856e9af455",
       "kind": "behavioral",
@@ -421,11 +478,55 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_gmail_draft_tool.py",
+      "sha256": "09e74ce45e5a493d47629638571498a01dbaa369896ae2655d0dae57c92c4c39",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_draft_policy_scope_bounds_and_confidential_activity",
+        "test_gmail_missing_resource_and_real_configuration_network_failures_settle",
+        "test_gmail_locked_storage_returns_actionable_configuration_result"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_gmail_failure_chat.py",
+      "sha256": "2d16cb8085af337957c86ce8f8e412eb3e2b31f73293b6c31054ba0b88371915",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_not_found_tool_result_preserves_guidance_and_chat_continues"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_gmail_http_failures.py",
+      "sha256": "f0fa4480165f7ba41d340f5709981bca9d849341aaabe30165fff66cccfece88",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_draft_dispatch_outcomes_and_pre_request_authorization",
+        "test_gmail_attachment_bounds_decode_and_retry_real_http",
+        "test_gmail_search_authentication_empty_retry_timeout_and_malformed_mime"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_gmail_principal_connection.py",
       "sha256": "6cd55ea064ef8205cd92adce1fbf1801448cdae3b86f4579f733507d3f719c99",
       "kind": "behavioral",
       "tests": [
         "test_google_grants_are_owner_scoped_encrypted_and_invalidated_atomically"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_gmail_read_resources.py",
+      "sha256": "a1707172b335e1155733a827c4519a0ac33e56cfbd2efede6fae0b53d55898c4",
+      "kind": "behavioral",
+      "tests": [
+        "test_gmail_search_message_thread_and_draft_mime"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_goal_ops.py",
+      "sha256": "4f0422965a2d8f39103ce7181998aacaf529186810967249146967724de2532b",
+      "kind": "behavioral",
+      "tests": [
+        "test_goal_tool_provenance_activity_and_retention"
       ]
     },
     {
@@ -471,6 +572,14 @@
         "test_session_time_boundaries",
         "test_invalid_requests_and_rate_limit",
         "test_peer_modes"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_job_tool.py",
+      "sha256": "e83727b6cb9fd3af6e189029bd5e2b5e2fe8dcdc74526623c8558ba1e20e13ac",
+      "kind": "behavioral",
+      "tests": [
+        "test_job_tool_observes_and_controls_owned_tasks"
       ]
     },
     {
@@ -922,6 +1031,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/chat_idle_provider.py",
+      "sha256": "f65a307a82a726e3937364d8c84a8e49e6b01f4d1b72cf51053a64a4776371c1",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/chat_persistence.py",
       "sha256": "2c892dad93bf77b998ff68990cebf08a2da671686daa16e7fed29c8885957ada",
       "kind": "support"
@@ -939,6 +1053,11 @@
     {
       "path": "pytest_scenarios/support/chat_stream_provider.py",
       "sha256": "b3f696107e1949e8a8c255716d60b32267c6531130df53ca5ee5caa67efa11ec",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/chat_surface_journeys.py",
+      "sha256": "88ca4455e8cf4213b12c421056af66d8aa8649ee7fad904d55f437e97948c414",
       "kind": "support"
     },
     {
@@ -974,6 +1093,26 @@
     {
       "path": "pytest_scenarios/support/file_tools.py",
       "sha256": "b2e6694d22dec0e17ee76d9680591fb7751b06be3da91b631d37fc84cd44df03",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/gmail_callback_inputs.py",
+      "sha256": "14dbb34a3aa31fbebf271a184f8c6debecddff62c50a111c94dde2b627427039",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/gmail_http.py",
+      "sha256": "b7f080046763c2e5e9188c4594f66b5c8b98dc990f465849522971df08a1cc59",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/gmail_locked.py",
+      "sha256": "3c5d564a2cfe28aefa9c2421229247a0d24e6d6e24053a083ec159f6bfb6bfee",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/goal_job_inputs.py",
+      "sha256": "51a9d7c7ebdfaa189a82980c0db6a43004d536694e43b421210744152378dd1e",
       "kind": "support"
     },
     {
