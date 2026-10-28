@@ -68,8 +68,8 @@ class Application:
     def write(self, vault: Path, path: str, content: str) -> None:
         self.vaults.create_file(vault, path, content)
 
-    async def start(self) -> None:
-        await self.controller.start_system()
+    async def start(self, *, public_url: str | None = None) -> None:
+        await self.controller.start_system(public_url=public_url)
         self.evidence.step("application_started")
 
     def request(

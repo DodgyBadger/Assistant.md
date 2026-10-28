@@ -335,12 +335,31 @@
         "self._assert_atomic_mutations"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_builtin_connection_configuration.py::test_google_connection_configuration_and_atomic_cleanup",
+        "validation/pytest_scenarios/integration/core/test_builtin_connection_configuration.py::test_invalid_gmail_preferences_are_rejected",
+        "validation/pytest_scenarios/integration/core/test_google_connection_api_mutations.py::test_default_and_duplicate_name_errors_preserve_connections"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "google-connection-transaction-races",
+        "google-disconnect-cleanup-rollback"
+      ],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real principal metadata/Gmail defaults and validation, identity-vs-preference generations, default promotion/deletion, immutable slugs, SQLite-trigger rollback on identity cleanup and concurrent single-default creation. Actual HTTP promotion, unset-default400 and duplicate-name400 preserve full state."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
+          "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/cache_manual_purge.py",
@@ -1030,12 +1049,25 @@
         "_collect_until_done"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_task_event_buffer.py::test_chat_task_event_buffer"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Original public buffer replay/subscription/terminal/expiry/pruning/snapshot-reduction/retry/tool/redirect/unknown-event contracts with explicit component event inputs under real app startup; these input events are not claimed as generated model output."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_tasks_batch7_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_task_event_stream_api.py",
@@ -1083,12 +1115,29 @@
         "sse_stream.__anext__"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_task_stream_queue.py::test_chat_stream_replay_and_disconnect",
+        "validation/pytest_scenarios/integration/core/test_chat_task_api_boundaries.py::test_chat_snapshot_cursor_handoff_and_task_boundaries",
+        "validation/pytest_scenarios/integration/core/test_chat_task_api_boundaries.py::test_running_chat_can_be_cancelled_after_disconnect"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "chat-replay-expiry-projection-and-fork-faults"
+      ],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real gated HTTP model transport drives task/stream replay, unchanged running state after subscriber close, revision/persistence/fork, non-chat404, empty queued snapshot, snapshot cursor-to-SSE handoff with newer sequences only, and explicit running cancellation terminal replay."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_task_session_queue.py",
@@ -1128,12 +1177,27 @@
         "self._wait_for_task_terminal"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_task_stream_queue.py::test_chat_session_queue_and_queued_cancellation"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "chat-queue-preflight-approval-contracts"
+      ],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real provider release gate and captured requests prove per-session serialization, active task, queued cancellation replay, no queued provider invocation while predecessor runs, and committed prior prompt/response in the next turn."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_tool_metadata_visibility.py",
@@ -1301,12 +1365,27 @@
         "super().__init__"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_code_execution.py::test_code_execution_chat_helper_surface"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "code-execution-delegated-image-scope"
+      ],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "All eleven original controlled code inputs cross real chat/model/tool execution and preserve output/files/streaming/events. Configured HTTP provider requests actual code_execution and echoes actual received tool output; cache/history fixtures remain inputs, not generated outcomes."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/code_execution_rollback.py",
@@ -1339,12 +1418,25 @@
         "_CodeExecutionFailingAgent"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_code_execution_rollback.py::test_code_execution_mutation_rolls_back_with_failed_chat"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real code_execution writes a file; configured HTTP provider observes the actual write before rejecting the next model request with HTTP400. Failed parent task, mutation/rollback events and final absent file replace a fake failing agent."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/content_import_tool.py",
@@ -1992,12 +2084,30 @@
         "_validate_deferred_review_overrides"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_ops_inline_edit_policy.py::test_normal_writes_and_inline_reads_execute_without_review",
+        "validation/pytest_scenarios/integration/core/test_file_ops_inline_edit_policy.py::test_inline_mkdir_review_preserves_operation_and_policy",
+        "validation/pytest_scenarios/integration/core/test_file_ops_inline_edit_policy.py::test_inline_mkdir_overrides_cannot_escape_vault[../mkdir-escape]",
+        "validation/pytest_scenarios/integration/core/test_file_ops_inline_edit_policy.py::test_inline_mkdir_overrides_cannot_escape_vault[Notes/../../mkdir-escape]",
+        "validation/pytest_scenarios/integration/core/test_file_ops_inline_edit_policy.py::test_inline_write_review_keeps_target_immutable"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real normal write/inline read bypass review, while actual inline write/mkdir create reviews. HTTP immutable operation/overwrite/write-target rejection, corrected mkdir resume and two traversal denials preserve original policy contracts. Provider JSON text is decoded before exact argument equality, not weakened to subset matching."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json",
+          "validation/runs/pytest_migration/inline_reviews_batch7_fixed_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_ops_unified_tool.py",
@@ -2311,12 +2421,27 @@
         "self._connections.get_google_connection_for_authority"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_connection_api.py::test_persisted_gmail_policy_controls_oauth_scopes_and_draft_readiness"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "gmail-connection-ui-policy"
+      ],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real persisted readonly/compose preferences drive actual OAuth authorization URL scopes, capability availability and ordered connection-correlated activity. Explicit public-origin runtime fixture input replaces mocked OAuth/runtime/response/logger objects; original static UI assertions remain deferred."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_draft_tool.py",
@@ -2397,12 +2522,25 @@
         "patch.object"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_gmail_principal_connection.py::test_google_grants_are_owner_scoped_encrypted_and_invalidated_atomically"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "chat-code-connections-20261028",
+        "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
+        "behavioral_contracts": [
+          "Real principal isolation, encrypted synthetic credential/grant state, Gmail readiness/scope checks and connection selectors; actual SQLite abort preserves credentials/grants during failed rotation, followed by successful invalidation and disconnect."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_read_tools.py",
@@ -9630,19 +9768,46 @@
       ],
       "evidence_scope": "All nine cases passed focused runs; failed premature FTS setup is retained. Real transport/callback/configuration inputs replace patching and bypasses.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "chat-code-connections-20261028",
+      "source_identities": [
+        "integration/core/builtin_connection_configuration",
+        "integration/core/gmail_connection_api",
+        "integration/core/gmail_principal_connection",
+        "integration/core/chat_task_event_buffer",
+        "integration/core/chat_task_event_stream_api",
+        "integration/core/chat_task_session_queue",
+        "integration/core/code_execution",
+        "integration/core/code_execution_rollback",
+        "integration/core/file_ops_inline_edit_policy"
+      ],
+      "pytest_cases": 17,
+      "partial_ports": [
+        "integration/core/builtin_connection_configuration",
+        "integration/core/chat_task_event_stream_api",
+        "integration/core/chat_task_session_queue",
+        "integration/core/gmail_connection_api"
+      ],
+      "evidence_scope": "Seventeen cases passed across focused runs; OAuth origin/scope and review argument-encoding fixture failures retained. Normal API contracts were extended before accepting hard-controlled failure gaps.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 51,
-    "sources_without_staged_nodes": 95,
+    "sources_with_staged_nodes": 60,
+    "sources_without_staged_nodes": 86,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 79,
-    "staged_default_core_cases": 85,
+    "new_focused_passing_cases": 96,
+    "staged_default_core_cases": 102,
     "partial_source_ports": [
+      "integration/core/builtin_connection_configuration",
+      "integration/core/chat_task_event_stream_api",
+      "integration/core/chat_task_session_queue",
       "integration/core/default_context",
       "integration/core/encrypted_secrets_boundaries",
       "integration/core/file_write_same_path_concurrency",
+      "integration/core/gmail_connection_api",
       "integration/core/legacy_secrets_migration",
       "integration/core/model_alias_resolution",
       "integration/core/session_map_readiness",

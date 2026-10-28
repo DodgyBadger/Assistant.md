@@ -30,6 +30,7 @@ from core.runtime.paths import (
     set_bootstrap_roots,
     snapshot_bootstrap_roots,
 )
+from core.runtime.public_url import PublicOrigin
 from core.runtime.state import (
     clear_runtime_context,
     get_runtime_context,
@@ -71,6 +72,7 @@ class SystemController:
         self._prepared = False
         self._acquiring = False
         self._cleanup_failure: BaseException | None = None
+        self._public_origin: PublicOrigin | None = None
         self._validation_secret_key = (
             secret_key
             if secret_key is not None
@@ -152,12 +154,18 @@ class SystemController:
         app.state.runtime = None
         return app
 
-    async def start_system(self):
+    async def start_system(self, *, public_url: str | None = None):
         """Start real system components with test data isolation using runtime bootstrap."""
         if self._cleanup_failure is not None:
             raise RuntimeError(
                 "Previous application cleanup is unconfirmed"
             ) from self._cleanup_failure
+        if public_url is not None:
+            if self.is_running:
+                raise RuntimeError(
+                    "Configure the public URL before starting the application"
+                )
+            self._public_origin = PublicOrigin.parse(public_url)
         if self.is_running:
             return
         bootstrapping = False
@@ -172,6 +180,8 @@ class SystemController:
             config = RuntimeConfig.for_validation(
                 run_path=self.run_path, test_data_root=Path(self.test_data_root)
             )
+
+            config.public_origin = self._public_origin
 
             # Bootstrap runtime services with test configuration
             bootstrapping = True
