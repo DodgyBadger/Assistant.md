@@ -83,11 +83,35 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_failure_logging.py",
+      "sha256": "8362e02978ae4ae9a4c80b29c134f8cdb8e46fb294838c66c17da15c5ed42dac",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_preflight_failure_activity_and_actionable_error"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_model_alias_fallback.py",
+      "sha256": "e47cac0e7a4e843cd9e3b53d0c735cff1fc6c3118ca3ec656a8a801c80fa3158",
+      "kind": "behavioral",
+      "tests": [
+        "test_chat_alias_fallback_and_unavailable_provider"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_session_persistence.py",
       "sha256": "2534af74fdfd22c48e2bba5aa41490f56fa44abdbe53ca18d46be6cb3bf54e99",
       "kind": "behavioral",
       "tests": [
         "test_chat_session_persistence_and_export"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_stream_failure_logging.py",
+      "sha256": "9d5dd86e6b712a83b73b230cb5af9543441df80441fdc0cc8d3e21547542bfb4",
+      "kind": "behavioral",
+      "tests": [
+        "test_stream_failure_marker_logging_and_recovery"
       ]
     },
     {
@@ -164,6 +188,14 @@
       "kind": "behavioral",
       "tests": [
         "test_default_context_sources_and_effective_history"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_deferred_review_alias_fallback.py",
+      "sha256": "4cd4224ffbc5b34f5f6bf386935bc274c522a4d4060e7f59f97edc79186a19f8",
+      "kind": "behavioral",
+      "tests": [
+        "test_deferred_review_resume_uses_fallback_after_model_removal"
       ]
     },
     {
@@ -480,6 +512,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_system_activity_history.py",
+      "sha256": "523fc6a6625b8c9bf325a1225b8f666a248c1c4ee243931eab688f75e77af6ee",
+      "kind": "behavioral",
+      "tests": [
+        "test_retained_system_activity_history_and_pruning"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_system_startup.py",
       "sha256": "552dc105e57885181a892376cb218f111928a6d4fa2f6fc42db282efc843d7fc",
       "kind": "behavioral",
@@ -518,6 +558,14 @@
       "kind": "behavioral",
       "tests": [
         "test_transcript_index_lifecycle_and_authorization"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_vault_activity_migration.py",
+      "sha256": "d702be26b59093887af11a952f43429c66bd54a8b5faf54420a81db2ea69a44a",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_migrates_legacy_vault_activity_and_snapshots"
       ]
     },
     {
@@ -573,6 +621,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_vault_mutation_recording.py",
+      "sha256": "b57721aee2586f3d1496e600a283921aa36edf2c372c450faee71774be0211e9",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_mutations_record_snapshots_and_activity"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_vault_relative_workflows.py",
       "sha256": "8445b7ca45487bbbd6a01a2ca4b5c2b2a6d41f6fe880f2f080a4cc1abc677e30",
       "kind": "behavioral",
@@ -606,6 +662,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_vault_state_scheduled_refresh.py",
+      "sha256": "8faaae7b97f1407314a2ecf0952fabed817cbb9ff4027c6b9b3ca584abf0d425",
+      "kind": "behavioral",
+      "tests": [
+        "test_scheduled_refresh_registration_and_external_edits"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_workflow_cancellation.py",
       "sha256": "19a2a602b54d7cee11a851359d620c0a110ba5083daddbb9148e6812bfd70bd4",
       "kind": "behavioral",
@@ -631,6 +695,15 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_workflow_run_history.py",
+      "sha256": "e85b658741d4ed85ca27006c1d2499eb8ac121f0ba6bdd23681ea28d8e540296",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
+        "test_workflow_history_retention_and_cross_vault_template_projection"
+      ]
+    },
+    {
       "path": "pytest_scenarios/pytest.ini",
       "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
       "kind": "support"
@@ -638,6 +711,16 @@
     {
       "path": "pytest_scenarios/support/__init__.py",
       "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/activity_history.py",
+      "sha256": "cca50e5c38aab56e9241445f73ff7521386e4a74dd3cd43c335d9ddaae1ff3ee",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/activity_migration.py",
+      "sha256": "6a1e96b63fdeae8e9c7fe578675dabdcf2a5f2a0ac68a1097df2a5d0206af900",
       "kind": "support"
     },
     {
@@ -811,6 +894,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/vault_mutation_inputs.py",
+      "sha256": "7fc30de93203e77485d7b93f0dbce045b7fca32928413e63e6a5701478664130",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/vault_recovery.py",
       "sha256": "bf23b55fb6bed12a672460ff84a5ad8d0e9b3750a0128a2ba48836e30cea42c7",
       "kind": "support"
@@ -818,6 +906,11 @@
     {
       "path": "pytest_scenarios/support/vault_state.py",
       "sha256": "f2a9a92b8960af5988ec34b8125d24dcda12c7410149ba49902f4fdc1aaa4716",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/workflow_history_inputs.py",
+      "sha256": "2db44f3105ee4f5323d7696c08e32ddd9c222f13bce908a02a0622bdd0a6e39e",
       "kind": "support"
     },
     {

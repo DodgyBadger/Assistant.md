@@ -496,12 +496,27 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_failure_logging.py::test_chat_preflight_failure_activity_and_actionable_error"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "chat-unexpected-exception-diagnostics"
+      ],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Actual vision-capable configured model plus missing image produces accepted preflight task/error, actionable ValueError, correlated activity and no transcript; provider is not invoked. Injected unexpected RuntimeError path remains explicitly unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_failure_rollback.py",
@@ -646,12 +661,27 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_model_alias_fallback.py::test_chat_alias_fallback_and_unavailable_provider",
+        "validation/pytest_scenarios/integration/core/test_deferred_review_alias_fallback.py::test_deferred_review_resume_uses_fallback_after_model_removal"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Real missing/alternate/ambiguous legacy aliases, unavailable provider without fallback, invalid default and actual chat completion preserve behavior. Additional real pending inline review survives selected model deletion, resumes through actual configured fallback model request, writes approved content and emits correlated fallback activity."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
+          "validation/runs/pytest_migration/deferred_alias_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_multipart_upload_limits.py",
@@ -949,12 +979,27 @@
         "_FailingStreamAgent"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_stream_failure_logging.py::test_stream_failure_marker_logging_and_recovery"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "chat-unexpected-exception-diagnostics"
+      ],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Actual local provider ModelHTTPError retains accepted-only history, durable failure marker, diagnostics/correlation/tool count/raw confidentiality and recovery clearing. Captured successful provider request preserves user history and a system-role context carrying actual failure phase/type, replacing editorial substring assertion; requests are retained as evidence."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_stream_keepalive.py",
@@ -4998,12 +5043,25 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_system_activity_history.py::test_retained_system_activity_history_and_pruning"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Actual API retained paging/filter/export/cursor/no-overlap/tag/earliest queries, compact scheduler records, raw sink isolation and pruning retain all assertions; actual validation-only event adds positive channel proof."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/system_database_migrations.py",
@@ -5623,12 +5681,25 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_activity_migration.py::test_startup_migrates_legacy_vault_activity_and_snapshots"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Original legacy schema/data fixture and exact startup backups, ownership, move grouping, old schema removal/count/version/snapshot identifiers and migration state remain through actual runtime startup."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/activity_migration_batch9_fixed_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_activity_rollback.py",
@@ -6191,12 +6262,25 @@
         "self._mutation_rows"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_mutation_recording.py::test_workflow_mutations_record_snapshots_and_activity"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Real workflow routes all original operation/path mutations with actual files, snapshot/manifest/events/task/activity grouping/move pairs and APIs. Original-equivalent historical chat rows are explicit API-projection inputs, not generated-chat proof. Real callback IsADirectoryError exercises handler failure fields instead of manually raising RuntimeError."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_mutations_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_state_rollback.py",
@@ -6299,12 +6383,25 @@
         "self._write_vault_scan_interval"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_vault_state_scheduled_refresh.py::test_scheduled_refresh_registration_and_external_edits"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Actual startup registration from preinstalled interval, scheduler function/nonoverlap metadata, rescan preservation, no-op activity silence, changed-file observation/activity, runtime disabling and ingestion job preservation retain original proof."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/vault_mutations_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_state_startup_rescan.py",
@@ -6712,12 +6809,28 @@
         "self._job"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_workflow_run_history.py::test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
+        "validation/pytest_scenarios/integration/core/test_workflow_run_history.py::test_workflow_history_retention_and_cross_vault_template_projection"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "workflow-history-governor-output-files"
+      ],
+      "migration": {
+        "batch": "activity-vault-chat-diagnostics-20261028",
+        "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
+        "behavioral_contracts": [
+          "Real authored domain failure, actual task outcome/durable reason, actual APScheduler-generated error/miss and idempotent event replay replace fake scheduler/runtime. Public store retention/cross-vault template inputs remain scoped fixtures; actual status/history APIs and nonempty output-path store finalize/reload retain persistence proof."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     }
   ],
   "pending_backend": [
@@ -9949,18 +10062,41 @@
       ],
       "evidence_scope": "Eleven cases passed focused runs. Wrong retry-path input and missing direct-factory authority failures retained; exact original behavioral counts remain.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "activity-vault-chat-diagnostics-20261028",
+      "source_identities": [
+        "integration/core/system_activity_history",
+        "integration/core/workflow_run_history",
+        "integration/core/vault_activity_migration",
+        "integration/core/vault_state_mutation_recorder",
+        "integration/core/vault_state_scheduled_refresh",
+        "integration/core/chat_failure_logging",
+        "integration/core/chat_stream_failure_logging",
+        "integration/core/chat_model_alias_fallback"
+      ],
+      "pytest_cases": 10,
+      "partial_ports": [
+        "integration/core/workflow_run_history",
+        "integration/core/chat_failure_logging",
+        "integration/core/chat_stream_failure_logging"
+      ],
+      "evidence_scope": "Ten cases passed focused runs; early isolated-directory, reserved vision-model and invalid-input installation setup failures retained. Startup settings and actual deferred-review alias fallback were completed before accepting residual gaps.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 70,
-    "sources_without_staged_nodes": 76,
+    "sources_with_staged_nodes": 78,
+    "sources_without_staged_nodes": 68,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 107,
-    "staged_default_core_cases": 113,
+    "new_focused_passing_cases": 117,
+    "staged_default_core_cases": 123,
     "partial_source_ports": [
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/builtin_connection_configuration",
+      "integration/core/chat_failure_logging",
+      "integration/core/chat_stream_failure_logging",
       "integration/core/chat_task_event_stream_api",
       "integration/core/chat_task_session_queue",
       "integration/core/default_context",
@@ -9980,7 +10116,8 @@
       "integration/core/vault_directory_mutation_concurrency",
       "integration/core/vault_explorer_batch_move",
       "integration/core/vault_explorer_upload",
-      "integration/core/vault_state_rollback"
+      "integration/core/vault_state_rollback",
+      "integration/core/workflow_run_history"
     ],
     "coverage_complete": false,
     "original_sources_retained": true,
