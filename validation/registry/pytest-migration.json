@@ -1984,12 +1984,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_listing.py::test_recursive_root_and_virtual_mount_listing"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Recursive root/dot listing and virtual-doc mount files/directories."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_read_search_text_files.py",
@@ -2017,12 +2030,25 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_search.py::test_search_all_text_files_with_literal_queries_and_caps"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Directory/file/glob text search, hidden exclusions, literal regex/option-like strings, exact no-match result and real public setting cap2/truncation replace private cap patch."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/file_write_directory_delete.py",
@@ -2090,12 +2116,29 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_concurrency.py::test_concurrent_same_path_edits_preserve_all_changes"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Original max_active_writes==1 assertion required patching the replacement function. New real concurrent operations establish successful statuses and no lost updates, not an observed non-overlap interval."
+      ],
+      "gap_ids": [
+        "same-path-active-mutation-serialization"
+      ],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real barrier-synchronized replacements preserve all successful statuses and exact final file contents; no claim of observed internal non-overlap."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/gmail_attachment_tool.py",
@@ -4519,12 +4562,25 @@
         "self._latest_scheduler_record"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_system_startup.py::test_startup_scheduler_persistence_and_resilience"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Root/subfolder discovery, scheduler record persistence/replacement, actual triggered execution/output, repeated restarts and malformed workflow isolation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/startup_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/system_startup_migrations.py",
@@ -4561,12 +4617,25 @@
         "self._table_exists"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_startup_migrations.py::test_startup_migrates_system_databases"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real legacy chat/summary/goal database startup upgrades, histories, retirement and backup data preservation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/startup_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/system_template_seed_refresh.py",
@@ -4606,12 +4675,25 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_template_seed_refresh.py::test_settings_repair_and_explicit_template_refresh"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real repair backups/events/pruning, invalid persisted-concurrency fallback and API bounds, startup preserves customized authoring and explicit refresh installs packaged bytes."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/startup_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/tool_history_integrity.py",
@@ -5120,12 +5202,29 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_file_concurrency.py::test_directory_move_rejects_stale_child_path"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "Original child edit waits during an active directory move depends on pausing os.replace via a patch. Sequential real move and stale-path rejection do not prove active contention/waiting."
+      ],
+      "gap_ids": [
+        "directory-move-active-child-contention"
+      ],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real directory move preserves destination content and rejects later stale-child edits; active contention remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_explorer_batch_move.py",
@@ -5688,12 +5787,25 @@
         "self._wait_for_execution_task"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_workflow_cancellation.py::test_manual_workflow_cancellation"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real workflow task submission, public API cancellation and actual rollback/event outcomes."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/workflow_runtime_20261028_retry/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/workflow_governor_queue.py",
@@ -5723,12 +5835,25 @@
         "_run_probe"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_workflow_governor.py::test_workflow_queue_capacity"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real authored job-wait workflows establish same-vault serial execution, cross-vault overlap and global-limit1 serial execution from emitted timelines."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/workflow_runtime_20261028_retry/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/workflow_governor_timeout.py",
@@ -5756,12 +5881,25 @@
       "fixture_input_candidates": [],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_workflow_governor.py::test_workflow_timeout_metadata_and_history"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Real workflow timeout with original0.01 persisted input, actual task metadata and durable history. UI decimal acceptance is not established or asserted."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/workflow_runtime_20261028_retry/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/workflow_lifecycle_ops.py",
@@ -5791,12 +5929,25 @@
         "self._parse_kv_response"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_workflow_lifecycle.py::test_workflow_enable_disable_and_scheduler_admission"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
+      "coverage_gaps": [],
+      "gap_ids": [],
+      "migration": {
+        "batch": "file-workflow-startup-20261028",
+        "original_baseline": "validation/runs/reports/20261028_161227_753784.json",
+        "behavioral_contracts": [
+          "Enable/disable/load/job/activity contracts preserved; dummy scheduler probe replaced by actual scheduled workflow execution and durable completion."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/workflow_runtime_20261028_retry/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending"
+      }
     },
     {
       "source": "validation/scenarios/integration/core/workflow_run_async.py",
@@ -8991,18 +9142,42 @@
       "partial_ports": [
         "integration/core/legacy_secrets_migration"
       ]
+    },
+    {
+      "id": "file-workflow-startup-20261028",
+      "source_identities": [
+        "integration/core/file_read_recursive_list",
+        "integration/core/file_read_search_text_files",
+        "integration/core/file_write_same_path_concurrency",
+        "integration/core/vault_directory_mutation_concurrency",
+        "integration/core/workflow_cancellation",
+        "integration/core/workflow_governor_queue",
+        "integration/core/workflow_governor_timeout",
+        "integration/core/workflow_lifecycle_ops",
+        "integration/core/system_startup",
+        "integration/core/system_startup_migrations",
+        "integration/core/system_template_seed_refresh"
+      ],
+      "pytest_cases": 13,
+      "partial_ports": [
+        "integration/core/file_write_same_path_concurrency",
+        "integration/core/vault_directory_mutation_concurrency"
+      ],
+      "evidence_scope": "Four file cases, six real workflow cases and three startup cases passed; initial workflow collection/import fixture fault retained separately."
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 14,
-    "sources_without_staged_nodes": 132,
+    "sources_with_staged_nodes": 25,
+    "sources_without_staged_nodes": 121,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 22,
-    "staged_default_core_cases": 26,
+    "new_focused_passing_cases": 35,
+    "staged_default_core_cases": 39,
     "partial_source_ports": [
+      "integration/core/file_write_same_path_concurrency",
+      "integration/core/legacy_secrets_migration",
       "integration/core/settings_database_migration",
-      "integration/core/legacy_secrets_migration"
+      "integration/core/vault_directory_mutation_concurrency"
     ],
     "coverage_complete": false,
     "original_sources_retained": true,

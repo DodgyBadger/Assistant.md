@@ -56,6 +56,31 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_file_concurrency.py",
+      "sha256": "a1ef9984278521ce39712639f55ae2494255e99768d39bed0f0375e0a02712c8",
+      "kind": "behavioral",
+      "tests": [
+        "test_concurrent_same_path_edits_preserve_all_changes",
+        "test_directory_move_rejects_stale_child_path"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_file_listing.py",
+      "sha256": "59b717eac2730a6296c3c09b050fd25133cf8d5f4f009577b8fae6883a655a47",
+      "kind": "behavioral",
+      "tests": [
+        "test_recursive_root_and_virtual_mount_listing"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_file_search.py",
+      "sha256": "8263faca1bfcebf46c3a6f3571d5cdd81fdf459b2cd66004d69eb3b62e2f1a76",
+      "kind": "behavioral",
+      "tests": [
+        "test_search_all_text_files_with_literal_queries_and_caps"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_file_tools.py",
       "sha256": "095abef2ce9f9e53c9936e5db9344509e8ae72001437cce215c985f01da2cb66",
       "kind": "behavioral",
@@ -111,6 +136,30 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_startup_migrations.py",
+      "sha256": "9d0954f743ec7a62df0a67ad7599469198e0edbe92f0f9d49ba8128a5a29a322",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_migrates_system_databases"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_system_startup.py",
+      "sha256": "552dc105e57885181a892376cb218f111928a6d4fa2f6fc42db282efc843d7fc",
+      "kind": "behavioral",
+      "tests": [
+        "test_startup_scheduler_persistence_and_resilience"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_template_seed_refresh.py",
+      "sha256": "01269250d5b133d77785f59c71d365649ea16c3132487692e312473c65fed575",
+      "kind": "behavioral",
+      "tests": [
+        "test_settings_repair_and_explicit_template_refresh"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_vault_file_references.py",
       "sha256": "71dc507bdf50497cdcb4ab63e2c7474b69c577a7d124c998dca206d3da0d2e1c",
       "kind": "behavioral",
@@ -146,6 +195,31 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_workflow_cancellation.py",
+      "sha256": "19a2a602b54d7cee11a851359d620c0a110ba5083daddbb9148e6812bfd70bd4",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_workflow_cancellation"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_workflow_governor.py",
+      "sha256": "a3f5feb7a5e4e8cc4d36530f5440ae182d3ecba37a983053d80b63afe822dba5",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_queue_capacity",
+        "test_workflow_timeout_metadata_and_history"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_workflow_lifecycle.py",
+      "sha256": "e662575735aaaf4255e10ff0b61c0fe999a0ad93ea37dc94501f56c58bf4bd5f",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_enable_disable_and_scheduler_admission"
+      ]
+    },
+    {
       "path": "pytest_scenarios/pytest.ini",
       "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
       "kind": "support"
@@ -158,6 +232,11 @@
     {
       "path": "pytest_scenarios/support/authentication.py",
       "sha256": "467ff26c78dc8a4c1ffb00ed29ce0a5ff78eabc7708ccfbeda22951acfadb41f",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/file_boundaries.py",
+      "sha256": "3bbeeaa3561c6ea1146d781bc5147d36cf4769016cedbadf9474d9f400e0cbc8",
       "kind": "support"
     },
     {
@@ -181,8 +260,18 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/startup.py",
+      "sha256": "757b29042cfacd8f21701b5dc270b76227b4796032c124212d6b2122ba600dd3",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/vault_state.py",
       "sha256": "f2a9a92b8960af5988ec34b8125d24dcda12c7410149ba49902f4fdc1aaa4716",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/workflow_runtime.py",
+      "sha256": "fff4fe6130e43e91c19c48af399472fe955695a9ec764e0190dbaee0ae2ded71",
       "kind": "support"
     },
     {
