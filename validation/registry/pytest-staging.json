@@ -4,13 +4,22 @@
   "files": [
     {
       "path": "pytest_scenarios/application.py",
-      "sha256": "dd89ec145ebc807663b17c1d9dc0a763d1cf9f4f72fa8a20167a6865010fcc39",
+      "sha256": "a34a21097e2485222b3aa04001deafdc558d34450ce2ea2c47ae5ae7bff85bba",
       "kind": "support"
     },
     {
       "path": "pytest_scenarios/conftest.py",
       "sha256": "a4d476ed08da8a5858e1e07189cca533f72f59d4d62a959f6c3d688f1e1c850a",
       "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/experiments/test_cleanup_failure.py",
+      "sha256": "152a98ddf28aaec2c7d40665263196267728ebb8c122725b049b78e4e441185a",
+      "kind": "behavioral",
+      "tests": [
+        "test_shutdown_failure_blocks_reuse",
+        "test_following_application_must_not_start"
+      ]
     },
     {
       "path": "pytest_scenarios/experiments/test_crash_recovery.py",
@@ -21,6 +30,15 @@
         "test_02_real_app_recovers_after_exception",
         "test_03_abort_running_application_worker",
         "test_04_real_app_recovers_after_worker_crash"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/experiments/test_evidence_controls.py",
+      "sha256": "876d962a4959becb76e39c1e8b0c470026f1f37cd54af8e8b15fbb41a9bc939b",
+      "kind": "behavioral",
+      "tests": [
+        "test_wrong_registered_value_is_rejected",
+        "test_unsafe_application_log_is_detected"
       ]
     },
     {
@@ -168,6 +186,15 @@
       "tests": [
         "test_locked_runtime_preserves_access_storage",
         "test_existing_connection_schema_remains_usable"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_logging_capture.py",
+      "sha256": "1143cc4f2b4351ecacfbe866161ca87c7596f227f266c5a9e20e17671d47299b",
+      "kind": "behavioral",
+      "tests": [
+        "test_logging_capture_preserves_application_records",
+        "test_logging_capture_callbacks_cannot_mutate_application_data"
       ]
     },
     {

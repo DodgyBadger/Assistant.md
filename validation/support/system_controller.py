@@ -70,6 +70,7 @@ class SystemController:
         self._original_datetime: Any = None
         self._prepared = False
         self._acquiring = False
+        self._cleanup_failure: BaseException | None = None
         self._validation_secret_key = (
             secret_key
             if secret_key is not None
@@ -94,8 +95,17 @@ class SystemController:
         self._api_app: FastAPI | None = None
         self._api_client: TestClient | None = None
 
+    @property
+    def cleanup_failure(self) -> BaseException | None:
+        """A failed release permanently makes this controller unsafe to reuse."""
+        return self._cleanup_failure
+
     def prepare(self) -> None:
         """Acquire isolated roots, secrets and the shared API client."""
+        if self._cleanup_failure is not None:
+            raise RuntimeError(
+                "Previous application cleanup is unconfirmed"
+            ) from self._cleanup_failure
         if self._prepared:
             return
         if self._acquiring:
@@ -144,6 +154,10 @@ class SystemController:
 
     async def start_system(self):
         """Start real system components with test data isolation using runtime bootstrap."""
+        if self._cleanup_failure is not None:
+            raise RuntimeError(
+                "Previous application cleanup is unconfirmed"
+            ) from self._cleanup_failure
         if self.is_running:
             return
         bootstrapping = False
@@ -206,7 +220,16 @@ class SystemController:
             raise
 
     async def stop_system(self):
-        """Stop the system gracefully using runtime context."""
+        """Release resources and retain uncertainty even after the context clears."""
+        try:
+            await self._release_system()
+        except BaseException as error:
+            if self._cleanup_failure is None:
+                self._cleanup_failure = error
+            raise
+
+    async def _release_system(self) -> None:
+        """Release the current runtime and controller-owned resources."""
         runtime = self._runtime
         try:
             if runtime is not None:
@@ -249,10 +272,15 @@ class SystemController:
         try:
             await self.stop_system()
         finally:
-            if self._api_client is not None:
-                self._api_client.close()
-                self._api_client = None
-            self._api_app = None
+            try:
+                if self._api_client is not None:
+                    self._api_client.close()
+                    self._api_client = None
+                self._api_app = None
+            except BaseException as error:
+                if self._cleanup_failure is None:
+                    self._cleanup_failure = error
+                raise
 
     def set_context_manager_now(self, value: datetime | None) -> None:
         """Override cache clock used by context manager in validation runs."""

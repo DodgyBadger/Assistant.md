@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pytest
 import pytest_asyncio
 from scenario_harness import Observations, ScenarioRun
 
@@ -19,6 +20,34 @@ if TYPE_CHECKING:
 
     from validation.support.system_controller import SystemController
     from validation.support.vault_manager import VaultManager
+
+
+_uncertain_fixture_failure: BaseException | None = None
+
+
+def _stop_after_fixture_failure(
+    request: pytest.FixtureRequest, evidence: ScenarioRun, error: BaseException
+) -> None:
+    """Abort after the real phase report; never reuse an uncertain app process."""
+    global _uncertain_fixture_failure
+    _uncertain_fixture_failure = error
+    request.session.shouldfail = (
+        "Application fixture cleanup is unconfirmed; start a fresh pytest process"
+    )
+    # Mark the session before writing evidence so an I/O failure cannot permit reuse.
+    try:
+        evidence.save_json(
+            "fixture-failure.json",
+            {
+                "type": type(error).__name__,
+                "message": str(error),
+                "reuse_allowed": False,
+            },
+        )
+    except Exception as diagnostic_error:
+        error.add_note(
+            f"Could not retain fixture-failure artifact: {type(diagnostic_error).__name__}"
+        )
 
 
 @dataclass
@@ -135,7 +164,9 @@ class Application:
 
 
 @pytest_asyncio.fixture
-async def app(scenario_run: ScenarioRun) -> AsyncIterator[Application]:
+async def app(
+    scenario_run: ScenarioRun, request: pytest.FixtureRequest
+) -> AsyncIterator[Application]:
     evidence = scenario_run
     from core.runtime.paths import (
         restore_bootstrap_roots,
@@ -144,67 +175,84 @@ async def app(scenario_run: ScenarioRun) -> AsyncIterator[Application]:
     )
     from core.runtime.state import has_runtime_context
 
-    assert (
-        not has_runtime_context()
-    ), "Previous test left the application runtime active"
+    if _uncertain_fixture_failure is not None or has_runtime_context():
+        previous = _uncertain_fixture_failure
+        error = RuntimeError("Previous application ownership is unconfirmed")
+        _stop_after_fixture_failure(request, evidence, error)
+        raise error from previous
     roots = snapshot_bootstrap_roots()
     environment = {
         name: os.environ.get(name)
         for name in ("ASSISTANTMD_SECRETS_KEY", "LOGFIRE_TOKEN")
     }
-    key = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
-    evidence.register_secret(key)
-    os.environ["ASSISTANTMD_SECRETS_KEY"] = key
-    os.environ.pop("LOGFIRE_TOKEN", None)
-    warmup = evidence.root / "bootstrap"
-    for name in ("data", "system"):
-        (warmup / name).mkdir(parents=True)
-    set_bootstrap_roots(warmup / "data", warmup / "system")
-    controller = None
     try:
-        from core.logger import capture_validation_events, close_activity_log_for_root
-        from validation.support.system_controller import SystemController
-        from validation.support.vault_manager import VaultManager
+        controller = None
+        try:
+            key = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+            evidence.register_secret(key)
+            os.environ["ASSISTANTMD_SECRETS_KEY"] = key
+            os.environ.pop("LOGFIRE_TOKEN", None)
+            warmup = evidence.root / "bootstrap"
+            for name in ("data", "system"):
+                (warmup / name).mkdir(parents=True)
+            set_bootstrap_roots(warmup / "data", warmup / "system")
+            from core.logger import (
+                capture_validation_events,
+                close_activity_log_for_root,
+            )
+            from validation.support.system_controller import SystemController
+            from validation.support.vault_manager import VaultManager
 
-        events = evidence.observations
-        with capture_validation_events(
-            evidence.artifacts, sink=events.capture, projector=evidence.redact
-        ):
-            controller = SystemController(evidence.root, secret_key=key)
-            try:
-                application = Application(
-                    controller, VaultManager(evidence.root), evidence, events
-                )
-                evidence.step("application_fixture_ready")
-                yield application
-            finally:
+            events = evidence.observations
+            with capture_validation_events(
+                evidence.artifacts, sink=events.capture, projector=evidence.redact
+            ):
+                controller = SystemController(evidence.root, secret_key=key)
                 try:
-                    await controller.close()
+                    application = Application(
+                        controller, VaultManager(evidence.root), evidence, events
+                    )
+                    evidence.step("application_fixture_ready")
+                    yield application
                 finally:
-                    evidence.save(
-                        "lifecycle.json",
-                        {
-                            "runtime_active_after_close": has_runtime_context(),
-                            "event_count": events.checkpoint(),
-                        },
-                    )
-                    evidence.step(
-                        "application_closed", runtime_active=has_runtime_context()
-                    )
-                    close_activity_log_for_root(evidence.root / "system")
-                    close_activity_log_for_root(warmup / "system")
-    finally:
-        for module_name, reset in (
-            ("core.settings.store", "refresh_settings_cache"),
-            ("core.secrets", "reset_secrets_bootstrap_status"),
-            ("core.llm.model_utils", "invalidate_model_cache"),
-        ):
-            module = sys.modules.get(module_name)
-            if module is not None:
-                getattr(module, reset)()
-        restore_bootstrap_roots(roots)
-        for name, value in environment.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
+                    try:
+                        await controller.close()
+                        if controller.cleanup_failure is not None:
+                            raise RuntimeError(
+                                "Previous application shutdown failed; cleanup is unconfirmed"
+                            ) from controller.cleanup_failure
+                    finally:
+                        evidence.save(
+                            "lifecycle.json",
+                            {
+                                "runtime_active_after_close": has_runtime_context(),
+                                "controller_cleanup_confirmed": controller.cleanup_failure
+                                is None,
+                                "event_count": events.checkpoint(),
+                            },
+                        )
+                        evidence.step(
+                            "application_closed", runtime_active=has_runtime_context()
+                        )
+                        close_activity_log_for_root(evidence.root / "system")
+                        close_activity_log_for_root(warmup / "system")
+        finally:
+            try:
+                for module_name, reset in (
+                    ("core.settings.store", "refresh_settings_cache"),
+                    ("core.secrets", "reset_secrets_bootstrap_status"),
+                    ("core.llm.model_utils", "invalidate_model_cache"),
+                ):
+                    module = sys.modules.get(module_name)
+                    if module is not None:
+                        getattr(module, reset)()
+            finally:
+                restore_bootstrap_roots(roots)
+                for name, value in environment.items():
+                    if value is None:
+                        os.environ.pop(name, None)
+                    else:
+                        os.environ[name] = value
+    except BaseException as error:
+        _stop_after_fixture_failure(request, evidence, error)
+        raise

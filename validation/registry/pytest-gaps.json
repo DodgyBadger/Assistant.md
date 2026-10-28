@@ -191,14 +191,17 @@
       "missing_proof": "Confirmed false-positive assertion: distinct registered secrets compare equal after both observed and expected values become [REDACTED]. contains and require accept an incorrect value.",
       "retained_coverage": [],
       "evidence": [
-        "validation/runs/pytest_migration/architecture_review/redaction-result.json"
+        "validation/runs/pytest_migration/architecture_review/redaction-result.json",
+        "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
       ],
       "code_locations": [
         "../scenario-harness/src/scenario_harness/context.py:85",
         "../scenario-harness/src/scenario_harness/context.py:113"
       ],
-      "cleanup_action": "Preserve original matching semantics and redact only exported copies. Add regressions proving unequal sensitive values remain unequal; do not publish the current matcher.",
-      "status": "open"
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "resolution": "Original deep-copied values now drive matching; only serialized copies and error diagnostics are redacted. Four new package regressions pass, including distinct registered values and mutation isolation. Installed-wheel real-app wrong-value oracle fails as expected."
     },
     {
       "id": "capture-mutates-application-logging",
@@ -213,15 +216,19 @@
         "validation/scenarios/integration/core/settings_lifecycle.py",
         "validation/scenarios/integration/core/ingress_authentication.py"
       ],
-      "evidence": [],
+      "evidence": [
+        "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
+      ],
       "code_locations": [
         "core/logger.py:755",
         "validation/pytest_scenarios/application.py:172",
         "validation/support/adapter.py:63"
       ],
-      "cleanup_action": "Make capture observational, keep exported evidence sanitization separate, and rerun affected logging/security assertions with a negative probe demonstrating that an actual unsafe emission is detectable.",
-      "status": "open",
-      "scope_note": "The legacy adapter shares this projection hook; this is an application-observation boundary problem, not a reason to revert to the old runner."
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "scope_note": "The legacy adapter shares this projection hook; this is an application-observation boundary problem, not a reason to revert to the old runner.",
+      "resolution": "Projection is confined to exported YAML copies; observation gets independent original values. Two logging cases prove production warning identity, original activity emissions and callback mutation isolation. Deliberately unsafe logging fails the unchanged confidentiality oracle; settings lifecycle and owner-session assertions pass unchanged."
     },
     {
       "id": "failed-teardown-worker-reuse",
@@ -230,14 +237,19 @@
       "source_scenarios": [],
       "missing_proof": "Shutdown may fail before background tasks or scheduler stop, yet controller clears global runtime and the next fixture admits another app based only on that cleared sentinel. No active leak was reproduced; the failure-path weakness is established by control flow.",
       "retained_coverage": [],
-      "evidence": [],
+      "evidence": [
+        "validation/runs/pytest_migration/cleanup_failure_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/caught_cleanup_failure_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/crash_recovery_fixed_20261028/report.json"
+      ],
       "code_locations": [
         "validation/support/system_controller.py:212",
         "core/runtime/context.py:115",
         "validation/pytest_scenarios/application.py:148"
       ],
-      "cleanup_action": "Define failed-teardown isolation/worker-retirement policy and exercise actual teardown failure. A cleared global context must not be treated as proof that all prior services stopped.",
-      "status": "open"
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "resolution": "A sticky controller cleanup failure rejects restart. The app fixture marks the pytest session failed on uncertain fixture release and retains the original error. Real filesystem-induced shutdown failures, including a caught earlier close exception, abort the invocation with exit 2 and leave the next selected application incomplete with no phases. Ordinary cleaned-up startup exceptions continue in the worker; native crashes use xdist replacement."
     }
   ]
 }

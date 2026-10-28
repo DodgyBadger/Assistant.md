@@ -19,6 +19,7 @@ from collections.abc import (
 )
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from logging.handlers import TimedRotatingFileHandler
@@ -133,7 +134,7 @@ def capture_validation_events(
     sink: Callable[[dict[str, Any]], None] | None = None,
     projector: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> Iterator[None]:
-    """Capture validation events for the current execution context."""
+    """Observe original events and optionally project exported artifact copies."""
     global _activity_logger, _activity_log_path
     capture = _ValidationCapture(Path(artifacts_dir).resolve(), sink, projector)
     with _activity_logger_lock:
@@ -467,8 +468,9 @@ def _write_validation_record(record: dict[str, Any]) -> None:
     if directory is None:
         return
     capture = _active_validation_capture()
+    exported_record = record
     if capture is not None and capture.projector is not None:
-        record = capture.projector(record)
+        exported_record = capture.projector(deepcopy(record))
 
     with _validation_log_lock:
         global _validation_event_counter
@@ -481,19 +483,19 @@ def _write_validation_record(record: dict[str, Any]) -> None:
         event_id = _validation_event_counter
 
         directory.mkdir(parents=True, exist_ok=True)
-        tag = _sanitize_validation_name(record.get("tag", "event"))
-        name = _sanitize_validation_name(record.get("name", "event"))
+        tag = _sanitize_validation_name(exported_record.get("tag", "event"))
+        name = _sanitize_validation_name(exported_record.get("name", "event"))
         if boot_id is not None:
             filename = f"{boot_id:04d}_{event_id:05d}_{tag}_{name}.yaml"
         else:
             filename = f"{event_id:05d}_{tag}_{name}.yaml"
         path = directory / filename
 
-        payload = yaml.safe_dump(record, allow_unicode=False, sort_keys=False)
+        payload = yaml.safe_dump(exported_record, allow_unicode=False, sort_keys=False)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(payload)
     if capture is not None and capture.sink is not None:
-        capture.sink(record)
+        capture.sink(deepcopy(record))
 
 
 def _sanitize_validation_name(value: str) -> str:
@@ -750,24 +752,7 @@ class UnifiedLogger:
         if boot_id is not None:
             record["boot_id"] = boot_id
 
-        capture = _active_validation_capture()
         tag = self.tag
-        if capture is not None and capture.projector is not None:
-            record = capture.projector(record)
-            projected_tag = record.get("tag")
-            projected_message = record.get("message")
-            projected_data = record.get("data")
-            if not isinstance(projected_tag, str) or not isinstance(
-                projected_message, str
-            ):
-                raise ValueError(
-                    "Validation projection must preserve string tag and message"
-                )
-            if projected_data is not None and not isinstance(projected_data, dict):
-                raise ValueError("Validation projection must preserve object data")
-            tag = projected_tag
-            message = projected_message
-            payload = projected_data if projected_data is not None else {}
 
         if level == "warning" and _warnings_deduped():
             raw_issue = payload.get("issue")

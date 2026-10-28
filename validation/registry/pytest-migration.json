@@ -2683,8 +2683,8 @@
         "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_invalid_requests_and_rate_limit",
         "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_peer_modes"
       ],
-      "disposition": "staged_port_review_blocked_retain_original",
-      "review_status": "Focused pytest passes retained; registered-secret log-absence proof is blocked because capture projection changes application emission. Original source remains authoritative.",
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Capture blocker resolved. Unchanged settings lifecycle and owner-session logging oracles pass against original emissions; other earlier focused source evidence remains scoped to its original run. Original retained; maintainer acceptance pending.",
       "coverage_gaps": [],
       "migration": {
         "batch": "vault-ingress-secrets-20261028",
@@ -2694,15 +2694,14 @@
           "All original assertions retained; exclusive expiry now uses pytest.raises. Real ASGI applications attach the actual running runtime; cookie and owner/rotated secrets are registered for evidence redaction."
         ],
         "evidence": [
-          "validation/runs/pytest_migration/ingress_authentication_20261028_final/report.json"
+          "validation/runs/pytest_migration/ingress_authentication_20261028_final/report.json",
+          "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
       },
-      "review_blocker_ids": [
-        "capture-mutates-application-logging"
-      ]
+      "review_blocker_ids": []
     },
     {
       "source": "validation/scenarios/integration/core/job_tool.py",
@@ -4322,8 +4321,8 @@
       "planned_pytest_cases": [
         "validation/pytest_scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle"
       ],
-      "disposition": "staged_port_review_blocked_retain_original",
-      "review_status": "Focused pytest passes retained; registered-secret log-absence proof is blocked because capture projection changes application emission. Original source remains authoritative.",
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Capture blocker resolved. Unchanged settings lifecycle and owner-session logging oracles pass against original emissions; other earlier focused source evidence remains scoped to its original run. Original retained; maintainer acceptance pending.",
       "coverage_gaps": [],
       "migration": {
         "batch": "file-api-settings-20261028",
@@ -4334,15 +4333,14 @@
           "Real stale store save and reset revision fencing remain covered."
         ],
         "evidence": [
-          "validation/runs/pytest_migration/settings_20261028/report.json"
+          "validation/runs/pytest_migration/settings_20261028/report.json",
+          "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
       },
-      "review_blocker_ids": [
-        "capture-mutates-application-logging"
-      ]
+      "review_blocker_ids": []
     },
     {
       "source": "validation/scenarios/integration/core/shared_oauth_foundation.py",
@@ -9404,15 +9402,23 @@
   ],
   "cleanup_backlog": "validation/registry/pytest-gaps.json",
   "review_pause": {
-    "state": "paused_after_batch_at_user_request",
+    "state": "paused_after_fixes_and_focused_verification",
     "assessment": "validation/runs/pytest_migration/architecture_review/assessment.md",
-    "blocker_ids": [
+    "blocker_ids": [],
+    "direction": "pytest_plus_xdist_still_endorsed",
+    "fixes_applied": true,
+    "passing_pytest_verdicts_are_not_evidence_certification": true,
+    "resolved_blocker_ids": [
       "observation-redaction-equality",
       "capture-mutates-application-logging",
       "failed-teardown-worker-reuse"
     ],
-    "direction": "pytest_plus_xdist_still_endorsed",
-    "fixes_applied": false,
-    "passing_pytest_verdicts_are_not_evidence_certification": true
+    "verification_evidence": [
+      "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
+      "validation/runs/pytest_migration/cleanup_failure_fixed_20261028/report.json",
+      "validation/runs/pytest_migration/caught_cleanup_failure_fixed_20261028/report.json",
+      "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json",
+      "validation/runs/pytest_migration/crash_recovery_fixed_20261028/report.json"
+    ]
   }
 }
