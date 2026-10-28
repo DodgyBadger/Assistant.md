@@ -216,10 +216,12 @@
       "evidence": [],
       "code_locations": [
         "core/logger.py:755",
-        "validation/pytest_scenarios/application.py:172"
+        "validation/pytest_scenarios/application.py:172",
+        "validation/support/adapter.py:63"
       ],
       "cleanup_action": "Make capture observational, keep exported evidence sanitization separate, and rerun affected logging/security assertions with a negative probe demonstrating that an actual unsafe emission is detectable.",
-      "status": "open"
+      "status": "open",
+      "scope_note": "The legacy adapter shares this projection hook; this is an application-observation boundary problem, not a reason to revert to the old runner."
     },
     {
       "id": "failed-teardown-worker-reuse",

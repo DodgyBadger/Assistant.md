@@ -2683,8 +2683,8 @@
         "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_invalid_requests_and_rate_limit",
         "validation/pytest_scenarios/integration/core/test_ingress_authentication.py::test_peer_modes"
       ],
-      "disposition": "staged_verified_port_retain_original",
-      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "disposition": "staged_port_review_blocked_retain_original",
+      "review_status": "Focused pytest passes retained; registered-secret log-absence proof is blocked because capture projection changes application emission. Original source remains authoritative.",
       "coverage_gaps": [],
       "migration": {
         "batch": "vault-ingress-secrets-20261028",
@@ -2699,7 +2699,10 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
-      }
+      },
+      "review_blocker_ids": [
+        "capture-mutates-application-logging"
+      ]
     },
     {
       "source": "validation/scenarios/integration/core/job_tool.py",
@@ -4319,8 +4322,8 @@
       "planned_pytest_cases": [
         "validation/pytest_scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle"
       ],
-      "disposition": "staged_verified_port_retain_original",
-      "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
+      "disposition": "staged_port_review_blocked_retain_original",
+      "review_status": "Focused pytest passes retained; registered-secret log-absence proof is blocked because capture projection changes application emission. Original source remains authoritative.",
       "coverage_gaps": [],
       "migration": {
         "batch": "file-api-settings-20261028",
@@ -4336,7 +4339,10 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
-      }
+      },
+      "review_blocker_ids": [
+        "capture-mutates-application-logging"
+      ]
     },
     {
       "source": "validation/scenarios/integration/core/shared_oauth_foundation.py",
@@ -9379,7 +9385,11 @@
     ],
     "coverage_complete": false,
     "original_sources_retained": true,
-    "dependency_and_ci_cutover": false
+    "dependency_and_ci_cutover": false,
+    "evidence_review_blocked_sources": [
+      "integration/core/settings_lifecycle",
+      "integration/core/ingress_authentication"
+    ]
   },
   "known_open_behaviors": [
     {
@@ -9392,5 +9402,17 @@
       "cleanup_gap_id": "vault-root-alias-contract"
     }
   ],
-  "cleanup_backlog": "validation/registry/pytest-gaps.json"
+  "cleanup_backlog": "validation/registry/pytest-gaps.json",
+  "review_pause": {
+    "state": "paused_after_batch_at_user_request",
+    "assessment": "validation/runs/pytest_migration/architecture_review/assessment.md",
+    "blocker_ids": [
+      "observation-redaction-equality",
+      "capture-mutates-application-logging",
+      "failed-teardown-worker-reuse"
+    ],
+    "direction": "pytest_plus_xdist_still_endorsed",
+    "fixes_applied": false,
+    "passing_pytest_verdicts_are_not_evidence_certification": true
+  }
 }
