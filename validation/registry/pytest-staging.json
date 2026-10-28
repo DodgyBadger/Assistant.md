@@ -231,11 +231,61 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_principal_authority_boundaries.py",
+      "sha256": "65c878892e89fc5ff23913b44d57d17f1c7080789fd81b9d5a97a736509e6122",
+      "kind": "behavioral",
+      "tests": [
+        "test_foreign_session_and_task_identifiers_cannot_rebind_or_cancel"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_principal_execution_authority.py",
+      "sha256": "ffe85d6a26001e68fbdf8b2491ab3eb93ed1742cccb4f8e69b2868b79535dd48",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_session_ownership_migrates_and_cannot_be_rebound",
+        "test_runtime_authority_is_captured_for_nested_threaded_and_connected_tasks"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_session_discovery.py",
       "sha256": "b280a8bf03592f0e1f442a419ead23fa849502b260de6b11c23d65a809e75a34",
       "kind": "behavioral",
       "tests": [
         "test_session_discovery_indexes_and_authorization"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_discovery_cutover.py",
+      "sha256": "6bc686cad57bd86e023c654cd4955e37c26c1c9d554bb3e3b1f13665473d01c9",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_summary_retirement_preserves_authored_state"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_readiness.py",
+      "sha256": "833e51a8b9d37dcf0d86f02bf5a26496affae540ffd28989aff1645a25df0851",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_readiness_fails_closed_for_invalid_settings"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_schema.py",
+      "sha256": "d19fedba71ffdbfc198f3f274d5c729a230c7fda3d34cd8dd073f1b128376923",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_provenance_and_authoring_inputs",
+        "test_session_map_schema_rejects_unbounded_or_unsupported_state"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_ops_chat_tool.py",
+      "sha256": "6cd4297b282543ce517edb911e5c84fee39fb0e7b3c066c14f5b2d9b5409f896",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_ops_chat_discovery_and_safe_failure"
       ]
     },
     {
@@ -293,6 +343,14 @@
       "kind": "behavioral",
       "tests": [
         "test_settings_repair_and_explicit_template_refresh"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_transcript_retrieval_storage.py",
+      "sha256": "85dfa99f38dc7122bfd24e4b12709115d33a1bc32307af190a516d1e035b1a4b",
+      "kind": "behavioral",
+      "tests": [
+        "test_transcript_index_lifecycle_and_authorization"
       ]
     },
     {
@@ -466,6 +524,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/principal_authority.py",
+      "sha256": "d1cc2be54d2421a90a23ce333b11e3a8067d1a4f96fd2c65feb34f19c8e76cd1",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/secrets_migration.py",
       "sha256": "b329de99d1b22fb880f6b7a784a11f85408b5d44a8bfb150591aee9e3419a909",
       "kind": "support"
@@ -476,8 +539,28 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/session_cutover.py",
+      "sha256": "db424ecf885f0baff3ec4f1a6a1ff65f35bebf4eb29a713d3afca28143946500",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/session_discovery.py",
       "sha256": "038f9b99fc3a442de0b393d2d2e84fcc6595146854ee496725789252759f739c",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_map_readiness.py",
+      "sha256": "a937b4a6264a756725e86438988fa1405c3e9026e8d7811ee8e56c8d5f066faa",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_map_schema.py",
+      "sha256": "8389aa09385e2df50bab1227e7abca0f9df2543d38e5b9d80a55a041c7d008b5",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_ops_chat.py",
+      "sha256": "68e3fe2da4f4f9c809c46a095a9a09fd9f96d8efee8c8bcab541cce9edeb709f",
       "kind": "support"
     },
     {
@@ -488,6 +571,11 @@
     {
       "path": "pytest_scenarios/support/startup.py",
       "sha256": "757b29042cfacd8f21701b5dc270b76227b4796032c124212d6b2122ba600dd3",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/transcript_storage.py",
+      "sha256": "7a376a7128a5cb06c2ced41545379fb97d7ca76a6235320ec169586aff26300f",
       "kind": "support"
     },
     {

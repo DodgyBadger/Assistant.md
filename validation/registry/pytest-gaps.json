@@ -347,6 +347,56 @@
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json"
       ],
       "cleanup_action": "Provide a configurable controlled provider transport or explicitly classify the original exception/formatter boundary tests; do not equate missing configuration with transient HTTP failure."
+    },
+    {
+      "id": "session-map-editorial-oracle-disposition",
+      "category": "oracle_scope_review",
+      "source_scenarios": [
+        "integration/core/session_map_schema",
+        "integration/core/session_map_readiness"
+      ],
+      "missing_proof": "Three original exact authoring-instruction substrings and one author-model setting-description substring are not ported, following the existing ban on editorial prose assertions. Structured payload/readiness/provenance outputs remain. These ports do not prove the intended instruction semantics merely from their structural checks.",
+      "cleanup_action": "Review semantic behavioral replacement or explicit retirement of these editorial oracles before removing originals.",
+      "status": "open",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_map_schema.py",
+        "validation/scenarios/integration/core/session_map_readiness.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_maps_batch6_20261028/report.json"
+      ]
+    },
+    {
+      "id": "transcript-legacy-index-backfill",
+      "category": "coverage_scope_review",
+      "source_scenarios": [
+        "integration/core/transcript_retrieval_storage"
+      ],
+      "missing_proof": "Both original and port create messages through index-maintaining writes before schema reinitialization. Their passing lookup does not independently establish migration from a legacy database without transcript indexes. This is an identified scope limitation, not dropped proven parity.",
+      "cleanup_action": "Check existing migration coverage, then construct actual legacy missing-index input or correct the coverage claim; retain the current index lifecycle proof.",
+      "status": "open",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/transcript_retrieval_storage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json"
+      ]
+    },
+    {
+      "id": "session-ops-private-exception-payload",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_ops_chat_tool"
+      ],
+      "missing_proof": "Original patched search raises OperationalError with arbitrary private payload text. Genuine missing-external-content FTS failure yields a generic SQL logic error; passing private-query absence and metadata assertions do not prove sanitization of arbitrary private exception-message text.",
+      "cleanup_action": "Find a genuine bounded provider/storage error containing sensitive text at this boundary or explicitly retain/classify the original narrow fault-injection oracle.",
+      "status": "open",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_ops_chat_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json"
+      ]
     }
   ]
 }
