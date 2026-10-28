@@ -42,6 +42,74 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_api_endpoint_chat_limits.py",
+      "sha256": "7a6cfae3458fc2191b839d130c791f7fa7da990712793b7fd729c280db8dbf6c",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_call_limit_rejects_multiple_real_model_calls",
+        "test_text_only_model_rejects_image_input"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_endpoint_openai_oauth.py",
+      "sha256": "011ab4a774dce937a42c2456300fc7bc69fee6589dee86155db23fee0966fdc3",
+      "kind": "behavioral",
+      "tests": [
+        "test_openai_oauth_manual_completion_and_readiness"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_endpoint_system.py",
+      "sha256": "f185a1b5a0b4616653baa694f4bb1cbb41cf43ac897105a39b767cb3a144e5c1",
+      "kind": "behavioral",
+      "tests": [
+        "test_system_health_settings_models_providers_and_secrets",
+        "test_mcp_configuration_api_preserves_owner_and_write_only_credentials"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_endpoint_workflow_chat.py",
+      "sha256": "7a261116c9e149730d2937502c254411f63cf49510fa575963628d3188f660b9",
+      "kind": "behavioral",
+      "tests": [
+        "test_workflow_api_task_status_and_system_scoping",
+        "test_chat_metadata_title_export_and_replay_api"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_error_resilience.py",
+      "sha256": "03bd3b753f3846ecedb00605261b660e01625bd2ec10b98e7dced047e81a9b38",
+      "kind": "behavioral",
+      "tests": [
+        "test_api_error_envelopes_identify_missing_and_unexpected_failures",
+        "test_provider_http_failures_and_retry_transport_contracts"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_mcp_connection_readiness.py",
+      "sha256": "bd0c8d4669d5b6bce3ee78ce537d82dbf9be8720b3784146a7806240c25c07a1",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_test_api_reports_real_catalog_and_sanitizes_auth_failure"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_openai_error_classification.py",
+      "sha256": "dab03ff353f48e6b7101dfa8ffcecda35a059b98e80b72a69cffa8fa177c2141",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_openai_sdk_status_failures_classify_retryability"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_api_provider_readiness.py",
+      "sha256": "042d3dd6d1d37c8e84b90c60886e7591c1f7f551db4221a6669c6025b23dd256",
+      "kind": "behavioral",
+      "tests": [
+        "test_custom_provider_url_secret_and_invalid_openai_endpoint"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_async_workflow_cancellation.py",
       "sha256": "142b70f4563f9fc9a63c4f021ca3d07c95ef3905513ea3dfc79f6bfdd646fbc6",
       "kind": "behavioral",
@@ -626,6 +694,25 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_google_oauth_coordinator.py",
+      "sha256": "47dd65a8b606ae1d3785c2e2acd92c9ef591ce581759ee20917e0084a47d2d6c",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_oauth_pkce_callback_identity_and_serialized_refresh",
+        "test_google_oauth_rejects_responses_crossing_connection_mutations",
+        "test_google_oauth_refresh_preserves_newer_reauthorization"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_google_oauth_credential_fences.py",
+      "sha256": "08509d8c9a2cc6732cc95791c200af5c767523f42d35e3f14c2eaeb397962d49",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_oauth_changed_client_rejects_callback_before_exchange",
+        "test_google_oauth_stale_credential_cannot_recreate_cleared_grant"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_history_passthrough.py",
       "sha256": "1b1c21552886c24ea84a76f19db6a0baecc8089f3b0384552a2269de74473d42",
       "kind": "behavioral",
@@ -763,11 +850,37 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_mcp_oauth_resume.py",
+      "sha256": "bca9c2eeb788514f3bf2b4b38ce3a2a2d41365b4ed42be3f9fab8411559ad6ae",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
+        "test_mcp_oauth_resume_failure_is_correlated_and_hides_provider_credentials"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_mcp_oauth_storage.py",
       "sha256": "4d0f7ab1d077f516bfada0b2ae7d1067176b2d2b9fff7c97bd9d563093a0e72e",
       "kind": "behavioral",
       "tests": [
         "test_mcp_oauth_storage_is_encrypted_and_fenced"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mistral_direct_url_import.py",
+      "sha256": "60a9a7f2b6cf8456ac4f5a7abf1f3bdaca71c5e9efc21ac6bc57e40f53b39ffd",
+      "kind": "behavioral",
+      "tests": [
+        "test_public_pdf_ocr_only_import_delivers_document_reference"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mistral_ocr_contract.py",
+      "sha256": "f546f3e08fce0e3e2b819d69be7de093a7e140cf7d78c7917b779dd9ba9786f6",
+      "kind": "behavioral",
+      "tests": [
+        "test_ocr_enrichment_and_direct_document_transport",
+        "test_ocr_provider_rejections_and_local_fallback"
       ]
     },
     {
@@ -828,6 +941,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_provider_denial_diagnostics.py",
+      "sha256": "f4198db85efb1cbe7ccea798b3f723b454fd30739b4111aeca30c945643b27ad",
+      "kind": "behavioral",
+      "tests": [
+        "test_decision_denial_and_generic_compaction_diagnostics"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_public_url_configuration.py",
       "sha256": "d76e202193c88381db5de8480737939e6d4ca4d821a4291c116d78f3887b1177",
       "kind": "behavioral",
@@ -868,6 +989,55 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_session_map_admission_checkpoint.py",
+      "sha256": "a2152e90bfb48e3f62dad75af99833bdabde53ad4623e72dd54ffd8eab3ca890",
+      "kind": "behavioral",
+      "tests": [
+        "test_recursive_windows_and_verified_admission_marker"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_author_provider_failures.py",
+      "sha256": "7196177a2531f446cbfb9ee23b0236c5b7715a00f21b2ec81f71976f5b937531",
+      "kind": "behavioral",
+      "tests": [
+        "test_distinct_session_map_author_provider_failures"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_author_retry_cancel.py",
+      "sha256": "401a7504ca83d98a7eb88eb0618697098f334f01f4f1157a0b5a5def0045c1c6",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_author_retries_invalid_output",
+        "test_session_map_author_cancellation"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_authoring_task.py",
+      "sha256": "7ae979b4e7e42ef2ddbcda54cba9410ec91fa45c0fcadadeda2964c730d8bb1b",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_map_authoring_task_provenance_and_lifecycle"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_evidence_admission.py",
+      "sha256": "9a6cd7761c14dd343a107833ce4602c185933741ada76b42f4ec6db24adde1f6",
+      "kind": "behavioral",
+      "tests": [
+        "test_mixed_retrieval_evidence_admission"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_mixed_retained_return.py",
+      "sha256": "cae7bd2ff1f0487c33ddff58e219ab132487dbbe7659e9cdcff4bc212f850282",
+      "kind": "behavioral",
+      "tests": [
+        "test_mixed_retained_tool_return_preserves_independent_result"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_session_map_pending_evidence.py",
       "sha256": "9d3f385424bf7232fa81dcd8b68feeaa1fd96b86aa233c1c6136ba3570848607",
       "kind": "behavioral",
@@ -881,6 +1051,39 @@
       "kind": "behavioral",
       "tests": [
         "test_session_map_readiness_fails_closed_for_invalid_settings"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_retained_evidence.py",
+      "sha256": "2028781bedb69a02a6d8a542ce21c1ec9523f0367833551ab3a8083511002c66",
+      "kind": "behavioral",
+      "tests": [
+        "test_retained_completion_authors_citable_map"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_retrieval_boundaries.py",
+      "sha256": "79874a9cfd46c3bf97cb933bcaeb40fbe8eb413b0a041698f3e84e5232f8035e",
+      "kind": "behavioral",
+      "tests": [
+        "test_nested_fork_retrieval_rejects_parent_future",
+        "test_retrieval_fragment_dedup_budget_and_unrelated_corruption"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_retrieved_authoring.py",
+      "sha256": "f6215c232a668eaf8879d54a4c96375cb375a62180aae9aab6bbe25775f5503b",
+      "kind": "behavioral",
+      "tests": [
+        "test_verified_fragment_in_governed_author_request"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_session_map_retrieved_evidence.py",
+      "sha256": "2841b26a0075dd7084e2adcac0ee7244eb42b8b2b5cc9cc0e28d7234774433eb",
+      "kind": "behavioral",
+      "tests": [
+        "test_retrieved_evidence_verification_and_corruption"
       ]
     },
     {
@@ -1222,6 +1425,16 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/api_endpoint_inputs.py",
+      "sha256": "10acbdb3f9a8e56eaa120e50f24a74dc5b9ddb62a4239fedccc22bb30d5b0373",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/api_failure_http.py",
+      "sha256": "04de0cac42432849b6c6db991f815c43162b8fd60ad80e4aad6121f96d2f7cbb",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/authentication.py",
       "sha256": "467ff26c78dc8a4c1ffb00ed29ce0a5ff78eabc7708ccfbeda22951acfadb41f",
       "kind": "support"
@@ -1377,6 +1590,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/mcp_oauth_inputs.py",
+      "sha256": "99fe3a6fbe651cd7faad0f14e7d635fcdb7f8086d95c11bd2eecd615c36a75da",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/mcp_race_inputs.py",
       "sha256": "57d78cf8418fba46d8731b65c2d549dcc9785607c0721a310339b2c122dccffd",
       "kind": "support"
@@ -1384,6 +1602,11 @@
     {
       "path": "pytest_scenarios/support/mcp_stdio_inputs.py",
       "sha256": "64b1631aea4369e112d4bd45b6f8827ebfe4d23d2d04963ea6b4eafa6235b3d5",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/mistral_ocr_inputs.py",
+      "sha256": "2fe42d7d01ee7ee193a8c94e32e78be6486dec030ecaeb9736ae2bae853d49c9",
       "kind": "support"
     },
     {
@@ -1397,8 +1620,18 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/oauth_http_inputs.py",
+      "sha256": "8038590415db231b6bed53c2f011294c0094fbe7d6a76e5f90beb530538fe496",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/openai_oauth_http.py",
       "sha256": "49bd001b78c00e79cca89eb00ac1c4fd7decd0f2c7b7016de9eaa5f988f63c47",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/openai_status_http.py",
+      "sha256": "724db7bc06f4766570c337f0486884d759c11944d037aacf0061a4159c23180c",
       "kind": "support"
     },
     {
@@ -1409,6 +1642,11 @@
     {
       "path": "pytest_scenarios/support/principal_authority.py",
       "sha256": "d1cc2be54d2421a90a23ce333b11e3a8067d1a4f96fd2c65feb34f19c8e76cd1",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/provider_denial_http.py",
+      "sha256": "ec54907c46e1f23835f9318390ffd04bf0c93bf0743b3478d429d67431286bd4",
       "kind": "support"
     },
     {
@@ -1424,6 +1662,16 @@
     {
       "path": "pytest_scenarios/support/replay_inputs.py",
       "sha256": "aad1d78a8eadeb17b4e7868d098d1fa2a23ec5a12d42a714818f8e996b2446c8",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/retained_map_author.py",
+      "sha256": "d57afcc2845fe9dd159e1f0f951eb309adeec3a5318795c59a23da9f3033b769",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/retrieved_map_author.py",
+      "sha256": "99ce686ef5bb2b6755b97f2ccd047dc24bd519c0cb251f22e12631b370397beb",
       "kind": "support"
     },
     {
@@ -1452,13 +1700,38 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/session_map_admission_extra_inputs.py",
+      "sha256": "66c5571713c84197b0152bb717ff87300aaa5dfbfceba483f029c1163c7c9184",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/session_map_author_http.py",
       "sha256": "650ab35eabdf60423de6244dd9d7a5a33725381b94ea5eaa14848ac24f5636cd",
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/session_map_batch15_inputs.py",
+      "sha256": "9a7207cd884f27f9f93b975a31a8613693dc44d2d845a9eeefc5f6729f95bebf",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_map_boundary_inputs.py",
+      "sha256": "7f3d2dd351b741263cfa9bb575882ed258cbd0bd87c081ff31f431815b2dfdaa",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/session_map_readiness.py",
       "sha256": "a937b4a6264a756725e86438988fa1405c3e9026e8d7811ee8e56c8d5f066faa",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_map_retrieval_inputs.py",
+      "sha256": "b1e9a35beef18cc0a850940f1610a862f02de2aab447851cb071bcfaae84c286",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/session_map_retry_author.py",
+      "sha256": "be1a52bc7d91ca825752ae1de11c34a59278661e356f82748a71016e39239bbd",
       "kind": "support"
     },
     {

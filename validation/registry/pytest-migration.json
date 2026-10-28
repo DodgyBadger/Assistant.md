@@ -48,12 +48,36 @@
         "self._wait_for_execution_task"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_system.py::test_system_health_settings_models_providers_and_secrets",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_system.py::test_mcp_configuration_api_preserves_owner_and_write_only_credentials",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_chat_limits.py::test_tool_call_limit_rejects_multiple_real_model_calls",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_chat_limits.py::test_text_only_model_rejects_image_input",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_openai_oauth.py::test_openai_oauth_manual_completion_and_readiness",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_workflow_chat.py::test_workflow_api_task_status_and_system_scoping",
+        "validation/pytest_scenarios/integration/core/test_api_endpoint_workflow_chat.py::test_chat_metadata_title_export_and_replay_api",
+        "validation/pytest_scenarios/integration/core/test_api_mcp_connection_readiness.py::test_mcp_test_api_reports_real_catalog_and_sanitizes_auth_failure"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "api-device-oauth-and-connected-fallback"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Real API health/status/OpenAPI/activity, settings/providers/models/secret lifecycle and MCP ownership/write-only credentials retain contracts. Real workflows/tasks/system scope, deterministic chat metadata/title/export/replay/limits/vision mismatch, manual OpenAI authorization/readiness and real MCP discovery/allowlisting/401 replace source fakes. Bulk configuration_request was a legacy fixture wrapper, not a product API; current configuration inputs/reload replace its fabricated response. Remote device authorization/fallback branch remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/api_journeys_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/api_error_resilience.py",
@@ -95,12 +119,32 @@
         "self._assert_error_envelope"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_api_error_resilience.py::test_api_error_envelopes_identify_missing_and_unexpected_failures",
+        "validation/pytest_scenarios/integration/core/test_api_error_resilience.py::test_provider_http_failures_and_retry_transport_contracts",
+        "validation/pytest_scenarios/integration/core/test_api_provider_readiness.py::test_custom_provider_url_secret_and_invalid_openai_endpoint",
+        "validation/pytest_scenarios/integration/core/test_api_openai_error_classification.py::test_real_openai_sdk_status_failures_classify_retryability"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "api-classification-and-attribution-branches"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Actual missing/unexpected API error envelopes and raw confidentiality, real loopback429 Retry-After/503/400 and OpenAI SDK400/500 classifications, transport/client ownership/nested retry/invalid protocol, real principal-owned URL secret readiness and invalid base rejection preserve portable contracts. SDK500 provider_unavailable is additional status-derived proof, not original non-status APIError/transient_provider."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/authoring_context_assembly.py",
@@ -3224,12 +3268,39 @@
         "self._assert_refresh_race_rejected"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_pkce_callback_identity_and_serialized_refresh",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[secret-token]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[secret-identity]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[secret-refresh]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[client-id-token]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[client-id-identity]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[client-id-refresh]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[disconnect-token]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[disconnect-identity]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_rejects_responses_crossing_connection_mutations[disconnect-refresh]",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_coordinator.py::test_google_oauth_refresh_preserves_newer_reauthorization",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_credential_fences.py::test_google_oauth_changed_client_rejects_callback_before_exchange",
+        "validation/pytest_scenarios/integration/core/test_google_oauth_credential_fences.py::test_google_oauth_stale_credential_cannot_recreate_cleared_grant"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "google-oauth-synchronous-pending-races"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Thirteen actual local HTTP cases preserve PKCE/identity/scoped pending/replay/encrypted grants, serialized refresh, nine token/identity/refresh crossing mutations, newer reauthorization preservation, stale-client preflight, captured credential refusal and newer generation secret survival. Public HTTP factory validates intended Google targets before loopback routing; no live Google endpoint. Exact synchronous pending/delete/start/disconnect interleavings remain original-only."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/import_pipeline_core.py",
@@ -3908,12 +3979,28 @@
         "self._connections.oauth_storage"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
+        "validation/pytest_scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_resume_failure_is_correlated_and_hides_provider_credentials"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "mcp-oauth-live-authorization-lifecycle"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Actual encrypted pending inputs survive coordinator replacement/owner isolation and wrong-state rejection. Real local token exchange preserves correlated completion/grant encryption/replay refusal/disconnect. Malformed tokens retain safe correlated diagnostics; actual SQLite revocation failure emits no terminal cancellation before successful retry exactly once. Explicit seeded pending records do not prove start/discovery/authorization generation or live-attempt lifecycle."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/mcp_oauth_storage.py",
@@ -3996,12 +4083,30 @@
         "patch.object"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_mistral_ocr_contract.py::test_ocr_enrichment_and_direct_document_transport",
+        "validation/pytest_scenarios/integration/core/test_mistral_ocr_contract.py::test_ocr_provider_rejections_and_local_fallback",
+        "validation/pytest_scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
+        "validation/pytest_scenarios/integration/core/test_mistral_direct_url_import.py::test_public_pdf_ocr_only_import_delivers_document_reference"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Real configured local OCR HTTP provider/encrypted key/metadata, inline PDF and complete public-numeric-reference OCR-only import preserve document transport/options/enrichment assets/strategy/provider. Numeric public document URI avoids DNS and is delivered as a reference rather than downloaded. Real400/429/401/nonJSON502 diagnostics preserve provider codes/privacy, actual missing-key/provider-error fallback selects local PDF text. Real typed-decision HTTP403 supplies compaction diagnostic/error activity; genuine invalid integer input contains PRIVATE before the generic diagnostic hides it, replacing fabricated error/logger inputs."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/mistral_ocr_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/diagnostic_generic_input_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/ocr_document_reference_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/model_alias_resolution.py",
@@ -4725,12 +4830,33 @@
         "self._test_content_safe_distinct_failures"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_map_authoring_task.py::test_session_map_authoring_task_provenance_and_lifecycle",
+        "validation/pytest_scenarios/integration/core/test_session_map_author_provider_failures.py::test_distinct_session_map_author_provider_failures",
+        "validation/pytest_scenarios/integration/core/test_session_map_author_retry_cancel.py::test_session_map_author_retries_invalid_output[schema_retry]",
+        "validation/pytest_scenarios/integration/core/test_session_map_author_retry_cancel.py::test_session_map_author_retries_invalid_output[provenance_retry]",
+        "validation/pytest_scenarios/integration/core/test_session_map_author_retry_cancel.py::test_session_map_author_cancellation"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "session-map-authoring-failure-boundaries"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Real structured author transport preserves governed task identity/provenance/lifecycle, schema and provenance retry, actual cancellation and safe distinct provider failure warnings. Provider errors retain bounded500-character sanitized detail, rather than the original generic RuntimeError100-character fallback. Repeated invalid provenance exhausts real SDK output retries as UnexpectedModelBehavior; this does not prove original SessionMapProvenanceError classification. Failed probe source/evidence are retained outside admitted collection without changing its expected exception."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_map_checkpoint.py",
@@ -4817,12 +4943,29 @@
         "self._test_message_projection"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_map_evidence_admission.py::test_mixed_retrieval_evidence_admission",
+        "validation/pytest_scenarios/integration/core/test_session_map_admission_checkpoint.py::test_recursive_windows_and_verified_admission_marker"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "session-map-legacy-admission-repair"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Native mixed/recursive transcript inputs preserve citable projection/digest/exclusions, forged retrieval refusal, prior-map fail-closed behavior, persisted verified admission marker and matching versus different-map treatment. Legacy-map full eviction/rejected commit/pending-evidence repair sequence remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_map_pending_evidence.py",
@@ -4973,12 +5116,36 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_map_retained_evidence.py::test_retained_completion_authors_citable_map",
+        "validation/pytest_scenarios/integration/core/test_session_map_retrieved_evidence.py::test_retrieved_evidence_verification_and_corruption",
+        "validation/pytest_scenarios/integration/core/test_session_map_retrieval_boundaries.py::test_nested_fork_retrieval_rejects_parent_future",
+        "validation/pytest_scenarios/integration/core/test_session_map_retrieval_boundaries.py::test_retrieval_fragment_dedup_budget_and_unrelated_corruption",
+        "validation/pytest_scenarios/integration/core/test_session_map_retrieved_authoring.py::test_verified_fragment_in_governed_author_request",
+        "validation/pytest_scenarios/integration/core/test_session_map_mixed_retained_return.py::test_mixed_retained_tool_return_preserves_independent_result"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "retained-session-map-automatic-trigger"
+      ],
+      "migration": {
+        "batch": "oauth-api-map-ocr-20261028",
+        "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
+        "behavioral_contracts": [
+          "Real explicit compact API/local structured author proves retained completion citation and consumed/observed/checkpoint/raw-effective boundaries. Public native projections preserve independent mixed tool results while omitting retrieval returns, canonical/fork/nested lineage/future cutoff, exact fragments/forgery/dedup/200k truncation/8000-token budget and selected/unrelated corruption boundaries. Actual governed author receives and cites verified fragment plus retained evidence. Explicit API trigger does not establish original automatic post-turn task/parent semantics."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/session_map_evidence_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/retrieval_range_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+          "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_map_schema.py",
@@ -10883,16 +11050,43 @@
       ],
       "evidence_scope": "Focused actual app/loopback/socket/database evidence with completed cleanup; source inputs and remaining private fault/race/SSH/public-diagnostic scopes explicit. Initial test projection and extra revision fixture mistakes retained in failed reports; original expectations preserved.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "oauth-api-map-ocr-20261028",
+      "source_identities": [
+        "integration/core/api_endpoints",
+        "integration/core/api_error_resilience",
+        "integration/core/google_oauth_coordinator",
+        "integration/core/mcp_oauth_coordinator",
+        "integration/core/session_map_authoring_task",
+        "integration/core/session_map_evidence_admission",
+        "integration/core/session_map_retained_evidence",
+        "integration/core/mistral_ocr_contract"
+      ],
+      "pytest_cases": 44,
+      "partial_ports": [
+        "integration/core/api_endpoints",
+        "integration/core/api_error_resilience",
+        "integration/core/google_oauth_coordinator",
+        "integration/core/mcp_oauth_coordinator",
+        "integration/core/session_map_authoring_task",
+        "integration/core/session_map_evidence_admission",
+        "integration/core/session_map_retained_evidence"
+      ],
+      "evidence_scope": "Forty-four focused passing cases with completed cleanup use real local token/model/OCR/MCP HTTP, native evidence and database constraints. Original fake-only race/start/error/automatic reduction scopes remain partial; no combined-profile claim.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 123,
-    "sources_without_staged_nodes": 23,
+    "sources_with_staged_nodes": 131,
+    "sources_without_staged_nodes": 15,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 211,
-    "staged_default_core_cases": 217,
+    "new_focused_passing_cases": 255,
+    "staged_default_core_cases": 261,
     "partial_source_ports": [
+      "integration/core/api_endpoints",
+      "integration/core/api_error_resilience",
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/auto_chat_history_compaction",
       "integration/core/builtin_connection_configuration",
@@ -10915,15 +11109,20 @@
       "integration/core/gmail_attachment_tool",
       "integration/core/gmail_connection_api",
       "integration/core/gmail_draft_tool",
+      "integration/core/google_oauth_coordinator",
       "integration/core/legacy_secrets_migration",
       "integration/core/mcp_advanced_shell_stdio_connections",
       "integration/core/mcp_chat_tool_search",
       "integration/core/mcp_connection_isolation",
       "integration/core/mcp_mutation_recovery",
+      "integration/core/mcp_oauth_coordinator",
       "integration/core/mcp_oauth_storage",
       "integration/core/model_alias_resolution",
       "integration/core/runtime_bootstrap_cleanup",
+      "integration/core/session_map_authoring_task",
+      "integration/core/session_map_evidence_admission",
       "integration/core/session_map_readiness",
+      "integration/core/session_map_retained_evidence",
       "integration/core/session_map_schema",
       "integration/core/session_ops_chat_tool",
       "integration/core/session_summary_data_retirement",

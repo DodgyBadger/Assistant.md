@@ -851,6 +851,131 @@
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json"
       ]
+    },
+    {
+      "id": "google-oauth-synchronous-pending-races",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/google_oauth_coordinator"
+      ],
+      "missing_proof": "Actual HTTP mutation races and stale credential guards pass. Original exact supersede-before-conditional-pending-delete, disconnect before transaction with concurrent secret/client replacement, and start metadata/credential pre/post-write/disconnect/competing-start interleavings remain unproved.",
+      "cleanup_action": "Use supported real transaction/concurrency workloads or review exact synchronous injection contracts; retain original pending cleanup/new-attempt preservation assertions.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/google_oauth_coordinator.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-oauth-live-authorization-lifecycle",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_oauth_coordinator"
+      ],
+      "missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
+      "cleanup_action": "Provide deterministic local authorization discovery plus MCP server and real attempt barriers, retaining original lifecycle/timeout/durable supersede assertions meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_oauth_coordinator.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+      ]
+    },
+    {
+      "id": "api-device-oauth-and-connected-fallback",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/api_endpoints"
+      ],
+      "missing_proof": "Real manual OpenAI OAuth completion/readiness passes. Original mocked device-code start/pending/poll/authorized and API-key-mode fallback while connected are not replaced; production device URLs are hardcoded remote endpoints.",
+      "cleanup_action": "Establish a supported deterministic device-provider transport seam or local endpoint infrastructure; do not introduce live authorization into core.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/api_endpoints.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/api_journeys_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+      ]
+    },
+    {
+      "id": "api-classification-and-attribution-branches",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/api_error_resilience"
+      ],
+      "missing_proof": "Actual HTTP and OpenAI SDK status classification passes. Original non-status APIError/transient_provider, overloaded RuntimeError/provider_overloaded, model stream idle timeout, httpx/httpx2 ConnectError retry predicates and OpenRouter attribution environment headers remain unproved. SDK500 provider_unavailable does not replace generic APIError.",
+      "cleanup_action": "Construct genuine bounded connection/stream/provider/environment inputs or explicitly review retained constructed exception oracles; preserve distinctions between status and non-status error branches.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/api_error_resilience.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json"
+      ]
+    },
+    {
+      "id": "session-map-authoring-failure-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_authoring_task"
+      ],
+      "missing_proof": "Real HTTP provider failures establish safe bounded provider detail and distinct warnings, not original long private RuntimeError/generic100-character fallback. Repeated invalid provenance ends as UnexpectedModelBehavior/maximum output retries in the real pipeline; the old stub bypassed that retry layer and required SessionMapProvenanceError. The failed real probe and its source are retained; its expectation was not changed to count as parity.",
+      "cleanup_action": "Exercise a genuine non-provider workload failure with private diagnostic and adjudicate actual structured-author exhaustion classification before retiring original generic/provenance failure assertions.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_map_authoring_task.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/retained-probe-source"
+      ]
+    },
+    {
+      "id": "session-map-legacy-admission-repair",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_evidence_admission"
+      ],
+      "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4\u20137/citable4\u20135and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4\u20137/8\u20139/10\u201311 to checkpoint11; this complete sequence remains unproved.",
+      "cleanup_action": "Recreate actual legacy checkpoint/pending/native evidence inputs and real structured author failures/success across eviction reduction, including direct commit guards and pending repair.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_map_evidence_admission.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+      ]
+    },
+    {
+      "id": "retained-session-map-automatic-trigger",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_retained_evidence"
+      ],
+      "missing_proof": "Real explicit compact API drives the same reduction and retained citation boundaries; it does not establish original automatic post-turn invocation/task-parent semantics. Controlled author output preserves artifact/citation semantics rather than exact original authored draft.",
+      "cleanup_action": "Exercise real automatic post-turn retained-evidence reduction and actual author input/output provenance; keep source automatic boundary until reviewed.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_map_retained_evidence.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_map_evidence_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/retrieval_range_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json"
+      ]
     }
   ]
 }
