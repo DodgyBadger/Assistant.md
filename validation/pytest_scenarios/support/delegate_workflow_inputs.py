@@ -1,0 +1,5 @@
+"""Authoring inputs invoke real delegates with the configured test provider."""
+
+DELEGATE_WITH_TOOLS_WORKFLOW = '---\nrun_type: workflow\nenabled: false\ndescription: Validate delegate with child tool access\n---\n\n## Run\n\n```python\nresult = await delegate(\n    prompt="Read notes/content.md and return its text.",\n    tools=["file_read"],\n    model="test",\n)\nawait file_write(\n    operation="write",\n    path="outputs/delegate-with-tools-result.md",\n    content=result.return_value,\n)\nawait finish(status="completed", reason="delegate-with-tools-ok")\n```\n'
+
+DELEGATE_MARKDOWN_IMAGE_WORKFLOW = '---\nrun_type: workflow\nenabled: false\ndescription: Validate delegate with markdown containing an embedded image\n---\n\n## Run\n\n```python\nresult = await delegate(\n    prompt="Read notes/with-image.md and describe what source was provided.",\n    tools=["file_read"],\n    model="test",\n)\nawait file_write(\n    operation="write",\n    path="outputs/delegate-markdown-image-result.md",\n    content=result.return_value,\n)\nawait finish(status="completed", reason="delegate-markdown-image-ok")\n```\n'

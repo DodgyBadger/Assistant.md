@@ -368,12 +368,27 @@
         "BrowserTool._record_scoped_call"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_browser_call_budget.py::test_browser_budget_is_scoped_to_actual_execution_task"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "browser-resource-admission-deferred"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "behavioral_contracts": [
+          "Actual browser tool rejects invalid-scheme inputs before Playwright import, consumes configured scoped call budget, emits exact count3/limit2 refusal and resets budget for a second real execution task. Chromium is never launched. Original concurrent successful sessions and low-memory admission remain deferred; this host cgroup is unbounded, so real headroom refusal cannot be safely forced without a supported observation seam."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/builtin_connection_configuration.py",
@@ -973,12 +988,35 @@
         "self._test_tool_event_group_lineage"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_protocol.py::test_retry_fork_points",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_protocol.py::test_fork_protocol_parity",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_checkpoint_integrity.py::test_checkpoint_origin_validation",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_checkpoint_integrity.py::test_checkpoint_payload_validation",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_tool_events.py::test_reused_tool_event_lineage",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_tool_events.py::test_tool_event_group_lineage",
+        "validation/pytest_scenarios/integration/core/test_fork_lineage_canonical.py::test_fork_canonical_prefix_and_safe_checkpoint_lineage",
+        "validation/pytest_scenarios/integration/core/test_fork_legacy_origin.py::test_legacy_checkpoint_uniquely_retained_origin"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "fork-private-hydration-and-snapshot-windows"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Eight real app journeys retain original native/SQLite inputs and public canonical-prefix/fork/nested-origin/safe-map/checkpoint/protocol/legacy-origin/event-lineage outputs, corruption rollback/source preservation and sanitized diagnostic behavior. Real SQLite insertion rejection replaces patched fork failure. Private hydration prohibitions and exact concurrent source rewrite during fork fetch remain unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
+          "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_session_persistence_contract.py",
@@ -2243,12 +2281,48 @@
         "super().__init__"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_delegate_execution.py::test_delegate_real_chat_streams_child_and_filters_tools[None-stripped0]",
+        "validation/pytest_scenarios/integration/core/test_delegate_execution.py::test_delegate_real_chat_streams_child_and_filters_tools[tools1-stripped1]",
+        "validation/pytest_scenarios/integration/core/test_delegate_execution.py::test_delegate_real_chat_streams_child_and_filters_tools[tools2-stripped2]",
+        "validation/pytest_scenarios/integration/core/test_delegate_execution.py::test_delegate_real_child_can_complete_forty_tool_calls",
+        "validation/pytest_scenarios/integration/core/test_delegate_execution.py::test_delegate_omitted_child_model_inherits_real_parent_model",
+        "validation/pytest_scenarios/integration/core/test_delegate_task_lifecycle.py::test_managed_delegate_survives_parent_and_exposes_terminal_result",
+        "validation/pytest_scenarios/integration/core/test_delegate_task_lifecycle.py::test_delegate_real_deadline_settles_failed_child",
+        "validation/pytest_scenarios/integration/core/test_delegate_task_lifecycle.py::test_cancelling_real_delegate_publishes_cancellation",
+        "validation/pytest_scenarios/integration/core/test_delegate_authoring.py::test_delegate_authoring_outputs_and_binding_events[delegate_with_tools-workflow0-delegate-with-tools-result.md]",
+        "validation/pytest_scenarios/integration/core/test_delegate_authoring.py::test_delegate_authoring_outputs_and_binding_events[delegate_markdown_image-workflow1-delegate-markdown-image-result.md]",
+        "validation/pytest_scenarios/integration/core/test_delegate_failure_guard.py::test_delegate_failure_guard_uses_actual_file_results",
+        "validation/pytest_scenarios/integration/core/test_delegate_provider_failures.py::test_delegate_provider_billing_failure_retains_http_status",
+        "validation/pytest_scenarios/integration/core/test_delegate_provider_failures.py::test_delegate_disconnected_http_response_schedules_correlated_retry",
+        "validation/pytest_scenarios/integration/core/test_delegate_queued_cancellation.py::test_queued_managed_delegate_cancellation_retains_result_and_reason",
+        "validation/pytest_scenarios/integration/core/test_delegate_limits.py::test_delegate_real_model_request_limit_returns_checkpoint_guidance",
+        "validation/pytest_scenarios/integration/core/test_delegate_limits.py::test_delegate_retry_settings_accept_valid_inputs_and_reject_unsafe_bounds",
+        "validation/pytest_scenarios/integration/core/test_delegate_model_setup.py::test_delegate_real_model_request_preserves_instruction_layer_order",
+        "validation/pytest_scenarios/integration/core/test_delegate_model_setup.py::test_delegate_invalid_real_model_configuration_returns_structured_failure",
+        "validation/pytest_scenarios/integration/core/test_delegate_model_setup.py::test_delegate_without_chat_parent_uses_runtime_default"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "delegate-unported-observer-and-error-boundaries"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Nineteen real task/model/tool cases retain explicit/inherited/runtime-default model selection, forbidden-tool filtering, progress, forty actual tool calls, managed detachment/ownership/results, actual deadline/active and queued cancellation, workflow artifacts, repeated failure guard, real billing/disconnect retry, limits/settings bounds and production instruction ordering. Missing files are benign not_found, so a genuine unsupported FileRead operation supplies the failure guard error rather than manufactured ToolReturn. Default model is actually configured and completed result/task required. Specific private observers/preattachment/diagnostic helper and synthetic error types remain partial."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_delegate_20261028/report.json",
+          "validation/runs/pytest_migration/final_guard_failure_input_20261028/report.json",
+          "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+          "validation/runs/pytest_migration/final_delegate_default_input_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/disabled_tools_registry.py",
@@ -3687,12 +3761,31 @@
         "self._check_tool_integrity_activity"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_manual_session_map_compaction_journey.py::test_manual_map_compaction_pins_strategy_and_records_governed_tasks",
+        "validation/pytest_scenarios/integration/core/test_manual_compaction_tool_integrity.py::test_manual_compaction_rejects_invalid_tool_replies_without_changing_history",
+        "validation/pytest_scenarios/integration/core/test_session_map_valid_tool_histories.py::test_valid_tool_exchanges_compact_and_upgrade_through_real_author"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "manual-map-tool-source-and-failure-matrix"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Real manual compact API uses structured local author, retains suggested/no-auto policy, focus, pinned strategy across settings change, repeated/no-op checkpoint/status and governed task nesting. Real native invalid tool histories reject unchanged raw input, while valid cases complete actual compaction/upgrade with explicitly citable authored ranges. Tool-sourced parent/return, detailed failure/cancellation/activity/no-op projections remain partial."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+          "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+          "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py",
@@ -4527,12 +4620,26 @@
         "_user"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_recovery_card_compaction_concurrency.py::test_concurrent_history_mutation_rejects_stale_compaction[append]",
+        "validation/pytest_scenarios/integration/core/test_recovery_card_compaction_concurrency.py::test_concurrent_history_mutation_rejects_stale_compaction[delete]"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Real gated local author and second ChatStore connection produce exact append and delete interleavings. Original stale ValueError/no checkpoint/raw-effective preservation/revision2/no metadata/history-revision refusal and deletion persistence retain proof; no private summary callback is replaced."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/repeated_chat_history_compaction.py",
@@ -4681,12 +4788,32 @@
         "self._test_upgrade_plan_readiness"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_context_upgrade_journey.py::test_recovery_card_history_upgrades_to_session_map",
+        "validation/pytest_scenarios/integration/core/test_session_upgrade_tool_admission.py::test_upgrade_readiness_and_admission_follow_tool_history_integrity",
+        "validation/pytest_scenarios/integration/core/test_session_map_valid_tool_histories.py::test_valid_tool_exchanges_compact_and_upgrade_through_real_author",
+        "validation/pytest_scenarios/integration/core/test_session_upgrade_cancellation.py::test_active_upgrade_is_deduplicated_and_cancellation_preserves_history"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "context-upgrade-races-and-recovery-matrix"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Actual two-recovery-checkpoint history upgrades through real local author with parent/child tasks, preserved raw/recovery history and V2 map/list/repeat rejection. Native valid and invalid tool histories exercise readiness/admission and actual success. Actual gated provider establishes deduplicated active upgrade and cancellation preserving raw/effective history/checkpoint. Plan matrix/stale author/fork/start/session-gate/shutdown-restart/failure diagnostics remain partial."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+          "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+          "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_discovery.py",
@@ -4898,12 +5025,30 @@
         "self._assert_corrupt_replacement_is_rejected"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_map_checkpoint_journey.py::test_map_checkpoints_preserve_provenance_and_reject_stale_commits",
+        "validation/pytest_scenarios/integration/core/test_session_map_corruption.py::test_corrupt_map_and_replacement_are_identified_without_private_data",
+        "validation/pytest_scenarios/integration/core/test_session_map_timeline.py::test_mapped_history_pages_and_historical_checkpoint_remain_accessible"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "map-checkpoint-specialized-boundaries"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Real contiguous native evidence/checkpoint commits retain provenance, two revisions/raw-effective state, stale append refusal, current/listing/historical map and timeline cursors. Actual corrupted checkpoint metadata/replacement preserve raw/revision and safe diagnosed errors. Specialized boundary/tool timeline projection/page matrix and patched metadata drift remain unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+          "validation/runs/pytest_migration/final_map_journeys_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_map_evidence_admission.py",
@@ -5289,12 +5434,29 @@
         "super().__init__"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_ops_transcript_retrieval.py::test_session_ops_transcript_search_and_windows",
+        "validation/pytest_scenarios/integration/core/test_session_ops_transcript_paging.py::test_transcript_paging_cursor_and_echo_exclusion"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "transcript-tool-error-and-limit-matrix"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Actual model-driven session_ops plus real retrieval service/native canonical histories prove compacted search/window/untrusted results, structured activity and echo exclusion, mixed provenance/deep/foreign access, 101-echo starvation protection, lossless fragment paging/token bound and forged/stale/oversized cursor/neighbor/missing anchor rejection. Complete serialized tool budget/access/query/title/FTS-error/logging matrices remain partial."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+          "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_summary_data_retirement.py",
@@ -5740,12 +5902,29 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_stepped_session_map_post_turn.py::test_post_turn_map_and_checkpoint_commit_failure",
+        "validation/pytest_scenarios/integration/core/test_stepped_map_author_failure.py::test_post_turn_author_failure_preserves_chat"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "stepped-map-pinned-and-policy-boundaries"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
+        "behavioral_contracts": [
+          "Actual deterministic chat/local structured author performs automatic map reduction with checkpoint/raw-effective result and completed chat\u2192compaction\u2192author lineage. Genuine SQLite commit failure and HTTP author rejection preserve completed chat/no checkpoint/no recovery-card fallback and safe correlated failures. Exact original synthetic classes, strategy-switch pinned behavior, watermark equality/repeated8-row/warning-dedup scenarios remain unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+          "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/structured_output_retry.py",
@@ -6317,11 +6496,35 @@
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "legacy-adapter-observation-contract-review"
+      ],
+      "current_owner_tests": [
+        "validation/pytest_scenarios/integration/core/test_runtime_bootstrap_cleanup.py::test_invalid_runtime_configuration_then_clean_restart",
+        "validation/pytest_scenarios/experiments/test_crash_recovery.py",
+        "validation/pytest_scenarios/experiments/test_cleanup_failure.py"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "validation/pytest_scenarios/application.py",
+          "validation/support/system_controller.py"
+        ],
+        "current_contract": "Application fixture ownership: real startup errors, same-worker recovery, native abort/replacement, and uncertain cleanup refusing reuse. Generic evidence fidelity belongs to plugin tests. Legacy raw producer-log rewrite is an explicitly unresolved old expectation.",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "original_baseline_status": "failed: legacy producer activity redaction expectation",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222652_704336.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_governance.py",
@@ -6342,11 +6545,34 @@
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
+      "coverage_gaps": [],
+      "current_owner_tests": [
+        ".github/tests/test_validation_policy.py",
+        ".github/tests/test_pytest_collection_policy.py",
+        ".github/tests/test_validation_governance_ci.py"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "validation/support/pytest_admission.py",
+          ".github/tests/test_validation_policy.py",
+          ".github/tests/test_validation_governance_ci.py"
+        ],
+        "current_contract": "Current app canonical collection/hash/function admission and trusted manual CI review checks own governance. Old generic contract-fingerprint/review-catalog APIs remain legacy-only during cutover; current tests do not claim to reproduce that retired generic API.",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "original_baseline_status": "passed",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222652_704336.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_governance_ci.py",
@@ -6363,11 +6589,31 @@
         "framework.governance.requires_current_manual_approval"
       ],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
+      "coverage_gaps": [],
+      "current_owner_tests": [
+        ".github/tests/test_validation_governance_ci.py::test_manual_ci_review_is_bound_to_git_and_protection"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "validation/support/ci/governance.py",
+          ".github/tests/test_validation_governance_ci.py"
+        ],
+        "current_contract": "All original manual CI immutable-head/protection/reviewer/status/fail-closed API assertions ported to native repository policy tests with actual local Git and HTTP; no scenario or app import during audit.",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "original_baseline_status": "passed",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222652_704336.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_inventory.py",
@@ -6392,11 +6638,35 @@
       ],
       "required_contract_links": [],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
+      "coverage_gaps": [],
+      "current_owner_tests": [
+        ".github/tests/test_validation_policy.py",
+        ".github/tests/test_pytest_collection_policy.py",
+        "../scenario-harness/tests/test_plugin.py::test_collection_failure_recorded"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "validation/support/pytest_admission.py",
+          "validation/support/inventory.py",
+          ".github/tests/test_validation_policy.py",
+          ".github/tests/test_pytest_collection_policy.py"
+        ],
+        "current_contract": "App import-free source accounting/admission and restricted collection remain app-owned; pytest handles test discovery. Old BaseScenario exactly-one-class/old CLI inventory surface is not reintroduced.",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "original_baseline_status": "passed",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222652_704336.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_run_reporting.py",
@@ -6420,11 +6690,33 @@
       ],
       "required_contract_links": [],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
+      "coverage_gaps": [],
+      "current_owner_tests": [
+        "../scenario-harness/tests/test_plugin.py::test_observations_and_artifacts",
+        "../scenario-harness/tests/test_plugin.py::test_failure_teardown_and_redaction",
+        "../scenario-harness/tests/test_plugin.py::test_unstarted_cases_are_retained",
+        "../scenario-harness/tests/test_plugin.py::test_collection_failure_recorded"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "../scenario-harness/src/scenario_harness/plugin.py"
+        ],
+        "current_contract": "Generic plugin report/phase/teardown/actual verdict/incomplete/collection/redaction contracts tested in its repository; pytest owns selection/terminal reporting. Old CLI selector/rerun-command/schema names remain legacy API, not app scenarios.",
+        "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
+        "original_baseline_status": "passed",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222652_704336.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_runner_lifecycle.py",
@@ -6462,11 +6754,38 @@
         "framework.execution.preserves_failure_accounting"
       ],
       "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "disposition": "current_owner_reassigned_retain_original",
+      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "legacy-runner-policy-differences"
+      ],
+      "current_owner_tests": [
+        "../scenario-harness/tests/test_plugin.py::test_abort_replacement",
+        "../scenario-harness/tests/test_plugin.py::test_setup_error_then_reused_worker",
+        "../scenario-harness/tests/test_plugin.py::test_actual_verdict_overrides_metadata",
+        "../scenario-harness/tests/test_plugin.py::test_crash_during_setup_links_durable_evidence",
+        "validation/pytest_scenarios/experiments/test_crash_recovery.py",
+        "validation/pytest_scenarios/experiments/test_cleanup_failure.py"
+      ],
+      "migration": {
+        "batch": "final-source-inventory-20261028",
+        "mode": "current_owner_reassignment",
+        "current_owner": [
+          "../scenario-harness/src/scenario_harness/plugin.py",
+          "validation/pytest_scenarios/application.py"
+        ],
+        "current_contract": "Generic pytest/xdist outcome and crash reporting plus app-specific fixture lifecycle safety. Old supervisor/environment/fresh-case/HOME/TMP/hard deadline policy differences remain explicit follow-up.",
+        "original_baseline": "validation/runs/reports/20261028_222933_609608.json",
+        "original_baseline_status": "passed",
+        "evidence": [
+          "validation/runs/pytest_migration/final-current-owner-evidence.json",
+          "validation/runs/reports/20261028_222933_609608.json"
+        ],
+        "plugin_revision": "acfc1511f322f5ed3e7b4d863b622c4c55ed2741",
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/vault_activity_migration.py",
@@ -11075,25 +11394,68 @@
       ],
       "evidence_scope": "Forty-four focused passing cases with completed cleanup use real local token/model/OCR/MCP HTTP, native evidence and database constraints. Original fake-only race/start/error/automatic reduction scopes remain partial; no combined-profile claim.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "final-source-inventory-20261028",
+      "source_identities": [
+        "integration/core/browser_resource_policy",
+        "integration/core/chat_session_fork_lineage",
+        "integration/core/delegate_tool",
+        "integration/core/manual_session_map_compaction",
+        "integration/core/recovery_card_compaction_concurrency",
+        "integration/core/session_context_strategy_upgrade",
+        "integration/core/session_map_checkpoint",
+        "integration/core/session_ops_transcript_retrieval",
+        "integration/core/stepped_session_map_post_turn",
+        "integration/core/validation_adapter_lifecycle",
+        "integration/core/validation_governance",
+        "integration/core/validation_governance_ci",
+        "integration/core/validation_inventory",
+        "integration/core/validation_run_reporting",
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "pytest_cases": 43,
+      "partial_ports": [
+        "integration/core/browser_resource_policy",
+        "integration/core/chat_session_fork_lineage",
+        "integration/core/delegate_tool",
+        "integration/core/manual_session_map_compaction",
+        "integration/core/session_context_strategy_upgrade",
+        "integration/core/session_map_checkpoint",
+        "integration/core/session_ops_transcript_retrieval",
+        "integration/core/stepped_session_map_post_turn"
+      ],
+      "framework_owner_reassignments": [
+        "integration/core/validation_adapter_lifecycle",
+        "integration/core/validation_governance",
+        "integration/core/validation_governance_ci",
+        "integration/core/validation_inventory",
+        "integration/core/validation_run_reporting",
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "evidence_scope": "Forty-three new staged application cases passed focused runs. Six framework identities traced to current app fixture, repository policy or generic plugin owners;27 plugin checks,23 repository checks and evaluated real app fault profiles provide owner evidence. Original adapter baseline has explicit producer-log expectation failure; old runner passes stable rerun. Browser launch and combined core profile remain deferred.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 131,
-    "sources_without_staged_nodes": 15,
+    "sources_with_staged_nodes": 140,
+    "sources_without_staged_nodes": 6,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 255,
-    "staged_default_core_cases": 261,
+    "new_focused_passing_cases": 298,
+    "staged_default_core_cases": 304,
     "partial_source_ports": [
       "integration/core/api_endpoints",
       "integration/core/api_error_resilience",
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/auto_chat_history_compaction",
+      "integration/core/browser_resource_policy",
       "integration/core/builtin_connection_configuration",
       "integration/core/chat_cancellation",
       "integration/core/chat_failure_logging",
       "integration/core/chat_history_compaction",
       "integration/core/chat_manual_retry",
+      "integration/core/chat_session_fork_lineage",
       "integration/core/chat_stream_auto_retry",
       "integration/core/chat_stream_failure_logging",
       "integration/core/chat_task_event_stream_api",
@@ -11103,6 +11465,7 @@
       "integration/core/content_import_tool",
       "integration/core/default_context",
       "integration/core/deferred_review_interruption",
+      "integration/core/delegate_tool",
       "integration/core/encrypted_secrets_boundaries",
       "integration/core/execution_task_runner",
       "integration/core/file_write_same_path_concurrency",
@@ -11111,6 +11474,7 @@
       "integration/core/gmail_draft_tool",
       "integration/core/google_oauth_coordinator",
       "integration/core/legacy_secrets_migration",
+      "integration/core/manual_session_map_compaction",
       "integration/core/mcp_advanced_shell_stdio_connections",
       "integration/core/mcp_chat_tool_search",
       "integration/core/mcp_connection_isolation",
@@ -11119,14 +11483,18 @@
       "integration/core/mcp_oauth_storage",
       "integration/core/model_alias_resolution",
       "integration/core/runtime_bootstrap_cleanup",
+      "integration/core/session_context_strategy_upgrade",
       "integration/core/session_map_authoring_task",
+      "integration/core/session_map_checkpoint",
       "integration/core/session_map_evidence_admission",
       "integration/core/session_map_readiness",
       "integration/core/session_map_retained_evidence",
       "integration/core/session_map_schema",
       "integration/core/session_ops_chat_tool",
+      "integration/core/session_ops_transcript_retrieval",
       "integration/core/session_summary_data_retirement",
       "integration/core/settings_database_migration",
+      "integration/core/stepped_session_map_post_turn",
       "integration/core/structured_tool_failure",
       "integration/core/vault_activity_rollback",
       "integration/core/vault_direct_import",
@@ -11141,7 +11509,12 @@
     "original_sources_retained": true,
     "dependency_and_ci_cutover": false,
     "evidence_review_blocked_sources": [],
-    "evidence_infrastructure_regression_cases": 2
+    "evidence_infrastructure_regression_cases": 2,
+    "sources_with_current_owner_disposition": 146,
+    "remaining_unclassified_sources": 0,
+    "framework_sources_reassigned_to_current_owners": 6,
+    "initial_source_inventory_pass_complete": true,
+    "semantic_parity_complete": false
   },
   "known_open_behaviors": [
     {
@@ -11174,5 +11547,24 @@
       "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json",
       "validation/runs/pytest_migration/crash_recovery_fixed_20261028/report.json"
     ]
+  },
+  "source_inventory_resolution": {
+    "original_core_identities": 146,
+    "staged_application_identities": 140,
+    "framework_owner_reassignments": [
+      "integration/core/validation_adapter_lifecycle",
+      "integration/core/validation_governance",
+      "integration/core/validation_governance_ci",
+      "integration/core/validation_inventory",
+      "integration/core/validation_run_reporting",
+      "integration/core/validation_runner_lifecycle"
+    ],
+    "unassigned_identities": [],
+    "first_pass_complete": true,
+    "contract_acceptance": "pending",
+    "originals_retained": true,
+    "combined_core_profile_executed": false,
+    "browser_execution": "deferred",
+    "evidence_index": "validation/runs/pytest_migration/final-inventory-evidence-index.json"
   }
 }

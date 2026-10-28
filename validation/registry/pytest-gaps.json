@@ -976,6 +976,179 @@
         "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
         "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json"
       ]
+    },
+    {
+      "id": "browser-resource-admission-deferred",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/browser_resource_policy"
+      ],
+      "missing_proof": "Actual public tool budget is proved without browser launch. Original concurrent successful browser work and low-memory admission used private browse/memory replacement and remain unproved; real host cgroup maximum is unbounded. Browser execution remains explicitly deferred.",
+      "cleanup_action": "Add genuine browser-resource fixtures/local browser workloads and a supported resource observation boundary when browser capability work resumes; do not launch Chromium to work around the current deferral.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/browser_resource_policy.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+      ]
+    },
+    {
+      "id": "fork-private-hydration-and-snapshot-windows",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_session_fork_lineage"
+      ],
+      "missing_proof": "Public origin/checkpoint/tool/protocol outcomes and genuine SQLite rollback pass. Original instrumented no-prefix hydration and metadata-scan no-hydration assertions, plus source rewrite precisely inside raw-fetch to prove writer exclusion/same-snapshot/later independence remain unproved.",
+      "cleanup_action": "Exercise real snapshot/transaction barriers or explicitly review the private hydration and exact fork rewrite fixtures; retain original probes meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/chat_session_fork_lineage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+      ]
+    },
+    {
+      "id": "delegate-unported-observer-and-error-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/delegate_tool"
+      ],
+      "missing_proof": "Real tasks/models/tools/queued cancellation pass. Original preattachment spawn/cancel interception, private observer RetryPrompt counters and distinct attention issue IDs, pure helper denied/interrupted/benign/cyclic/compaction/redaction/unsettled branches and synthetic inner TimeoutError/internal classification remain unproved. Actual init config/disconnect error types differ from injected RuntimeError/ReadError; direct model-limit result does not prove original parent-chat completion/prose guidance.",
+      "cleanup_action": "Use supported workload/event barriers and actual private-input producers for remaining contracts; classify helper-only assertions and error substitutions explicitly before retiring originals.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/delegate_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_delegate_20261028/report.json",
+        "validation/runs/pytest_migration/final_guard_failure_input_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_default_input_20261028/report.json"
+      ]
+    },
+    {
+      "id": "manual-map-tool-source-and-failure-matrix",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/manual_session_map_compaction"
+      ],
+      "missing_proof": "Actual API compaction/tool-history validity/no-op and author/task provenance pass. Original tool-sourced compaction parent/result, detailed recovery-card/session-map failure and cancellation/activity variants, no-op classification branches and per-failure/API/export diagnostic projections remain unproved.",
+      "cleanup_action": "Exercise a real parent agent/tool producer, bounded provider/database faults and public activity/task outputs for remaining manual compaction branches.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/manual_session_map_compaction.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json"
+      ]
+    },
+    {
+      "id": "map-checkpoint-specialized-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_checkpoint"
+      ],
+      "missing_proof": "Public real checkpoint/revision/timeline/map/corruption outputs pass. Source specialized checkpoint boundary matrix, canonical tool timeline projection/filtering/paging and deliberate private metadata-display drift injection remain unproved.",
+      "cleanup_action": "Port native boundary/tool histories through public reads; review disposition of the private display-drift injection separately.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_map_checkpoint.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json"
+      ]
+    },
+    {
+      "id": "context-upgrade-races-and-recovery-matrix",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_context_strategy_upgrade"
+      ],
+      "missing_proof": "Real complete upgrade, valid/invalid tool histories and provider-gated duplicate/cancel pass. Original plan shape/floor matrix, fork/start/stale append/delete races, serial gate/manual contention, full sanitized failure/dedup projections and shutdown/restart/successful retry after cancellation remain unproved.",
+      "cleanup_action": "Construct real legacy input/task/author barriers and actual restart/provider/database failures for the remaining upgrade contracts; retain originals meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_context_strategy_upgrade.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json"
+      ]
+    },
+    {
+      "id": "transcript-tool-error-and-limit-matrix",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_ops_transcript_retrieval"
+      ],
+      "missing_proof": "Actual tool and service search/windows/cursors/paging/echo/starvation boundaries pass. Original tool-level multi-message serialized budget and fragment continuation, max query/list title projection, explicit cross-workspace/deep/access matrix, genuine FTS failure correlation/privacy and untrusted-operation logging remain unproved.",
+      "cleanup_action": "Exercise actual session_ops tool inputs and bounded SQLite failures with task/activity evidence for those output and security contracts.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_ops_transcript_retrieval.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+      ]
+    },
+    {
+      "id": "stepped-map-pinned-and-policy-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/stepped_session_map_post_turn"
+      ],
+      "missing_proof": "Real automatic success and genuine commit/provider failure pass. Source pinned map after global strategy switch plus failing author, direct recovery-card rejection, exact high-watermark equality, exact repeated8-row/unavailable-model sequence and distinct-warning dedup remain unproved. Actual IntegrityError/ModelHTTPError do not certify fake ValueError/RuntimeError-specific classification.",
+      "cleanup_action": "Use real session settings, exact canonical histories and local provider/database workloads to establish pinned/no-fallback/policy/failure event boundaries.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/stepped_session_map_post_turn.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+      ]
+    },
+    {
+      "id": "legacy-adapter-observation-contract-review",
+      "status": "open",
+      "category": "ownership_contract_review",
+      "source_scenarios": [
+        "integration/core/validation_adapter_lifecycle"
+      ],
+      "missing_proof": "The original old adapter self-test fails its requirement that producer activity.log itself is rewritten to [REDACTED]. Current capture preserves producer observations and redacts exported evidence; generic observation-fidelity tests pass, as do actual app startup failure/crash recovery and cleanup-stop probes. Exact eleven old adapter injection modes/caller cache and handler restoration oracles are not claimed from that evidence.",
+      "cleanup_action": "Review old adapter-only lifecycle/producer-log expectations against the accepted current fixture/capture contract, retaining the original and failing baseline until explicitly dispositioned.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/validation_adapter_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final-current-owner-evidence.json",
+        "validation/runs/reports/20261028_222652_704336.json"
+      ]
+    },
+    {
+      "id": "legacy-runner-policy-differences",
+      "status": "open",
+      "category": "ownership_contract_review",
+      "source_scenarios": [
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "missing_proof": "Current generic pytest plugin owns collection/verdict/reporting and worker-crash evidence; the app fixture owns startup/cleanup safety. Tests pass for these current owners. The old dedicated runner also enforced per-scenario fresh process/HOME/TMP/environment whitelist and hard execution/cleanup process deadlines; these policies are not certified by current reused xdist workers and are not silently treated as parity.",
+      "cleanup_action": "Decide any required per-project environment and hard-timeout policy before cutover, using existing pytest tooling where appropriate; preserve the old runner self-test and its passing baseline as reference.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/validation_runner_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final-current-owner-evidence.json",
+        "validation/runs/reports/20261028_222933_609608.json"
+      ]
     }
   ]
 }
