@@ -74,6 +74,23 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_auto_chat_history_compaction.py",
+      "sha256": "8fb8f206aa31437cbfb09b99cb2ed10964f6f89aeaa61afc4aed4810cb7d9e6e",
+      "kind": "behavioral",
+      "tests": [
+        "test_automatic_compaction_is_child_of_chat",
+        "test_automatic_compaction_commit_failure_is_safe"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_auto_compaction_author_failure.py",
+      "sha256": "323f1d5d3f812185f48636301969469ef7d58201b3a13b38d9dc454cdcc8748a",
+      "kind": "behavioral",
+      "tests": [
+        "test_automatic_compaction_author_provider_failure"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_builtin_connection_configuration.py",
       "sha256": "86ddddf6fb4d83187c3e90c1949e9269e6ce938e17406fd6c027f2e830c72c8e",
       "kind": "behavioral",
@@ -108,6 +125,15 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_compaction_continuation.py",
+      "sha256": "b4f553a0ccbca57a18092e116aa3ea139eb0098ac572803dccb73305aa4eec70",
+      "kind": "behavioral",
+      "tests": [
+        "test_second_compaction_and_post_checkpoint_history",
+        "test_compaction_author_receives_shaped_tool_results"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_failure_logging.py",
       "sha256": "8362e02978ae4ae9a4c80b29c134f8cdb8e46fb294838c66c17da15c5ed42dac",
       "kind": "behavioral",
@@ -121,6 +147,14 @@
       "kind": "behavioral",
       "tests": [
         "test_failed_chat_rolls_back_real_file_write"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_chat_history_compaction.py",
+      "sha256": "38f284c9c0f9d273461e99d225f4355b190ec14e818c0b9f78c8d70828596cd1",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_compaction_and_fork_preserve_history"
       ]
     },
     {
@@ -255,6 +289,17 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_chat_tool_replay_contract.py",
+      "sha256": "418e6b6095d829680508ba3059095a14c6959a4ea3f4a67bdb5953b6869fa621",
+      "kind": "behavioral",
+      "tests": [
+        "test_bracket_prompts_and_tool_content_privacy",
+        "test_tool_parts_without_ids_remain_hidden",
+        "test_committed_replay_and_compaction_collisions",
+        "test_duplicate_event_identity_is_not_replayed"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_chat_usage_limits.py",
       "sha256": "6becbd1c79fd127367dfd21a407c13d62fb198085ef8127a2e8134e843094320",
       "kind": "behavioral",
@@ -327,6 +372,33 @@
       "kind": "behavioral",
       "tests": [
         "test_deferred_review_resume_uses_fallback_after_model_removal"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_deferred_review_denials.py",
+      "sha256": "4ca0c0c9ec84028c21436e37749a9534ba6f4b1244ae0a1ead7713afd6c0e866",
+      "kind": "behavioral",
+      "tests": [
+        "test_two_denials_reach_resumed_model_with_optional_reason"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_deferred_review_interruption.py",
+      "sha256": "e4ac5fa470606082f2abc4508251d72d081198b84bcf464c8427982d0f01018a",
+      "kind": "behavioral",
+      "tests": [
+        "test_terminal_review_closes_only_matching_pending_calls",
+        "test_failed_resume_rolls_back_approved_write_and_settles_review",
+        "test_review_creation_failure_rolls_back_messages_and_failure_marker"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_deferred_review_task_lifecycle.py",
+      "sha256": "2e07814a46f17e6ef61d8ae6103d8658fd301731106e3c4d720f8b7ff1352fb2",
+      "kind": "behavioral",
+      "tests": [
+        "test_review_submission_checks_stale_targets_and_claims_once",
+        "test_two_reviews_block_new_turn_and_preserve_denial"
       ]
     },
     {
@@ -636,6 +708,61 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py",
+      "sha256": "55701db1cf71ece0b757a30b05b3586d433b2666ede0f272e68ed9eba4712bee",
+      "kind": "behavioral",
+      "tests": [
+        "test_stdio_restricted_authority_import_and_readiness"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mcp_chat_tool_search.py",
+      "sha256": "bff40f4740f1357404309bc06c20d927abaad5123c1e6a693a9eae1d1cf09854",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_chat_deferred_search_and_tool_activity"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mcp_cold_start_races.py",
+      "sha256": "ef79b021b0acb0fe1d50329303428eb1c5fbda333fb20a38cf2e97f1975cbd17",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_configuration_change_rejects_inflight_cold_start",
+        "test_mcp_server_catalog_notification_rejects_cold_start",
+        "test_mcp_shutdown_cancels_and_closes_inflight_cold_start"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mcp_connection_isolation.py",
+      "sha256": "a06f73ea156c9226c9c0f09e01eeb70b872b7cb550d068da2eae5c9732bacf99",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_principals_keep_credentials_and_immutable_slugs",
+        "test_mcp_connection_test_filters_tools_and_sanitizes_real_failures",
+        "test_mcp_network_policy_uses_real_pinned_loopback_sockets"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mcp_managed_lifecycle.py",
+      "sha256": "45eacea492b19cca845759f9655e76f3289f2eca0fed1582fe2de952966ba24a",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_manager_shares_initialization_and_closes_each_real_session"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_mcp_mutation_recovery.py",
+      "sha256": "6bfe2479452483a670fff697a02aafb2f19006a681cabd441e9180186dc5f97a",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_metadata_and_ciphertext_share_atomic_rollback",
+        "test_mcp_oauth_adapters_and_stale_snapshots_are_fenced",
+        "test_mcp_abrupt_process_exit_preserves_one_complete_access_state",
+        "test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_mcp_oauth_storage.py",
       "sha256": "4d0f7ab1d077f516bfada0b2ae7d1067176b2d2b9fff7c97bd9d563093a0e72e",
       "kind": "behavioral",
@@ -706,6 +833,14 @@
       "kind": "behavioral",
       "tests": [
         "test_public_origin_and_runtime_configuration"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_repeated_chat_history_compaction.py",
+      "sha256": "9a42750b2ac3524e9f2cb102454c489d7e60afe61ef53b5e449d928ad3b1f505",
+      "kind": "behavioral",
+      "tests": [
+        "test_repeated_compaction_replaces_effective_history"
       ]
     },
     {
@@ -1152,6 +1287,16 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/compaction_continuation_inputs.py",
+      "sha256": "12c906a0718c17e565806fc85718c340b50162bddd62111b1f853e8c2c94d931",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/compaction_journeys.py",
+      "sha256": "78c18fcbe96e3faa57f32560993689afeb0f9f7db396d92cf0b517ae77c67c08",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/decision_model_inputs.py",
       "sha256": "5ed430aac421e5f6e9bbef93a0c2556072bf01aae98b363c7e84c05d1bb30bf8",
       "kind": "support"
@@ -1217,6 +1362,31 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/mcp_chat_search_model.py",
+      "sha256": "7830f91a0e30d980cfd1389379ddddb41110e6549622baef382eb11f98cf1d4c",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/mcp_http_inputs.py",
+      "sha256": "66f34b2f40a58dd6d93ca2f1580bcb439388fa3f4bc6a06e0cff09f2024d7383",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/mcp_mutation_inputs.py",
+      "sha256": "d64c9fe9c6ee08143abe8c3df23bfb47ec4302600d9f3ae9650f50dd834128ea",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/mcp_race_inputs.py",
+      "sha256": "57d78cf8418fba46d8731b65c2d549dcc9785607c0721a310339b2c122dccffd",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/mcp_stdio_inputs.py",
+      "sha256": "64b1631aea4369e112d4bd45b6f8827ebfe4d23d2d04963ea6b4eafa6235b3d5",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/model_configuration.py",
       "sha256": "ceb4d3b820fe5a68bafa6f2fae0d601a822f3b8b1a8e0d3c6c1656f97ba69d34",
       "kind": "support"
@@ -1249,6 +1419,11 @@
     {
       "path": "pytest_scenarios/support/recovery_replay.py",
       "sha256": "01e37cb5da75e4f714482a8308710a93489fc0ad4dedf467b96346c958ee24f0",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/replay_inputs.py",
+      "sha256": "aad1d78a8eadeb17b4e7868d098d1fa2a23ec5a12d42a714818f8e996b2446c8",
       "kind": "support"
     },
     {
@@ -1324,6 +1499,11 @@
     {
       "path": "pytest_scenarios/support/transcript_storage.py",
       "sha256": "7a376a7128a5cb06c2ced41545379fb97d7ca76a6235320ec169586aff26300f",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/two_review_provider.py",
+      "sha256": "585d460671fdfc5485f194d7c8f97912b473325abef26d38ecdb03abf97cf0f6",
       "kind": "support"
     },
     {

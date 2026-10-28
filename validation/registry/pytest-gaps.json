@@ -559,17 +559,28 @@
       "category": "oracle_scope_review",
       "source_scenarios": [
         "integration/core/chat_tool_metadata_visibility",
-        "integration/core/chat_usage_limits"
+        "integration/core/chat_usage_limits",
+        "integration/core/chat_history_compaction",
+        "integration/core/auto_chat_history_compaction",
+        "integration/core/mcp_chat_tool_search"
       ],
-      "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics.",
+      "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics. Manual/automatic recovery-card source prompt/settings description and MCP unavailable-instruction prose oracles are also deferred; structural card identity/preamble dedup and actual author payload partition/provenance remain asserted.",
       "cleanup_action": "Choose behavioral replacement for important guidance or explicitly retire editorial wording oracles before removing originals.",
       "retained_coverage": [
         "validation/scenarios/integration/core/chat_tool_metadata_visibility.py",
-        "validation/scenarios/integration/core/chat_usage_limits.py"
+        "validation/scenarios/integration/core/chat_usage_limits.py",
+        "validation/scenarios/integration/core/chat_history_compaction.py",
+        "validation/scenarios/integration/core/auto_chat_history_compaction.py",
+        "validation/scenarios/integration/core/mcp_chat_tool_search.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/tool_metadata_batch10_reviewed_20261028/report.json",
-        "validation/runs/pytest_migration/usage_limits_batch10_reviewed_20261028/report.json"
+        "validation/runs/pytest_migration/usage_limits_batch10_reviewed_20261028/report.json",
+        "validation/runs/pytest_migration/manual_compaction_metadata_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_continuation_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_search_lease_batch14_20261028/report.json"
       ]
     },
     {
@@ -736,6 +747,109 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+      ]
+    },
+    {
+      "id": "automatic-compaction-private-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/auto_chat_history_compaction"
+      ],
+      "missing_proof": "Real owned compaction success, HTTP author failure and SQLite checkpoint failure pass. Original injected pre-domain callback failure, coordinator admission rejection and missing/stopped runtime boundary remain unproved.",
+      "cleanup_action": "Exercise genuine supported admission/runtime lifecycle inputs and distinct pre-domain failure logging without replacing application methods.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/auto_chat_history_compaction.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json"
+      ]
+    },
+    {
+      "id": "deferred-review-inflight-interruption",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/deferred_review_interruption"
+      ],
+      "missing_proof": "Actual resumed tool write completes before a subsequent provider failure. This does not establish cancellation/failure during an active reviewed tool with a missing durable return, follow-up no replay of interrupted calls, or injected settlement-warning privacy.",
+      "cleanup_action": "Use a genuine bounded active reviewed workload with observable entry/cancellation and next-turn history; retain original warning failure contract for explicit review.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/deferred_review_interruption.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-mutation-private-race-windows",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_mutation_recovery"
+      ],
+      "missing_proof": "Actual sequential stale snapshots/adapters and abrupt shared-transaction death pass. Original before-lock OAuth client-secret and credential-mode interleavings, plus exact death inside composed public credential mutation before commit, remain unproved.",
+      "cleanup_action": "Establish real concurrency barriers through supported workload/transaction inputs or review precise private injection scope before removing originals.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_mutation_recovery.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-advanced-stdio-successful-ssh",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_advanced_shell_stdio_connections"
+      ],
+      "missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
+      "cleanup_action": "Provide opt-in deterministic local SSH infrastructure or classify transport fixture ownership; retain successful launch/root/lifecycle assertions meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-controlled-dns-and-tls-boundaries",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_connection_isolation"
+      ],
+      "missing_proof": "Actual numeric-address policy and pinned HTTP sockets pass. Original fake DNS rebinding between discovery and request, multiple resolved-address attempts under one total budget, cancellation of blocked DNS resolution and HTTPS SNI/host verification against controlled resolver outputs remain unproved.",
+      "cleanup_action": "Provide deterministic local DNS/TLS infrastructure or supported resolution workload inputs without bypassing public target policy; retain those source assertions meanwhile.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_connection_isolation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-real-timeout-classification",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_connection_isolation"
+      ],
+      "missing_proof": "Original fake timeout requires status timeout. Actual9s delayed initialization raises SDK-normalized RuntimeError and yields connection_failed. Actual6s initialization plus blocked list hits the production total deadline near10s but stream closure returns HTTP500 and the app reports http_error. These real failures do not certify the timeout oracle. Both failed reports and original assertions remain; the unsupported staged timeout probe was removed rather than accepting another result as equivalent.",
+      "cleanup_action": "Review intended timeout classification across current MCP SDK cancellation/initialization boundaries; add a genuine regression producer and fix or explicitly adjudicate the contract before retiring the original timeout assertion.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_connection_isolation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json"
       ]
     }
   ]
