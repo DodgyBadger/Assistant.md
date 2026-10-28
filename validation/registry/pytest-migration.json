@@ -223,12 +223,27 @@
         "patch.object"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_authoring_tool_failure_semantics.py::test_authoring_tool_failures_preserve_selected_and_uncaught_outcomes"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "session-ops-private-exception-payload"
+      ],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Real model-facing file tool error, caught authoring skipped choice, explicit failed result/successFalse and durable history remain. Actual FTS lookup failure propagates through uncaught Monty with stable operation context; arbitrary private exception text is not proved by a generic real SQLite error."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/auto_chat_history_compaction.py",
@@ -1566,12 +1581,25 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_decision_model_configuration.py::test_decision_model_configuration_and_repair"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Actual capability normalization, model/provider API filtering, decision readiness/generative rejection and secret confidentiality; retired provider activity and real configuration repair/backups retain original assertions."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/configuration_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/default_context.py",
@@ -1851,12 +1879,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_disabled_tools_registry.py::test_disabled_tools_registry"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Persisted actual denylist drives metadata and enabled/direct/all production tool bindings, with disabled explicit binding rejected under real authority."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/configuration_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/edit_proposal_artifacts.py",
@@ -3324,12 +3365,27 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_mcp_oauth_storage.py::test_mcp_oauth_storage_is_encrypted_and_fenced"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "mcp-oauth-socket-authoritative-transport"
+      ],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Actual encrypted owner-scoped/fenced MCP OAuth state, expiry, adapter tokens/clear and readiness, runtime browser denial, disconnect fence invalidation and immutable client redirect/environment policy. Socket/DNS response proof remains original-only."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/mistral_ocr_contract.py",
@@ -3509,12 +3565,25 @@
         "httpx.MockTransport"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_openai_oauth_rejection.py::test_openai_oauth_exchange_and_refresh_rejection_are_sanitized"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Real configurable HTTP token adapter calls a controlled local provider for rejected exchange, successful short-lived token and rejected refresh. Actual settings/API/chat response/status confidentiality and useful sanitized errors replace mocked token transport; supported adapter setter restored in finally."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/pending_diff_metadata.py",
@@ -3706,12 +3775,25 @@
       "fixture_input_candidates": [],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_public_url_configuration.py::test_public_origin_and_runtime_configuration"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "All origin/path parse and redirect-resolution inputs/results remain; AppSettings and production/validation RuntimeConfig contracts plus raw error confidentiality are checked. Actual configured app startup/restart now independently preserve normalized origin."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/configuration_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/recovery_card_compaction_concurrency.py",
@@ -4653,12 +4735,25 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_shared_oauth_foundation.py::test_shared_oauth_storage_and_pkce"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Actual encrypted principal-scoped state, isolation, expired negative-TTL input, PKCE challenge/state and redirect/completion parsing; expiry uses a genuinely already-expired record rather than patched time."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/sqlite_migrations.py",
@@ -4814,12 +4909,25 @@
       "fixture_input_candidates": [],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_structured_output_retry.py::test_streamed_structured_output_retries_invalid_result"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "Real production create_agent/generate_response and configured HTTP model emit invalid then corrected structured output: exactly two streamed requests, actual retry feedback and corrected summary. Explicit execution authority permits real secret-backed model configuration access."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/tool_retries_batch8_fixed_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/structured_tool_failure.py",
@@ -5150,12 +5258,27 @@
         "self._check_invocation_identity"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_tool_history_integrity.py::test_authoring_history_preserves_batches_and_reports_orphans",
+        "validation/pytest_scenarios/integration/core/test_tool_history_integrity.py::test_actual_tool_retry_retains_admissible_canonical_history"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "All explicit provider-history identity/batch/orphan fixtures retain real production authoring/admission outputs/events. Configured real provider first requests list_sessions(limit=0), causing an actual in-tool ModelRetry, then corrects input; exact two invocations, two calls and one return remain canonical and admissible."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json",
+          "validation/runs/pytest_migration/tool_retries_batch8_fixed_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/tool_recovery_policy.py",
@@ -5186,12 +5309,25 @@
         "_unresolved_decision"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_tool_recovery_policy.py::test_tool_recovery_policies_decide_and_replay_real_read"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "configuration-oauth-tool-contracts-20261028",
+        "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
+        "behavioral_contracts": [
+          "All metadata/strategy/reason/count/snapshot-retention assertions run over explicitly seeded persisted interruption frontiers. Actual FileRead replay and real provider receipt of file content replace fabricated probe effects. Seeded records are inputs, not proof of crash generation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/transcript_retrieval_storage.py",
@@ -9791,16 +9927,39 @@
       ],
       "evidence_scope": "Seventeen cases passed across focused runs; OAuth origin/scope and review argument-encoding fixture failures retained. Normal API contracts were extended before accepting hard-controlled failure gaps.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "configuration-oauth-tool-contracts-20261028",
+      "source_identities": [
+        "integration/core/decision_model_configuration",
+        "integration/core/disabled_tools_registry",
+        "integration/core/public_url_configuration",
+        "integration/core/shared_oauth_foundation",
+        "integration/core/mcp_oauth_storage",
+        "integration/core/openai_oauth_rejection",
+        "integration/core/authoring_tool_failure_semantics",
+        "integration/core/tool_history_integrity",
+        "integration/core/tool_recovery_policy",
+        "integration/core/structured_output_retry"
+      ],
+      "pytest_cases": 11,
+      "partial_ports": [
+        "integration/core/mcp_oauth_storage",
+        "integration/core/authoring_tool_failure_semantics"
+      ],
+      "evidence_scope": "Eleven cases passed focused runs. Wrong retry-path input and missing direct-factory authority failures retained; exact original behavioral counts remain.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 60,
-    "sources_without_staged_nodes": 86,
+    "sources_with_staged_nodes": 70,
+    "sources_without_staged_nodes": 76,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 96,
-    "staged_default_core_cases": 102,
+    "new_focused_passing_cases": 107,
+    "staged_default_core_cases": 113,
     "partial_source_ports": [
+      "integration/core/authoring_tool_failure_semantics",
       "integration/core/builtin_connection_configuration",
       "integration/core/chat_task_event_stream_api",
       "integration/core/chat_task_session_queue",
@@ -9809,6 +9968,7 @@
       "integration/core/file_write_same_path_concurrency",
       "integration/core/gmail_connection_api",
       "integration/core/legacy_secrets_migration",
+      "integration/core/mcp_oauth_storage",
       "integration/core/model_alias_resolution",
       "integration/core/session_map_readiness",
       "integration/core/session_map_schema",

@@ -386,16 +386,19 @@
       "id": "session-ops-private-exception-payload",
       "category": "migration_parity",
       "source_scenarios": [
-        "integration/core/session_ops_chat_tool"
+        "integration/core/session_ops_chat_tool",
+        "integration/core/authoring_tool_failure_semantics"
       ],
-      "missing_proof": "Original patched search raises OperationalError with arbitrary private payload text. Genuine missing-external-content FTS failure yields a generic SQL logic error; passing private-query absence and metadata assertions do not prove sanitization of arbitrary private exception-message text.",
+      "missing_proof": "Original patched search raises OperationalError with arbitrary private payload text. Genuine missing-external-content FTS failure yields a generic SQL logic error; passing private-query absence and metadata assertions do not prove sanitization of arbitrary private exception-message text. The authoring failure port proves actual uncaught durable failure/operation context, but its generic FTS error likewise cannot replace the original injected private backend-message absence proof.",
       "cleanup_action": "Find a genuine bounded provider/storage error containing sensitive text at this boundary or explicitly retain/classify the original narrow fault-injection oracle.",
       "status": "open",
       "retained_coverage": [
-        "validation/scenarios/integration/core/session_ops_chat_tool.py"
+        "validation/scenarios/integration/core/session_ops_chat_tool.py",
+        "validation/scenarios/integration/core/authoring_tool_failure_semantics.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json"
+        "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json"
       ]
     },
     {
@@ -494,6 +497,22 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
+      ]
+    },
+    {
+      "id": "mcp-oauth-socket-authoritative-transport",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_oauth_storage"
+      ],
+      "missing_proof": "Original patches resolved addresses and httpcore backend to return HTTP200 and asserts MCP OAuth socket-authoritative request succeeds. New port checks actual client redirect/environment policy and all storage/fence contracts, but does not execute equivalent guarded public-address transport. Client policy flags alone are not socket or DNS boundary proof.",
+      "cleanup_action": "Provide a controlled accepted public-address transport environment or explicitly review the isolated backend/DNS fixture classification before retiring original proof.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/mcp_oauth_storage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
       ]
     }
   ]

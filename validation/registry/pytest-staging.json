@@ -66,6 +66,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_authoring_tool_failure_semantics.py",
+      "sha256": "3fc6a6a6b28a3c59bbf446021caa6b042248a9f803783ecac52539bf0f3d5836",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_tool_failures_preserve_selected_and_uncaught_outcomes"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_builtin_connection_configuration.py",
       "sha256": "86ddddf6fb4d83187c3e90c1949e9269e6ce938e17406fd6c027f2e830c72c8e",
       "kind": "behavioral",
@@ -143,6 +151,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_decision_model_configuration.py",
+      "sha256": "e74929c5bd94cf2c9d6f3831c4311fec5624f5877770b984026971845ec1127f",
+      "kind": "behavioral",
+      "tests": [
+        "test_decision_model_configuration_and_repair"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_default_context.py",
       "sha256": "88fc728184c304c598e6f0e9c97a879e6c1aac0a7f4a5d94d85751a677f54c16",
       "kind": "behavioral",
@@ -156,6 +172,14 @@
       "kind": "behavioral",
       "tests": [
         "test_empty_directory_cleanup_preserves_files"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_disabled_tools_registry.py",
+      "sha256": "8dd03fc7e2f359545038a6ae5a1365bfb4581a12a13ac790dab46035084f717b",
+      "kind": "behavioral",
+      "tests": [
+        "test_disabled_tools_registry"
       ]
     },
     {
@@ -301,6 +325,14 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_mcp_oauth_storage.py",
+      "sha256": "4d0f7ab1d077f516bfada0b2ae7d1067176b2d2b9fff7c97bd9d563093a0e72e",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_oauth_storage_is_encrypted_and_fenced"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_model_alias_resolution.py",
       "sha256": "5e739449f95ac6cc0589a5ad597ede9184fc9acb96892d8bebadabec8da92e38",
       "kind": "behavioral",
@@ -314,6 +346,14 @@
       "kind": "behavioral",
       "tests": [
         "test_provider_billing_failure_is_classified_and_sanitized"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_openai_oauth_rejection.py",
+      "sha256": "fd493062d53a3d215b15632b2a906e1ae6caee11bd347ea590477f081f340a6e",
+      "kind": "behavioral",
+      "tests": [
+        "test_openai_oauth_exchange_and_refresh_rejection_are_sanitized"
       ]
     },
     {
@@ -331,6 +371,14 @@
       "tests": [
         "test_legacy_session_ownership_migrates_and_cannot_be_rebound",
         "test_runtime_authority_is_captured_for_nested_threaded_and_connected_tasks"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_public_url_configuration.py",
+      "sha256": "d76e202193c88381db5de8480737939e6d4ca4d821a4291c116d78f3887b1177",
+      "kind": "behavioral",
+      "tests": [
+        "test_public_origin_and_runtime_configuration"
       ]
     },
     {
@@ -400,11 +448,27 @@
       ]
     },
     {
+      "path": "pytest_scenarios/integration/core/test_shared_oauth_foundation.py",
+      "sha256": "349e5fd8892d065b28949d1cfddd879f54159d81f348bd68b5625d9ca8511049",
+      "kind": "behavioral",
+      "tests": [
+        "test_shared_oauth_storage_and_pkce"
+      ]
+    },
+    {
       "path": "pytest_scenarios/integration/core/test_startup_migrations.py",
       "sha256": "9d0954f743ec7a62df0a67ad7599469198e0edbe92f0f9d49ba8128a5a29a322",
       "kind": "behavioral",
       "tests": [
         "test_startup_migrates_system_databases"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_structured_output_retry.py",
+      "sha256": "b4bba2ddb9b69b6e8fe3e309571492ca9276f52b0d71b1a7df6cc3f93b99ef18",
+      "kind": "behavioral",
+      "tests": [
+        "test_streamed_structured_output_retries_invalid_result"
       ]
     },
     {
@@ -429,6 +493,23 @@
       "kind": "behavioral",
       "tests": [
         "test_settings_repair_and_explicit_template_refresh"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_tool_history_integrity.py",
+      "sha256": "d335fa19fc187514bf446468742a9a79789840292caa1fbcf12664d6964177e9",
+      "kind": "behavioral",
+      "tests": [
+        "test_authoring_history_preserves_batches_and_reports_orphans",
+        "test_actual_tool_retry_retains_admissible_canonical_history"
+      ]
+    },
+    {
+      "path": "pytest_scenarios/integration/core/test_tool_recovery_policy.py",
+      "sha256": "9af620a29f9b785641baa42a77058708e6bf9f38be70e4bdd6918ca047026055",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_recovery_policies_decide_and_replay_real_read"
       ]
     },
     {
@@ -570,6 +651,11 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/authoring_failure_inputs.py",
+      "sha256": "3995f587a36cecb0c74ace7a87b6c100545072773a75662ad8de81fdc9adad5e",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/chat_persistence.py",
       "sha256": "2c892dad93bf77b998ff68990cebf08a2da671686daa16e7fed29c8885957ada",
       "kind": "support"
@@ -592,6 +678,11 @@
     {
       "path": "pytest_scenarios/support/code_tool_chat.py",
       "sha256": "aee61fe3f6da097af9e7f7ab5f8183c830371a8efa879fcbca3529118ffd88eb",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/decision_model_inputs.py",
+      "sha256": "5ed430aac421e5f6e9bbef93a0c2556072bf01aae98b363c7e84c05d1bb30bf8",
       "kind": "support"
     },
     {
@@ -635,8 +726,28 @@
       "kind": "support"
     },
     {
+      "path": "pytest_scenarios/support/openai_oauth_http.py",
+      "sha256": "49bd001b78c00e79cca89eb00ac1c4fd7decd0f2c7b7016de9eaa5f988f63c47",
+      "kind": "support"
+    },
+    {
       "path": "pytest_scenarios/support/principal_authority.py",
       "sha256": "d1cc2be54d2421a90a23ce333b11e3a8067d1a4f96fd2c65feb34f19c8e76cd1",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/recovery_inputs.py",
+      "sha256": "03bd6ae205f83ba7e0c820babf207369e492b78af6f667f46cebece6260a1330",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/recovery_replay.py",
+      "sha256": "01e37cb5da75e4f714482a8308710a93489fc0ad4dedf467b96346c958ee24f0",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/retry_provider.py",
+      "sha256": "c9ac9f5457427bff457dde68760ad27f0b61385b08daeb5ce96e7daba9dff6b9",
       "kind": "support"
     },
     {
@@ -682,6 +793,11 @@
     {
       "path": "pytest_scenarios/support/startup.py",
       "sha256": "757b29042cfacd8f21701b5dc270b76227b4796032c124212d6b2122ba600dd3",
+      "kind": "support"
+    },
+    {
+      "path": "pytest_scenarios/support/tool_history_inputs.py",
+      "sha256": "6514ed3e47fc9aad9e1f60fc278b303b61af57a214ab0f9001fe652f3515f36d",
       "kind": "support"
     },
     {
