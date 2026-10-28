@@ -689,6 +689,54 @@
       "evidence": [
         "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
       ]
+    },
+    {
+      "id": "web-extraction-mixed-and-binary-responses",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/web_capability_strategies"
+      ],
+      "missing_proof": "Source patches public URL resolution and fetch response to prove mixed successful/rejected extraction and PDF binary failure guidance. New real inputs prove local policy rejection and separate raw transport, not public-policy accepted extraction or binary classification through that path.",
+      "cleanup_action": "Provide a supported deterministic public-resolution/transport boundary without disabling SSRF checks, then exercise mixed-item preservation and binary document rejection.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/web_capability_strategies.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
+      ]
+    },
+    {
+      "id": "bootstrap-mcp-exact-cleanup-lifecycle",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/runtime_bootstrap_cleanup"
+      ],
+      "missing_proof": "Real invalid startup and repaired restart pass, but runtime sentinel/cleanup success do not prove the original fake MCP manager started and shutdown exactly once.",
+      "cleanup_action": "Observe real MCP lifecycle through supported events or resources; preserve exact count oracle until its contract is reviewed.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/runtime_bootstrap_cleanup.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+      ]
+    },
+    {
+      "id": "summary-retirement-interrupted-bookkeeping",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_summary_data_retirement"
+      ],
+      "missing_proof": "Actual successful scoped retirement and dependency refusals pass. The original injected failure after owned table drops but before migration bookkeeping demonstrated transaction rollback and subsequent successful retry; that exact interruption is not reproduced.",
+      "cleanup_action": "Use a genuine supported database failure or migration workload boundary to establish atomic rollback and retry, or review the retained injection contract explicitly.",
+      "retained_coverage": [
+        "validation/scenarios/integration/core/session_summary_data_retirement.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+      ]
     }
   ]
 }

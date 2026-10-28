@@ -588,12 +588,25 @@
         "_FailingAgent"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_chat_failure_rollback.py::test_failed_chat_rolls_back_real_file_write"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Actual configured loopback model invokes real file_write, provider observes resulting bytes, then genuine HTTP400 fails next request. Actual error/failed-task/recorded mutation/rollback events and final file absence replace fake prepared agent while retaining failure/rollback contract."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/mutation_review_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/chat_history_compaction.py",
@@ -2168,12 +2181,25 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_edit_proposal_artifacts.py::test_historical_edit_proposal_is_readable_and_cannot_mutate_files"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Explicit historical SQLite input remains fetchable with retained artifact/ref/status/edit; former apply/deny/review endpoints reject and actual target file remains unchanged."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/mutation_review_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/encrypted_secrets_boundaries.py",
@@ -4003,12 +4029,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_pending_diff_metadata.py::test_pending_diff_uses_last_completed_snapshot_and_advances_baseline"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Actual authoring workflow completes three runs: initial snapshot/no diff; edited file returns exact pending path, available diff/added line and snapshot identities; unchanged third run has no pending files."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/mutation_review_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/pending_hybrid.py",
@@ -4031,12 +4070,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_pending_hybrid.py::test_pending_hybrid_ignores_old_mtime_edits_and_requeues_later_changes"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Actual loaded workflow and four runs retain counts2/0/1/0, path and completion. Controlled old/later mtime edits retain original classification scope, without claiming real workflow self-edit generation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/mutation_review_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/principal_authority_boundaries.py",
@@ -4275,12 +4327,27 @@
         "patches.enter_context"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_runtime_bootstrap_cleanup.py::test_invalid_runtime_configuration_then_clean_restart"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "bootstrap-mcp-exact-cleanup-lifecycle"
+      ],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Real invalid saved model configuration fails startup with unwrapped RuntimeConfigError/config identity; no runtime sentinel, confirmed controller cleanup and repaired real restart/status. Exact internal MCP manager start/shutdown count remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/session_context_strategy_upgrade.py",
@@ -4935,12 +5002,28 @@
         "self._get_system_controller"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_session_summary_data_retirement.py::test_summary_retirement_backup_scope_and_repeatability",
+        "validation/pytest_scenarios/integration/core/test_session_summary_data_retirement.py::test_summary_retirement_rejects_external_foreign_keys"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "summary-retirement-interrupted-bookkeeping"
+      ],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Seeded legacy SQLite/canonical history inputs exercise real backup-required retirement, backup integrity/content, owned-table-only deletion, unknown/canonical/map preservation, repeat/fresh state and three foreign-key dependency refusals with backups/private activity. Injected mid-migration interruption rollback remains unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/settings_database_migration.py",
@@ -5853,12 +5936,25 @@
       ],
       "private_or_simulation_concerns": [],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_user_notes_compaction_workflow.py::test_small_user_notes_skip_packaged_compaction"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205917_684280.json",
+        "behavioral_contracts": [
+          "Real packaged authoring template/host under local authority skips short notes with computed-trigger reason and unchanged file, without invoking model curation."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/user_notes_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/validation_adapter_lifecycle.py",
@@ -6875,12 +6971,30 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_web_capability_strategies.py::test_builtin_web_strategy_selection_and_url_policy",
+        "validation/pytest_scenarios/integration/core/test_web_capability_strategies.py::test_shared_html_conversion_and_legacy_strategy_migration",
+        "validation/pytest_scenarios/integration/core/test_web_capability_strategies.py::test_registered_search_dispatch_runs_only_selected_http_workload",
+        "validation/pytest_scenarios/integration/core/test_web_capability_strategies.py::test_pinned_raw_curl_fetch_bypasses_configured_proxy"
+      ],
+      "disposition": "staged_partial_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+        "web-extraction-mixed-and-binary-responses"
+      ],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Actual registry dispatch performs selected local HTTP search with fallback endpoint untouched. Real raw curl subprocess bypasses poison proxy using pinned target socket; this low-level probe does not establish public URL acceptance. Builtin requirements, invalid/missing configuration, private URL rejection, signature, sanitization, shared HTML conversion, size diagnostic and legacy settings migrations retain original inputs/outputs. Mixed accepted/rejected public extraction and binary-response failure remain unproved."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/web_strategy_binding.py",
@@ -6909,12 +7023,25 @@
         "patch"
       ],
       "required_contract_links": [],
-      "planned_pytest_cases": [],
-      "disposition": "retain_original_pending_behavior_review",
-      "review_status": "Static source inventory only; candidate calls do not establish a real application boundary or replacement parity.",
-      "coverage_gaps": [
-        "Semantic review and production-boundary proof remain required before cutover."
-      ]
+      "planned_pytest_cases": [
+        "validation/pytest_scenarios/integration/core/test_web_strategy_binding.py::test_web_binding_tracks_strategy_credentials_and_invalid_configuration"
+      ],
+      "disposition": "staged_verified_port_retain_original",
+      "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
+      "coverage_gaps": [],
+      "migration": {
+        "batch": "mutation-web-runtime-retirement-20261028",
+        "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
+        "behavioral_contracts": [
+          "Real default bindings, missing Tavily credential, selected-strategy unavailability/health, actual credential enablement and invalid configuration preserve continuation to other tools. Installed invalid settings replace patched requirements callback."
+        ],
+        "evidence": [
+          "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
+        ],
+        "source_retained": true,
+        "maintainer_acceptance": "pending",
+        "source_sha256_unchanged": true
+      }
     },
     {
       "source": "validation/scenarios/integration/core/workflow_cancellation.py",
@@ -10535,15 +10662,37 @@
       ],
       "evidence_scope": "Eighteen cases passed focused runs with completed cleanup. Real loopback HTTP replaces Gmail mocks; real configured agents replace chat fakes. Constructor callback failures execute genuine malformed parsing. Multiaccount token routing remains explicit partial scope.",
       "required_contract_admission": "not_granted"
+    },
+    {
+      "id": "mutation-web-runtime-retirement-20261028",
+      "source_identities": [
+        "integration/core/edit_proposal_artifacts",
+        "integration/core/pending_diff_metadata",
+        "integration/core/pending_hybrid",
+        "integration/core/chat_failure_rollback",
+        "integration/core/web_capability_strategies",
+        "integration/core/web_strategy_binding",
+        "integration/core/runtime_bootstrap_cleanup",
+        "integration/core/session_summary_data_retirement",
+        "integration/core/user_notes_compaction_workflow"
+      ],
+      "pytest_cases": 13,
+      "partial_ports": [
+        "integration/core/web_capability_strategies",
+        "integration/core/runtime_bootstrap_cleanup",
+        "integration/core/session_summary_data_retirement"
+      ],
+      "evidence_scope": "Thirteen cases passed focused runs with completed cleanup. Real tool/HTTP failure, supported registry workloads, raw curl sockets, invalid configuration and actual SQLite migrations replace source fakes where feasible. Three remaining source contracts explicitly partial.",
+      "required_contract_admission": "not_granted"
     }
   ],
   "migration_progress": {
     "original_core_scenarios": 146,
-    "sources_with_staged_nodes": 104,
-    "sources_without_staged_nodes": 42,
+    "sources_with_staged_nodes": 113,
+    "sources_without_staged_nodes": 33,
     "prior_pilot_cases": 4,
-    "new_focused_passing_cases": 168,
-    "staged_default_core_cases": 174,
+    "new_focused_passing_cases": 181,
+    "staged_default_core_cases": 187,
     "partial_source_ports": [
       "integration/core/authoring_tool_failure_semantics",
       "integration/core/builtin_connection_configuration",
@@ -10567,9 +10716,11 @@
       "integration/core/legacy_secrets_migration",
       "integration/core/mcp_oauth_storage",
       "integration/core/model_alias_resolution",
+      "integration/core/runtime_bootstrap_cleanup",
       "integration/core/session_map_readiness",
       "integration/core/session_map_schema",
       "integration/core/session_ops_chat_tool",
+      "integration/core/session_summary_data_retirement",
       "integration/core/settings_database_migration",
       "integration/core/structured_tool_failure",
       "integration/core/vault_activity_rollback",
@@ -10578,6 +10729,7 @@
       "integration/core/vault_explorer_batch_move",
       "integration/core/vault_explorer_upload",
       "integration/core/vault_state_rollback",
+      "integration/core/web_capability_strategies",
       "integration/core/workflow_run_history"
     ],
     "coverage_complete": false,
