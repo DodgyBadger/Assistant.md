@@ -16,7 +16,7 @@ from validation.scenarios.support.mcp_network_environment import (
     DNSAnswers,
     NetworkFailures,
 )
-from validation.scenarios.support.tls_inputs import local_tls
+from validation.scenarios.support.tls_inputs import certificate_rejection, local_tls
 
 pytestmark = pytest.mark.scenario
 
@@ -42,13 +42,15 @@ async def test_guarded_mcp_https_retains_host_sni_verified_identity_and_closure(
         assert "localhost" in tls.names
         assert all(r["host"] == urlsplit(server.url).netloc for r in server.requests)
         async with factory() as http:
-            with pytest.raises(httpx.ConnectError):
+            with pytest.raises(httpx.ConnectError) as rejected:
                 await http.get(server.url.replace("localhost", "127.0.0.1"))
+            assert certificate_rejection(rejected.value)
         # The normal production trust store must reject the fixture's untrusted
         # certificate. No certificate verification or URL policy is disabled.
         async with mcp_oauth_http_client_factory(allow_private_http=False)() as http:
-            with pytest.raises(httpx.ConnectError):
+            with pytest.raises(httpx.ConnectError) as rejected:
                 await http.get(server.url)
+            assert certificate_rejection(rejected.value)
         app.evidence.save_json(
             "tls-boundaries.json", {"sni": tls.names, "requests": server.requests}
         )

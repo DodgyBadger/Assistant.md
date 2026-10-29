@@ -50,3 +50,20 @@ def local_tls(root: Path) -> TLSIdentity:
     private_key.chmod(0o600)
     context = ssl.create_default_context(cafile=str(certificate))
     return TLSIdentity(certificate, private_key, context)
+
+
+def certificate_rejection(error):
+    """Distinguish actual verification failures from unrelated connection errors."""
+    pending = [error]
+    seen = set()
+    while pending:
+        item = pending.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, ssl.SSLCertVerificationError):
+            return True
+        pending.extend(e for e in (item.__cause__, item.__context__) if e is not None)
+        if isinstance(item, BaseExceptionGroup):
+            pending.extend(item.exceptions)
+    return False

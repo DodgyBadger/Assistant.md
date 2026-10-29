@@ -105,6 +105,7 @@ async def test_mixed_extraction_preserves_success_and_rejects_binary_and_private
         assert failures[private].error_type == "WebUrlPolicyError"
         assert failures[redirect].error_type == "WebUrlPolicyError"
         assert failures[binary].error_type == "RuntimeError"
+        assert "application/pdf" in failures[binary].error
         assert remote.requests == [good, binary, redirect]
 
 

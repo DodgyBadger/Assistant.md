@@ -1238,7 +1238,7 @@
     },
     {
       "path": "scenarios/integration/core/test_mcp_network_boundaries.py",
-      "sha256": "b2854a7bd520cb8bff0f6a4082f61de5f0e3ad5b3f42643ef19285f9eacae9ba",
+      "sha256": "7339e21512ee8f6f80e88b7baefc32c3083b18d4750ea7f834716505b67706dc",
       "kind": "behavioral",
       "tests": [
         "test_guarded_mcp_https_retains_host_sni_verified_identity_and_closure",
@@ -1414,7 +1414,7 @@
     },
     {
       "path": "scenarios/integration/core/test_remote_web_behavior.py",
-      "sha256": "a4d7562e64ed36263f526e69193f46d34e787c16330eb2ab850cfef450f882bf",
+      "sha256": "0ca96565a9e35dfae315af2e041a3a42498c66f8e5087314c5a6459cf964df4f",
       "kind": "behavioral",
       "tests": [
         "test_remote_import_preserves_destination_provenance_and_content_detection",
@@ -2664,7 +2664,7 @@
     },
     {
       "path": "scenarios/support/tls_inputs.py",
-      "sha256": "178b911d2be0b7384ea75f3f4c8ec865a42adac8db5b5b2d2609aff00a88a2ea",
+      "sha256": "9c0a67b7c97cfeb35c124430904e004a2d425969f0e02d2be947c5d908ecac26",
       "kind": "support"
     },
     {
