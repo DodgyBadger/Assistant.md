@@ -437,6 +437,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_terminal_replay_retention.py",
+      "sha256": "430daad437e993152d451574e40fd4aafb951bb85c158c5a17b24cafb6fa56a8",
+      "kind": "behavioral",
+      "tests": [
+        "test_evicted_chat_task_is_missing_while_conversation_survives",
+        "test_cursor_expiry_after_stream_admission_requests_resync",
+        "test_pending_review_does_not_publish_a_fork_boundary"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_tool_metadata_visibility.py",
       "sha256": "a14368e93e82a27f9fe0a38a3ddb8de0492e4c02d475da7b3ae52cb58d708973",
       "kind": "behavioral",

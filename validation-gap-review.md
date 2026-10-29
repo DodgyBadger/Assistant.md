@@ -23,11 +23,6 @@
     **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.
     - Agreed
 
-24. **Replay retention edge cases:** API cursor expiry, compact replay, reasoning/tool privacy and actual fork failures are covered. Verify full terminal-task eviction and cursor expiry during SSE admission.
-
-    **Recommendation:** **Keep, high priority.** Add API-level replay/expiry cases using controlled retention inputs, real tool history and actual fork failures. Assert an honest resync/expiry result, no partial fork or future-context leakage, and correct reasoning/tool visibility; retain the lower-level buffer tests as supporting evidence.
-    - Approved
-
 27. **MCP OAuth guarded transport:** Verify a successful request through the guarded public-address transport. Client configuration and storage checks do not establish the full socket and DNS boundary.
 
     **Recommendation:** **Keep as part of the security transport work in item 45.** Exercise the actual socket backend and OAuth-discovered endpoints with controlled DNS/TLS infrastructure. Request hooks and client flags remain useful checks, but successful policy-compliant transport needs its own evidence.

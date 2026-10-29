@@ -586,24 +586,28 @@
     },
     {
       "id": "chat-replay-expiry-projection-and-fork-faults",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_task_event_stream_api"
       ],
       "missing_proof": "Original unresolved-tool fork suppression, injected fork-projection rollback, API cursor preflight/race410, compact snapshot after raw expiry/API terminal retention miss, and reasoning/tool projection remain unproved end to end. Public buffer expiry/tool-state reduction is retained, but is not API retention evidence. Ordinary cursor replay, handoff, snapshot task boundaries and running cancellation now have real API proof.",
-      "cleanup_action": "Use controlled real provider/tool/event-retention inputs where supported, or review isolated fault/retention injection boundaries; keep original source until resolved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
-        "validation/runs/gap_cleanup_chat_replay_20261029/report.json"
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json",
+        "validation/runs/gap_cleanup_remaining_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_fork_checkpoint_boundaries_20261029/report.json"
       ],
       "review_number": 24,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Real API raw-cursor expiry410/retained compact replay, actual reason/tool projection without private arguments, failed assistant commit with no advertised fork, and fork-copy transaction rollback/retry with no future context all pass. Remaining: full terminal-task eviction and a cursor-expiry race while SSE admission is in progress; private injected query failures are not counted as actual-producer evidence."
+      "progress_note": "Real API raw-cursor expiry410/retained compact replay, actual reason/tool projection without private arguments, failed assistant commit with no advertised fork, and fork-copy transaction rollback/retry with no future context all pass. Remaining: full terminal-task eviction and a cursor-expiry race while SSE admission is in progress; private injected query failures are not counted as actual-producer evidence.",
+      "resolution": "Real API raw-cursor expiry returns410 with a retained compact replay; a genuine delayed SSE body after successful route admission emits chat_event_cursor_expired after the producer exceeds retention. Actual101 completed chats evict the first coordinator record, correctly returning the established ExecutionTaskNotFound404 while its durable conversation survives. A pending real reviewed tool call has no fork boundary and rejects that incomplete prefix. Real assistant commit and fork-copy transaction failures leave no advertised/partial fork, retry excludes future history, and actual replay preserves reasoning/tool visibility without private arguments. Private injected query-failure variants add no separate output guarantee.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "chat-queue-preflight-approval-contracts",
