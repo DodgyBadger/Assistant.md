@@ -73,16 +73,6 @@
     **Recommendation:** **Defer with browser infrastructure work.** Use a finite-memory container and held local pages to test real concurrency, memory refusal before launch and slot release after cancellation. Retire the fake browse counter once the actual resource guarantees are observable.
     - Approved
 
-56. **Remaining delegate boundaries:** Cover cancellation before attachment, private observer counters, distinct attention issues, several diagnostic/redaction helpers, and synthetic internal timeout classification. Parent completion after a child request limit also needs direct proof.
-
-    **Recommendation:** **Keep the remaining user-visible cancellation, parent usability, safe handoff/audit and distinct-attention outcomes.** Replace private observer counters with real task/tool activity, and retire impossible-input or synthetic-exception helper assertions that protect no reachable behavior. Reuse the existing delegate workload fixtures rather than recreating its fake agent.
-    - Approved
-
-57. **Manual compaction through tools and failures:** Cover tool-initiated compaction, its parent task and returned result, plus remaining cancellation, failure, activity, no-op and exported-diagnostic branches.
-
-    **Recommendation:** **Keep a real tool-initiated compaction journey and a compact failure matrix.** Verify parent/child relationships, the tool result, preserved history and subsequent chat usability. Reuse shared author-failure, cancellation and confidentiality cases instead of repeating every low-level projection in another large scenario.
-    - Approved
-
 62. **Old adapter versus current evidence capture:** Review the old requirement to rewrite the application’s original log with redacted values. Current capture preserves original observations and redacts exported evidence; the old adapter self-test still fails that expectation.
 
     **Recommendation:** **Retire the requirement that the harness rewrite producer logs.** Preserve original observations and redact exported evidence. Separately verify that production code does not emit credentials in the first place, so harness redaction cannot hide an application logging defect.

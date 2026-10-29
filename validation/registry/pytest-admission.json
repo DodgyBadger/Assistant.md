@@ -473,6 +473,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_tool_compaction_contract.py",
+      "sha256": "0763093229cd029036e30a4deea096fe8a2ee856dcb63d1ba960e42b7ddb7fec",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_initiated_compaction_has_child_result_and_next_turn"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_tool_metadata_visibility.py",
       "sha256": "a14368e93e82a27f9fe0a38a3ddb8de0492e4c02d475da7b3ae52cb58d708973",
       "kind": "behavioral",
@@ -645,6 +653,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_delegate_attention_contract.py",
+      "sha256": "a3c8187afb83f663a30a4f93b7b0cdcb7fd60bcc1de843d386e1dec1e59c3ba4",
+      "kind": "behavioral",
+      "tests": [
+        "test_distinct_delegate_attention_events_are_correlated"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_delegate_authoring.py",
       "sha256": "d573df32af7b69efc68b39218f40576c391e087d66c3c0f94c1cfd2a1824b4f8",
       "kind": "behavioral",
@@ -679,6 +695,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_delegate_interrupted_handoff.py",
+      "sha256": "fe541f488c951750f6be4869e317778d509d9e0accdf194eb01bd37037b660d7",
+      "kind": "behavioral",
+      "tests": [
+        "test_interrupted_delegate_exposes_completed_tool_audit"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_delegate_limits.py",
       "sha256": "b67506d5440861ffb8000d3e682fcab7cf3c30a6d5e79914228b8a9222738995",
       "kind": "behavioral",
@@ -695,6 +719,14 @@
         "test_delegate_real_model_request_preserves_instruction_layer_order",
         "test_delegate_invalid_real_model_configuration_returns_structured_failure",
         "test_delegate_without_chat_parent_uses_runtime_default"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_delegate_parent_recovery_contract.py",
+      "sha256": "45f13c0010a4edd185c6fd5fd7ed88442c35a56d7db93cde8f059d738b13d343",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_limit_failure_preserves_parent_chat"
       ]
     },
     {
@@ -1724,6 +1756,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_tool_compaction_outcomes.py",
+      "sha256": "664382bc0e7d35f226fc90ff9091d262f6565658ba30fc49c0353e7eb012b019",
+      "kind": "behavioral",
+      "tests": [
+        "test_tool_compaction_noop_preserves_history",
+        "test_tool_compaction_provider_failure_preserves_history",
+        "test_tool_compaction_cancellation_preserves_history"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_tool_history_integrity.py",
       "sha256": "6c2c4b2e340fbdfa53533a39758793ecf38b7907aeaa528c582a1951cc444762",
       "kind": "behavioral",
@@ -2106,6 +2148,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/delegate_attention_provider.py",
+      "sha256": "9ac125ad7e83497786ac36a98fadd8120efaa526e5247a2ce2e8e80b550e5b5e",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/delegate_error_inputs.py",
       "sha256": "32b74a82037a89916d373f23e2a96b87bada367f3fc33b1874929d1cd8e566d0",
       "kind": "support"
@@ -2478,6 +2525,11 @@
     {
       "path": "scenarios/support/task_runner_workloads.py",
       "sha256": "a3ba4c9de010afd940925ffe2dc5b4af95e453cc2640d75caf6271cfb5933f68",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/tool_compaction_outcomes.py",
+      "sha256": "01744a1c630223105ccecffe30be0aba5a26678a66335f578da71a46fd60c18c",
       "kind": "support"
     },
     {
