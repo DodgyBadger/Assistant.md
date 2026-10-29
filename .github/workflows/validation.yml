@@ -117,6 +117,17 @@ jobs:
       - name: Check validation inventory
         run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m validation.support.inventory
 
+      - name: Set up Node.js for browser assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Build browser assets
+        run: |
+          npm ci --include=dev
+          npm run build:css
+
       - name: Install Playwright Chromium
         run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m playwright install --with-deps chromium
 
@@ -126,6 +137,10 @@ jobs:
       - name: Run deterministic core integration scenarios
         run: |
           ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest --scenario-root validation/runs/ci-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Run deterministic browser pilots
+        run: |
+          ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest -c validation/scenarios/browser/pytest.ini --scenario-root validation/runs/browser-ci-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Package validation artifacts
         if: ${{ always() }}

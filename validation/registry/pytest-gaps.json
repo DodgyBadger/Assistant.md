@@ -599,7 +599,8 @@
       ],
       "review_number": 23,
       "user_decision": "Agreed",
-      "decision_status": "deferred"
+      "decision_status": "deferred",
+      "progress_note": "Real browser/app fixtures and diagnostic evidence are verified; Gmail-specific UI journeys remain pending after the pilot checkpoint."
     },
     {
       "id": "chat-replay-expiry-projection-and-fork-faults",
@@ -793,11 +794,13 @@
         "validation/legacy/scenarios/integration/core/content_import_tool.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json",
+        "validation/runs/browser_pilot_final_20261029/report.json"
       ],
       "review_number": 31,
       "user_decision": "Approved",
-      "decision_status": "deferred"
+      "decision_status": "deferred",
+      "progress_note": "Real browser pilot proves local PDF modal submission, visible completion and durable output/job state. URL import, queue-only progress, warnings, failure and retry journeys remain open; this is partial coverage, not parity acceptance."
     },
     {
       "id": "execution-runner-private-race-windows",
@@ -1345,7 +1348,8 @@
       ],
       "review_number": 54,
       "user_decision": "Approved",
-      "decision_status": "deferred"
+      "decision_status": "deferred",
+      "progress_note": "UI pilot runs real Chromium, but application BrowserTool resource/concurrency guarantees are separate backend behavior and remain open."
     },
     {
       "id": "fork-private-hydration-and-snapshot-windows",

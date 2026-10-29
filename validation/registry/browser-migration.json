@@ -1,0 +1,903 @@
+{
+  "schema_version": 1,
+  "status": "pilot_verified_migration_not_started",
+  "profile": "validation/scenarios/browser/pytest.ini",
+  "legacy_test_files": 27,
+  "originals_retained": true,
+  "sources": [
+    {
+      "source": "validation/legacy/browser/test_app_shell.py",
+      "sha256": "6d08346563c6a883c8dea5aadcf5cfb5883572654d01d7ddf88ff576656fb65d",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "app_shell:test_app_shell_controller_contract",
+          "contract": "app shell controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "app_shell:test_app_shell_tracks_dashboard_polling_lifecycle",
+          "contract": "app shell tracks dashboard polling lifecycle. Current assertion examples: 41: const assert = require('assert');; 79: assert.deepStrictEqual(pollingStates, [true, false]);; 80: assert.strictEqual(refreshCount, 1);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "app_shell:test_app_shell_loads_before_application",
+          "contract": "app shell loads before application. Current assertion examples: 95: assert shell_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "app_shell:test_app_shell_leaves_base_url_to_the_serving_environment",
+          "contract": "app shell leaves base url to the serving environment. Current assertion examples: 101: assert \"<base \" not in markup",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_composer.py",
+      "sha256": "4bd4746d70288a4ed1e56b9aef50539a41fed7018c55bd2e2021892b6726a248",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_composer:test_chat_composer_exposes_layout_and_attachment_controls",
+          "contract": "chat composer exposes layout and attachment controls. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_composer:test_chat_composer_loads_before_application_bootstrap",
+          "contract": "chat composer loads before application bootstrap. Current assertion examples: 61: assert composer_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_rendering_modules.py",
+      "sha256": "44fd935f7e3e0cc1030499fefa63c845e26bf20f9d77f4b72c6492bf1507c55f",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_rendering_modules:test_shared_markdown_wikilinks_and_preview_source_context",
+          "contract": "shared markdown wikilinks and preview source context. Current assertion examples: 21: const assert = require('assert');; 37: assert(body.innerHTML.includes('<br>'), 'User-entered line breaks should survive Markdown rendering.');; 39: assert(body.innerHTML.includes('<pre><code>'), 'Leading indentation remains Markdown code.');; 40: assert(!body.innerHTML.includes('data-vault-wikilink'), 'User code is not linkified.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_chat_rendering_composes_tool_details_controller",
+          "contract": "chat rendering composes tool details controller. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_rendering_modules:test_assistant_markdown_scroll_option_is_defined_and_respected",
+          "contract": "assistant markdown scroll option is defined and respected. Current assertion examples: 150: const assert = require('assert');; 184: assert.strictEqual(scrollCount, 1, 'Normal rendering should follow the live response.');; 186: assert.strictEqual(scrollCount, 1, 'Historical prepending must not force a scroll.');; 192: assert.strictEqual(copySources[0](), context.fullText, 'Live and loaded assistant footers must copy source, not rendered DOM.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_tool_details_load_before_chat_rendering",
+          "contract": "tool details load before chat rendering. Current assertion examples: 228: assert (",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_rendering_modules:test_fork_confirmation_explains_compaction_inheritance",
+          "contract": "fork confirmation explains compaction inheritance. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_persisted_user_message_respects_scroll_suppression",
+          "contract": "persisted user message respects scroll suppression. Current assertion examples: 306: const assert = require('assert');; 349: assert.deepStrictEqual(; 354: assert.strictEqual(rendered.length, 1, 'User messages must reuse shared sanitized Markdown.');; 355: assert.strictEqual(rendered[0].options.softBreaks, true, 'User-entered line breaks remain visible.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_persisted_assistant_fork_requires_explicit_canonical_origin",
+          "contract": "persisted assistant fork requires explicit canonical origin. Current assertion examples: 380: const assert = require('assert');; 434: assert.deepStrictEqual(assistantForkIndexes, [null, 42]);; 435: assert.deepStrictEqual(userDisplayIndexes, [2]);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_persisted_bracketed_user_prompts_survive_history_refresh",
+          "contract": "persisted bracketed user prompts survive history refresh. Current assertion examples: 446: const assert = require('assert');; 513: assert.deepStrictEqual(; 517: assert(!displayed.some(message => message.content.includes('Private tool result')),; 519: if (completed) assert(displayed.some(message => message.content === 'The response.'));",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_persisted_tool_turn_renders_as_one_assistant_message",
+          "contract": "persisted tool turn renders as one assistant message. Current assertion examples: 532: const assert = require('assert');; 606: assert.deepStrictEqual(rendered, [{; 627: assert.deepStrictEqual(",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_session_map_timeline_prepends_older_canonical_rows_without_scroll_jump",
+          "contract": "session map timeline prepends older canonical rows without scroll jump. Current assertion examples: 644: const assert = require('assert');; 820: assert.ok(loadRow, 'The newest page should offer older history.');; 823: assert.strictEqual(container.querySelector('[data-load-older-chat-messages]'), loadRow, 'Refreshing compaction must not reset loaded-page controls.');; 824: assert.deepStrictEqual(container.querySelectorAll('[data-canonical-start]'), originalRows, 'Refreshing compaction must retain message DOM identities.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_rendering_modules:test_terminal_stream_event_sets_live_fork_origin",
+          "contract": "terminal stream event sets live fork origin. Current assertion examples: 913: const assert = require('assert');; 947: assert.strictEqual(context.sequenceIndex, 17);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_selection.py",
+      "sha256": "0e7bc1a83fd836280ad30c7e5bb72e7baad3160502c42c2f5b5c5b586592c93b",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_selection:test_chat_selection_controller_contract",
+          "contract": "chat selection controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_selection:test_chat_selection_loads_before_application",
+          "contract": "chat selection loads before application. Current assertion examples: 57: assert selection_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_selection:test_chat_model_selection_resolves_alternates_and_uses_only_the_default",
+          "contract": "chat model selection resolves alternates and uses only the default. Current assertion examples: 62: const assert = require('assert');; 79: assert.equal(elements.modelSelector.value, 'preferred');; 80: assert.equal(new Set(elements.modelSelector.options.map(option => option.textContent)).size, 2);; 81: assert.equal(elements.modelSelector.options.filter(item => item.value === 'old').length, 0);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_sessions.py",
+      "sha256": "b768eaf67eb8ba8ba820b4c1728a6d6bcf61b441a0941b2d20171a066e3bd2df",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_sessions:test_chat_sessions_controller_contract",
+          "contract": "chat sessions controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_sessions:test_chat_sessions_ignores_stale_vault_and_session_responses",
+          "contract": "chat sessions ignores stale vault and session responses. Current assertion examples: 45: const assert = require('assert');; 90: assert.deepStrictEqual(state.sessions, [{ session_id: 'new' }]);; 91: assert.strictEqual(state.sessionId, 'new');; 95: assert.strictEqual(state.isLoading, true);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_sessions:test_chat_sessions_loads_before_application",
+          "contract": "chat sessions loads before application. Current assertion examples: 190: assert sessions_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_sessions:test_pending_chat_mode_save_survives_session_navigation",
+          "contract": "pending chat mode save survives session navigation. Current assertion examples: 195: const assert = require('assert');; 233: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');; 235: assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session\u2019s mode.');; 241: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B\u2019s mode.');",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_task_stream.py",
+      "sha256": "2d2ce7d7f78dc471679523a408ae745acf485e0edb313a674022091f4e102e61",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_task_stream:test_chat_task_stream_consumes_sse_and_releases_matching_stream",
+          "contract": "chat task stream consumes sse and releases matching stream. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_task_stream:test_chat_task_stream_loads_before_application_bootstrap",
+          "contract": "chat task stream loads before application bootstrap. Current assertion examples: 106: assert module_position < actions_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "chat_task_stream:test_chat_task_actions_submit_and_finalize_text_request",
+          "contract": "chat task actions submit and finalize text request. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "chat_task_stream:test_terminal_waiter_handles_post_turn_delay_stale_context_and_failures",
+          "contract": "terminal waiter handles post turn delay stale context and failures. Current assertion examples: 285: const assert = require('assert');; 298: assert.strictEqual(url, 'api/tasks/task-1');; 299: assert.strictEqual(options.cache, 'no-store');; 300: assert.strictEqual(options.signal, signal);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_chat_tool_details_module.py",
+      "sha256": "7257ee36fd30ab53edca72ecbd0b691530b755db3c45f2c04f86bb8e649a63b0",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "chat_tool_details_module:test_tool_detail_back_preserves_map_focus_and_escape_restores_connected_invoker",
+          "contract": "tool detail back preserves map focus and escape restores connected invoker. Current assertion examples: 16: const assert = require('assert');; 78: assert.strictEqual(document.activeElement, activeModal.dialog, 'Opening the detail should focus its dialog.');; 80: assert.strictEqual(backCalled, true, 'The nested Back action should return to the parent map.');; 81: assert.strictEqual(document.activeElement, mapDialog, 'Back should not steal focus from the reopened map.');",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_configuration_modules.py",
+      "sha256": "960e04f0972abbcffa6d290deedbce054ce30cd442459f41b4b3c4622758145f",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "configuration_modules:test_configuration_modules_load_in_declared_order",
+          "contract": "configuration modules load in declared order. Current assertion examples: 52: assert configuration_sources == _EXPECTED_SCRIPTS",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "configuration_modules:test_activity_log_long_metadata_is_expandable_without_truncating_details",
+          "contract": "activity log long metadata is expandable without truncating details. Current assertion examples: 118: const assert = require('assert');; 130: assert.match(output, /<details class=\"activity-log-detail\">/);; 131: assert.match(output, /Traceback start/);; 132: assert.match(output, /Traceback end/);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_dashboard_import_owns_defaults_and_job_observability_only",
+          "contract": "dashboard import owns defaults and job observability only. Current assertion examples: 159: assert 'id=\"import-defaults-save\"' in markup; 160: assert 'id=\"import-open-explorer\"' in markup; 161: assert 'id=\"import-jobs-list\"' in markup; 162: assert 'id=\"import-scan\"' not in markup",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_openai_provider_renders_with_shared_configuration_actions",
+          "contract": "openai provider renders with shared configuration actions. Current assertion examples: 174: const assert = require('assert');; 207: assert.match(runtime.elements.providerList.innerHTML, /OpenAI OAuth/);; 208: assert.match(runtime.elements.modelList.innerHTML, /Unable to load model mappings/);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_system_sections_start_independently",
+          "contract": "system sections start independently. Current assertion examples: 227: const assert = require('assert');; 280: assert.deepStrictEqual(started, loaderNames);; 283: assert.strictEqual(ConfigurationPanelRuntime.state.hasLoadedOnce, true);; 284: assert.strictEqual(reportedErrors.length, 2);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_dashboard_sections_start_independently",
+          "contract": "dashboard sections start independently. Current assertion examples: 305: const assert = require('assert');; 338: assert.deepStrictEqual(started, ['loadSecrets', 'loadImportVaults', 'loadImportJobs']);; 341: assert.strictEqual(reportedErrors.length, 1);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_settings_editor_behaviors",
+          "contract": "Python wrapper invokes the Node settings editor suite; individual editor contracts are inventoried in the separately assigned CJS file.",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "configuration_modules:test_model_editor_behaviors",
+          "contract": "Python wrapper invokes the Node model editor suite; individual editor contracts are inventoried in the separately assigned CJS file.",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_configuration_status_module.py",
+      "sha256": "76b6bfc275827aeb918b2ba376d377d9555e377d757abe8ed16db6f8777b1257",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "configuration_status_module:test_configuration_status_controller_contract",
+          "contract": "configuration status controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "configuration_status_module:test_configuration_status_loads_before_application",
+          "contract": "configuration status loads before application. Current assertion examples: 55: assert status_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_dashboard_view.py",
+      "sha256": "c27ce108e3913ad79beefdc3bd602d0c78c33c1250451b6b9ac45b9c4a58a896",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "dashboard_view:test_dashboard_polls_for_tasks_while_visible",
+          "contract": "dashboard polls for tasks while visible. Current assertion examples: 14: const assert = require('assert');; 23: assert.strictEqual(delay, 2000);; 47: assert.strictEqual(state.executionTaskPollTimer, null);; 51: assert.strictEqual(state.executionTaskPollTimer, 17);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "dashboard_view:test_dashboard_task_error_preserves_last_known_tasks",
+          "contract": "dashboard task error preserves last known tasks. Current assertion examples: 70: const assert = require('assert');; 94: assert.match(executionTasksStatus.innerHTML, /Unable to refresh task status/);; 95: assert.match(executionTasksStatus.innerHTML, /task-1/);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_file_reference_modules.py",
+      "sha256": "051e2ca544cbf01f0ae3ba765cb3937f225086c142fb41f009ce380c7bbfb2ba",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "file_reference_modules:test_file_references_composes_link_resolver",
+          "contract": "file references composes link resolver. Current assertion examples: 15: const assert = require('assert');; 54: assert.strictEqual(chatInput.value, 'See [[Library/! Primary Sources/index.md]]');; 55: assert.strictEqual(chatInput.selectionStart, chatInput.value.length);; 70: assert.strictEqual(pickerOptions.workspacePath, '');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "file_reference_modules:test_file_reference_links_load_before_controller",
+          "contract": "file reference links load before controller. Current assertion examples: 120: assert links_position < references_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "file_reference_modules:test_file_modal_back_history_and_tree_navigation",
+          "contract": "file modal back history and tree navigation. Current assertion examples: 125: const assert = require('assert'), fs = require('fs'), vm = require('vm');; 172: assert(!overlay.querySelector('[data-vault-file-back]'), 'Direct chat open has no previous view.');; 173: assert(overlay.querySelector('[data-vault-file-tree]'), 'A separate tree action is always available.');; 180: assert(editor().value.includes('path=B.md'), 'Back restores the previous file, not the tree.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "file_reference_modules:test_adjacent_at_path_references_do_not_merge_across_prose",
+          "contract": "adjacent at path references do not merge across prose. Current assertion examples: 230: const assert = require('assert');; 251: assert.deepStrictEqual(; 268: assert.deepStrictEqual(",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "file_reference_modules:test_explicit_links_resolve_in_source_context_and_preserve_labels",
+          "contract": "explicit links resolve in source context and preserve labels. Current assertion examples: 285: const assert = require('assert');; 354: assert.deepStrictEqual(requests[0], {; 358: assert.deepStrictEqual(root.children.map(node => node.textContent), [; 361: assert.strictEqual(root.children[4], external);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "file_reference_modules:test_file_modal_information_uses_full_width_row_below_controls",
+          "contract": "file modal information uses full width row below controls. Current assertion examples: 486: assert header.index('class=\"app-modal-actions\"') < header.index(; 490: assert \".vault-file-modal-header {\\n    flex-wrap: wrap;\\n}\" in stylesheet; 491: assert (",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_model_editors.cjs",
+      "sha256": "3af785802c74262ee75e1b1851e7d2f3c2b943358a78e504415454636a84dc73",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "model_editors_01",
+          "contract": "Managed model editor retains alternate names and protects binding controls.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "model_editors_02",
+          "contract": "Duplicating produces independent custom draft with no inherited aliases.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "model_editors_03",
+          "contract": "Custom rename is atomic and failed request preserves draft.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "model_editors_04",
+          "contract": "Pending save protects draft until error is shown.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "model_editors_05",
+          "contract": "Successful custom deletion refreshes dependent settings and reports success.",
+          "prior_recommendation": "gap"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_quote_selection.cjs",
+      "sha256": "35686320666130616901f70ea523be0085e83b6dc57102ac9015cf2cb5854985",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "quote_selection:quote blocks retain multiline text and keep prompt outside the quote",
+          "contract": "quote blocks retain multiline text and keep prompt outside the quote. Current assertion examples: 12: assert.equal(block, '[[Notes/A.md]]\\n\\n> first\\n>\\n> last\\n\\nExplain\\nthis');; 13: assert.equal(VaultSelectionPrompt.formatBlock('A.md', 'quote', ''), '[[A.md]]\\n\\n> quote');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection:append accumulates blocks without replacing selected draft or focusing it",
+          "contract": "append accumulates blocks without replacing selected draft or focusing it. Current assertion examples: 25: assert.equal(chatInput.value, 'Keep my draft\\n\\nfirst\\n\\nsecond');; 26: assert.equal(events, 2);; 27: assert.equal(attachments.length, 1);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection:file references preserve literal percent characters and encode link delimiters",
+          "contract": "file references preserve literal percent characters and encode link delimiters. Current assertion examples: 31: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A%20B.md', 'text', ''),; 33: assert.equal(VaultSelectionPrompt.formatBlock('Notes/A]#|.md', 'text', ''),",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_quote_selection_browser.py",
+      "sha256": "287fc453f409d61fa91a0aeb525e6e60730354a358f3828aa10b1b85a8da6887",
+      "source_style": "browser_component_with_synthetic_page",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "quote_selection_browser:test_append_repeated_quotes_and_keep_file_open",
+          "contract": "append repeated quotes and keep file open. Current assertion examples: 114: assert page.locator(\"#chat-input\").input_value() == (; 118: assert page.locator(\"#vault-file-modal\").count() == 1; 122: assert (; 127: assert page.evaluate(\"compose.pendingAttachments.length\") == 1",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_send_acceptance_preserves_draft_and_images_before_stream_finishes",
+          "contract": "send acceptance preserves draft and images before stream finishes. Current assertion examples: 140: assert (; 144: assert page.locator(\"#chat-input\").input_value() == \"Existing draft\"; 145: assert page.evaluate(\"compose.pendingAttachments.length\") == 1; 146: assert page.evaluate(\"!closedPicker && state.isLoading\")",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_failed_start_retains_entry_and_new_session_can_retry",
+          "contract": "failed start retains entry and new session can retry. Current assertion examples: 156: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 157: assert \"Start failed\" in page.locator(\".vault-selection-feedback\").inner_text(); 158: assert page.locator(\"[data-quote-send]\").is_enabled(); 164: assert page.evaluate(\"compose.pendingAttachments.length\") == 1",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_context_locks_dismissal_and_navigation",
+          "contract": "context locks dismissal and navigation. Current assertion examples: 171: assert page.locator(\"#vault-file-modal\").count() == 1; 173: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 175: assert page.locator(\"[data-quote-send]\").is_disabled(); 176: assert page.locator(\"[data-quote-append]\").is_disabled()",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_mobile_layout_and_selection_isolation",
+          "contract": "mobile layout and selection isolation. Current assertion examples: 203: assert box and box[\"x\"] >= 0 and box[\"x\"] + box[\"width\"] <= 390; 204: assert box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 640; 210: assert page.locator(\"[data-quote-open]\").is_hidden()",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_mouse_selection_preserves_quote_while_typing_and_collects_across_files",
+          "contract": "mouse selection preserves quote while typing and collects across files. Current assertion examples: 220: assert original.strip(); 223: assert page.locator(\"[data-quote-text]\").inner_text() == original; 229: assert draft.index(\"[[Notes/A.md]]\") < draft.index(\"[[Notes/B.md]]\"); 230: assert \"Keep this instruction\" in draft and \"Second file\" in draft",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_normal_chat_send_still_consumes_its_draft_and_images",
+          "contract": "normal chat send still consumes its draft and images. Current assertion examples: 238: assert page.evaluate(\"sent[0]\") == {; 242: assert page.locator(\"#chat-input\").input_value() == \"\"; 243: assert page.evaluate(\"compose.pendingAttachments.length\") == 0",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_starting_send_locks_entry_and_prevents_duplicate_submission",
+          "contract": "starting send locks entry and prevents duplicate submission. Current assertion examples: 254: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 255: assert page.locator(\"[data-quote-dismiss]\").is_disabled(); 257: assert page.evaluate(\"sent.length\") == 1; 260: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep until accepted\"",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_append_retains_scroll_and_short_viewport_stays_bounded",
+          "contract": "append retains scroll and short viewport stays bounded. Current assertion examples: 277: assert box and box[\"y\"] >= 0 and box[\"y\"] + box[\"height\"] <= 320; 279: assert (",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_send_does_not_silently_discard_unsaved_file_edits",
+          "contract": "send does not silently discard unsaved file edits. Current assertion examples: 293: assert page.evaluate(\"sent.length\") == 0; 294: assert page.locator(\"#vault-selection-input\").input_value() == \"Instruction\"; 295: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"Unsaved changes\"",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_keyboard_activation_and_enter_adds_newline",
+          "contract": "keyboard activation and enter adds newline. Current assertion examples: 308: expect(page.locator(\"[data-quote-open]\")).to_be_focused(); 310: expect(page.locator(\"#vault-selection-input\")).to_be_focused(); 314: assert (; 318: assert page.evaluate(\"sent.length\") == 0",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_explicit_dismissal_exits_tree_and_nested_files",
+          "contract": "explicit dismissal exits tree and nested files. Current assertion examples: 336: assert page.locator(\"#vault-file-modal\").count() == 0; 337: assert page.locator(\"#vault-explorer-modal\").count() == 0; 338: assert not page.evaluate(\"files.isPickerOpen()\"); 339: expect(page.locator(\"#chat-input\")).to_be_focused()",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_back_keeps_tree_and_explicit_close_preserves_declined_changes",
+          "contract": "back keeps tree and explicit close preserves declined changes. Current assertion examples: 352: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/A.md\"); 353: assert page.locator(\"#vault-explorer-modal\").count() == 1; 357: assert page.locator(\"#vault-selection-input\").input_value() == \"Keep this prompt\"; 358: assert page.locator(\"#vault-explorer-modal\").count() == 1",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_immediate_send_keeps_reading_and_refreshes_without_losing_next_instruction",
+          "contract": "immediate send keeps reading and refreshes without losing next instruction. Current assertion examples: 383: assert page.locator(\"#vault-file-modal\").count() == 1; 386: assert page.locator(\"[data-quote-send]\").is_disabled(); 388: assert page.evaluate(\"sent.length\") == 1; 392: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text(",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_completion_refreshes_the_file_currently_being_read",
+          "contract": "completion refreshes the file currently being read. Current assertion examples: 409: expect(page.locator(\"#vault-file-modal-path\")).to_have_text(\"Notes/B.md\"); 411: expect(page.locator(\"#vault-file-modal-preview\")).to_have_text(",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_dismissing_reader_during_send_does_not_reopen_it",
+          "contract": "dismissing reader during send does not reopen it. Current assertion examples: 424: assert page.locator(\"#vault-file-modal\").count() == 0",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_failed_background_refresh_keeps_reader_and_reports_error",
+          "contract": "failed background refresh keeps reader and reports error. Current assertion examples: 435: expect(page.locator(\"#vault-file-modal-status\")).to_contain_text(; 438: assert page.locator(\"#vault-file-modal\").count() == 1; 439: assert page.locator(\"#passage\").count() == 1",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_background_refresh_preserves_reading_scroll",
+          "contract": "background refresh preserves reading scroll. Current assertion examples: 450: assert scroll > 0; 454: expect(preview).to_contain_text(\"Long update with a document edit\"); 455: assert preview.evaluate(\"element => element.scrollTop\") == scroll",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_late_background_refresh_cannot_overwrite_local_edits",
+          "contract": "late background refresh cannot overwrite local edits. Current assertion examples: 478: assert page.locator(\"#vault-file-modal-editor\").input_value() == \"New local edits\"",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_finishing_send_does_not_steal_focus_from_continued_reading",
+          "contract": "finishing send does not steal focus from continued reading. Current assertion examples: 493: expect(preview).to_be_focused()",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "quote_selection_browser:test_previous_refresh_cannot_unlock_the_next_pending_send",
+          "contract": "previous refresh cannot unlock the next pending send. Current assertion examples: 519: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 522: assert page.locator(\"#vault-selection-input\").get_attribute(\"readonly\") is not None; 523: assert page.locator(\"[data-quote-dismiss]\").is_disabled()",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_session_controls_module.py",
+      "sha256": "9efcc5ac074ea825ba089976e07a3e9c709b5730638312f5061741674ba022f4",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "session_controls_module:test_compaction_pressure_updates_map_only_context_and_rejects_stale_responses",
+          "contract": "compaction pressure updates map only context and rejects stale responses. Current assertion examples: 16: const assert = require('assert');; 39: global.fetch = async (_url, options) => { assert.strictEqual(options.cache, 'no-store'); return response(120); };; 41: assert.strictEqual(fill.style.width, '100%');; 42: assert(classes.has('compaction-hot'));",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "session_controls_module:test_session_browser_content_search_lifecycle",
+          "contract": "session browser content search lifecycle. Current assertion examples: 87: const assert = require('assert');; 154: assert.strictEqual(timers.size, 1);; 167: assert(list.innerHTML.includes('First session') && !list.innerHTML.includes('Second session'));; 168: assert.strictEqual(requests.length, 0, 'Names filtering must stay local');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "session_controls_module:test_completed_session_upgrade_remains_successful_if_refresh_fails",
+          "contract": "completed session upgrade remains successful if refresh fails. Current assertion examples: 241: const assert = require('assert');; 290: assert.match(url, /upgrade-context-strategy/);; 332: assert.strictEqual(loadCalled, true, 'The active session should be refreshed after upgrade.');; 333: assert.strictEqual(alerts.length, 1, 'The operation should report one outcome.');",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_session_map.py",
+      "sha256": "e7db08f8532992313b9d6fa4a7e073a41db88c76e16885e6ff5b5facfb5f6f74",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "session_map:test_session_map_controller_contract",
+          "contract": "session map controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "session_map:test_session_map_escape_focus_and_restore_map_checkpoint",
+          "contract": "session map escape focus and restore map checkpoint. Current assertion examples: 42: const assert = require('assert');; 108: assert.strictEqual(document.activeElement, activeModal.dialog, 'Opening the map should focus its dialog.');; 112: assert.strictEqual(activeModal, null, 'Escape should close the session-map modal.');; 113: assert.strictEqual(document.activeElement, trigger, 'Closing should restore focus to the invoker.');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "session_map:test_session_map_ignores_out_of_order_checkpoint_results",
+          "contract": "session map ignores out of order checkpoint results. Current assertion examples: 140: const assert = require('assert');; 206: assert.match(modal.body.innerHTML, /latest revision/);; 207: assert.doesNotMatch(modal.body.innerHTML, /stale revision/);; 218: assert.match(modal.body.innerHTML, /latest after error/);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "session_map:test_session_map_loads_before_application",
+          "contract": "session map loads before application. Current assertion examples: 235: assert map_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "session_map:test_session_map_renders_narrative_trajectory",
+          "contract": "session map renders narrative trajectory. Current assertion examples: 241: assert \"How We Got Here\" in source; 242: assert \"renderSources(trajectory)\" in source; 243: assert '<div class=\"session-map-content\"' in source; 244: assert \"formatDate(selected?.created_at)\" in source",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "session_map:test_session_map_keeps_transcript_navigation_in_chat_timeline",
+          "contract": "session map keeps transcript navigation in chat timeline. Current assertion examples: 255: assert \"renderTranscript\" not in map_source; 256: assert \"data-session-map-transcript-page\" not in map_source; 257: assert \"payload.transcript\" not in map_source; 258: assert \"session-map-checkpoint-link\" in history_source",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_settings_availability_browser.py",
+      "sha256": "9ff7adaff9ed08d6d61c15b9479485182d6410f781e0adb20040176f68ed3940",
+      "source_style": "browser_component_with_synthetic_page",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "settings_availability_browser:test_controls_unlock_before_metadata_refresh_finishes",
+          "contract": "controls unlock before metadata refresh finishes. Current assertion examples: 52: expect(; 57: assert page.evaluate(\"ConfigurationPanelRuntime.state.isSavingSetting\") is False; 59: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible(); 61: expect(page.locator('[data-setting=\"other\"][data-mode=\"edit\"]')).to_be_visible()",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_settings_editors.cjs",
+      "sha256": "5f6d1d100d1c3aa873603711f4d9a86af39de8519784c967c100d4a016d67111",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "settings_editors_01",
+          "contract": "Draft input rejects invalid numbers, choices and list entries.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_02",
+          "contract": "Warnings remain visible across filter/status until all resolved.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_03",
+          "contract": "Unavailable selected choice remains shown without silent replacement.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_04",
+          "contract": "Ordered list editing preserves and serializes explicit order.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_05",
+          "contract": "Failed save refreshes choices/warnings and preserves draft.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_06",
+          "contract": "Failed refresh retains warnings and reports unavailable validation.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_07",
+          "contract": "Late older refresh cannot overwrite newer choices/warnings.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_08",
+          "contract": "Cancel during pending editor refresh keeps editor closed.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_09",
+          "contract": "Invalid numeric saved value remains visible and intact when editing.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_10",
+          "contract": "Single reset updates provenance while preserving another unsaved draft.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_11",
+          "contract": "Cancel global reset leaves drafts and configuration untouched.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_12",
+          "contract": "Failed global reset retains unsaved draft and shows conflict.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_13",
+          "contract": "Successful global reset discards all configuration drafts and refreshes cards.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_14",
+          "contract": "Global reset refreshes models/providers after delayed old reads.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_15",
+          "contract": "Custom setting reset renders shared Undo icon. ",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_16",
+          "contract": "Saving repaints and unlocks while metadata refresh is pending.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_17",
+          "contract": "Default restore unlocks before slow status refresh completes.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_18",
+          "contract": "Old metadata refresh cannot unlock a newer pending mutation.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_19",
+          "contract": "Successive changes coalesce slow refreshes and preserve feedback.",
+          "prior_recommendation": "gap"
+        },
+        {
+          "id": "settings_editors_20",
+          "contract": "Global defaults refresh visible values while old metadata refresh waits.",
+          "prior_recommendation": "gap"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_system_status_module.py",
+      "sha256": "c573650eacd6caebe75811e0ccfb02e578fe26794c4dd739d2f8d4aabef17fa4",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "system_status_module:test_system_status_controller_contract",
+          "contract": "system status controller contract. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "system_status_module:test_system_status_loads_before_application",
+          "contract": "system status loads before application. Current assertion examples: 48: assert status_position < application_position",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "system_status_module:test_initial_render_does_not_wait_for_system_status",
+          "contract": "initial render does not wait for system status. Current assertion examples: 57: assert \"await fetchMetadata();\" in init_source; 58: assert \"await fetchSystemStatus();\" not in init_source; 59: assert init_source.index(\"renderChatEmptyState();\") < init_source.index(",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "system_status_module:test_late_system_status_preserves_valid_models_and_falls_back_for_missing_models",
+          "contract": "late system status preserves valid models and falls back for missing models. Current assertion examples: 68: const assert = require('assert');; 118: assert.strictEqual(modelSelector.value, 'first');; 121: assert.strictEqual(modelSelector.value, 'first');; 124: assert.strictEqual(modelSelector.value, 'preferred');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "system_status_module:test_execution_task_refresh_preserves_state_and_ignores_stale_responses",
+          "contract": "execution task refresh preserves state and ignores stale responses. Current assertion examples: 142: const assert = require('assert');; 181: assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);; 182: assert.strictEqual(state.executionTasksError, null);; 187: assert.deepStrictEqual(state.executionTasks, [{ task_id: 'newer' }]);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_batch_moves_module.py",
+      "sha256": "4334eb73f62eb9353f7d5e898625eb3c0790bd49b8787117ae333f6909f0f283",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_batch_moves_module:test_batch_move_controller_has_a_small_public_contract",
+          "contract": "batch move controller has a small public contract. Current assertion examples: 14: const assert = require('assert');; 24: assert.deepStrictEqual(",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_controller_module.py",
+      "sha256": "d4188d5e4bfc7e53acba439a712ff623f946c4c0dd1617bf8507d89ca5deb7f2",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_controller_module:test_vault_explorer_controller_owns_selection_lifecycle",
+          "contract": "vault explorer controller owns selection lifecycle. Current assertion examples: 16: const assert = require('assert');; 41: assert.deepStrictEqual(; 53: assert.strictEqual(controller.snapshot().activeFolder, 'Projects');; 54: assert.deepStrictEqual(controller.snapshot().selectedPaths, ['Projects/new.md']);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "vault_explorer_controller_module:test_workspace_save_refreshes_open_explorer_toggle",
+          "contract": "workspace save refreshes open explorer toggle. Current assertion examples: 79: const assert = require('assert');; 113: assert.strictEqual(path, 'Projects');; 133: assert.strictEqual(latestRenderOptions.workspaceMissing, true);; 136: assert.strictEqual(options.workspacePath, 'Projects');",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_destination_module.py",
+      "sha256": "e32ce5f1c6cdcb10b88d2da0e8965b678614e2db87e70c833a741a86b1e69cb2",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_destination_module:test_destination_mode_normalizes_paths_and_rejects_self_moves",
+          "contract": "destination mode normalizes paths and rejects self moves. Current assertion examples: 14: const assert = require('assert');; 27: assert.deepStrictEqual(; 37: assert.strictEqual(destination.snapshot().path, 'Projects/Archive');; 39: assert.strictEqual(destination.snapshot().path, '');",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_imports_module.py",
+      "sha256": "3f8135a56426333b79d9ce53dc3c79644eca3156e5963feb3574921bd6fe574a",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_imports_module:test_vault_explorer_imports_exposes_bounded_controller_and_file_support",
+          "contract": "vault explorer imports exposes bounded controller and file support. Current assertion examples: 15: const assert = require('assert');; 27: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/report.PDF'), true);; 28: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/scan.webp'), true);; 29: assert.strictEqual(VaultExplorerImports.supportsPath('Uploads/notes.txt'), false);",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "vault_explorer_imports_module:test_vault_explorer_import_forms_use_compact_progressive_layout",
+          "contract": "vault explorer import forms use compact progressive layout. Current assertion examples: 154: assert \"vault-explorer-import-primary\" in source; 155: assert \"vault-explorer-import-source-count\" in source; 156: assert \"sources.map\" not in source; 157: assert \"vault-explorer-import-footer\" in source",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_search_module.py",
+      "sha256": "b7b9e1fd6d6f61f998c032275e0c2a5127b66368f74d20986fdab0f33928e319",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_search_module:test_vault_explorer_search_renders_structured_escaped_matches",
+          "contract": "vault explorer search renders structured escaped matches. Current assertion examples: 14: const assert = require('assert');; 33: assert.deepStrictEqual(; 55: assert.match(rendered, /Notes\\/&lt;unsafe&gt;\\.md/);; 56: assert.match(rendered, /Line 7 \u00b7 A &lt;script&gt; &amp; more/);",
+          "prior_recommendation": "rewrite"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_state_module.py",
+      "sha256": "a6deb1994d193171a10e2b1f06d4268d0683cc8556e115695d4bf1c8f4daee22",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_state_module:test_vault_explorer_state_tracks_selection_and_operation_applicability",
+          "contract": "vault explorer state tracks selection and operation applicability. Current assertion examples: 14: const assert = require('assert');; 28: assert.deepStrictEqual(; 45: assert.strictEqual(snapshot.activeFolder, '');; 46: assert.strictEqual(snapshot.selectedCount, 0);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "vault_explorer_state_module:test_vault_explorer_state_loads_before_picker",
+          "contract": "vault explorer state loads before picker. Current assertion examples: 138: assert state_position < picker_position",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_explorer_toolbar_module.py",
+      "sha256": "53ffdddd4f574eef01eb5cef644e261e792cee1fc5e221dfeb40792b7702407e",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_explorer_toolbar_module:test_vault_explorer_toolbar_renders_and_dispatches_applicable_actions",
+          "contract": "vault explorer toolbar renders and dispatches applicable actions. Current assertion examples: 14: const assert = require('assert');; 141: assert.deepStrictEqual(; 168: assert.strictEqual(selectionContainer.innerHTML, '');; 169: assert.doesNotMatch(locationContainer.innerHTML, /Personal:/);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "vault_explorer_toolbar_module:test_vault_explorer_toolbar_loads_before_picker",
+          "contract": "vault explorer toolbar loads before picker. Current assertion examples: 383: assert toolbar_position < picker_position",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    },
+    {
+      "source": "validation/legacy/browser/test_vault_path_picker_modules.py",
+      "sha256": "78d08618c12d37a6172cfadcb7b0da0f9d91c2df71461c609a8d9b98ef5e4c0e",
+      "source_style": "node_module_or_source_harness",
+      "disposition": "retained_pending_behavior_review",
+      "contracts": [
+        {
+          "id": "vault_path_picker_modules:test_refresh_preserves_expanded_tree_selection_and_scroll",
+          "contract": "refresh preserves expanded tree selection and scroll. Current assertion examples: 23: const assert = require('assert');; 54: assert.strictEqual(position, 'beforebegin');; 117: cancel() {}, async load({query: value}) { contentLoads += 1; assert.strictEqual(value, 'needle'); results.innerHTML = '<p>Content results</p>'; },; 144: assert.strictEqual(query.value, 'selected');",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "vault_path_picker_modules:test_vault_path_picker_composes_explorer_actions_controller",
+          "contract": "vault path picker composes explorer actions controller. Current assertion examples: method availability, source order or subprocess success",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "vault_path_picker_modules:test_vault_explorer_actions_reject_repeated_mutation_submission",
+          "contract": "vault explorer actions reject repeated mutation submission. Current assertion examples: 358: const assert = require('assert');; 409: assert.strictEqual(mutationCalls, 1);; 412: assert.strictEqual(mutationCalls, 1);",
+          "prior_recommendation": "rewrite"
+        },
+        {
+          "id": "vault_path_picker_modules:test_vault_explorer_modules_load_before_path_picker",
+          "contract": "vault explorer modules load before path picker. Current assertion examples: 459: assert (",
+          "prior_recommendation": "retire_candidate"
+        },
+        {
+          "id": "vault_path_picker_modules:test_vault_explorer_uses_selection_toolbar_instead_of_row_action_menus",
+          "contract": "vault explorer uses selection toolbar instead of row action menus. Current assertion examples: 476: assert \"data-vault-explorer-toolbar\" in source; 477: assert \"data-vault-explorer-header-location\" in source; 478: assert \"vault-path-picker-body\" in source; 479: assert \"vault-explorer-search-control\" in source",
+          "prior_recommendation": "retire_candidate"
+        }
+      ]
+    }
+  ],
+  "ancillary_diagnostics": [
+    {
+      "source": "validation/legacy/browser/check_ui_enhancements_obscura.py",
+      "sha256": "f928a93b68168b69c48d79dd5b4d70fecba1dfd8df5cc5dc2aef1e42ccf7c63a",
+      "disposition": "retained_non_gate_diagnostic"
+    }
+  ],
+  "pilots": [
+    {
+      "node": "test_settings_browser.py::test_setting_save_reload_and_restore_default[chromium]",
+      "proves": [
+        "actual UI save",
+        "reload persistence",
+        "restore default through UI"
+      ],
+      "related_legacy_sources": [
+        "test_settings_editors.cjs",
+        "test_settings_availability_browser.py"
+      ],
+      "limits": [
+        "does not establish every editor variant",
+        "does not cover delayed metadata refresh interleaving"
+      ]
+    },
+    {
+      "node": "test_import_browser.py::test_document_import_modal_reports_completed_persisted_output[chromium]",
+      "proves": [
+        "actual explorer selection/import modal",
+        "local PDF strategy selection",
+        "visible completion and output",
+        "persisted real PDF-text import"
+      ],
+      "related_legacy_sources": [
+        "test_vault_explorer_imports_module.py"
+      ],
+      "limits": [
+        "URL import, queue-only progress, warnings, failures and retry remain to migrate"
+      ]
+    }
+  ],
+  "evidence": "validation/runs/browser_pilot_review_20261029/evidence-index.json",
+  "coverage_complete": false,
+  "browser_tool_resource_policy_is_separate": true
+}
