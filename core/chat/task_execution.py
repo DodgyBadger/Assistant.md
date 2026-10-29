@@ -1025,7 +1025,14 @@ async def _run_prepared_chat_stream_task_inner(
                         if prepared.tools and recovery_decision is not None:
                             rejection_reason = (
                                 "retry_budget_exhausted"
-                                if not retry_policy.can_retry_after(attempt)
+                                if (
+                                    not retry_policy.can_retry_after(attempt)
+                                    or (
+                                        rollback_restart
+                                        and prepared.automatic_restart_count
+                                        >= retry_policy.retries
+                                    )
+                                )
                                 else recovery_decision.reason
                             )
                             rejected_data = {

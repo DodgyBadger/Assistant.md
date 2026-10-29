@@ -833,23 +833,30 @@
     },
     {
       "id": "automatic-retry-recovery-branches",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_stream_auto_retry"
       ],
       "missing_proof": "Real no-tool partial retry, disable behavior and shared request-budget semantics pass. Original fake stalled idle timeout, active slow-tool idle exemption/state, injected long/private diagnostic truncation, checkpoint replay after read-only effects, rollback-restart and rollback-disabled recovery branches remain unproved by these real wire inputs.",
-      "cleanup_action": "Construct bounded actual provider/tool/checkpoint inputs for remaining recovery modes or explicitly classify retained fault fixtures; do not infer them from ordinary no-tool retry.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_stream_auto_retry.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
-        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json"
+        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_real_conflict_restart_20261029/report.json",
+        "validation/runs/gap_cleanup_failed_effect_safety_before_20261029/report.json",
+        "validation/runs/gap_cleanup_chat_recovery_confirm2_20261029/report.json",
+        "validation/runs/gap_cleanup_failed_effect_safety_verified_20261029/report.json"
       ],
       "review_number": 34,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "A real failed append after a completed read reproduced duplicate content under snapshot resume. The app fix now recognizes failed transactional effects and audits all runs before whole-turn restart, refusing failed unknown/manual effects and any restart that would repeat a completed external action. Successful rollback/restart, duplicate prevention and existing retry scenarios pass; final budget/refusal/readonly controls are being rerun against actual Activity evidence.",
+      "resolution": "Actual idle-stream timeout, active-tool exemption and settled-checkpoint resume pass. A genuine configured transactional append/HTTP503 after a completed read reproduced duplicate data. The app now treats failed transactional effects as requiring authorized successful rollback before bounded replacement and audits all runs before replaying a whole turn. Real recovery, budget exhaustion, disabled-rollback refusal, duplicate prevention, failed unknown/manual refusal, prior completed external POST exactly once, and replay-safe continuation all pass with original file/history/count oracles preserved. Global restart exhaustion now reports the correct budget reason. No SDK state or fake exception is injected.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "chat-cancellation-active-tool-boundary",

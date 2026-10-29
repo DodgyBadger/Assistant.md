@@ -500,6 +500,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_transactional_rollback_restart.py",
+      "sha256": "95bc2728980137bc681f358047bbdf16623ec1b796f3dc34d4583e0a6e393b06",
+      "kind": "behavioral",
+      "tests": [
+        "test_transactional_http_failure_rolls_back_before_restart_or_refuses"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_unexpected_stream_failure.py",
       "sha256": "89322a392acdf63d35f5e2d36115de9f2ab927c7ac78ce5285ff778f3fa67048",
       "kind": "behavioral",
@@ -859,6 +867,14 @@
       "kind": "behavioral",
       "tests": [
         "test_extensionless_file_edits"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_failed_transactional_effect_safety.py",
+      "sha256": "c0467c130ecbb1ddf565a313debb7f85829993393bccdde91b36d6a4521d3646",
+      "kind": "behavioral",
+      "tests": [
+        "test_completed_read_does_not_hide_failed_transactional_append"
       ]
     },
     {
@@ -1375,6 +1391,14 @@
       "kind": "behavioral",
       "tests": [
         "test_concurrent_history_mutation_rejects_stale_compaction"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_recovery_effect_policy_safety.py",
+      "sha256": "02373b22ae20a29a58c16e2be85dd2fbda68b4bea5f757c6fe0e1bfe8870670c",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_effect_policies_preserve_external_commits_and_safe_resume"
       ]
     },
     {
@@ -2218,6 +2242,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/external_post_extension.py",
+      "sha256": "bd8c508cb6154df6d84356abb8f995b9e3bdf3cd567b736e4cdc47f55d9c48a1",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/file_boundaries.py",
       "sha256": "8cd5094835e24b7efcd8b345898562208e9dcacc1e5a00abcf7c73129dfdd3cb",
       "kind": "support"
@@ -2408,6 +2437,16 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/recovery_activity.py",
+      "sha256": "54744cf443d66281e5537f92581bd8a4bc129ebc9c847d4c5c68be1fbf79538b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/recovery_effect_policy_workload.py",
+      "sha256": "2980f7c070e5c3881eb01520e6ba4055f0aa3d94c402fc835267185324ea4850",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/recovery_inputs.py",
       "sha256": "03bd6ae205f83ba7e0c820babf207369e492b78af6f667f46cebece6260a1330",
       "kind": "support"
@@ -2428,6 +2467,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/replay_safe_http_extension.py",
+      "sha256": "6d165647e226aaaabec136ec4cf85d7188fed06df8c7c0b6c84e4ea09d7bb04f",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/retained_map_author.py",
       "sha256": "d57afcc2845fe9dd159e1f0f951eb309adeec3a5318795c59a23da9f3033b769",
       "kind": "support"
@@ -2440,6 +2484,21 @@
     {
       "path": "scenarios/support/retry_provider.py",
       "sha256": "c9ac9f5457427bff457dde68760ad27f0b61385b08daeb5ce96e7daba9dff6b9",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/rollback_append_extension.py",
+      "sha256": "5b02150c9b3d7dafc8938af31b6463ba60f09650ba1be57a19e525c4a27c658d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/rollback_restart_extension.py",
+      "sha256": "39d55bc6814481fa56ba01ad6a22588d493f0f0982f668de6a2b50255d228731",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/rollback_restart_workload.py",
+      "sha256": "d7a3a8f9be738b15363fa616dd5545d5bf09f5ab8b0f9eae83dd9dbf88041d56",
       "kind": "support"
     },
     {
@@ -2548,6 +2607,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/settled_read_failed_append.py",
+      "sha256": "5ef34bf44271c54e0e0884a600b253cd492476b6e413fc28aa9468b8513d0257",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/startup.py",
       "sha256": "3201e14a5f5282bdeda683cfba7d5da22c6ea32e51e80bfa19c0e90ddf73cd79",
       "kind": "support"
@@ -2605,6 +2669,11 @@
     {
       "path": "scenarios/support/two_review_provider.py",
       "sha256": "585d460671fdfc5485f194d7c8f97912b473325abef26d38ecdb03abf97cf0f6",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/unknown_external_post_extension.py",
+      "sha256": "1c3d07e2c8c1e46ae9e60678e0974978666f96ae9fb19da9bd818908db122e47",
       "kind": "support"
     },
     {

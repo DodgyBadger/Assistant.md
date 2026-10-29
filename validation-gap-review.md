@@ -23,11 +23,6 @@
     **Recommendation:** **Defer to the browser work and group with item 23.** Test visible import progress, warnings, errors and user actions. Retire incidental CSS/JavaScript implementation checks once equivalent user-visible behavior is covered or explicitly judged unnecessary.
     - Approved
 
-34. **Automatic retry recovery branches:** Cover stalled streams, slow active tools, diagnostic truncation, checkpoint replay, rollback-and-restart, and retry with rollback disabled. Ordinary partial-stream retry and shared request budgets are covered.
-
-    **Recommendation:** **Keep, high priority.** Complete the real idle-stream, active-tool, checkpoint replay and rollback recovery scenarios. Verify retry budgets, persisted history, mutation effects and safe diagnostics; share fixtures with the active cancellation and compaction cases rather than reproducing a large fake-agent matrix.
-    - Approved
-
 36. **Core child-process egress and credential-file isolation:** Core Python requests are loopback-only, ambient SDK credentials are removed, and real denial controls pass. Complete network containment for child/native processes such as curl, and review access to undeclared credential files. Mixed live/core invocations need separate processes because the Python guard is irreversible.
 
     **Recommendation:** **Make this an early priority.** Enforce test-owned outbound restrictions that allow only declared deterministic models and controlled test services, and exclude ambient real credentials from core execution. Include child processes and automatic authoring; prove that an accidental external dispatch fails before connecting, while explicit live experiments remain separate.

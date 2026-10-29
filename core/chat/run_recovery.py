@@ -9,7 +9,10 @@ from typing import Any
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai_harness.step_persistence import (
     InMemoryStepStore,
+    RunRecord,
+    StepEvent,
     StepPersistence,
+    ToolEffectRecord,
     is_provider_valid,
 )
 
@@ -117,19 +120,64 @@ class ChatRunRecoveryCoordinator:
         completed_tool_count = sum(
             event.kind == "tool_call_completed" for event in events
         )
+        effects = await self._recorded_effects(run.run_id, events)
+        if effects is None:
+            return ChatRecoveryDecision(
+                strategy=ChatRecoveryStrategy.MANUAL_REQUIRED,
+                reason="tool_effect_record_invalid",
+                completed_tool_count=completed_tool_count,
+            )
+        failed = [effect for effect in effects if effect.status == "failed"]
+        if any(
+            self.tool_policy(effect.tool_name)
+            in {ToolRecoveryPolicy.UNKNOWN, ToolRecoveryPolicy.MANUAL_REQUIRED}
+            for effect in failed
+        ):
+            return ChatRecoveryDecision(
+                strategy=ChatRecoveryStrategy.MANUAL_REQUIRED,
+                reason="failed_external_or_unknown_effect",
+                completed_tool_count=completed_tool_count,
+            )
         unresolved = await self.store.list_unresolved_tool_effects(run_id=run.run_id)
+        if any(
+            self.tool_policy(effect.tool_name)
+            in {ToolRecoveryPolicy.UNKNOWN, ToolRecoveryPolicy.MANUAL_REQUIRED}
+            for effect in unresolved
+        ):
+            return ChatRecoveryDecision(
+                strategy=ChatRecoveryStrategy.MANUAL_REQUIRED,
+                reason="unresolved_external_or_unknown_effect",
+                completed_tool_count=completed_tool_count,
+                unresolved_tool_count=len(unresolved),
+            )
+        failed_vault = any(
+            self.tool_policy(effect.tool_name) is ToolRecoveryPolicy.VAULT_TRANSACTIONAL
+            for effect in failed
+        )
+        unresolved_vault = any(
+            self.tool_policy(effect.tool_name) is ToolRecoveryPolicy.VAULT_TRANSACTIONAL
+            for effect in unresolved
+        )
+        if failed_vault or unresolved_vault:
+            # SDK failure settlement describes execution, not absence of side
+            # effects. A whole-turn restart must roll back failed vault writes
+            # and must not replay an external effect preserved by an earlier run.
+            refusal = await self._whole_turn_restart_refusal(runs)
+            return ChatRecoveryDecision(
+                strategy=(
+                    ChatRecoveryStrategy.MANUAL_REQUIRED
+                    if refusal
+                    else ChatRecoveryStrategy.TERMINAL_ROLLBACK_RESTART
+                ),
+                reason=refusal
+                or (
+                    "failed_vault_effect" if failed_vault else "unresolved_vault_effect"
+                ),
+                completed_tool_count=completed_tool_count,
+                unresolved_tool_count=len(unresolved),
+            )
         if unresolved:
             policies = {self.tool_policy(effect.tool_name) for effect in unresolved}
-            if policies & {
-                ToolRecoveryPolicy.UNKNOWN,
-                ToolRecoveryPolicy.MANUAL_REQUIRED,
-            }:
-                return ChatRecoveryDecision(
-                    strategy=ChatRecoveryStrategy.MANUAL_REQUIRED,
-                    reason="unresolved_external_or_unknown_effect",
-                    completed_tool_count=completed_tool_count,
-                    unresolved_tool_count=len(unresolved),
-                )
             if policies == {ToolRecoveryPolicy.REPLAY_SAFE}:
                 snapshot = await self.store.latest_snapshot(
                     run_id=run.run_id,
@@ -152,13 +200,6 @@ class ChatRunRecoveryCoordinator:
                         trimmed_failed_response=False,
                         interrupted=snapshot.state == "interrupted",
                     ),
-                    completed_tool_count=completed_tool_count,
-                    unresolved_tool_count=len(unresolved),
-                )
-            if ToolRecoveryPolicy.VAULT_TRANSACTIONAL in policies:
-                return ChatRecoveryDecision(
-                    strategy=ChatRecoveryStrategy.TERMINAL_ROLLBACK_RESTART,
-                    reason="unresolved_vault_effect",
                     completed_tool_count=completed_tool_count,
                     unresolved_tool_count=len(unresolved),
                 )
@@ -204,3 +245,60 @@ class ChatRunRecoveryCoordinator:
             ),
             completed_tool_count=completed_tool_count,
         )
+
+    async def _recorded_effects(
+        self, run_id: str, events: list[StepEvent]
+    ) -> list[ToolEffectRecord] | None:
+        """Resolve observed calls through public ledger APIs, rejecting disagreement."""
+        effects: dict[str, ToolEffectRecord] = {}
+        for event in events:
+            if event.kind not in {
+                "tool_call_started",
+                "tool_call_completed",
+                "tool_call_failed",
+            }:
+                continue
+            if not event.tool_call_id or not event.tool_name:
+                return None
+            effect = await self.store.get_tool_effect(
+                run_id=run_id, tool_call_id=event.tool_call_id
+            )
+            if (
+                effect is None
+                or effect.run_id != run_id
+                or effect.tool_call_id != event.tool_call_id
+                or effect.tool_name != event.tool_name
+                or effect.status not in {"started", "completed", "failed"}
+            ):
+                return None
+            effects[event.tool_call_id] = effect
+        return list(effects.values())
+
+    async def _whole_turn_restart_refusal(self, runs: list[RunRecord]) -> str | None:
+        """Audit every run retained by this task before replaying its whole turn."""
+        for run in runs:
+            events = await self.store.list_events(run_id=run.run_id)
+            effects = await self._recorded_effects(run.run_id, events)
+            if effects is None:
+                return "tool_effect_record_invalid"
+            # Unresolved records can precede their first event if execution
+            # stopped between the ledger write and its event append.
+            for unresolved in await self.store.list_unresolved_tool_effects(
+                run_id=run.run_id
+            ):
+                recorded = await self.store.get_tool_effect(
+                    run_id=run.run_id, tool_call_id=unresolved.tool_call_id
+                )
+                if recorded is None or recorded != unresolved:
+                    return "tool_effect_record_invalid"
+                effects.append(recorded)
+            if any(
+                self.tool_policy(effect.tool_name)
+                not in {
+                    ToolRecoveryPolicy.REPLAY_SAFE,
+                    ToolRecoveryPolicy.VAULT_TRANSACTIONAL,
+                }
+                for effect in effects
+            ):
+                return "rollback_restart_external_or_unknown_effect"
+        return None
