@@ -42,7 +42,7 @@ class MCPWorkload:
 
 
 @asynccontextmanager
-async def mcp_http_server(app: Application):
+async def mcp_http_server(app: Application, *, tls=None):
     workload = MCPWorkload()
     workload.list_release.set()
     server = Server("assistantmd-real-mcp-input")
@@ -97,6 +97,7 @@ async def mcp_http_server(app: Application):
             headers = dict(scope.get("headers", []))
             row = {
                 "method": scope["method"],
+                "host": headers.get(b"host", b"").decode(),
                 "rpc_method": request.get("method"),
                 "authorization": headers.get(b"authorization", b"").decode(),
                 "session_id": headers.get(b"mcp-session-id", b"").decode(),
@@ -157,8 +158,22 @@ async def mcp_http_server(app: Application):
     sock.bind(("127.0.0.1", 0))
     sock.listen()
     sock.setblocking(False)
-    workload.url = f"http://127.0.0.1:{sock.getsockname()[1]}/mcp"
-    runner = uvicorn.Server(uvicorn.Config(asgi, log_level="error", lifespan="on"))
+    port = sock.getsockname()[1]
+    workload.url = (
+        f"https://localhost:{port}/mcp" if tls else f"http://127.0.0.1:{port}/mcp"
+    )
+    options = (
+        {"ssl_certfile": str(tls.certificate), "ssl_keyfile": str(tls.key)}
+        if tls
+        else {}
+    )
+    config = uvicorn.Config(asgi, log_level="error", lifespan="on", **options)
+    if tls:
+        config.load()
+        config.ssl.set_servername_callback(
+            lambda sock, name, context: tls.names.append(name)
+        )
+    runner = uvicorn.Server(config)
     serving = asyncio.create_task(runner.serve(sockets=[sock]))
     try:
         async with asyncio.timeout(5):

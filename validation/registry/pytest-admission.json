@@ -1237,6 +1237,17 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_network_boundaries.py",
+      "sha256": "b2854a7bd520cb8bff0f6a4082f61de5f0e3ad5b3f42643ef19285f9eacae9ba",
+      "kind": "behavioral",
+      "tests": [
+        "test_guarded_mcp_https_retains_host_sni_verified_identity_and_closure",
+        "test_mcp_rebinding_and_mixed_dns_fail_before_socket_dispatch",
+        "test_mcp_numeric_retry_uses_one_total_budget_and_preserves_cancellation",
+        "test_mcp_dns_wait_is_bounded_and_never_dispatches_after_cancellation"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_oauth_resume.py",
       "sha256": "2430b86849a3d5f1701d2fb8a7015d4fb74af7f0229b9e792d911649a74ae3fa",
       "kind": "behavioral",
@@ -2363,12 +2374,17 @@
     },
     {
       "path": "scenarios/support/mcp_http_inputs.py",
-      "sha256": "8d9190fd680702555ae68dbf4af2b5b1d89bca3b7bb8921e4f908d1880069549",
+      "sha256": "d25f9d3897badb34fd0ee9690d044d8dc2d7d583fcef8d9c48fa0c19dafbadad",
       "kind": "support"
     },
     {
       "path": "scenarios/support/mcp_mutation_inputs.py",
       "sha256": "2202dd0b270c1e27f3a9b1db2f39c1cc5a8681b87627d7a9dfab5f6a06a7d54b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_network_environment.py",
+      "sha256": "478f121eeb147b7edaeda82776587ae2acf3e4df1739f5c0abb9426a8a1d6ee2",
       "kind": "support"
     },
     {
@@ -2644,6 +2660,11 @@
     {
       "path": "scenarios/support/task_runner_workloads.py",
       "sha256": "a3ba4c9de010afd940925ffe2dc5b4af95e453cc2640d75caf6271cfb5933f68",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/tls_inputs.py",
+      "sha256": "178b911d2be0b7384ea75f3f4c8ec865a42adac8db5b5b2d2609aff00a88a2ea",
       "kind": "support"
     },
     {

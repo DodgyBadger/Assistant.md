@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
+import ssl
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -169,14 +170,23 @@ class MCPAsyncHTTPTransport(httpx.AsyncHTTPTransport):
     Keep the socket-authority tests when migrating to that public API.
     """
 
-    def __init__(self, *, network_backend: MCPNetworkBackend | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        network_backend: MCPNetworkBackend | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+    ) -> None:
         limits = httpx.Limits(
             max_connections=100,
             max_keepalive_connections=20,
             keepalive_expiry=5.0,
         )
         self._pool = httpcore.AsyncConnectionPool(
-            ssl_context=httpx.create_ssl_context(verify=True, trust_env=False),
+            ssl_context=(
+                ssl_context
+                if ssl_context is not None
+                else httpx.create_ssl_context(verify=True, trust_env=False)
+            ),
             max_connections=limits.max_connections,
             max_keepalive_connections=limits.max_keepalive_connections,
             keepalive_expiry=limits.keepalive_expiry,
@@ -213,5 +223,5 @@ def _is_forbidden_address(
         address.is_link_local
         or address.is_multicast
         or address.is_unspecified
-        or address.is_reserved
+        or (address.is_reserved and not address.is_loopback)
     )
