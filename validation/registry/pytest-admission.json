@@ -42,6 +42,19 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_access_state_concurrency.py",
+      "sha256": "cc1221c595598b8b435c369c3a732cbd42e08674d27c19c24b61676589d3d748",
+      "kind": "behavioral",
+      "tests": [
+        "test_guarded_secret_write_cannot_cross_concurrent_guard_rotation",
+        "test_google_disconnect_cleanup_rolls_back_then_retries",
+        "test_google_inflight_completion_cannot_restore_deleted_connection",
+        "test_superseded_google_attempt_cannot_consume_new_attempt",
+        "test_new_google_authorization_survives_older_inflight_completion",
+        "test_mcp_stale_grant_cannot_cross_concurrent_credential_rotation"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_api_endpoint_chat_limits.py",
       "sha256": "68dd061a37b902a4e64f9ac01c1f786dc492d38a4a502186082c9cfd24f87d20",
       "kind": "behavioral",
@@ -1120,6 +1133,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_secrets_crash_recovery.py",
+      "sha256": "2d6fc1310e0c1f6124b68ce28482d55c07fc8008adf6277155ff2b968e6bf5c2",
+      "kind": "behavioral",
+      "tests": [
+        "test_legacy_secret_import_recovers_after_process_death",
+        "test_locked_production_bootstrap_keeps_managed_writes_in_configured_roots"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_session_context_upgrade_journey.py",
       "sha256": "cdc7609ad8742d416dd31eaf79ddbc249ae7545fca28e1ec6c2883d40addb851",
       "kind": "behavioral",
@@ -1405,6 +1427,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_storage_migration_recovery.py",
+      "sha256": "2a1cc5aa3c29c0c3731699e265eb55002d44183bfdeb23d7347fdd06c1cc591b",
+      "kind": "behavioral",
+      "tests": [
+        "test_oldest_supported_transcript_schema_backfills_on_startup",
+        "test_summary_retirement_bookkeeping_failure_rolls_back_and_retries"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_structured_output_retry.py",
       "sha256": "72557840585273f79605211ccb0e1dbfc1231e81ffffb9977d6c51edb56b8303",
       "kind": "behavioral",
@@ -1647,6 +1678,11 @@
     {
       "path": "scenarios/support/__init__.py",
       "sha256": "c907295995de6ebaa77d72a8eab52f9f76db1832028a6c6c46d028c7c876152d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/access_state_concurrency.py",
+      "sha256": "00a8bf7a0dfe80dfbf393fd598aba467cdca6dca7df352ea4a4f6974d9716d1b",
       "kind": "support"
     },
     {
@@ -1975,6 +2011,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/secrets_crash_recovery.py",
+      "sha256": "46d0fe5964550d0569e09d5585353e64cf012c30a139885e1c1326d3f7034b5f",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/secrets_migration.py",
       "sha256": "5488a75441b146c216f1ed76574ccd98f02d5782ae315a8b28a566d78db176a0",
       "kind": "support"
@@ -2062,6 +2103,11 @@
     {
       "path": "scenarios/support/stepped_post_turn_inputs.py",
       "sha256": "44416dd3152ea35c41a5307d48a1a134ff5e9cd0927e3497e053cc13a19c6cb3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/storage_migration_recovery.py",
+      "sha256": "82fb30c163eca8d00088cd8c9f107e60bf18ba7ec92dd595e0aec3caae686c96",
       "kind": "support"
     },
     {

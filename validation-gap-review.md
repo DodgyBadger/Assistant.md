@@ -3,11 +3,6 @@
 	 **Recommendation:** **Keep.** Add a real stale-revision settings request and assert HTTP 409, preservation of the newer settings, and a usable subsequent request. Retire the private save patch once that behavior is covered.
 	 - Approved
 
-2. **Secrets migration crash recovery:** Test abrupt process death during import, after import, and after renaming the source. Exception recovery is covered; actual crash recovery at those boundaries is not.
-
-     **Recommendation:** **Keep, high priority.** Run the actual migration in a child process, terminate it at durable import/rename boundaries, then restart and verify that credentials are neither lost nor duplicated. Reuse a small crash fixture rather than adding a separate runner.
-     - Approved
-
 4. **Hard timeouts and child-process cleanup:** Decide and verify how hung tests and their descendant processes should be terminated. The new plugin does not currently provide the old runner’s guarantees.
 
     **Recommendation:** **Keep, high priority; combine with item 63.** Establish bounded process-level execution and cleanup deadlines, quarantine an uncertain worker, and terminate its owned descendant processes. Prefer existing pytest-compatible tooling and a small ownership policy over rebuilding the old supervisor.
@@ -27,16 +22,6 @@
 
     **Recommendation:** **Replace the internal call-count assertion.** Require one coherent durable rollback effect, with a concurrent request either idempotent or clearly rejected, and verify files, snapshots and activity afterward. Multiple internal restoration calls are acceptable only if they cannot duplicate or corrupt that effect.
     - Approved
-
-9. **Guarded secret-write concurrency:** Verify the precise concurrency boundary between checking an encrypted secret and updating it. The old test paused a private database lookup.
-
-    **Recommendation:** **Keep, high priority.** Verify that a stale guarded write cannot overwrite a newer secret or cross a credential generation. Use real connections and transaction contention; the exact private lookup pause is unnecessary once the state and authorization guarantees are established.
-    - Approved
-
-11. **Locked bootstrap with cold imports:** Investigate why some cold import orders create an unrelated chat database and migration backup. Existing passing cases use prewarmed modules and do not cover every startup order.
-
-    **Recommendation:** **Investigate through a fresh production-style startup before deciding this is a bug.** Fix writes to the wrong root or locked access state. Independent migrations of other managed databases may be legitimate; retain a scenario for the approved cold-start behavior rather than requiring every startup to create no files.
-    - Approved to investigate
 
 12. **Importing public URLs:** Verify successful remote fetching, destination selection, provenance, PDF detection from content, and extensionless URLs. Local imports and outbound-policy rejection are covered.
 
@@ -68,24 +53,9 @@
     **Recommendation:** **Keep.** Exercise actual 503 and Retry-After responses plus private query text through a controlled provider transport. Share network infrastructure with items 12 and 38, and assert retry decisions and safe diagnostics rather than just exception construction.
     - Approved
 
-19. **Transcript index migration:** Test a genuinely old database without transcript indexes. Both the original and migrated tests created indexed messages before reinitializing the schema.
-
-    **Recommendation:** **Keep.** Create the oldest supported database format without the transcript indexes, start the real migration path, and verify searchable preserved messages and repeatable startup. Avoid first creating those messages through modern index-maintaining writes.
-    - Approved
-
 20. **Private text in transcript-search errors:** Verify sanitization when a storage exception actually contains private text. Current real SQLite failures produce generic messages, so the stronger confidentiality claim remains unproved.
 
     **Recommendation:** **Keep the confidentiality requirement, simplify the proof.** Test the application-owned error projection with a private error input, alongside a real integration failure proving that the projection is used. Do not require a particular SQLite error to naturally echo a secret or patch the search implementation to manufacture that condition.
-    - Approved
-
-21. **Google connection transaction races:** Verify concurrent deletion, default replacement, client-identity changes, credential changes and token commits at the original transaction boundaries. Ordinary concurrency tests cover narrower cases.
-
-    **Recommendation:** **Keep, high priority; consolidate the access-state races with items 22, 43 and 47.** Protect against stale operations restoring deleted connections, overwriting newer credentials or committing a grant for a changed identity. Use a compact set of real transactions and external-request barriers rather than preserving every private pause location.
-    - Approved
-
-22. **Google disconnect rollback:** Verify that failed cleanup during disconnect preserves the previous grant and credentials. Other credential-update rollback cases do not establish this branch.
-
-    **Recommendation:** **Keep.** Cause a real disconnect cleanup transaction to fail and verify that connection metadata, credentials and grants remain mutually consistent, then verify successful retry. Separately preserve the existing distinction between a rolled-back mutation and a committed mutation whose runtime notification failed.
     - Approved
 
 23. **Gmail connection UI behavior:** Review save-before-authorization behavior and missing-compose warnings in the browser. API scope and readiness checks do not establish rendered UI behavior.
@@ -158,11 +128,6 @@
     **Recommendation:** **Replace the exact start/shutdown invocation count.** Verify that failed startup leaves no live MCP clients or owned background work and permits a clean subsequent startup. Preserve exactly-once closure only where the resource/protocol requires it; the manager need not be constructed at a particular point in a future bootstrap design.
     - Approved
 
-40. **Interrupted summary-data retirement:** Verify atomic rollback if migration fails after dropping tables but before recording completion, followed by successful retry. Successful retirement and dependency refusals are covered.
-
-    **Recommendation:** **Keep, high priority.** Use a real SQLite constraint or trigger to fail migration bookkeeping after table changes, then verify transactional restoration and successful retry. Preserve unknown tables and canonical history throughout; this is an important destructive-migration guarantee.
-    - Approved
-
 41. **Automatic compaction admission failures:** Cover failures before compaction enters its normal domain logic, task-admission rejection, and missing or stopped runtime state.
 
     **Recommendation:** **Keep fail-soft automatic compaction.** Exercise genuine closed-runtime or rejected-admission inputs and verify that the completed chat remains successful, no task leaks, and usable context is preserved with a clear reason. Retire the requirement to inject a particular private callback failure.
@@ -171,11 +136,6 @@
 42. **Interruption during an approved tool:** Verify cancellation or failure while a reviewed tool is active, settlement of missing replies, and prevention of replay on the next turn. Current coverage fails after the approved write completes.
 
     **Recommendation:** **Keep, high priority.** Interrupt an actually executing approved tool and verify rollback, an honest interrupted reply, terminal review state and no re-execution on the next turn. Share the workload fixture with item 35, but retain separate assertions for approval settlement.
-    - Approved
-
-43. **MCP mutation race windows:** Cover the original pre-lock credential and OAuth interleavings, plus process death inside the composed credential mutation before commit. Sequential stale-state checks and broader transaction crash tests are covered.
-
-    **Recommendation:** **Consolidate with items 21 and 47.** Keep stale-grant/credential rejection and atomic metadata-plus-secret state through the composed service. Combine real transaction/crash evidence with a small number of meaningful stale-request races; retire the requirement to kill execution at a particular private instruction if it adds no distinct state guarantee.
     - Approved
 
 44. **Successful advanced-shell MCP execution:** Verify actual SSH launch configuration, root forwarding and client closure. Configuration gates and refused-connection behavior pass; successful SSH execution lacks local test infrastructure.
@@ -191,11 +151,6 @@
 46. **MCP timeout classification:** Resolve a real mismatch: delayed initialization returns `connection_failed`, while a total-deadline probe returned `http_error`. The old mocked test expects `timeout`.
 
     **Recommendation:** **Keep the application timeout contract and investigate a fix.** Classify expiry using the actual deadline and preserved exception causes so SDK cleanup cannot accidentally relabel a timeout as an HTTP error. Retain a separate genuine pre-deadline HTTP-error case; do not simply change the old expected status to the observed result.
-    - Approved
-
-47. **Google OAuth pending-state races:** Cover superseding authorization immediately before pending-state deletion, disconnect racing with credential replacement, and competing starts around pending-state writes.
-
-    **Recommendation:** **Keep, high priority; consolidate with items 21 and 43.** Verify single-use pending-state consumption and preservation of a newer attempt or credential generation across competing start/disconnect/completion operations. Prefer actual transaction and external-request barriers over exact storage-method interception.
     - Approved
 
 48. **MCP OAuth authorization lifecycle:** Test actual discovery and authorization start, live callback rejection and recovery, completion timeout, superseding attempts, live disconnect and failed supersede recovery. Current tests begin with saved pending records.

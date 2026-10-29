@@ -14,16 +14,18 @@
         "validation/legacy/scenarios/integration/core/settings_database_migration.py"
       ],
       "evidence": [
-        "validation/runs/reports/20261028_152922_783295.json"
+        "validation/runs/reports/20261028_152922_783295.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
       "cleanup_action": "Find a deterministic real request/revision conflict that exercises the translation, or explicitly review retirement/reclassification of the private-injection oracle.",
       "review_number": 1,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced."
     },
     {
       "id": "legacy-secrets-abrupt-death",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/legacy_secrets_migration"
@@ -34,12 +36,15 @@
       ],
       "evidence": [
         "validation/runs/reports/20261028_154045_955516.json",
-        "validation/runs/pytest_migration/legacy_secrets_20261028/report.json"
+        "validation/runs/pytest_migration/legacy_secrets_20261028/report.json",
+        "validation/runs/gap_cleanup_secrets_20261029/report.json"
       ],
-      "cleanup_action": "Establish real process-death observations at meaningful durable boundaries without private strategy substitution, or review the intended guarantee and disposition.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "review_number": 2,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Actual SIGKILL at an open import transaction, durable imported-before-rename state and renamed-before-complete bookkeeping; every fresh process restart preserves all credentials and completes without duplicate rows.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "vault-root-alias-contract",
@@ -173,13 +178,16 @@
         "validation/legacy/scenarios/integration/core/encrypted_secrets_boundaries.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/security_migrations_20261028/report.json"
+        "validation/runs/pytest_migration/security_migrations_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
-      "cleanup_action": "Add supported correlated concurrency observations or a controlled real contention case; otherwise review disposition of the private-pause oracle.",
-      "status": "open",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
       "review_number": 9,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real held SQLite write transaction rotates the encrypted guard while a stale guarded write is submitted; stale write is rejected and newer guard/current secret remain.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "default-context-instruction-semantics",
@@ -215,13 +223,16 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/security_migrations_retry_20261028/report.json",
-        "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json"
+        "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json",
+        "validation/runs/gap_cleanup_secrets_20261029/report.json"
       ],
-      "cleanup_action": "Review cold production entry-point ordering and intended backup behavior; retain the observed side effect and do not generalize the prewarmed proof.",
-      "status": "open",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
       "review_number": 11,
       "user_decision": "Approved to investigate",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Fresh production-style cold and prewarmed locked startups both complete with all managed writes under configured roots, no access.db, and secret execution rejected. Independent chat/database migrations and backups are legitimate.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "observation-redaction-equality",
@@ -440,17 +451,20 @@
         "integration/core/transcript_retrieval_storage"
       ],
       "missing_proof": "Both original and port create messages through index-maintaining writes before schema reinitialization. Their passing lookup does not independently establish migration from a legacy database without transcript indexes. This is an identified scope limitation, not dropped proven parity.",
-      "cleanup_action": "Check existing migration coverage, then construct actual legacy missing-index input or correct the coverage claim; retain the current index lifecycle proof.",
-      "status": "open",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/transcript_retrieval_storage.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json"
+        "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 19,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Oldest supported ownerless pre-migration chat tables and native messages, with no transcript index/content_text, are migrated through full startup. Original canonical messages and ownership survive, indexed search works, and repeated schema startup is stable.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "session-ops-private-exception-payload",
@@ -476,43 +490,50 @@
     },
     {
       "id": "google-connection-transaction-races",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/builtin_connection_configuration"
       ],
       "missing_proof": "Original patched interleavings for deleted replacement default, changed client identity before transaction, stale credential/grant observation, authorization change before disconnect and deletion before token commit remain unproved. Forced reused UUID integrity failure is also retained only in original. Real concurrent create/default and ordinary cleanup rollback do not prove those race windows.",
-      "cleanup_action": "Establish genuine bounded concurrent/database inputs or review narrow controlled fault-injection classification before retiring originals.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
-        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 21,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Approved consolidation: real gated OAuth completion cannot resurrect a deleted connection; existing actual client-identity/secret mutation races, default/name invariants and reauthorization checks pass. Private pause locations and reused UUID fabrication are retired as separate requirements.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "google-disconnect-cleanup-rollback",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/builtin_connection_configuration"
       ],
       "missing_proof": "Original injected disconnect cleanup failure/rollback is not independently replaced; client identity update and secret rotation have genuine SQLite-abort rollback proof. HTTP cleanup-failure translation is not inferred from those successful domain exception cases.",
-      "cleanup_action": "Exercise actual disconnect/delete cleanup failure and retained grant/credential state, and review whether a separate HTTP error mapping contract is required.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
-        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 22,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A genuine encrypted-secret DELETE trigger aborts disconnect; connection metadata, client credential and grant remain unchanged, then retry clears the grant while retaining the client. Existing atomic mutation and postcommit-notification cases remain distinct.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "gmail-connection-ui-policy",
@@ -871,22 +892,25 @@
     },
     {
       "id": "summary-retirement-interrupted-bookkeeping",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_summary_data_retirement"
       ],
       "missing_proof": "Actual successful scoped retirement and dependency refusals pass. The original injected failure after owned table drops but before migration bookkeeping demonstrated transaction rollback and subsequent successful retry; that exact interruption is not reproduced.",
-      "cleanup_action": "Use a genuine supported database failure or migration workload boundary to establish atomic rollback and retry, or review the retained injection contract explicitly.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_summary_data_retirement.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 40,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real SQLite trigger rejects retirement version bookkeeping only after the owned table has been dropped. All logical tables/rows and FTS restore transactionally; retry drops only owned summary tables, preserving unknown state and canonical history.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "automatic-compaction-private-boundaries",
@@ -929,22 +953,26 @@
     },
     {
       "id": "mcp-mutation-private-race-windows",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/mcp_mutation_recovery"
       ],
       "missing_proof": "Actual sequential stale snapshots/adapters and abrupt shared-transaction death pass. Original before-lock OAuth client-secret and credential-mode interleavings, plus exact death inside composed public credential mutation before commit, remain unproved.",
-      "cleanup_action": "Establish real concurrency barriers through supported workload/transaction inputs or review precise private injection scope before removing originals.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 43,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Approved consolidation with access-state guards: stale MCP adapter rejects a grant after actual credential rotation; existing SQLite mutation rollback, abrupt shared-transaction death and committed-notification cases pass. Exact private instruction/death point is retired.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "mcp-advanced-stdio-successful-ssh",
@@ -1011,22 +1039,26 @@
     },
     {
       "id": "google-oauth-synchronous-pending-races",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/google_oauth_coordinator"
       ],
       "missing_proof": "Actual HTTP mutation races and stale credential guards pass. Original exact supersede-before-conditional-pending-delete, disconnect before transaction with concurrent secret/client replacement, and start metadata/credential pre/post-write/disconnect/competing-start interleavings remain unproved.",
-      "cleanup_action": "Use supported real transaction/concurrency workloads or review exact synchronous injection contracts; retain original pending cleanup/new-attempt preservation assertions.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/google_oauth_coordinator.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
       "review_number": 47,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Actual authorization starts supersede previous pending state, each state is single-use, and a newer start survives older gated external completion. Existing changed-client/secret/disconnect and reauthorization races pass; private pause-specific variants are retired.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
     },
     {
       "id": "mcp-oauth-live-authorization-lifecycle",
