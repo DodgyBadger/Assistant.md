@@ -1208,6 +1208,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_session_map_authoring_failure_contract.py",
+      "sha256": "df066de21f33ee9fc044ca15dce78ef2a6d6609ff8e6a1edc9366fdca9a9f1e2",
+      "kind": "behavioral",
+      "tests": [
+        "test_exhausted_author_provenance_is_safe_and_preserves_checkpoint",
+        "test_exhausted_schema_failure_is_not_reclassified_as_provenance"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_session_map_authoring_task.py",
       "sha256": "ea99e567651b34ba4b4aab16e53851e649b27599032e0c42280c9099eda7c626",
       "kind": "behavioral",
@@ -2074,6 +2083,11 @@
     {
       "path": "scenarios/support/session_map_author_http.py",
       "sha256": "df64da06a3b03f45fb9f0ecdf1723ef64a896e094433d494cc952571ebc27460",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_authoring_failure_contract.py",
+      "sha256": "26cbcfc13649c75b0cba269a3defcf174760ac7adb553d6d15c56bd63e3bef2b",
       "kind": "support"
     },
     {

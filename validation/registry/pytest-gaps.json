@@ -1143,13 +1143,13 @@
     },
     {
       "id": "session-map-authoring-failure-boundaries",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_map_authoring_task"
       ],
       "missing_proof": "Real HTTP provider failures establish safe bounded provider detail and distinct warnings, not original long private RuntimeError/generic100-character fallback. Repeated invalid provenance ends as UnexpectedModelBehavior/maximum output retries in the real pipeline; the old stub bypassed that retry layer and required SessionMapProvenanceError. The failed real probe and its source are retained; its expectation was not changed to count as parity.",
-      "cleanup_action": "Exercise a genuine non-provider workload failure with private diagnostic and adjudicate actual structured-author exhaustion classification before retiring original generic/provenance failure assertions.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_authoring_task.py"
       ],
@@ -1158,11 +1158,14 @@
         "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
         "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
         "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
-        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/retained-probe-source"
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/retained-probe-source",
+        "validation/runs/gap_cleanup_mutation_authoring_20261029/report.json"
       ],
       "review_number": 51,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Real repeated invalid citations exhaust SDK output retries and normalize to app-owned SessionMapProvenanceError/invalid_provenance while retaining the original cause, safe bounded diagnostics and the previous checkpoint. A separate real schema retry-exhaustion control remains a non-provenance failure. Incidental synthetic 100-character oracle retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "session-map-legacy-admission-repair",

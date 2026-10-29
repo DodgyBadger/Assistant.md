@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import cast
 
 from pydantic_ai import Agent, ModelRetry
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from core.constants import SESSION_MAP_AUTHORING_PROMPT_VERSION
 from core.identity import ExecutionAuthority
@@ -333,7 +334,17 @@ async def _invoke_session_map_model(
             except ValueError as exc:
                 raise ModelRetry(str(exc)) from exc
 
-    output = await generate_response(agent, prompt)
+    try:
+        output = await generate_response(agent, prompt)
+    except UnexpectedModelBehavior as exc:
+        retry = exc.__cause__
+        if isinstance(retry, ModelRetry) and isinstance(
+            retry.__cause__, SessionMapProvenanceError
+        ):
+            raise SessionMapProvenanceError(
+                "Session-map author returned unsupported provenance after retries"
+            ) from exc
+        raise
     if not isinstance(output, SessionMapDraft):
         raise TypeError("Session-map model returned an invalid structured output")
     return output

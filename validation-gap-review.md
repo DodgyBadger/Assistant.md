@@ -138,11 +138,6 @@
     **Recommendation:** **Keep application error semantics and attribution behavior; retire arbitrary SDK-class equivalence.** Cover actual overload, idle, connection and HTTP-status inputs with retry/category assertions where they affect control flow, plus headers observed at a local provider. Consolidate overlapping cases with items 17, 33 and 46.
     - Approved
 
-51. **Session-map author failure classification:** Verify generic private runtime-error sanitization and resolve another real mismatch: repeated invalid citations end in SDK retry exhaustion, whereas the old stub expects `SessionMapProvenanceError`.
-
-    **Recommendation:** **Preserve the application-owned invalid-provenance meaning after retry exhaustion.** I recommend normalizing that outcome at the authoring boundary, retaining its cause internally, rather than exposing whichever SDK exception happens to escape. Also keep generic-error confidentiality and a deliberate diagnostic size bound; retire the incidental 100-character limit unless a real consumer requires it.
-    - Approved
-
 52. **Legacy session-map evidence repair:** Cover the complete sequence of rejecting invalid citations without changing the checkpoint, accepting valid historical evidence, and repairing pending evidence across later reductions.
 
     **Recommendation:** **Keep, high priority.** Build one complete reduction/repair journey from the oldest supported persisted map format. Verify that rejected citations preserve the previous checkpoint and raw history, valid evidence advances the map safely, and pending evidence is consumed correctly; avoid supporting every intermediate development schema by accident.
