@@ -8,6 +8,7 @@ import sys
 from contextlib import contextmanager
 
 from validation.scenarios.application import Application
+from validation.support.core_processes import declare_core_command
 
 
 @contextmanager
@@ -67,13 +68,17 @@ with use_execution_authority(LOCAL_USER_AUTHORITY):
     service.set_credential(sys.argv[3],'committed-secret')
 """
     process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-c",
-        script,
-        str(app.root / "data"),
-        str(app.root / "system"),
-        connection_id,
-        phase,
+        *declare_core_command(
+            [
+                sys.executable,
+                "-c",
+                script,
+                str(app.root / "data"),
+                str(app.root / "system"),
+                connection_id,
+                phase,
+            ]
+        ),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )

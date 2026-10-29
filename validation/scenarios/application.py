@@ -213,6 +213,10 @@ async def app(
     core_case = request.node.path.resolve().is_relative_to(
         Path(__file__).parent / "integration/core"
     )
+    from validation.support.core_processes import reset_core_commands
+
+    if core_case:
+        reset_core_commands(evidence.root)
     environment_names = {"ASSISTANTMD_SECRETS_KEY", "LOGFIRE_TOKEN"}
     if core_case:
         environment_names.update(
@@ -285,6 +289,8 @@ async def app(
                         getattr(module, reset)()
             finally:
                 restore_bootstrap_roots(roots)
+                if core_case:
+                    reset_core_commands()
                 if core_case:
                     for name in list(os.environ):
                         if _ambient_credential(name):

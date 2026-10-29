@@ -10,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 
+from validation.support.core_processes import declare_core_command
+
 CHILD_MIGRATION = """
 import json, sys
 from pathlib import Path
@@ -127,7 +129,7 @@ def migration_state(root):
 
 def kill_at_boundary(app, root, boundary):
     process = subprocess.Popen(
-        [sys.executable, "-c", CHILD_MIGRATION, str(root)],
+        declare_core_command([sys.executable, "-c", CHILD_MIGRATION, str(root)]),
         env=process_environment(root),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -199,7 +201,7 @@ def cold_start_process(app, root, mode):
     working = root / "process-cwd"
     working.mkdir(parents=True)
     result = subprocess.run(
-        [sys.executable, "-c", COLD_START, str(root), mode],
+        declare_core_command([sys.executable, "-c", COLD_START, str(root), mode]),
         cwd=working,
         env=process_environment(root, locked=True),
         capture_output=True,

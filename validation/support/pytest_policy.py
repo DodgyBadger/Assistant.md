@@ -125,6 +125,16 @@ def pytest_configure(config: pytest.Config) -> None:
             raise pytest.UsageError(
                 f"Canonical pytest target is not an admitted test: {argument}"
             )
+    selected_paths = [
+        (config.invocation_params.dir / arg.split("::", 1)[0]).resolve()
+        for arg in config.args
+    ]
+    if any(p.is_relative_to(core) for p in selected_paths) and any(
+        not p.is_relative_to(core) for p in selected_paths
+    ):
+        raise pytest.UsageError(
+            "Core and external/experiment profiles require separate pytest invocations"
+        )
     if any(
         (config.invocation_params.dir / argument.split("::", 1)[0])
         .resolve()
@@ -132,6 +142,14 @@ def pytest_configure(config: pytest.Config) -> None:
         for argument in config.args
     ):
         install_core_network_guard()
+        # The controller must still create its xdist workers; app execution is
+        # confined to workers (or the explicitly selected in-process run).
+        if hasattr(config, "workerinput") or not config.getoption(
+            "numprocesses", default=0
+        ):
+            from validation.support.core_processes import install_core_process_guard
+
+            install_core_process_guard()
 
 
 @pytest.hookimpl(trylast=True)

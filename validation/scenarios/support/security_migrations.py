@@ -23,6 +23,7 @@ from core.connections import (
 from core.identity import LOCAL_USER_AUTHORITY
 from core.secrets import SecretIntegrityError
 from validation.scenarios.application import Application
+from validation.support.core_processes import declare_core_command
 
 
 def register_synthetic_secrets(app: Application) -> None:
@@ -66,7 +67,7 @@ def isolated_process(
         }
     )
     result = subprocess.run(
-        [sys.executable, "-c", source, *arguments],
+        declare_core_command([sys.executable, "-c", source, *arguments]),
         env=environment,
         capture_output=True,
         text=True,

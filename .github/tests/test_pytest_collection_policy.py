@@ -282,3 +282,61 @@ def test_core_guard_precedes_import_and_explicit_experiment_remains_unrestricted
     assert experiment_result.returncode == 0, (
         experiment_result.stdout + experiment_result.stderr
     )
+
+
+def test_core_subprocess_guard_denies_undeclared_and_accepts_exact_fixture_command(
+    tmp_path: Path,
+) -> None:
+    script = r"""
+import subprocess, sys
+from pathlib import Path
+from validation.support.core_processes import (
+    CoreProcessDenied, declare_core_command, install_core_process_guard, reset_core_commands,
+)
+root = Path(sys.argv[1])
+reset_core_commands(root)
+install_core_process_guard()
+marker = root / 'launched.txt'
+command = [sys.executable, '-c', 'from pathlib import Path;import sys;Path(sys.argv[1]).write_text("real child")', str(marker)]
+try:
+    subprocess.run(command, check=True)
+except CoreProcessDenied:
+    pass
+else:
+    raise AssertionError('undeclared child launched')
+assert not marker.exists()
+declare_core_command(command)
+subprocess.run(command, check=True, timeout=5)
+assert marker.read_text() == 'real child'
+for kwargs, args in [({'executable': '/bin/sh'}, command), ({'shell': True}, 'echo forbidden'), ({}, ['curl','https://example.invalid'])]:
+    try:
+        subprocess.run(args, check=True, **kwargs)
+    except CoreProcessDenied:
+        pass
+    else:
+        raise AssertionError('undeclared launch was admitted')
+reset_core_commands()
+try:
+    subprocess.run(command, check=True)
+except CoreProcessDenied:
+    pass
+else:
+    raise AssertionError('previous case declaration leaked')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(tmp_path)],
+        cwd=_REPOSITORY,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_core_and_experiment_targets_require_separate_invocations(
+    tmp_path: Path,
+) -> None:
+    config, core, experiment = _project(tmp_path)
+    result = _run(config, tmp_path, str(core), str(experiment))
+    assert result.returncode == 4
+    assert "require separate pytest invocations" in result.stdout + result.stderr

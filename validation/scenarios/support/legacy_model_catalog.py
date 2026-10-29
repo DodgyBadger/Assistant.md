@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 
 from validation.scenarios.application import Application
+from validation.support.core_processes import declare_core_command
 
 
 def legacy_catalogs() -> dict[str, Any]:
@@ -118,7 +119,7 @@ def import_legacy_catalog(
     original = yaml.safe_dump(legacy).encode()
     (root / "settings.yaml").write_bytes(original)
     process = subprocess.run(
-        [sys.executable, "-c", IMPORT_CATALOG, str(root), case],
+        declare_core_command([sys.executable, "-c", IMPORT_CATALOG, str(root), case]),
         cwd=Path(__file__).resolve().parents[3],
         capture_output=True,
         text=True,

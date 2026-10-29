@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from validation.scenarios.application import Application
+from validation.support.core_processes import declare_core_command
 
 
 def general_settings(app: Application) -> dict[str, Any]:
@@ -35,7 +36,7 @@ def run_settings_process(app: Application, root: Path, source: str) -> None:
         + source
     )
     result = subprocess.run(
-        [sys.executable, "-c", script],
+        declare_core_command([sys.executable, "-c", script]),
         capture_output=True,
         text=True,
         timeout=30,
