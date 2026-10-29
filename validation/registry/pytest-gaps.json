@@ -357,7 +357,7 @@
     },
     {
       "id": "explorer-batch-move-compensation",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/vault_explorer_batch_move"
@@ -368,17 +368,20 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json",
-        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json"
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json",
+        "validation/runs/gap_cleanup_newer_edit_manifest_20261029/report.json"
       ],
-      "cleanup_action": "Find deterministic real filesystem/transaction failure inputs, or explicitly classify the controlled fault-injection contracts before retiring originals.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 14,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Real SQLite audit failures after physical file/directory moves now have passing compensation cases: original bytes/paths restored, targets absent and manifest/audit coherent. Remaining: overlap with a newer external edit and prove compensation never overwrites that edit."
+      "progress_note": "Real SQLite audit failures after physical file/directory moves now have passing compensation cases: original bytes/paths restored, targets absent and manifest/audit coherent. Remaining: overlap with a newer external edit and prove compensation never overwrites that edit.",
+      "resolution": "Real SQLite audit failures after later physical file/directory moves trigger compensation restoring originals and coherent manifest/audit. A real external writer edits the moved destination during a native SQL workload before failure; compensation returns the newer bytes to the original path and the active manifest hash matches, without overwriting the edit.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "explorer-upload-interrupted-write-cleanup",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/vault_explorer_upload"
@@ -388,12 +391,15 @@
         "validation/legacy/scenarios/integration/core/vault_explorer_upload.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json"
       ],
-      "cleanup_action": "Establish a genuine bounded write failure and verify partial-file cleanup, or explicitly retain a narrow fault-injection test.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 15,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "The real app upload service writes a2MiB payload under a restored-finally1MiB kernel file-size limit; actual EFBIG after the partial-write boundary leaves no destination. Existing create-only destination remains unchanged. No write method is mocked and no multipart spool failure is miscounted as a destination write.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "managed-catalog-future-update-conflicts",

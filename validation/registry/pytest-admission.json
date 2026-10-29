@@ -190,6 +190,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_batch_move_external_edit.py",
+      "sha256": "62d0ef86d1898b80353bffb720a27c2eb454dcb55cdf3be6d185be8031f8b201",
+      "kind": "behavioral",
+      "tests": [
+        "test_batch_move_compensation_preserves_external_edit"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_browser_call_budget.py",
       "sha256": "b51a529b809c0476f58a1e389aac379451e0f09a4115ba40b577fff1c46678a7",
       "kind": "behavioral",
@@ -674,6 +682,15 @@
       "kind": "behavioral",
       "tests": [
         "test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_explorer_failure_recovery.py",
+      "sha256": "8cd0048ccee1c8cc01f12333f6164b604f279c1b79c877da9b5d15d2a110142c",
+      "kind": "behavioral",
+      "tests": [
+        "test_batch_move_compensates_real_audit_failure",
+        "test_partial_upload_failure_removes_partial_file"
       ]
     },
     {
@@ -1803,6 +1820,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/batch_move_external_edit.py",
+      "sha256": "f4e7a1c230d54b68c4be7979dbcec9bc1cfefd91a5d13c6089d3e6c62a8d7f9a",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/chat_cache_journeys.py",
       "sha256": "52617f4dd5bc38f0378deb60e5f9a2e5cfe7cf65aa27f90d61886c9c08348912",
       "kind": "support"
@@ -1900,6 +1922,11 @@
     {
       "path": "scenarios/support/delegate_workflow_inputs.py",
       "sha256": "20c0b596373b4533d54582038735b129d25c9fd9aaf9dde172cc36e943827b6c",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/explorer_failure_recovery.py",
+      "sha256": "0ea88e301dcc5040b6108cead415b820fb0b2d8fc08ef61b8c714c8dc7f7959d",
       "kind": "support"
     },
     {

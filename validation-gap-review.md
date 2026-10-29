@@ -18,16 +18,6 @@
     **Recommendation:** **Keep the authorization invariant.** Use real unauthenticated or unauthorized ingress and verify that no job is created. Retire the injected resolver-exception ordering assertion if that exception cannot arise through a supported request; retain the ordering check where it protects an actual reachable boundary.
     - Approved
 
-14. **Batch-move compensation with newer edits:** Ordinary mid-move file and directory failures now restore paths, contents, manifest and audit state. Verify that compensation cannot overwrite a newer external edit made during the failing batch.
-
-    **Recommendation:** **Keep, high priority.** I recommend an all-or-nothing contract for these supported batch moves. Induce a genuine later-item filesystem or database failure and check restoration of files, directories, manifest and audit state, including protection of any newer external edits.
-    - Approved
-
-15. **Interrupted upload cleanup:** Verify that a real write interruption leaves no partial upload behind. Size limits, collisions and preflight checks are covered.
-
-    **Recommendation:** **Keep.** Use a bounded filesystem failure after writing has begun and verify removal of partial files, preservation of existing destinations and an actionable failure result. A failure before the first byte is written does not replace this case.
-    - Approved
-
 16. **Future managed-model catalog changes:** Verify catalog renames and update collisions against a changed future template. Current catalog migration and conflict handling are covered.
 
     **Recommendation:** **Keep a narrower, data-driven upgrade scenario.** Load explicit old/new catalog fixtures through the real configuration path and assert alias preservation, collision refusal and useful activity. Retire assumptions about hypothetical future vendor renames and private template patches.
