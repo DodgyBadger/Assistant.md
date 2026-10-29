@@ -877,11 +877,15 @@
       ],
       "evidence": [
         "pytest-scenario-library-refactor-plan.md",
-        "validation/runs/pytest_migration/batch11-evidence-index.json"
+        "validation/runs/pytest_migration/batch11-evidence-index.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_credential_guard_20261029/report.json",
+        "validation/runs/gap_cleanup_tokenizer_preparation_20261029/verification.json"
       ],
       "review_number": 36,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Core imports now install a process-wide Python audit guard allowing only loopback or Unix sockets. Actual SDK outbound-denial and loopback controls pass. Core app fixtures remove ambient provider/keyring credentials, and CI prepares the checksum-pinned tokenizer asset before guarded execution. Remaining: child/native/curl egress containment and undeclared credential-file access. Mixed core/experiment invocations inherit the irreversible guard; live experiment-only invocations remain separate."
     },
     {
       "id": "gmail-selected-connection-token-routing",

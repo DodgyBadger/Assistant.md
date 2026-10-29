@@ -163,3 +163,122 @@ def test_generated_run_sources_are_not_collected(tmp_path: Path) -> None:
     assert (
         "generated evidence must not be imported" not in result.stdout + result.stderr
     )
+
+
+def test_core_network_guard_blocks_real_sdk_outbound_and_allows_loopback(
+    tmp_path: Path,
+) -> None:
+    script = r"""
+import asyncio
+import json
+import socket
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
+import httpx
+import openai
+from validation.support.pytest_policy import CoreNetworkDenied, install_core_network_guard
+
+install_core_network_guard()
+class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.rfile.read(int(self.headers["Content-Length"]))
+        body = json.dumps({"id":"chatcmpl-local","object":"chat.completion","created":1,"model":"local","choices":[{"index":0,"message":{"role":"assistant","content":"local-ok"},"finish_reason":"stop"}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, format, *args):
+        pass
+
+async def exercise():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        async with httpx.AsyncClient(trust_env=False, timeout=2) as client:
+            local = openai.AsyncOpenAI(api_key="synthetic-test-key", base_url=f"http://127.0.0.1:{server.server_port}/v1", http_client=client, max_retries=0)
+            result = await local.chat.completions.create(model="local", messages=[{"role":"user","content":"probe"}])
+            assert result.choices[0].message.content == "local-ok"
+            remote = openai.AsyncOpenAI(api_key="synthetic-test-key", base_url="http://1.1.1.1:9/v1", http_client=client, max_retries=0)
+            try:
+                await remote.chat.completions.create(model="local", messages=[{"role":"user","content":"probe"}])
+            except Exception as error:
+                seen = set()
+                pending = [error]
+                while pending:
+                    current = pending.pop()
+                    if id(current) in seen:
+                        continue
+                    seen.add(id(current))
+                    if isinstance(current, CoreNetworkDenied):
+                        break
+                    if current.__cause__ is not None:
+                        pending.append(current.__cause__)
+                    if current.__context__ is not None:
+                        pending.append(current.__context__)
+                else:
+                    raise AssertionError("SDK error did not preserve network-policy denial") from error
+            else:
+                raise AssertionError("outbound SDK request was not denied")
+        try:
+            socket.getaddrinfo("example.invalid", 443)
+        except CoreNetworkDenied:
+            pass
+        else:
+            raise AssertionError("external hostname resolution was not denied")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+asyncio.run(exercise())
+"""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(_REPOSITORY)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        env=environment,
+        text=True,
+        capture_output=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_core_guard_precedes_import_and_explicit_experiment_remains_unrestricted(
+    tmp_path: Path,
+) -> None:
+    config, core, experiment = _project(tmp_path)
+    core.write_text(
+        "import sys\n"
+        "from validation.support.pytest_policy import CoreNetworkDenied\n"
+        "try:\n"
+        "    sys.audit('socket.getaddrinfo', 'example.invalid', 443, 0, 0, 0)\n"
+        "except CoreNetworkDenied:\n"
+        "    pass\n"
+        "else:\n"
+        "    raise AssertionError('core guard missing before import')\n"
+        "def test_first(): pass\ndef test_second(): pass\n"
+    )
+    experiment.write_text(
+        "import sys\n"
+        "sys.audit('socket.getaddrinfo', 'example.invalid', 443, 0, 0, 0)\n"
+        "def test_fault(): pass\n"
+    )
+    manifest_path = config.parent.parent / "registry/pytest-admission.json"
+    manifest = json.loads(manifest_path.read_text())
+    for entry in manifest["files"]:
+        if entry["path"] == core.relative_to(config.parent.parent).as_posix():
+            entry["sha256"] = hashlib.sha256(core.read_bytes()).hexdigest()
+        if entry["path"] == experiment.relative_to(config.parent.parent).as_posix():
+            entry["sha256"] = hashlib.sha256(experiment.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest))
+    core_result = _run(config, tmp_path, str(core))
+    assert core_result.returncode == 0, core_result.stdout + core_result.stderr
+    experiment_result = _run(config, tmp_path, str(experiment))
+    assert experiment_result.returncode == 0, (
+        experiment_result.stdout + experiment_result.stderr
+    )

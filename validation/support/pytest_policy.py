@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
+import socket
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -11,6 +14,57 @@ import pytest
 from validation.support.pytest_admission import load_admissions
 
 _ADMITTED: pytest.StashKey[dict[Path, set[str]]] = pytest.StashKey()
+
+
+class CoreNetworkDenied(PermissionError):
+    """A deterministic core scenario attempted an outbound Python socket."""
+
+
+_network_guard_installed = False
+
+
+def _loopback_host(host: object) -> bool:
+    if isinstance(host, bytes):
+        try:
+            host = host.decode("ascii")
+        except UnicodeDecodeError:
+            return False
+    if not isinstance(host, str):
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _core_network_audit(event: str, args: tuple[object, ...]) -> None:
+    if event == "socket.getaddrinfo":
+        if not _loopback_host(args[0]):
+            raise CoreNetworkDenied(
+                "Core scenario network policy permits only loopback or Unix sockets."
+            )
+    elif event == "socket.connect":
+        sock, address = args
+        if isinstance(sock, socket.socket) and sock.family == socket.AF_UNIX:
+            return
+        if (
+            not isinstance(address, tuple)
+            or not address
+            or not _loopback_host(address[0])
+        ):
+            raise CoreNetworkDenied(
+                "Core scenario network policy permits only loopback or Unix sockets."
+            )
+
+
+def install_core_network_guard() -> None:
+    """Install an irreversible, process-wide guard before core scenario imports."""
+    global _network_guard_installed
+    if not _network_guard_installed:
+        sys.addaudithook(_core_network_audit)
+        _network_guard_installed = True
 
 
 def _admissions(root: Path) -> dict[Path, set[str]]:
@@ -71,6 +125,13 @@ def pytest_configure(config: pytest.Config) -> None:
             raise pytest.UsageError(
                 f"Canonical pytest target is not an admitted test: {argument}"
             )
+    if any(
+        (config.invocation_params.dir / argument.split("::", 1)[0])
+        .resolve()
+        .is_relative_to(core)
+        for argument in config.args
+    ):
+        install_core_network_guard()
 
 
 @pytest.hookimpl(trylast=True)

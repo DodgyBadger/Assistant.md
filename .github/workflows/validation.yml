@@ -73,6 +73,7 @@ jobs:
       UV_LINK_MODE: copy
       UV_COMPILE_BYTECODE: "1"
       UV_CACHE_DIR: ./.uv-cache
+      TIKTOKEN_CACHE_DIR: ${{ runner.temp }}/assistantmd-tiktoken-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -118,6 +119,9 @@ jobs:
 
       - name: Install Playwright Chromium
         run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m playwright install --with-deps chromium
+
+      - name: Prepare pinned tokenizer resource
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
       - name: Run deterministic core integration scenarios
         run: |
