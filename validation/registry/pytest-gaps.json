@@ -1294,23 +1294,26 @@
     },
     {
       "id": "fork-private-hydration-and-snapshot-windows",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_session_fork_lineage"
       ],
       "missing_proof": "Public origin/checkpoint/tool/protocol outcomes and genuine SQLite rollback pass. Original instrumented no-prefix hydration and metadata-scan no-hydration assertions, plus source rewrite precisely inside raw-fetch to prove writer exclusion/same-snapshot/later independence remain unproved.",
-      "cleanup_action": "Exercise real snapshot/transaction barriers or explicitly review the private hydration and exact fork rewrite fixtures; retain original probes meanwhile.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
-        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
       ],
       "review_number": 55,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A genuine fork transaction is held by a native SQLite workload while a separate writer attempts an atomic canonical-history/checkpoint rewrite. Actual lock contention is observed: the first child receives one coherent original raw/checkpoint pair, the source and later fork receive the new pair, and the first child stays independent. Existing provenance/future-exclusion and transactional rollback cases remain. Private no-hydration implementation prohibitions are retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "delegate-unported-observer-and-error-boundaries",
@@ -1380,24 +1383,29 @@
     },
     {
       "id": "context-upgrade-races-and-recovery-matrix",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_context_strategy_upgrade"
       ],
       "missing_proof": "Real complete upgrade, valid/invalid tool histories and provider-gated duplicate/cancel pass. Original plan shape/floor matrix, fork/start/stale append/delete races, serial gate/manual contention, full sanitized failure/dedup projections and shutdown/restart/successful retry after cancellation remain unproved.",
-      "cleanup_action": "Construct real legacy input/task/author barriers and actual restart/provider/database failures for the remaining upgrade contracts; retain originals meanwhile.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_context_strategy_upgrade.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
         "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
-        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json"
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_same_loop_ingress_20261029/report.json",
+        "validation/runs/gap_cleanup_credential_guard_20261029/report.json"
       ],
       "review_number": 59,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Real gated-author upgrades reject stale append/deletion without history loss or resurrection; concurrent forks retain a coherent independent legacy checkpoint while the parent upgrades, as supported by the fork snapshot contract. Actual stop/restart cancels the old task and permits a new successful upgrade over unchanged durable history. Same-loop actual HTTP compaction contention cannot downgrade the completed map, and real invalid-citation failures retain safe task-correlated diagnostics without altering raw/effective/checkpoint history. Internal plan-shape and private timing oracles are retired. No blanket concurrent-fork rejection is invented.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "transcript-tool-error-and-limit-matrix",

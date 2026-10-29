@@ -516,6 +516,32 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_context_upgrade_contention.py",
+      "sha256": "81458570f1fc688b87d1f52da9d4c2b2a4161de6388dc01c24eb9462034a5e3c",
+      "kind": "behavioral",
+      "tests": [
+        "test_manual_compaction_contends_with_upgrade_without_recovery_downgrade"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_context_upgrade_failure_diagnostics.py",
+      "sha256": "d629dc5567525e70db2a584243f8c11428db8ecf4e51592c0a13a97f59090113",
+      "kind": "behavioral",
+      "tests": [
+        "test_upgrade_invalid_author_retains_correlated_failure_and_legacy_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_context_upgrade_recovery_contracts.py",
+      "sha256": "228a579587afc7e2970d007448bf586d4190606ca90ede1c41815073b896206f",
+      "kind": "behavioral",
+      "tests": [
+        "test_upgrade_rejects_author_result_after_canonical_mutation",
+        "test_fork_during_upgrade_keeps_independent_legacy_checkpoint",
+        "test_upgrade_shutdown_restart_retries_from_unchanged_canonical_history"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_core_credential_isolation.py",
       "sha256": "f86b1b328d2e09b0d7de962f3a48f841f07ca3ac3bb73edcceaa48e51a872f8a",
       "kind": "behavioral",
@@ -854,6 +880,14 @@
       "tests": [
         "test_reused_tool_event_lineage",
         "test_tool_event_group_lineage"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_fork_snapshot_concurrency.py",
+      "sha256": "333a25e6a122f0a662bbb28083057be007638932f901eacb38ef432e4e2317bb",
+      "kind": "behavioral",
+      "tests": [
+        "test_fork_serializes_independent_canonical_and_checkpoint_rewrite"
       ]
     },
     {
@@ -2008,6 +2042,16 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/context_upgrade_contention.py",
+      "sha256": "fc3fbd4369e130716a3fdd5c5bdf3368d6e3b646c12f75fff0a283bf90a11552",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/context_upgrade_recovery_contracts.py",
+      "sha256": "f179e1452829171fb4d619f634ee108aa36d42900dc79af529387d670605db1d",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/decision_model_inputs.py",
       "sha256": "5ed430aac421e5f6e9bbef93a0c2556072bf01aae98b363c7e84c05d1bb30bf8",
       "kind": "support"
@@ -2075,6 +2119,11 @@
     {
       "path": "scenarios/support/fork_lineage_inputs.py",
       "sha256": "82b4f51d4e1479bde517c9ba74988bf04b708ea33bd125ca20e245203d4e4efc",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/fork_snapshot_concurrency.py",
+      "sha256": "6000d9dfe672a2dae515d9a88503c75959500473234baa33462ccf80fda83aa7",
       "kind": "support"
     },
     {

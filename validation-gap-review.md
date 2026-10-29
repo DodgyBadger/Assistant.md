@@ -83,11 +83,6 @@
     **Recommendation:** **Defer with browser infrastructure work.** Use a finite-memory container and held local pages to test real concurrency, memory refusal before launch and slot release after cancellation. Retire the fake browse counter once the actual resource guarantees are observable.
     - Approved
 
-55. **Fork snapshot consistency and hydration:** Verify the precise concurrent source-rewrite boundary during a fork, and decide whether the old prohibitions on loading certain historical rows are required contracts.
-
-    **Recommendation:** **Keep snapshot consistency and future-evidence exclusion, retire private hydration prohibitions as standalone contracts.** Use actual concurrent database operations and verify that each fork reflects one coherent source revision. If large-history performance is a real requirement, express a bounded resource contract rather than forbidding a particular internal fetch method.
-    - Approved
-
 56. **Remaining delegate boundaries:** Cover cancellation before attachment, private observer counters, distinct attention issues, several diagnostic/redaction helpers, and synthetic internal timeout classification. Parent completion after a child request limit also needs direct proof.
 
     **Recommendation:** **Keep the remaining user-visible cancellation, parent usability, safe handoff/audit and distinct-attention outcomes.** Replace private observer counters with real task/tool activity, and retire impossible-input or synthetic-exception helper assertions that protect no reachable behavior. Reuse the existing delegate workload fixtures rather than recreating its fake agent.
@@ -96,11 +91,6 @@
 57. **Manual compaction through tools and failures:** Cover tool-initiated compaction, its parent task and returned result, plus remaining cancellation, failure, activity, no-op and exported-diagnostic branches.
 
     **Recommendation:** **Keep a real tool-initiated compaction journey and a compact failure matrix.** Verify parent/child relationships, the tool result, preserved history and subsequent chat usability. Reuse shared author-failure, cancellation and confidentiality cases instead of repeating every low-level projection in another large scenario.
-    - Approved
-
-59. **Session-context upgrade races and recovery:** Cover plan limits, fork/start races, stale author results after append or deletion, contention with manual compaction, failure diagnostics, and shutdown/restart followed by successful retry.
-
-    **Recommendation:** **Keep, prioritizing data-preservation races and restart recovery.** Use real gated authors and database mutations to verify stale append/delete/fork rejection, cancellation followed by restart/retry, and unchanged canonical history. Retire internal plan-shape assertions where existing outcome and configured-limit tests establish the same guarantee.
     - Approved
 
 62. **Old adapter versus current evidence capture:** Review the old requirement to rewrite the application’s original log with redacted values. Current capture preserves original observations and redacts exported evidence; the old adapter self-test still fails that expectation.
