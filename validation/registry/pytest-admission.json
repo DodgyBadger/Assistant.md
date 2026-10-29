@@ -1672,6 +1672,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_transcript_tool_boundary_contracts.py",
+      "sha256": "11ae006b2032bdc668cecea85e6713cf2703b125b65de5cc9fce95249d54a551",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_chat_tool_enforces_workspace_visibility_and_title_bound",
+        "test_real_chat_tool_continues_bounded_transcript_fragments",
+        "test_tool_rejects_oversized_query_and_foreign_session"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_user_notes_compaction_workflow.py",
       "sha256": "0d2e782ecc362f30c26463264f6e4747870cb50b244d28842fec686df821dee3",
       "kind": "behavioral",
@@ -2353,6 +2363,11 @@
     {
       "path": "scenarios/support/tool_history_inputs.py",
       "sha256": "6514ed3e47fc9aad9e1f60fc278b303b61af57a214ab0f9001fe652f3515f36d",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/transcript_boundary_inputs.py",
+      "sha256": "0a6a121ff70dc94baefd4c98ba8e58c854633ca16835955dd2deb62b83d4e06a",
       "kind": "support"
     },
     {

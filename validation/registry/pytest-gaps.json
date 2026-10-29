@@ -1394,23 +1394,27 @@
     },
     {
       "id": "transcript-tool-error-and-limit-matrix",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_ops_transcript_retrieval"
       ],
       "missing_proof": "Actual tool and service search/windows/cursors/paging/echo/starvation boundaries pass. Original tool-level multi-message serialized budget and fragment continuation, max query/list title projection, explicit cross-workspace/deep/access matrix, genuine FTS failure correlation/privacy and untrusted-operation logging remain unproved.",
-      "cleanup_action": "Exercise actual session_ops tool inputs and bounded SQLite failures with task/activity evidence for those output and security contracts.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_ops_transcript_retrieval.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
-        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_transcript_privacy_20261029/report.json"
       ],
       "review_number": 60,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Actual model-issued session_ops calls enforce workspace visibility and title bounds, continue bounded transcript fragments with contiguous offsets and exact reconstruction, and reject oversized queries or foreign sessions. Tail fragments truthfully mark content_complete false because an individual item is not the whole message. Shared real FTS failure/privacy evidence supplies correlated tool/run diagnostics, and retrieved content remains explicitly untrusted.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "stepped-map-pinned-and-policy-boundaries",

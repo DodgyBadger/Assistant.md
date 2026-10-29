@@ -108,11 +108,6 @@
     **Recommendation:** **Keep, prioritizing data-preservation races and restart recovery.** Use real gated authors and database mutations to verify stale append/delete/fork rejection, cancellation followed by restart/retry, and unchanged canonical history. Retire internal plan-shape assertions where existing outcome and configured-limit tests establish the same guarantee.
     - Approved
 
-60. **Transcript tool errors and limits:** Complete tool-level output budgets, fragment continuation, query/title limits, cross-workspace access cases, real full-text-search failure diagnostics and untrusted-operation logging.
-
-    **Recommendation:** **Keep permissions, output limits and actual tool continuation as durable contracts.** Add a compact real-tool boundary matrix for workspace/session access, fragment continuation, query/title bounds and FTS failure correlation. Reuse item 20’s confidentiality proof rather than manufacturing a special backend exception in every retrieval scenario.
-    - Approved
-
 62. **Old adapter versus current evidence capture:** Review the old requirement to rewrite the application’s original log with redacted values. Current capture preserves original observations and redacts exported evidence; the old adapter self-test still fails that expectation.
 
     **Recommendation:** **Retire the requirement that the harness rewrite producer logs.** Preserve original observations and redact exported evidence. Separately verify that production code does not emit credentials in the first place, so harness redaction cannot hide an application logging defect.
