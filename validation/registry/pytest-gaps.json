@@ -702,25 +702,29 @@
     },
     {
       "id": "chat-unexpected-exception-diagnostics",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_failure_logging",
         "integration/core/chat_stream_failure_logging"
       ],
       "missing_proof": "Original injects generic RuntimeError into preparation/agent streaming and expects its exact type and diagnostic text. Real missing-image ValueError and provider ModelHTTPError now prove their actual diagnostic/marker/recovery boundaries, but are not evidence that arbitrary unexpected RuntimeError inputs retain those original semantics.",
-      "cleanup_action": "Provide genuine bounded unexpected preflight/agent failure inputs or explicitly classify/retain the former narrow exception injections; do not equate user-correctable or HTTP provider errors with generic runtime failure.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_failure_logging.py",
         "validation/legacy/scenarios/integration/core/chat_stream_failure_logging.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
-        "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json"
+        "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_recovery_confirm2_20261029/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
       ],
       "review_number": 29,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A genuinely malformed persisted message fails actual chat preflight without model dispatch; repairing the native message permits the next turn. A real provider emits malformed SSE JSON containing a private sentinel: the actual failed task, recovery marker and correlated diagnostics stay safe, and the next real stream succeeds and clears the marker. Synthetic exception identity/text is retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "chat-guidance-editorial-oracles",

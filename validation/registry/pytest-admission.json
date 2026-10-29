@@ -248,6 +248,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_checkpoint_retry_contract.py",
+      "sha256": "ed32e9e1816b4de8dfe26ca3ff567233c3745b42e72abd79780fd2c14a7e8bc8",
+      "kind": "behavioral",
+      "tests": [
+        "test_checkpoint_retry_does_not_replay_completed_reads"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_compaction_continuation.py",
       "sha256": "833f7c4211206bde1b632e9738ac3e939f7efbf20e75cf8fecac828c04808d1f",
       "kind": "behavioral",
@@ -262,6 +270,16 @@
       "kind": "behavioral",
       "tests": [
         "test_chat_preflight_failure_activity_and_actionable_error"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_failure_recovery_contracts.py",
+      "sha256": "1ccb3664e08e712d882c35ff59d7a045b6da61a156d769cb9121456ccf81e953",
+      "kind": "behavioral",
+      "tests": [
+        "test_idle_model_stream_times_out_and_next_turn_succeeds",
+        "test_active_tool_is_exempt_from_model_idle_timeout",
+        "test_corrupt_history_preflight_failure_then_repaired_turn"
       ]
     },
     {
@@ -471,6 +489,14 @@
         "test_tool_parts_without_ids_remain_hidden",
         "test_committed_replay_and_compaction_collisions",
         "test_duplicate_event_identity_is_not_replayed"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_unexpected_stream_failure.py",
+      "sha256": "89322a392acdf63d35f5e2d36115de9f2ab927c7ac78ce5285ff778f3fa67048",
+      "kind": "behavioral",
+      "tests": [
+        "test_malformed_provider_stream_failure_and_recovery"
       ]
     },
     {
@@ -1985,8 +2011,23 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/chat_checkpoint_retry_provider.py",
+      "sha256": "edc8cdbd50e63f7dc330b730250f01ccc887be8a25f4160a43407716f6e6372a",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_failure_recovery_contracts.py",
+      "sha256": "25ce557b7b1a0936551c5bf776fed67b54a944cf5eb24351a4e99c08b8abc7dd",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/chat_idle_provider.py",
       "sha256": "f65a307a82a726e3937364d8c84a8e49e6b01f4d1b72cf51053a64a4776371c1",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/chat_malformed_stream.py",
+      "sha256": "ede959fae199af7260a310bec91dac22e25c713ab6f0b110f66628f56c1edb85",
       "kind": "support"
     },
     {

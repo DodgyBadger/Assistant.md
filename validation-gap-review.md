@@ -23,11 +23,6 @@
     **Recommendation:** **Keep as part of the security transport work in item 45.** Exercise the actual socket backend and OAuth-discovered endpoints with controlled DNS/TLS infrastructure. Request hooks and client flags remain useful checks, but successful policy-compliant transport needs its own evidence.
     - Approved
 
-29. **Unexpected chat exceptions:** Verify generic unexpected failures during preparation and streaming, including their diagnostics and recovery markers. Real image-validation and provider errors exercise different branches.
-
-    **Recommendation:** **Keep representative unexpected-failure coverage.** Use a genuine failure at each materially different preparation/streaming boundary and verify failed-task state, safe diagnostics, recovery markers and a usable next turn. Retire exact exception types and text that existed only because of the old fake agent.
-    - Approved
-
 31. **Content-import UI behavior:** Test rendered import interactions and warnings when browser work resumes. API and tool tests do not replace the old JavaScript, CSS and source-text checks.
 
     **Recommendation:** **Defer to the browser work and group with item 23.** Test visible import progress, warnings, errors and user actions. Retire incidental CSS/JavaScript implementation checks once equivalent user-visible behavior is covered or explicitly judged unnecessary.
