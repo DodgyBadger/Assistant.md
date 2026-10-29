@@ -1402,6 +1402,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_remote_web_behavior.py",
+      "sha256": "a4d7562e64ed36263f526e69193f46d34e787c16330eb2ab850cfef450f882bf",
+      "kind": "behavioral",
+      "tests": [
+        "test_remote_import_preserves_destination_provenance_and_content_detection",
+        "test_mixed_extraction_preserves_success_and_rejects_binary_and_private_redirect",
+        "test_real_public_policy_rejects_changed_and_mixed_external_dns"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_repeated_chat_history_compaction.py",
       "sha256": "2645b4136c0056931b28d3ad1abbb4973a05e9c62d3f66e90ad2c33944bfd8c9",
       "kind": "behavioral",
@@ -2244,6 +2254,11 @@
     {
       "path": "scenarios/support/external_post_extension.py",
       "sha256": "bd8c508cb6154df6d84356abb8f995b9e3bdf3cd567b736e4cdc47f55d9c48a1",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/external_web.py",
+      "sha256": "5ae452748b4dc87cfd84f8be3c31e1c04e43d81d3d9068ab05e1c1cf1ada5889",
       "kind": "support"
     },
     {
