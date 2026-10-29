@@ -1966,7 +1966,6 @@
       "disposition": "canonical_partial_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
       "coverage_gaps": [
-        "direct-import-public-url-success",
         "content-import-ui-behavior"
       ],
       "migration": {
@@ -1983,9 +1982,10 @@
         "source_sha256_unchanged": true
       },
       "cleanup_review": {
-        "resolved_gaps": [],
+        "resolved_gaps": [
+          "direct-import-public-url-success"
+        ],
         "remaining_gaps": [
-          "direct-import-public-url-success",
           "content-import-ui-behavior"
         ],
         "registry": "validation/registry/pytest-gaps.json"
@@ -4152,11 +4152,9 @@
         "validation/scenarios/integration/core/test_mcp_cold_start_races.py::test_mcp_server_catalog_notification_rejects_cold_start",
         "validation/scenarios/integration/core/test_mcp_cold_start_races.py::test_mcp_shutdown_cancels_and_closes_inflight_cold_start"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "mcp-controlled-dns-and-tls-boundaries"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -4174,11 +4172,10 @@
       },
       "cleanup_review": {
         "resolved_gaps": [
+          "mcp-controlled-dns-and-tls-boundaries",
           "mcp-real-timeout-classification"
         ],
-        "remaining_gaps": [
-          "mcp-controlled-dns-and-tls-boundaries"
-        ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -4347,11 +4344,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_mcp_oauth_storage.py::test_mcp_oauth_storage_is_encrypted_and_fenced"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "mcp-oauth-socket-authoritative-transport"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "configuration-oauth-tool-contracts-20261028",
         "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
@@ -4366,10 +4361,10 @@
         "source_sha256_unchanged": true
       },
       "cleanup_review": {
-        "resolved_gaps": [],
-        "remaining_gaps": [
+        "resolved_gaps": [
           "mcp-oauth-socket-authoritative-transport"
         ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -7079,7 +7074,6 @@
       "disposition": "current_owner_reassigned_retain_original",
       "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
       "coverage_gaps": [
-        "runner-timeout-descendant-guarantees",
         "legacy-runner-policy-differences"
       ],
       "current_owner_tests": [
@@ -7110,9 +7104,10 @@
         "source_sha256_unchanged": true
       },
       "cleanup_review": {
-        "resolved_gaps": [],
+        "resolved_gaps": [
+          "runner-timeout-descendant-guarantees"
+        ],
         "remaining_gaps": [
-          "runner-timeout-descendant-guarantees",
           "legacy-runner-policy-differences"
         ],
         "registry": "validation/registry/pytest-gaps.json"
@@ -7320,11 +7315,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_vault_direct_import.py::test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers_outputs"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "direct-import-public-url-success"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-session-model-20261028",
         "original_baseline": "validation/runs/reports/20261028_172555_547114.json",
@@ -7340,11 +7333,10 @@
       },
       "cleanup_review": {
         "resolved_gaps": [
+          "direct-import-public-url-success",
           "direct-import-authority-before-enqueue"
         ],
-        "remaining_gaps": [
-          "direct-import-public-url-success"
-        ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -7999,11 +7991,9 @@
         "validation/scenarios/integration/core/test_web_capability_strategies.py::test_registered_search_dispatch_runs_only_selected_http_workload",
         "validation/scenarios/integration/core/test_web_capability_strategies.py::test_pinned_raw_curl_fetch_bypasses_configured_proxy"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "web-extraction-mixed-and-binary-responses"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mutation-web-runtime-retirement-20261028",
         "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
@@ -8018,10 +8008,10 @@
         "source_sha256_unchanged": true
       },
       "cleanup_review": {
-        "resolved_gaps": [],
-        "remaining_gaps": [
+        "resolved_gaps": [
           "web-extraction-mixed-and-binary-responses"
         ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -11827,11 +11817,7 @@
       "integration/core/gmail_connection_api",
       "integration/core/gmail_draft_tool",
       "integration/core/mcp_advanced_shell_stdio_connections",
-      "integration/core/mcp_connection_isolation",
-      "integration/core/mcp_oauth_coordinator",
-      "integration/core/mcp_oauth_storage",
-      "integration/core/vault_direct_import",
-      "integration/core/web_capability_strategies"
+      "integration/core/mcp_oauth_coordinator"
     ],
     "coverage_complete": false,
     "original_sources_retained": true,
@@ -11843,7 +11829,7 @@
     "framework_sources_reassigned_to_current_owners": 6,
     "initial_source_inventory_pass_complete": true,
     "semantic_parity_complete": false,
-    "canonical_default_core_cases": 392
+    "canonical_default_core_cases": 400
   },
   "known_open_behaviors": [
     {
@@ -11916,16 +11902,30 @@
   "approved_gap_cleanup": {
     "date": "2026-10-29",
     "reviewed_items": 63,
-    "resolved_items": 48,
-    "remaining_registry_items": 15,
-    "remaining_human_review_items": 14,
+    "resolved_items": 54,
+    "remaining_registry_items": 9,
+    "remaining_human_review_items": 8,
     "separately_tracked_item": 3,
-    "new_collected_cases_with_focused_passing_evidence": 88,
-    "canonical_collected_cases": 392,
+    "new_collected_cases_with_focused_passing_evidence": 96,
+    "canonical_collected_cases": 400,
     "full_profile_run": false,
-    "evidence_index": "validation/runs/gap_cleanup_final_review_20261029/evidence-index.json",
+    "evidence_index": "validation/runs/practical_final_review_20261029/summary.json",
     "review_file": "validation-gap-review.md",
-    "current_plugin_revision": "a9f20bb24ebd0ce7ac97e154c7c1b696172ae108",
-    "note": "Collection counts are not a behavior or code coverage metric. Original sources and historical migration evidence remain retained. Native process isolation and admitted public transport infrastructure remain unfinished."
+    "current_plugin_revision": "941ede024673a0c8496dee908e1d6066cbaa0c05",
+    "note": "Collection counts are not a behavior or code coverage metric. Original sources and historical migration evidence remain retained. Native process isolation and admitted public transport infrastructure remain unfinished.",
+    "practical_alternatives": {
+      "resolved_review_items": [
+        4,
+        12,
+        27,
+        36,
+        38,
+        45
+      ],
+      "evidence_index": "validation/runs/practical_final_review_20261029/summary.json",
+      "coverage_complete": false,
+      "limits": "External boundary doubles are documented; in-app services remain real. Full public deployment, detached descendants and OS-level native/file containment are not claimed."
+    },
+    "prior_cleanup_evidence_index": "validation/runs/gap_cleanup_final_review_20261029/evidence-index.json"
   }
 }

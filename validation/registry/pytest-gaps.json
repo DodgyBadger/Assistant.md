@@ -71,7 +71,7 @@
     },
     {
       "id": "runner-timeout-descendant-guarantees",
-      "status": "open",
+      "status": "resolved",
       "category": "cutover_capability",
       "source_scenarios": [
         "integration/core/validation_runner_lifecycle"
@@ -82,13 +82,20 @@
       ],
       "evidence": [
         "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md",
-        "validation/runs/gap_cleanup_watchdog_20261029/report.json"
+        "validation/runs/gap_cleanup_watchdog_20261029/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills2/evidence/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills0/evidence/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills1/evidence/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
-      "cleanup_action": "Implement/test supported timeout and process-tree policy or explicitly accept a changed guarantee before removing the old execution path.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "review_number": 4,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Protected workers now have a positive whole-item pytest-timeout watchdog and bounded verified Linux session cleanup. Generic34checks and a real full-app hang/descendant/replacement fault profile pass. A true hard process deadline for GIL-held native code and deliberately detached descendant sessions remain unsupported; capability hard_hang_timeout stays false, so this gap stays open. Broad HOME/environment/worker-reuse policy item63 remains deferred."
+      "resolution": "Controller-enforced whole-item deadlines work independently of the worker GIL; real native blocks in setup/call/teardown fail and replacement workers pass. Existing inherited-session cleanup remains. Deliberately detached sessions are explicitly outside the accepted guarantee.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Protected workers now have a positive whole-item pytest-timeout watchdog and bounded verified Linux session cleanup. Generic34checks and a real full-app hang/descendant/replacement fault profile pass. A true hard process deadline for GIL-held native code and deliberately detached descendant sessions remain unsupported; capability hard_hang_timeout stays false, so this gap stays open. Broad HOME/environment/worker-reuse policy item63 remains deferred."
     },
     {
       "id": "same-path-active-mutation-serialization",
@@ -318,7 +325,7 @@
     },
     {
       "id": "direct-import-public-url-success",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/vault_direct_import",
@@ -331,13 +338,19 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
-        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json",
+        "validation/runs/practical_remote_web_confirm_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
-      "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "review_number": 12,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+      "resolution": "Real import services process external HTML and extensionless PDF inputs, preserve destination, content and durable source provenance, and classify PDF from bytes. Only external DNS/curl responses are simulated; unchanged production admission and application services run for real. Successful live public deployment is not claimed.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "direct-import-authority-before-enqueue",
@@ -659,23 +672,29 @@
     },
     {
       "id": "mcp-oauth-socket-authoritative-transport",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/mcp_oauth_storage"
       ],
       "missing_proof": "Original patches resolved addresses and httpcore backend to return HTTP200 and asserts MCP OAuth socket-authoritative request succeeds. New port checks actual client redirect/environment policy and all storage/fence contracts, but does not execute equivalent guarded public-address transport. Client policy flags alone are not socket or DNS boundary proof.",
-      "cleanup_action": "Provide a controlled accepted public-address transport environment or explicitly review the isolated backend/DNS fixture classification before retiring original proof.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_oauth_storage.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
+        "validation/runs/pytest_migration/oauth_batch8_20261028/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
       "review_number": 27,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+      "resolution": "The actual OAuth client factory and guarded transport perform a real local HTTPS MCP initialization/tool session and closure, preserving Host/SNI and verified certificates. Only the explicit fixture trust store differs from the default. Public deployment and the deferred OAuth lifecycle are outside this proof.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "workflow-history-governor-output-files",
@@ -877,12 +896,12 @@
     },
     {
       "id": "deterministic-core-model-call-audit",
-      "status": "open",
+      "status": "resolved",
       "category": "governance_scope_review",
       "priority": "follow_up_discussion_before_cutover",
       "source_scenarios": [],
       "missing_proof": "User requires core scenarios never depend on live models and requested review of the Terra call/reference. Current audit found Terra as a development subagent and model-alias lookup fixture; latest model-driven scenarios use TestModel or configured loopback HTTP providers. This audit is not fail-closed enforcement against every possible accidental external model dispatch.",
-      "cleanup_action": "Review the referenced Terra call and distinguish development-agent work, alias resolution, controlled provider input and actual inference. Review legacy SDK-classification proof using deterministic inputs, and choose a fail-closed policy/guard for core model dispatch before cutover; do not solve the compatibility gap by calling a live model.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "retained_coverage": [],
       "related_gap_ids": [
         "manual-retry-legacy-sdk-error-classification"
@@ -892,12 +911,19 @@
         "validation/runs/pytest_migration/batch11-evidence-index.json",
         "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
         "validation/runs/gap_cleanup_credential_guard_20261029/report.json",
-        "validation/runs/gap_cleanup_tokenizer_preparation_20261029/verification.json"
+        "validation/runs/gap_cleanup_tokenizer_preparation_20261029/verification.json",
+        "validation/runs/practical_guard_compatibility_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        ".github/tests/test_pytest_collection_policy.py",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
       "review_number": 36,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Core imports now install a process-wide Python audit guard allowing only loopback or Unix sockets. Actual SDK outbound-denial and loopback controls pass. Core app fixtures remove ambient provider/keyring credentials, and CI prepares the checksum-pinned tokenizer asset before guarded execution. Remaining: child/native/curl egress containment and undeclared credential-file access. Mixed core/experiment invocations inherit the irreversible guard; live experiment-only invocations remain separate."
+      "resolution": "Core Python egress and ambient-credential controls are supplemented by fail-closed subprocess admission, exact fixture child declarations, bounded run-owned search and loopback-pinned curl. Shell/exec replacements, alternate executables and leaked prior-case declarations are rejected. Mixed core/live invocations are refused. This accepted scope prevents accidental dispatch; full native networking and mounted-file isolation remain explicitly unsupported.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Core imports now install a process-wide Python audit guard allowing only loopback or Unix sockets. Actual SDK outbound-denial and loopback controls pass. Core app fixtures remove ambient provider/keyring credentials, and CI prepares the checksum-pinned tokenizer asset before guarded execution. Remaining: child/native/curl egress containment and undeclared credential-file access. Mixed core/experiment invocations inherit the irreversible guard; live experiment-only invocations remain separate."
     },
     {
       "id": "gmail-selected-connection-token-routing",
@@ -922,23 +948,29 @@
     },
     {
       "id": "web-extraction-mixed-and-binary-responses",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/web_capability_strategies"
       ],
       "missing_proof": "Source patches public URL resolution and fetch response to prove mixed successful/rejected extraction and PDF binary failure guidance. New real inputs prove local policy rejection and separate raw transport, not public-policy accepted extraction or binary classification through that path.",
-      "cleanup_action": "Provide a supported deterministic public-resolution/transport boundary without disabling SSRF checks, then exercise mixed-item preservation and binary document rejection.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/web_capability_strategies.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
+        "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
       "review_number": 38,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+      "resolution": "Real extraction services preserve a successful HTML result alongside direct private-target rejection, binary PDF rejection and a rejected private redirect. External DNS/curl responses are controlled; the production policy, fetch orchestration and extraction remain real. Live public deployment is not claimed.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "bootstrap-mcp-exact-cleanup-lifecycle",
@@ -1074,25 +1106,32 @@
     },
     {
       "id": "mcp-controlled-dns-and-tls-boundaries",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/mcp_connection_isolation"
       ],
       "missing_proof": "Actual numeric-address policy and pinned HTTP sockets pass. Original fake DNS rebinding between discovery and request, multiple resolved-address attempts under one total budget, cancellation of blocked DNS resolution and HTTPS SNI/host verification against controlled resolver outputs remain unproved.",
-      "cleanup_action": "Provide deterministic local DNS/TLS infrastructure or supported resolution workload inputs without bypassing public target policy; retain those source assertions meanwhile.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
-        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
+        "validation/runs/practical_guard_compatibility_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
       ],
       "review_number": 45,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+      "resolution": "Actual local TLS proves original-host SNI, verified identity, wrong-host and untrusted-certificate rejection. Controlled external DNS/socket failures exercise unchanged MCP policy, numeric address order, a shared retry budget and cancellation/timeout during DNS or connect. Resolver threads are released; no in-app services are mocked. Live DNS deployment remains unproved.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "mcp-real-timeout-classification",
