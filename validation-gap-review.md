@@ -123,11 +123,6 @@
     **Recommendation:** **Keep, high priority.** These are explicit security contracts, not incidental implementation details. Build shared local DNS/TLS fixtures that observe numeric connection targets, original-host certificate/SNI behavior, rebinding rejection, cancellation and total retry budgets; do not weaken the transport policy to make them testable.
     - Approved
 
-46. **MCP timeout classification:** Resolve a real mismatch: delayed initialization returns `connection_failed`, while a total-deadline probe returned `http_error`. The old mocked test expects `timeout`.
-
-    **Recommendation:** **Keep the application timeout contract and investigate a fix.** Classify expiry using the actual deadline and preserved exception causes so SDK cleanup cannot accidentally relabel a timeout as an HTTP error. Retain a separate genuine pre-deadline HTTP-error case; do not simply change the old expected status to the observed result.
-    - Approved
-
 48. **MCP OAuth authorization lifecycle:** Test actual discovery and authorization start, live callback rejection and recovery, completion timeout, superseding attempts, live disconnect and failed supersede recovery. Current tests begin with saved pending records.
 
     **Recommendation:** **Keep.** Add a real local authorization-discovery/MCP server and test start through callback completion, supersede, disconnect, expiry and durable-failure retry. Keep the saved-pending tests as restart coverage, and assert operation identity and cancellation reasons through actual activity records.

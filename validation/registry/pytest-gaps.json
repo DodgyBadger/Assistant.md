@@ -1032,13 +1032,13 @@
     },
     {
       "id": "mcp-real-timeout-classification",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/mcp_connection_isolation"
       ],
       "missing_proof": "Original fake timeout requires status timeout. Actual9s delayed initialization raises SDK-normalized RuntimeError and yields connection_failed. Actual6s initialization plus blocked list hits the production total deadline near10s but stream closure returns HTTP500 and the app reports http_error. These real failures do not certify the timeout oracle. Both failed reports and original assertions remain; the unsupported staged timeout probe was removed rather than accepting another result as equivalent.",
-      "cleanup_action": "Review intended timeout classification across current MCP SDK cancellation/initialization boundaries; add a genuine regression producer and fix or explicitly adjudicate the contract before retiring the original timeout assertion.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
       ],
@@ -1047,11 +1047,15 @@
         "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
-        "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_network_20261029/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json"
       ],
       "review_number": 46,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "The application owns separate eight-second initialization and ten-second total deadlines, preserving timeout classification even when SDK cleanup discards or replaces its error. Real MCP HTTP initialization timeout, total-deadline and early HTTP500 controls all pass; early HTTP errors stay http_error.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "google-oauth-synchronous-pending-races",

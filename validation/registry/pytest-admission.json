@@ -1028,6 +1028,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_timeout_contract.py",
+      "sha256": "f505434c32d1fe0583de423d79638c10127ac8075578da03070ba7b43c59f675",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_connection_test_reports_actual_timeout_or_http_error"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mistral_direct_url_import.py",
       "sha256": "f5859a6b5c214bf10e8b79e27c082b1b9d5cd3070db9ef574bb735e461993e98",
       "kind": "behavioral",

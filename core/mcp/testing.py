@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import AsyncExitStack
 from uuid import uuid4
 
 import httpx
@@ -55,6 +56,8 @@ async def test_mcp_connection_runtime(
             operation_id=operation_id,
         )
 
+    deadline = asyncio.timeout(MCP_TEST_TIMEOUT_SECONDS)
+    initialization_deadline = asyncio.timeout(MCP_TEST_INIT_TIMEOUT_SECONDS)
     try:
         headers, auth = _build_auth(connection, credential)
         transport = (
@@ -70,58 +73,59 @@ async def test_mcp_connection_runtime(
                 auth=auth,
             )
         )
-        async with asyncio.timeout(MCP_TEST_TIMEOUT_SECONDS):
-            async with Client(
-                transport,
-                init_timeout=MCP_TEST_INIT_TIMEOUT_SECONDS,
-                timeout=MCP_TEST_READ_TIMEOUT_SECONDS,
-            ) as client:
+        async with deadline:
+            async with AsyncExitStack() as stack:
+                # FastMCP interprets None as its configured default. Its timeout is
+                # deliberately beyond our total deadline so our scope owns expiry.
+                client = Client(
+                    transport,
+                    init_timeout=MCP_TEST_TIMEOUT_SECONDS + 1.0,
+                    timeout=MCP_TEST_READ_TIMEOUT_SECONDS,
+                )
+                async with initialization_deadline:
+                    await stack.enter_async_context(client)
                 tools = await client.list_tools(max_pages=MCP_TEST_MAX_TOOL_PAGES)
-    except TimeoutError:
-        return _failed_result(
-            connection,
-            status="timeout",
-            message="Connection timed out before MCP initialization completed.",
-            error_type="TimeoutError",
-            operation_id=operation_id,
-        )
-    except httpx.HTTPStatusError as exc:
-        status_code = exc.response.status_code
-        if status_code in {401, 403}:
+    except Exception as exc:
+        if (
+            deadline.expired()
+            or initialization_deadline.expired()
+            or _has_timeout_cause(exc)
+        ):
             return _failed_result(
                 connection,
-                status="authentication_failed",
-                message=(
-                    f"Server rejected authentication (HTTP {status_code}). "
-                    "Check the configured authentication mode and credential."
-                ),
+                status="timeout",
+                message="Connection timed out before MCP initialization completed.",
                 error_type=type(exc).__name__,
                 operation_id=operation_id,
             )
-        return _failed_result(
-            connection,
-            status="http_error",
-            message=f"Server returned HTTP {status_code} during MCP initialization.",
-            error_type=type(exc).__name__,
-            operation_id=operation_id,
-        )
-    except httpx.TimeoutException as exc:
-        return _failed_result(
-            connection,
-            status="timeout",
-            message="Connection timed out before MCP initialization completed.",
-            error_type=type(exc).__name__,
-            operation_id=operation_id,
-        )
-    except httpx.RequestError as exc:
-        return _failed_result(
-            connection,
-            status="unreachable",
-            message="The MCP server could not be reached from Assistant.md.",
-            error_type=type(exc).__name__,
-            operation_id=operation_id,
-        )
-    except Exception as exc:
+        if isinstance(exc, httpx.HTTPStatusError):
+            status_code = exc.response.status_code
+            if status_code in {401, 403}:
+                return _failed_result(
+                    connection,
+                    status="authentication_failed",
+                    message=(
+                        f"Server rejected authentication (HTTP {status_code}). "
+                        "Check the configured authentication mode and credential."
+                    ),
+                    error_type=type(exc).__name__,
+                    operation_id=operation_id,
+                )
+            return _failed_result(
+                connection,
+                status="http_error",
+                message=f"Server returned HTTP {status_code} during MCP initialization.",
+                error_type=type(exc).__name__,
+                operation_id=operation_id,
+            )
+        if isinstance(exc, httpx.RequestError):
+            return _failed_result(
+                connection,
+                status="unreachable",
+                message="The MCP server could not be reached from Assistant.md.",
+                error_type=type(exc).__name__,
+                operation_id=operation_id,
+            )
         return _failed_result(
             connection,
             status="connection_failed",
@@ -163,6 +167,26 @@ async def test_mcp_connection_runtime(
         },
     )
     return result
+
+
+def _has_timeout_cause(error: BaseException) -> bool:
+    """Find preserved timeouts even when SDK cleanup wraps the original error."""
+    pending = [error]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, TimeoutError | httpx.TimeoutException):
+            return True
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+    return False
 
 
 def _validate_auth_configuration(
