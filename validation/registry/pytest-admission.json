@@ -1086,6 +1086,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_openai_oauth_device_flow.py",
+      "sha256": "6aceaa9d6191c1ea7c74fa9cfd2828018f7bdadc312d859f420e4c228762f98d",
+      "kind": "behavioral",
+      "tests": [
+        "test_device_oauth_pending_and_connected"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_openai_oauth_rejection.py",
       "sha256": "eb760fa80edca9db327aa880a18f05871684b526e87eebeab319d649c1f6b929",
       "kind": "behavioral",
@@ -2032,6 +2040,11 @@
     {
       "path": "scenarios/support/oauth_http_inputs.py",
       "sha256": "8038590415db231b6bed53c2f011294c0094fbe7d6a76e5f90beb530538fe496",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/openai_device_oauth.py",
+      "sha256": "a846a4d65a86cd92f47df41913acf96ee32f5d81c73ee45eec776993c27e7493",
       "kind": "support"
     },
     {

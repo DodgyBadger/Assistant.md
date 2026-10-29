@@ -1123,24 +1123,27 @@
     },
     {
       "id": "api-device-oauth-and-connected-fallback",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/api_endpoints"
       ],
       "missing_proof": "Real manual OpenAI OAuth completion/readiness passes. Original mocked device-code start/pending/poll/authorized and API-key-mode fallback while connected are not replaced; production device URLs are hardcoded remote endpoints.",
-      "cleanup_action": "Establish a supported deterministic device-provider transport seam or local endpoint infrastructure; do not introduce live authorization into core.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/api_endpoints.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
         "validation/runs/pytest_migration/api_journeys_batch15_20261028/report.json",
-        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_lifecycle_oauth_20261029/report.json"
       ],
       "review_number": 49,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "The real device adapter uses configurable test-owned endpoints with production defaults preserved. Actual API start/pending/authorized/token exchange persists encrypted tokens; the actual runtime provider sends OAuth bearer/account headers when connected, then API-key bearer without the account header after disconnect and configured fallback. No live account or model inference is used.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "api-classification-and-attribution-branches",
