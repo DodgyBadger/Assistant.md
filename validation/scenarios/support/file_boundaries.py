@@ -59,14 +59,31 @@ def search(
 async def replace_concurrently(
     app: Application, vault: Path, *, path: str, replacements: list[tuple[str, str]]
 ) -> list[VaultFileOperationResult]:
+    from core.vault_state.activity import VaultActivityContext, use_vault_activity
     from core.vault_state.file_operations import replace_text_vault_file_operation
+    from core.vault_state.service import VaultStateService
 
     barrier = threading.Barrier(len(replacements), timeout=5)
 
     def replace(old_text: str, new_text: str) -> VaultFileOperationResult:
         barrier.wait()
-        result = replace_text_vault_file_operation(
-            vault_path=vault, path=path, old_text=old_text, new_text=new_text, count=1
+        activity = VaultActivityContext(
+            activity_id=f"concurrent-edit-{old_text}",
+            kind="explorer",
+            source="api",
+            scope=None,
+            label=f"Replace {old_text}",
+        )
+        with use_vault_activity(activity):
+            result = replace_text_vault_file_operation(
+                vault_path=vault,
+                path=path,
+                old_text=old_text,
+                new_text=new_text,
+                count=1,
+            )
+        VaultStateService().finish_activity(
+            activity_id=activity.activity_id, status="completed"
         )
         return record_result(app, "replace_text", result)
 

@@ -660,7 +660,7 @@
     },
     {
       "path": "scenarios/integration/core/test_file_concurrency.py",
-      "sha256": "df3adaf1af1a5b4fdf90be462e6341340d28effd8c2c9768851e55103ffa1604",
+      "sha256": "fb6c42f2114444dc52ae2bbacbd08e1ef0276e18be32d393423e76559ec9cb13",
       "kind": "behavioral",
       "tests": [
         "test_concurrent_same_path_edits_preserve_all_changes",
@@ -1569,6 +1569,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_vault_mutation_contention.py",
+      "sha256": "b77b4edf315d930a196d21ccd7efddf7291456f25d01aa1983fe9b3b9c54f13e",
+      "kind": "behavioral",
+      "tests": [
+        "test_child_edit_overlapping_directory_move_cannot_write_stale_path",
+        "test_concurrent_rollback_produces_one_durable_recovery_and_audit"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_vault_mutation_recording.py",
       "sha256": "fc3f6b7dd11e5e568f803f79d193c7b92f715ee76711bd95cd43cf105c530396",
       "kind": "behavioral",
@@ -1817,7 +1826,7 @@
     },
     {
       "path": "scenarios/support/file_boundaries.py",
-      "sha256": "94a08d735e8a949c76951cbec4c6639f467c008aef1bb9c8ae0ad64adcb096f8",
+      "sha256": "8cd5094835e24b7efcd8b345898562208e9dcacc1e5a00abcf7c73129dfdd3cb",
       "kind": "support"
     },
     {
@@ -2143,6 +2152,11 @@
     {
       "path": "scenarios/support/vault_inputs.py",
       "sha256": "f1b5aac0c95a6b6c6984f070760ece611e8b1c29062c501fbf89ab11d6bc8869",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/vault_mutation_contention.py",
+      "sha256": "83c34e51d6542270a8bd4b4792bfe15892f09a716428d6126ff9661b274c7938",
       "kind": "support"
     },
     {

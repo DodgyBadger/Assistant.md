@@ -1,6 +1,9 @@
-"""Real mutation outcomes; lock-overlap coverage remains an explicit migration gap."""
+"""Real concurrent edits preserve file contents; stale paths cannot redirect writes."""
 
 from __future__ import annotations
+
+from hashlib import sha256
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +13,7 @@ from validation.scenarios.support.file_boundaries import (
     replace_concurrently,
     replace_stale_child,
 )
+from validation.scenarios.support.vault_recovery import query_rows
 
 pytestmark = pytest.mark.scenario
 
@@ -31,7 +35,35 @@ async def test_concurrent_same_path_edits_preserve_all_changes(
     assert (vault / "notes/concurrent.md").read_text(
         encoding="utf-8"
     ) == "one\ntwo\nthree\n"
-    # Final content establishes preservation, not the original max-active-writes claim.
+    mutations = query_rows(
+        app,
+        "SELECT m.before_hash, m.after_hash, m.status, f.content_hash, f.snapshot_ref, s.snapshot_root "
+        "FROM vault_mutations m JOIN file_snapshots f ON f.id=m.before_snapshot_id "
+        "JOIN snapshot_sets s ON s.id=f.snapshot_set_id "
+        "WHERE m.path=? ORDER BY m.id",
+        ("notes/concurrent.md",),
+    )
+    assert len(mutations) == 3
+    previous_hash = sha256(b"alpha\nbeta\ngamma\n").hexdigest()
+    for mutation in mutations:
+        assert mutation["status"] == "completed"
+        assert mutation["before_hash"] == mutation["content_hash"] == previous_hash
+        assert (
+            sha256(
+                (
+                    Path(mutation["snapshot_root"]) / mutation["snapshot_ref"]
+                ).read_bytes()
+            ).hexdigest()
+            == previous_hash
+        )
+        previous_hash = mutation["after_hash"]
+    final_hash = sha256((vault / "notes/concurrent.md").read_bytes()).hexdigest()
+    assert previous_hash == final_hash
+    assert query_rows(
+        app,
+        "SELECT content_hash FROM vault_files WHERE path=?",
+        ("notes/concurrent.md",),
+    ) == [{"content_hash": final_hash}]
 
 
 async def test_directory_move_rejects_stale_child_path(app: Application) -> None:

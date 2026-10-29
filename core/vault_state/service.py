@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import or_, select
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.exc import IntegrityError
 
 from core.authoring.template_discovery import discover_vaults
@@ -947,21 +948,26 @@ class VaultStateService:
     def _register_vault(
         session: Any, *, vault_id: str, vault_name: str, now: datetime
     ) -> None:
-        record = session.get(VaultRecord, vault_id)
-        if record is None:
-            session.add(
-                VaultRecord(
-                    vault_id=vault_id,
-                    current_name=vault_name,
-                    first_seen_at=now,
-                    last_seen_at=now,
-                    missing_since=None,
-                )
+        # Register and acquire the write transaction before reading the manifest.
+        # A scheduler refresh and the first mutation may discover a vault together.
+        session.execute(
+            insert(VaultRecord)
+            .values(
+                vault_id=vault_id,
+                current_name=vault_name,
+                first_seen_at=now,
+                last_seen_at=now,
+                missing_since=None,
             )
-            return
-        record.current_name = vault_name
-        record.last_seen_at = now
-        record.missing_since = None
+            .on_conflict_do_update(
+                index_elements=[VaultRecord.vault_id],
+                set_={
+                    "current_name": vault_name,
+                    "last_seen_at": now,
+                    "missing_since": None,
+                },
+            )
+        )
 
     @staticmethod
     def _append_event(

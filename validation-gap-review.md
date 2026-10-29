@@ -8,21 +8,6 @@
     **Recommendation:** **Keep, high priority; combine with item 63.** Establish bounded process-level execution and cleanup deadlines, quarantine an uncertain worker, and terminate its owned descendant processes. Prefer existing pytest-compatible tooling and a small ownership policy over rebuilding the old supervisor.
     - Approved
 
-5. **Concurrent writes to the same file:** Successful results and preservation of updates are covered. Actual non-overlap between active writes has not been observed.
-
-    **Recommendation:** **Retire the strict non-overlap assertion as a separate requirement.** Keep tests for no lost updates, atomic file contents, consistent snapshots and correct mutation history. Require serialization only where it is necessary to deliver those guarantees, so a different correct implementation remains possible.
-    - Approved
-
-6. **Editing during a directory move:** Verify that a child-file edit waits correctly while its directory is being moved. Sequential move and stale-path rejection do not establish this.
-
-    **Recommendation:** **Keep the contention behavior, clarify its contract.** A conflicting edit should either be serialized safely or explicitly rejected before writing; it must never disappear or affect the wrong path. Test a genuine overlapping move/edit and the resulting files and audit state rather than prescribing one waiting mechanism.
-    - Approved to proceed with the test
-
-8. **Concurrent activity rollback:** Verify that only one restore executes while another rollback request arrives. Current tests establish correct public results, but not the original internal restore-count assertion.
-
-    **Recommendation:** **Replace the internal call-count assertion.** Require one coherent durable rollback effect, with a concurrent request either idempotent or clearly rejected, and verify files, snapshots and activity afterward. Multiple internal restoration calls are acceptable only if they cannot duplicate or corrupt that effect.
-    - Approved
-
 12. **Importing public URLs:** Verify successful remote fetching, destination selection, provenance, PDF detection from content, and extensionless URLs. Local imports and outbound-policy rejection are covered.
 
     **Recommendation:** **Keep.** Build a reusable controlled HTTP/HTTPS fixture that exercises the real public-address admission and fetch path, including destination, provenance and content-based PDF detection. Preserve SSRF checks; avoid creating a production localhost exemption solely to make these tests pass.

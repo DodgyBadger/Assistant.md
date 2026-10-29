@@ -87,7 +87,7 @@
     },
     {
       "id": "same-path-active-mutation-serialization",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/file_write_same_path_concurrency"
@@ -98,16 +98,19 @@
       ],
       "evidence": [
         "validation/runs/reports/20261028_161227_753784.json",
-        "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json",
+        "validation/runs/gap_cleanup_concurrent_snapshots_20261029/report.json"
       ],
-      "cleanup_action": "Establish stable application-owned mutation interval/lock observations or a supported deterministic synchronization boundary; alternatively review whether internal serialization is required beyond atomic final outcomes.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 5,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Concurrent edits preserve all changes, form a continuous before/after audit-hash chain, have matching original-byte snapshots and leave a matching manifest. Atomic SQLite vault registration fixes the actually reproduced first-refresh collision; strict internal non-overlap count is retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "directory-move-active-child-contention",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/vault_directory_mutation_concurrency"
@@ -118,12 +121,15 @@
       ],
       "evidence": [
         "validation/runs/reports/20261028_161227_753784.json",
-        "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
-      "cleanup_action": "Exercise real concurrent move/edit with stable lifecycle/lock observations or a sanctioned controllable I/O boundary, without claiming sequential results prove waiting.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 6,
       "user_decision": "Approved to proceed with the test",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real directory move holds its public mutation lock while a child edit is submitted. The stale edit cannot write through to the old or wrong path; destination content and one directory-move audit record are correct.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "task-rollback-reactivated-snapshot-retry",
@@ -159,13 +165,16 @@
         "validation/legacy/scenarios/integration/core/vault_activity_rollback.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
+        "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
-      "cleanup_action": "Establish observable restore/lock intervals or review whether the stronger internal call-count assertion is required beyond the proven public outcomes.",
-      "status": "open",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "status": "resolved",
       "review_number": 8,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Real simultaneous rollback submissions produce exactly one success and one rejection, one coherent restored file, matching source/recovery activities and snapshot/audit rows, and rejection of a later repeat. Internal restore call counts are retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "encrypted-guarded-write-serialization",
