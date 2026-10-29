@@ -1205,33 +1205,36 @@
     },
     {
       "id": "session-map-legacy-admission-repair",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_map_evidence_admission"
       ],
       "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4\u20137/citable4\u20135and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4\u20137/8\u20139/10\u201311 to checkpoint11; this complete sequence remains unproved.",
-      "cleanup_action": "Recreate actual legacy checkpoint/pending/native evidence inputs and real structured author failures/success across eviction reduction, including direct commit guards and pending repair.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_evidence_admission.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
-        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_map_repair_policy_20261029/report.json"
       ],
       "review_number": 52,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "The oldest explicitly supported v1 map and supported pending-evidence metadata run through real HTTP-backed reductions. Repeated invalid citations preserve previous checkpoint, revision and raw history; verified historical evidence then advances safely and consumes pending evidence once, with a later real reduction excluding already-consumed sources.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "retained-session-map-automatic-trigger",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_map_retained_evidence"
       ],
       "missing_proof": "Real explicit compact API drives the same reduction and retained citation boundaries; it does not establish original automatic post-turn invocation/task-parent semantics. Controlled author output preserves artifact/citation semantics rather than exact original authored draft.",
-      "cleanup_action": "Exercise real automatic post-turn retained-evidence reduction and actual author input/output provenance; keep source automatic boundary until reviewed.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_retained_evidence.py"
       ],
@@ -1240,11 +1243,14 @@
         "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
         "validation/runs/pytest_migration/retrieval_range_batch15_20261028/report.json",
         "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
-        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_map_move_preflight_20261029/report.json"
       ],
       "review_number": 53,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real automatic post-turn reduction delivers retained raw evidence to the actual author and persists its citations, with verified chat-to-compaction-to-author task lineage. Consolidated with pinned-policy behavior rather than a separate trigger fixture per evidence projection.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "browser-resource-admission-deferred",
@@ -1391,23 +1397,28 @@
     },
     {
       "id": "stepped-map-pinned-and-policy-boundaries",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/stepped_session_map_post_turn"
       ],
       "missing_proof": "Real automatic success and genuine commit/provider failure pass. Source pinned map after global strategy switch plus failing author, direct recovery-card rejection, exact high-watermark equality, exact repeated8-row/unavailable-model sequence and distinct-warning dedup remain unproved. Actual IntegrityError/ModelHTTPError do not certify fake ValueError/RuntimeError-specific classification.",
-      "cleanup_action": "Use real session settings, exact canonical histories and local provider/database workloads to establish pinned/no-fallback/policy/failure event boundaries.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/stepped_session_map_post_turn.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
-        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_map_repair_policy_20261029/report.json",
+        "validation/runs/gap_cleanup_map_move_preflight_20261029/report.json",
+        "validation/runs/gap_cleanup_map_distinct_confirm_20261029/report.json"
       ],
       "review_number": 61,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Actual automatic reductions preserve the session-map strategy after the global policy changes, never fall back when the configured author becomes unavailable, and preserve checkpoint/raw history across repeated completed turns. The documented has-reached policy is inclusive: one token below the actual estimate does not trigger, equality does. Repeated real invalid-citation failures retain two distinct task-correlated issues through the real Activity API. The incidental eight-message oracle is retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "legacy-adapter-observation-contract-review",

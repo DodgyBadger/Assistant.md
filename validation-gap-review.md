@@ -103,16 +103,6 @@
     **Recommendation:** **Keep application error semantics and attribution behavior; retire arbitrary SDK-class equivalence.** Cover actual overload, idle, connection and HTTP-status inputs with retry/category assertions where they affect control flow, plus headers observed at a local provider. Consolidate overlapping cases with items 17, 33 and 46.
     - Approved
 
-52. **Legacy session-map evidence repair:** Cover the complete sequence of rejecting invalid citations without changing the checkpoint, accepting valid historical evidence, and repairing pending evidence across later reductions.
-
-    **Recommendation:** **Keep, high priority.** Build one complete reduction/repair journey from the oldest supported persisted map format. Verify that rejected citations preserve the previous checkpoint and raw history, valid evidence advances the map safely, and pending evidence is consumed correctly; avoid supporting every intermediate development schema by accident.
-    - Approved
-
-53. **Automatic retained-evidence compaction:** Verify automatic post-turn invocation and task-parent relationships. Explicit compaction proves the retained citation behavior, but not the automatic trigger.
-
-    **Recommendation:** **Merge into the automatic post-turn scenario in item 61.** Verify that retained evidence reaches the real author, its citations survive persistence, and the result belongs to the expected task chain. A separate trigger scenario for every evidence variant would add maintenance without much additional assurance.
-    - Approved
-
 54. **Browser resource admission:** Verify actual successful-session concurrency limits and low-memory refusal when browser work resumes. Call budgets are covered without launching Chromium.
 
     **Recommendation:** **Defer with browser infrastructure work.** Use a finite-memory container and held local pages to test real concurrency, memory refusal before launch and slot release after cancellation. Retire the fake browse counter once the actual resource guarantees are observable.
@@ -146,11 +136,6 @@
 60. **Transcript tool errors and limits:** Complete tool-level output budgets, fragment continuation, query/title limits, cross-workspace access cases, real full-text-search failure diagnostics and untrusted-operation logging.
 
     **Recommendation:** **Keep permissions, output limits and actual tool continuation as durable contracts.** Add a compact real-tool boundary matrix for workspace/session access, fragment continuation, query/title bounds and FTS failure correlation. Reuse item 20’s confidentiality proof rather than manufacturing a special backend exception in every retrieval scenario.
-    - Approved
-
-61. **Pinned session-map policy:** Verify behavior after changing the global strategy, exact compaction-threshold equality, repeated reductions, unavailable models and distinct failure-warning counts.
-
-    **Recommendation:** **Keep strategy pinning, no-fallback behavior and the chosen threshold boundary; combine with item 53.** Confirm whether equality should trigger reduction, then make that an explicit policy assertion. Retire an exact eight-message fixture requirement unless it protects a specific complete-turn or evidence-boundary invariant.
     - Approved
 
 62. **Old adapter versus current evidence capture:** Review the old requirement to rewrite the application’s original log with redacted values. Current capture preserves original observations and redacts exported evidence; the old adapter self-test still fails that expectation.

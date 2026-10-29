@@ -1300,6 +1300,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_session_map_distinct_auto_failures.py",
+      "sha256": "8c3ea2f347fbbd156d2baae5910a3448ceea43436239c5f9a9cd3166417e8199",
+      "kind": "behavioral",
+      "tests": [
+        "test_pinned_map_auto_failures_remain_distinct_and_chat_usable"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_session_map_evidence_admission.py",
       "sha256": "9d08395e0da6abda5d916f43dd5d80b27807eab8dd79331d78055f36929bb533",
       "kind": "behavioral",
@@ -1329,6 +1337,16 @@
       "kind": "behavioral",
       "tests": [
         "test_session_map_readiness_fails_closed_for_invalid_settings"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_session_map_repair_policy_contracts.py",
+      "sha256": "40601d5aaaeb837ac217803539e984c7a1cd8f69bcfc2d19427bf056e4eb39d9",
+      "kind": "behavioral",
+      "tests": [
+        "test_oldest_map_invalid_then_valid_repair_consumes_pending_once",
+        "test_auto_retained_map_pins_strategy_task_chain_and_no_fallback",
+        "test_automatic_map_high_watermark_is_inclusive"
       ]
     },
     {
@@ -2200,6 +2218,11 @@
     {
       "path": "scenarios/support/session_map_readiness.py",
       "sha256": "2ef017fe4d6be3eca4bc3ebd2275a85f2fe61c009ded5e21370cdb7579258609",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/session_map_repair_policy_contracts.py",
+      "sha256": "9d976401fb9fa8c5afcece428a20b5d7cf71aff01284d398820ceb74ae431843",
       "kind": "support"
     },
     {
