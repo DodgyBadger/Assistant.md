@@ -55,6 +55,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_active_tool_cancellation.py",
+      "sha256": "c14d22a10a92be56a180172c08cc4f0965b667edf28baf9dfc417a5426db4ebb",
+      "kind": "behavioral",
+      "tests": [
+        "test_cancel_active_code_tool_after_mutation",
+        "test_cancel_approved_active_write_settles_review"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_api_endpoint_chat_limits.py",
       "sha256": "68dd061a37b902a4e64f9ac01c1f786dc492d38a4a502186082c9cfd24f87d20",
       "kind": "behavioral",
@@ -1692,6 +1701,11 @@
     {
       "path": "scenarios/support/access_state_concurrency.py",
       "sha256": "00a8bf7a0dfe80dfbf393fd598aba467cdca6dca7df352ea4a4f6974d9716d1b",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/active_tool_cancellation.py",
+      "sha256": "eba4a1162ee3801b4c0d47c11a84ecb0a4a4e239be67fd736665835975769c8b",
       "kind": "support"
     },
     {

@@ -88,11 +88,6 @@
     **Recommendation:** **Keep, high priority.** Complete the real idle-stream, active-tool, checkpoint replay and rollback recovery scenarios. Verify retry budgets, persisted history, mutation effects and safe diagnostics; share fixtures with the active cancellation and compaction cases rather than reproducing a large fake-agent matrix.
     - Approved
 
-35. **Cancellation during an active tool:** Verify cancellation while a tool itself is still running. Current coverage cancels while the model waits after the mutation has completed.
-
-    **Recommendation:** **Keep, high priority.** Cancel a genuinely active tool or delegate after an observed side effect and before completion, then verify termination, rollback, settled history and a usable next turn. Reuse the existing controlled delegate/provider workloads where possible.
-    - Approved
-
 36. **Preventing live models in core tests:** Complete the model-call audit and choose enforcement that prevents accidental external inference. Current tests use deterministic models or local providers, but there is no universal fail-closed guard.
 
     **Recommendation:** **Make this an early priority.** Enforce test-owned outbound restrictions that allow only declared deterministic models and controlled test services, and exclude ambient real credentials from core execution. Include child processes and automatic authoring; prove that an accidental external dispatch fails before connecting, while explicit live experiments remain separate.
@@ -116,11 +111,6 @@
 41. **Automatic compaction admission failures:** Cover failures before compaction enters its normal domain logic, task-admission rejection, and missing or stopped runtime state.
 
     **Recommendation:** **Keep fail-soft automatic compaction.** Exercise genuine closed-runtime or rejected-admission inputs and verify that the completed chat remains successful, no task leaks, and usable context is preserved with a clear reason. Retire the requirement to inject a particular private callback failure.
-    - Approved
-
-42. **Interruption during an approved tool:** Verify cancellation or failure while a reviewed tool is active, settlement of missing replies, and prevention of replay on the next turn. Current coverage fails after the approved write completes.
-
-    **Recommendation:** **Keep, high priority.** Interrupt an actually executing approved tool and verify rollback, an honest interrupted reply, terminal review state and no re-execution on the next turn. Share the workload fixture with item 35, but retain separate assertions for approval settlement.
     - Approved
 
 44. **Successful advanced-shell MCP execution:** Verify actual SSH launch configuration, root forwarding and client closure. Configuration gates and refused-connection behavior pass; successful SSH execution lacks local test infrastructure.

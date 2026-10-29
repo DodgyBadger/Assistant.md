@@ -803,22 +803,25 @@
     },
     {
       "id": "chat-cancellation-active-tool-boundary",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_cancellation"
       ],
       "missing_proof": "Current real case cancels while the model waits after a real mutation tool completed. Original cancellation during a hanging tool and its exact private preflight-history comparison are not replaced by that later boundary. Actual rollback/history/follow-up proof is narrower.",
-      "cleanup_action": "Exercise a genuine bounded active tool/delegate workload and observable model/history projection, or review disposition of the original private preparation oracle.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_cancellation.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json"
+        "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
       "review_number": 35,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real active code tool writes a file then waits in an actual child provider request. Cancellation stops the task, rolls back that effect, settles tool history and permits a successful subsequent turn. Exact private preflight-history comparison is retired.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "deterministic-core-model-call-audit",
@@ -943,22 +946,26 @@
     },
     {
       "id": "deferred-review-inflight-interruption",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/deferred_review_interruption"
       ],
       "missing_proof": "Actual resumed tool write completes before a subsequent provider failure. This does not establish cancellation/failure during an active reviewed tool with a missing durable return, follow-up no replay of interrupted calls, or injected settlement-warning privacy.",
-      "cleanup_action": "Use a genuine bounded active reviewed workload with observable entry/cancellation and next-turn history; retain original warning failure contract for explicit review.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/deferred_review_interruption.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
       "review_number": 42,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "An actual reviewed file_write is held at the filesystem mutation lock while executing. Cancellation now drains the synchronous transactional worker before existing rollback and review/history settlement, preventing a late write. The unchanged regression verifies absent effect, cancelled review, interrupted reply, no replay and a usable next turn.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "mcp-mutation-private-race-windows",
