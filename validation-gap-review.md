@@ -38,11 +38,6 @@
     **Recommendation:** **Keep.** Exercise actual 503 and Retry-After responses plus private query text through a controlled provider transport. Share network infrastructure with items 12 and 38, and assert retry decisions and safe diagnostics rather than just exception construction.
     - Approved
 
-20. **Private text in transcript-search errors:** Verify sanitization when a storage exception actually contains private text. Current real SQLite failures produce generic messages, so the stronger confidentiality claim remains unproved.
-
-    **Recommendation:** **Keep the confidentiality requirement, simplify the proof.** Test the application-owned error projection with a private error input, alongside a real integration failure proving that the projection is used. Do not require a particular SQLite error to naturally echo a secret or patch the search implementation to manufacture that condition.
-    - Approved
-
 23. **Gmail connection UI behavior:** Review save-before-authorization behavior and missing-compose warnings in the browser. API scope and readiness checks do not establish rendered UI behavior.
 
     **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.

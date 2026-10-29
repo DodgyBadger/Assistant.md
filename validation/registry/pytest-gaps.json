@@ -483,19 +483,22 @@
         "integration/core/authoring_tool_failure_semantics"
       ],
       "missing_proof": "Original patched search raises OperationalError with arbitrary private payload text. Genuine missing-external-content FTS failure yields a generic SQL logic error; passing private-query absence and metadata assertions do not prove sanitization of arbitrary private exception-message text. The authoring failure port proves actual uncaught durable failure/operation context, but its generic FTS error likewise cannot replace the original injected private backend-message absence proof.",
-      "cleanup_action": "Find a genuine bounded provider/storage error containing sensitive text at this boundary or explicitly retain/classify the original narrow fault-injection oracle.",
-      "status": "open",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "status": "resolved",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_ops_chat_tool.py",
         "validation/legacy/scenarios/integration/core/authoring_tool_failure_semantics.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json",
-        "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json"
+        "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json",
+        "validation/runs/gap_cleanup_transcript_privacy_20261029/report.json"
       ],
       "review_number": 20,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "The real application diagnostics projector receives an OperationalError containing private input and traceback; it emits payload-free bounded locations. A full app/local-provider session_ops search against genuinely broken FTS proves the actual failed tool uses that same diagnostics path with correlated run/tool identifiers and no private query in activity or replies. The real SQLite failure is not falsely claimed to echo the sentinel.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "google-connection-transaction-races",

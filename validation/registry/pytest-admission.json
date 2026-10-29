@@ -1519,6 +1519,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_transcript_error_privacy.py",
+      "sha256": "05f0d94b2e5591b00b6dff6c7148c0e9f2b3f2567acd5f1bd31ac7c8d07e5364",
+      "kind": "behavioral",
+      "tests": [
+        "test_transcript_search_uses_payload_free_failure_diagnostics"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_transcript_retrieval_storage.py",
       "sha256": "923d23c86523b8b975761d3edd41e4d8b0c31d464615532d36b34f7ce0c3139a",
       "kind": "behavioral",
@@ -2168,6 +2176,11 @@
     {
       "path": "scenarios/support/transcript_chat_inputs.py",
       "sha256": "2599e8cb3bee5681ba978d2db1c438e01ee965cd30d115d4121becaa68949aa4",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/transcript_error_privacy.py",
+      "sha256": "0e67ca8669aed73046ef0518efb34000bff7e51b0cab3d0b8d8d70133c33d226",
       "kind": "support"
     },
     {
