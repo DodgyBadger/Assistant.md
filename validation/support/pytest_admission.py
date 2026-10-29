@@ -54,7 +54,7 @@ def load_admissions(root: Path) -> list[ScenarioAdmission]:
         if kind == "behavioral":
             if not any(
                 source.is_relative_to(staging / profile)
-                for profile in ("integration/core", "experiments")
+                for profile in ("integration/core", "experiments", "browser")
             ):
                 raise ValueError(
                     f"Behavioral source outside admitted roots: {relative}"

@@ -80,6 +80,12 @@ def _admissions(root: Path) -> dict[Path, set[str]]:
         raise pytest.UsageError(f"Canonical pytest admission: {error}") from error
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addini(
+        "scenario_profile", "core or browser application profile", default="core"
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     if config.inipath is None:
         raise pytest.UsageError(
@@ -87,6 +93,11 @@ def pytest_configure(config: pytest.Config) -> None:
         )
     if config.inipath.name == "pyproject.toml":
         staging = config.inipath.parent / "validation/scenarios"
+    elif (
+        config.inipath.parent.name == "browser"
+        and config.inipath.parent.parent.name == "scenarios"
+    ):
+        staging = config.inipath.parent.parent.resolve()
     elif config.inipath.parent.name == "scenarios":
         staging = config.inipath.parent.resolve()
     else:
@@ -101,21 +112,43 @@ def pytest_configure(config: pytest.Config) -> None:
             staging.parent / "runs" / f"pytest_{stamp}_{uuid4().hex[:10]}"
         )
     core = staging / "integration/core"
+    browser = staging / "browser"
+    profile = config.getini("scenario_profile")
+    if profile not in {"core", "browser"}:
+        raise pytest.UsageError("scenario_profile must be core or browser")
+    selected_root = browser if profile == "browser" else core
+    if profile == "browser":
+        worker_input = getattr(config, "workerinput", {})
+        evidence_root = worker_input.get("scenario_evidence_root") or config.getoption(
+            "scenario_root"
+        )
+        config.option.output = str(
+            Path(evidence_root)
+            / "playwright-output"
+            / worker_input.get("workerid", "main")
+        )
+        if not worker_input and config.getoption("numprocesses", default=0) not in {
+            0,
+            1,
+        }:
+            raise pytest.UsageError(
+                "The browser pilot requires one local worker; parallel browser ownership is not yet verified"
+            )
     admitted = _admissions(staging.parent)
     config.stash[_ADMITTED] = admitted
     # Pytest interprets testpaths relative to invocation cwd. Normalize defaults
     # before collection so a staging config cannot fall back to the repository.
     if config.args_source != pytest.Config.ArgsSource.ARGS:
-        config.args[:] = [str(core)]
+        config.args[:] = [str(selected_root)]
     for argument in config.args:
         raw_path, *selection = argument.split("::")
         path = (config.invocation_params.dir / raw_path).resolve()
         if path.is_dir():
-            if not path.is_relative_to(core) or not any(
+            if not path.is_relative_to(selected_root) or not any(
                 source.is_relative_to(path) for source in admitted
             ):
                 raise pytest.UsageError(
-                    f"Canonical pytest target is not an admitted core directory: {argument}"
+                    f"Canonical pytest target is not an admitted {profile} directory: {argument}"
                 )
         elif path not in admitted:
             raise pytest.UsageError(
@@ -129,6 +162,16 @@ def pytest_configure(config: pytest.Config) -> None:
         (config.invocation_params.dir / arg.split("::", 1)[0]).resolve()
         for arg in config.args
     ]
+    if profile == "browser" and any(
+        not p.is_relative_to(browser) for p in selected_paths
+    ):
+        raise pytest.UsageError(
+            "Browser scenarios require a separate browser-profile invocation"
+        )
+    if profile != "browser" and any(p.is_relative_to(browser) for p in selected_paths):
+        raise pytest.UsageError(
+            "Browser scenarios require their browser-profile configuration"
+        )
     if any(p.is_relative_to(core) for p in selected_paths) and any(
         not p.is_relative_to(core) for p in selected_paths
     ):
@@ -138,7 +181,7 @@ def pytest_configure(config: pytest.Config) -> None:
     if any(
         (config.invocation_params.dir / argument.split("::", 1)[0])
         .resolve()
-        .is_relative_to(core)
+        .is_relative_to(selected_root)
         for argument in config.args
     ):
         install_core_network_guard()

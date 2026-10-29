@@ -210,8 +210,9 @@ async def app(
         _stop_after_fixture_failure(request, evidence, error)
         raise error from previous
     roots = snapshot_bootstrap_roots()
-    core_case = request.node.path.resolve().is_relative_to(
-        Path(__file__).parent / "integration/core"
+    core_case = any(
+        request.node.path.resolve().is_relative_to(Path(__file__).parent / profile)
+        for profile in ("integration/core", "browser")
     )
     from validation.support.core_processes import reset_core_commands
 

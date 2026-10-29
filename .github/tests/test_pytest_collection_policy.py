@@ -340,3 +340,52 @@ def test_core_and_experiment_targets_require_separate_invocations(
     result = _run(config, tmp_path, str(core), str(experiment))
     assert result.returncode == 4
     assert "require separate pytest invocations" in result.stdout + result.stderr
+
+
+def test_browser_profile_is_explicit_admitted_and_keeps_core_default(
+    tmp_path: Path,
+) -> None:
+    config, core, _ = _project(tmp_path)
+    browser = config.parent / "browser/test_journey.py"
+    browser.parent.mkdir()
+    browser.write_text("def test_journey(): pass\n")
+    browser_config = browser.parent / "pytest.ini"
+    browser_config.write_text(
+        "[pytest]\nscenario_profile = browser\naddopts = -p validation.support.pytest_policy\n"
+    )
+    registry = config.parent.parent / "registry/pytest-admission.json"
+    payload = json.loads(registry.read_text())
+    payload["files"].extend(
+        [
+            {
+                "path": browser.relative_to(config.parent.parent).as_posix(),
+                "sha256": hashlib.sha256(browser.read_bytes()).hexdigest(),
+                "kind": "behavioral",
+                "tests": ["test_journey"],
+            },
+            {
+                "path": browser_config.relative_to(config.parent.parent).as_posix(),
+                "sha256": hashlib.sha256(browser_config.read_bytes()).hexdigest(),
+                "kind": "support",
+            },
+        ]
+    )
+    registry.write_text(json.dumps(payload))
+    default = _run(config, tmp_path)
+    assert default.returncode == 0, default.stdout + default.stderr
+    assert (
+        "2 tests collected" in default.stdout and "test_journey" not in default.stdout
+    )
+    selected = _run(browser_config, tmp_path)
+    assert selected.returncode == 0, selected.stdout + selected.stderr
+    assert "1 test collected" in selected.stdout and "test_journey" in selected.stdout
+    wrong_config = _run(config, tmp_path, str(browser))
+    assert wrong_config.returncode == 4
+    assert "browser-profile configuration" in wrong_config.stderr
+    mixed = _run(browser_config, tmp_path, str(browser), str(core))
+    assert mixed.returncode == 4
+    escaped = browser.with_name("test_unregistered.py")
+    escaped.write_text("def test_escaped(): pass\n")
+    unregistered = _run(browser_config, tmp_path, str(escaped))
+    assert unregistered.returncode == 4
+    assert "not an admitted" in unregistered.stderr

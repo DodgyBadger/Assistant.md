@@ -4,8 +4,43 @@
   "files": [
     {
       "path": "scenarios/application.py",
-      "sha256": "c66b42b30f16093d113f0e723a4a40efa020bc84334909aafe470e9e63342cd0",
+      "sha256": "fe7445f24a3bc72e0b819bde8dc858327356b4df18ea8bbad00eaeb31d56c821",
       "kind": "support"
+    },
+    {
+      "path": "scenarios/browser/conftest.py",
+      "sha256": "d31d0d0ea98c21ad16cd51f92d71284cfc455df4b4e11a8516f87e125ba5ea48",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/browser/experiments/test_evidence_failure.py",
+      "sha256": "13108a6b76d32b4dbba38706822197900a3c7f3f2d14e18ea5b544ea3696c509",
+      "kind": "behavioral",
+      "tests": [
+        "test_intentional_failure_retains_real_browser_and_app_evidence",
+        "test_next_context_is_clean_and_undeclared_origin_receives_no_requests"
+      ]
+    },
+    {
+      "path": "scenarios/browser/pytest.ini",
+      "sha256": "977795035182720bb128044914ea971c961331e286ae9addb67e0eeaf0cd8174",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/browser/test_import_browser.py",
+      "sha256": "43808a25a087e2031bfd338e18452f2e45337c80bec7b8439cc905ad0ee22be3",
+      "kind": "behavioral",
+      "tests": [
+        "test_document_import_modal_reports_completed_persisted_output"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_settings_browser.py",
+      "sha256": "c0ef96dc19f3daaeb7359873c06956f118c56226b67a081f3fd56b18a706188a",
+      "kind": "behavioral",
+      "tests": [
+        "test_setting_save_reload_and_restore_default"
+      ]
     },
     {
       "path": "scenarios/conftest.py",
@@ -2059,7 +2094,7 @@
     },
     {
       "path": "scenarios/pytest.ini",
-      "sha256": "f63d59beab36099454a6c7d1a87057d429dda4d4d6cd2d769ad6dba31d70a9d9",
+      "sha256": "8c00a7b8a0601ad321ae910293468b2d65395f8e0e132a1f0095b899302d00a7",
       "kind": "support"
     },
     {
@@ -2115,6 +2150,16 @@
     {
       "path": "scenarios/support/batch_move_external_edit.py",
       "sha256": "f4e7a1c230d54b68c4be7979dbcec9bc1cfefd91a5d13c6089d3e6c62a8d7f9a",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/browser_journeys.py",
+      "sha256": "3b752db100cfff2be8f75486b790b23223afd629ba321f7117f5319bf3ebc7c6",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/browser_runtime.py",
+      "sha256": "51d4387006dd07f30ac24620766b106bcd730c52414781291c3bf22e7f705082",
       "kind": "support"
     },
     {
