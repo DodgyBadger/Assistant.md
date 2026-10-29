@@ -138,7 +138,7 @@ jobs:
         run: |
           ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest --scenario-root validation/runs/ci-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Run deterministic browser pilots
+      - name: Run deterministic browser scenarios
         run: |
           ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest -c validation/scenarios/browser/pytest.ini --scenario-root validation/runs/browser-ci-${{ github.run_id }}-${{ github.run_attempt }}
 

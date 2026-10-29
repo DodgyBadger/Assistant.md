@@ -1,20 +1,6 @@
 # Remaining validation gaps
 
-8 review items remain; browser UI work has resumed with a verified pilot. Completed items have been removed; item 3 is tracked in the external To Do list. Numbers below are the original review IDs. The implemented practical alternatives and their explicit evidence limits are recorded in `validation/registry/pytest-gaps.json`.
-
-- **23. Gmail connection UI behavior:** Review save-before-authorization behavior and missing-compose warnings in the browser. API scope and readiness checks do not establish rendered UI behavior.
-
-    **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.
-    - Agreed
-
-    **Current status:** Browser fixtures and two full-stack pilots are verified. Gmail-specific save/authorization/warning journeys remain to implement; this item remains open.
-
-- **31. Content-import UI behavior:** Test rendered import interactions and warnings when browser work resumes. API and tool tests do not replace the old JavaScript, CSS and source-text checks.
-
-    **Recommendation:** **Defer to the browser work and group with item 23.** Test visible import progress, warnings, errors and user actions. Retire incidental CSS/JavaScript implementation checks once equivalent user-visible behavior is covered or explicitly judged unnecessary.
-    - Approved
-
-    **Current status:** The real-browser pilot now proves local PDF submission through the explorer/import modal, visible completion, and durable output/job state. URL import, queued progress, warnings, failures and retries still need browser journeys; this item remains open.
+6 review items remain; the canonical browser UI suite is complete and verified. Gmail connection UI and content-import UI items have been resolved and removed. Completed items have been removed; item 3 is tracked in the external To Do list. Numbers below are the original review IDs. The implemented practical alternatives and their explicit evidence limits are recorded in `validation/registry/pytest-gaps.json`.
 
 - **37. Gmail account-specific token routing:** Verify that explicitly selecting each Gmail account sends that account’s token. Current transport fixtures use the saved default grant; selected-account metadata alone is insufficient.
 

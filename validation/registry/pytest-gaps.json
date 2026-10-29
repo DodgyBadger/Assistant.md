@@ -584,23 +584,27 @@
     },
     {
       "id": "gmail-connection-ui-policy",
-      "status": "open",
+      "status": "resolved",
       "category": "deferred_ui",
       "source_scenarios": [
         "integration/core/gmail_connection_api"
       ],
       "missing_proof": "Original static JavaScript policy/save-before-authorization and missing-compose warning text/style assertions are not migrated. Real API OAuth scopes/readiness/activity do not establish rendered UI behavior; browser work remains deferred.",
-      "cleanup_action": "Move accepted user-visible policy/warning behavior into the deferred browser plan or explicitly retire editorial/static-source oracles.",
+      "cleanup_action": "Completed. Current browser contract mapping is validation/registry/browser-migration.json.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/gmail_connection_api.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/browser_complete_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/evidence-index.json"
       ],
       "review_number": 23,
       "user_decision": "Agreed",
-      "decision_status": "deferred",
-      "progress_note": "Real browser/app fixtures and diagnostic evidence are verified; Gmail-specific UI journeys remain pending after the pilot checkpoint."
+      "decision_status": "implemented",
+      "progress_note": "Completed in the canonical browser profile; all 79 browser cases pass with audited screenshot/trace, listener/app/context cleanup and exited native processes.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real browser journeys enforce saving Gmail capability changes before authorization and show a reauthorization warning for a real stored read-only grant when draft creation requires compose scope. App API, encrypted connection state, policy and rendered controls are real; the synthetic saved grant is native initial input. Static copy/style oracles are retired. This does not claim live OAuth completion or the separately deferred account-specific token-routing proof."
     },
     {
       "id": "chat-replay-expiry-projection-and-fork-faults",
@@ -783,24 +787,28 @@
     },
     {
       "id": "content-import-ui-behavior",
-      "status": "open",
+      "status": "resolved",
       "category": "deferred_ui",
       "source_scenarios": [
         "integration/core/content_import_tool"
       ],
       "missing_proof": "Original static CSS/JavaScript/source-string checks are not migrated; passing ingestion APIs/tools do not prove rendered import UI interactions or warnings. Browser work remains deferred.",
-      "cleanup_action": "Capture accepted user-visible import behavior in the browser plan, or explicitly retire incidental static-source/copy assertions.",
+      "cleanup_action": "Completed. Current browser contract mapping is validation/registry/browser-migration.json.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/content_import_tool.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json",
-        "validation/runs/browser_pilot_final_20261029/report.json"
+        "validation/runs/browser_pilot_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/evidence-index.json"
       ],
       "review_number": 31,
       "user_decision": "Approved",
-      "decision_status": "deferred",
-      "progress_note": "Real browser pilot proves local PDF modal submission, visible completion and durable output/job state. URL import, queue-only progress, warnings, failure and retry journeys remain open; this is partial coverage, not parity acceptance."
+      "decision_status": "implemented",
+      "progress_note": "Completed in the canonical browser profile; all 79 browser cases pass with audited screenshot/trace, listener/app/context cleanup and exited native processes.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real browser journeys cover local PDF submission and completion, queue-only and dashboard processing, upload/import, URL submission and real import pipeline execution, saved defaults and option reset, connection failure with draft-preserving retry, actual document-processing errors and source preservation, and successful OCR-to-local-text fallback warnings in the explorer. Only external URL DNS/HTTP bytes are substituted in the URL case, with the boundary documented. Incidental CSS/source-order assertions are retired."
     },
     {
       "id": "execution-runner-private-race-windows",
