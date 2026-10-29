@@ -1209,6 +1209,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_runtime_cleanup_contracts.py",
+      "sha256": "2b216ac9c4212d38660906e5dabb817f86eb464922b248a670fdb50d81ddfda5",
+      "kind": "behavioral",
+      "tests": [
+        "test_failed_bootstrap_cleans_mcp_workers_and_repair_closes_real_client",
+        "test_closed_task_admission_preserves_completed_chat_and_history"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_secrets_crash_recovery.py",
       "sha256": "2d6fc1310e0c1f6124b68ce28482d55c07fc8008adf6277155ff2b968e6bf5c2",
       "kind": "behavioral",
@@ -2158,6 +2167,11 @@
     {
       "path": "scenarios/support/retry_provider.py",
       "sha256": "c9ac9f5457427bff457dde68760ad27f0b61385b08daeb5ce96e7daba9dff6b9",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/runtime_cleanup_contracts.py",
+      "sha256": "ab48635e8ce85ea5c7a664c3eb5a08f62ff5258db5cfb355b9a423e065f899f3",
       "kind": "support"
     },
     {

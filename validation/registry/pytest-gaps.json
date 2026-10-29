@@ -769,22 +769,26 @@
     },
     {
       "id": "execution-runner-private-race-windows",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/execution_task_runner"
       ],
       "missing_proof": "Original pauses private mark_started, mark_completed and mark_failed publication, create_queued_task returning after reservation, parent terminal transition before child admission, and private concurrency cleanup guard. Real same-loop immediate cancellation, published-failure hook cancellation, public gates/capacity and constructor observer shutdown preserve portable outcomes, but do not deterministically establish those six exact earlier interleavings.",
-      "cleanup_action": "Use genuine supported event/observer/barrier inputs where possible or review classification of narrow private race injections before removing original assertions.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/execution_task_runner.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json"
+        "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_lifecycle_oauth_20261029/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
       ],
       "review_number": 32,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Approved consolidation retains real runner completion/failure/deadline/late-cancellation and pre-attachment terminalization cases, real detached delegate parent/cancellation behavior, and the new active transactional cancellation barriers. Focused runner/delegate lifecycle cases pass. Exact private scheduling pauses and incidental preparation-call counts are retired where they add no distinct durable guarantee.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "manual-retry-legacy-sdk-error-classification",
@@ -915,22 +919,25 @@
     },
     {
       "id": "bootstrap-mcp-exact-cleanup-lifecycle",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/runtime_bootstrap_cleanup"
       ],
       "missing_proof": "Real invalid startup and repaired restart pass, but runtime sentinel/cleanup success do not prove the original fake MCP manager started and shutdown exactly once.",
-      "cleanup_action": "Observe real MCP lifecycle through supported events or resources; preserve exact count oracle until its contract is reviewed.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/runtime_bootstrap_cleanup.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json",
+        "validation/runs/gap_cleanup_resource_ownership_20261029/report.json"
       ],
       "review_number": 39,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real invalid-configuration bootstrap failure leaves no newly live background tasks, no runtime and no uncertain cleanup. Repaired startup first demonstrates live app-owned tasks, acquires an actual local MCP lease, then shutdown finishes those tasks and closes real MCP sessions. Resource observation avoids implementation method names and exact manager construction/start counts.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "summary-retirement-interrupted-bookkeeping",
@@ -956,23 +963,26 @@
     },
     {
       "id": "automatic-compaction-private-boundaries",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/auto_chat_history_compaction"
       ],
       "missing_proof": "Real owned compaction success, HTTP author failure and SQLite checkpoint failure pass. Original injected pre-domain callback failure, coordinator admission rejection and missing/stopped runtime boundary remain unproved.",
-      "cleanup_action": "Exercise genuine supported admission/runtime lifecycle inputs and distinct pre-domain failure logging without replacing application methods.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/auto_chat_history_compaction.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
-        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_resource_ownership_20261029/report.json"
       ],
       "review_number": 41,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real completed chat remains completed with unchanged canonical history when the actual task coordinator is shut down and post-turn compaction attempts admission. No compaction/author/provider work is created, and the real Activity API retains the safe failure reason. This is an explicit production-helper call at a closed admission boundary, not a fabricated callback error or a claimed natural scheduler race.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "deferred-review-inflight-interruption",

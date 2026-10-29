@@ -48,11 +48,6 @@
     **Recommendation:** **Defer to the browser work and group with item 23.** Test visible import progress, warnings, errors and user actions. Retire incidental CSS/JavaScript implementation checks once equivalent user-visible behavior is covered or explicitly judged unnecessary.
     - Approved
 
-32. **Execution-task race windows:** Cover the exact transitions around starting, completing, failing, reserving tasks, parent termination and concurrency cleanup. Current real workloads establish broader outcomes, not every original interleaving.
-
-    **Recommendation:** **Keep the task lifecycle invariants, reduce the scheduling-specific assertions.** Cover terminalization, cancellation, parent/child admission and cleanup with real workload barriers. Preserve a precise race regression where it protects a known failure; retire private method-count or pause requirements that add no distinct behavioral guarantee.
-    - Approved
-
 34. **Automatic retry recovery branches:** Cover stalled streams, slow active tools, diagnostic truncation, checkpoint replay, rollback-and-restart, and retry with rollback disabled. Ordinary partial-stream retry and shared request budgets are covered.
 
     **Recommendation:** **Keep, high priority.** Complete the real idle-stream, active-tool, checkpoint replay and rollback recovery scenarios. Verify retry budgets, persisted history, mutation effects and safe diagnostics; share fixtures with the active cancellation and compaction cases rather than reproducing a large fake-agent matrix.
@@ -71,16 +66,6 @@
 38. **Mixed and binary web extraction:** Verify preservation of successful items alongside rejected URLs, and rejection of binary PDF responses through the actual extraction path. Policy rejection and low-level transport are covered separately.
 
     **Recommendation:** **Keep.** Use the shared controlled network fixture to return one successful document, one policy-rejected target and one binary PDF. Verify per-item preservation and typed rejection without disabling public-target validation.
-    - Approved
-
-39. **MCP cleanup during failed bootstrap:** Verify that the real MCP manager starts and shuts down exactly once when startup fails. Successful repair and restart do not establish that exact lifecycle count.
-
-    **Recommendation:** **Replace the exact start/shutdown invocation count.** Verify that failed startup leaves no live MCP clients or owned background work and permits a clean subsequent startup. Preserve exactly-once closure only where the resource/protocol requires it; the manager need not be constructed at a particular point in a future bootstrap design.
-    - Approved
-
-41. **Automatic compaction admission failures:** Cover failures before compaction enters its normal domain logic, task-admission rejection, and missing or stopped runtime state.
-
-    **Recommendation:** **Keep fail-soft automatic compaction.** Exercise genuine closed-runtime or rejected-admission inputs and verify that the completed chat remains successful, no task leaks, and usable context is preserved with a clear reason. Retire the requirement to inject a particular private callback failure.
     - Approved
 
 44. **Successful advanced-shell MCP execution:** Verify actual SSH launch configuration, root forwarding and client closure. Configuration gates and refused-connection behavior pass; successful SSH execution lacks local test infrastructure.
