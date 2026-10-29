@@ -4,7 +4,7 @@
   "gaps": [
     {
       "id": "settings-api-conflict-translation",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/settings_database_migration"
@@ -15,13 +15,16 @@
       ],
       "evidence": [
         "validation/runs/reports/20261028_152922_783295.json",
-        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+        "validation/runs/gap_cleanup_recovery_20261029/report.json",
+        "validation/runs/gap_cleanup_real_conflict_restart_20261029/report.json"
       ],
-      "cleanup_action": "Find a deterministic real request/revision conflict that exercises the translation, or explicitly review retirement/reclassification of the private-injection oracle.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 1,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced."
+      "investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced.",
+      "resolution": "A real public settings request reaches its original revision-checked repository commit. A bounded interpreter-profile observer pauses that code entry without replacing the function; an independent writer thread commits a genuine SQLite setting/revision change, then releases the request. The real conflict becomes HTTP409 SettingsConflict, preserves the newer value and allows a successful fresh request. Profiling state is restored, unsupported existing profilers fail clearly, and the earlier ineffective write-lock probe remains historical only.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "legacy-secrets-abrupt-death",

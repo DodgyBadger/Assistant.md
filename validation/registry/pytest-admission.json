@@ -1676,6 +1676,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_settings_real_conflict.py",
+      "sha256": "9cb72ac3b8e469e7e81d27ec321edae35f6828bea6a479e47d5f8bc5a10d1e59",
+      "kind": "behavioral",
+      "tests": [
+        "test_concurrent_settings_commit_rejects_stale_public_request"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_shared_oauth_foundation.py",
       "sha256": "69547ee629fc691cc18522dfcd33850fe168b907128027feedf74b5c2467d81a",
       "kind": "behavioral",
@@ -2532,6 +2540,11 @@
     {
       "path": "scenarios/support/settings.py",
       "sha256": "a06cb459b8ff10ff18e6756aebc16b6650a2f74198a470f40ec41fe14cf74b36",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/settings_commit_barrier.py",
+      "sha256": "6aaf59c20f1258f7403b38053202781fdd8164f32e9a01552da9cbd9c670ac59",
       "kind": "support"
     },
     {
