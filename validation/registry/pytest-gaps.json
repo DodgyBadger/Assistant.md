@@ -22,9 +22,9 @@
       "review_number": 1,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced.",
       "resolution": "A real public settings request reaches its original revision-checked repository commit. A bounded interpreter-profile observer pauses that code entry without replacing the function; an independent writer thread commits a genuine SQLite setting/revision change, then releases the request. The real conflict becomes HTTP409 SettingsConflict, preserves the newer value and allows a successful fresh request. Profiling state is restored, unsupported existing profilers fail clearly, and the earlier ineffective write-lock probe remains historical only.",
-      "resolution_kind": "deterministic_behavior"
+      "resolution_kind": "deterministic_behavior",
+      "prior_investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced."
     },
     {
       "id": "legacy-secrets-abrupt-death",
@@ -381,7 +381,6 @@
       "review_number": 14,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Real SQLite audit failures after physical file/directory moves now have passing compensation cases: original bytes/paths restored, targets absent and manifest/audit coherent. Remaining: overlap with a newer external edit and prove compensation never overwrites that edit.",
       "resolution": "Real SQLite audit failures after later physical file/directory moves trigger compensation restoring originals and coherent manifest/audit. A real external writer edits the moved destination during a native SQL workload before failure; compensation returns the newer bytes to the original path and the active manifest hash matches, without overwriting the edit.",
       "resolution_kind": "deterministic_behavior"
     },
@@ -427,7 +426,6 @@
       "review_number": 16,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Investigation: production settings loader reads the packaged catalog internally; no supported explicit alternate-template loader input exists. Existing real loader scenarios cover shipped aliases, collisions, persisted backup/activity and retirement. A hypothetical future-template case cannot currently cover the full loader without a new composition seam; no private template patch or redundant helper-only test was added.",
       "resolution": "Real legacy catalog import/backup and running settings reload preserve old managed gpt bindings and an independently owned custom sol collision, retain historical aliases and emit managed_models_update_blocked configuration/activity evidence. Existing actual old-to-current alias migration cases pass. The shipped current catalog is the new-release input; hypothetical future vendor/template patches are retired as approved.",
       "resolution_kind": "deterministic_behavior"
     },
@@ -611,7 +609,6 @@
       "review_number": 24,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Real API raw-cursor expiry410/retained compact replay, actual reason/tool projection without private arguments, failed assistant commit with no advertised fork, and fork-copy transaction rollback/retry with no future context all pass. Remaining: full terminal-task eviction and a cursor-expiry race while SSE admission is in progress; private injected query failures are not counted as actual-producer evidence.",
       "resolution": "Real API raw-cursor expiry returns410 with a retained compact replay; a genuine delayed SSE body after successful route admission emits chat_event_cursor_expired after the producer exceeds retention. Actual101 completed chats evict the first coordinator record, correctly returning the established ExecutionTaskNotFound404 while its durable conversation survives. A pending real reviewed tool call has no fork boundary and rejects that incomplete prefix. Real assistant commit and fork-copy transaction failures leave no advertised/partial fork, retry excludes future history, and actual replay preserves reasoning/tool visibility without private arguments. Private injected query-failure variants add no separate output guarantee.",
       "resolution_kind": "deterministic_behavior"
     },
@@ -635,7 +632,6 @@
       "review_number": 25,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "A queued request retains the accepted restrictive review mode despite a later relaxed preference; actual deferred review and no write are verified. A cancelled queued request emits no provider work. Remaining: cancellation while real preflight work is already executing.",
       "resolution": "A queued turn keeps its accepted restrictive review policy after later preferences relax, and cancelling queued work makes no provider request. A separate real MCP list_tools barrier proves preflight is executing before cancellation; no primary-model/tool dispatch escapes, cancellation is terminal in replay, and a subsequent turn succeeds. Preparation intentionally precedes mark_started, so no incidental running-status requirement is imposed during preflight.",
       "resolution_kind": "deterministic_behavior"
     },
@@ -854,7 +850,6 @@
       "review_number": 34,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "A real failed append after a completed read reproduced duplicate content under snapshot resume. The app fix now recognizes failed transactional effects and audits all runs before whole-turn restart, refusing failed unknown/manual effects and any restart that would repeat a completed external action. Successful rollback/restart, duplicate prevention and existing retry scenarios pass; final budget/refusal/readonly controls are being rerun against actual Activity evidence.",
       "resolution": "Actual idle-stream timeout, active-tool exemption and settled-checkpoint resume pass. A genuine configured transactional append/HTTP503 after a completed read reproduced duplicate data. The app now treats failed transactional effects as requiring authorized successful rollback before bounded replacement and audits all runs before replaying a whole turn. Real recovery, budget exhaustion, disabled-rollback refusal, duplicate prevention, failed unknown/manual refusal, prior completed external POST exactly once, and replay-safe continuation all pass with original file/history/count oracles preserved. Global restart exhaustion now reports the correct budget reason. No SDK state or fake exception is injected.",
       "resolution_kind": "deterministic_behavior"
     },
@@ -1216,7 +1211,6 @@
       "review_number": 50,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "A configured real model provider returns503: app-owned provider_unavailable classification and actual bearer header pass. Remaining: actual OpenRouter model-branch attribution, overload/idle/connect category matrix beyond the existing concrete producers; arbitrary SDK class equivalence remains retired.",
       "resolution": "Actual model-provider503 responses, real HTTP429 retry metadata, a supported HTTP200 SSE overloaded_error producer, actual local connection refusal and real model idle timeout preserve app-owned categories/retryability. The real OpenRouter factory-built model sends enabled/disabled attribution and synthetic bearer headers to a loopback provider through its public SDK base_url composition. Arbitrary constructed SDK-class equivalence is retired; no private header helper/factory patch or live service is used.",
       "resolution_kind": "deterministic_behavior"
     },

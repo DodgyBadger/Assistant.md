@@ -58,11 +58,9 @@
         "validation/scenarios/integration/core/test_api_endpoint_workflow_chat.py::test_chat_metadata_title_export_and_replay_api",
         "validation/scenarios/integration/core/test_api_mcp_connection_readiness.py::test_mcp_test_api_reports_real_catalog_and_sanitizes_auth_failure"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "api-device-oauth-and-connected-fallback"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -77,6 +75,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "api-device-oauth-and-connected-fallback"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -125,11 +130,9 @@
         "validation/scenarios/integration/core/test_api_provider_readiness.py::test_custom_provider_url_secret_and_invalid_openai_endpoint",
         "validation/scenarios/integration/core/test_api_openai_error_classification.py::test_real_openai_sdk_status_failures_classify_retryability"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "api-classification-and-attribution-branches"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -144,6 +147,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "api-classification-and-attribution-branches"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -270,11 +280,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_authoring_tool_failure_semantics.py::test_authoring_tool_failures_preserve_selected_and_uncaught_outcomes"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-ops-private-exception-payload"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "configuration-oauth-tool-contracts-20261028",
         "original_baseline": "validation/runs/reports/20261028_181943_467118.json",
@@ -287,6 +295,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-ops-private-exception-payload"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -323,12 +338,9 @@
         "validation/scenarios/integration/core/test_auto_chat_history_compaction.py::test_automatic_compaction_commit_failure_is_safe",
         "validation/scenarios/integration/core/test_auto_compaction_author_failure.py::test_automatic_compaction_author_provider_failure"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "automatic-compaction-private-boundaries",
-        "chat-guidance-editorial-oracles"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -342,6 +354,14 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-guidance-editorial-oracles",
+          "automatic-compaction-private-boundaries"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -388,6 +408,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "browser-resource-admission-deferred"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -433,12 +460,9 @@
         "validation/scenarios/integration/core/test_builtin_connection_configuration.py::test_invalid_gmail_preferences_are_rejected",
         "validation/scenarios/integration/core/test_google_connection_api_mutations.py::test_default_and_duplicate_name_errors_preserve_connections"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
-      "coverage_gaps": [
-        "google-connection-transaction-races",
-        "google-disconnect-cleanup-rollback"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "chat-code-connections-20261028",
         "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
@@ -452,6 +476,14 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "google-connection-transaction-races",
+          "google-disconnect-cleanup-rollback"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -578,11 +610,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_cancellation.py::test_cancel_chat_rolls_back_tool_write_and_retains_history"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-cancellation-active-tool-boundary"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "execution-eviction-chat-recovery-20261028",
         "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
@@ -595,6 +625,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-cancellation-active-tool-boundary"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -618,11 +655,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_failure_logging.py::test_chat_preflight_failure_activity_and_actionable_error"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-unexpected-exception-diagnostics"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "activity-vault-chat-diagnostics-20261028",
         "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
@@ -635,6 +670,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-unexpected-exception-diagnostics"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -721,11 +763,9 @@
         "validation/scenarios/integration/core/test_chat_compaction_continuation.py::test_second_compaction_and_post_checkpoint_history",
         "validation/scenarios/integration/core/test_chat_compaction_continuation.py::test_compaction_author_receives_shaped_tool_results"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-guidance-editorial-oracles"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -739,6 +779,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-guidance-editorial-oracles"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -771,11 +818,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_manual_retry.py::test_manual_retry_interrupted_chat"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "manual-retry-legacy-sdk-error-classification"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "execution-eviction-chat-recovery-20261028",
         "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
@@ -788,6 +833,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "manual-retry-legacy-sdk-error-classification"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -998,11 +1050,9 @@
         "validation/scenarios/integration/core/test_fork_lineage_canonical.py::test_fork_canonical_prefix_and_safe_checkpoint_lineage",
         "validation/scenarios/integration/core/test_fork_legacy_origin.py::test_legacy_checkpoint_uniquely_retained_origin"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "fork-private-hydration-and-snapshot-windows"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -1016,6 +1066,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "fork-private-hydration-and-snapshot-windows"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1127,11 +1184,9 @@
         "validation/scenarios/integration/core/test_chat_stream_auto_retry.py::test_partial_stream_retry_and_disable",
         "validation/scenarios/integration/core/test_chat_retry_usage_budget.py::test_retry_does_not_reset_model_request_budget"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "automatic-retry-recovery-branches"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "execution-eviction-chat-recovery-20261028",
         "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
@@ -1145,6 +1200,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "automatic-retry-recovery-branches"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1229,11 +1291,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_stream_failure_logging.py::test_stream_failure_marker_logging_and_recovery"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-unexpected-exception-diagnostics"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "activity-vault-chat-diagnostics-20261028",
         "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
@@ -1246,6 +1306,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-unexpected-exception-diagnostics"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1453,11 +1520,9 @@
         "validation/scenarios/integration/core/test_chat_task_api_boundaries.py::test_chat_snapshot_cursor_handoff_and_task_boundaries",
         "validation/scenarios/integration/core/test_chat_task_api_boundaries.py::test_running_chat_can_be_cancelled_after_disconnect"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
-      "coverage_gaps": [
-        "chat-replay-expiry-projection-and-fork-faults"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "chat-code-connections-20261028",
         "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
@@ -1470,6 +1535,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-replay-expiry-projection-and-fork-faults"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1513,11 +1585,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_task_stream_queue.py::test_chat_session_queue_and_queued_cancellation"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
-      "coverage_gaps": [
-        "chat-queue-preflight-approval-contracts"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "chat-code-connections-20261028",
         "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
@@ -1530,6 +1600,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-queue-preflight-approval-contracts"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1553,11 +1630,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_tool_metadata_visibility.py::test_chat_tool_metadata_visibility"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-guidance-editorial-oracles"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "cache-ingestion-reasoning-limits-20261028",
         "original_baseline": "validation/runs/reports/20261028_184724_814150.json",
@@ -1570,6 +1645,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-guidance-editorial-oracles"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1701,11 +1783,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_chat_usage_limits.py::test_model_request_limit_reports_and_persists_recovery"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-guidance-editorial-oracles"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "cache-ingestion-reasoning-limits-20261028",
         "original_baseline": "validation/runs/reports/20261028_184724_814150.json",
@@ -1718,6 +1798,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-guidance-editorial-oracles"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1762,9 +1849,7 @@
       ],
       "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, no maintainer acceptance or full coverage certification.",
-      "coverage_gaps": [
-        "code-execution-delegated-image-scope"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "chat-code-connections-20261028",
         "original_baseline": "validation/runs/reports/20261028_174929_922534.json",
@@ -1777,6 +1862,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "code-execution-delegated-image-scope"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -1889,6 +1981,14 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "direct-import-public-url-success",
+          "content-import-ui-behavior"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2030,11 +2130,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_default_context.py::test_default_context_sources_and_effective_history"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
-      "coverage_gaps": [
-        "Generated missing-README scan/create advice and absence of named packaged default-stance/WorkPolicy/GoalTracking prose lack equivalent semantic assertions. Input inclusion, truncation sentinels, custom headings, workspace data and structured activity checks are preserved."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "default-context-instruction-semantics"
       ],
@@ -2049,6 +2147,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "default-context-instruction-semantics"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2093,11 +2198,9 @@
         "validation/scenarios/integration/core/test_deferred_review_interruption.py::test_failed_resume_rolls_back_approved_write_and_settles_review",
         "validation/scenarios/integration/core/test_deferred_review_interruption.py::test_review_creation_failure_rolls_back_messages_and_failure_marker"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "deferred-review-inflight-interruption"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -2110,6 +2213,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "deferred-review-inflight-interruption"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2302,11 +2412,9 @@
         "validation/scenarios/integration/core/test_delegate_model_setup.py::test_delegate_invalid_real_model_configuration_returns_structured_failure",
         "validation/scenarios/integration/core/test_delegate_model_setup.py::test_delegate_without_chat_parent_uses_runtime_default"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "delegate-unported-observer-and-error-boundaries"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -2322,6 +2430,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "delegate-unported-observer-and-error-boundaries"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2438,11 +2553,9 @@
         "validation/scenarios/integration/core/test_encrypted_secrets.py::test_encrypted_secret_boundaries",
         "validation/scenarios/integration/core/test_encrypted_secrets.py::test_secret_key_configuration_and_locked_bootstrap"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
-      "coverage_gaps": [
-        "Original guarded-write concurrency window pauses private service._select_row; the new public mutation/integrity/rotation checks do not prove that exact serialization window."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "encrypted-guarded-write-serialization"
       ],
@@ -2458,6 +2571,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "encrypted-guarded-write-serialization"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2530,11 +2650,9 @@
         "validation/scenarios/integration/core/test_execution_runner_diagnostics.py::test_runner_bounds_actual_workload_result_and_preserves_valid_artifact_references",
         "validation/scenarios/integration/core/test_execution_runner_shutdown.py::test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "execution-runner-private-race-windows"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "execution-eviction-chat-recovery-20261028",
         "original_baseline": "validation/runs/reports/20261028_185844_975542.json",
@@ -2547,6 +2665,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "execution-runner-private-race-windows"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2825,7 +2950,9 @@
       ],
       "disposition": "canonical_verified_port_retain_original",
       "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
-      "coverage_gaps": [],
+      "coverage_gaps": [
+        "vault-root-alias-contract"
+      ],
       "migration": {
         "batch": "file-api-settings-20261028",
         "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
@@ -2839,6 +2966,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "vault-root-alias-contract"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2864,11 +2998,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_file_concurrency.py::test_concurrent_same_path_edits_preserve_all_changes"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
-      "coverage_gaps": [
-        "Original max_active_writes==1 assertion required patching the replacement function. New real concurrent operations establish successful statuses and no lost updates, not an observed non-overlap interval."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "same-path-active-mutation-serialization"
       ],
@@ -2883,6 +3015,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "same-path-active-mutation-serialization"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -2950,6 +3089,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "gmail-selected-connection-token-routing"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3003,6 +3149,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "gmail-connection-ui-policy"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3073,6 +3226,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "gmail-selected-connection-token-routing"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3357,11 +3517,9 @@
         "validation/scenarios/integration/core/test_google_oauth_credential_fences.py::test_google_oauth_changed_client_rejects_callback_before_exchange",
         "validation/scenarios/integration/core/test_google_oauth_credential_fences.py::test_google_oauth_stale_credential_cannot_recreate_cleared_grant"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "google-oauth-synchronous-pending-races"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -3374,6 +3532,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "google-oauth-synchronous-pending-races"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3531,7 +3696,14 @@
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
       },
-      "review_blocker_ids": []
+      "review_blocker_ids": [],
+      "cleanup_review": {
+        "resolved_gaps": [
+          "capture-mutates-application-logging"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
+      }
     },
     {
       "source": "validation/legacy/scenarios/integration/core/job_tool.py",
@@ -3628,11 +3800,9 @@
         "validation/scenarios/integration/core/test_legacy_secrets_migration.py::test_invalid_legacy_secret_preserves_source_and_empty_database",
         "validation/scenarios/integration/core/test_legacy_secrets_migration.py::test_legacy_secret_retry_after_durable_failure"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
-      "coverage_gaps": [
-        "Abrupt process-death recovery at during-import, after-import and after-rename private injection boundaries has no new equivalent proof. Real exception-state fixtures are additional coverage, not crash parity; retain original crash sources and baseline evidence."
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-ingress-secrets-20261028",
         "original_baseline": "validation/runs/reports/20261028_154045_955516.json",
@@ -3649,7 +3819,14 @@
       },
       "gap_ids": [
         "legacy-secrets-abrupt-death"
-      ]
+      ],
+      "cleanup_review": {
+        "resolved_gaps": [
+          "legacy-secrets-abrupt-death"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
+      }
     },
     {
       "source": "validation/legacy/scenarios/integration/core/locked_access_bootstrap.py",
@@ -3713,7 +3890,14 @@
       },
       "scope_review_ids": [
         "locked-bootstrap-cold-import-scope"
-      ]
+      ],
+      "cleanup_review": {
+        "resolved_gaps": [
+          "locked-bootstrap-cold-import-scope"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
+      }
     },
     {
       "source": "validation/legacy/scenarios/integration/core/manual_session_map_compaction.py",
@@ -3766,11 +3950,9 @@
         "validation/scenarios/integration/core/test_manual_compaction_tool_integrity.py::test_manual_compaction_rejects_invalid_tool_replies_without_changing_history",
         "validation/scenarios/integration/core/test_session_map_valid_tool_histories.py::test_valid_tool_exchanges_compact_and_upgrade_through_real_author"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "manual-map-tool-source-and-failure-matrix"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -3785,6 +3967,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "manual-map-tool-source-and-failure-matrix"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3837,6 +4026,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "mcp-advanced-stdio-successful-ssh"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3872,11 +4068,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_mcp_chat_tool_search.py::test_mcp_chat_deferred_search_and_tool_activity"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "chat-guidance-editorial-oracles"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -3889,6 +4083,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "chat-guidance-editorial-oracles"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -3954,8 +4155,7 @@
       "disposition": "canonical_partial_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
       "coverage_gaps": [
-        "mcp-controlled-dns-and-tls-boundaries",
-        "mcp-real-timeout-classification"
+        "mcp-controlled-dns-and-tls-boundaries"
       ],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
@@ -3971,6 +4171,15 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "mcp-real-timeout-classification"
+        ],
+        "remaining_gaps": [
+          "mcp-controlled-dns-and-tls-boundaries"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4017,11 +4226,9 @@
         "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_abrupt_process_exit_preserves_one_complete_access_state",
         "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "mcp-mutation-private-race-windows"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mcp-review-compaction-20261028",
         "original_baseline": "validation/runs/reports/20261028_213557_735471.json",
@@ -4034,6 +4241,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "mcp-mutation-private-race-windows"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4093,6 +4307,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "mcp-oauth-live-authorization-lifecycle"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4143,6 +4364,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "mcp-oauth-socket-authoritative-transport"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4254,11 +4482,9 @@
         "validation/scenarios/integration/core/test_legacy_model_catalog.py::test_legacy_catalog_import_preserves_identity[aliases]",
         "validation/scenarios/integration/core/test_legacy_model_catalog.py::test_retired_managed_catalog_entry_is_removed_and_logged"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "managed-catalog-future-update-conflicts"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-session-model-20261028",
         "original_baseline": "validation/runs/reports/20261028_172555_547114.json",
@@ -4272,6 +4498,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "managed-catalog-future-update-conflicts"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4714,11 +4947,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_runtime_bootstrap_cleanup.py::test_invalid_runtime_configuration_then_clean_restart"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "bootstrap-mcp-exact-cleanup-lifecycle"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mutation-web-runtime-retirement-20261028",
         "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
@@ -4731,6 +4962,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "bootstrap-mcp-exact-cleanup-lifecycle"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4794,11 +5032,9 @@
         "validation/scenarios/integration/core/test_session_map_valid_tool_histories.py::test_valid_tool_exchanges_compact_and_upgrade_through_real_author",
         "validation/scenarios/integration/core/test_session_upgrade_cancellation.py::test_active_upgrade_is_deduplicated_and_cancellation_preserves_history"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "context-upgrade-races-and-recovery-matrix"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -4813,6 +5049,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "context-upgrade-races-and-recovery-matrix"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -4964,11 +5207,9 @@
         "validation/scenarios/integration/core/test_session_map_author_retry_cancel.py::test_session_map_author_retries_invalid_output[provenance_retry]",
         "validation/scenarios/integration/core/test_session_map_author_retry_cancel.py::test_session_map_author_cancellation"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-map-authoring-failure-boundaries"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -4983,6 +5224,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-map-authoring-failure-boundaries"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5030,11 +5278,9 @@
         "validation/scenarios/integration/core/test_session_map_corruption.py::test_corrupt_map_and_replacement_are_identified_without_private_data",
         "validation/scenarios/integration/core/test_session_map_timeline.py::test_mapped_history_pages_and_historical_checkpoint_remain_accessible"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "map-checkpoint-specialized-boundaries"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -5048,6 +5294,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "map-checkpoint-specialized-boundaries"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5092,11 +5345,9 @@
         "validation/scenarios/integration/core/test_session_map_evidence_admission.py::test_mixed_retrieval_evidence_admission",
         "validation/scenarios/integration/core/test_session_map_admission_checkpoint.py::test_recursive_windows_and_verified_admission_marker"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-map-legacy-admission-repair"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -5110,6 +5361,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-map-legacy-admission-repair"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5203,11 +5461,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_session_map_readiness.py::test_session_map_readiness_fails_closed_for_invalid_settings"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-map-editorial-oracle-disposition"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "authority-session-map-transcript-20261028",
         "original_baseline": "validation/runs/reports/20261028_173551_652185.json",
@@ -5220,6 +5476,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-map-editorial-oracle-disposition"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5269,11 +5532,9 @@
         "validation/scenarios/integration/core/test_session_map_retrieved_authoring.py::test_verified_fragment_in_governed_author_request",
         "validation/scenarios/integration/core/test_session_map_mixed_retained_return.py::test_mixed_retained_tool_return_preserves_independent_result"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "retained-session-map-automatic-trigger"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
@@ -5290,6 +5551,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "retained-session-map-automatic-trigger"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5316,11 +5584,9 @@
         "validation/scenarios/integration/core/test_session_map_schema.py::test_session_map_provenance_and_authoring_inputs",
         "validation/scenarios/integration/core/test_session_map_schema.py::test_session_map_schema_rejects_unbounded_or_unsupported_state"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-map-editorial-oracle-disposition"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "authority-session-map-transcript-20261028",
         "original_baseline": "validation/runs/reports/20261028_173551_652185.json",
@@ -5333,6 +5599,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-map-editorial-oracle-disposition"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5370,11 +5643,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_session_ops_chat_tool.py::test_session_ops_chat_discovery_and_safe_failure"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "session-ops-private-exception-payload"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "authority-session-map-transcript-20261028",
         "original_baseline": "validation/runs/reports/20261028_173551_652185.json",
@@ -5387,6 +5658,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "session-ops-private-exception-payload"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5438,11 +5716,9 @@
         "validation/scenarios/integration/core/test_session_ops_transcript_retrieval.py::test_session_ops_transcript_search_and_windows",
         "validation/scenarios/integration/core/test_session_ops_transcript_paging.py::test_transcript_paging_cursor_and_echo_exclusion"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "transcript-tool-error-and-limit-matrix"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -5456,6 +5732,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "transcript-tool-error-and-limit-matrix"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5507,11 +5790,9 @@
         "validation/scenarios/integration/core/test_session_summary_data_retirement.py::test_summary_retirement_backup_scope_and_repeatability",
         "validation/scenarios/integration/core/test_session_summary_data_retirement.py::test_summary_retirement_rejects_external_foreign_keys"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "summary-retirement-interrupted-bookkeeping"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "mutation-web-runtime-retirement-20261028",
         "original_baseline": "validation/runs/reports/20261028_205731_603716.json",
@@ -5524,6 +5805,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "summary-retirement-interrupted-bookkeeping"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5565,11 +5853,9 @@
         "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_numbered_upgrade",
         "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_import_persistence_and_recovery"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Agent semantic mapping and parent evidence audit; staged replacement is not maintainer admission or complete coverage certification.",
-      "coverage_gaps": [
-        "API 409 SettingsConflict translation was exercised only by a patched repository.save exception in the original. No honest deterministic real-entry-point replacement is established; retain original source and evidence."
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "file-api-settings-20261028",
         "original_baseline": "validation/runs/reports/20261028_152922_783295.json",
@@ -5587,7 +5873,14 @@
       },
       "gap_ids": [
         "settings-api-conflict-translation"
-      ]
+      ],
+      "cleanup_review": {
+        "resolved_gaps": [
+          "settings-api-conflict-translation"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
+      }
     },
     {
       "source": "validation/legacy/scenarios/integration/core/settings_editors.py",
@@ -5699,7 +5992,14 @@
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
       },
-      "review_blocker_ids": []
+      "review_blocker_ids": [],
+      "cleanup_review": {
+        "resolved_gaps": [
+          "capture-mutates-application-logging"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
+      }
     },
     {
       "source": "validation/legacy/scenarios/integration/core/shared_oauth_foundation.py",
@@ -5906,11 +6206,9 @@
         "validation/scenarios/integration/core/test_stepped_session_map_post_turn.py::test_post_turn_map_and_checkpoint_commit_failure",
         "validation/scenarios/integration/core/test_stepped_map_author_failure.py::test_post_turn_author_failure_preserves_chat"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent source/behavior mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "stepped-map-pinned-and-policy-boundaries"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "original_baseline": "validation/runs/reports/20261028_221914_898910.json",
@@ -5924,6 +6222,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "stepped-map-pinned-and-policy-boundaries"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -5988,11 +6293,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_structured_tool_failure.py::test_web_search_missing_credentials_returns_failure_metadata"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "structured-web-transient-provider-failure"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-session-model-20261028",
         "original_baseline": "validation/runs/reports/20261028_172555_547114.json",
@@ -6005,6 +6308,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "structured-web-transient-provider-failure"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -6413,9 +6723,7 @@
       ],
       "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "transcript-legacy-index-backfill"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "authority-session-map-transcript-20261028",
         "original_baseline": "validation/runs/reports/20261028_173551_652185.json",
@@ -6428,6 +6736,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "transcript-legacy-index-backfill"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -6524,6 +6839,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "legacy-adapter-observation-contract-review"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -6757,6 +7079,7 @@
       "disposition": "current_owner_reassigned_retain_original",
       "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
       "coverage_gaps": [
+        "runner-timeout-descendant-guarantees",
         "legacy-runner-policy-differences"
       ],
       "current_owner_tests": [
@@ -6785,6 +7108,14 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "runner-timeout-descendant-guarantees",
+          "legacy-runner-policy-differences"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -6881,11 +7212,9 @@
         "validation/scenarios/integration/core/test_vault_activity_rollback.py::test_activity_rollback_conflicts_chaining_and_directory_limits",
         "validation/scenarios/integration/core/test_vault_activity_rollback.py::test_duplicate_activity_rollback_submissions_reject_one"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
-      "coverage_gaps": [
-        "Original restore_calls==1 while the first restore was paused is not established by real concurrent submissions yielding one success/one rejection and correct final files."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "activity-rollback-paused-restore-serialization"
       ],
@@ -6900,6 +7229,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "activity-rollback-paused-restore-serialization"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -6987,8 +7323,7 @@
       "disposition": "canonical_partial_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
       "coverage_gaps": [
-        "direct-import-public-url-success",
-        "direct-import-authority-before-enqueue"
+        "direct-import-public-url-success"
       ],
       "migration": {
         "batch": "vault-session-model-20261028",
@@ -7002,6 +7337,15 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "direct-import-authority-before-enqueue"
+        ],
+        "remaining_gaps": [
+          "direct-import-public-url-success"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7028,11 +7372,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_file_concurrency.py::test_directory_move_rejects_stale_child_path"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped behavioral port with focused passing evidence; critical admission and whole-suite certification remain pending.",
-      "coverage_gaps": [
-        "Original child edit waits during an active directory move depends on pausing os.replace via a patch. Sequential real move and stale-path rejection do not prove active contention/waiting."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "directory-move-active-child-contention"
       ],
@@ -7047,6 +7389,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "directory-move-active-child-contention"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7075,11 +7424,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_vault_explorer_batch_move.py::test_explorer_batch_move_groups_activity_and_rejects_preflight_conflicts"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "explorer-batch-move-compensation"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-session-model-20261028",
         "original_baseline": "validation/runs/reports/20261028_172555_547114.json",
@@ -7092,6 +7439,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "explorer-batch-move-compensation"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7124,11 +7478,9 @@
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_vault_explorer_upload.py::test_explorer_upload_preserves_bytes_and_enforces_boundaries"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic review and focused installed-plugin evidence; original retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "explorer-upload-interrupted-write-cleanup"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "vault-session-model-20261028",
         "original_baseline": "validation/runs/reports/20261028_172555_547114.json",
@@ -7141,6 +7493,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "explorer-upload-interrupted-write-cleanup"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7468,11 +7827,9 @@
         "validation/scenarios/integration/core/test_vault_rollback.py::test_failed_workflow_rolls_back_files_and_reports_partial_directory_recovery",
         "validation/scenarios/integration/core/test_vault_rollback.py::test_task_rollback_conflict_preserves_every_path"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Source-mapped port and actual focused pytest verdicts retained; not complete coverage certification or maintainer admission.",
-      "coverage_gaps": [
-        "Original retry fixture deleted mutation history and reactivated an already-rolled-back snapshot. New active-task external-edit conflict and real retry preserve safety outcomes but do not reproduce that manipulated retry state."
-      ],
+      "coverage_gaps": [],
       "gap_ids": [
         "task-rollback-reactivated-snapshot-retry"
       ],
@@ -7488,6 +7845,13 @@
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending"
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "task-rollback-reactivated-snapshot-retry"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7652,6 +8016,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [],
+        "remaining_gaps": [
+          "web-extraction-mixed-and-binary-responses"
+        ],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     },
     {
@@ -7985,11 +8356,9 @@
         "validation/scenarios/integration/core/test_workflow_run_history.py::test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
         "validation/scenarios/integration/core/test_workflow_run_history.py::test_workflow_history_retention_and_cross_vault_template_projection"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and actual focused installed-plugin evidence; originals retained and maintainer acceptance pending.",
-      "coverage_gaps": [
-        "workflow-history-governor-output-files"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "activity-vault-chat-diagnostics-20261028",
         "original_baseline": "validation/runs/reports/20261028_182948_897750.json",
@@ -8002,6 +8371,13 @@
         "source_retained": true,
         "maintainer_acceptance": "pending",
         "source_sha256_unchanged": true
+      },
+      "cleanup_review": {
+        "resolved_gaps": [
+          "workflow-history-governor-output-files"
+        ],
+        "remaining_gaps": [],
+        "registry": "validation/registry/pytest-gaps.json"
       }
     }
   ],
@@ -11445,65 +11821,17 @@
     "new_focused_passing_cases": 298,
     "staged_default_core_cases": 304,
     "partial_source_ports": [
-      "integration/core/api_endpoints",
-      "integration/core/api_error_resilience",
-      "integration/core/authoring_tool_failure_semantics",
-      "integration/core/auto_chat_history_compaction",
       "integration/core/browser_resource_policy",
-      "integration/core/builtin_connection_configuration",
-      "integration/core/chat_cancellation",
-      "integration/core/chat_failure_logging",
-      "integration/core/chat_history_compaction",
-      "integration/core/chat_manual_retry",
-      "integration/core/chat_session_fork_lineage",
-      "integration/core/chat_stream_auto_retry",
-      "integration/core/chat_stream_failure_logging",
-      "integration/core/chat_task_event_stream_api",
-      "integration/core/chat_task_session_queue",
-      "integration/core/chat_tool_metadata_visibility",
-      "integration/core/chat_usage_limits",
       "integration/core/content_import_tool",
-      "integration/core/default_context",
-      "integration/core/deferred_review_interruption",
-      "integration/core/delegate_tool",
-      "integration/core/encrypted_secrets_boundaries",
-      "integration/core/execution_task_runner",
-      "integration/core/file_write_same_path_concurrency",
       "integration/core/gmail_attachment_tool",
       "integration/core/gmail_connection_api",
       "integration/core/gmail_draft_tool",
-      "integration/core/google_oauth_coordinator",
-      "integration/core/legacy_secrets_migration",
-      "integration/core/manual_session_map_compaction",
       "integration/core/mcp_advanced_shell_stdio_connections",
-      "integration/core/mcp_chat_tool_search",
       "integration/core/mcp_connection_isolation",
-      "integration/core/mcp_mutation_recovery",
       "integration/core/mcp_oauth_coordinator",
       "integration/core/mcp_oauth_storage",
-      "integration/core/model_alias_resolution",
-      "integration/core/runtime_bootstrap_cleanup",
-      "integration/core/session_context_strategy_upgrade",
-      "integration/core/session_map_authoring_task",
-      "integration/core/session_map_checkpoint",
-      "integration/core/session_map_evidence_admission",
-      "integration/core/session_map_readiness",
-      "integration/core/session_map_retained_evidence",
-      "integration/core/session_map_schema",
-      "integration/core/session_ops_chat_tool",
-      "integration/core/session_ops_transcript_retrieval",
-      "integration/core/session_summary_data_retirement",
-      "integration/core/settings_database_migration",
-      "integration/core/stepped_session_map_post_turn",
-      "integration/core/structured_tool_failure",
-      "integration/core/vault_activity_rollback",
       "integration/core/vault_direct_import",
-      "integration/core/vault_directory_mutation_concurrency",
-      "integration/core/vault_explorer_batch_move",
-      "integration/core/vault_explorer_upload",
-      "integration/core/vault_state_rollback",
-      "integration/core/web_capability_strategies",
-      "integration/core/workflow_run_history"
+      "integration/core/web_capability_strategies"
     ],
     "coverage_complete": false,
     "original_sources_retained": true,
@@ -11515,7 +11843,7 @@
     "framework_sources_reassigned_to_current_owners": 6,
     "initial_source_inventory_pass_complete": true,
     "semantic_parity_complete": false,
-    "canonical_default_core_cases": 304
+    "canonical_default_core_cases": 392
   },
   "known_open_behaviors": [
     {
@@ -11584,5 +11912,20 @@
     "browser_execution": "deferred",
     "documentation": "pending explicit draft approval",
     "evidence": "validation/runs/canonical-promotion-evidence.json"
+  },
+  "approved_gap_cleanup": {
+    "date": "2026-10-29",
+    "reviewed_items": 63,
+    "resolved_items": 48,
+    "remaining_registry_items": 15,
+    "remaining_human_review_items": 14,
+    "separately_tracked_item": 3,
+    "new_collected_cases_with_focused_passing_evidence": 88,
+    "canonical_collected_cases": 392,
+    "full_profile_run": false,
+    "evidence_index": "validation/runs/gap_cleanup_final_review_20261029/evidence-index.json",
+    "review_file": "validation-gap-review.md",
+    "current_plugin_revision": "a9f20bb24ebd0ce7ac97e154c7c1b696172ae108",
+    "note": "Collection counts are not a behavior or code coverage metric. Original sources and historical migration evidence remain retained. Native process isolation and admitted public transport infrastructure remain unfinished."
   }
 }
