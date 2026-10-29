@@ -43,7 +43,7 @@
     },
     {
       "path": "scenarios/browser/test_configuration_browser.py",
-      "sha256": "4b3e038374d8551cd457ad66aa8cf2428d65670ece82c72b6e25f687a5e418e1",
+      "sha256": "8fe939338cf261283a6730d5e6e787e401ef6886324d578149e51ad927bd62b1",
       "kind": "behavioral",
       "tests": [
         "test_invalid_numeric_input_cannot_mutate_saved_setting",
@@ -53,7 +53,16 @@
         "test_global_defaults_cancel_then_restore_discards_draft_and_updates_values",
         "test_settings_unlock_before_slow_metadata_refresh",
         "test_managed_binding_is_protected_and_duplicate_is_independent",
-        "test_custom_model_collision_preserves_draft_then_atomic_rename_succeeds"
+        "test_custom_model_collision_preserves_draft_then_atomic_rename_succeeds",
+        "test_failed_global_reset_retains_draft_and_saved_configuration",
+        "test_restoring_one_default_preserves_another_unsaved_setting",
+        "test_old_metadata_completion_cannot_unlock_newer_pending_mutation",
+        "test_invalid_saved_value_remains_visible_until_explicitly_repaired",
+        "test_failed_validation_refresh_retains_saved_warning_and_reports_unavailability",
+        "test_global_defaults_finish_after_older_reads_with_fresh_values",
+        "test_global_defaults_discard_setting_model_and_provider_drafts",
+        "test_failed_save_refreshes_model_choices_without_discarding_draft",
+        "test_global_reset_waits_for_fresh_model_and_provider_reads"
       ]
     },
     {
@@ -67,25 +76,30 @@
     },
     {
       "path": "scenarios/browser/test_explorer_browser.py",
-      "sha256": "843de0704b6a4e551354e496a21c0dd5bd83ec588882da57315b2e9ad455dc65",
+      "sha256": "ba186ac810eab185fad832f1bb6c594e6967c1c70b5c5e01d8127eb13fedf4f5",
       "kind": "behavioral",
       "tests": [
         "test_explorer_selection_applicability_refresh_and_references",
         "test_explorer_create_rename_delete_and_duplicate_submit_lock",
         "test_explorer_content_search_escapes_untrusted_file_text",
-        "test_explorer_workspace_save_updates_open_navigation"
+        "test_explorer_workspace_save_updates_open_navigation",
+        "test_batch_move_keeps_contents_and_rejects_descendant_destination"
       ]
     },
     {
       "path": "scenarios/browser/test_files_and_selection.py",
-      "sha256": "c8c7fe6c5273f023e7062bfa7c2367dfa33076ca7c4f7cf537bb0a4d98af9f66",
+      "sha256": "5f5efde24fd7de366c53b0ef6bbb665e8a9d2dffcfe243687e5e5907a4e215d4",
       "kind": "behavioral",
       "tests": [
         "test_relative_wikilinks_keep_source_context_and_back_history",
         "test_quote_append_preserves_draft_and_accumulates_ordered_blocks",
         "test_selection_prompt_keyboard_newline_and_viewport_bounds",
         "test_unsaved_file_changes_require_confirmation_and_save_is_durable",
-        "test_quote_edit_mode_cancellation_preserves_instruction"
+        "test_quote_edit_mode_cancellation_preserves_instruction",
+        "test_quote_references_preserve_literal_names_and_multiline_text",
+        "test_adjacent_at_references_remain_distinct_across_prose",
+        "test_mouse_selection_preserves_quote_while_typing_and_appends_across_files",
+        "test_quote_append_keeps_reading_scroll_and_does_not_focus_composer"
       ]
     },
     {

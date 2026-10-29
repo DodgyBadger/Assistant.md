@@ -14,6 +14,10 @@ pytestmark = pytest.mark.scenario
 async def test_explorer_selection_applicability_refresh_and_references(browser_app, ui):
     browser_app.app.write(browser_app.vault, "Notes/A.md", "alpha")
     browser_app.app.write(browser_app.vault, "Notes/B.md", "beta")
+    for i in range(50):
+        browser_app.app.write(
+            browser_app.vault, f"Notes/Filler-{i:02}.md", "reading input"
+        )
     explorer = await open_explorer(ui, browser_app)
     await expect(
         explorer.get_by_role("button", name="Rename", exact=True)
@@ -30,6 +34,12 @@ async def test_explorer_selection_applicability_refresh_and_references(browser_a
     await expect(
         explorer.get_by_role("button", name="2 selected", exact=True)
     ).to_be_visible()
+    await explorer.locator(
+        '[data-vault-path-picker-select="Notes/Filler-49.md"]'
+    ).scroll_into_view_if_needed()
+    results = explorer.locator("[data-vault-path-picker-results]")
+    scroll_before = await results.evaluate("element => element.scrollTop")
+    assert scroll_before > 0
     await explorer.get_by_role("button", name="Refresh", exact=True).click()
     await expect(
         explorer.get_by_role("checkbox", name="Select A.md", exact=True)
@@ -37,6 +47,8 @@ async def test_explorer_selection_applicability_refresh_and_references(browser_a
     await expect(
         explorer.get_by_role("checkbox", name="Select B.md", exact=True)
     ).to_be_checked()
+    scroll_after = await results.evaluate("element => element.scrollTop")
+    assert abs(scroll_after - scroll_before) <= 2
     await explorer.get_by_role("button", name="Add to prompt", exact=True).click()
     draft = await ui.locator("#chat-input").input_value()
     assert "Notes/A.md" in draft and "Notes/B.md" in draft
@@ -123,3 +135,31 @@ async def test_explorer_workspace_save_updates_open_navigation(browser_app, ui):
     await expect(
         explorer.get_by_role("checkbox", name="Select Project", exact=True)
     ).to_be_visible()
+
+
+async def test_batch_move_keeps_contents_and_rejects_descendant_destination(
+    browser_app, ui
+):
+    browser_app.app.write(browser_app.vault, "Source/Child/A.md", "first content")
+    browser_app.app.write(browser_app.vault, "B.md", "second content")
+    browser_app.app.write(browser_app.vault, "Target/Existing.md", "existing content")
+    explorer = await open_explorer(ui, browser_app)
+    await explorer.get_by_role("button", name="Expand all folders").click()
+    await explorer.get_by_role("checkbox", name="Select Source", exact=True).check()
+    await explorer.get_by_role("checkbox", name="Select B.md", exact=True).check()
+    await explorer.get_by_role("button", name="Move", exact=True).click()
+    await explorer.locator('[data-vault-path-picker-select="Source/Child"]').click()
+    await expect(explorer).to_contain_text("cannot be moved into itself")
+    assert (browser_app.vault / "Source/Child/A.md").read_text() == "first content"
+    await explorer.locator('[data-vault-path-picker-select="Target"]').click()
+    await explorer.get_by_role("button", name="Move here", exact=True).click()
+    await expect(
+        explorer.get_by_role("checkbox", name="Select B.md", exact=True)
+    ).to_be_visible()
+    assert not (browser_app.vault / "Source").exists()
+    assert not (browser_app.vault / "B.md").exists()
+    assert (
+        browser_app.vault / "Target/Source/Child/A.md"
+    ).read_text() == "first content"
+    assert (browser_app.vault / "Target/B.md").read_text() == "second content"
+    assert (browser_app.vault / "Target/Existing.md").read_text() == "existing content"
