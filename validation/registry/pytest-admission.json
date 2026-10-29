@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "scenarios/application.py",
-      "sha256": "fe7445f24a3bc72e0b819bde8dc858327356b4df18ea8bbad00eaeb31d56c821",
+      "sha256": "7e991fbafcf21b4cc5ff16f6ff7db07ee42935868f2e7bb894d72eeb91ffb1c3",
       "kind": "support"
     },
     {
@@ -27,6 +27,44 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/browser/test_configuration_browser.py",
+      "sha256": "4b3e038374d8551cd457ad66aa8cf2428d65670ece82c72b6e25f687a5e418e1",
+      "kind": "behavioral",
+      "tests": [
+        "test_invalid_numeric_input_cannot_mutate_saved_setting",
+        "test_ordered_pdf_strategies_reorder_remove_and_readd_durably",
+        "test_failed_save_preserves_draft_and_retry_uses_real_service",
+        "test_global_reset_cancels_a_pending_real_editor_read",
+        "test_global_defaults_cancel_then_restore_discards_draft_and_updates_values",
+        "test_settings_unlock_before_slow_metadata_refresh",
+        "test_managed_binding_is_protected_and_duplicate_is_independent",
+        "test_custom_model_collision_preserves_draft_then_atomic_rename_succeeds"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_explorer_browser.py",
+      "sha256": "843de0704b6a4e551354e496a21c0dd5bd83ec588882da57315b2e9ad455dc65",
+      "kind": "behavioral",
+      "tests": [
+        "test_explorer_selection_applicability_refresh_and_references",
+        "test_explorer_create_rename_delete_and_duplicate_submit_lock",
+        "test_explorer_content_search_escapes_untrusted_file_text",
+        "test_explorer_workspace_save_updates_open_navigation"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_files_and_selection.py",
+      "sha256": "c8c7fe6c5273f023e7062bfa7c2367dfa33076ca7c4f7cf537bb0a4d98af9f66",
+      "kind": "behavioral",
+      "tests": [
+        "test_relative_wikilinks_keep_source_context_and_back_history",
+        "test_quote_append_preserves_draft_and_accumulates_ordered_blocks",
+        "test_selection_prompt_keyboard_newline_and_viewport_bounds",
+        "test_unsaved_file_changes_require_confirmation_and_save_is_durable",
+        "test_quote_edit_mode_cancellation_preserves_instruction"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_import_browser.py",
       "sha256": "43808a25a087e2031bfd338e18452f2e45337c80bec7b8439cc905ad0ee22be3",
       "kind": "behavioral",
@@ -40,6 +78,17 @@
       "kind": "behavioral",
       "tests": [
         "test_setting_save_reload_and_restore_default"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_system_surfaces.py",
+      "sha256": "e220d33f5c6e35c7fedcb01047513ba5498203e7926cf3a0444f6b815d51ee44",
+      "kind": "behavioral",
+      "tests": [
+        "test_google_capability_changes_must_be_saved_before_authorization",
+        "test_connected_readonly_google_grant_shows_draft_reauthorization_warning",
+        "test_system_sections_load_while_unrelated_status_response_is_delayed",
+        "test_activity_metadata_is_expandable_complete_and_escaped"
       ]
     },
     {
@@ -2150,6 +2199,11 @@
     {
       "path": "scenarios/support/batch_move_external_edit.py",
       "sha256": "f4e7a1c230d54b68c4be7979dbcec9bc1cfefd91a5d13c6089d3e6c62a8d7f9a",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/browser_fullstack.py",
+      "sha256": "c0b3ca34ec5281e20dc9b97ffe25fa133936a00992cba835b45467cc61e9aa08",
       "kind": "support"
     },
     {

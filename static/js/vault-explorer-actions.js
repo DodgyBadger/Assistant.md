@@ -492,7 +492,7 @@
                 callbacks.mutationCompleted?.({
                     operation,
                     sourcePath,
-                    targetPath: result?.path || destination || targetPath,
+                    targetPath: result?.destination || destination || result?.path || targetPath,
                     kind: form.dataset.kind || (operation === 'create_directory' ? 'directory' : 'file'),
                 });
                 closeActionPanel(overlay, { restoreFocus: false });

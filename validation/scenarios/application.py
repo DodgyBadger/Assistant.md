@@ -211,7 +211,9 @@ async def app(
         raise error from previous
     roots = snapshot_bootstrap_roots()
     core_case = any(
-        request.node.path.resolve().is_relative_to(Path(__file__).parent / profile)
+        request.node.path.resolve().is_relative_to(
+            Path(__file__).resolve().parent / profile
+        )
         for profile in ("integration/core", "browser")
     )
     from validation.support.core_processes import reset_core_commands
