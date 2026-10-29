@@ -1295,6 +1295,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_openrouter_attribution_contract.py",
+      "sha256": "a223444be04320af22c63b1c90cd7661816a2cdef13531b47c2b1e29ce6746dd",
+      "kind": "behavioral",
+      "tests": [
+        "test_factory_openrouter_model_sends_optional_attribution_to_provider"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_pending_diff_metadata.py",
       "sha256": "1cbba3f26dcf2addf77d83b9692d178ca725ddf1f8d44c483ddf9d523c8b88a6",
       "kind": "behavioral",
@@ -1342,6 +1350,15 @@
       "tests": [
         "test_real_tavily_503_exposes_retry_after_and_hides_query",
         "test_configured_model_provider_503_and_bearer_header"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_provider_stream_failure_contract.py",
+      "sha256": "e93625aa57c894f3bafe487860e63f513dcfbfd8f465b453fd12aaa347543428",
+      "kind": "behavioral",
+      "tests": [
+        "test_sse_overload_is_retryable_and_next_turn_recovers",
+        "test_connection_refusal_is_classified_as_retryable_network_failure"
       ]
     },
     {
@@ -2353,6 +2370,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/openrouter_attribution_inputs.py",
+      "sha256": "39c5da2da7a9d629a92b6d8ad1da918c98f6dae409563758c733fd404cfd3efa",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/pending_inputs.py",
       "sha256": "f0e2b22490b7e98e4d616514e63075da0e815f86e6cb87a5eccc714ba0c45468",
       "kind": "support"
@@ -2370,6 +2392,11 @@
     {
       "path": "scenarios/support/provider_error_inputs.py",
       "sha256": "382c0ff0f1c678a29d7dc896d9ddeeabab1d74c86b1bcd81b560d15ada4b63f7",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/provider_stream_failures.py",
+      "sha256": "8ca1d112e13fec3b128de65700a4073eebfe6d55a43de6019b54391c26059e00",
       "kind": "support"
     },
     {
