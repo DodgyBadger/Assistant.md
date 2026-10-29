@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "scenarios/application.py",
-      "sha256": "e69d8e0c8a922d75c96735047f7a438bdd653dd37dfee2dba8d6fd1430754c1f",
+      "sha256": "cfac2895133206b3ae5ad6a6f95365682b957691eb28e3bc99177b264ddef820",
       "kind": "support"
     },
     {
@@ -504,6 +504,14 @@
       "kind": "behavioral",
       "tests": [
         "test_literal_content_search_bounds_and_scope"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_core_credential_isolation.py",
+      "sha256": "f86b1b328d2e09b0d7de962f3a48f841f07ca3ac3bb73edcceaa48e51a872f8a",
+      "kind": "behavioral",
+      "tests": [
+        "test_core_app_ignores_ambient_provider_and_keyring_credentials"
       ]
     },
     {

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 import pytest_asyncio
+from httpx2 import ASGITransport, AsyncClient
 from scenario_harness import Observations, ScenarioRun
 
 if TYPE_CHECKING:
@@ -23,6 +24,14 @@ if TYPE_CHECKING:
 
 
 _uncertain_fixture_failure: BaseException | None = None
+
+
+def _ambient_credential(name: str) -> bool:
+    return (
+        name.endswith(("_API_KEY", "_TOKEN", "_API_TOKEN"))
+        or name.startswith("ASSISTANTMD_SECRETS_")
+        or name in {"GOOGLE_APPLICATION_CREDENTIALS", "AZURE_OPENAI_AD_TOKEN"}
+    )
 
 
 def _stop_after_fixture_failure(
@@ -83,6 +92,16 @@ class Application:
         response = self.controller.get_api_test_client().request(
             method, endpoint, json=data, params=params
         )
+        return self._record_api_response(response, endpoint, method, data, params)
+
+    def _record_api_response(
+        self,
+        response: Response,
+        endpoint: str,
+        method: str,
+        data: Any,
+        params: dict[str, Any] | None,
+    ) -> Response:
         try:
             body = response.json()
         except ValueError:
@@ -129,9 +148,19 @@ class Application:
         *,
         params: dict[str, Any] | None = None,
     ) -> Response:
-        return await asyncio.to_thread(
-            self.request, endpoint, method, data, params=params
-        )
+        # Runtime background work and async HTTP handlers must share the event
+        # loop, as they do in production. A TestClient portal owns another loop.
+        client = self.controller.get_api_test_client()
+        async with AsyncClient(
+            transport=ASGITransport(app=client.app, client=("testclient", 50000)),
+            base_url=str(client.base_url),
+            headers=client.headers,
+            cookies=client.cookies,
+            follow_redirects=client.follow_redirects,
+        ) as ingress:
+            response = await ingress.request(method, endpoint, json=data, params=params)
+        client.cookies.update(response.cookies)
+        return self._record_api_response(response, endpoint, method, data, params)
 
     async def wait_task(self, task_id: str) -> dict[str, Any]:
         deadline = asyncio.get_running_loop().time() + 60
@@ -181,15 +210,23 @@ async def app(
         _stop_after_fixture_failure(request, evidence, error)
         raise error from previous
     roots = snapshot_bootstrap_roots()
-    environment = {
-        name: os.environ.get(name)
-        for name in ("ASSISTANTMD_SECRETS_KEY", "LOGFIRE_TOKEN")
-    }
+    core_case = request.node.path.resolve().is_relative_to(
+        Path(__file__).parent / "integration/core"
+    )
+    environment_names = {"ASSISTANTMD_SECRETS_KEY", "LOGFIRE_TOKEN"}
+    if core_case:
+        environment_names.update(
+            name for name in os.environ if _ambient_credential(name)
+        )
+    environment = {name: os.environ.get(name) for name in environment_names}
     try:
         controller = None
         try:
             key = base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
             evidence.register_secret(key)
+            if core_case:
+                for name in environment:
+                    os.environ.pop(name, None)
             os.environ["ASSISTANTMD_SECRETS_KEY"] = key
             os.environ.pop("LOGFIRE_TOKEN", None)
             warmup = evidence.root / "bootstrap"
@@ -248,6 +285,10 @@ async def app(
                         getattr(module, reset)()
             finally:
                 restore_bootstrap_roots(roots)
+                if core_case:
+                    for name in list(os.environ):
+                        if _ambient_credential(name):
+                            os.environ.pop(name, None)
                 for name, value in environment.items():
                     if value is None:
                         os.environ.pop(name, None)
