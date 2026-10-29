@@ -1632,7 +1632,7 @@
     },
     {
       "path": "scenarios/integration/core/test_workflow_run_history.py",
-      "sha256": "12a0ee56fd671e4ec3557db0f0c4fcff53b63cf1626ec49a2456ff86d141b59a",
+      "sha256": "864acb0ed0ecc36692a6d7b52f9952688b63540e2363bf4d32a8638edf2f2483",
       "kind": "behavioral",
       "tests": [
         "test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
@@ -2121,7 +2121,7 @@
     },
     {
       "path": "scenarios/support/workflow_history_inputs.py",
-      "sha256": "2c698e2335cac6573a56734d8ae688bf3465ac9c92352c68e7e283cf345d52de",
+      "sha256": "bc46b0c4c8d7256257c4322c5280ddf0b7021f0cd34dc6a136d8eae6d2bd6d8f",
       "kind": "support"
     },
     {

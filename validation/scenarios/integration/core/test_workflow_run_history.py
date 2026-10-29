@@ -12,7 +12,6 @@ from validation.scenarios.support.workflow_history_inputs import (
     RAISED_FAILURE_WORKFLOW,
     TEMPLATE_INPUT,
     scheduler_failure_and_miss,
-    seed_nonempty_output_path,
 )
 
 pytestmark = pytest.mark.scenario
@@ -92,19 +91,6 @@ async def test_workflow_run_history_matches_real_domain_and_scheduler_outcomes(
         "scheduler_job_error",
         workflow_id=f"{vault.name}/raised_failure",
         status="error",
-    )
-
-    # Production workflow execution currently returns no output paths. Exercise
-    # the store's nonempty input separately without claiming governor propagation.
-    output_input = seed_nonempty_output_path(store, vault.name)
-    reloaded = WorkflowRunStore(str(app.root / "system")).get_run(output_input.run_id)
-    assert reloaded is not None and reloaded.output_files == ("output.md",)
-    app.evidence.save_json(
-        "workflow-output-path-scope.json",
-        {
-            "path_input": list(reloaded.output_files),
-            "parity_gap": "Nonempty governor result propagation remains unproved because actual workflow execution always returns output_files=[]",
-        },
     )
 
 

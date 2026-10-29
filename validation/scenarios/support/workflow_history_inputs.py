@@ -75,20 +75,3 @@ async def scheduler_failure_and_miss(app: Application, vault_name: str):
             "miss_scheduled_at": misses[0].scheduled_run_time.isoformat(),
         },
     )
-
-
-def seed_nonempty_output_path(store, vault_name: str):
-    """Test optional output-path persistence, not production workflow generation."""
-    row = store.create_run(
-        workflow_id=f"{vault_name}/output_path_input",
-        workflow_name="output_path_input",
-        vault_name=vault_name,
-        source="api",
-        owner_principal_id="local-user",
-    )
-    return store.finalize_run(
-        row.run_id,
-        status="failed",
-        reason="explicit output-path persistence input",
-        output_files=["output.md"],
-    )

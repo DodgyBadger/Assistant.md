@@ -16,7 +16,10 @@
       "evidence": [
         "validation/runs/reports/20261028_152922_783295.json"
       ],
-      "cleanup_action": "Find a deterministic real request/revision conflict that exercises the translation, or explicitly review retirement/reclassification of the private-injection oracle."
+      "cleanup_action": "Find a deterministic real request/revision conflict that exercises the translation, or explicitly review retirement/reclassification of the private-injection oracle.",
+      "review_number": 1,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "legacy-secrets-abrupt-death",
@@ -33,7 +36,10 @@
         "validation/runs/reports/20261028_154045_955516.json",
         "validation/runs/pytest_migration/legacy_secrets_20261028/report.json"
       ],
-      "cleanup_action": "Establish real process-death observations at meaningful durable boundaries without private strategy substitution, or review the intended guarantee and disposition."
+      "cleanup_action": "Establish real process-death observations at meaningful durable boundaries without private strategy substitution, or review the intended guarantee and disposition.",
+      "review_number": 2,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "vault-root-alias-contract",
@@ -49,7 +55,11 @@
       "evidence": [
         "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md"
       ],
-      "cleanup_action": "Resolve product intent, then add the accepted regression behavior and any required fix. Do not promote the evaluation requirement or discard the observed discrepancy implicitly."
+      "cleanup_action": "Deferred product bug recorded in the user-requested external to-do list; no root-deletion behavior changed.",
+      "review_number": 3,
+      "user_decision": "For later: save as bug fix to /home/codeman/docs/AssistantMD/! To Do.md",
+      "decision_status": "deferred",
+      "tracking_location": "/home/codeman/docs/AssistantMD/! To Do.md"
     },
     {
       "id": "runner-timeout-descendant-guarantees",
@@ -65,7 +75,10 @@
       "evidence": [
         "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md"
       ],
-      "cleanup_action": "Implement/test supported timeout and process-tree policy or explicitly accept a changed guarantee before removing the old execution path."
+      "cleanup_action": "Implement/test supported timeout and process-tree policy or explicitly accept a changed guarantee before removing the old execution path.",
+      "review_number": 4,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "same-path-active-mutation-serialization",
@@ -82,7 +95,10 @@
         "validation/runs/reports/20261028_161227_753784.json",
         "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
       ],
-      "cleanup_action": "Establish stable application-owned mutation interval/lock observations or a supported deterministic synchronization boundary; alternatively review whether internal serialization is required beyond atomic final outcomes."
+      "cleanup_action": "Establish stable application-owned mutation interval/lock observations or a supported deterministic synchronization boundary; alternatively review whether internal serialization is required beyond atomic final outcomes.",
+      "review_number": 5,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "directory-move-active-child-contention",
@@ -99,7 +115,10 @@
         "validation/runs/reports/20261028_161227_753784.json",
         "validation/runs/pytest_migration/file_boundaries_batch3/report.json"
       ],
-      "cleanup_action": "Exercise real concurrent move/edit with stable lifecycle/lock observations or a sanctioned controllable I/O boundary, without claiming sequential results prove waiting."
+      "cleanup_action": "Exercise real concurrent move/edit with stable lifecycle/lock observations or a sanctioned controllable I/O boundary, without claiming sequential results prove waiting.",
+      "review_number": 6,
+      "user_decision": "Approved to proceed with the test",
+      "decision_status": "approved"
     },
     {
       "id": "task-rollback-reactivated-snapshot-retry",
@@ -113,10 +132,16 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
-        "validation/runs/pytest_migration/vault_task_rollback_corrected_batch4/report.json"
+        "validation/runs/pytest_migration/vault_task_rollback_corrected_batch4/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
-      "cleanup_action": "Review whether the inconsistent persisted retry state is an intended corruption/recovery contract; recreate honestly with explicit fixture-state justification or record accepted retirement.",
-      "status": "open"
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
+      "review_number": 7,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement: manually reactivating a rolled-back snapshot with deleted mutation history is not a supported recovery input. Real conflict/retry and file preservation scenarios remain.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "activity-rollback-paused-restore-serialization",
@@ -132,7 +157,10 @@
         "validation/runs/pytest_migration/vault_recovery_batch4/report.json"
       ],
       "cleanup_action": "Establish observable restore/lock intervals or review whether the stronger internal call-count assertion is required beyond the proven public outcomes.",
-      "status": "open"
+      "status": "open",
+      "review_number": 8,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "encrypted-guarded-write-serialization",
@@ -148,7 +176,10 @@
         "validation/runs/pytest_migration/security_migrations_20261028/report.json"
       ],
       "cleanup_action": "Add supported correlated concurrency observations or a controlled real contention case; otherwise review disposition of the private-pause oracle.",
-      "status": "open"
+      "status": "open",
+      "review_number": 9,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "default-context-instruction-semantics",
@@ -161,10 +192,16 @@
         "validation/legacy/scenarios/integration/core/default_context.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/authoring_20261028/report.json"
+        "validation/runs/pytest_migration/authoring_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
       ],
-      "cleanup_action": "Decide which instructional semantics are durable behavior and expose/assert them structurally, or explicitly retire editorial-string oracles.",
-      "status": "open"
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
+      "review_number": 10,
+      "user_decision": "Agreed - integration scenarios should never assert on potentially flaky model output or other forms of prose",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial instruction wording. Canonical default-context scenarios retain controlled source inclusion/exclusion, ordering, bounded content and retained-history boundaries.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "locked-bootstrap-cold-import-scope",
@@ -181,7 +218,10 @@
         "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json"
       ],
       "cleanup_action": "Review cold production entry-point ordering and intended backup behavior; retain the observed side effect and do not generalize the prewarmed proof.",
-      "status": "open"
+      "status": "open",
+      "review_number": 11,
+      "user_decision": "Approved to investigate",
+      "decision_status": "approved"
     },
     {
       "id": "observation-redaction-equality",
@@ -268,7 +308,10 @@
         "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
         "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
       ],
-      "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle."
+      "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle.",
+      "review_number": 12,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "direct-import-authority-before-enqueue",
@@ -284,7 +327,10 @@
       "evidence": [
         "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json"
       ],
-      "cleanup_action": "Exercise a genuine missing authority at the same admission boundary, or review disposition of the endpoint fault injection."
+      "cleanup_action": "Exercise a genuine missing authority at the same admission boundary, or review disposition of the endpoint fault injection.",
+      "review_number": 13,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "explorer-batch-move-compensation",
@@ -300,7 +346,10 @@
       "evidence": [
         "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
       ],
-      "cleanup_action": "Find deterministic real filesystem/transaction failure inputs, or explicitly classify the controlled fault-injection contracts before retiring originals."
+      "cleanup_action": "Find deterministic real filesystem/transaction failure inputs, or explicitly classify the controlled fault-injection contracts before retiring originals.",
+      "review_number": 14,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "explorer-upload-interrupted-write-cleanup",
@@ -316,7 +365,10 @@
       "evidence": [
         "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
       ],
-      "cleanup_action": "Establish a genuine bounded write failure and verify partial-file cleanup, or explicitly retain a narrow fault-injection test."
+      "cleanup_action": "Establish a genuine bounded write failure and verify partial-file cleanup, or explicitly retain a narrow fault-injection test.",
+      "review_number": 15,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "managed-catalog-future-update-conflicts",
@@ -333,7 +385,10 @@
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
         "validation/runs/pytest_migration/legacy_catalog_batch5_20261028/report.json"
       ],
-      "cleanup_action": "Choose a controlled catalog-input seam or reviewed classification for future-template transition tests; retain original assertions meanwhile."
+      "cleanup_action": "Choose a controlled catalog-input seam or reviewed classification for future-template transition tests; retain original assertions meanwhile.",
+      "review_number": 16,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "structured-web-transient-provider-failure",
@@ -349,7 +404,10 @@
       "evidence": [
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json"
       ],
-      "cleanup_action": "Provide a configurable controlled provider transport or explicitly classify the original exception/formatter boundary tests; do not equate missing configuration with transient HTTP failure."
+      "cleanup_action": "Provide a configurable controlled provider transport or explicitly classify the original exception/formatter boundary tests; do not equate missing configuration with transient HTTP failure.",
+      "review_number": 17,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "session-map-editorial-oracle-disposition",
@@ -359,15 +417,21 @@
         "integration/core/session_map_readiness"
       ],
       "missing_proof": "Three original exact authoring-instruction substrings and one author-model setting-description substring are not ported, following the existing ban on editorial prose assertions. Structured payload/readiness/provenance outputs remain. These ports do not prove the intended instruction semantics merely from their structural checks.",
-      "cleanup_action": "Review semantic behavioral replacement or explicit retirement of these editorial oracles before removing originals.",
-      "status": "open",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_schema.py",
         "validation/legacy/scenarios/integration/core/session_map_readiness.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/session_maps_batch6_20261028/report.json"
-      ]
+        "validation/runs/pytest_migration/session_maps_batch6_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 18,
+      "user_decision": "Agreed - similar to above, remove all tests / assertions on exact prompts - those can change too frequently.",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial authoring instruction and settings-description substrings. Canonical schema, provenance and readiness cases remain executable contracts.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "transcript-legacy-index-backfill",
@@ -383,7 +447,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json"
-      ]
+      ],
+      "review_number": 19,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "session-ops-private-exception-payload",
@@ -402,7 +469,10 @@
       "evidence": [
         "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json",
         "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json"
-      ]
+      ],
+      "review_number": 20,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "google-connection-transaction-races",
@@ -419,7 +489,10 @@
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
         "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
-      ]
+      ],
+      "review_number": 21,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "google-disconnect-cleanup-rollback",
@@ -436,7 +509,10 @@
       "evidence": [
         "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
         "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
-      ]
+      ],
+      "review_number": 22,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "gmail-connection-ui-policy",
@@ -452,7 +528,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json"
-      ]
+      ],
+      "review_number": 23,
+      "user_decision": "Agreed",
+      "decision_status": "deferred"
     },
     {
       "id": "chat-replay-expiry-projection-and-fork-faults",
@@ -468,7 +547,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
-      ]
+      ],
+      "review_number": 24,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "chat-queue-preflight-approval-contracts",
@@ -484,7 +566,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
-      ]
+      ],
+      "review_number": 25,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "code-execution-delegated-image-scope",
@@ -500,7 +585,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
-      ]
+      ],
+      "review_number": 26,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "mcp-oauth-socket-authoritative-transport",
@@ -516,23 +604,32 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_batch8_20261028/report.json"
-      ]
+      ],
+      "review_number": 27,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "workflow-history-governor-output-files",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/workflow_run_history"
       ],
       "missing_proof": "Original substitutes a nonempty WorkflowExecutionResult.output_files. Current production executor sets output_files=[] on real paths, so this artificial governor propagation input is not reproduced. Public store finalization/reload separately proves nonempty output-path persistence; actual failed-domain/task/history outcomes pass.",
-      "cleanup_action": "Review output_files ownership/contract and whether a real producer exists; add genuine producer propagation or classify/retire the artificial adapter-result test before removing original.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/workflow_run_history.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json"
-      ]
+        "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 28,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of injected nonempty governor output_files propagation: the actual governor has no producer. Removed the unnecessary seeded nonempty-output side case; real workflow failures, durable audit and history remain.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "chat-unexpected-exception-diagnostics",
@@ -551,11 +648,14 @@
       "evidence": [
         "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
         "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json"
-      ]
+      ],
+      "review_number": 29,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "chat-guidance-editorial-oracles",
-      "status": "open",
+      "status": "resolved",
       "category": "oracle_scope_review",
       "source_scenarios": [
         "integration/core/chat_tool_metadata_visibility",
@@ -565,7 +665,7 @@
         "integration/core/mcp_chat_tool_search"
       ],
       "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics. Manual/automatic recovery-card source prompt/settings description and MCP unavailable-instruction prose oracles are also deferred; structural card identity/preamble dedup and actual author payload partition/provenance remain asserted.",
-      "cleanup_action": "Choose behavioral replacement for important guidance or explicitly retire editorial wording oracles before removing originals.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_tool_metadata_visibility.py",
         "validation/legacy/scenarios/integration/core/chat_usage_limits.py",
@@ -580,8 +680,14 @@
         "validation/runs/pytest_migration/compaction_continuation_batch14_20261028/report.json",
         "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
         "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json",
-        "validation/runs/pytest_migration/mcp_search_lease_batch14_20261028/report.json"
-      ]
+        "validation/runs/pytest_migration/mcp_search_lease_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 30,
+      "user_decision": "Agreed - same as above - always remove prompt assertions.",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial chat/tool/recovery guidance substrings. Structured reason codes, composition and actual enforced behavior remain; no model prose obedience claim.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "content-import-ui-behavior",
@@ -597,7 +703,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json"
-      ]
+      ],
+      "review_number": 31,
+      "user_decision": "Approved",
+      "decision_status": "deferred"
     },
     {
       "id": "execution-runner-private-race-windows",
@@ -613,25 +722,34 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json"
-      ]
+      ],
+      "review_number": 32,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "manual-retry-legacy-sdk-error-classification",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_manual_retry"
       ],
       "missing_proof": "Original fake agent raises raw openai.APIError and requires transient_provider. Current real adapter normalizes both typed and untyped HTTP200 SSE error inputs to ModelServerError/provider_unavailable. Actual transport interruption proves transient_network manual recovery, not the original raw legacy SDK compatibility branch. Both failed SSE probes are retained.",
-      "cleanup_action": "Review legacy SDK compatibility contract or provide a genuine supported producer for that raw exception; retain original classification assertion meanwhile.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_manual_retry.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/manual_retry_batch11_transport_final_20261028/report.json",
         "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json",
-        "validation/runs/pytest_migration/manual_retry_batch11_generic_error_20261028/report.json"
-      ]
+        "validation/runs/pytest_migration/manual_retry_batch11_generic_error_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 33,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of arbitrary raw SDK APIError category equivalence. The real interrupted-provider manual retry scenario verifies app-owned transient_network/retryability, history settlement and successful recovery.",
+      "resolution_kind": "approved_oracle_retirement"
     },
     {
       "id": "automatic-retry-recovery-branches",
@@ -648,7 +766,10 @@
       "evidence": [
         "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
         "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json"
-      ]
+      ],
+      "review_number": 34,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "chat-cancellation-active-tool-boundary",
@@ -664,7 +785,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json"
-      ]
+      ],
+      "review_number": 35,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "deterministic-core-model-call-audit",
@@ -681,7 +805,10 @@
       "evidence": [
         "pytest-scenario-library-refactor-plan.md",
         "validation/runs/pytest_migration/batch11-evidence-index.json"
-      ]
+      ],
+      "review_number": 36,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "gmail-selected-connection-token-routing",
@@ -699,7 +826,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
-      ]
+      ],
+      "review_number": 37,
+      "user_decision": "Defer to the end - I want to address this cooperatively",
+      "decision_status": "deferred"
     },
     {
       "id": "web-extraction-mixed-and-binary-responses",
@@ -715,7 +845,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json"
-      ]
+      ],
+      "review_number": 38,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "bootstrap-mcp-exact-cleanup-lifecycle",
@@ -731,7 +864,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
-      ]
+      ],
+      "review_number": 39,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "summary-retirement-interrupted-bookkeeping",
@@ -747,7 +883,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json"
-      ]
+      ],
+      "review_number": 40,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "automatic-compaction-private-boundaries",
@@ -764,7 +903,10 @@
       "evidence": [
         "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
         "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 41,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "deferred-review-inflight-interruption",
@@ -780,7 +922,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 42,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "mcp-mutation-private-race-windows",
@@ -796,7 +941,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 43,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "mcp-advanced-stdio-successful-ssh",
@@ -812,7 +960,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 44,
+      "user_decision": "Defer, I'm not convinced we're going to be able to adequately test this through scenarios.",
+      "decision_status": "deferred"
     },
     {
       "id": "mcp-controlled-dns-and-tls-boundaries",
@@ -830,7 +981,10 @@
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 45,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "mcp-real-timeout-classification",
@@ -850,7 +1004,10 @@
         "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
         "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json"
-      ]
+      ],
+      "review_number": 46,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "google-oauth-synchronous-pending-races",
@@ -866,7 +1023,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 47,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "mcp-oauth-live-authorization-lifecycle",
@@ -882,7 +1042,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 48,
+      "user_decision": "Defer - I want to understand better",
+      "decision_status": "deferred"
     },
     {
       "id": "api-device-oauth-and-connected-fallback",
@@ -900,7 +1063,10 @@
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
         "validation/runs/pytest_migration/api_journeys_batch15_20261028/report.json",
         "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 49,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "api-classification-and-attribution-branches",
@@ -918,7 +1084,10 @@
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
         "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
         "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 50,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "session-map-authoring-failure-boundaries",
@@ -938,7 +1107,10 @@
         "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
         "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
         "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/retained-probe-source"
-      ]
+      ],
+      "review_number": 51,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "session-map-legacy-admission-repair",
@@ -955,7 +1127,10 @@
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
         "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 52,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "retained-session-map-automatic-trigger",
@@ -975,7 +1150,10 @@
         "validation/runs/pytest_migration/retrieval_range_batch15_20261028/report.json",
         "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
         "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json"
-      ]
+      ],
+      "review_number": 53,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "browser-resource-admission-deferred",
@@ -991,7 +1169,10 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
-      ]
+      ],
+      "review_number": 54,
+      "user_decision": "Approved",
+      "decision_status": "deferred"
     },
     {
       "id": "fork-private-hydration-and-snapshot-windows",
@@ -1008,7 +1189,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
-      ]
+      ],
+      "review_number": 55,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "delegate-unported-observer-and-error-boundaries",
@@ -1027,7 +1211,10 @@
         "validation/runs/pytest_migration/final_guard_failure_input_20261028/report.json",
         "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
         "validation/runs/pytest_migration/final_delegate_default_input_20261028/report.json"
-      ]
+      ],
+      "review_number": 56,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "manual-map-tool-source-and-failure-matrix",
@@ -1045,7 +1232,10 @@
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
         "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
         "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json"
-      ]
+      ],
+      "review_number": 57,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "map-checkpoint-specialized-boundaries",
@@ -1062,7 +1252,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json"
-      ]
+      ],
+      "review_number": 58,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "context-upgrade-races-and-recovery-matrix",
@@ -1080,7 +1273,10 @@
         "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
         "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
         "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json"
-      ]
+      ],
+      "review_number": 59,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "transcript-tool-error-and-limit-matrix",
@@ -1097,7 +1293,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
-      ]
+      ],
+      "review_number": 60,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "stepped-map-pinned-and-policy-boundaries",
@@ -1114,7 +1313,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
-      ]
+      ],
+      "review_number": 61,
+      "user_decision": "Approved",
+      "decision_status": "approved"
     },
     {
       "id": "legacy-adapter-observation-contract-review",
@@ -1131,7 +1333,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final-current-owner-evidence.json",
         "validation/runs/reports/20261028_222652_704336.json"
-      ]
+      ],
+      "review_number": 62,
+      "user_decision": "Defer - I want to understand better",
+      "decision_status": "deferred"
     },
     {
       "id": "legacy-runner-policy-differences",
@@ -1148,7 +1353,10 @@
       "evidence": [
         "validation/runs/pytest_migration/final-current-owner-evidence.json",
         "validation/runs/reports/20261028_222933_609608.json"
-      ]
+      ],
+      "review_number": 63,
+      "user_decision": "Defer - I want to understand better",
+      "decision_status": "deferred"
     }
   ]
 }
