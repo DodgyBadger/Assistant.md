@@ -1357,23 +1357,26 @@
     },
     {
       "id": "map-checkpoint-specialized-boundaries",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/session_map_checkpoint"
       ],
       "missing_proof": "Public real checkpoint/revision/timeline/map/corruption outputs pass. Source specialized checkpoint boundary matrix, canonical tool timeline projection/filtering/paging and deliberate private metadata-display drift injection remain unproved.",
-      "cleanup_action": "Port native boundary/tool histories through public reads; review disposition of the private display-drift injection separately.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_checkpoint.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
-        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json"
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/gap_cleanup_fork_checkpoint_boundaries_20261029/report.json"
       ],
       "review_number": 58,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "Real canonical grouped tool/retry turns preserve checkpoint-scoped detail, timeline filtering/paging and original fork positions. Invalid evidence prefixes and observation cutoffs are rejected atomically without checkpoint/raw-state changes. Existing historical map and genuine persisted corruption cases remain. Forced private display-metadata drift and its synthetic warning are retired as approved.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "context-upgrade-races-and-recovery-matrix",

@@ -474,6 +474,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_checkpoint_timeline_boundaries.py",
+      "sha256": "1d81c9133034dde43463e42e9d1898f0e3003f70cbe432cb6bfbcf904e11eda5",
+      "kind": "behavioral",
+      "tests": [
+        "test_checkpoint_tool_timeline_preserves_turn_paging_and_scoped_detail",
+        "test_checkpoint_rejects_invalid_evidence_boundaries_atomically"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_code_execution.py",
       "sha256": "2b5b1c80cd9fa3e7d122765af93bac9898bb7e34cf989f51873219fcc0e6a9e4",
       "kind": "behavioral",
@@ -1976,6 +1985,11 @@
     {
       "path": "scenarios/support/chat_tasks.py",
       "sha256": "47ec285a48e38d0953fe370748395175e294cc9d63283c5c8d71d19fcfcaf483",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/checkpoint_boundary_inputs.py",
+      "sha256": "d05267a9a68b00c01cbe3a293a9e2e427128d7167ec32a8bd5418ec99ebe9528",
       "kind": "support"
     },
     {

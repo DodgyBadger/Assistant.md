@@ -98,11 +98,6 @@
     **Recommendation:** **Keep a real tool-initiated compaction journey and a compact failure matrix.** Verify parent/child relationships, the tool result, preserved history and subsequent chat usability. Reuse shared author-failure, cancellation and confidentiality cases instead of repeating every low-level projection in another large scenario.
     - Approved
 
-58. **Specialized checkpoint boundaries:** Complete the boundary cases for checkpoint creation and tool-history timeline projection, filtering and paging. Review whether the deliberately injected display-metadata inconsistency should remain a test.
-
-    **Recommendation:** **Keep canonical checkpoint, timeline and paging boundaries.** Consolidate overlapping history inputs with items 55 and 60. Retire forced private display-metadata drift unless it represents a supported persisted corruption state; test that real state directly if it does.
-    - Approved
-
 59. **Session-context upgrade races and recovery:** Cover plan limits, fork/start races, stale author results after append or deletion, contention with manual compaction, failure diagnostics, and shutdown/restart followed by successful retry.
 
     **Recommendation:** **Keep, prioritizing data-preservation races and restart recovery.** Use real gated authors and database mutations to verify stale append/delete/fork rejection, cancellation followed by restart/retry, and unchanged canonical history. Retire internal plan-shape assertions where existing outcome and configured-limit tests establish the same guarantee.
