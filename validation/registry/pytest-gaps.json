@@ -78,12 +78,14 @@
         "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
       ],
       "evidence": [
-        "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md"
+        "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md",
+        "validation/runs/gap_cleanup_watchdog_20261029/report.json"
       ],
       "cleanup_action": "Implement/test supported timeout and process-tree policy or explicitly accept a changed guarantee before removing the old execution path.",
       "review_number": 4,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Protected workers now have a positive whole-item pytest-timeout watchdog and bounded verified Linux session cleanup. Generic34checks and a real full-app hang/descendant/replacement fault profile pass. A true hard process deadline for GIL-held native code and deliberately detached descendant sessions remain unsupported; capability hard_hang_timeout stays false, so this gap stays open. Broad HOME/environment/worker-reuse policy item63 remains deferred."
     },
     {
       "id": "same-path-active-mutation-serialization",
@@ -331,7 +333,8 @@
       "cleanup_action": "Provide a controlled accepted URL transport input or review the original isolated adapter oracle.",
       "review_number": 12,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "direct-import-authority-before-enqueue",
@@ -364,12 +367,14 @@
         "validation/legacy/scenarios/integration/core/vault_explorer_batch_move.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json"
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json"
       ],
       "cleanup_action": "Find deterministic real filesystem/transaction failure inputs, or explicitly classify the controlled fault-injection contracts before retiring originals.",
       "review_number": 14,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Real SQLite audit failures after physical file/directory moves now have passing compensation cases: original bytes/paths restored, targets absent and manifest/audit coherent. Remaining: overlap with a newer external edit and prove compensation never overwrites that edit."
     },
     {
       "id": "explorer-upload-interrupted-write-cleanup",
@@ -408,7 +413,8 @@
       "cleanup_action": "Choose a controlled catalog-input seam or reviewed classification for future-template transition tests; retain original assertions meanwhile.",
       "review_number": 16,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Investigation: production settings loader reads the packaged catalog internally; no supported explicit alternate-template loader input exists. Existing real loader scenarios cover shipped aliases, collisions, persisted backup/activity and retirement. A hypothetical future-template case cannot currently cover the full loader without a new composition seam; no private template patch or redundant helper-only test was added."
     },
     {
       "id": "structured-web-transient-provider-failure",
@@ -579,11 +585,13 @@
         "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
+        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json"
       ],
       "review_number": 24,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Real API raw-cursor expiry410/retained compact replay, actual reason/tool projection without private arguments, failed assistant commit with no advertised fork, and fork-copy transaction rollback/retry with no future context all pass. Remaining: full terminal-task eviction and a cursor-expiry race while SSE admission is in progress; private injected query failures are not counted as actual-producer evidence."
     },
     {
       "id": "chat-queue-preflight-approval-contracts",
@@ -598,11 +606,13 @@
         "validation/legacy/scenarios/integration/core/chat_task_session_queue.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json"
+        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json"
       ],
       "review_number": 25,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "A queued request retains the accepted restrictive review mode despite a later relaxed preference; actual deferred review and no write are verified. A cancelled queued request emits no provider work. Remaining: cancellation while real preflight work is already executing."
     },
     {
       "id": "code-execution-delegated-image-scope",
@@ -643,7 +653,8 @@
       ],
       "review_number": 27,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "workflow-history-governor-output-files",
@@ -887,7 +898,8 @@
       ],
       "review_number": 38,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "bootstrap-mcp-exact-cleanup-lifecycle",
@@ -1034,7 +1046,8 @@
       ],
       "review_number": 45,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
     },
     {
       "id": "mcp-real-timeout-classification",
@@ -1141,11 +1154,13 @@
       "evidence": [
         "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
         "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
-        "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json"
       ],
       "review_number": 50,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "progress_note": "A configured real model provider returns503: app-owned provider_unavailable classification and actual bearer header pass. Remaining: actual OpenRouter model-branch attribution, overload/idle/connect category matrix beyond the existing concrete producers; arbitrary SDK class equivalence remains retired."
     },
     {
       "id": "session-map-authoring-failure-boundaries",

@@ -3,7 +3,7 @@
 	 **Recommendation:** **Keep.** Add a real stale-revision settings request and assert HTTP 409, preservation of the newer settings, and a usable subsequent request. Retire the private save patch once that behavior is covered.
 	 - Approved
 
-4. **Hard timeouts and child-process cleanup:** Decide and verify how hung tests and their descendant processes should be terminated. The new plugin does not currently provide the old runner’s guarantees.
+4. **Hard timeouts and detached child processes:** The worker watchdog and inherited-process cleanup are implemented and tested. A true deadline for native code holding the GIL, plus cleanup guarantees for deliberately detached sessions, remain unresolved.
 
     **Recommendation:** **Keep, high priority; combine with item 63.** Establish bounded process-level execution and cleanup deadlines, quarantine an uncertain worker, and terminate its owned descendant processes. Prefer existing pytest-compatible tooling and a small ownership policy over rebuilding the old supervisor.
     - Approved
@@ -18,7 +18,7 @@
     **Recommendation:** **Keep the authorization invariant.** Use real unauthenticated or unauthorized ingress and verify that no job is created. Retire the injected resolver-exception ordering assertion if that exception cannot arise through a supported request; retain the ordering check where it protects an actual reachable boundary.
     - Approved
 
-14. **Batch-move compensation:** Verify rollback after failures partway through moving files or directories. Preflight rejection and ordinary successful moves do not establish compensation after partial completion.
+14. **Batch-move compensation with newer edits:** Ordinary mid-move file and directory failures now restore paths, contents, manifest and audit state. Verify that compensation cannot overwrite a newer external edit made during the failing batch.
 
     **Recommendation:** **Keep, high priority.** I recommend an all-or-nothing contract for these supported batch moves. Induce a genuine later-item filesystem or database failure and check restoration of files, directories, manifest and audit state, including protection of any newer external edits.
     - Approved
@@ -43,12 +43,12 @@
     **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.
     - Agreed
 
-24. **Chat replay, expiry and fork failures:** Cover unresolved-tool fork suppression, projection rollback, cursor-expiry races, expired raw events, missing terminal retention, and reasoning/tool projections through the actual API.
+24. **Replay retention edge cases:** API cursor expiry, compact replay, reasoning/tool privacy and actual fork failures are covered. Verify full terminal-task eviction and cursor expiry during SSE admission.
 
     **Recommendation:** **Keep, high priority.** Add API-level replay/expiry cases using controlled retention inputs, real tool history and actual fork failures. Assert an honest resync/expiry result, no partial fork or future-context leakage, and correct reasoning/tool visibility; retain the lower-level buffer tests as supporting evidence.
     - Approved
 
-25. **Queued chat approval and preflight:** Verify that queued work retains the approval policy accepted at submission, and that cancellation during preflight behaves correctly. Current tests prove narrower queue and model-invocation behavior.
+25. **Cancellation during active preflight:** Accepted queue approval policy and cancellation before dispatch are covered. Cancel a real request while its preflight work is already executing, and prove that no model or tool work escapes afterward.
 
     **Recommendation:** **Keep, high priority.** Verify that queued work uses the approval policy accepted at submission and cannot silently gain permissions from later preference changes. Cancel a real queued/preflight workload and observe that no tool or model work escapes afterward; retire private preparation-call counters.
     - Approved
@@ -123,7 +123,7 @@
     **Recommendation:** **Keep.** Make device transport endpoints configurable at the adapter boundary with production defaults preserved, then exercise a local device flow and the connected OAuth/API-key fallback matrix. Do not require a real account or remote authorization in core tests.
     - Approved
 
-50. **Remaining API error classifications:** Cover non-status OpenAI errors, overload errors, stream-idle timeouts, connection failures and OpenRouter attribution headers. Real HTTP and SDK status-error classifications are covered.
+50. **Remaining provider classification and attribution:** Configured-provider503 classification and actual bearer routing are covered. Complete the concrete overload/idle/connection matrix and OpenRouter model-path attribution without synthetic SDK-class equivalence.
 
     **Recommendation:** **Keep application error semantics and attribution behavior; retire arbitrary SDK-class equivalence.** Cover actual overload, idle, connection and HTTP-status inputs with retry/category assertions where they affect control flow, plus headers observed at a local provider. Consolidate overlapping cases with items 17, 33 and 46.
     - Approved

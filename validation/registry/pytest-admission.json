@@ -42,6 +42,15 @@
       ]
     },
     {
+      "path": "scenarios/experiments/test_watchdog_recovery.py",
+      "sha256": "553735e2cbd74b126d878bebc0483ead8fac7d1bb04766cc97bf80f638d949a5",
+      "kind": "behavioral",
+      "tests": [
+        "test_01_hung_application_requires_worker_replacement",
+        "test_02_replacement_worker_starts_clean_application"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_access_state_concurrency.py",
       "sha256": "cc1221c595598b8b435c369c3a732cbd42e08674d27c19c24b61676589d3d748",
       "kind": "behavioral",

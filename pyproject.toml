@@ -108,7 +108,7 @@ python_files = ["test_*.py", "*_test.py"]
 addopts = "-p validation.support.pytest_policy -v --tb=short -n 1 --max-worker-restart=1"
 
 [tool.uv.sources]
-scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "acfc1511f322f5ed3e7b4d863b622c4c55ed2741" }
+scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "a9f20bb24ebd0ce7ac97e154c7c1b696172ae108" }
 
 [dependency-groups]
 dev = [
