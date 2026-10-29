@@ -1,3 +1,7 @@
+# Remaining validation gaps
+
+14 items remain: six approved items requiring additional infrastructure and eight deferred items. The 48 completed items have been removed; item 3 was moved to the external To Do list. Numbers below are the original review IDs, retained for cross-references.
+
 - **4. Hard timeouts and detached child processes:** The worker watchdog and inherited-process cleanup are implemented and tested. A true deadline for native code holding the GIL, plus cleanup guarantees for deliberately detached sessions, remain unresolved.
 
     **Recommendation:** **Keep, high priority; combine with item 63.** Establish bounded process-level execution and cleanup deadlines, quarantine an uncertain worker, and terminate its owned descendant processes. Prefer existing pytest-compatible tooling and a small ownership policy over rebuilding the old supervisor.
