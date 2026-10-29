@@ -223,6 +223,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_catalog_upgrade_collision.py",
+      "sha256": "6710b7c767b7d8cca39f50522c99580f87dc854b3c4e52eddbec883eef02eb64",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_catalog_upgrade_preserves_old_and_custom_collision"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_cache_journeys.py",
       "sha256": "53c1483424a84a1e9940fbb1e5b769a2cdbc7eee24c756730601e56bfaae3fad",
       "kind": "behavioral",

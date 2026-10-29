@@ -13,11 +13,6 @@
     **Recommendation:** **Keep.** Build a reusable controlled HTTP/HTTPS fixture that exercises the real public-address admission and fetch path, including destination, provenance and content-based PDF detection. Preserve SSRF checks; avoid creating a production localhost exemption solely to make these tests pass.
     - Approved
 
-16. **Future managed-model catalog changes:** Verify catalog renames and update collisions against a changed future template. Current catalog migration and conflict handling are covered.
-
-    **Recommendation:** **Keep a narrower, data-driven upgrade scenario.** Load explicit old/new catalog fixtures through the real configuration path and assert alias preservation, collision refusal and useful activity. Retire assumptions about hypothetical future vendor renames and private template patches.
-    - Approved
-
 23. **Gmail connection UI behavior:** Review save-before-authorization behavior and missing-compose warnings in the browser. API scope and readiness checks do not establish rendered UI behavior.
 
     **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.

@@ -406,7 +406,7 @@
     },
     {
       "id": "managed-catalog-future-update-conflicts",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/model_alias_resolution"
@@ -417,13 +417,16 @@
       ],
       "evidence": [
         "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
-        "validation/runs/pytest_migration/legacy_catalog_batch5_20261028/report.json"
+        "validation/runs/pytest_migration/legacy_catalog_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_catalog_release_upgrade_20261029/report.json"
       ],
-      "cleanup_action": "Choose a controlled catalog-input seam or reviewed classification for future-template transition tests; retain original assertions meanwhile.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "review_number": 16,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "Investigation: production settings loader reads the packaged catalog internally; no supported explicit alternate-template loader input exists. Existing real loader scenarios cover shipped aliases, collisions, persisted backup/activity and retirement. A hypothetical future-template case cannot currently cover the full loader without a new composition seam; no private template patch or redundant helper-only test was added."
+      "progress_note": "Investigation: production settings loader reads the packaged catalog internally; no supported explicit alternate-template loader input exists. Existing real loader scenarios cover shipped aliases, collisions, persisted backup/activity and retirement. A hypothetical future-template case cannot currently cover the full loader without a new composition seam; no private template patch or redundant helper-only test was added.",
+      "resolution": "Real legacy catalog import/backup and running settings reload preserve old managed gpt bindings and an independently owned custom sol collision, retain historical aliases and emit managed_models_update_blocked configuration/activity evidence. Existing actual old-to-current alias migration cases pass. The shipped current catalog is the new-release input; hypothetical future vendor/template patches are retired as approved.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "structured-web-transient-provider-failure",
