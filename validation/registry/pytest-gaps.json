@@ -606,22 +606,25 @@
     },
     {
       "id": "code-execution-delegated-image-scope",
-      "status": "open",
+      "status": "resolved",
       "category": "coverage_scope_review",
       "source_scenarios": [
         "integration/core/code_execution"
       ],
       "missing_proof": "The original delegated-image case and this port assert delegate completion without independently observing image consumption. Image fixture availability plus a successful delegate response does not establish that image bytes reached the intended model boundary. This is a retained original scope limit, not dropped parity.",
-      "cleanup_action": "Inspect existing delegate/image coverage, then add actual provider request evidence or correct the coverage claim before counting image consumption as tested.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/code_execution.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json"
+        "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json",
+        "validation/runs/gap_cleanup_network_20261029/report.json"
       ],
       "review_number": 26,
       "user_decision": "Approved",
-      "decision_status": "approved"
+      "decision_status": "approved",
+      "resolution": "A real delegate reads Markdown with an embedded JPEG using the actual file tool. The captured child-provider HTTP request contains base64 image bytes whose SHA256 equals the fixture, and the child completes. No model interpretation/prose quality is asserted.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "mcp-oauth-socket-authoritative-transport",

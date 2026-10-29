@@ -526,6 +526,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_delegate_image_delivery.py",
+      "sha256": "52611fbbffdaea006faa108f0007f1f952274035deb532a5e009a0c75fecf37a",
+      "kind": "behavioral",
+      "tests": [
+        "test_delegate_delivers_embedded_image_to_child_provider"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_delegate_limits.py",
       "sha256": "b67506d5440861ffb8000d3e682fcab7cf3c30a6d5e79914228b8a9222738995",
       "kind": "behavioral",
@@ -1841,6 +1849,11 @@
     {
       "path": "scenarios/support/delegate_guard_inputs.py",
       "sha256": "1e734ede965d306b72da9902c1e6635b7540cd5452e56ac771765c3a9ea1ef50",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/delegate_image_delivery.py",
+      "sha256": "eb8dc4068be4b7fe5d84d150f4ad7ba5c67506bdac1d191272157e344c55aa97",
       "kind": "support"
     },
     {
