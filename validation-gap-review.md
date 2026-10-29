@@ -28,11 +28,6 @@
     **Recommendation:** **Keep, high priority.** Add API-level replay/expiry cases using controlled retention inputs, real tool history and actual fork failures. Assert an honest resync/expiry result, no partial fork or future-context leakage, and correct reasoning/tool visibility; retain the lower-level buffer tests as supporting evidence.
     - Approved
 
-25. **Cancellation during active preflight:** Accepted queue approval policy and cancellation before dispatch are covered. Cancel a real request while its preflight work is already executing, and prove that no model or tool work escapes afterward.
-
-    **Recommendation:** **Keep, high priority.** Verify that queued work uses the approval policy accepted at submission and cannot silently gain permissions from later preference changes. Cancel a real queued/preflight workload and observe that no tool or model work escapes afterward; retire private preparation-call counters.
-    - Approved
-
 27. **MCP OAuth guarded transport:** Verify a successful request through the guarded public-address transport. Client configuration and storage checks do not establish the full socket and DNS boundary.
 
     **Recommendation:** **Keep as part of the security transport work in item 45.** Exercise the actual socket backend and OAuth-discovered endpoints with controlled DNS/TLS infrastructure. Request hooks and client flags remain useful checks, but successful policy-compliant transport needs its own evidence.

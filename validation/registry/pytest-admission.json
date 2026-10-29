@@ -265,6 +265,22 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_fork_atomic_failure.py",
+      "sha256": "86d49dc63af14e8b72d220807f97d0a18a05ada04b545baff5fc91bd2d673718",
+      "kind": "behavioral",
+      "tests": [
+        "test_fork_insert_failure_rolls_back_and_retry_excludes_future"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_fork_commit_failure.py",
+      "sha256": "bde42ff5f0a457c95e48b7d14db3240ac10d8538c75fcc4496fcce8d5079f20c",
+      "kind": "behavioral",
+      "tests": [
+        "test_failed_chat_commit_does_not_publish_fork_or_future_history"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_history_compaction.py",
       "sha256": "ceeefe3e0831ccfafa88beb8e8fa6c2698fbc3b190f250b4cc1372560d0d3cf3",
       "kind": "behavioral",
@@ -297,6 +313,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_chat_preflight_cancellation.py",
+      "sha256": "be4ed0176225584f80f26e61961b2a6afa1c237482bc142e69d06e43bddf8153",
+      "kind": "behavioral",
+      "tests": [
+        "test_cancel_chat_during_real_mcp_preflight"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_chat_prepared_stream_buffer.py",
       "sha256": "dfcfb664ac6af6dd11c9e5f999271938920aa10d0a7054c046c3bcbcd341518a",
       "kind": "behavioral",
@@ -311,6 +335,14 @@
       "kind": "behavioral",
       "tests": [
         "test_reasoning_retention_and_checkpoint_policy_transitions"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_replay_tool_projection.py",
+      "sha256": "82df468a3b2e788a394532806a36884ede1b52c3021cbbe05426ca4bbb7d9848",
+      "kind": "behavioral",
+      "tests": [
+        "test_replay_projects_real_reasoning_and_tool_without_arguments"
       ]
     },
     {
@@ -359,6 +391,15 @@
       "kind": "behavioral",
       "tests": [
         "test_keepalive_then_completion_and_cancel"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_chat_submission_replay_contracts.py",
+      "sha256": "4213d3263b53091de3e3ca4561591ce851bca0950eaf9731102178c51173c245",
+      "kind": "behavioral",
+      "tests": [
+        "test_queued_turn_retains_accepted_review_mode",
+        "test_expired_raw_cursor_retains_replay_snapshot"
       ]
     },
     {
@@ -1890,6 +1931,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/chat_submission_replay_contracts.py",
+      "sha256": "17ff977df7457544c1b5596866f33358e4e022c6e8d6903ba5633e47d6065bd5",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/chat_surface_journeys.py",
       "sha256": "88ca4455e8cf4213b12c421056af66d8aa8649ee7fad904d55f437e97948c414",
       "kind": "support"
@@ -2152,6 +2198,11 @@
     {
       "path": "scenarios/support/replay_inputs.py",
       "sha256": "aad1d78a8eadeb17b4e7868d098d1fa2a23ec5a12d42a714818f8e996b2446c8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/replay_projection_provider.py",
+      "sha256": "ec12f70a60cca05cd98630769ad4f72d3bffb4554059c04be94eac77bc7fe9ff",
       "kind": "support"
     },
     {

@@ -607,24 +607,27 @@
     },
     {
       "id": "chat-queue-preflight-approval-contracts",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/chat_task_session_queue"
       ],
       "missing_proof": "Accepted approval-mode capture versus changed preferences, queued cancellation during actual preflight and explicit no-preflight-invocation assertions remain unproved. Captured provider requests demonstrate narrower no-model-invocation while queued, actual serialized history and queued cancellation.",
-      "cleanup_action": "Introduce genuine controlled preflight input/gates and accepted-policy observations, or review the original private preparation hooks before retiring them.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/chat_task_session_queue.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
-        "validation/runs/gap_cleanup_chat_replay_20261029/report.json"
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json",
+        "validation/runs/gap_cleanup_preflight_confirm_20261029/report.json"
       ],
       "review_number": 25,
       "user_decision": "Approved",
       "decision_status": "approved",
-      "progress_note": "A queued request retains the accepted restrictive review mode despite a later relaxed preference; actual deferred review and no write are verified. A cancelled queued request emits no provider work. Remaining: cancellation while real preflight work is already executing."
+      "progress_note": "A queued request retains the accepted restrictive review mode despite a later relaxed preference; actual deferred review and no write are verified. A cancelled queued request emits no provider work. Remaining: cancellation while real preflight work is already executing.",
+      "resolution": "A queued turn keeps its accepted restrictive review policy after later preferences relax, and cancelling queued work makes no provider request. A separate real MCP list_tools barrier proves preflight is executing before cancellation; no primary-model/tool dispatch escapes, cancellation is terminal in replay, and a subsequent turn succeeds. Preparation intentionally precedes mark_started, so no incidental running-status requirement is imposed during preflight.",
+      "resolution_kind": "deterministic_behavior"
     },
     {
       "id": "code-execution-delegated-image-scope",
