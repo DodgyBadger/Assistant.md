@@ -1623,7 +1623,7 @@ provides-extras = ["dev"]
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest-xdist", specifier = ">=3.8,<4" },
-    { name = "scenario-harness", git = "https://github.com/DodgyBadger/scenario-harness.git?rev=a9f20bb24ebd0ce7ac97e154c7c1b696172ae108" },
+    { name = "scenario-harness", git = "https://github.com/DodgyBadger/scenario-harness.git?rev=941ede024673a0c8496dee908e1d6066cbaa0c05" },
     { name = "types-python-dateutil", specifier = ">=2.9.0.20260716" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260724" },
     { name = "types-requests", specifier = ">=2.32.4.20250809" },
@@ -2356,7 +2356,7 @@ wheels = [
 [[package]]
 name = "scenario-harness"
 version = "0.2.0"
-source = { git = "https://github.com/DodgyBadger/scenario-harness.git?rev=a9f20bb24ebd0ce7ac97e154c7c1b696172ae108#a9f20bb24ebd0ce7ac97e154c7c1b696172ae108" }
+source = { git = "https://github.com/DodgyBadger/scenario-harness.git?rev=941ede024673a0c8496dee908e1d6066cbaa0c05#941ede024673a0c8496dee908e1d6066cbaa0c05" }
 dependencies = [
     { name = "pytest" },
     { name = "pytest-timeout" },
