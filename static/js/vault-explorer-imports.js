@@ -187,6 +187,7 @@
             if (!status) return;
             const failures = jobs.filter((job) => job.status === 'failed');
             const outputs = jobs.flatMap((job) => job.outputs || []);
+            const warnings = jobs.filter((job) => job.status !== 'failed' && job.fallback_reason);
             const pending = jobs.filter((job) => !isTerminal(job.status));
             const summary = queueOnly
                 ? `${jobs.length} import job${jobs.length === 1 ? '' : 's'} queued.`
@@ -196,6 +197,7 @@
             status.innerHTML = `
                 <div class="${failures.length ? 'state-warning' : 'state-success'}">${escapeHtml(summary)}</div>
                 ${outputs.map((path) => `<div class="cell-mono">${escapeHtml(path)}</div>`).join('')}
+                ${warnings.map((job) => `<div class="state-warning">${escapeHtml(job.fallback_reason)}</div>`).join('')}
                 ${failures.map((job) => `<div class="state-error">${escapeHtml(job.error || 'Import failed.')}</div>`).join('')}
             `;
         }

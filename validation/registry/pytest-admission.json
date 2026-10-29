@@ -66,10 +66,17 @@
     },
     {
       "path": "scenarios/browser/test_import_browser.py",
-      "sha256": "43808a25a087e2031bfd338e18452f2e45337c80bec7b8439cc905ad0ee22be3",
+      "sha256": "fe8008559a75b812dcd59e389123147a47ab8f6bd8e6f58d28ac118fa8624616",
       "kind": "behavioral",
       "tests": [
-        "test_document_import_modal_reports_completed_persisted_output"
+        "test_document_import_modal_reports_completed_persisted_output",
+        "test_queue_only_preserves_source_until_dashboard_processes_job",
+        "test_import_submission_transport_failure_keeps_options_and_retry_works",
+        "test_upload_and_import_uses_real_file_bytes_and_selected_strategy",
+        "test_import_options_reset_uses_saved_defaults_without_changing_settings",
+        "test_failed_document_processing_is_visible_and_source_is_preserved",
+        "test_url_import_executes_real_admission_extraction_and_persistence",
+        "test_successful_import_reports_real_strategy_fallback_warning"
       ]
     },
     {
@@ -2204,6 +2211,11 @@
     {
       "path": "scenarios/support/browser_fullstack.py",
       "sha256": "c0b3ca34ec5281e20dc9b97ffe25fa133936a00992cba835b45467cc61e9aa08",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/browser_imports.py",
+      "sha256": "29371cb9b91cf17e6fba3c5d1f4026b5fdfbf4943e5fa4d550c6a7736bbcd7e1",
       "kind": "support"
     },
     {
