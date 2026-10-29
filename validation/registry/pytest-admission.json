@@ -900,6 +900,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_import_authority_contract.py",
+      "sha256": "0738d6bdbf6621c3ff81a6289e5da83728582e1f958f24ba5b600e344ed7cfcb",
+      "kind": "behavioral",
+      "tests": [
+        "test_unauthorized_immediate_import_never_creates_a_job"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_import_pipeline_core.py",
       "sha256": "0b4bd2204e1f7459419d40f779b6fceeed89aa8aaf067a084f9ba16bd7a0acc2",
       "kind": "behavioral",

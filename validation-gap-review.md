@@ -13,11 +13,6 @@
     **Recommendation:** **Keep.** Build a reusable controlled HTTP/HTTPS fixture that exercises the real public-address admission and fetch path, including destination, provenance and content-based PDF detection. Preserve SSRF checks; avoid creating a production localhost exemption solely to make these tests pass.
     - Approved
 
-13. **Import authority before job creation:** Verify that missing execution authority rejects an immediate import before creating a durable job. The old test injected failure into authority resolution.
-
-    **Recommendation:** **Keep the authorization invariant.** Use real unauthenticated or unauthorized ingress and verify that no job is created. Retire the injected resolver-exception ordering assertion if that exception cannot arise through a supported request; retain the ordering check where it protects an actual reachable boundary.
-    - Approved
-
 16. **Future managed-model catalog changes:** Verify catalog renames and update collisions against a changed future template. Current catalog migration and conflict handling are covered.
 
     **Recommendation:** **Keep a narrower, data-driven upgrade scenario.** Load explicit old/new catalog fixtures through the real configuration path and assert alias preservation, collision refusal and useful activity. Retire assumptions about hypothetical future vendor renames and private template patches.
