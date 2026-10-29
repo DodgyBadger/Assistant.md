@@ -27,6 +27,21 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/browser/test_chat_browser.py",
+      "sha256": "9c0e8e1197b3da5f0732f6e5f547cc1383c77008cb1646a304d705dbf162a8a0",
+      "kind": "behavioral",
+      "tests": [
+        "test_normal_chat_consumes_draft_and_image_and_persists_terminal_response",
+        "test_selection_send_acceptance_preserves_composer_and_continued_reading",
+        "test_failed_selection_start_preserves_instruction_and_can_retry",
+        "test_completed_selection_send_respects_current_reader_and_local_edits",
+        "test_real_tool_write_renders_one_turn_and_persisted_details",
+        "test_older_file_refresh_cannot_unlock_a_new_selection_send",
+        "test_selection_send_declined_discard_preserves_real_unsaved_edits",
+        "test_real_chat_execution_failure_is_visible_and_releases_send_controls"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_configuration_browser.py",
       "sha256": "4b3e038374d8551cd457ad66aa8cf2428d65670ece82c72b6e25f687a5e418e1",
       "kind": "behavioral",
@@ -39,6 +54,15 @@
         "test_settings_unlock_before_slow_metadata_refresh",
         "test_managed_binding_is_protected_and_duplicate_is_independent",
         "test_custom_model_collision_preserves_draft_then_atomic_rename_succeeds"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_dashboard_browser.py",
+      "sha256": "5b16caec387e941fdda8f27df118d26a107c5487b0f6159c64e4b36a3ac27a14",
+      "kind": "behavioral",
+      "tests": [
+        "test_dashboard_polling_preserves_tasks_on_error_and_stops_when_hidden",
+        "test_late_task_poll_cannot_restore_a_task_after_newer_terminal_poll"
       ]
     },
     {
@@ -77,6 +101,25 @@
         "test_failed_document_processing_is_visible_and_source_is_preserved",
         "test_url_import_executes_real_admission_extraction_and_persistence",
         "test_successful_import_reports_real_strategy_fallback_warning"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_session_browser.py",
+      "sha256": "daafc8695dcde85d9e1e75e69c33877c726a9faf3b45d7c350e23b88454f7123",
+      "kind": "behavioral",
+      "tests": [
+        "test_session_title_edit_and_content_search_preserve_real_history",
+        "test_late_vault_session_list_cannot_replace_current_vault",
+        "test_map_checkpoints_render_narrative_and_restore_focus_on_escape",
+        "test_older_timeline_rows_prepend_without_replacing_current_transcript",
+        "test_session_load_transport_failure_is_visible_and_retry_loads_real_data",
+        "test_late_checkpoint_response_cannot_replace_newer_map_selection",
+        "test_fork_action_creates_independent_persisted_conversation",
+        "test_pending_chat_mode_save_is_scoped_to_its_original_session",
+        "test_model_selection_survives_late_status_and_uses_configured_default",
+        "test_real_session_upgrade_preserves_history_and_reports_refresh_outcome",
+        "test_loaded_markdown_preserves_user_lines_code_and_assistant_copy_source",
+        "test_late_compaction_pressure_cannot_replace_current_session"
       ]
     },
     {
@@ -2210,7 +2253,7 @@
     },
     {
       "path": "scenarios/support/browser_fullstack.py",
-      "sha256": "c0b3ca34ec5281e20dc9b97ffe25fa133936a00992cba835b45467cc61e9aa08",
+      "sha256": "853b27d5e518f150940ab933281e6a8647d55e8e696f097bc52a29d3ddf05fa6",
       "kind": "support"
     },
     {
@@ -2226,6 +2269,11 @@
     {
       "path": "scenarios/support/browser_runtime.py",
       "sha256": "51d4387006dd07f30ac24620766b106bcd730c52414781291c3bf22e7f705082",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/browser_sessions.py",
+      "sha256": "e4bb784ee82710c743f6ebe48583d13e51d09e217329a019dc1acb3a5973ed96",
       "kind": "support"
     },
     {

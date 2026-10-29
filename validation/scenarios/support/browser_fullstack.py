@@ -75,13 +75,19 @@ class DeliveryGate:
 
 
 @asynccontextmanager
-async def hold_delivery(ui, app, pattern, *, method="GET"):
+async def hold_delivery(ui, app, pattern, *, method="GET", first_only=False):
     gate = DeliveryGate(method=method)
+    claimed = False
 
     async def hold(route):
+        nonlocal claimed
         if route.request.method != method:
             await route.fallback()
             return
+        if first_only and claimed:
+            await route.fallback()
+            return
+        claimed = True
         # Only delivery is delayed. The real app executes and its original
         # status, headers and body are forwarded intact. No app service or API
         # result is mocked. This is an environmental network interleaving.
@@ -134,4 +140,37 @@ async def lose_connection(ui, app, pattern, *, method="GET"):
         app.evidence.append(
             "network-drops.jsonl",
             {"pattern": pattern, "method": method, "calls": calls},
+        )
+
+
+@asynccontextmanager
+async def hold_deliveries(ui, app, *specifications):
+    """Coordinate multiple real responses without nesting page-route ownership."""
+    gates = []
+    for pattern, method in specifications:
+        gate = DeliveryGate(method=method)
+        gates.append(gate)
+
+        async def hold(route, _request, *, current=gate):
+            if route.request.method != current.method:
+                await route.fallback()
+                return
+            # Environmental timing only: retain the real app response intact.
+            response = await route.fetch()
+            row = {"url": route.request.url, "status": response.status}
+            current.requests.append(row)
+            current.held.set()
+            await current.release.wait()
+            await route.fulfill(response=response)
+            row["delivery"] = "forwarded_unchanged"
+
+        await ui.route(pattern, hold)
+    try:
+        yield gates
+    finally:
+        for gate in gates:
+            gate.release.set()
+        await asyncio.wait_for(ui.unroute_all(behavior="wait"), 15)
+        app.evidence.save_json(
+            "coordinated-response-delivery.json", [g.requests for g in gates]
         )
