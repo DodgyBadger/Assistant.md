@@ -10,7 +10,9 @@ from core.web.errors import WebStrategyConfigurationError
 from core.web.models import WebSearchItem, WebSearchResult
 
 
-async def search_with_tavily(*, query: str, max_results: int) -> WebSearchResult:
+async def search_with_tavily(
+    *, query: str, max_results: int, endpoint: str = "https://api.tavily.com/search"
+) -> WebSearchResult:
     """Search Tavily and normalize its result shape."""
     api_key = get_secret_value("TAVILY_API_KEY")
     if not api_key:
@@ -19,7 +21,7 @@ async def search_with_tavily(*, query: str, max_results: int) -> WebSearchResult
         )
     async with httpx.AsyncClient(timeout=float(get_default_api_timeout())) as client:
         response = await client.post(
-            "https://api.tavily.com/search",
+            endpoint,
             headers={"Content-Type": "application/json"},
             json={
                 "api_key": api_key,

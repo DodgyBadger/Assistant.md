@@ -1135,6 +1135,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_provider_failure_contracts.py",
+      "sha256": "9780a0dfb525be233e5e201aa86dedccacb2abee5e22c999a989d73e0797c60d",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_tavily_503_exposes_retry_after_and_hides_query",
+        "test_configured_model_provider_503_and_bearer_header"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_public_url_configuration.py",
       "sha256": "632b650c15ee09e27794be56fa148b7397ebafdd08ff2521ea41bf11318b1cd2",
       "kind": "behavioral",
@@ -2048,6 +2057,11 @@
     {
       "path": "scenarios/support/provider_denial_http.py",
       "sha256": "ec54907c46e1f23835f9318390ffd04bf0c93bf0743b3478d429d67431286bd4",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/provider_error_inputs.py",
+      "sha256": "382c0ff0f1c678a29d7dc896d9ddeeabab1d74c86b1bcd81b560d15ada4b63f7",
       "kind": "support"
     },
     {

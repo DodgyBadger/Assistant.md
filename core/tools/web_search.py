@@ -17,9 +17,14 @@ class WebSearch(BaseTool):
     """Provider-neutral web search tool."""
 
     @classmethod
-    def get_tool(cls, vault_path: str | None = None) -> Tool:
+    def get_tool(
+        cls,
+        vault_path: str | None = None,
+        *,
+        service: WebCapabilityService | None = None,
+    ) -> Tool:
         del vault_path
-        service = WebCapabilityService()
+        service = service or WebCapabilityService()
 
         async def web_search(*, query: str, max_results: int = 3) -> str | ToolReturn:
             """Search the web using the configured strategy.

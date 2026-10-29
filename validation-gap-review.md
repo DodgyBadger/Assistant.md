@@ -33,11 +33,6 @@
     **Recommendation:** **Keep a narrower, data-driven upgrade scenario.** Load explicit old/new catalog fixtures through the real configuration path and assert alias preservation, collision refusal and useful activity. Retire assumptions about hypothetical future vendor renames and private template patches.
     - Approved
 
-17. **Transient web-provider failures:** Verify real HTTP 503 handling, `Retry-After` values, and removal of private query text from provider errors. Missing-key behavior does not cover these failures.
-
-    **Recommendation:** **Keep.** Exercise actual 503 and Retry-After responses plus private query text through a controlled provider transport. Share network infrastructure with items 12 and 38, and assert retry decisions and safe diagnostics rather than just exception construction.
-    - Approved
-
 23. **Gmail connection UI behavior:** Review save-before-authorization behavior and missing-compose warnings in the browser. API scope and readiness checks do not establish rendered UI behavior.
 
     **Recommendation:** **Defer to the browser work.** Keep save-before-authorization and actionable scope warnings as user-visible requirements. Replace JavaScript-source, CSS-class and exact-copy assertions with browser journeys when that capability is resumed.
