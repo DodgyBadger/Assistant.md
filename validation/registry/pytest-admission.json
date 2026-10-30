@@ -297,6 +297,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_authentication_boundary_contracts.py",
+      "sha256": "fc5a3a13f48091a302289bfadd281be195247fa0a04d07c083600401e29db6ab",
+      "kind": "behavioral",
+      "tests": [
+        "test_authentication_configuration_fails_closed_and_file_secret_admits",
+        "test_malformed_headers_cookies_and_websocket_admission",
+        "test_real_ingress_throttle_expires_clears_on_success_and_bounds_peers"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_authoring_context.py",
       "sha256": "0d63b7c4bc88c0baad3f8b8368d58b08b8a7e831dd8e530f84466292e808e24a",
       "kind": "behavioral",
@@ -763,6 +773,15 @@
       "kind": "behavioral",
       "tests": [
         "test_decision_model_configuration_and_repair"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_decision_runtime_contracts.py",
+      "sha256": "76b58f9ab5e4505aab8977ca7a00c0c16af04e119a2308b36bc4bd612d71cd39",
+      "kind": "behavioral",
+      "tests": [
+        "test_configured_decision_factory_maps_protocol_and_preserves_metadata",
+        "test_external_decision_timeout_has_safe_error_and_real_failure_activity"
       ]
     },
     {
@@ -1596,6 +1615,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_search_process_failure_contracts.py",
+      "sha256": "61678c0014b3656d0ce15f9f9527dff1d96321361680f8500f57d64b536eb5d5",
+      "kind": "behavioral",
+      "tests": [
+        "test_search_external_execution_failures_are_distinct_and_bounded"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_secrets_crash_recovery.py",
       "sha256": "2d6fc1310e0c1f6124b68ce28482d55c07fc8008adf6277155ff2b968e6bf5c2",
       "kind": "behavioral",
@@ -1882,6 +1909,14 @@
       "kind": "behavioral",
       "tests": [
         "test_shared_oauth_storage_and_pkce"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_shipped_configuration_contracts.py",
+      "sha256": "5f86d646af3f0ce51517f66519659422ad6f56624370c9278a4b6e20490ef41d",
+      "kind": "behavioral",
+      "tests": [
+        "test_fresh_defaults_and_unconfigured_model_admission"
       ]
     },
     {
@@ -2251,6 +2286,11 @@
       "kind": "support"
     },
     {
+      "path": "scenarios/support/authentication_boundaries.py",
+      "sha256": "ddd80da3d4601603775bae03e2e355096e0a2d979d16e888eb2dea5823036a9b",
+      "kind": "support"
+    },
+    {
       "path": "scenarios/support/authoring.py",
       "sha256": "c79616c9028847faf92ecd2fcfa423b9bd3bd8fd073b973633e81eceb9a1b32b",
       "kind": "support"
@@ -2388,6 +2428,11 @@
     {
       "path": "scenarios/support/decision_model_inputs.py",
       "sha256": "5ed430aac421e5f6e9bbef93a0c2556072bf01aae98b363c7e84c05d1bb30bf8",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/decision_provider.py",
+      "sha256": "2d9c2321c6815b3710da07365bc139696d5c5212cbb54a2d4f0c162333c1cf25",
       "kind": "support"
     },
     {
