@@ -1417,6 +1417,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_credential_dns_race.py",
+      "sha256": "3e1d81e80cb8a87f1bb227c8d81993074ee3b1fcac6808dce6fe882e6b2a6a16",
+      "kind": "behavioral",
+      "tests": [
+        "test_endpoint_edit_during_dns_never_sends_new_credential_to_old_endpoint"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_managed_lifecycle.py",
       "sha256": "c7ea4e49c00f9568c232f44bf69ef7d43e05adbad85fad8bc63f21f69841cd9e",
       "kind": "behavioral",
