@@ -191,3 +191,63 @@ async def test_real_ingress_throttle_expires_clears_on_success_and_bounds_peers(
             async with authentication_client(app, application, peer) as other:
                 assert (await other.get("/api/status")).status_code == 401
         assert (await first.get("/api/status")).status_code == 401
+
+
+async def test_peer_admission_and_session_payload_claims_are_bounded(app):
+    await app.start()
+    import base64
+    import json
+
+    from core.authentication import OwnerSessionCodec
+
+    loopback = authentication_application(app, "loopback")
+    for peer, expected in (
+        ("127.0.0.1", 200),
+        ("::1", 200),
+        ("127.0.0.2", 401),
+        ("172.20.0.8", 401),
+        ("192.168.1.4", 401),
+        ("localhost", 401),
+        ("", 401),
+    ):
+        async with authentication_client(app, loopback, peer) as client:
+            response = await client.get(
+                "/api/status", headers={"X-Forwarded-For": "127.0.0.1"}
+            )
+            assert response.status_code == expected, (peer, response.text)
+    for allowlist in ("", "172.20.0.0/24,10.4.0.9/32"):
+        proxy = authentication_application(
+            app,
+            "trusted_proxy",
+            ASSISTANTMD_AUTH_SECRET=OWNER_SECRET,
+            ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS=allowlist,
+        )
+        for peer, expected in (
+            ("172.20.0.4", 200),
+            ("10.4.0.9", 200),
+            ("172.21.0.4", 401 if allowlist else 200),
+        ):
+            async with authentication_client(app, proxy, peer) as client:
+                headers = {"X-AssistantMD-Proxy-Assertion": OWNER_SECRET}
+                assert (
+                    await client.get("/api/status", headers=headers)
+                ).status_code == expected
+                assert (
+                    await client.get(
+                        "/api/status",
+                        headers={"X-AssistantMD-Proxy-Assertion": "wrong"},
+                    )
+                ).status_code == 401
+    disabled = authentication_application(app, "disabled")
+    accepted = await websocket_result(disabled)
+    assert accepted[0]["type"] == "websocket.close" and accepted[0]["code"] == 1000
+    issued = OwnerSessionCodec(owner_policy(app)).issue()
+    payload_segment = issued.cookie_value.split(".")[0]
+    payload = json.loads(
+        base64.urlsafe_b64decode(payload_segment + "=" * (-len(payload_segment) % 4))
+    )
+    assert set(payload) == {"v", "iat", "exp", "csrf", "nonce"}
+    assert OWNER_SECRET not in json.dumps(
+        payload
+    ) and issued.csrf_token not in json.dumps(payload)
+    assert len(issued.cookie_value.encode()) <= 4096

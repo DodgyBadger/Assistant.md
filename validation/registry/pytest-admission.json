@@ -298,12 +298,13 @@
     },
     {
       "path": "scenarios/integration/core/test_authentication_boundary_contracts.py",
-      "sha256": "fc5a3a13f48091a302289bfadd281be195247fa0a04d07c083600401e29db6ab",
+      "sha256": "1cc3bd41357236e1b6b2df22615e6e3dca3a36730bbb99adbc2f74fb037fbbe8",
       "kind": "behavioral",
       "tests": [
         "test_authentication_configuration_fails_closed_and_file_secret_admits",
         "test_malformed_headers_cookies_and_websocket_admission",
-        "test_real_ingress_throttle_expires_clears_on_success_and_bounds_peers"
+        "test_real_ingress_throttle_expires_clears_on_success_and_bounds_peers",
+        "test_peer_admission_and_session_payload_claims_are_bounded"
       ]
     },
     {
@@ -378,6 +379,18 @@
       "kind": "behavioral",
       "tests": [
         "test_manual_cache_purge"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_catalog_legacy_boundaries.py",
+      "sha256": "468523f1a26897cc5ce0dc0e451de422a9767f333518fdefa61afc550f683443",
+      "kind": "behavioral",
+      "tests": [
+        "test_older_provider_families_adopt_the_current_shipped_catalog",
+        "test_shipped_anthropic_bindings_support_thinking_and_schema_output",
+        "test_alternate_promotion_and_repeated_rename_survive_reload",
+        "test_concurrent_cold_loads_publish_one_complete_upgrade_and_backup",
+        "test_shared_legacy_alternates_disable_both_models_without_choosing_a_winner"
       ]
     },
     {
@@ -1442,6 +1455,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py",
+      "sha256": "4ae1f279a1b568c10a241b7e6c517d5b5da3c727ed9d84bf4f4ae82ebca99e51",
+      "kind": "behavioral",
+      "tests": [
+        "test_cancelled_partial_snapshot_releases_already_acquired_connection",
+        "test_endpoint_and_credential_changes_reject_stale_cold_start"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_timeout_contract.py",
       "sha256": "f505434c32d1fe0583de423d79638c10127ac8075578da03070ba7b43c59f675",
       "kind": "behavioral",
@@ -1932,6 +1954,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_shell_local_configuration.py",
+      "sha256": "3a215e67dbd16fdf0c7ee24f13a598e81bbb094541fe050f8d933bf01165a972",
+      "kind": "behavioral",
+      "tests": [
+        "test_shell_configuration_modes_and_invalid_coordinates_fail_closed",
+        "test_local_client_bootstrap_gates_and_persists_key_and_trust",
+        "test_complete_stdio_envelope_budget_and_unready_status_privacy"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_shipped_configuration_contracts.py",
       "sha256": "5f86d646af3f0ce51517f66519659422ad6f56624370c9278a4b6e20490ef41d",
       "kind": "behavioral",
@@ -2348,6 +2380,11 @@
     {
       "path": "scenarios/support/browser_sessions.py",
       "sha256": "e4bb784ee82710c743f6ebe48583d13e51d09e217329a019dc1acb3a5973ed96",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/catalog_cold_load.py",
+      "sha256": "92ab168ba3b77ca813ff72e20611c87baabe0d56e2b5ce252408bb486dbdb003",
       "kind": "support"
     },
     {
@@ -2878,6 +2915,11 @@
     {
       "path": "scenarios/support/settled_read_failed_append.py",
       "sha256": "5ef34bf44271c54e0e0884a600b253cd492476b6e413fc28aa9468b8513d0257",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/shell_bootstrap_inputs.py",
+      "sha256": "0333c191a042559b166f19a4831545621417f1f25e2ff23f5c744f3664d75619",
       "kind": "support"
     },
     {
