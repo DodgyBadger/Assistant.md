@@ -1000,7 +1000,7 @@
     },
     {
       "path": "scenarios/integration/core/test_execution_runner_lifecycle.py",
-      "sha256": "5a0d0998c1ef80cc1149534e63573509baab7ee9a8156db13b494656847e34ae",
+      "sha256": "911e90bf6005469cf788bd2f5327d8c743982ea1dd80ce00120c0252f22f1a23",
       "kind": "behavioral",
       "tests": [
         "test_runner_background_inline_and_terminal_start_contracts",

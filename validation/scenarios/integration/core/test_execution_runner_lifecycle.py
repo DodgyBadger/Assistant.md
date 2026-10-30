@@ -157,6 +157,12 @@ async def test_runner_cancellation_failure_and_timeout_hooks(app: Application) -
         cancelled_task.task_id
     ], "Runner should call cancellation hook exactly once"
     failure_hook: list[tuple[str, str]] = []
+    failure_hook_finished = asyncio.Event()
+
+    async def record_failed(task_id: str, exc: BaseException) -> None:
+        await _record_failure(failure_hook, task_id, exc)
+        failure_hook_finished.set()
+
     failed_task = await runtime.task_runner.start_background(
         ExecutionTaskSpec(
             kind=ExecutionTaskKind.CHAT,
@@ -167,9 +173,7 @@ async def test_runner_cancellation_failure_and_timeout_hooks(app: Application) -
             metadata={"probe": "failed"},
         ),
         _fail_task,
-        hooks=ExecutionTaskHooks(
-            on_failed=lambda task_id, exc: _record_failure(failure_hook, task_id, exc)
-        ),
+        hooks=ExecutionTaskHooks(on_failed=record_failed),
     )
     failed = await wait_terminal(runtime, failed_task.task_id)
     assert (
@@ -180,6 +184,9 @@ async def test_runner_cancellation_failure_and_timeout_hooks(app: Application) -
     ) == "RuntimeError: forced runner failure", (
         "Runner should preserve failure reason from TaskCoordinator"
     )
+    # Terminal publication precedes the runner's failure callback. Observe the
+    # actual callback completing before asserting its unchanged exact outcome.
+    await asyncio.wait_for(failure_hook_finished.wait(), timeout=2.0)
     assert failure_hook == [
         (failed_task.task_id, "RuntimeError")
     ], "Runner should call failure hook with the original exception"
