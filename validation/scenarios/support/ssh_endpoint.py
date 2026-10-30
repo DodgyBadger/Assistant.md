@@ -152,11 +152,13 @@ async def ssh_endpoint(app, *, mismatched_host_key=False, reject_client_key=Fals
         yield workload
     finally:
         listener.close()
-        await listener.wait_closed()
         connections = tuple(workload.connections)
         for connection in connections:
             connection.close()
         async with asyncio.timeout(5):
+            # Listener shutdown can wait for accepted connections. Close those
+            # first so a leaking app client cannot hang fixture teardown.
+            await listener.wait_closed()
             await asyncio.gather(
                 *(connection.wait_closed() for connection in connections)
             )

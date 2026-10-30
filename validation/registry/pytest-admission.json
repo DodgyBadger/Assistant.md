@@ -1465,6 +1465,17 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_ssh_transport.py",
+      "sha256": "609ea8b21b1bbbf599f5baff949c6525c3c8fcc8d69842bc871a58945e8d3e13",
+      "kind": "behavioral",
+      "tests": [
+        "test_mcp_over_ssh_preserves_launch_roots_and_closes_the_real_session",
+        "test_stdio_launch_capacity_cancellation_recovers_while_http_progresses",
+        "test_stdio_session_reuse_and_shutdown_close_an_active_lease",
+        "test_stdio_launch_setting_uses_safe_bounds_for_real_persisted_inputs"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_timeout_contract.py",
       "sha256": "f505434c32d1fe0583de423d79638c10127ac8075578da03070ba7b43c59f675",
       "kind": "behavioral",
@@ -2965,7 +2976,12 @@
     },
     {
       "path": "scenarios/support/ssh_endpoint.py",
-      "sha256": "71676e544a30f21e771af9bf6bbaa5b29529bf965d126ba90f7ff4087cb74318",
+      "sha256": "d44003628868006556fd3cf1a36a219e53806ad387dddb312b6dea3d183ae14e",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/ssh_mcp_inputs.py",
+      "sha256": "73cf9b1f191a01938b188cab9e688064d1a49129287db65d907e985157b9b67d",
       "kind": "support"
     },
     {

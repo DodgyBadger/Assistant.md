@@ -616,7 +616,9 @@ class MCPConnectionManager:
         transport = StdioTransport(
             command=ssh_argv[0],
             args=ssh_argv[1:],
-            keep_alive=True,
+            # This manager retains the entered client for active/cached leases.
+            # Exiting that client must also terminate its owned SSH subprocess.
+            keep_alive=False,
             log_file=Path(os.devnull),
         )
         client = Client(
