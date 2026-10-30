@@ -226,11 +226,11 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 4,
-          "partial": 4
+          "covered": 7,
+          "partial": 1
         },
         "remaining_gap_ids": [
-          "mcp-advanced-stdio-successful-ssh"
+          "backend-chat-mcp-preparation"
         ]
       }
     },
@@ -2987,8 +2987,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 1,
-          "partial": 4
+          "covered": 2,
+          "partial": 3
         },
         "remaining_gap_ids": [
           "backend-mcp-manager-parity"

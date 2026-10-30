@@ -1098,33 +1098,35 @@
     },
     {
       "id": "mcp-advanced-stdio-successful-ssh",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/mcp_advanced_shell_stdio_connections"
       ],
-      "missing_proof": "Successful native SSH execution, stdin/stdout/stderr/exit status, authenticated cached readiness and host-key mismatch rejection now pass against a local SSH endpoint. MCP initialization/tool calls/root forwarding/closure over SSH, wrong-client-key rejection, capacity/cancellation and other shell failure paths remain unverified. Deployed forced-command wrapper and remote descendant cleanup remain separate evidence.",
-      "cleanup_action": "Extend the fixture-owned local SSH endpoint to carry a deterministic MCP stdio server and held/rejected sessions. No advanced-shell image or sibling container is needed for application transport contracts; deployment isolation and remote wrapper behavior require separate evidence.",
+      "missing_proof": "",
+      "cleanup_action": "Completed app-side SSH/MCP transport scope; deployment-only isolation/wrapper guarantees remain outside this evidence.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json",
         "validation/runs/ssh_transport_pilot_20261030/report.json",
-        "validation/runs/ssh_transport_pilot_confirm_20261030/report.json"
+        "validation/runs/ssh_transport_pilot_confirm_20261030/report.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
       ],
       "review_number": 44,
       "user_decision": "Defer, I'm not convinced we're going to be able to adequately test this through scenarios.",
       "decision_status": "deferred",
       "backend_root_contract_ids": [
-        "test_advanced_shell_config:207",
         "test_advanced_shell_config:238",
         "test_advanced_shell_config:388",
         "test_advanced_shell_config:450"
       ],
       "prior_missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
       "recommendation": "Extend the fixture-owned local SSH endpoint to carry a deterministic MCP stdio server and held/rejected sessions. No advanced-shell image or sibling container is needed for application transport contracts; deployment isolation and remote wrapper behavior require separate evidence.",
-      "scope_update": "User approved the local SSH pilot on 2026-10-30; original advanced-shell/container deferral remains in force."
+      "scope_update": "User approved local SSH implementation; no advanced-shell image, other container or live model was used.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real app SSH transport, successful authenticated readiness/cache, key/trust rejection, input/output limits, deadline/cancellation/capacity recovery, sanitized tool activity, MCP initialization/discovery/calls/roots, native session closure, reuse and active-lease shutdown now pass against fixture-owned SSH endpoints. A real failing closure reproduction exposed manager keep_alive=True retaining the native SSH child; keep_alive=False makes exiting the manager-owned client terminate it. DNS/generic diagnostic projection uses documented external executable output; actual OS DNS failure, deployed forced-command behavior and remote descendant cleanup are not claimed. Instruction composition is separately retained under item 65."
     },
     {
       "id": "mcp-controlled-dns-and-tls-boundaries",
@@ -1643,36 +1645,42 @@
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_chat_instructions.py",
-        "validation/test_chat_mcp_lifecycle.py"
+        "validation/test_chat_mcp_lifecycle.py",
+        "validation/test_advanced_shell_config.py"
       ],
       "contract_ids": [
         "test_chat_instructions:7",
         "test_chat_mcp_lifecycle:78",
-        "test_chat_mcp_lifecycle:121"
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
       ],
-      "missing_proof": "Primary/deferred preparation failure after MCP acquisition still depends on the advanced-shell readiness failure boundary used by the old tests. Deferred instruction ordering lacks a requirements-backed semantic output oracle; literal guidance copy is not being frozen.",
+      "missing_proof": "Semantic instruction inclusion/order for advanced-shell availability and deferred resumption still needs a requirements-backed application-output oracle. Exact flight-card copy and fake registration counters are not being frozen. Primary/deferred preparation cleanup needs an agreed real failure input: the original tests injected a shell-resolution exception, whereas actual SSH failures normally produce sanitized unavailability.",
       "retained_coverage": [
         "validation/legacy/pending/test_chat_instructions.py",
-        "validation/legacy/pending/test_chat_mcp_lifecycle.py"
+        "validation/legacy/pending/test_chat_mcp_lifecycle.py",
+        "validation/legacy/pending/test_advanced_shell_config.py"
       ],
-      "cleanup_action": "Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.",
-      "recommendation": "Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.",
+      "cleanup_action": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
+      "recommendation": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
       "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
       "decision_status": "approved_local_scope",
       "evidence": [
         "validation/registry/backend-migration.json",
-        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_chat_instructions:7",
         "test_chat_mcp_lifecycle:78",
-        "test_chat_mcp_lifecycle:121"
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
       ],
       "original_missing_proof": "Deferred resume semantic instruction ordering and releasing acquired MCP resources when primary/deferred preparation fails. Existing context composition and manager closure scenarios do not establish those exact paths.",
       "remaining_contract_ids": [
         "test_chat_instructions:7",
         "test_chat_mcp_lifecycle:78",
-        "test_chat_mcp_lifecycle:121"
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
       ],
       "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
@@ -1810,17 +1818,18 @@
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
       ],
-      "missing_proof": "Real advanced-shell stdio capacity/serialization and HTTP progress are excluded. Narrow pre-DNS credential-capture timing, real cleanup-failure telemetry and synthetic private synchronous invalidation errors lack an agreed supported failure boundary. Partial snapshot cancellation, post-connect endpoint/token changes, forged/stale record rejection and worker-thread invalidation now pass.",
+      "missing_proof": "Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.",
       "retained_coverage": [
         "validation/legacy/pending/test_mcp_manager_hardening.py"
       ],
-      "cleanup_action": "Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.",
-      "recommendation": "Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.",
+      "cleanup_action": "Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.",
+      "recommendation": "Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.",
       "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
       "decision_status": "approved_local_scope",
       "evidence": [
         "validation/registry/backend-migration.json",
-        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_mcp_manager_hardening:179",
@@ -1831,7 +1840,6 @@
       ],
       "original_missing_proof": "Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.",
       "remaining_contract_ids": [
-        "test_mcp_manager_hardening:226",
         "test_mcp_manager_hardening:246",
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"

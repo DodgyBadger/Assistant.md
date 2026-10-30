@@ -8588,11 +8588,11 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 4,
-          "partial": 4
+          "covered": 7,
+          "partial": 1
         },
         "remaining_gap_ids": [
-          "mcp-advanced-stdio-successful-ssh"
+          "backend-chat-mcp-preparation"
         ]
       }
     },
@@ -9972,8 +9972,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 1,
-          "partial": 4
+          "covered": 2,
+          "partial": 3
         },
         "remaining_gap_ids": [
           "backend-mcp-manager-parity"
@@ -12105,8 +12105,8 @@
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "covered": 71,
-      "partial": 20,
+      "covered": 75,
+      "partial": 16,
       "retired": 2
     },
     "all_original_sources_unchanged": true,
@@ -12130,6 +12130,17 @@
       "evidence_index": "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
       "unique_cases_passed": 39,
       "full_core_suite_run": false,
+      "all_original_sources_unchanged": true
+    },
+    "ssh_implementation": {
+      "evidence_index": "validation/runs/ssh_implementation_summary_20261030/evidence.json",
+      "unique_cases_passed": 21,
+      "full_core_suite_run": false,
+      "contract_counts": {
+        "covered": 75,
+        "partial": 16,
+        "retired": 2
+      },
       "all_original_sources_unchanged": true
     }
   }

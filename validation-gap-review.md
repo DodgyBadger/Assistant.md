@@ -1,16 +1,11 @@
 # Remaining validation gaps
 
-12 review items remain; item 3 remains separately tracked in the external product To Do list. Completed local work has been removed from this list; numbers are stable review IDs. The user authorized clear local cases while excluding real advanced shell, access to other containers and uncertain contracts. Earlier cooperative/deferred decisions remain unchanged. Exact canonical assertions, partial proof and execution evidence are recorded in `validation/registry/backend-migration.json` and `validation/registry/pytest-gaps.json`.
+11 review items remain; item 3 remains separately tracked in the external product To Do list. Completed local work has been removed from this list; numbers are stable review IDs. The user authorized clear local cases while excluding real advanced shell, access to other containers and uncertain contracts. Earlier cooperative/deferred decisions remain unchanged. Exact canonical assertions, partial proof and execution evidence are recorded in `validation/registry/backend-migration.json` and `validation/registry/pytest-gaps.json`.
 
 - **37. Gmail account-specific token routing:** Verify that explicitly selecting each Gmail account sends that account’s token. Current transport fixtures use the saved default grant; selected-account metadata alone is insufficient.
 
     **Recommendation:** **Keep, high priority.** Exercise the actual selected-account path with two different grants and capture the outgoing authorization for each selection. Avoid a factory that substitutes the default grant; change composition only if investigation shows the real path cannot be exercised or is incorrect.
     - Defer to the end - I want to address this cooperatively
-
-- **44. Remaining shell and MCP-over-SSH behavior:** A real local SSH endpoint now verifies successful command/stdin/stdout/stderr/exit transport, authenticated cached readiness and pinned-host-key rejection before authentication. MCP stdio initialization/tool calls/root forwarding/closure, client-key rejection, capacity/cancellation and remaining failure paths still need proof.
-
-    **Recommendation:** Extend the shared local SSH fixture for these application contracts. No advanced-shell image or other container is required. Keep deployed forced-command restrictions and remote descendant cleanup separate; the controlled endpoint does not certify them.
-    - Original decision: Defer real advanced-shell infrastructure. Local SSH pilot approved and passed on 2026-10-30.
 
 - **48. MCP OAuth authorization lifecycle:** Test actual discovery and authorization start, live callback rejection and recovery, completion timeout, superseding attempts, live disconnect and failed supersede recovery. Current tests begin with saved pending records.
 
@@ -36,11 +31,11 @@
 
 ## Former validation-root backend review
 
-All 93 contract groups across the 18 retained backend sources are reconciled: 71 covered, two retired and 20 partial. These are contract-group counts, not scenario or code-coverage percentages. Thirty-nine distinct targeted cases passed with completed cleanup; the full core suite remains stopped. Authentication, typed decisions, search failures, shipped defaults and local shell configuration/bootstrap items are complete and removed. Original backend sources remain retained; per-file acceptance is recorded in the registry.
+All 93 contract groups across the 18 retained backend sources are reconciled: 75 covered, two retired and 16 partial. These are contract-group counts, not scenario or code-coverage percentages. The backend closure pass verified 39 distinct targeted cases; the subsequent SSH implementation verified 17 SSH cases and four existing MCP regression cases, all with completed cleanup; the full core suite remains stopped. Authentication, typed decisions, search failures, shipped defaults, local shell configuration/bootstrap and app-side SSH/MCP transport items are complete and removed. Original backend sources remain retained; per-file acceptance is recorded in the registry.
 
-- **65. Chat preparation and deferred instructions:** Primary/deferred preparation failure after MCP acquisition still depends on the advanced-shell readiness failure boundary used by the old tests. Deferred instruction ordering lacks a requirements-backed semantic output oracle; literal guidance copy is not being frozen.
+- **65. Chat preparation and instruction composition:** Semantic instruction inclusion/order for advanced-shell availability and deferred resumption still needs a requirements-backed application-output oracle. Exact flight-card copy and fake registration counters are not being frozen. Primary/deferred preparation cleanup needs an agreed real failure input: the original tests injected a shell-resolution exception, whereas actual SSH failures normally produce sanitized unavailability.
 
-    **Recommendation:** Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.
+    **Recommendation:** Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.
 
     **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
@@ -56,9 +51,9 @@ All 93 contract groups across the 18 retained backend sources are reconciled: 71
 
     **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **69. Remaining MCP failure and capacity boundaries:** Real advanced-shell stdio capacity/serialization and HTTP progress are excluded. Narrow pre-DNS credential-capture timing, real cleanup-failure telemetry and synthetic private synchronous invalidation errors lack an agreed supported failure boundary. Partial snapshot cancellation, post-connect endpoint/token changes, forged/stale record rejection and worker-thread invalidation now pass.
+- **69. Remaining MCP race and error boundaries:** Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.
 
-    **Recommendation:** Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.
+    **Recommendation:** Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.
 
     **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
