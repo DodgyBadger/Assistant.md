@@ -7,10 +7,10 @@
     **Recommendation:** **Keep, high priority.** Exercise the actual selected-account path with two different grants and capture the outgoing authorization for each selection. Avoid a factory that substitutes the default grant; change composition only if investigation shows the real path cannot be exercised or is incorrect.
     - Defer to the end - I want to address this cooperatively
 
-- **44. Successful advanced-shell MCP execution:** Verify actual SSH launch configuration, root forwarding and client closure. Configuration gates and refused-connection behavior pass; successful SSH execution lacks local test infrastructure.
+- **44. Remaining shell and MCP-over-SSH behavior:** A real local SSH endpoint now verifies successful command/stdin/stdout/stderr/exit transport, authenticated cached readiness and pinned-host-key rejection before authentication. MCP stdio initialization/tool calls/root forwarding/closure, client-key rejection, capacity/cancellation and remaining failure paths still need proof.
 
-    **Recommendation:** **Defer to explicit infrastructure work.** Establish a reusable local SSH/container fixture, then verify actual launch arguments, roots and connection closure. Keep current admission/refusal checks in core; do not count an unreachable SSH endpoint as successful execution coverage.
-    - Defer, I'm not convinced we're going to be able to adequately test this through scenarios.
+    **Recommendation:** Extend the shared local SSH fixture for these application contracts. No advanced-shell image or other container is required. Keep deployed forced-command restrictions and remote descendant cleanup separate; the controlled endpoint does not certify them.
+    - Original decision: Defer real advanced-shell infrastructure. Local SSH pilot approved and passed on 2026-10-30.
 
 - **48. MCP OAuth authorization lifecycle:** Test actual discovery and authorization start, live callback rejection and recovery, completion timeout, superseding attempts, live disconnect and failed supersede recovery. Current tests begin with saved pending records.
 

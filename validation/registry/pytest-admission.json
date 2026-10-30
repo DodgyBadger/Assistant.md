@@ -1973,6 +1973,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_shell_ssh_transport.py",
+      "sha256": "eb209e2b52a1a58d1ed1fdd66eeda2ca907424f82d7d3fab40451c3d12b81f60",
+      "kind": "behavioral",
+      "tests": [
+        "test_authenticated_ssh_preserves_command_streams_and_exit_status",
+        "test_pinned_host_key_mismatch_rejects_before_authentication_or_execution"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_shipped_configuration_contracts.py",
       "sha256": "5f86d646af3f0ce51517f66519659422ad6f56624370c9278a4b6e20490ef41d",
       "kind": "behavioral",
@@ -2934,6 +2943,11 @@
     {
       "path": "scenarios/support/shell_bootstrap_inputs.py",
       "sha256": "0333c191a042559b166f19a4831545621417f1f25e2ff23f5c744f3664d75619",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/ssh_endpoint.py",
+      "sha256": "b37351e629a127ecf3bf923d83d7e42f7d72ea39160e96e94d43cb21e43d7eb0",
       "kind": "support"
     },
     {

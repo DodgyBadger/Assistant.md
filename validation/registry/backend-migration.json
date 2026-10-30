@@ -158,13 +158,21 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py::test_stdio_restricted_authority_import_and_readiness",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_ssh_transport.py::test_authenticated_ssh_preserves_command_streams_and_exit_status",
+              "line": 14
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_ssh_transport.py::test_pinned_host_key_mismatch_rejects_before_authentication_or_execution",
+              "line": 59
             }
           ],
           "gap_ids": [
             "mcp-advanced-stdio-successful-ssh"
           ],
           "prior_classification": "rewrite",
-          "scope": "Restricted/refused connection and principal boundary are real; successful authenticated shell, readiness cache, invocation gating and bounded start/completion telemetry are not proved by a refused endpoint. Literal guidance prose is not retained as an oracle."
+          "scope": "Restricted/refused connection and principal boundary are real; successful authenticated shell, readiness cache, invocation gating and bounded start/completion telemetry are not proved by a refused endpoint. Literal guidance prose is not retained as an oracle. Local real OpenSSH-to-AsyncSSH pilot additionally establishes authenticated READY, cached readiness without another remote probe, and pinned-host-key mismatch rejection before authentication. Other SSH error classifications and deployed remote wrapper/process cleanup are not established by this endpoint."
         },
         {
           "id": "test_advanced_shell_config:450",
@@ -2624,7 +2632,9 @@
     "validation/runs/backend_mcp_shell_confirm_20261030/report.json",
     "validation/runs/backend_shell_local_20261030/report.json",
     "validation/runs/backend_auth_peer_matrix_20261030/report.json",
-    "validation/runs/backend_shell_defaults_confirm_20261030/report.json"
+    "validation/runs/backend_shell_defaults_confirm_20261030/report.json",
+    "validation/runs/ssh_transport_pilot_20261030/report.json",
+    "validation/runs/ssh_transport_pilot_confirm_20261030/report.json"
   ],
   "known_behavior_coverage_complete": false,
   "verification": {
@@ -2643,6 +2653,13 @@
       "unique_cases_passed": 39,
       "full_core_suite_run": false,
       "all_original_sources_unchanged": true
+    },
+    "ssh_transport_pilot": {
+      "evidence_report": "validation/runs/ssh_transport_pilot_confirm_20261030/report.json",
+      "unique_cases_passed": 2,
+      "cleanup_completed": true,
+      "full_core_suite_run": false,
+      "scope": "Successful native SSH transport and host-key rejection against controlled local endpoint; MCP stdio over SSH remains pending."
     }
   }
 }

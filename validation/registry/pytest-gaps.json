@@ -1103,13 +1103,15 @@
       "source_scenarios": [
         "integration/core/mcp_advanced_shell_stdio_connections"
       ],
-      "missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
-      "cleanup_action": "Provide opt-in deterministic local SSH infrastructure or classify transport fixture ownership; retain successful launch/root/lifecycle assertions meanwhile.",
+      "missing_proof": "Successful native SSH execution, stdin/stdout/stderr/exit status, authenticated cached readiness and host-key mismatch rejection now pass against a local SSH endpoint. MCP initialization/tool calls/root forwarding/closure over SSH, wrong-client-key rejection, capacity/cancellation and other shell failure paths remain unverified. Deployed forced-command wrapper and remote descendant cleanup remain separate evidence.",
+      "cleanup_action": "Extend the fixture-owned local SSH endpoint to carry a deterministic MCP stdio server and held/rejected sessions. No advanced-shell image or sibling container is needed for application transport contracts; deployment isolation and remote wrapper behavior require separate evidence.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json"
+        "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json",
+        "validation/runs/ssh_transport_pilot_20261030/report.json",
+        "validation/runs/ssh_transport_pilot_confirm_20261030/report.json"
       ],
       "review_number": 44,
       "user_decision": "Defer, I'm not convinced we're going to be able to adequately test this through scenarios.",
@@ -1119,7 +1121,10 @@
         "test_advanced_shell_config:238",
         "test_advanced_shell_config:388",
         "test_advanced_shell_config:450"
-      ]
+      ],
+      "prior_missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
+      "recommendation": "Extend the fixture-owned local SSH endpoint to carry a deterministic MCP stdio server and held/rejected sessions. No advanced-shell image or sibling container is needed for application transport contracts; deployment isolation and remote wrapper behavior require separate evidence.",
+      "scope_update": "User approved the local SSH pilot on 2026-10-30; original advanced-shell/container deferral remains in force."
     },
     {
       "id": "mcp-controlled-dns-and-tls-boundaries",

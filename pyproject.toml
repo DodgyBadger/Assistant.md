@@ -112,6 +112,7 @@ scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git"
 
 [dependency-groups]
 dev = [
+    "asyncssh>=2.24,<3",
     "pytest-playwright-asyncio>=0.10.0",
     "pytest-xdist>=3.8,<4",
     "scenario-harness",

@@ -156,6 +156,19 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncssh"
+version = "2.24.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0f/c5/41a0d5477865c48cee65050586092dc3ba3fc1c52e29b47fba08d3a44581/asyncssh-2.24.1.tar.gz", hash = "sha256:efcd36e9b35f79873535b06444a7c9b0a3c61d97081b208c7fdd3fd8a40f1eca", size = 558085, upload-time = "2026-10-04T02:48:24.913Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/e5/8bc721f04ff545c5a84c9c23fbf788fbb56960bb57a86c6366bc35be0f66/asyncssh-2.24.1-py3-none-any.whl", hash = "sha256:fc560b4f43be0f0c602d184783e5e3876f5d24d933a25359d86e5a50a5f46fe5", size = 382514, upload-time = "2026-10-04T02:48:23.676Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1570,6 +1583,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "asyncssh" },
     { name = "pytest-playwright-asyncio" },
     { name = "pytest-xdist" },
     { name = "scenario-harness" },
@@ -1623,6 +1637,7 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "asyncssh", specifier = ">=2.24,<3" },
     { name = "pytest-playwright-asyncio", specifier = ">=0.10.0" },
     { name = "pytest-xdist", specifier = ">=3.8,<4" },
     { name = "scenario-harness", git = "https://github.com/DodgyBadger/scenario-harness.git?rev=941ede024673a0c8496dee908e1d6066cbaa0c05" },
