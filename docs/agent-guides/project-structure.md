@@ -5,7 +5,7 @@
   for encrypted secrets and connection metadata; domain policy remains in its
   owning packages.
 - `api/`: FastAPI API models, endpoints, and service wrappers.
-- `validation/`: scenario framework, runners, templates, and run artifacts (`validation/runs/`).
+- `validation/`: app-owned pytest scenarios, fixtures, admission/coverage registries and run artifacts (`validation/runs/`). The reusable pytest plugin and behavioral-testing skills are maintained in the external `scenario-harness` repository.
 - `static/`: frontend assets (`index.html`, `app.js`, Tailwind input/output CSS).
 - `docs/`: setup and usage guides plus contributor architecture, ADR, and
   development references under `docs/development/`.

@@ -1,6 +1,6 @@
 # Agent Operating Guide
 
-AssistantMD is a single-user, markdown-first agent system with a Python backend, FastAPI API/UI surface, and scenario-based validation harness.
+AssistantMD is a single-user, markdown-first agent system with a Python backend, FastAPI API/UI surface, and scenario-based pytest validation.
 
 ## Durability Principle
 
@@ -10,8 +10,9 @@ This codebase will outlive any single contributor. Every shortcut becomes future
 
 - Python version: `3.13`.
 - Non-standard build command: `npm run build:css` compiles `static/input.css` to `static/output.css`.
-- Validation cadence: during branch development, agents run fast, directly relevant checks and individual deterministic scenarios. Once a branch is stable, agents run the full deterministic pre-merge profile (`python validation/run_validation.py run integration/core`) during hardening or merge preparation; experimental and live-service scenarios remain opt-in.
+- Validation cadence: during branch development, agents run fast, directly relevant checks and individual deterministic scenarios. Once a branch is stable, agents run the full deterministic pre-merge profile (`uv run python -m pytest validation/scenarios/integration/core`) during hardening or merge preparation; experimental and live-service scenarios remain opt-in.
 - Validation-first delivery: follow [Testing and Validation](docs/agent-guides/testing-and-validation.md#validation-first-workflow).
+- Behavioral testing skills: use the appropriate installed skill for planning, scenario writing, review, integration or diagnosis, as mapped in [Testing and Validation](docs/agent-guides/testing-and-validation.md#skills). Read the linked skill directly when it is unavailable in your agent.
 - Planning output is required: planning work must end with a root-level markdown implementation plan, either by creating a new file or updating the existing one for that effort.
 - Documentation should describe the current contract only. Do not document behavior as “instead of the old way” or teach migrations inside product docs unless the task explicitly calls for migration guidance.
 - Before creating, editing, deleting, or moving anything under `docs/`, or the root `README.md` or `RELEASE_NOTES.md`, discuss the affected files, present the proposed text or diff in chat, and obtain explicit user approval of that draft. This includes agent guides and ADRs. General approval to implement, proceed, clean up, or prepare a release does not authorize documentation changes. Report unapproved documentation work as pending.
