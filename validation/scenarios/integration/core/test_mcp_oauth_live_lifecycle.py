@@ -189,7 +189,9 @@ async def test_actual_oauth_deadlines_fail_closed_and_record_the_operation(app, 
                         completing.cancel()
                         await asyncio.gather(completing, return_exceptions=True)
                     assert len(provider.tokens) == 1
-            assert not (await journey.status()).connected
+            status = await journey.status()
+            assert status.status == "disconnected" and not status.connected
+            assert status.pending_expires_at is None
             failures = [
                 row
                 for row in journey.events()
@@ -199,6 +201,12 @@ async def test_actual_oauth_deadlines_fail_closed_and_record_the_operation(app, 
                 row["operation_id"] and row["error_type"] == "TimeoutError"
                 for row in failures
             )
+            expected_phase = {
+                "start": "authorization_start",
+                "callback": "authorization",
+                "completion": "completion",
+            }[phase]
+            assert all(row["phase"] == expected_phase for row in failures)
 
 
 async def test_failed_live_supersede_retries_with_one_cancellation_and_a_new_operation(
@@ -217,6 +225,10 @@ async def test_failed_live_supersede_retries_with_one_cancellation_and_a_new_ope
             _, old_query = await authorize(app, provider, first.auth_url)
             with reject_revocation(app), pytest.raises(sqlite3.IntegrityError):
                 await journey.start()
+            assert not any(
+                row.get("reason") == "superseded_by_new_attempt"
+                for row in journey.events()
+            )
             retry = await journey.start()
             assert retry.operation_id != first.operation_id
             with pytest.raises(MCPOAuthError):

@@ -1456,7 +1456,7 @@
     },
     {
       "path": "scenarios/integration/core/test_mcp_oauth_live_lifecycle.py",
-      "sha256": "7a1fdc46b6d41b23359c4941d6ee5b4476c32d686005f35eedd13d844a6571c1",
+      "sha256": "0cea9777afd2c688ba4cc22524938445fd54b611b60986fc68666c9ada669945",
       "kind": "behavioral",
       "tests": [
         "test_live_oauth_start_callback_state_recovery_and_disconnect",
