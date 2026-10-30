@@ -1455,6 +1455,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_oauth_committed_runtime_failure.py",
+      "sha256": "443751d336d909dffdaa2c4a21d6f448a651ca082848ddacf2e3ebfc8f4bbfc6",
+      "kind": "behavioral",
+      "tests": [
+        "test_committed_oauth_state_survives_unavailable_runtime_and_recovers_on_restart"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_oauth_live_lifecycle.py",
       "sha256": "0cea9777afd2c688ba4cc22524938445fd54b611b60986fc68666c9ada669945",
       "kind": "behavioral",
