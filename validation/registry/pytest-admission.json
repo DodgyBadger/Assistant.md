@@ -1259,6 +1259,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_import_compensation_contracts.py",
+      "sha256": "c3a351f6b6dcc98986257c97d50f125f4fd910236e286bd21598128360614a3a",
+      "kind": "behavioral",
+      "tests": [
+        "test_real_ocr_assets_follow_the_numbered_allocated_namespace",
+        "test_later_artifact_failure_compensates_and_preserves_user_changes",
+        "test_real_job_completion_failure_removes_outputs_and_clears_manifest"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_import_pipeline_core.py",
       "sha256": "0b4bd2204e1f7459419d40f779b6fceeed89aa8aaf067a084f9ba16bd7a0acc2",
       "kind": "behavioral",
@@ -1893,6 +1903,16 @@
       "kind": "behavioral",
       "tests": [
         "test_settings_lifecycle"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_settings_race_contracts.py",
+      "sha256": "8936dfb8bcbace94f57c3a7ae90b0f94a0b0f0da41f65b3c25c4eb2ce4f4768b",
+      "kind": "behavioral",
+      "tests": [
+        "test_global_reset_public_request_preserves_a_post_backup_edit",
+        "test_first_import_transaction_rolls_back_partial_records_and_retries",
+        "test_legacy_backup_contains_the_snapshot_read_before_source_changes"
       ]
     },
     {
@@ -2868,6 +2888,11 @@
     {
       "path": "scenarios/support/stepped_post_turn_inputs.py",
       "sha256": "44416dd3152ea35c41a5307d48a1a134ff5e9cd0927e3497e053cc13a19c6cb3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/storage_failure_inputs.py",
+      "sha256": "71f1d7308deac8969852661903852e68b6ee07b141fb5c4d44dcc0beb7eb46b0",
       "kind": "support"
     },
     {
