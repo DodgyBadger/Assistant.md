@@ -27,6 +27,17 @@ class SSHWorkload:
     executions: list = field(default_factory=list)
     authentications: list = field(default_factory=list)
     handlers: set = field(default_factory=set)
+    actions: dict = field(default_factory=dict)
+    started: dict = field(default_factory=dict)
+    finished: dict = field(default_factory=dict)
+    reject_client_key: bool = False
+
+    def entered(self, command):
+        return self.started.setdefault(command, asyncio.Event())
+
+    def closed(self, command):
+        return self.finished.setdefault(command, asyncio.Event())
+
     cleanup_completed: bool = False
 
     def transport(self):
@@ -42,7 +53,7 @@ class SSHWorkload:
 
 
 @asynccontextmanager
-async def ssh_endpoint(app, *, mismatched_host_key=False):
+async def ssh_endpoint(app, *, mismatched_host_key=False, reject_client_key=False):
     from core.advanced_shell import AdvancedShellConfig, ExecutionMode
 
     # This substitutes only the external SSH service. The application invokes
@@ -56,7 +67,7 @@ async def ssh_endpoint(app, *, mismatched_host_key=False):
     app.evidence.register_secret(
         client_key.export_private_key().decode(), host_key.export_private_key().decode()
     )
-    workload = SSHWorkload(None, root)
+    workload = SSHWorkload(None, root, reject_client_key=reject_client_key)
 
     class Server(asyncssh.SSHServer):
         def connection_made(self, connection):
@@ -74,7 +85,8 @@ async def ssh_endpoint(app, *, mismatched_host_key=False):
 
         def validate_public_key(self, username, key):
             accepted = (
-                username == "fixture-user"
+                not workload.reject_client_key
+                and username == "fixture-user"
                 and key.export_public_key() == client_key.export_public_key()
             )
             workload.authentications.append(
@@ -88,7 +100,10 @@ async def ssh_endpoint(app, *, mismatched_host_key=False):
         try:
             row = {"command": process.command, "stdin": ""}
             workload.executions.append(row)
-            if process.command == "true":
+            workload.entered(process.command).set()
+            if process.command in workload.actions:
+                await workload.actions[process.command](process)
+            elif process.command == "true":
                 process.exit(0)
             elif process.command == PILOT_COMMAND:
                 # The real executor keeps stdin open as a lifetime signal. This
@@ -102,6 +117,7 @@ async def ssh_endpoint(app, *, mismatched_host_key=False):
                 process.stderr.write(b"Unexpected fixture command\n")
                 process.exit(64)
         finally:
+            workload.closed(process.command).set()
             workload.handlers.discard(task)
 
     listener = await asyncssh.listen(
