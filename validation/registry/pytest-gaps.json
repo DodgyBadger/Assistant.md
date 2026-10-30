@@ -1586,7 +1586,7 @@
     {
       "id": "backend-authentication-boundary-parity",
       "review_number": 64,
-      "status": "open",
+      "status": "resolved",
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_authentication_middleware.py",
@@ -1603,19 +1603,20 @@
         "test_authentication_session:35",
         "test_authentication_session:114"
       ],
-      "missing_proof": "Explicit startup mode/secret-file validation; full peer/header/WebSocket and malformed-cookie matrix; domain-separated session keys; failure-window expiry, successful-login reset and bounded peer eviction. Real HTTP admission covers part of this, not every primitive contract.",
+      "missing_proof": "",
       "retained_coverage": [
         "validation/legacy/pending/test_authentication_middleware.py",
         "validation/legacy/pending/test_authentication_policy.py",
         "validation/legacy/pending/test_authentication_rate_limit.py",
         "validation/legacy/pending/test_authentication_session.py"
       ],
-      "cleanup_action": "Keep the security outcomes. Exercise startup with isolated configuration and actual HTTP/WebSocket admission; use an explicit clock input or a bounded short real window for throttling. Review codec argument-only checks separately from application security guarantees.",
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
       "recommendation": "Keep the security outcomes. Exercise startup with isolated configuration and actual HTTP/WebSocket admission; use an explicit clock input or a bounded short real window for throttling. Review codec argument-only checks separately from application security guarantees.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_authentication_middleware:52",
@@ -1625,7 +1626,10 @@
         "test_authentication_rate_limit:8",
         "test_authentication_session:35",
         "test_authentication_session:114"
-      ]
+      ],
+      "original_missing_proof": "Explicit startup mode/secret-file validation; full peer/header/WebSocket and malformed-cookie matrix; domain-separated session keys; failure-window expiry, successful-login reset and bounded peer eviction. Real HTTP admission covers part of this, not every primitive contract.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real API/runtime middleware covers malformed/duplicate/mixed credentials, public/unknown routes, proxy and exact loopback peers, and authorized/unauthorized unrouted WebSocket admission. No implemented WebSocket feature is claimed.; Real policy loading rejects missing/invalid mode or secret, direct/file conflicts and invalid proxy configuration; a one-newline file secret admits actual HTTP requests without exposing the secret.; Actual HTTP requests exercise IPv4/IPv6 exact loopback, denied non-loopback/hostname peers, optional proxy allowlist and two allowed CIDRs, denied peers and wrong assertions; existing owner/disabled ingress scenarios retain mechanism outcomes.; Real loaded owner policy derives a 32-byte session key distinct from the raw credential.; Actual HTTP ingress uses the production limiter with its explicit supported monotonic clock input, proving expiry, successful admission reset and bounded peer eviction. This is not a wall-clock production-default duration test.; Actual malformed cookie/header admission extends the existing current/expired/future/exclusive-expiry/rotated/CSRF scenario. Non-ASCII codec input fails uniformly; credentials never select a permissive fallback.; Actual issued signed payload has only version/time/CSRF digest/nonce claims, excludes raw secret and CSRF token and is bounded; public codec rejects nonpositive lifetime and naive timestamps."
     },
     {
       "id": "backend-chat-mcp-preparation",
@@ -1641,28 +1645,36 @@
         "test_chat_mcp_lifecycle:78",
         "test_chat_mcp_lifecycle:121"
       ],
-      "missing_proof": "Deferred resume semantic instruction ordering and releasing acquired MCP resources when primary/deferred preparation fails. Existing context composition and manager closure scenarios do not establish those exact paths.",
+      "missing_proof": "Primary/deferred preparation failure after MCP acquisition still depends on the advanced-shell readiness failure boundary used by the old tests. Deferred instruction ordering lacks a requirements-backed semantic output oracle; literal guidance copy is not being frozen.",
       "retained_coverage": [
         "validation/legacy/pending/test_chat_instructions.py",
         "validation/legacy/pending/test_chat_mcp_lifecycle.py"
       ],
-      "cleanup_action": "Keep lifecycle/resource guarantees. Use the real chat/deferred-review path with a held local MCP server and an actual invalid preparation input; observe remote session closure and application events. Retire literal guidance-copy and fake registration counters.",
-      "recommendation": "Keep lifecycle/resource guarantees. Use the real chat/deferred-review path with a held local MCP server and an actual invalid preparation input; observe remote session closure and application events. Retire literal guidance-copy and fake registration counters.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.",
+      "recommendation": "Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_chat_instructions:7",
         "test_chat_mcp_lifecycle:78",
         "test_chat_mcp_lifecycle:121"
-      ]
+      ],
+      "original_missing_proof": "Deferred resume semantic instruction ordering and releasing acquired MCP resources when primary/deferred preparation fails. Existing context composition and manager closure scenarios do not establish those exact paths.",
+      "remaining_contract_ids": [
+        "test_chat_instructions:7",
+        "test_chat_mcp_lifecycle:78",
+        "test_chat_mcp_lifecycle:121"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-decision-runtime-parity",
       "review_number": 66,
-      "status": "open",
+      "status": "resolved",
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_decision_runtime.py"
@@ -1673,23 +1685,27 @@
         "decision_runtime_04",
         "decision_runtime_05"
       ],
-      "missing_proof": "Successful TypeSafe question/state mapping, typed output and usage, confidence/probability normalization, timeout classification and configured classifier/alias/secret construction. Current cases cover configuration and an actual rejection, not successful classification.",
+      "missing_proof": "",
       "retained_coverage": [
         "validation/legacy/pending/test_decision_runtime.py"
       ],
-      "cleanup_action": "Keep. Drive the actual decision classifier and configured factory against a controlled external TypeSafe HTTP boundary; assert typed results and real semantic log events. External transport substitution is acceptable; do not replace the classifier, logger, model resolver or secret service.",
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
       "recommendation": "Keep. Drive the actual decision classifier and configured factory against a controlled external TypeSafe HTTP boundary; assert typed results and real semantic log events. External transport substitution is acceptable; do not replace the classifier, logger, model resolver or secret service.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "decision_runtime_02",
         "decision_runtime_03",
         "decision_runtime_04",
         "decision_runtime_05"
-      ]
+      ],
+      "original_missing_proof": "Successful TypeSafe question/state mapping, typed output and usage, confidence/probability normalization, timeout classification and configured classifier/alias/secret construction. Current cases cover configuration and an actual rejection, not successful classification.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual configured factory and installed TypeSafe SDK map state/questions/model/auth and preserve typed output/usage; an external transport observes the explicit request timeout, and a held local HTTP response verifies the public configured factory deadline.; Real typed classification normalizes confidence/probabilities and records semantic success with actual usage.; External transport read timeout and an actual held provider response produce safe categorized failures and real decision_model_failed activity. No model/classifier/logger is replaced.; Actual public provider/model/secret configuration resolves an alternate alias, authenticates outgoing HTTP, preserves requested/resolved identities and applies the configured timeout without exposing the key."
     },
     {
       "id": "backend-ingestion-storage-compensation",
@@ -1705,23 +1721,29 @@
         "ingestion_storage_04",
         "ingestion_storage_05"
       ],
-      "missing_proof": "OCR-specific allocated image namespace; partial output-write cleanup; preserving artifacts modified after the import wrote them; job-finalization failure clearing output/manifest state. Existing source-cleanup failures are a different stage.",
+      "missing_proof": "Only the narrow post-publication binary-write fault remains: a binary artifact is partially published before the writer raises. Prior Markdown cleanup, user-edit preservation, OCR allocated namespaces and job-finalization compensation now pass.",
       "retained_coverage": [
         "validation/legacy/pending/test_ingestion_storage.py"
       ],
-      "cleanup_action": "Keep the durable file/job outcomes. Use a controlled external OCR response and real filesystem/database failure boundaries with explicit interleavings. Preserve user-modified files and report incomplete compensation; avoid monkeypatching the application storage/job service.",
-      "recommendation": "Keep the durable file/job outcomes. Use a controlled external OCR response and real filesystem/database failure boundaries with explicit interleavings. Preserve user-modified files and report incomplete compensation; avoid monkeypatching the application storage/job service.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
+      "recommendation": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "ingestion_storage_02",
         "ingestion_storage_03",
         "ingestion_storage_04",
         "ingestion_storage_05"
-      ]
+      ],
+      "original_missing_proof": "OCR-specific allocated image namespace; partial output-write cleanup; preserving artifacts modified after the import wrote them; job-finalization failure clearing output/manifest state. Existing source-cleanup failures are a different stage.",
+      "remaining_contract_ids": [
+        "ingestion_storage_03"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-managed-catalog-parity",
@@ -1740,17 +1762,18 @@
         "managed_model_catalog_16",
         "model_alias_registry_05"
       ],
-      "missing_proof": "Older model naming/profile forms, shipped adaptive-thinking/schema capabilities, repeated catalog generations and same-model alternate promotion, full malformed/shared-alternate matrix, simultaneous cold loads with one complete upgrade/backup. Current shipped-catalog adoption/collision/idempotence already has coverage.",
+      "missing_proof": "Hypothetical successive managed-catalog generations, alternate promotion/removal across those generations and a supported packaged-catalog fixture remain undecided. Historical family names, shipped SDK profiles, public custom rename/promotion, shared-alias failures and simultaneous cold loads now pass.",
       "retained_coverage": [
         "validation/legacy/pending/test_managed_model_catalog.py",
         "validation/legacy/pending/test_model_alias_registry.py"
       ],
-      "cleanup_action": "Keep identity, atomicity and backup guarantees. Use native legacy configurations and concurrent fresh processes with a real packaged-catalog input. Decide whether speculative future catalog fixtures justify a dedicated supported fixture; do not infer them from the current catalog.",
-      "recommendation": "Keep identity, atomicity and backup guarantees. Use native legacy configurations and concurrent fresh processes with a real packaged-catalog input. Decide whether speculative future catalog fixtures justify a dedicated supported fixture; do not infer them from the current catalog.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
+      "recommendation": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "managed_model_catalog_06",
@@ -1759,7 +1782,13 @@
         "managed_model_catalog_10",
         "managed_model_catalog_16",
         "model_alias_registry_05"
-      ]
+      ],
+      "original_missing_proof": "Older model naming/profile forms, shipped adaptive-thinking/schema capabilities, repeated catalog generations and same-model alternate promotion, full malformed/shared-alternate matrix, simultaneous cold loads with one complete upgrade/backup. Current shipped-catalog adoption/collision/idempotence already has coverage.",
+      "remaining_contract_ids": [
+        "managed_model_catalog_09",
+        "managed_model_catalog_10"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-mcp-manager-parity",
@@ -1776,16 +1805,17 @@
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
       ],
-      "missing_proof": "Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.",
+      "missing_proof": "Real advanced-shell stdio capacity/serialization and HTTP progress are excluded. Narrow pre-DNS credential-capture timing, real cleanup-failure telemetry and synthetic private synchronous invalidation errors lack an agreed supported failure boundary. Partial snapshot cancellation, post-connect endpoint/token changes, forged/stale record rejection and worker-thread invalidation now pass.",
       "retained_coverage": [
         "validation/legacy/pending/test_mcp_manager_hardening.py"
       ],
-      "cleanup_action": "Keep resource/isolation behavior. Prefer held real local MCP transports and captured remote sessions/events. Test externally observable progress and release; review private synchronous error-injection cases for a supported failure boundary or explicit retirement.",
-      "recommendation": "Keep resource/isolation behavior. Prefer held real local MCP transports and captured remote sessions/events. Test externally observable progress and release; review private synchronous error-injection cases for a supported failure boundary or explicit retirement.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.",
+      "recommendation": "Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_mcp_manager_hardening:179",
@@ -1793,7 +1823,15 @@
         "test_mcp_manager_hardening:246",
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
-      ]
+      ],
+      "original_missing_proof": "Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.",
+      "remaining_contract_ids": [
+        "test_mcp_manager_hardening:226",
+        "test_mcp_manager_hardening:246",
+        "test_mcp_manager_hardening:345",
+        "test_mcp_manager_hardening:385"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-settings-boundary-parity",
@@ -1811,17 +1849,18 @@
         "settings_lifecycle_09",
         "settings_lifecycle_07"
       ],
-      "missing_proof": "Exact original YAML bytes when the source changes between read and backup; interrupted first-import transaction recovery; inherited packaged-default changes versus explicit equal overrides; global-reset API/service backup-edit race. Ordinary transaction rollback and backed-up revision domain checks already pass.",
+      "missing_proof": "Only inherited packaged-default changes versus an explicit equal override remain unverified across template generations. Exact changing-source backup bytes, interrupted first-import recovery and real post-backup global-reset conflict now pass.",
       "retained_coverage": [
         "validation/legacy/pending/test_settings_database.py",
         "validation/legacy/pending/test_settings_lifecycle.py"
       ],
-      "cleanup_action": "Keep persistence/provenance guarantees. Use real source files/SQLite, a bounded execution barrier where necessary, and actual public reset requests. Keep backup bytes and revision outcomes as the oracles; do not mock repository save or reset services.",
-      "recommendation": "Keep persistence/provenance guarantees. Use real source files/SQLite, a bounded execution barrier where necessary, and actual public reset requests. Keep backup bytes and revision outcomes as the oracles; do not mock repository save or reset services.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
+      "recommendation": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "settings_database_05",
@@ -1829,7 +1868,12 @@
         "settings_lifecycle_01",
         "settings_lifecycle_09",
         "settings_lifecycle_07"
-      ]
+      ],
+      "original_missing_proof": "Exact original YAML bytes when the source changes between read and backup; interrupted first-import transaction recovery; inherited packaged-default changes versus explicit equal overrides; global-reset API/service backup-edit race. Ordinary transaction rollback and backed-up revision domain checks already pass.",
+      "remaining_contract_ids": [
+        "settings_lifecycle_01"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-provider-error-parity",
@@ -1845,28 +1889,35 @@
         "provider_errors_03",
         "provider_errors_04"
       ],
-      "missing_proof": "Anthropic/Google SDK rejection variants, unstructured bodies, explicit message bounds/redaction matrix and wrapped/cyclic errors. Existing real OpenAI-compatible failures and OAuth rejection protect only part of the original contract.",
+      "missing_proof": "Actual Anthropic/Google structured/text/list/detail failures, message bounds, standard credential redaction and original producer-log secrecy now pass. Arbitrary explicit-redaction helper arguments, synthetic wrapped provider attribution and cyclic exception graphs remain a separate public-helper contract decision.",
       "retained_coverage": [
         "validation/legacy/pending/test_provider_errors.py"
       ],
-      "cleanup_action": "Keep supported-provider diagnostics and non-disclosure. Feed controlled external HTTP/SDK boundary failures through real application paths. Review arbitrary cyclic helper inputs as a separate public error-normalization contract; avoid constructing fake application failures just to exercise branches.",
-      "recommendation": "Keep supported-provider diagnostics and non-disclosure. Feed controlled external HTTP/SDK boundary failures through real application paths. Review arbitrary cyclic helper inputs as a separate public error-normalization contract; avoid constructing fake application failures just to exercise branches.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "cleanup_action": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
+      "recommendation": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "provider_errors_01",
         "provider_errors_02",
         "provider_errors_03",
         "provider_errors_04"
-      ]
+      ],
+      "original_missing_proof": "Anthropic/Google SDK rejection variants, unstructured bodies, explicit message bounds/redaction matrix and wrapped/cyclic errors. Existing real OpenAI-compatible failures and OAuth rejection protect only part of the original contract.",
+      "remaining_contract_ids": [
+        "provider_errors_02",
+        "provider_errors_04"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
     },
     {
       "id": "backend-search-execution-errors",
       "review_number": 72,
-      "status": "open",
+      "status": "resolved",
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_vault_content_search.py"
@@ -1875,26 +1926,30 @@
         "vault_content_search_07",
         "vault_content_search_08"
       ],
-      "missing_proof": "Distinct stable missing-executable, process-start OS-error and timeout results. Actual rg search, query/scope validation and structured results are already covered.",
+      "missing_proof": "",
       "retained_coverage": [
         "validation/legacy/pending/test_vault_content_search.py"
       ],
-      "cleanup_action": "Keep stable errors. Run isolated configuration/process environments that omit the executable, select an unusable external executable, or run a bounded held external process. Leave the application search service real and verify cleanup after timeout.",
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
       "recommendation": "Keep stable errors. Run isolated configuration/process environments that omit the executable, select an unusable external executable, or run a bounded held external process. Leave the application search service real and verify cleanup after timeout.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "vault_content_search_07",
         "vault_content_search_08"
-      ]
+      ],
+      "original_missing_proof": "Distinct stable missing-executable, process-start OS-error and timeout results. Actual rg search, query/scope validation and structured results are already covered.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual search in isolated child environments distinguishes absent executable from a real process-start permission failure using stable error codes.; A declared external executable is held beyond the real search deadline; actual timeout code and terminated child PID prove bounded execution/cleanup without replacing the search service."
     },
     {
       "id": "backend-shipped-default-contracts",
       "review_number": 73,
-      "status": "open",
+      "status": "resolved",
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_shipped_settings_defaults.py"
@@ -1903,26 +1958,30 @@
         "shipped_settings_defaults_01",
         "shipped_settings_defaults_02"
       ],
-      "missing_proof": "The enumerated numeric/strategy/security/provider defaults and the unset-default-model storage/compaction setup contract. Existing editor/override scenarios are not a complete assertion of those defaults.",
+      "missing_proof": "",
       "retained_coverage": [
         "validation/legacy/pending/test_shipped_settings_defaults.py"
       ],
-      "cleanup_action": "Keep agreed product defaults and setup readiness. Assert actual freshly bootstrapped metadata/settings and public compaction admission. Separate deliberately fixed product defaults from incidental catalog versions before pinning additional exact values.",
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
       "recommendation": "Keep agreed product defaults and setup readiness. Assert actual freshly bootstrapped metadata/settings and public compaction admission. Separate deliberately fixed product defaults from incidental catalog versions before pinning additional exact values.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "shipped_settings_defaults_01",
         "shipped_settings_defaults_02"
-      ]
+      ],
+      "original_missing_proof": "The enumerated numeric/strategy/security/provider defaults and the unset-default-model storage/compaction setup contract. Existing editor/override scenarios are not a complete assertion of those defaults.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Fresh real settings process asserts the agreed numeric/strategy/security/provider default values and provenance; explicit compaction override persists after cache reload.; Unset default model is stored with default provenance, compaction author resolution returns None and public status reports one actionable compaction setup error after actual global reset."
     },
     {
       "id": "backend-advanced-shell-configuration",
       "review_number": 74,
-      "status": "open",
+      "status": "resolved",
       "category": "legacy_root_parity",
       "source_scenarios": [
         "validation/test_advanced_shell_config.py"
@@ -1933,23 +1992,27 @@
         "test_advanced_shell_config:118",
         "test_advanced_shell_config:327"
       ],
-      "missing_proof": "Complete profile/mode startup matrix, key/trust bootstrap artifacts, full stdio envelope budget and status privacy. A restricted or refused SSH connection does not exercise configuration/bootstrap combinations.",
+      "missing_proof": "",
       "retained_coverage": [
         "validation/legacy/pending/test_advanced_shell_config.py"
       ],
-      "cleanup_action": "Keep deployment boundaries separately from successful SSH item 44. Use isolated bootstrap subprocesses and generated test keys, without a live SSH server where unnecessary; place deployment-only checks with CI infrastructure and application runtime boundaries in core.",
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
       "recommendation": "Keep deployment boundaries separately from successful SSH item 44. Use isolated bootstrap subprocesses and generated test keys, without a live SSH server where unnecessary; place deployment-only checks with CI infrastructure and application runtime boundaries in core.",
-      "user_decision": "Not yet reviewed",
-      "decision_status": "unreviewed",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
       "evidence": [
-        "validation/registry/backend-migration.json"
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_advanced_shell_config:44",
         "test_advanced_shell_config:55",
         "test_advanced_shell_config:118",
         "test_advanced_shell_config:327"
-      ]
+      ],
+      "original_missing_proof": "Complete profile/mode startup matrix, key/trust bootstrap artifacts, full stdio envelope budget and status privacy. A restricted or refused SSH connection does not exercise configuration/bootstrap combinations.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual configuration validates profile/mode combinations, defaults, invalid coordinates and environment-owned transport/key-root paths. This constructs configuration only and does not launch SSH or use another container.; Production structured launch encoder bounds the complete environment/payload and round-trips protocol arguments.; Actual local client bootstrap script uses isolated root environment inputs and real ssh-keygen; mismatches create no client directories, enabled bootstrap produces proper identity/public/trust files and modes, and missing public key is reconstructed without rotating identity. No SSH service/container is used.; Real missing-identity preflight and status projection expose only public coordinates/readiness, excluding private alias and local system paths. Successful authentication/caching remains deferred under item 44."
     }
   ]
 }

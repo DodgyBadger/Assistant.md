@@ -1,6 +1,6 @@
 # Remaining validation gaps
 
-17 review items remain; the canonical browser UI suite is complete and verified. Gmail connection UI and content-import UI items have been resolved and removed. Completed items have been removed; item 3 is tracked in the external To Do list. Items 64–74 were identified by the former-root backend reconciliation on 2026-10-30 and have not yet been reviewed by the user. Numbers below are stable review IDs. The implemented practical alternatives and their explicit evidence limits are recorded in `validation/registry/pytest-gaps.json`.
+12 review items remain; item 3 remains separately tracked in the external product To Do list. Completed local work has been removed from this list; numbers are stable review IDs. The user authorized clear local cases while excluding real advanced shell, access to other containers and uncertain contracts. Earlier cooperative/deferred decisions remain unchanged. Exact canonical assertions, partial proof and execution evidence are recorded in `validation/registry/backend-migration.json` and `validation/registry/pytest-gaps.json`.
 
 - **37. Gmail account-specific token routing:** Verify that explicitly selecting each Gmail account sends that account’s token. Current transport fixtures use the saved default grant; selected-account metadata alone is insufficient.
 
@@ -36,70 +36,40 @@
 
 ## Former validation-root backend review
 
-The 18 retained backend files contain 93 reviewed contract groups: 38 are covered by cited canonical assertions, two obsolete/self-test groups are retired, and 53 remain partial or open. These are contract-group counts, not scenario or code-coverage percentages. The detailed mapping and evidence limits are in `validation/registry/backend-migration.json`. Existing deferred SSH/OAuth decisions remain items 44 and 48; the newly identified groups below need explicit follow-up. No retained backend file is yet accepted for wholesale deletion.
+All 93 contract groups across the 18 retained backend sources are reconciled: 71 covered, two retired and 20 partial. These are contract-group counts, not scenario or code-coverage percentages. Thirty-nine distinct targeted cases passed with completed cleanup; the full core suite remains stopped. Authentication, typed decisions, search failures, shipped defaults and local shell configuration/bootstrap items are complete and removed. Original backend sources remain retained; per-file acceptance is recorded in the registry.
 
-- **64. Authentication boundary parity:** Explicit startup mode/secret-file validation; full peer/header/WebSocket and malformed-cookie matrix; domain-separated session keys; failure-window expiry, successful-login reset and bounded peer eviction. Real HTTP admission covers part of this, not every primitive contract.
+- **65. Chat preparation and deferred instructions:** Primary/deferred preparation failure after MCP acquisition still depends on the advanced-shell readiness failure boundary used by the old tests. Deferred instruction ordering lacks a requirements-backed semantic output oracle; literal guidance copy is not being frozen.
 
-    **Recommendation:** Keep the security outcomes. Exercise startup with isolated configuration and actual HTTP/WebSocket admission; use an explicit clock input or a bounded short real window for throttling. Review codec argument-only checks separately from application security guarantees.
+    **Recommendation:** Leave pending: the shell-dependent preparation path is excluded and the instruction contract needs clarification.
 
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **65. Chat preparation and MCP snapshot cleanup:** Deferred resume semantic instruction ordering and releasing acquired MCP resources when primary/deferred preparation fails. Existing context composition and manager closure scenarios do not establish those exact paths.
+- **67. Import post-publication failure:** Only the narrow post-publication binary-write fault remains: a binary artifact is partially published before the writer raises. Prior Markdown cleanup, user-edit preservation, OCR allocated namespaces and job-finalization compensation now pass.
 
-    **Recommendation:** Keep lifecycle/resource guarantees. Use the real chat/deferred-review path with a held local MCP server and an actual invalid preparation input; observe remote session closure and application events. Retire literal guidance-copy and fake registration counters.
+    **Recommendation:** Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.
 
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **66. Typed decision execution:** Successful TypeSafe question/state mapping, typed output and usage, confidence/probability normalization, timeout classification and configured classifier/alias/secret construction. Current cases cover configuration and an actual rejection, not successful classification.
+- **68. Future managed-catalog generations:** Hypothetical successive managed-catalog generations, alternate promotion/removal across those generations and a supported packaged-catalog fixture remain undecided. Historical family names, shipped SDK profiles, public custom rename/promotion, shared-alias failures and simultaneous cold loads now pass.
 
-    **Recommendation:** Keep. Drive the actual decision classifier and configured factory against a controlled external TypeSafe HTTP boundary; assert typed results and real semantic log events. External transport substitution is acceptable; do not replace the classifier, logger, model resolver or secret service.
+    **Recommendation:** Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.
 
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **67. Import output compensation:** OCR-specific allocated image namespace; partial output-write cleanup; preserving artifacts modified after the import wrote them; job-finalization failure clearing output/manifest state. Existing source-cleanup failures are a different stage.
+- **69. Remaining MCP failure and capacity boundaries:** Real advanced-shell stdio capacity/serialization and HTTP progress are excluded. Narrow pre-DNS credential-capture timing, real cleanup-failure telemetry and synthetic private synchronous invalidation errors lack an agreed supported failure boundary. Partial snapshot cancellation, post-connect endpoint/token changes, forged/stale record rejection and worker-thread invalidation now pass.
 
-    **Recommendation:** Keep the durable file/job outcomes. Use a controlled external OCR response and real filesystem/database failure boundaries with explicit interleavings. Preserve user-modified files and report incomplete compensation; avoid monkeypatching the application storage/job service.
+    **Recommendation:** Retain these exact boundaries; successful SSH needs separate infrastructure, and cleanup/error timing needs a reliable external input rather than substituted application clients.
 
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **68. Remaining alias and catalog boundaries:** Older model naming/profile forms, shipped adaptive-thinking/schema capabilities, repeated catalog generations and same-model alternate promotion, full malformed/shared-alternate matrix, simultaneous cold loads with one complete upgrade/backup. Current shipped-catalog adoption/collision/idempotence already has coverage.
+- **70. Packaged-default generations:** Only inherited packaged-default changes versus an explicit equal override remain unverified across template generations. Exact changing-source backup bytes, interrupted first-import recovery and real post-backup global-reset conflict now pass.
 
-    **Recommendation:** Keep identity, atomicity and backup guarantees. Use native legacy configurations and concurrent fresh processes with a real packaged-catalog input. Decide whether speculative future catalog fixtures justify a dedicated supported fixture; do not infer them from the current catalog.
+    **Recommendation:** Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.
 
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **69. MCP acquisition, capacity and cleanup:** Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.
+- **71. Provider normalization helper contracts:** Actual Anthropic/Google structured/text/list/detail failures, message bounds, standard credential redaction and original producer-log secrecy now pass. Arbitrary explicit-redaction helper arguments, synthetic wrapped provider attribution and cyclic exception graphs remain a separate public-helper contract decision.
 
-    **Recommendation:** Keep resource/isolation behavior. Prefer held real local MCP transports and captured remote sessions/events. Test externally observable progress and release; review private synchronous error-injection cases for a supported failure boundary or explicit retirement.
+    **Recommendation:** Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.
 
-    **Status:** Newly identified; not yet reviewed.
-
-- **70. Remaining settings storage races:** Exact original YAML bytes when the source changes between read and backup; interrupted first-import transaction recovery; inherited packaged-default changes versus explicit equal overrides; global-reset API/service backup-edit race. Ordinary transaction rollback and backed-up revision domain checks already pass.
-
-    **Recommendation:** Keep persistence/provenance guarantees. Use real source files/SQLite, a bounded execution barrier where necessary, and actual public reset requests. Keep backup bytes and revision outcomes as the oracles; do not mock repository save or reset services.
-
-    **Status:** Newly identified; not yet reviewed.
-
-- **71. Provider error variants and secrecy:** Anthropic/Google SDK rejection variants, unstructured bodies, explicit message bounds/redaction matrix and wrapped/cyclic errors. Existing real OpenAI-compatible failures and OAuth rejection protect only part of the original contract.
-
-    **Recommendation:** Keep supported-provider diagnostics and non-disclosure. Feed controlled external HTTP/SDK boundary failures through real application paths. Review arbitrary cyclic helper inputs as a separate public error-normalization contract; avoid constructing fake application failures just to exercise branches.
-
-    **Status:** Newly identified; not yet reviewed.
-
-- **72. Search executable and timeout failures:** Distinct stable missing-executable, process-start OS-error and timeout results. Actual rg search, query/scope validation and structured results are already covered.
-
-    **Recommendation:** Keep stable errors. Run isolated configuration/process environments that omit the executable, select an unusable external executable, or run a bounded held external process. Leave the application search service real and verify cleanup after timeout.
-
-    **Status:** Newly identified; not yet reviewed.
-
-- **73. Shipped defaults and initial model setup:** The enumerated numeric/strategy/security/provider defaults and the unset-default-model storage/compaction setup contract. Existing editor/override scenarios are not a complete assertion of those defaults.
-
-    **Recommendation:** Keep agreed product defaults and setup readiness. Assert actual freshly bootstrapped metadata/settings and public compaction admission. Separate deliberately fixed product defaults from incidental catalog versions before pinning additional exact values.
-
-    **Status:** Newly identified; not yet reviewed.
-
-- **74. Advanced-shell deployment/configuration:** Complete profile/mode startup matrix, key/trust bootstrap artifacts, full stdio envelope budget and status privacy. A restricted or refused SSH connection does not exercise configuration/bootstrap combinations.
-
-    **Recommendation:** Keep deployment boundaries separately from successful SSH item 44. Use isolated bootstrap subprocesses and generated test keys, without a live SSH server where unnecessary; place deployment-only checks with CI infrastructure and application runtime boundaries in core.
-
-    **Status:** Newly identified; not yet reviewed.
+    **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.

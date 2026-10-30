@@ -22,18 +22,21 @@
             "test_invalid_advanced_shell_configuration_fails_closed"
           ],
           "contract": "Restricted defaults; advanced profile/mode jointly gated; host coordinates and key paths are deployment owned; malformed values fail closed. Evidence: configuration outputs/exceptions.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py::test_stdio_restricted_authority_import_and_readiness",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_local_configuration.py::test_shell_configuration_modes_and_invalid_coordinates_fail_closed",
+              "line": 14
             }
           ],
-          "gap_ids": [
-            "backend-advanced-shell-configuration"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
+          "scope": "Actual configuration validates profile/mode combinations, defaults, invalid coordinates and environment-owned transport/key-root paths. This constructs configuration only and does not launch SSH or use another container.",
+          "prior_scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
         },
         {
           "id": "test_advanced_shell_config:55",
@@ -41,18 +44,21 @@
             "test_structured_stdio_envelope_enforces_complete_payload_budget"
           ],
           "contract": "Structured launch arguments round-trip and full encoded payload is bounded. Evidence: encoded output and ValueError.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py::test_stdio_restricted_authority_import_and_readiness",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_local_configuration.py::test_complete_stdio_envelope_budget_and_unready_status_privacy",
+              "line": 133
             }
           ],
-          "gap_ids": [
-            "backend-advanced-shell-configuration"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
+          "scope": "Production structured launch encoder bounds the complete environment/payload and round-trips protocol arguments.",
+          "prior_scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
         },
         {
           "id": "test_advanced_shell_config:118",
@@ -62,18 +68,21 @@
             "test_client_bootstrap_rejects_advanced_mode_without_advanced_profile"
           ],
           "contract": "Bootstrap creates client identity, public key, and known hosts only with both advanced settings; mismatches fail before directory creation. Evidence: subprocess exit/stderr/files.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py::test_stdio_restricted_authority_import_and_readiness",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_local_configuration.py::test_local_client_bootstrap_gates_and_persists_key_and_trust",
+              "line": 100
             }
           ],
-          "gap_ids": [
-            "backend-advanced-shell-configuration"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
+          "scope": "Actual local client bootstrap script uses isolated root environment inputs and real ssh-keygen; mismatches create no client directories, enabled bootstrap produces proper identity/public/trust files and modes, and missing public key is reconstructed without rotating identity. No SSH service/container is used.",
+          "prior_scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
         },
         {
           "id": "test_advanced_shell_config:207",
@@ -119,18 +128,21 @@
             "test_status_projection_is_sanitized"
           ],
           "contract": "Status exposes execution mode, host/port/user and sanitized readiness while omitting private alias/system paths. Evidence: projection output.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py::test_stdio_restricted_authority_import_and_readiness",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shell_local_configuration.py::test_complete_stdio_envelope_budget_and_unready_status_privacy",
+              "line": 133
             }
           ],
-          "gap_ids": [
-            "backend-advanced-shell-configuration"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
+          "scope": "Real missing-identity preflight and status projection expose only public coordinates/readiness, excluding private alias and local system paths. Successful authentication/caching remains deferred under item 44.",
+          "prior_scope": "Real restricted admission, stored stdio envelope/root/environment, private authority and sanitized refused-connection readiness are covered. Full startup/profile matrix, client key/trust bootstrap, complete envelope budget and status privacy need separate deployment/configuration checks."
         },
         {
           "id": "test_advanced_shell_config:388",
@@ -200,7 +212,7 @@
             "test_unauthenticated_websocket_closes_before_acceptance"
           ],
           "contract": "Disabled HTTP/WebSocket and public health; oversized headers rejected even publicly; unknown routes protected; bearer/session CSRF admission; malformed/duplicate/mixed credentials denied; proxy peer and loopback forwarding rules; unauthenticated WebSocket 4401. Evidence: HTTP and websocket outcomes.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -221,13 +233,20 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_malformed_headers_cookies_and_websocket_admission",
+              "line": 84
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_peer_admission_and_session_payload_claims_are_bounded",
+              "line": 196
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real HTTP login/cookies/CSRF, oversized public-route headers, unknown routes, malformed bearer and peer admission pass. WebSocket admission and the complete malformed transport/header matrix remain unverified."
+          "scope": "Real API/runtime middleware covers malformed/duplicate/mixed credentials, public/unknown routes, proxy and exact loopback peers, and authorized/unauthorized unrouted WebSocket admission. No implemented WebSocket feature is claimed.",
+          "prior_scope": "Real HTTP login/cookies/CSRF, oversized public-route headers, unknown routes, malformed bearer and peer admission pass. WebSocket admission and the complete malformed transport/header matrix remain unverified."
         }
       ]
     },
@@ -248,13 +267,17 @@
             "test_invalid_proxy_header_and_network_fail_closed"
           ],
           "contract": "Require explicit mode; protected secrets required and valid, direct/file mutually exclusive, file accepts one trailing newline, secretless modes reject credentials, malformed proxy header/network rejected. Evidence: policy output/errors.",
-          "status": "open",
-          "replacement_assertions": [],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
+          "status": "covered",
+          "replacement_assertions": [
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_authentication_configuration_fails_closed_and_file_secret_admits",
+              "line": 18
+            }
           ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Explicit-mode and secret configuration failures, direct/file exclusion, one trailing newline, malformed secrets and secret-safe policy diagnostics need an application-owned startup/configuration scenario."
+          "scope": "Real policy loading rejects missing/invalid mode or secret, direct/file conflicts and invalid proxy configuration; a one-newline file secret admits actual HTTP requests without exposing the secret.",
+          "prior_scope": "Explicit-mode and secret configuration failures, direct/file exclusion, one trailing newline, malformed secrets and secret-safe policy diagnostics need an application-owned startup/configuration scenario."
         },
         {
           "id": "test_authentication_policy:26",
@@ -267,7 +290,7 @@
             "test_trusted_proxy_can_use_assertion_without_peer_allowlist"
           ],
           "contract": "Disabled, exact loopback, owner bearer and trusted proxy admit only intended principal and mechanism; proxy allowlist optional; credentials not in repr. Evidence: policy output.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -288,13 +311,16 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_peer_admission_and_session_payload_claims_are_bounded",
+              "line": 196
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real disabled/loopback/owner/proxy admission passes; the full denied peer/CIDR/assertion and optional-allowlist matrix is not established."
+          "scope": "Actual HTTP requests exercise IPv4/IPv6 exact loopback, denied non-loopback/hostname peers, optional proxy allowlist and two allowed CIDRs, denied peers and wrong assertions; existing owner/disabled ingress scenarios retain mechanism outcomes.",
+          "prior_scope": "Real disabled/loopback/owner/proxy admission passes; the full denied peer/CIDR/assertion and optional-allowlist matrix is not established."
         },
         {
           "id": "test_authentication_policy:75",
@@ -302,7 +328,7 @@
             "test_owner_session_key_is_domain_separated"
           ],
           "contract": "Owner session key has 32 bytes and differs from raw secret. Evidence: derived key.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -323,13 +349,16 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_authentication_configuration_fails_closed_and_file_secret_admits",
+              "line": 18
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Cookie secrecy/rotation is covered; cryptographic domain separation and derived-key requirements are not equivalent to cookie round-trip and remain explicit security proof."
+          "scope": "Real loaded owner policy derives a 32-byte session key distinct from the raw credential.",
+          "prior_scope": "Cookie secrecy/rotation is covered; cryptographic domain separation and derived-key requirements are not equivalent to cookie round-trip and remain explicit security proof."
         }
       ]
     },
@@ -345,7 +374,7 @@
             "test_peer_storage_is_bounded"
           ],
           "contract": "Failure window expires and success resets it; bounded peers evict oldest. Evidence: direct limiter results.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -366,13 +395,16 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_real_ingress_throttle_expires_clears_on_success_and_bounds_peers",
+              "line": 155
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Actual HTTP failure limit and Retry-After are asserted; window expiration, success reset and bounded-peer eviction remain unverified."
+          "scope": "Actual HTTP ingress uses the production limiter with its explicit supported monotonic clock input, proving expiry, successful admission reset and bounded peer eviction. This is not a wall-clock production-default duration test.",
+          "prior_scope": "Actual HTTP failure limit and Retry-After are asserted; window expiration, success reset and bounded-peer eviction remain unverified."
         }
       ]
     },
@@ -394,7 +426,7 @@
             "test_csrf_token_from_another_session_is_rejected"
           ],
           "contract": "Issued owner session and CSRF round-trip, expiration exclusive, future-issued and malformed/tampered/rotated-secret sessions rejected uniformly, missing/wrong/cross-session CSRF rejected. Evidence: codec result/errors.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -415,13 +447,16 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_malformed_headers_cookies_and_websocket_admission",
+              "line": 84
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real current/expired/future/tampered/rotated cookies and exclusive expiry are covered; the full malformed codec/transport matrix is not established."
+          "scope": "Actual malformed cookie/header admission extends the existing current/expired/future/exclusive-expiry/rotated/CSRF scenario. Non-ASCII codec input fails uniformly; credentials never select a permissive fallback.",
+          "prior_scope": "Real current/expired/future/tampered/rotated cookies and exclusive expiry are covered; the full malformed codec/transport matrix is not established."
         },
         {
           "id": "test_authentication_session:114",
@@ -431,7 +466,7 @@
             "test_naive_timestamps_are_rejected"
           ],
           "contract": "Signed cookie contains only bounded nonsecret claims; lifetime positive and issuance timestamps aware. Evidence: decoded payload and exceptions.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_health_before_runtime_start",
@@ -452,13 +487,20 @@
             {
               "node": "validation/scenarios/integration/core/test_ingress_authentication.py::test_peer_modes",
               "line": 247
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_malformed_headers_cookies_and_websocket_admission",
+              "line": 84
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_authentication_boundary_contracts.py::test_peer_admission_and_session_payload_claims_are_bounded",
+              "line": 196
             }
           ],
-          "gap_ids": [
-            "backend-authentication-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Bounded issued cookie excludes credential/CSRF plaintext. Invalid lifetime/naive timestamp input rejection is not covered; review as a public codec contract rather than silently dropping it."
+          "scope": "Actual issued signed payload has only version/time/CSRF digest/nonce claims, excludes raw secret and CSRF token and is bounded; public codec rejects nonpositive lifetime and naive timestamps.",
+          "prior_scope": "Bounded issued cookie excludes credential/CSRF plaintext. Invalid lifetime/naive timestamp input rejection is not covered; review as a public codec contract rather than silently dropping it."
         }
       ]
     },
@@ -569,7 +611,7 @@
             "test_typesafe_adapter_maps_questions_and_normalizes_result"
           ],
           "contract": "TypeSafe request maps state/questions/model/auth/timeout and normalizes output, usage and safe logs.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_decision_model_configuration.py::test_decision_model_configuration_and_repair",
@@ -578,13 +620,24 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_decision_factory_maps_protocol_and_preserves_metadata",
+              "line": 24
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_external_decision_timeout_has_safe_error_and_real_failure_activity",
+              "line": 81
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_factory_applies_the_public_decision_timeout",
+              "line": 131
             }
           ],
-          "gap_ids": [
-            "backend-decision-runtime-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
+          "scope": "Actual configured factory and installed TypeSafe SDK map state/questions/model/auth and preserve typed output/usage; an external transport observes the explicit request timeout, and a held local HTTP response verifies the public configured factory deadline.",
+          "prior_scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
         },
         {
           "id": "decision_runtime_03",
@@ -592,7 +645,7 @@
             "test_typesafe_adapter_exposes_supported_confidence_metadata"
           ],
           "contract": "TypeSafe confidence and probabilities are normalized into decision metadata.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_decision_model_configuration.py::test_decision_model_configuration_and_repair",
@@ -601,13 +654,16 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_decision_factory_maps_protocol_and_preserves_metadata",
+              "line": 24
             }
           ],
-          "gap_ids": [
-            "backend-decision-runtime-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
+          "scope": "Real typed classification normalizes confidence/probabilities and records semantic success with actual usage.",
+          "prior_scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
         },
         {
           "id": "decision_runtime_04",
@@ -615,7 +671,7 @@
             "test_typesafe_timeout_is_sanitized_and_categorized"
           ],
           "contract": "TypeSafe timeout produces categorized sanitized error and validation event.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_decision_model_configuration.py::test_decision_model_configuration_and_repair",
@@ -624,13 +680,20 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_external_decision_timeout_has_safe_error_and_real_failure_activity",
+              "line": 81
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_factory_applies_the_public_decision_timeout",
+              "line": 131
             }
           ],
-          "gap_ids": [
-            "backend-decision-runtime-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
+          "scope": "External transport read timeout and an actual held provider response produce safe categorized failures and real decision_model_failed activity. No model/classifier/logger is replaced.",
+          "prior_scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
         },
         {
           "id": "decision_runtime_05",
@@ -638,7 +701,7 @@
             "test_configured_factory_builds_typesafe_without_exposing_secret"
           ],
           "contract": "Configured factory resolves alias/provider, timeout and secret without exposing secret.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_decision_model_configuration.py::test_decision_model_configuration_and_repair",
@@ -647,13 +710,20 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_decision_factory_maps_protocol_and_preserves_metadata",
+              "line": 24
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_decision_runtime_contracts.py::test_configured_factory_applies_the_public_decision_timeout",
+              "line": 131
             }
           ],
-          "gap_ids": [
-            "backend-decision-runtime-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
+          "scope": "Actual public provider/model/secret configuration resolves an alternate alias, authenticates outgoing HTTP, preserves requested/resolved identities and applies the configured timeout without exposing the key.",
+          "prior_scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
         }
       ]
     },
@@ -668,18 +738,21 @@
             "test_renderer_links_ocr_assets_to_the_allocated_namespace"
           ],
           "contract": "OCR image links point to actual allocated output namespace.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_vault_direct_import.py::test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers_outputs",
               "line": 17
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_import_compensation_contracts.py::test_real_ocr_assets_follow_the_numbered_allocated_namespace",
+              "line": 34
             }
           ],
-          "gap_ids": [
-            "backend-ingestion-storage-compensation"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Real PDF page-image links resolve to numbered files. This does not prove the separate OCR renderer uses the allocated image namespace."
+          "scope": "Real OCR response is persisted under the collision-allocated Markdown/image namespace with byte-exact assets and correct links; previous import artifacts remain unchanged.",
+          "prior_scope": "Real PDF page-image links resolve to numbered files. This does not prove the separate OCR renderer uses the allocated image namespace."
         },
         {
           "id": "ingestion_storage_03",
@@ -696,13 +769,18 @@
             {
               "node": "validation/scenarios/integration/core/test_import_pipeline_core.py::test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics",
               "line": 141
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_import_compensation_contracts.py::test_later_artifact_failure_compensates_and_preserves_user_changes",
+              "line": 75
             }
           ],
           "gap_ids": [
             "backend-ingestion-storage-compensation"
           ],
           "prior_classification": "rewrite",
-          "scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
+          "scope": "Prior Markdown is really compensated after a later filesystem conflict, including user-change protection. A binary writer publishing part of a file before raising is not established; requires an agreed honest post-publication fault input.",
+          "prior_scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
         },
         {
           "id": "ingestion_storage_04",
@@ -710,7 +788,7 @@
             "test_storage_preserves_an_artifact_modified_before_compensation"
           ],
           "contract": "Compensation preserves a user-modified artifact and reports incomplete cleanup.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_import_pipeline_core.py::test_pdf_inbox_import_and_preserved_source",
@@ -719,13 +797,16 @@
             {
               "node": "validation/scenarios/integration/core/test_import_pipeline_core.py::test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics",
               "line": 141
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_import_compensation_contracts.py::test_later_artifact_failure_compensates_and_preserves_user_changes",
+              "line": 75
             }
           ],
-          "gap_ids": [
-            "backend-ingestion-storage-compensation"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
+          "scope": "A real filesystem conflict after Markdown publication causes compensation; actual intervening user changes survive and incomplete cleanup is reported.",
+          "prior_scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
         },
         {
           "id": "ingestion_storage_05",
@@ -733,7 +814,7 @@
             "test_job_finalization_failure_removes_written_outputs"
           ],
           "contract": "Failed job finalization removes output and clears job output manifest.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_import_pipeline_core.py::test_pdf_inbox_import_and_preserved_source",
@@ -742,13 +823,16 @@
             {
               "node": "validation/scenarios/integration/core/test_import_pipeline_core.py::test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics",
               "line": 141
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_import_compensation_contracts.py::test_real_job_completion_failure_removes_outputs_and_clears_manifest",
+              "line": 115
             }
           ],
-          "gap_ids": [
-            "backend-ingestion-storage-compensation"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
+          "scope": "A real SQLite completion trigger failure exercises finalization compensation: outputs are removed, durable job manifest is empty and source remains.",
+          "prior_scope": "Source cleanup permission failures retain completed outputs and diagnostics; output-write compensation, protecting user-modified partial output, and failed job finalization/manifest clearing are distinct and unverified."
         },
         {
           "id": "ingestion_storage_01",
@@ -838,7 +922,7 @@
             "test_older_provider_naming_formats_still_identify_their_model_family"
           ],
           "contract": "Older provider model-string naming formats identify model families.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_alias_resolution.py::test_model_aliases_survive_rename_and_settings_edits",
@@ -855,13 +939,16 @@
             {
               "node": "validation/scenarios/integration/core/test_catalog_upgrade_collision.py::test_real_catalog_upgrade_preserves_old_and_custom_collision",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_older_provider_families_adopt_the_current_shipped_catalog",
+              "line": 10
             }
           ],
-          "gap_ids": [
-            "backend-managed-catalog-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
+          "scope": "Fresh production settings processes import six historical provider naming forms, adopt current managed bindings and persist exact source backup and idempotent results.",
+          "prior_scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
         },
         {
           "id": "managed_model_catalog_07",
@@ -869,7 +956,7 @@
             "test_shipped_anthropic_models_support_adaptive_thinking"
           ],
           "contract": "Shipped Anthropic profiles advertise adaptive thinking and JSON schema. ",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_alias_resolution.py::test_model_aliases_survive_rename_and_settings_edits",
@@ -886,13 +973,16 @@
             {
               "node": "validation/scenarios/integration/core/test_catalog_upgrade_collision.py::test_real_catalog_upgrade_preserves_old_and_custom_collision",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_shipped_anthropic_bindings_support_thinking_and_schema_output",
+              "line": 50
             }
           ],
-          "gap_ids": [
-            "backend-managed-catalog-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
+          "scope": "Actual freshly bootstrapped Anthropic bindings resolve through the installed SDK to adaptive-thinking and JSON-schema profiles.",
+          "prior_scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
         },
         {
           "id": "managed_model_catalog_09",
@@ -917,13 +1007,18 @@
             {
               "node": "validation/scenarios/integration/core/test_catalog_upgrade_collision.py::test_real_catalog_upgrade_preserves_old_and_custom_collision",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_alternate_promotion_and_repeated_rename_survive_reload",
+              "line": 65
             }
           ],
           "gap_ids": [
             "backend-managed-catalog-parity"
           ],
           "prior_classification": "gap",
-          "scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
+          "scope": "Public same-model alternate promotion, repeated custom renames, explicit alias removal and real reload now pass. Synthetic future managed-catalog generations and user-removal behavior across those generations remain unverified; no supported packaged-catalog fixture is agreed.",
+          "prior_scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
         },
         {
           "id": "managed_model_catalog_10",
@@ -948,13 +1043,18 @@
             {
               "node": "validation/scenarios/integration/core/test_catalog_upgrade_collision.py::test_real_catalog_upgrade_preserves_old_and_custom_collision",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_alternate_promotion_and_repeated_rename_survive_reload",
+              "line": 65
             }
           ],
           "gap_ids": [
             "backend-managed-catalog-parity"
           ],
           "prior_classification": "gap",
-          "scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
+          "scope": "Public same-model alternate promotion and cross-model collision preserve durable identities/configuration. Promotion during a hypothetical new managed catalog generation is not proved by custom model API renames.",
+          "prior_scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
         },
         {
           "id": "managed_model_catalog_11",
@@ -1078,7 +1178,7 @@
             "test_concurrent_cold_loads_publish_one_complete_upgrade"
           ],
           "contract": "Concurrent cold loads publish one complete upgraded catalog and exactly one backup.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_alias_resolution.py::test_model_aliases_survive_rename_and_settings_edits",
@@ -1095,13 +1195,16 @@
             {
               "node": "validation/scenarios/integration/core/test_catalog_upgrade_collision.py::test_real_catalog_upgrade_preserves_old_and_custom_collision",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_concurrent_cold_loads_publish_one_complete_upgrade_and_backup",
+              "line": 113
             }
           ],
-          "gap_ids": [
-            "backend-managed-catalog-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
+          "scope": "Three independently started interpreters enter a file barrier before importing the store, cold-load one actual legacy configuration concurrently, then reload identical complete catalogs; exactly one exact original YAML backup exists.",
+          "prior_scope": "Current historical adoption/renames are covered, but this group still needs its complete old model-name forms, shipped adaptive/schema profile contract, repeated catalog generations/alias promotion, or simultaneous cold-load backup guarantee as applicable."
         },
         {
           "id": "managed_model_catalog_01",
@@ -1241,7 +1344,7 @@
             "test_snapshot_cancellation_releases_completed_acquires"
           ],
           "contract": "Cancel partial MCP snapshot acquisition releases successfully acquired lease. Evidence: fake lease release count.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_managed_lifecycle.py::test_mcp_manager_shares_initialization_and_closes_each_real_session",
@@ -1274,13 +1377,16 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py::test_cancelled_partial_snapshot_releases_already_acquired_connection",
+              "line": 12
             }
           ],
-          "gap_ids": [
-            "backend-mcp-manager-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
+          "scope": "Real local MCP sessions hold the second acquisition while the first cached lease is reused; cancelling the snapshot permits idle eviction and exactly one remote closure of the acquired first session.",
+          "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         },
         {
           "id": "test_mcp_manager_hardening:226",
@@ -1371,13 +1477,18 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py::test_endpoint_and_credential_changes_reject_stale_cold_start",
+              "line": 61
             }
           ],
           "gap_ids": [
             "backend-mcp-manager-parity"
           ],
           "prior_classification": "rewrite",
-          "scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
+          "scope": "Real endpoint and credential changes during held initialization reject the stale session; stale/forged records are rejected, old/new endpoints see only their intended tokens, and current snapshot reacquisition succeeds. The narrower pre-DNS asynchronous credential-capture window lacks a supported deterministic barrier.",
+          "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         },
         {
           "id": "test_mcp_manager_hardening:345",
@@ -1467,13 +1578,18 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py::test_endpoint_and_credential_changes_reject_stale_cold_start",
+              "line": 61
             }
           ],
           "gap_ids": [
             "backend-mcp-manager-parity"
           ],
           "prior_classification": "rewrite",
-          "scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
+          "scope": "Actual worker-thread invalidation acknowledges stale marking, leaves the real active lease callable and closes it on release. Synthetic exceptions from private synchronous marking remain unverified and require a public failure contract/boundary decision.",
+          "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         }
       ]
     },
@@ -1680,18 +1796,21 @@
             "test_collisions_never_choose_a_winner_but_keep_unaffected_models_usable"
           ],
           "contract": "Ambiguous alias fails without choosing winner while unaffected model still resolves.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_alias_resolution.py::test_model_aliases_survive_rename_and_settings_edits",
               "line": 16
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_catalog_legacy_boundaries.py::test_shared_legacy_alternates_disable_both_models_without_choosing_a_winner",
+              "line": 127
             }
           ],
-          "gap_ids": [
-            "backend-managed-catalog-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "A persisted canonical/alternate collision disables both identities and leaves unrelated resolution working. The full shared-alternate and malformed persisted alias matrix remains unverified."
+          "scope": "Native persisted shared alternates disable both affected models and reject both canonical names and shared alias without choosing a winner; unrelated shipped model still resolves.",
+          "prior_scope": "A persisted canonical/alternate collision disables both identities and leaves unrelated resolution working. The full shared-alternate and malformed persisted alias matrix remains unverified."
         },
         {
           "id": "model_alias_registry_06",
@@ -1723,7 +1842,7 @@
             "test_sdk_provider_rejections_retain_message_and_status"
           ],
           "contract": "Structured SDK rejection retains HTTP status, safe message/type/code and excludes private input. ",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_failure_classification.py::test_provider_billing_failure_is_classified_and_sanitized",
@@ -1732,13 +1851,16 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_sdk_error_boundary_contracts.py::test_supported_sdk_errors_preserve_status_without_private_payload",
+              "line": 21
             }
           ],
-          "gap_ids": [
-            "backend-provider-error-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
+          "scope": "Actual Anthropic and Google SDK structured HTTP rejections traverse real chat and preserve safe bounded message/type/code/status in original activity, while terminal/session/log output excludes private input and credentials.",
+          "prior_scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
         },
         {
           "id": "provider_errors_02",
@@ -1755,13 +1877,18 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_sdk_error_boundary_contracts.py::test_supported_sdk_errors_preserve_status_without_private_payload",
+              "line": 21
             }
           ],
           "gap_ids": [
             "backend-provider-error-parity"
           ],
           "prior_classification": "gap",
-          "scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
+          "scope": "Real remote messages exercise 500-character bounds, whitespace normalization, key/refresh-token, data-URI, Bearer and URL userinfo/query redaction through both SDK/chat paths. Arbitrary explicit-redactions helper arguments are not an application-path contract established by these inputs.",
+          "prior_scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
         },
         {
           "id": "provider_errors_03",
@@ -1769,7 +1896,7 @@
             "test_unstructured_provider_responses_do_not_leak"
           ],
           "contract": "Unstructured provider responses disclose no private response while preserving status. ",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_model_failure_classification.py::test_provider_billing_failure_is_classified_and_sanitized",
@@ -1778,13 +1905,16 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_sdk_error_boundary_contracts.py::test_supported_sdk_errors_preserve_status_without_private_payload",
+              "line": 21
             }
           ],
-          "gap_ids": [
-            "backend-provider-error-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
+          "scope": "Both installed SDK paths process real plain-text, list and detail-only remote failures without persisting private response bodies; HTTP status remains available. Google synthetic raw-text message promotion is corrected at the production normalization boundary.",
+          "prior_scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
         },
         {
           "id": "provider_errors_04",
@@ -1801,13 +1931,18 @@
             {
               "node": "validation/scenarios/integration/core/test_provider_denial_diagnostics.py::test_decision_denial_and_generic_compaction_diagnostics",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_sdk_error_boundary_contracts.py::test_supported_sdk_errors_preserve_status_without_private_payload",
+              "line": 21
             }
           ],
           "gap_ids": [
             "backend-provider-error-parity"
           ],
           "prior_classification": "gap",
-          "scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
+          "scope": "Actual SDK causes traverse chat normalization. Arbitrary/cyclic manually constructed exception graphs and provider attribution on synthetic wrapper objects remain unverified; review the public helper contract before adding interface-only fixtures.",
+          "prior_scope": "Actual OpenAI-compatible billing/403 errors and secret-safe activity are covered. Anthropic/Google variants, unstructured response bodies, arbitrary redaction/bounding inputs and wrapped/cyclic failures need explicit review or replacement."
         },
         {
           "id": "provider_errors_05",
@@ -1877,7 +2012,7 @@
             "test_import_backup_matches_the_exact_snapshot_read"
           ],
           "contract": "Backup captures exact YAML snapshot read even if source changes in between.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_numbered_upgrade",
@@ -1886,13 +2021,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_import_persistence_and_recovery",
               "line": 139
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_settings_race_contracts.py::test_legacy_backup_contains_the_snapshot_read_before_source_changes",
+              "line": 117
             }
           ],
-          "gap_ids": [
-            "backend-settings-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Exact backup bytes are asserted, but a source change between reading legacy YAML and creating its backup is not exercised."
+          "scope": "A bounded interpreter observer permits a real external YAML edit after source read; actual import loads and backs up exactly the captured original bytes. The loader and backup writer execute unchanged.",
+          "prior_scope": "Exact backup bytes are asserted, but a source change between reading legacy YAML and creating its backup is not exercised."
         },
         {
           "id": "settings_database_06",
@@ -1900,7 +2038,7 @@
             "test_interrupted_import_rolls_back_initialization_and_records"
           ],
           "contract": "Interrupted import rolls back initial revision and all records, and retries.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_numbered_upgrade",
@@ -1909,13 +2047,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_database_migration.py::test_settings_import_persistence_and_recovery",
               "line": 139
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_settings_race_contracts.py::test_first_import_transaction_rolls_back_partial_records_and_retries",
+              "line": 77
             }
           ],
-          "gap_ids": [
-            "backend-settings-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Invalid import and failed ordinary save recover; termination/exception during the initial import transaction itself lacks a matching replacement."
+          "scope": "Real SQLite trigger interrupts initial import after partial inserts; no revision or records commit, and dropping the trigger allows a complete successful retry.",
+          "prior_scope": "Invalid import and failed ordinary save recover; termination/exception during the initial import transaction itself lacks a matching replacement."
         },
         {
           "id": "settings_database_07",
@@ -2074,7 +2215,7 @@
             "test_reset_service_exposes_backup_conflicts_without_resetting"
           ],
           "contract": "Reset service exposes backup revision conflict, preserves later edit and backup.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle",
@@ -2083,13 +2224,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_real_conflict.py::test_concurrent_settings_commit_rejects_stale_public_request",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_settings_race_contracts.py::test_global_reset_public_request_preserves_a_post_backup_edit",
+              "line": 17
             }
           ],
-          "gap_ids": [
-            "backend-settings-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Backed-up revision rejection is exercised through the real reset domain and a real general-settings API conflict is covered. The global-defaults service/API race after its backup is not exercised."
+          "scope": "Actual global-reset request reaches its original save after backup; an independent SQLite writer commits a newer revision, API returns the established 400 InvalidSystemSetting service translation, newer value survives and one backup contains the earlier value.",
+          "prior_scope": "Backed-up revision rejection is exercised through the real reset domain and a real general-settings API conflict is covered. The global-defaults service/API race after its backup is not exercised."
         },
         {
           "id": "settings_lifecycle_10",
@@ -2211,7 +2355,7 @@
             "test_global_reset_rejects_an_edit_committed_after_its_backup"
           ],
           "contract": "A concurrent edit after backup is preserved and stale global reset is rejected; backup contains earlier revision.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle",
@@ -2220,13 +2364,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_real_conflict.py::test_concurrent_settings_commit_rejects_stale_public_request",
               "line": 19
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_settings_race_contracts.py::test_global_reset_public_request_preserves_a_post_backup_edit",
+              "line": 17
             }
           ],
-          "gap_ids": [
-            "backend-settings-boundary-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "covered",
-          "scope": "Backed-up revision rejection is exercised through the real reset domain and a real general-settings API conflict is covered. The global-defaults service/API race after its backup is not exercised."
+          "scope": "Real post-backup SQLite commit rejects stale global reset and preserves the newer configuration and exact earlier database backup.",
+          "prior_scope": "Backed-up revision rejection is exercised through the real reset domain and a real general-settings API conflict is covered. The global-defaults service/API race after its backup is not exercised."
         },
         {
           "id": "settings_lifecycle_08",
@@ -2258,7 +2405,7 @@
             "test_shipped_numeric_defaults_and_local_overrides"
           ],
           "contract": "Shipped numeric, strategy, provider and security defaults are as specified; local override persists.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle",
@@ -2267,13 +2414,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_editors.py::test_settings_editors",
               "line": 12
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shipped_configuration_contracts.py::test_fresh_defaults_and_unconfigured_model_admission",
+              "line": 32
             }
           ],
-          "gap_ids": [
-            "backend-shipped-default-contracts"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Local override persistence/editor constraints are covered, but the enumerated shipped numeric/strategy/security/provider defaults and unset-default-model compaction setup contract need direct assertions."
+          "scope": "Fresh real settings process asserts the agreed numeric/strategy/security/provider default values and provenance; explicit compaction override persists after cache reload.",
+          "prior_scope": "Local override persistence/editor constraints are covered, but the enumerated shipped numeric/strategy/security/provider defaults and unset-default-model compaction setup contract need direct assertions."
         },
         {
           "id": "shipped_settings_defaults_02",
@@ -2281,7 +2431,7 @@
             "test_unconfigured_default_is_valid_storage_but_requires_setup"
           ],
           "contract": "Unconfigured default model is storable but compaction requires setup with actionable error.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_settings_lifecycle.py::test_settings_lifecycle",
@@ -2290,13 +2440,16 @@
             {
               "node": "validation/scenarios/integration/core/test_settings_editors.py::test_settings_editors",
               "line": 12
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_shipped_configuration_contracts.py::test_fresh_defaults_and_unconfigured_model_admission",
+              "line": 32
             }
           ],
-          "gap_ids": [
-            "backend-shipped-default-contracts"
-          ],
+          "gap_ids": [],
           "prior_classification": "gap",
-          "scope": "Local override persistence/editor constraints are covered, but the enumerated shipped numeric/strategy/security/provider defaults and unset-default-model compaction setup contract need direct assertions."
+          "scope": "Unset default model is stored with default provenance, compaction author resolution returns None and public status reports one actionable compaction setup error after actual global reset.",
+          "prior_scope": "Local override persistence/editor constraints are covered, but the enumerated shipped numeric/strategy/security/provider defaults and unset-default-model compaction setup contract need direct assertions."
         }
       ]
     },
@@ -2328,18 +2481,21 @@
             "test_content_search_reports_stable_startup_failures"
           ],
           "contract": "Missing search executable and startup OS error produce stable distinct codes.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_content_search.py::test_literal_content_search_bounds_and_scope",
               "line": 12
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_search_process_failure_contracts.py::test_search_external_execution_failures_are_distinct_and_bounded",
+              "line": 21
             }
           ],
-          "gap_ids": [
-            "backend-search-execution-errors"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Ordinary real rg and input errors pass; executable absence, other process-start OS errors, and a real bounded timeout are not exercised."
+          "scope": "Actual search in isolated child environments distinguishes absent executable from a real process-start permission failure using stable error codes.",
+          "prior_scope": "Ordinary real rg and input errors pass; executable absence, other process-start OS errors, and a real bounded timeout are not exercised."
         },
         {
           "id": "vault_content_search_08",
@@ -2347,18 +2503,21 @@
             "test_content_search_reports_timeout"
           ],
           "contract": "Search timeout produces stable timeout code.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_content_search.py::test_literal_content_search_bounds_and_scope",
               "line": 12
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_search_process_failure_contracts.py::test_search_external_execution_failures_are_distinct_and_bounded",
+              "line": 21
             }
           ],
-          "gap_ids": [
-            "backend-search-execution-errors"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Ordinary real rg and input errors pass; executable absence, other process-start OS errors, and a real bounded timeout are not exercised."
+          "scope": "A declared external executable is held beyond the real search deadline; actual timeout code and terminated child PID prove bounded execution/cleanup without replacing the search service.",
+          "prior_scope": "Ordinary real rg and input errors pass; executable absence, other process-start OS errors, and a real bounded timeout are not exercised."
         },
         {
           "id": "vault_content_search_02",
@@ -2451,19 +2610,39 @@
   "evidence_reports": [
     "validation/runs/backend_root_review_20261030/report.json",
     "validation/runs/backend_root_review_supplement_20261030/report.json",
-    "validation/runs/backend_root_ssh_admission_20261030/report.json"
+    "validation/runs/backend_root_ssh_admission_20261030/report.json",
+    "validation/runs/backend_decision_deadlines_20261030/report.json",
+    "validation/runs/backend_auth_defaults_search_20261030/report.json",
+    "validation/runs/backend_import_compensation_confirm_20261030/report.json",
+    "validation/runs/backend_settings_races_20261030/report.json",
+    "validation/runs/backend_reset_conflict_confirm_20261030/report.json",
+    "validation/runs/backend_sdk_response_shapes_20261030/report.json",
+    "validation/runs/backend_catalog_boundaries_20261030/report.json",
+    "validation/runs/backend_catalog_concurrent_confirm_20261030/report.json",
+    "validation/runs/backend_mcp_catalog_fences_20261030/report.json",
+    "validation/runs/backend_mcp_partial_snapshot_20261030/report.json",
+    "validation/runs/backend_mcp_shell_confirm_20261030/report.json",
+    "validation/runs/backend_shell_local_20261030/report.json",
+    "validation/runs/backend_auth_peer_matrix_20261030/report.json",
+    "validation/runs/backend_shell_defaults_confirm_20261030/report.json"
   ],
   "known_behavior_coverage_complete": false,
   "verification": {
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "partial": 52,
-      "open": 1,
-      "retired": 2,
-      "covered": 38
+      "covered": 71,
+      "partial": 20,
+      "retired": 2
     },
     "all_original_sources_unchanged": true,
-    "full_core_suite_run": false
+    "full_core_suite_run": false,
+    "followup_closure": {
+      "date": "2026-10-30",
+      "evidence_index": "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
+      "unique_cases_passed": 39,
+      "full_core_suite_run": false,
+      "all_original_sources_unchanged": true
+    }
   }
 }

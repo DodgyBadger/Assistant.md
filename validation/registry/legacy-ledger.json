@@ -226,10 +226,10 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 8
+          "covered": 4,
+          "partial": 4
         },
         "remaining_gap_ids": [
-          "backend-advanced-shell-configuration",
           "mcp-advanced-stdio-successful-ssh"
         ]
       }
@@ -401,17 +401,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_middleware.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 1
+          "covered": 1
         },
-        "remaining_gap_ids": [
-          "backend-authentication-boundary-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -501,18 +499,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_policy.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "open": 1,
-          "partial": 2
+          "covered": 3
         },
-        "remaining_gap_ids": [
-          "backend-authentication-boundary-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -546,17 +541,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_rate_limit.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 1
+          "covered": 1
         },
-        "remaining_gap_ids": [
-          "backend-authentication-boundary-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -646,17 +639,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_session.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 2
+          "covered": 2
         },
-        "remaining_gap_ids": [
-          "backend-authentication-boundary-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -1988,18 +1979,16 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_decision_runtime.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
           "retired": 1,
-          "partial": 4
+          "covered": 4
         },
-        "remaining_gap_ids": [
-          "backend-decision-runtime-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -2342,8 +2331,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 4,
-          "covered": 1
+          "covered": 4,
+          "partial": 1
         },
         "remaining_gap_ids": [
           "backend-ingestion-storage-compensation"
@@ -2838,8 +2827,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 11,
-          "partial": 5
+          "covered": 14,
+          "partial": 2
         },
         "remaining_gap_ids": [
           "backend-managed-catalog-parity"
@@ -2998,7 +2987,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 5
+          "covered": 1,
+          "partial": 4
         },
         "remaining_gap_ids": [
           "backend-mcp-manager-parity"
@@ -3295,18 +3285,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_model_alias_registry.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 5,
-          "partial": 1
+          "covered": 6
         },
-        "remaining_gap_ids": [
-          "backend-managed-catalog-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -3597,8 +3584,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 4,
-          "covered": 2
+          "covered": 4,
+          "partial": 2
         },
         "remaining_gap_ids": [
           "backend-provider-error-parity"
@@ -4870,19 +4857,16 @@
       ],
       "original_path": "validation/test_settings_database.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 6,
-          "partial": 2,
+          "covered": 8,
           "retired": 1
         },
-        "remaining_gap_ids": [
-          "backend-settings-boundary-parity"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -5698,8 +5682,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 3,
-          "covered": 7
+          "partial": 1,
+          "covered": 9
         },
         "remaining_gap_ids": [
           "backend-settings-boundary-parity"
@@ -5763,17 +5747,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_shipped_settings_defaults.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 2
+          "covered": 2
         },
-        "remaining_gap_ids": [
-          "backend-shipped-default-contracts"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -6166,18 +6148,15 @@
       ],
       "original_path": "validation/test_vault_content_search.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 6,
-          "partial": 2
+          "covered": 8
         },
-        "remaining_gap_ids": [
-          "backend-search-execution-errors"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
