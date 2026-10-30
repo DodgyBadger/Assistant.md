@@ -36,3 +36,19 @@ def refused_loopback_port():
     with socket(AF_INET, SOCK_STREAM) as reservation:
         reservation.bind(("127.0.0.1", 0))
         yield reservation.getsockname()[1]
+
+
+def admit_loopback_preflight(config, system_root):
+    """Admit the fixture's exact real SSH probe; never bypass app execution."""
+    from core.tools.advanced_shell import (
+        ShellTransportConfig,
+        build_fixed_ssh_command,
+    )
+    from validation.support.core_processes import declare_core_command
+
+    # The reserved local port cannot accept connections. This permits only the
+    # actual deployment-owned argv with fixture-owned identity/trust paths and
+    # the fixed readiness command; it does not admit arbitrary SSH destinations.
+    assert config.host == "127.0.0.1"
+    transport = ShellTransportConfig.from_infrastructure(config, system_root)
+    declare_core_command(build_fixed_ssh_command(transport, "true"))

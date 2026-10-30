@@ -1331,7 +1331,7 @@
     },
     {
       "path": "scenarios/integration/core/test_mcp_advanced_shell_stdio_connections.py",
-      "sha256": "d755131f1dfbbfb29f8a65b96be98794ae6f6e5cdcea2ab5c70cdfa665253e03",
+      "sha256": "e3e3993cf0801ba6d261826587de2984da1e5885fe6dfcc6bb8c947eeda2d178",
       "kind": "behavioral",
       "tests": [
         "test_stdio_restricted_authority_import_and_readiness"
@@ -2572,7 +2572,7 @@
     },
     {
       "path": "scenarios/support/mcp_stdio_inputs.py",
-      "sha256": "64b1631aea4369e112d4bd45b6f8827ebfe4d23d2d04963ea6b4eafa6235b3d5",
+      "sha256": "7ec153de8c6e7f45b6f8770b79c0432736ec2c002316343e85ba310a54d6ab92",
       "kind": "support"
     },
     {

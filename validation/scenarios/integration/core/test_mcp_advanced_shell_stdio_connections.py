@@ -5,6 +5,7 @@ import pytest
 from validation.scenarios.application import Application
 from validation.scenarios.support.mcp_stdio_inputs import (
     IMPORT,
+    admit_loopback_preflight,
     connection_request,
     refused_loopback_port,
 )
@@ -89,6 +90,7 @@ async def test_stdio_restricted_authority_import_and_readiness(
         paths.directory.mkdir(parents=True, exist_ok=True)
         paths.client_identity.write_text("validation identity", encoding="utf-8")
         paths.known_hosts.write_text("validation host trust", encoding="utf-8")
+        admit_loopback_preflight(config, app.root / "system")
         preflight = AdvancedShellPreflightService(config, app.root / "system")
         snapshot = await preflight.status()
         assert snapshot.state == AdvancedShellReadiness.CONNECTION_FAILURE
