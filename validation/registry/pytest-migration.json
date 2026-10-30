@@ -8577,13 +8577,24 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "e668c29cc31bfb88e0c5d0d0176a5ca9e4ba6e4a8cca64152c0d2ef5dd61c7dd",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_advanced_shell_config.py",
       "location_classification": "unresolved_review",
       "source_sha256": "e668c29cc31bfb88e0c5d0d0176a5ca9e4ba6e4a8cca64152c0d2ef5dd61c7dd",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 8
+        },
+        "remaining_gap_ids": [
+          "backend-advanced-shell-configuration",
+          "mcp-advanced-stdio-successful-ssh"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_authentication_middleware.py",
@@ -8640,13 +8651,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "5105bd33c0732c31586e9880fce907adb0bc2bd1838fc14783120f43ff506293",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_middleware.py",
       "location_classification": "unresolved_review",
       "source_sha256": "5105bd33c0732c31586e9880fce907adb0bc2bd1838fc14783120f43ff506293",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 1
+        },
+        "remaining_gap_ids": [
+          "backend-authentication-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_authentication_policy.py",
@@ -8731,13 +8752,24 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "d317315ea87590955a6f43236e5b87d393ecfb074a14b078898fab70136e3a35",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_policy.py",
       "location_classification": "unresolved_review",
       "source_sha256": "d317315ea87590955a6f43236e5b87d393ecfb074a14b078898fab70136e3a35",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "open": 1,
+          "partial": 2
+        },
+        "remaining_gap_ids": [
+          "backend-authentication-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_authentication_rate_limit.py",
@@ -8766,13 +8798,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "81d3ce49bd794a90313791f0cade0c32d7e02d7227cd3eadecfe05067a340962",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_rate_limit.py",
       "location_classification": "unresolved_review",
       "source_sha256": "81d3ce49bd794a90313791f0cade0c32d7e02d7227cd3eadecfe05067a340962",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 1
+        },
+        "remaining_gap_ids": [
+          "backend-authentication-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_authentication_session.py",
@@ -8857,13 +8899,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "54241d38495990916f965610b8917520f770572a463cf547807602f2642cfce0",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_authentication_session.py",
       "location_classification": "unresolved_review",
       "source_sha256": "54241d38495990916f965610b8917520f770572a463cf547807602f2642cfce0",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 2
+        },
+        "remaining_gap_ids": [
+          "backend-authentication-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_chat_instructions.py",
@@ -8896,13 +8948,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "a3691e67eaf273d3e1dc6aa36ccc9806f450ef0956e889847a0b5207a6c7bcee",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_chat_instructions.py",
       "location_classification": "unresolved_review",
       "source_sha256": "a3691e67eaf273d3e1dc6aa36ccc9806f450ef0956e889847a0b5207a6c7bcee",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 1
+        },
+        "remaining_gap_ids": [
+          "backend-chat-mcp-preparation"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_chat_mcp_lifecycle.py",
@@ -8955,13 +9017,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "12bd2d1b08fb5347208d059faa037b24b8486c8dadac3cb87a5dbbcac3694994",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_chat_mcp_lifecycle.py",
       "location_classification": "unresolved_review",
       "source_sha256": "12bd2d1b08fb5347208d059faa037b24b8486c8dadac3cb87a5dbbcac3694994",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 2
+        },
+        "remaining_gap_ids": [
+          "backend-chat-mcp-preparation"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_decision_runtime.py",
@@ -9079,13 +9151,24 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "db13da59229f98fd61c53c9f1a4abd1d2d119fca10a091b84bf92f0ed9c16464",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_decision_runtime.py",
       "location_classification": "unresolved_review",
       "source_sha256": "db13da59229f98fd61c53c9f1a4abd1d2d119fca10a091b84bf92f0ed9c16464",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "retired": 1,
+          "partial": 4
+        },
+        "remaining_gap_ids": [
+          "backend-decision-runtime-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_ingestion_storage.py",
@@ -9194,7 +9277,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "877b58c7daf97f6b5af842af9287671d6f17e502ef2dbd658f8f5cddec48c4f0",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -9236,8 +9319,19 @@
       "original_path": "validation/test_ingestion_storage.py",
       "location_classification": "unresolved_review",
       "source_sha256": "877b58c7daf97f6b5af842af9287671d6f17e502ef2dbd658f8f5cddec48c4f0",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 4,
+          "covered": 1
+        },
+        "remaining_gap_ids": [
+          "backend-ingestion-storage-compensation"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_managed_model_catalog.py",
@@ -9525,7 +9619,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "9130e9addaa9e7ba02fe2d271c77b9fa87d953f8b16f46d55c60b0f96722ea6f",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -9722,8 +9816,19 @@
       "original_path": "validation/test_managed_model_catalog.py",
       "location_classification": "unresolved_review",
       "source_sha256": "9130e9addaa9e7ba02fe2d271c77b9fa87d953f8b16f46d55c60b0f96722ea6f",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "covered": 11,
+          "partial": 5
+        },
+        "remaining_gap_ids": [
+          "backend-managed-catalog-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_mcp_manager_hardening.py",
@@ -9867,13 +9972,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "6d5542632f908999b3fc531c5788e9a5e82fc5c70298c5bbfa98e1c35cc9e203",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_mcp_manager_hardening.py",
       "location_classification": "unresolved_review",
       "source_sha256": "6d5542632f908999b3fc531c5788e9a5e82fc5c70298c5bbfa98e1c35cc9e203",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 5
+        },
+        "remaining_gap_ids": [
+          "backend-mcp-manager-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_mcp_oauth_hardening.py",
@@ -9959,13 +10074,23 @@
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
       "sha256": "06a392ea79f6ecd14645e9fcb75c5f0f2cec454272704f4070f4ff6607dfa1a7",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_mcp_oauth_hardening.py",
       "location_classification": "unresolved_review",
       "source_sha256": "06a392ea79f6ecd14645e9fcb75c5f0f2cec454272704f4070f4ff6607dfa1a7",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 3
+        },
+        "remaining_gap_ids": [
+          "mcp-oauth-live-authorization-lifecycle"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_model_alias_registry.py",
@@ -10152,13 +10277,24 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "e97052ead2844f3844fc59e6095787df34f81fda63bb1949e471d74927a06b58",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_model_alias_registry.py",
       "location_classification": "unresolved_review",
       "source_sha256": "e97052ead2844f3844fc59e6095787df34f81fda63bb1949e471d74927a06b58",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "covered": 5,
+          "partial": 1
+        },
+        "remaining_gap_ids": [
+          "backend-managed-catalog-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_provider_errors.py",
@@ -10251,7 +10387,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -10316,8 +10452,19 @@
       "original_path": "validation/test_provider_errors.py",
       "location_classification": "unresolved_review",
       "source_sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 4,
+          "covered": 2
+        },
+        "remaining_gap_ids": [
+          "backend-provider-error-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_settings_database.py",
@@ -10412,7 +10559,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "23bbe85ba0aeae0a71ff5e2f7bb08ab330450f9533857c1100f03d4bb2cfc670",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -10554,8 +10701,20 @@
       "original_path": "validation/test_settings_database.py",
       "location_classification": "unresolved_review",
       "source_sha256": "23bbe85ba0aeae0a71ff5e2f7bb08ab330450f9533857c1100f03d4bb2cfc670",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "covered": 6,
+          "partial": 2,
+          "retired": 1
+        },
+        "remaining_gap_ids": [
+          "backend-settings-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_settings_lifecycle.py",
@@ -10641,7 +10800,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "f374e50ea578085c20832b85fe2fc4efccbfaacc79bb2f0514a13732959366a8",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -10899,8 +11058,19 @@
       "original_path": "validation/test_settings_lifecycle.py",
       "location_classification": "unresolved_review",
       "source_sha256": "f374e50ea578085c20832b85fe2fc4efccbfaacc79bb2f0514a13732959366a8",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 3,
+          "covered": 7
+        },
+        "remaining_gap_ids": [
+          "backend-settings-boundary-parity"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_shipped_settings_defaults.py",
@@ -10955,13 +11125,23 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "1448147e6d41e4c9240955dd44dd86085d3f3901bbfcf8a83ca64b36665e5ac3",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_shipped_settings_defaults.py",
       "location_classification": "unresolved_review",
       "source_sha256": "1448147e6d41e4c9240955dd44dd86085d3f3901bbfcf8a83ca64b36665e5ac3",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "partial": 2
+        },
+        "remaining_gap_ids": [
+          "backend-shipped-default-contracts"
+        ]
+      }
     },
     {
       "path": "validation/legacy/pending/test_vault_content_search.py",
@@ -11048,7 +11228,7 @@
       ],
       "area": "settings, storage, search, decision, and configuration editors",
       "sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af",
-      "review_status": "source_audit_candidate",
+      "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
         {
@@ -11222,8 +11402,19 @@
       "original_path": "validation/test_vault_content_search.py",
       "location_classification": "unresolved_review",
       "source_sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af",
-      "migration_disposition": "retain_pending_group_disposition_review",
-      "replacement_accepted": false
+      "migration_disposition": "retained_for_explicit_coverage_gaps",
+      "replacement_accepted": false,
+      "current_review": {
+        "registry": "validation/registry/backend-migration.json",
+        "date": "2026-10-30",
+        "contract_counts": {
+          "covered": 6,
+          "partial": 2
+        },
+        "remaining_gap_ids": [
+          "backend-search-execution-errors"
+        ]
+      }
     }
   ],
   "other_sources": {
@@ -11927,5 +12118,34 @@
       "limits": "External boundary doubles are documented; in-app services remain real. Full public deployment, detached descendants and OS-level native/file containment are not claimed."
     },
     "prior_cleanup_evidence_index": "validation/runs/gap_cleanup_final_review_20261029/evidence-index.json"
+  },
+  "backend_root_reconciliation": {
+    "date": "2026-10-30",
+    "status": "review_complete_with_explicit_coverage_gaps",
+    "registry": "validation/registry/backend-migration.json",
+    "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
+    "latest_unique_cases_passed": 40,
+    "contract_counts": {
+      "partial": 52,
+      "open": 1,
+      "retired": 2,
+      "covered": 38
+    },
+    "all_original_sources_unchanged": true,
+    "full_core_suite_run": false,
+    "new_review_items": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74
+    ],
+    "wholesale_deletion_accepted_files": 0
   }
 }
