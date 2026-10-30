@@ -1222,6 +1222,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_gmail_selected_account_tokens.py",
+      "sha256": "ab50e84a4a73775adb003d8c869f9129e8e311ab92c807dc9a010f721c65081b",
+      "kind": "behavioral",
+      "tests": [
+        "test_selected_and_default_gmail_accounts_send_their_own_tokens"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_goal_ops.py",
       "sha256": "61d58ceb528f2edaa11d3b7e7c6d8540e8082999d131d7c41549bcadfaf66ce7",
       "kind": "behavioral",

@@ -13,6 +13,7 @@ from core.connections import (
 )
 from core.identity import ExecutionAuthority
 from core.logger import UnifiedLogger
+from core.oauth import OAuthHTTPClientFactory
 
 from .connection import GoogleCapability, GoogleConnectionService
 from .gmail import (
@@ -52,11 +53,13 @@ class GmailResourceService:
         google: GoogleConnectionService,
         oauth: GoogleOAuthCoordinator,
         client_factory: Callable[[ExecutionAuthority], GmailAPIClient] | None = None,
+        http_client_factory: OAuthHTTPClientFactory | None = None,
     ) -> None:
         self._connections = connections
         self._google = google
         self._oauth = oauth
         self._client_factory = client_factory
+        self._http_client_factory = http_client_factory
 
     def status(
         self, authority: ExecutionAuthority, connection: str | None = None
@@ -459,7 +462,8 @@ class GmailResourceService:
         return GmailAPIClient(
             access_token_provider=lambda: self._oauth.access_token(
                 authority, connection_id
-            )
+            ),
+            http_client_factory=self._http_client_factory,
         )
 
 
