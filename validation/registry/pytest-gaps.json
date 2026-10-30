@@ -938,24 +938,29 @@
     },
     {
       "id": "gmail-selected-connection-token-routing",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "integration/core/gmail_attachment_tool",
         "integration/core/gmail_draft_tool"
       ],
-      "missing_proof": "The supported GmailResourceService client_factory receives execution authority but not the selected connection ID. The real fixture resolves the saved default grant. Selector/policy/activity and default grant HTTP behavior pass, but do not establish that each explicitly selected account supplies its own token as the original private client stub asserted.",
-      "cleanup_action": "Establish a supported deterministic multiaccount transport construction boundary and assert actual outgoing token/account correspondence before retiring originals. Do not infer account routing from logged selected metadata.",
+      "missing_proof": "",
+      "cleanup_action": "Completed; original scenarios retained and current parity recorded in pytest-migration.json.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/gmail_attachment_tool.py",
         "validation/legacy/scenarios/integration/core/gmail_draft_tool.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
+        "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
       ],
       "review_number": 37,
-      "user_decision": "Defer to the end - I want to address this cooperatively",
-      "decision_status": "deferred"
+      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
+      "decision_status": "approved_local_scope_completed",
+      "prior_missing_proof": "The supported GmailResourceService client_factory receives execution authority but not the selected connection ID. The real fixture resolves the saved default grant. Selector/policy/activity and default grant HTTP behavior pass, but do not establish that each explicitly selected account supplies its own token as the original private client stub asserted.",
+      "prior_user_decision": "Defer to the end - I want to address this cooperatively",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Two real encrypted Google accounts supply distinct correct bearer tokens for explicit selection and default selection across real search, attachment download and draft creation HTTP. A transport-level HTTP factory seam preserves the resource service internally constructed client and production selected-ID OAuth lookup; no service/token resolver is replaced."
     },
     {
       "id": "web-extraction-mixed-and-binary-responses",
@@ -1212,23 +1217,36 @@
       "status": "open",
       "category": "migration_parity",
       "source_scenarios": [
-        "integration/core/mcp_oauth_coordinator"
+        "validation/test_mcp_oauth_hardening.py"
       ],
-      "missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
-      "cleanup_action": "Provide deterministic local authorization discovery plus MCP server and real attempt barriers, retaining original lifecycle/timeout/durable supersede assertions meanwhile.",
+      "missing_proof": "Only post-commit runtime invalidation acknowledgment failure remains: saved OAuth state followed by HTTP503 committed=true/retry_safe=false and safe error telemetry. The original tests injected a private manager exception; a supported real failure input has not been agreed. Actual discovery/start/callback, state recovery, replay, expiry and completion deadlines, supersede/disconnect, grant revocation races, failed durable supersede retry and overlapping shutdown now pass against a real local OAuth/MCP provider.",
+      "cleanup_action": "Defer this narrow acknowledgment-failure branch with the other uncertain runtime error-injection cases. Do not substitute the application manager solely to manufacture an error; the security-critical live authorization lifecycle now has deterministic real-service evidence.",
       "retained_coverage": [
-        "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py"
+        "validation/legacy/pending/test_mcp_oauth_hardening.py"
       ],
       "evidence": [
-        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
       ],
       "review_number": 48,
-      "user_decision": "Defer - I want to understand better",
-      "decision_status": "deferred",
+      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
+      "decision_status": "approved_local_scope_with_remaining_uncertainty",
       "backend_root_contract_ids": [
         "test_mcp_oauth_hardening:43",
         "test_mcp_oauth_hardening:153",
         "test_mcp_oauth_hardening:276"
+      ],
+      "prior_missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
+      "prior_user_decision": "Defer - I want to understand better",
+      "remaining_contract_ids": [
+        "test_mcp_oauth_hardening:153"
+      ],
+      "recommendation": "Defer this narrow acknowledgment-failure branch with the other uncertain runtime error-injection cases. Do not substitute the application manager solely to manufacture an error; the security-critical live authorization lifecycle now has deterministic real-service evidence.",
+      "prior_retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py"
+      ],
+      "prior_source_scenarios": [
+        "integration/core/mcp_oauth_coordinator"
       ]
     },
     {
@@ -1818,18 +1836,19 @@
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
       ],
-      "missing_proof": "Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.",
+      "missing_proof": "Only cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation remain. The pre-DNS credential-binding race is now proved with held OS DNS, real encrypted credentials/configuration and captured HTTP authorization. Earlier stdio capacity/cancellation, HTTP progress, snapshot cancellation and worker-thread invalidation evidence remains valid.",
       "retained_coverage": [
         "validation/legacy/pending/test_mcp_manager_hardening.py"
       ],
-      "cleanup_action": "Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.",
-      "recommendation": "Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "cleanup_action": "Defer these remaining error-injection branches until a supported real failure input or explicit public contract is agreed; credential binding no longer requires follow-up.",
+      "recommendation": "Defer these remaining error-injection branches until a supported real failure input or explicit public contract is agreed; credential binding no longer requires follow-up.",
+      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
       "decision_status": "approved_local_scope",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
-        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
       ],
       "backend_root_contract_ids": [
         "test_mcp_manager_hardening:179",
@@ -1840,11 +1859,12 @@
       ],
       "original_missing_proof": "Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.",
       "remaining_contract_ids": [
-        "test_mcp_manager_hardening:246",
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "prior_missing_proof": "Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.",
+      "prior_user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts."
     },
     {
       "id": "backend-settings-boundary-parity",

@@ -1,16 +1,10 @@
 # Remaining validation gaps
 
-11 review items remain; item 3 remains separately tracked in the external product To Do list. Completed local work has been removed from this list; numbers are stable review IDs. The user authorized clear local cases while excluding real advanced shell, access to other containers and uncertain contracts. Earlier cooperative/deferred decisions remain unchanged. Exact canonical assertions, partial proof and execution evidence are recorded in `validation/registry/backend-migration.json` and `validation/registry/pytest-gaps.json`.
+10 review items remain; item 3 remains separately tracked in the external product To Do list. Completed local work has been removed from this list; numbers are stable review IDs. The user authorized clear local cases while excluding real advanced shell, access to other containers and uncertain contracts. Other deferred decisions remain unchanged. Exact canonical assertions, partial proof and execution evidence are recorded in `validation/registry/backend-migration.json` and `validation/registry/pytest-gaps.json`.
 
-- **37. Gmail account-specific token routing:** Verify that explicitly selecting each Gmail account sends that account’s token. Current transport fixtures use the saved default grant; selected-account metadata alone is insufficient.
+- **48. OAuth runtime acknowledgment failure:** Only post-commit runtime invalidation acknowledgment failure remains: saved OAuth state followed by HTTP503 committed=true/retry_safe=false and safe error telemetry. The original tests injected a private manager exception; a supported real failure input has not been agreed. Actual discovery/start/callback, state recovery, replay, expiry and completion deadlines, supersede/disconnect, grant revocation races, failed durable supersede retry and overlapping shutdown now pass against a real local OAuth/MCP provider.
 
-    **Recommendation:** **Keep, high priority.** Exercise the actual selected-account path with two different grants and capture the outgoing authorization for each selection. Avoid a factory that substitutes the default grant; change composition only if investigation shows the real path cannot be exercised or is incorrect.
-    - Defer to the end - I want to address this cooperatively
-
-- **48. MCP OAuth authorization lifecycle:** Test actual discovery and authorization start, live callback rejection and recovery, completion timeout, superseding attempts, live disconnect and failed supersede recovery. Current tests begin with saved pending records.
-
-    **Recommendation:** **Keep.** Add a real local authorization-discovery/MCP server and test start through callback completion, supersede, disconnect, expiry and durable-failure retry. Keep the saved-pending tests as restart coverage, and assert operation identity and cancellation reasons through actual activity records.
-    - Defer - I want to understand better
+    **Recommendation:** Defer this narrow acknowledgment-failure branch with the other uncertain runtime error-injection cases. Do not substitute the application manager solely to manufacture an error; the security-critical live authorization lifecycle now has deterministic real-service evidence.
 
 - **54. Browser resource admission:** Verify actual successful-session concurrency limits and low-memory refusal when browser work resumes. Call budgets are covered without launching Chromium.
 
@@ -31,7 +25,7 @@
 
 ## Former validation-root backend review
 
-All 93 contract groups across the 18 retained backend sources are reconciled: 75 covered, two retired and 16 partial. These are contract-group counts, not scenario or code-coverage percentages. The backend closure pass verified 39 distinct targeted cases; the subsequent SSH implementation verified 17 SSH cases and four existing MCP regression cases, all with completed cleanup; the full core suite remains stopped. Authentication, typed decisions, search failures, shipped defaults, local shell configuration/bootstrap and app-side SSH/MCP transport items are complete and removed. Original backend sources remain retained; per-file acceptance is recorded in the registry.
+All 93 contract groups across the 18 retained backend sources are reconciled: 78 covered, two retired and 13 partial. These are contract-group counts, not scenario or code-coverage percentages. The backend closure pass verified 39 distinct targeted cases; the subsequent SSH implementation verified 17 SSH cases and four existing MCP regression cases, all with completed cleanup; the full core suite remains stopped. Authentication, typed decisions, search failures, shipped defaults, local shell configuration/bootstrap and app-side SSH/MCP transport items are complete and removed. Original backend sources remain retained; per-file acceptance is recorded in the registry. The account/OAuth priority follow-up verified 25 distinct targeted/regression cases with completed cleanup; selected-account routing and the pre-DNS credential-binding race are complete. OAuth item 48 now contains only the uncertain post-commit acknowledgment-failure branch.
 
 - **65. Chat preparation and instruction composition:** Semantic instruction inclusion/order for advanced-shell availability and deferred resumption still needs a requirements-backed application-output oracle. Exact flight-card copy and fake registration counters are not being frozen. Primary/deferred preparation cleanup needs an agreed real failure input: the original tests injected a shell-resolution exception, whereas actual SSH failures normally produce sanitized unavailability.
 
@@ -51,9 +45,9 @@ All 93 contract groups across the 18 retained backend sources are reconciled: 75
 
     **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 
-- **69. Remaining MCP race and error boundaries:** Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.
+- **69. Remaining MCP race and error boundaries:** Only cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation remain. The pre-DNS credential-binding race is now proved with held OS DNS, real encrypted credentials/configuration and captured HTTP authorization. Earlier stdio capacity/cancellation, HTTP progress, snapshot cancellation and worker-thread invalidation evidence remains valid.
 
-    **Recommendation:** Retain only the remaining precise race/error boundaries until a reliable external input or explicit public contract is agreed; ordinary stdio success, capacity and closure no longer require separate infrastructure work.
+    **Recommendation:** Defer these remaining error-injection branches until a supported real failure input or explicit public contract is agreed; credential binding no longer requires follow-up.
 
     **Status:** Retained under the user’s exclusions; completed local portions are recorded in the registry.
 

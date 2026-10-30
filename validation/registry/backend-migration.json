@@ -1476,7 +1476,7 @@
             "test_connection_captures_bound_credential_before_endpoint_wait"
           ],
           "contract": "Reject stale/forged connection and bind credential to endpoint snapshot before asynchronous resolution. Evidence: error and substituted builder checks.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_managed_lifecycle.py::test_mcp_manager_shares_initialization_and_closes_each_real_session",
@@ -1513,13 +1513,15 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py::test_endpoint_and_credential_changes_reject_stale_cold_start",
               "line": 61
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_credential_dns_race.py::test_endpoint_edit_during_dns_never_sends_new_credential_to_old_endpoint",
+              "line": 13
             }
           ],
-          "gap_ids": [
-            "backend-mcp-manager-parity"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Real endpoint and credential changes during held initialization reject the stale session; stale/forged records are rejected, old/new endpoints see only their intended tokens, and current snapshot reacquisition succeeds. The narrower pre-DNS asynchronous credential-capture window lacks a supported deterministic barrier.",
+          "scope": "Real held OS DNS proves credentials are captured with the original endpoint before asynchronous validation: configuration and secret edits during the pause cannot send the new token to the old endpoint. The stale initialized session is rejected/closed and fresh acquisition uses only the new endpoint/token. Existing stale/forged record rejection and post-connect race evidence remains valid.",
           "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         },
         {
@@ -1636,7 +1638,7 @@
             "test_persisted_completion_cannot_revive_changed_grant"
           ],
           "contract": "Consumed authorization cannot complete twice and stale completion cannot revive grants after disconnect, replacement, deletion, new attempt or shutdown. Evidence: raised errors, request count, durable status.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
@@ -1661,13 +1663,23 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_live_oauth_start_callback_state_recovery_and_disconnect",
+              "line": 15
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_live_completion_cannot_revive_a_revoked_authorization",
+              "line": 69
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_shutdown_drains_completion_and_overlapping_supersede_and_rejects_new_work",
+              "line": 250
             }
           ],
-          "gap_ids": [
-            "mcp-oauth-live-authorization-lifecycle"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Durable resumed OAuth state and credential fencing have real coverage. Live authorization supersede/shutdown, completion-vs-disconnect races and committed OAuth state followed by invalidation failure are retained under the already deferred lifecycle review."
+          "scope": "Real discovery/start, provider authorization redirect, scope/resource/PKCE validation and callback exchange establish live grant lifecycle. Wrong state can recover, consumed callbacks cannot replay, and actual held token exchanges cannot revive grants after disconnect, secret replacement, deletion, supersede or shutdown. Original activity correlates operations; original DB/logs exclude credentials, state and verifier."
         },
         {
           "id": "test_mcp_oauth_hardening:153",
@@ -1706,7 +1718,7 @@
             "mcp-oauth-live-authorization-lifecycle"
           ],
           "prior_classification": "rewrite",
-          "scope": "Durable resumed OAuth state and credential fencing have real coverage. Live authorization supersede/shutdown, completion-vs-disconnect races and committed OAuth state followed by invalidation failure are retained under the already deferred lifecycle review."
+          "scope": "Real normal lifecycle completion/disconnect, SQLite-denied durable revocation and live failed-supersede retry are covered. The sole remaining group scope is committed OAuth state followed by runtime invalidation acknowledgment failure: HTTP503 committed=true/retry_safe=false and sanitized telemetry. The old private manager exception injection is not reproduced without an agreed real failure boundary."
         },
         {
           "id": "test_mcp_oauth_hardening:276",
@@ -1714,7 +1726,7 @@
             "test_shutdown_drains_attempt_removed_by_superseding_start"
           ],
           "contract": "Shutdown drains superseded in-flight authorization attempts and rejects concurrent start once closed. Evidence: task completion/error and private attempt dictionaries.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
@@ -1739,13 +1751,15 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_shutdown_drains_completion_and_overlapping_supersede_and_rejects_new_work",
+              "line": 250
             }
           ],
-          "gap_ids": [
-            "mcp-oauth-live-authorization-lifecycle"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Durable resumed OAuth state and credential fencing have real coverage. Live authorization supersede/shutdown, completion-vs-disconnect races and committed OAuth state followed by invalidation failure are retained under the already deferred lifecycle review."
+          "scope": "Real completion held at the external token endpoint overlaps a superseding start and coordinator shutdown. Both completion and superseding work settle, new start/completion are rejected once closed and no late grant becomes connected. This observes public task/storage outcomes without private attempt tables or substituted clients."
         }
       ]
     },
@@ -2661,15 +2675,21 @@
     "validation/runs/ssh_transport_pilot_confirm_20261030/report.json",
     "validation/runs/ssh_local_contracts_final_20261030/report.json",
     "validation/runs/ssh_external_diagnostics_confirm_20261030/report.json",
-    "validation/runs/ssh_related_mcp_confirmation_20261030/report.json"
+    "validation/runs/ssh_related_mcp_confirmation_20261030/report.json",
+    "validation/runs/gmail_account_routing_20261030/report.json",
+    "validation/runs/gmail_selected_operations_confirm_20261030/report.json",
+    "validation/runs/gmail_all_selected_tokens_20261030/report.json",
+    "validation/runs/mcp_credential_dns_race_20261030/report.json",
+    "validation/runs/mcp_oauth_lifecycle_confirmation_20261030/report.json",
+    "validation/runs/mcp_oauth_terminal_evidence_20261030/report.json"
   ],
   "known_behavior_coverage_complete": false,
   "verification": {
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "covered": 75,
-      "partial": 16,
+      "covered": 78,
+      "partial": 13,
       "retired": 2
     },
     "all_original_sources_unchanged": true,
@@ -2697,6 +2717,17 @@
         "partial": 16,
         "retired": 2
       },
+      "all_original_sources_unchanged": true
+    },
+    "account_oauth_priorities": {
+      "evidence_index": "validation/runs/account_oauth_priority_summary_20261030/evidence.json",
+      "unique_cases_passed": 25,
+      "contract_counts": {
+        "covered": 78,
+        "partial": 13,
+        "retired": 2
+      },
+      "full_core_suite_run": false,
       "all_original_sources_unchanged": true
     }
   }

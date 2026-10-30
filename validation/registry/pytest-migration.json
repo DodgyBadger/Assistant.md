@@ -3070,31 +3070,34 @@
       ],
       "required_contract_links": [],
       "planned_pytest_cases": [
-        "validation/scenarios/integration/core/test_gmail_attachment_tool.py::test_gmail_attachment_policy_and_numbered_tool_writes"
+        "validation/scenarios/integration/core/test_gmail_attachment_tool.py::test_gmail_attachment_policy_and_numbered_tool_writes",
+        "validation/scenarios/integration/core/test_gmail_selected_account_tokens.py::test_selected_and_default_gmail_accounts_send_their_own_tokens"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "gmail-selected-connection-token-routing"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "gmail-goals-chat-surfaces-20261028",
         "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
         "behavioral_contracts": [
-          "Real saved encrypted connection/grants and real resource/tool stack enforce policy, data bounds, attachment writes and numbered collisions. Default grant transport succeeds; selected multiaccount token routing remains unproved."
+          "Actual two-account selection/default token routing across search, attachment and draft HTTP is proved through real services and encrypted grants."
         ],
         "evidence": [
-          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json"
+          "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
+          "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending",
-        "source_sha256_unchanged": true
+        "source_sha256_unchanged": true,
+        "prior_behavioral_contracts": [
+          "Real saved encrypted connection/grants and real resource/tool stack enforce policy, data bounds, attachment writes and numbered collisions. Default grant transport succeeds; selected multiaccount token routing remains unproved."
+        ]
       },
       "cleanup_review": {
-        "resolved_gaps": [],
-        "remaining_gaps": [
+        "resolved_gaps": [
           "gmail-selected-connection-token-routing"
         ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -3206,32 +3209,35 @@
         "validation/scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_draft_policy_scope_bounds_and_confidential_activity",
         "validation/scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_missing_resource_and_real_configuration_network_failures_settle",
         "validation/scenarios/integration/core/test_gmail_draft_tool.py::test_gmail_locked_storage_returns_actionable_configuration_result",
-        "validation/scenarios/integration/core/test_gmail_callback_failures.py::test_gmail_constructor_callback_parse_failures_propagate_without_http"
+        "validation/scenarios/integration/core/test_gmail_callback_failures.py::test_gmail_constructor_callback_parse_failures_propagate_without_http",
+        "validation/scenarios/integration/core/test_gmail_selected_account_tokens.py::test_selected_and_default_gmail_accounts_send_their_own_tokens"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "gmail-selected-connection-token-routing"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "gmail-goals-chat-surfaces-20261028",
         "original_baseline": "validation/runs/reports/20261028_202015_496209.json",
         "behavioral_contracts": [
-          "Actual saved grants, real resource/tool operations, policy/scope/bounds/confidential activity, locked encrypted storage, missing-resource and configuration/network failures settle correctly. Actual constructor callback parse failure propagates. Selected multiaccount token routing remains unproved."
+          "Actual two-account selection/default token routing across search, attachment and draft HTTP is proved through real services and encrypted grants."
         ],
         "evidence": [
           "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
-          "validation/runs/pytest_migration/gmail_callback_inputs_batch12_20261028/report.json"
+          "validation/runs/pytest_migration/gmail_callback_inputs_batch12_20261028/report.json",
+          "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending",
-        "source_sha256_unchanged": true
+        "source_sha256_unchanged": true,
+        "prior_behavioral_contracts": [
+          "Actual saved grants, real resource/tool operations, policy/scope/bounds/confidential activity, locked encrypted storage, missing-resource and configuration/network failures settle correctly. Actual constructor callback parse failure propagates. Selected multiaccount token routing remains unproved."
+        ]
       },
       "cleanup_review": {
-        "resolved_gaps": [],
-        "remaining_gaps": [
+        "resolved_gaps": [
           "gmail-selected-connection-token-routing"
         ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -4285,31 +4291,39 @@
       "required_contract_links": [],
       "planned_pytest_cases": [
         "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
-        "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_resume_failure_is_correlated_and_hides_provider_credentials"
+        "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_resume_failure_is_correlated_and_hides_provider_credentials",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_live_oauth_start_callback_state_recovery_and_disconnect",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_live_completion_cannot_revive_a_revoked_authorization",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_actual_oauth_deadlines_fail_closed_and_record_the_operation",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_failed_live_supersede_retries_with_one_cancellation_and_a_new_operation",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_shutdown_drains_completion_and_overlapping_supersede_and_rejects_new_work",
+        "validation/scenarios/integration/core/test_mcp_oauth_live_lifecycle.py::test_oauth_timeout_configuration_retains_defaults_and_rejects_unbounded_values"
       ],
-      "disposition": "canonical_partial_port_retain_original",
+      "disposition": "canonical_verified_port_retain_original",
       "review_status": "Parent semantic mapping and focused installed-plugin evidence; originals retained, maintainer acceptance pending.",
-      "coverage_gaps": [
-        "mcp-oauth-live-authorization-lifecycle"
-      ],
+      "coverage_gaps": [],
       "migration": {
         "batch": "oauth-api-map-ocr-20261028",
         "original_baseline": "validation/runs/reports/20261028_220229_299470.json",
         "behavioral_contracts": [
-          "Actual encrypted pending inputs survive coordinator replacement/owner isolation and wrong-state rejection. Real local token exchange preserves correlated completion/grant encryption/replay refusal/disconnect. Malformed tokens retain safe correlated diagnostics; actual SQLite revocation failure emits no terminal cancellation before successful retry exactly once. Explicit seeded pending records do not prove start/discovery/authorization generation or live-attempt lifecycle."
+          "Real local OAuth discovery/start/PKCE/callback, state/replay/expiry, cancellation/revocation/supersede, deadlines, durable failure/retry and shutdown replace the original simulated live-attempt scope. The separate backend post-commit invalidation failure group remains partial under review item 48."
         ],
         "evidence": [
-          "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json"
+          "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
+          "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
         ],
         "source_retained": true,
         "maintainer_acceptance": "pending",
-        "source_sha256_unchanged": true
+        "source_sha256_unchanged": true,
+        "prior_behavioral_contracts": [
+          "Actual encrypted pending inputs survive coordinator replacement/owner isolation and wrong-state rejection. Real local token exchange preserves correlated completion/grant encryption/replay refusal/disconnect. Malformed tokens retain safe correlated diagnostics; actual SQLite revocation failure emits no terminal cancellation before successful retry exactly once. Explicit seeded pending records do not prove start/discovery/authorization generation or live-attempt lifecycle."
+        ]
       },
       "cleanup_review": {
-        "resolved_gaps": [],
-        "remaining_gaps": [
+        "resolved_gaps": [
           "mcp-oauth-live-authorization-lifecycle"
         ],
+        "remaining_gaps": [],
         "registry": "validation/registry/pytest-gaps.json"
       }
     },
@@ -9972,8 +9986,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 2,
-          "partial": 3
+          "covered": 3,
+          "partial": 2
         },
         "remaining_gap_ids": [
           "backend-mcp-manager-parity"
@@ -10075,7 +10089,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 3
+          "covered": 2,
+          "partial": 1
         },
         "remaining_gap_ids": [
           "mcp-oauth-live-authorization-lifecycle"
@@ -12105,8 +12120,8 @@
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "covered": 75,
-      "partial": 16,
+      "covered": 78,
+      "partial": 13,
       "retired": 2
     },
     "all_original_sources_unchanged": true,
@@ -12141,6 +12156,17 @@
         "partial": 16,
         "retired": 2
       },
+      "all_original_sources_unchanged": true
+    },
+    "account_oauth_priorities": {
+      "evidence_index": "validation/runs/account_oauth_priority_summary_20261030/evidence.json",
+      "unique_cases_passed": 25,
+      "contract_counts": {
+        "covered": 78,
+        "partial": 13,
+        "retired": 2
+      },
+      "full_core_suite_run": false,
       "all_original_sources_unchanged": true
     }
   }

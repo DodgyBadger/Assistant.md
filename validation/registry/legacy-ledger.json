@@ -2987,8 +2987,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 2,
-          "partial": 3
+          "covered": 3,
+          "partial": 2
         },
         "remaining_gap_ids": [
           "backend-mcp-manager-parity"
@@ -3089,7 +3089,8 @@
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "partial": 3
+          "covered": 2,
+          "partial": 1
         },
         "remaining_gap_ids": [
           "mcp-oauth-live-authorization-lifecycle"
