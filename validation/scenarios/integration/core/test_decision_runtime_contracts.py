@@ -96,6 +96,7 @@ async def test_external_decision_timeout_has_safe_error_and_real_failure_activit
     async def timeout(request):
         # External HTTP transport only: models, adapter and application logger
         # are real. This proves timeout classification, not elapsed-time policy.
+        assert request.extensions["timeout"]["read"] == 1.0
         raise httpx2.ReadTimeout("external read deadline", request=request)
 
     async with AsyncTypeSafeClient(
@@ -125,3 +126,43 @@ async def test_external_decision_timeout_has_safe_error_and_real_failure_activit
     )
     assert (event["status"], event["error_category"]) == ("failed", "timeout")
     assert secret not in str(activity) + repr(failure.value)
+
+
+async def test_configured_factory_applies_the_public_decision_timeout(app):
+    await app.start()
+    import asyncio
+
+    from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
+    from core.llm.decision import (
+        DecisionProviderError,
+        DecisionRequest,
+        build_decision_classifier,
+    )
+
+    with decision_provider() as server:
+        configure_decision(app, server)
+        response = app.request(
+            "/api/system/settings/general/default_api_timeout", "PUT", {"value": "1"}
+        )
+        assert response.status_code == 200, response.text
+        server.release.clear()
+        # The external server accepts but withholds responses. The configured
+        # factory, installed SDK and real network deadlines own the failure.
+        with use_execution_authority(LOCAL_USER_AUTHORITY):
+            classifier = build_decision_classifier("decision-history")
+            async with asyncio.timeout(15):
+                with pytest.raises(DecisionProviderError, match="timeout"):
+                    await classifier.classify(
+                        DecisionRequest(
+                            state="Held provider response", output_type=Signals
+                        )
+                    )
+        assert server.calls
+    activity = app.request("/api/system/activity-log", params={"limit": 1000}).json()[
+        "entries"
+    ]
+    assert any(
+        row.get("data", {}).get("event") == "decision_model_failed"
+        and row["data"].get("error_category") == "timeout"
+        for row in activity
+    )

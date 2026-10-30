@@ -790,11 +790,12 @@
     },
     {
       "path": "scenarios/integration/core/test_decision_runtime_contracts.py",
-      "sha256": "76b58f9ab5e4505aab8977ca7a00c0c16af04e119a2308b36bc4bd612d71cd39",
+      "sha256": "79962f929529057422a20bd5f2fee9d4015e5991a237a940474b267d29783023",
       "kind": "behavioral",
       "tests": [
         "test_configured_decision_factory_maps_protocol_and_preserves_metadata",
-        "test_external_decision_timeout_has_safe_error_and_real_failure_activity"
+        "test_external_decision_timeout_has_safe_error_and_real_failure_activity",
+        "test_configured_factory_applies_the_public_decision_timeout"
       ]
     },
     {
@@ -1963,7 +1964,7 @@
     },
     {
       "path": "scenarios/integration/core/test_shell_local_configuration.py",
-      "sha256": "3a215e67dbd16fdf0c7ee24f13a598e81bbb094541fe050f8d933bf01165a972",
+      "sha256": "425ffac10a6ddb857ba281301bbfa1fc05bba3c0cf5e0c161a9afb70d46fa0b5",
       "kind": "behavioral",
       "tests": [
         "test_shell_configuration_modes_and_invalid_coordinates_fail_closed",
@@ -2497,7 +2498,7 @@
     },
     {
       "path": "scenarios/support/decision_provider.py",
-      "sha256": "2d9c2321c6815b3710da07365bc139696d5c5212cbb54a2d4f0c162333c1cf25",
+      "sha256": "66cb9611b6fd37a9746dc12d946a08904210fdff443100de589ab63d4047c9d6",
       "kind": "support"
     },
     {

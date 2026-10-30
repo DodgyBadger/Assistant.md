@@ -3,7 +3,7 @@
 import json
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
+from threading import Event, Thread
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -16,6 +16,9 @@ class Handler(BaseHTTPRequestHandler):
                 "authorization": self.headers.get("authorization"),
             }
         )
+        assert self.server.release.wait(
+            20
+        ), "external decision response barrier expired"
         body = json.dumps(
             {
                 "model": "jev-1.13.0",
@@ -35,7 +38,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            # Expected when a real client deadline closes the held HTTP request.
+            pass
 
     def log_message(self, *args):
         pass
@@ -47,11 +54,14 @@ def decision_provider():
     # and variable output. SDK, typed adapter, factory, secrets and logs run real.
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.calls = []
+    server.release = Event()
+    server.release.set()
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
         yield server
     finally:
+        server.release.set()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)

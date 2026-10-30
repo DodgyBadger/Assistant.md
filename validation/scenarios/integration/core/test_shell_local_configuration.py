@@ -32,6 +32,12 @@ async def test_shell_configuration_modes_and_invalid_coordinates_fail_closed(app
             )
         )
         assert config.enabled is enabled
+        assert (config.host, config.port, config.user, config.host_key_alias) == (
+            "advanced-shell",
+            2222,
+            "advanced-shell",
+            None,
+        )
     config = load_advanced_shell_config(
         AppSettings(
             ASSISTANTMD_EXECUTION_MODE="advanced",
