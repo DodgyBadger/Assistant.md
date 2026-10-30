@@ -3083,18 +3083,15 @@
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_mcp_oauth_hardening.py",
       "location_classification": "unresolved_review",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 2,
-          "partial": 1
+          "covered": 3
         },
-        "remaining_gap_ids": [
-          "mcp-oauth-live-authorization-lifecycle"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {

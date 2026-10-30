@@ -10083,18 +10083,15 @@
       "original_path": "validation/test_mcp_oauth_hardening.py",
       "location_classification": "unresolved_review",
       "source_sha256": "06a392ea79f6ecd14645e9fcb75c5f0f2cec454272704f4070f4ff6607dfa1a7",
-      "migration_disposition": "retained_for_explicit_coverage_gaps",
-      "replacement_accepted": false,
+      "migration_disposition": "replacement_accepted_original_retained",
+      "replacement_accepted": true,
       "current_review": {
         "registry": "validation/registry/backend-migration.json",
         "date": "2026-10-30",
         "contract_counts": {
-          "covered": 2,
-          "partial": 1
+          "covered": 3
         },
-        "remaining_gap_ids": [
-          "mcp-oauth-live-authorization-lifecycle"
-        ]
+        "remaining_gap_ids": []
       }
     },
     {
@@ -12120,8 +12117,8 @@
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "covered": 78,
-      "partial": 13,
+      "covered": 79,
+      "partial": 12,
       "retired": 2
     },
     "all_original_sources_unchanged": true,
@@ -12139,7 +12136,7 @@
       73,
       74
     ],
-    "wholesale_deletion_accepted_files": 9,
+    "wholesale_deletion_accepted_files": 10,
     "followup_closure": {
       "date": "2026-10-30",
       "evidence_index": "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
@@ -12164,6 +12161,18 @@
       "contract_counts": {
         "covered": 78,
         "partial": 13,
+        "retired": 2
+      },
+      "full_core_suite_run": false,
+      "all_original_sources_unchanged": true
+    },
+    "oauth_acknowledgment": {
+      "evidence_report": "validation/runs/mcp_oauth_acknowledgment_final_20261030/report.json",
+      "targeted_cases_passed": 3,
+      "regression_cases_passed": 11,
+      "contract_counts": {
+        "covered": 79,
+        "partial": 12,
         "retired": 2
       },
       "full_core_suite_run": false,

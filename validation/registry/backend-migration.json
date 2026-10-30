@@ -1616,13 +1616,17 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_partial_snapshot_cancellation.py::test_endpoint_and_credential_changes_reject_stale_cold_start",
               "line": 61
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_committed_runtime_failure.py::test_committed_oauth_state_survives_unavailable_runtime_and_recovers_on_restart",
+              "line": 21
             }
           ],
           "gap_ids": [
             "backend-mcp-manager-parity"
           ],
           "prior_classification": "rewrite",
-          "scope": "Actual worker-thread invalidation acknowledges stale marking, leaves the real active lease callable and closes it on release. Synthetic exceptions from private synchronous marking remain unverified and require a public failure contract/boundary decision.",
+          "scope": "Actual worker-thread invalidation acknowledges stale marking and preserves active leases until release. Real stopped-manager synchronous failure is additionally observed through the OAuth API, preserving committed state and safe failure context. Worker-thread failure acknowledgment remains deferred; the public manager shutdown input is available for a future focused case.",
           "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         }
       ]
@@ -1687,7 +1691,7 @@
             "test_saved_oauth_state_survives_failed_runtime_notification"
           ],
           "contract": "After saved completion or disconnect, failed runtime invalidation returns 503 committed=true retry_safe=false, preserves committed token state and sanitizes error/event. Evidence: API exception, real storage and fake logger.",
-          "status": "partial",
+          "status": "covered",
           "replacement_assertions": [
             {
               "node": "validation/scenarios/integration/core/test_mcp_oauth_resume.py::test_mcp_oauth_durable_resume_rejects_wrong_state_and_encrypts_grant",
@@ -1712,13 +1716,15 @@
             {
               "node": "validation/scenarios/integration/core/test_mcp_mutation_recovery.py::test_mcp_committed_invalidation_failure_is_not_retryable_and_keeps_saved_secret",
               "line": 209
+            },
+            {
+              "node": "validation/scenarios/integration/core/test_mcp_oauth_committed_runtime_failure.py::test_committed_oauth_state_survives_unavailable_runtime_and_recovers_on_restart",
+              "line": 21
             }
           ],
-          "gap_ids": [
-            "mcp-oauth-live-authorization-lifecycle"
-          ],
+          "gap_ids": [],
           "prior_classification": "rewrite",
-          "scope": "Real normal lifecycle completion/disconnect, SQLite-denied durable revocation and live failed-supersede retry are covered. The sole remaining group scope is committed OAuth state followed by runtime invalidation acknowledgment failure: HTTP503 committed=true/retry_safe=false and sanitized telemetry. The old private manager exception injection is not reproduced without an agreed real failure boundary."
+          "scope": "Actual public manager shutdown makes runtime invalidation unavailable while real OAuth/API/storage remain active. Live completion, real restart-resumed completion and disconnect return HTTP503 MCPMutationUnavailable with committed=true, retry_safe=false and retryable=false. Real encrypted grants/revocations and original sanitized runtime-invalidation activity persist. A further full runtime restart restores status and successful MCP access without repeating token exchange. Completion notification is emitted by the OAuth coordinator; disconnect notification by the shared mutation service. No manager/coordinator/logger method is replaced."
         },
         {
           "id": "test_mcp_oauth_hardening:276",
@@ -2681,15 +2687,16 @@
     "validation/runs/gmail_all_selected_tokens_20261030/report.json",
     "validation/runs/mcp_credential_dns_race_20261030/report.json",
     "validation/runs/mcp_oauth_lifecycle_confirmation_20261030/report.json",
-    "validation/runs/mcp_oauth_terminal_evidence_20261030/report.json"
+    "validation/runs/mcp_oauth_terminal_evidence_20261030/report.json",
+    "validation/runs/mcp_oauth_acknowledgment_final_20261030/report.json"
   ],
   "known_behavior_coverage_complete": false,
   "verification": {
     "evidence_index": "validation/runs/backend_root_review_20261030/reconciliation-evidence.json",
     "latest_unique_cases_passed": 40,
     "contract_counts": {
-      "covered": 78,
-      "partial": 13,
+      "covered": 79,
+      "partial": 12,
       "retired": 2
     },
     "all_original_sources_unchanged": true,
@@ -2725,6 +2732,18 @@
       "contract_counts": {
         "covered": 78,
         "partial": 13,
+        "retired": 2
+      },
+      "full_core_suite_run": false,
+      "all_original_sources_unchanged": true
+    },
+    "oauth_acknowledgment": {
+      "evidence_report": "validation/runs/mcp_oauth_acknowledgment_final_20261030/report.json",
+      "targeted_cases_passed": 3,
+      "regression_cases_passed": 11,
+      "contract_counts": {
+        "covered": 79,
+        "partial": 12,
         "retired": 2
       },
       "full_core_suite_run": false,

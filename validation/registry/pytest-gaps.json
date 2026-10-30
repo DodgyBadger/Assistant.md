@@ -1214,23 +1214,24 @@
     },
     {
       "id": "mcp-oauth-live-authorization-lifecycle",
-      "status": "open",
+      "status": "resolved",
       "category": "migration_parity",
       "source_scenarios": [
         "validation/test_mcp_oauth_hardening.py"
       ],
-      "missing_proof": "Only post-commit runtime invalidation acknowledgment failure remains: saved OAuth state followed by HTTP503 committed=true/retry_safe=false and safe error telemetry. The original tests injected a private manager exception; a supported real failure input has not been agreed. Actual discovery/start/callback, state recovery, replay, expiry and completion deadlines, supersede/disconnect, grant revocation races, failed durable supersede retry and overlapping shutdown now pass against a real local OAuth/MCP provider.",
-      "cleanup_action": "Defer this narrow acknowledgment-failure branch with the other uncertain runtime error-injection cases. Do not substitute the application manager solely to manufacture an error; the security-critical live authorization lifecycle now has deterministic real-service evidence.",
+      "missing_proof": "",
+      "cleanup_action": "Completed; remove from the human deferred list. Original archived scenarios remain retained.",
       "retained_coverage": [
         "validation/legacy/pending/test_mcp_oauth_hardening.py"
       ],
       "evidence": [
         "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
-        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json",
+        "validation/runs/mcp_oauth_acknowledgment_final_20261030/report.json"
       ],
       "review_number": 48,
-      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
-      "decision_status": "approved_local_scope_with_remaining_uncertainty",
+      "user_decision": "Approved closing the OAuth acknowledgment gap and deferring the remaining validation review items on 2026-10-30.",
+      "decision_status": "approved_local_scope_completed",
       "backend_root_contract_ids": [
         "test_mcp_oauth_hardening:43",
         "test_mcp_oauth_hardening:153",
@@ -1238,16 +1239,16 @@
       ],
       "prior_missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
       "prior_user_decision": "Defer - I want to understand better",
-      "remaining_contract_ids": [
-        "test_mcp_oauth_hardening:153"
-      ],
-      "recommendation": "Defer this narrow acknowledgment-failure branch with the other uncertain runtime error-injection cases. Do not substitute the application manager solely to manufacture an error; the security-critical live authorization lifecycle now has deterministic real-service evidence.",
+      "remaining_contract_ids": [],
+      "recommendation": "Closed by real manager lifecycle failure and full API/restart evidence.",
       "prior_retained_coverage": [
         "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py"
       ],
       "prior_source_scenarios": [
         "integration/core/mcp_oauth_coordinator"
-      ]
+      ],
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Three actual API scenarios shut down the real manager through its public lifecycle, then exercise live/resumed grant completion or disconnect against a real local OAuth provider. The durable outcome remains committed while HTTP503 declares committed=true, retry_safe=false and retryable=false. Original activity records actual runtime invalidation failure without credentials/state/verifier. Real restart recovery preserves the result and reuses the existing grant without another token request. No application service or method is replaced."
     },
     {
       "id": "api-device-oauth-and-connected-fallback",
@@ -1391,9 +1392,14 @@
         "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
       ],
       "review_number": 54,
-      "user_decision": "Approved",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
       "decision_status": "deferred",
-      "progress_note": "UI pilot runs real Chromium, but application BrowserTool resource/concurrency guarantees are separate backend behavior and remain open."
+      "progress_note": "UI pilot runs real Chromium, but application BrowserTool resource/concurrency guarantees are separate backend behavior and remain open.",
+      "decision_before_final_deferral": {
+        "user_decision": "Approved",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "fork-private-hydration-and-snapshot-windows",
@@ -1585,8 +1591,13 @@
         "validation/runs/reports/20261028_222652_704336.json"
       ],
       "review_number": 62,
-      "user_decision": "Defer - I want to understand better",
-      "decision_status": "deferred"
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "decision_before_final_deferral": {
+        "user_decision": "Defer - I want to understand better",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "legacy-runner-policy-differences",
@@ -1605,8 +1616,13 @@
         "validation/runs/reports/20261028_222933_609608.json"
       ],
       "review_number": 63,
-      "user_decision": "Defer - I want to understand better",
-      "decision_status": "deferred"
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "decision_before_final_deferral": {
+        "user_decision": "Defer - I want to understand better",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-authentication-boundary-parity",
@@ -1680,8 +1696,8 @@
       ],
       "cleanup_action": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
       "recommendation": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
-      "decision_status": "approved_local_scope",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
@@ -1700,7 +1716,12 @@
         "test_chat_mcp_lifecycle:121",
         "test_advanced_shell_config:207"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-decision-runtime-parity",
@@ -1758,8 +1779,8 @@
       ],
       "cleanup_action": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
       "recommendation": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
-      "decision_status": "approved_local_scope",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
@@ -1774,7 +1795,12 @@
       "remaining_contract_ids": [
         "ingestion_storage_03"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-managed-catalog-parity",
@@ -1800,8 +1826,8 @@
       ],
       "cleanup_action": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
       "recommendation": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
-      "decision_status": "approved_local_scope",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
@@ -1819,7 +1845,12 @@
         "managed_model_catalog_09",
         "managed_model_catalog_10"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-mcp-manager-parity",
@@ -1836,14 +1867,14 @@
         "test_mcp_manager_hardening:345",
         "test_mcp_manager_hardening:385"
       ],
-      "missing_proof": "Only cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation remain. The pre-DNS credential-binding race is now proved with held OS DNS, real encrypted credentials/configuration and captured HTTP authorization. Earlier stdio capacity/cancellation, HTTP progress, snapshot cancellation and worker-thread invalidation evidence remains valid.",
+      "missing_proof": "Cleanup-failure telemetry and worker-thread propagation of invalidation failure remain unverified. Real stopped-manager synchronous invalidation failure is now proved through the OAuth API; the same public shutdown input is available for future worker-thread hardening. Ordinary worker-thread invalidation, credential binding, stdio capacity/cancellation and HTTP progress already pass.",
       "retained_coverage": [
         "validation/legacy/pending/test_mcp_manager_hardening.py"
       ],
-      "cleanup_action": "Defer these remaining error-injection branches until a supported real failure input or explicit public contract is agreed; credential binding no longer requires follow-up.",
-      "recommendation": "Defer these remaining error-injection branches until a supported real failure input or explicit public contract is agreed; credential binding no longer requires follow-up.",
-      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
-      "decision_status": "approved_local_scope",
+      "cleanup_action": "Deferred hardening: extend real public-lifecycle failure input to worker-thread error acknowledgment, and establish a reliable external cleanup-failure input. No application-service replacement is needed for stopped-manager behavior.",
+      "recommendation": "Deferred hardening: extend real public-lifecycle failure input to worker-thread error acknowledgment, and establish a reliable external cleanup-failure input. No application-service replacement is needed for stopped-manager behavior.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
@@ -1864,7 +1895,12 @@
       ],
       "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
       "prior_missing_proof": "Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.",
-      "prior_user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts."
+      "prior_user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_before_final_deferral": {
+        "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-settings-boundary-parity",
@@ -1889,8 +1925,8 @@
       ],
       "cleanup_action": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
       "recommendation": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
-      "decision_status": "approved_local_scope",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
@@ -1906,7 +1942,12 @@
       "remaining_contract_ids": [
         "settings_lifecycle_01"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-provider-error-parity",
@@ -1928,8 +1969,8 @@
       ],
       "cleanup_action": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
       "recommendation": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
-      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
-      "decision_status": "approved_local_scope",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
       "evidence": [
         "validation/registry/backend-migration.json",
         "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
@@ -1945,7 +1986,12 @@
         "provider_errors_02",
         "provider_errors_04"
       ],
-      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved."
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
     },
     {
       "id": "backend-search-execution-errors",
