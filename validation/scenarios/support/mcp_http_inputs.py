@@ -27,6 +27,8 @@ class MCPWorkload:
     list_entered: asyncio.Event = field(default_factory=asyncio.Event)
     list_release: asyncio.Event = field(default_factory=asyncio.Event)
     reject_status: int | None = None
+    required_authorization: str | None = None
+    resource_metadata_url: str | None = None
     malformed_initialize: bool = False
     initialize_delay: float = 0
     notify_on_list: bool = False
@@ -42,7 +44,7 @@ class MCPWorkload:
 
 
 @asynccontextmanager
-async def mcp_http_server(app: Application, *, tls=None):
+async def mcp_http_server(app: Application, *, tls=None, extra_routes=()):
     workload = MCPWorkload()
     workload.list_release.set()
     server = Server("assistantmd-real-mcp-input")
@@ -103,6 +105,18 @@ async def mcp_http_server(app: Application, *, tls=None):
                 "session_id": headers.get(b"mcp-session-id", b"").decode(),
             }
             workload.requests.append(row)
+            if (
+                workload.required_authorization
+                and row["authorization"] != workload.required_authorization
+            ):
+                await JSONResponse(
+                    {"error": "authorization required"},
+                    status_code=401,
+                    headers={
+                        "WWW-Authenticate": f'Bearer resource_metadata="{workload.resource_metadata_url}"'
+                    },
+                )(scope, receive, send)
+                return
             if workload.reject_status:
                 await JSONResponse(
                     {"error": "credential-bearing raw transport failure"},
@@ -151,6 +165,7 @@ async def mcp_http_server(app: Application, *, tls=None):
         routes=[
             Route("/mcp", Handler(), methods=["GET", "POST", "DELETE"]),
             Route("/plain", lambda request: PlainTextResponse("ok")),
+            *extra_routes,
         ],
         lifespan=lifespan,
     )

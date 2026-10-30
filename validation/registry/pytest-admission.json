@@ -1455,6 +1455,19 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mcp_oauth_live_lifecycle.py",
+      "sha256": "7a1fdc46b6d41b23359c4941d6ee5b4476c32d686005f35eedd13d844a6571c1",
+      "kind": "behavioral",
+      "tests": [
+        "test_live_oauth_start_callback_state_recovery_and_disconnect",
+        "test_live_completion_cannot_revive_a_revoked_authorization",
+        "test_actual_oauth_deadlines_fail_closed_and_record_the_operation",
+        "test_failed_live_supersede_retries_with_one_cancellation_and_a_new_operation",
+        "test_shutdown_drains_completion_and_overlapping_supersede_and_rejects_new_work",
+        "test_oauth_timeout_configuration_retains_defaults_and_rejects_unbounded_values"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mcp_oauth_resume.py",
       "sha256": "2430b86849a3d5f1701d2fb8a7015d4fb74af7f0229b9e792d911649a74ae3fa",
       "kind": "behavioral",
@@ -2709,7 +2722,7 @@
     },
     {
       "path": "scenarios/support/mcp_http_inputs.py",
-      "sha256": "d25f9d3897badb34fd0ee9690d044d8dc2d7d583fcef8d9c48fa0c19dafbadad",
+      "sha256": "45509d03ca92f0759ae7009c1d2ae8d62afd53925254fd1463bacd58d8770468",
       "kind": "support"
     },
     {
@@ -2725,6 +2738,11 @@
     {
       "path": "scenarios/support/mcp_oauth_inputs.py",
       "sha256": "99fe3a6fbe651cd7faad0f14e7d635fcdb7f8086d95c11bd2eecd615c36a75da",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/mcp_oauth_provider.py",
+      "sha256": "8edcfe1d8547cbad86e9dcaac843e8c6ba55348a0e830efc983d287546e78eec",
       "kind": "support"
     },
     {

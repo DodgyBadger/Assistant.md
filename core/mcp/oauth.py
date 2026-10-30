@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -47,6 +48,24 @@ MCP_OAUTH_COMPLETE_TIMEOUT_SECONDS = 30.0
 _PENDING_COLLECTION = "assistantmd"
 _PENDING_KEY = "pending-authorization"
 logger = UnifiedLogger(tag="mcp-oauth")
+
+
+@dataclass(frozen=True)
+class MCPOAuthTimeouts:
+    """Bounded authorization deadlines supplied by the application owner."""
+
+    start_seconds: float = MCP_OAUTH_START_TIMEOUT_SECONDS
+    callback_seconds: float = MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS
+    completion_seconds: float = MCP_OAUTH_COMPLETE_TIMEOUT_SECONDS
+
+    def __post_init__(self) -> None:
+        for value in (
+            self.start_seconds,
+            self.callback_seconds,
+            self.completion_seconds,
+        ):
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError("MCP OAuth timeouts must be finite and positive.")
 
 
 class MCPOAuthError(ValueError):
@@ -142,7 +161,9 @@ class _HeadlessOAuth(OAuth):
         client_id: str | None,
         client_secret: str | None,
         operation_id: str,
+        callback_timeout_seconds: float = MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS,
     ) -> None:
+        self._callback_timeout_seconds = callback_timeout_seconds
         self._authorization_url = authorization_url
         self._callback = callback
         self._storage = storage
@@ -151,7 +172,7 @@ class _HeadlessOAuth(OAuth):
         super().__init__(
             mcp_url=mcp_url,
             token_storage=storage,
-            callback_timeout=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS,
+            callback_timeout=self._callback_timeout_seconds,
             httpx_client_factory=mcp_oauth_http_client_factory(
                 allow_private_http=allow_private_http
             ),
@@ -166,7 +187,7 @@ class _HeadlessOAuth(OAuth):
             self._authorization_url.set_result(authorization_url)
 
     async def callback_handler(self) -> tuple[str, str | None]:
-        async with asyncio.timeout(MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS):
+        async with asyncio.timeout(self._callback_timeout_seconds):
             return await self._callback
 
     async def _perform_authorization_code_grant(self) -> tuple[str, str]:
@@ -220,12 +241,12 @@ class _HeadlessOAuth(OAuth):
                 "resource": resource,
                 "expires_at": (
                     datetime.now(UTC)
-                    + timedelta(seconds=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS)
+                    + timedelta(seconds=self._callback_timeout_seconds)
                 ).isoformat(),
                 "operation_id": self._operation_id,
             },
             collection=_PENDING_COLLECTION,
-            ttl=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS,
+            ttl=self._callback_timeout_seconds,
         )
         await self.redirect_handler(authorization_url)
         auth_code, returned_state = await self.callback_handler()
@@ -244,7 +265,9 @@ class MCPOAuthCoordinator:
         *,
         connections: MCPConnectionService,
         manager: MCPConnectionManager,
+        timeouts: MCPOAuthTimeouts | None = None,
     ) -> None:
+        self._timeouts = timeouts or MCPOAuthTimeouts()
         self._connections = connections
         self._manager = manager
         self._attempts: dict[tuple[str, str], _Attempt] = {}
@@ -316,7 +339,7 @@ class MCPOAuthCoordinator:
             callback=loop.create_future(),
             task=None,
             expires_at=datetime.now(UTC)
-            + timedelta(seconds=MCP_OAUTH_CALLBACK_TIMEOUT_SECONDS),
+            + timedelta(seconds=self._timeouts.callback_seconds),
             storage=storage,
             client_secret=client_secret,
             operation_id=uuid4().hex,
@@ -344,7 +367,7 @@ class MCPOAuthCoordinator:
             wait_set: set[asyncio.Future[Any]] = {attempt.authorization_url, task}
             done, _ = await asyncio.wait(
                 wait_set,
-                timeout=MCP_OAUTH_START_TIMEOUT_SECONDS,
+                timeout=self._timeouts.start_seconds,
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if attempt.authorization_url in done:
@@ -476,7 +499,7 @@ class MCPOAuthCoordinator:
         try:
             await asyncio.wait_for(
                 asyncio.shield(attempt.task),
-                timeout=MCP_OAUTH_COMPLETE_TIMEOUT_SECONDS,
+                timeout=self._timeouts.completion_seconds,
             )
         except BaseException as exc:
             if isinstance(exc, asyncio.CancelledError):
@@ -645,6 +668,7 @@ class MCPOAuthCoordinator:
             client_id=attempt.connection.oauth_client_id,
             client_secret=attempt.client_secret,
             operation_id=attempt.operation_id,
+            callback_timeout_seconds=self._timeouts.callback_seconds,
         )
         await _prime_oauth_authorization(auth, attempt.connection.require_url())
         http_client_factory = mcp_oauth_http_client_factory(
