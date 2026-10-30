@@ -28,15 +28,38 @@ async def test_wrong_client_key_is_denied_and_readiness_is_sanitized(app):
 
     async with ssh_endpoint(app, reject_client_key=True) as endpoint:
         endpoint.admit("true")
-        snapshot = await AdvancedShellPreflightService(
-            endpoint.config, endpoint.system_root
-        ).status()
+        preflight = AdvancedShellPreflightService(endpoint.config, endpoint.system_root)
+        snapshot = await preflight.status()
         assert snapshot.state is AdvancedShellReadiness.AUTHENTICATION_FAILURE
         assert endpoint.authentications and not any(
             row["accepted"] for row in endpoint.authentications
         )
         assert not endpoint.executions
         assert str(endpoint.system_root) not in snapshot.message
+        from core.advanced_shell import ExecutionMode
+        from core.advanced_shell.capability import AdvancedShellCapabilityService
+        from core.identity import LOCAL_USER_AUTHORITY
+
+        service = AdvancedShellCapabilityService(
+            endpoint.config, endpoint.transport(), preflight
+        )
+        assert await service.resolve_for_primary_chat(LOCAL_USER_AUTHORITY) is None
+        attempted = len(endpoint.authentications)
+        restricted = replace(endpoint.config, execution_mode=ExecutionMode.RESTRICTED)
+        restricted_preflight = AdvancedShellPreflightService(
+            restricted, endpoint.system_root
+        )
+        assert (
+            await restricted_preflight.status()
+        ).state is AdvancedShellReadiness.INACTIVE
+        restricted_service = AdvancedShellCapabilityService(
+            restricted, endpoint.transport(), restricted_preflight
+        )
+        assert (
+            await restricted_service.resolve_for_primary_chat(LOCAL_USER_AUTHORITY)
+            is None
+        )
+        assert len(endpoint.authentications) == attempted
     assert endpoint.cleanup_completed
 
 
@@ -162,4 +185,58 @@ async def test_real_shell_capability_and_activity_preserve_authority_and_privacy
         assert PRIVATE_COMMAND not in str(events) and PRIVATE_STDIN.strip() not in str(
             events
         )
+    assert endpoint.cleanup_completed
+
+
+@pytest.mark.parametrize(
+    "missing,expected",
+    [("private_key_path", "identity_missing"), ("known_hosts_path", "trust_missing")],
+)
+async def test_missing_identity_or_trust_blocks_ssh_before_network_admission(
+    app, missing, expected
+):
+    await app.start()
+    from core.advanced_shell.preflight import AdvancedShellPreflightService
+
+    async with ssh_endpoint(app) as endpoint:
+        getattr(endpoint.transport(), missing).unlink()
+        status = await AdvancedShellPreflightService(
+            endpoint.config, endpoint.system_root
+        ).status()
+        assert status.state.value == expected
+        assert endpoint.authentications == [] and endpoint.executions == []
+    assert endpoint.cleanup_completed
+
+
+@pytest.mark.parametrize(
+    "kind,expected",
+    [("missing", "ssh_unavailable"), ("dns", "dns_failure"), ("other", "unavailable")],
+)
+async def test_external_ssh_diagnostics_are_classified_without_disclosing_raw_output(
+    app, monkeypatch, kind, expected
+):
+    await app.start()
+    from core.advanced_shell.preflight import AdvancedShellPreflightService
+    from validation.scenarios.support.shell_ssh_workloads import (
+        missing_ssh_snapshot,
+        ssh_diagnostic_path,
+    )
+
+    async with ssh_endpoint(app) as endpoint:
+        endpoint.admit("true")
+        path = ssh_diagnostic_path(app, kind)
+        if kind == "missing":
+            observed = missing_ssh_snapshot(app, endpoint, path)
+        else:
+            with monkeypatch.context() as environment:
+                environment.setenv("PATH", str(path))
+                status = await AdvancedShellPreflightService(
+                    endpoint.config, endpoint.system_root
+                ).status()
+            observed = {"state": status.state.value, "message": status.message}
+        assert observed["state"] == expected
+        assert "PRIVATE_SSH_DIAGNOSTIC" not in observed["message"]
+        app.evidence.save_json("external-ssh-diagnostic.json", observed)
+        assert "PRIVATE_SSH_DIAGNOSTIC" not in str(shell_activity(app))
+        assert endpoint.authentications == [] and endpoint.executions == []
     assert endpoint.cleanup_completed

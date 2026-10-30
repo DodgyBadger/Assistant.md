@@ -1985,7 +1985,7 @@
     },
     {
       "path": "scenarios/integration/core/test_shell_ssh_lifecycle.py",
-      "sha256": "4cb544a4c6b8dfeb01be68c00aaa5755efec5b9da3eff282257e0f986ee78ad6",
+      "sha256": "c9022a24c88e24ad2c8fbb417c2c34fc9250c8902ee1a1ca3970fd42f83ad6c5",
       "kind": "behavioral",
       "tests": [
         "test_wrong_client_key_is_denied_and_readiness_is_sanitized",
@@ -1993,7 +1993,9 @@
         "test_runtime_deadline_disconnects_the_held_ssh_session",
         "test_input_and_combined_output_budgets_bound_real_ssh_work",
         "test_transport_disconnect_has_an_indeterminate_exit_status",
-        "test_real_shell_capability_and_activity_preserve_authority_and_privacy"
+        "test_real_shell_capability_and_activity_preserve_authority_and_privacy",
+        "test_missing_identity_or_trust_blocks_ssh_before_network_admission",
+        "test_external_ssh_diagnostics_are_classified_without_disclosing_raw_output"
       ]
     },
     {
@@ -2971,7 +2973,7 @@
     },
     {
       "path": "scenarios/support/shell_ssh_workloads.py",
-      "sha256": "0902ecb5830775aea390b60c0e5fbd0bd658dcb242d22dbdc3f6739c5d6595ef",
+      "sha256": "f03cc875729cf25934fea098683435e2312f9f599c5bbc0ac500685b747f6b7b",
       "kind": "support"
     },
     {
