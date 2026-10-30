@@ -119,6 +119,22 @@ def provider_exception_details(
             body = getattr(current, "body", None)
             if body is None:
                 body = getattr(current, "details", None)
+            google_error = (
+                current if isinstance(current, GoogleAPIError) else current.__cause__
+            )
+            if isinstance(google_error, GoogleAPIError):
+                response = google_error.response
+                if response is not None and response.status_code >= 400:
+                    # The Google SDK promotes non-JSON response text into a
+                    # synthetic message. Use the original wire JSON so raw
+                    # bodies cannot become trusted provider diagnostics.
+                    decode = getattr(response, "json", None)
+                    body = None
+                    if callable(decode):
+                        try:
+                            body = decode()
+                        except ValueError:
+                            pass
             return provider_response_error_details(status, body)
         current = current.__cause__
     return {}

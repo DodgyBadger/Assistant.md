@@ -1647,6 +1647,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_sdk_error_boundary_contracts.py",
+      "sha256": "4d9d26aca411f15f8c7b22dd72f6834e4021bf193398e14ba82d4fc4468535fc",
+      "kind": "behavioral",
+      "tests": [
+        "test_supported_sdk_errors_preserve_status_without_private_payload"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_search_process_failure_contracts.py",
       "sha256": "61678c0014b3656d0ce15f9f9527dff1d96321361680f8500f57d64b536eb5d5",
       "kind": "behavioral",
@@ -2810,6 +2818,11 @@
     {
       "path": "scenarios/support/runtime_cleanup_contracts.py",
       "sha256": "ab48635e8ce85ea5c7a664c3eb5a08f62ff5258db5cfb355b9a423e065f899f3",
+      "kind": "support"
+    },
+    {
+      "path": "scenarios/support/sdk_failure_provider.py",
+      "sha256": "f29f3cfa2bbdc7a798ec6a292d8cf1a51f170acc952ae697c65583c65d69ca37",
       "kind": "support"
     },
     {
