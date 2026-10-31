@@ -3,7 +3,7 @@
   "status": "canonical_pytest_inventory_parity_review_pending",
   "core": [
     {
-      "source": "validation/legacy/scenarios/integration/core/browser_resource_policy.py",
+      "source": "validation/legacy/pending/browser_resource_policy.py",
       "sha256": "e3d6907874cb031b6608beaa33f1a71c29e616a83f625860aa7aded8d82fbc6c",
       "identity": "integration/core/browser_resource_policy",
       "purpose": "Validate browser concurrency, call-budget, and memory admission policy.",
@@ -57,11 +57,12 @@
       "source_retention": {
         "state": "deferred_reference",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
-        "original_sha256": "e3d6907874cb031b6608beaa33f1a71c29e616a83f625860aa7aded8d82fbc6c"
+        "original_sha256": "e3d6907874cb031b6608beaa33f1a71c29e616a83f625860aa7aded8d82fbc6c",
+        "original_source_path": "validation/legacy/scenarios/integration/core/browser_resource_policy.py"
       }
     },
     {
-      "source": "validation/legacy/scenarios/integration/core/file_write_directory_delete.py",
+      "source": "validation/legacy/pending/file_write_directory_delete.py",
       "sha256": "f1034d9b9f5dfd6317a20f22f5d1e13ee7a5404cb46f5151830437a4001f1cfc",
       "identity": "integration/core/file_write_directory_delete",
       "purpose": "Integration scenario for cleanup of empty vault directories.",
@@ -117,11 +118,12 @@
       "source_retention": {
         "state": "deferred_reference",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
-        "original_sha256": "f1034d9b9f5dfd6317a20f22f5d1e13ee7a5404cb46f5151830437a4001f1cfc"
+        "original_sha256": "f1034d9b9f5dfd6317a20f22f5d1e13ee7a5404cb46f5151830437a4001f1cfc",
+        "original_source_path": "validation/legacy/scenarios/integration/core/file_write_directory_delete.py"
       }
     },
     {
-      "source": "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py",
+      "source": "validation/legacy/pending/validation_adapter_lifecycle.py",
       "sha256": "952e682cf4d19ffa084272cb6a8ddd4c5659abd7a9698d0280d1e83cbdecdd45",
       "identity": "integration/core/validation_adapter_lifecycle",
       "purpose": "Framework self-check against real AssistantMD startup and partial failures.",
@@ -181,11 +183,12 @@
       "source_retention": {
         "state": "deferred_reference",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
-        "original_sha256": "952e682cf4d19ffa084272cb6a8ddd4c5659abd7a9698d0280d1e83cbdecdd45"
+        "original_sha256": "952e682cf4d19ffa084272cb6a8ddd4c5659abd7a9698d0280d1e83cbdecdd45",
+        "original_source_path": "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py"
       }
     },
     {
-      "source": "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py",
+      "source": "validation/legacy/pending/validation_runner_lifecycle.py",
       "sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79",
       "identity": "integration/core/validation_runner_lifecycle",
       "purpose": "Framework self-check through real CLI execution and actual application resources.",
@@ -264,7 +267,8 @@
       "source_retention": {
         "state": "deferred_reference",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
-        "original_sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79"
+        "original_sha256": "bcdd566afc5660fbd71fe8aa686ee837ba772782f6c0100532043c444cee0a79",
+        "original_source_path": "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
       }
     }
   ],
@@ -2075,10 +2079,10 @@
       "validation/legacy/pending/test_mcp_manager_hardening.py",
       "validation/legacy/pending/test_provider_errors.py",
       "validation/legacy/pending/test_settings_lifecycle.py",
-      "validation/legacy/scenarios/integration/core/browser_resource_policy.py",
-      "validation/legacy/scenarios/integration/core/file_write_directory_delete.py",
-      "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py",
-      "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
+      "validation/legacy/pending/browser_resource_policy.py",
+      "validation/legacy/pending/file_write_directory_delete.py",
+      "validation/legacy/pending/validation_adapter_lifecycle.py",
+      "validation/legacy/pending/validation_runner_lifecycle.py"
     ],
     "run_artifacts": "Deleted at user request without copying or archiving elsewhere. Earlier run paths in this registry are historical references, not available artifacts.",
     "historical_mapping_locations": [
@@ -2086,7 +2090,16 @@
       "retired_pending_backend",
       "historical_other_sources"
     ],
-    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims."
+    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims.",
+    "pending_consolidation": {
+      "date": "2026-10-31",
+      "relocations": {
+        "validation/legacy/scenarios/integration/core/browser_resource_policy.py": "validation/legacy/pending/browser_resource_policy.py",
+        "validation/legacy/scenarios/integration/core/file_write_directory_delete.py": "validation/legacy/pending/file_write_directory_delete.py",
+        "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py": "validation/legacy/pending/validation_adapter_lifecycle.py",
+        "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py": "validation/legacy/pending/validation_runner_lifecycle.py"
+      }
+    }
   },
   "historical_other_sources": {
     "experiments": [

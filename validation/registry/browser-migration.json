@@ -2159,12 +2159,21 @@
       "validation/legacy/pending/test_mcp_manager_hardening.py",
       "validation/legacy/pending/test_provider_errors.py",
       "validation/legacy/pending/test_settings_lifecycle.py",
-      "validation/legacy/scenarios/integration/core/browser_resource_policy.py",
-      "validation/legacy/scenarios/integration/core/file_write_directory_delete.py",
-      "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py",
-      "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
+      "validation/legacy/pending/browser_resource_policy.py",
+      "validation/legacy/pending/file_write_directory_delete.py",
+      "validation/legacy/pending/validation_adapter_lifecycle.py",
+      "validation/legacy/pending/validation_runner_lifecycle.py"
     ],
     "run_artifacts": "Deleted at user request without copying or archiving elsewhere. Earlier run paths in this registry are historical references, not available artifacts.",
-    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims."
+    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims.",
+    "pending_consolidation": {
+      "date": "2026-10-31",
+      "relocations": {
+        "validation/legacy/scenarios/integration/core/browser_resource_policy.py": "validation/legacy/pending/browser_resource_policy.py",
+        "validation/legacy/scenarios/integration/core/file_write_directory_delete.py": "validation/legacy/pending/file_write_directory_delete.py",
+        "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py": "validation/legacy/pending/validation_adapter_lifecycle.py",
+        "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py": "validation/legacy/pending/validation_runner_lifecycle.py"
+      }
+    }
   }
 }
