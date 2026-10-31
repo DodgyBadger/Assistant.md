@@ -73,9 +73,9 @@ Canonical collection requires exact file hashes and case identities in `validati
 
 ```bash
 uv run python -m validation.support.inventory
-uv run python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py .github/tests/test_validation_governance_ci.py
+uv run python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
 ```
 
-GitHub's `validation-governance` workflow audits protected validation changes and binds manual environment approval to the candidate commit and base. Scenario results and governance approval are separate requirements. Current deferred coverage is recorded in the root `validation-gap-review.md` and `validation/registry/pytest-gaps.json`; deferral is not completed coverage.
+CI enforces canonical test collection, admission and inventory checks. Human PR review assesses scenario quality and changes to testing policy or expected behavior. The required `validation` check must pass before merge. Current deferred coverage is recorded in the root `validation-gap-review.md` and `validation/registry/pytest-gaps.json`; deferral is not completed coverage.
 
 Python quality checks follow the [Production Python Quality Gate](coding-standards.md#production-python-quality-gate). The independent npm audit uses `node --test .github/tests/test_npm_audit_policy.cjs` and `node scripts/audit-npm.cjs` after dependency installation.

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -113,30 +111,3 @@ def test_malformed_manifest_is_a_controlled_inventory_error(
     (tmp_path / "registry/pytest-admission.json").write_text(json.dumps(payload))
     with pytest.raises(InventoryError):
         _check_pytest_admission(tmp_path, InventoryReport())
-
-
-def test_trusted_git_audit_has_no_installed_dependency() -> None:
-    repo = Path(__file__).resolve().parents[2]
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-S",
-            str(repo / "validation/support/ci/audit.py"),
-            "--repo",
-            str(repo),
-            "--base-ref",
-            "HEAD",
-            "--candidate-ref",
-            "HEAD",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-    report = json.loads(result.stdout)
-    assert report["review_required"] is False
-    assert report["approval_status"] == "not_evaluated"

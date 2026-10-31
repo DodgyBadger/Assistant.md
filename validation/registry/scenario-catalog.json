@@ -27,15 +27,6 @@
       "review_evidence": [
         "reviews/pilot-runner-review.json"
       ]
-    },
-    {
-      "id": "framework.governance.requires_current_manual_approval",
-      "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
-      "proof_surface": "Actual governance CI helper decisions using real Git trees and a loopback GitHub protocol fixture; native GitHub approval enforcement and PR-specific commit-status invalidation remain outside this pilot.",
-      "review_reference": "reviews/pilot-ci-review.json: structured evidence; external acceptance remains pending.",
-      "review_evidence": [
-        "reviews/pilot-ci-review.json"
-      ]
     }
   ],
   "scenarios": [
@@ -846,13 +837,6 @@
       "sha256": "c1ff9cdbccf9dd8cd8cf07cfb75a89e9a64e2e553aa3e416cd2427593a20fadd"
     },
     {
-      "selector": "integration/core/validation_governance_ci",
-      "classification": "pilot",
-      "contracts": [
-        "framework.governance.requires_current_manual_approval"
-      ]
-    },
-    {
       "selector": "integration/core/validation_inventory",
       "classification": "legacy",
       "contracts": [],
@@ -1018,8 +1002,7 @@
       "required_contracts": [
         "ingress.owner_and_csrf_boundaries",
         "settings.reset.preserves_newer_edit",
-        "framework.execution.preserves_failure_accounting",
-        "framework.governance.requires_current_manual_approval"
+        "framework.execution.preserves_failure_accounting"
       ]
     }
   }

@@ -283,7 +283,7 @@
             "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once"
           ],
           "test_lines": {
-            "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once": 16
+            "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once": 15
           },
           "contract": "Advanced shell flight card occurs exactly once only when enabled. Evidence: direct instruction tuple.",
           "disposition": "gap",
@@ -323,7 +323,7 @@
         "state": "deferred_fragment",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
         "original_sha256": "e668c29cc31bfb88e0c5d0d0176a5ca9e4ba6e4a8cca64152c0d2ef5dd61c7dd",
-        "retained_sha256": "fb2fe34d75529a4114997fa8948e5265a277bf9d3a15c9208b5b296c640cde18"
+        "retained_sha256": "9576841e3b01c1bdf5612ab0049ee275e6784626083e7fe4251c5df7f20c9985"
       }
     },
     {
@@ -972,7 +972,7 @@
             "backend-provider-error-parity"
           ],
           "test_lines": {
-            "test_provider_message_redactions_and_bounding": 15
+            "test_provider_message_redactions_and_bounding": 14
           }
         },
         {
@@ -995,7 +995,7 @@
             "backend-provider-error-parity"
           ],
           "test_lines": {
-            "test_explicit_safe_errors_and_wrapped_sdk_failures": 43
+            "test_explicit_safe_errors_and_wrapped_sdk_failures": 42
           }
         }
       ],
@@ -1083,7 +1083,7 @@
         "state": "deferred_fragment",
         "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
         "original_sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
-        "retained_sha256": "79ff351e7dea1317e2d36a47e85a4823db9a508085668d0b87a30c19ebf4b891"
+        "retained_sha256": "1ec322eb8cb8ef725c3a97625d36b2ad4ded82aee7203ffe83fcf18996ca119c"
       }
     },
     {
@@ -9499,18 +9499,16 @@
       "coverage_gaps": [],
       "current_owner_tests": [
         ".github/tests/test_validation_policy.py",
-        ".github/tests/test_pytest_collection_policy.py",
-        ".github/tests/test_validation_governance_ci.py"
+        ".github/tests/test_pytest_collection_policy.py"
       ],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "mode": "current_owner_reassignment",
         "current_owner": [
           "validation/support/pytest_admission.py",
-          ".github/tests/test_validation_policy.py",
-          ".github/tests/test_validation_governance_ci.py"
+          ".github/tests/test_validation_policy.py"
         ],
-        "current_contract": "Current app canonical collection/hash/function admission and trusted manual CI review checks own governance. Old generic contract-fingerprint/review-catalog APIs remain legacy-only during cutover; current tests do not claim to reproduce that retired generic API.",
+        "current_contract": "Canonical collection, source hash and declared-test admission remain automated. Human PR review owns testing policy and changed behavioral expectations.",
         "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
         "original_baseline_status": "passed",
         "evidence": [
@@ -9539,24 +9537,17 @@
       "event_name_candidates": [],
       "fixture_input_candidates": [],
       "private_or_simulation_concerns": [],
-      "required_contract_links": [
-        "framework.governance.requires_current_manual_approval"
-      ],
+      "required_contract_links": [],
       "planned_pytest_cases": [],
-      "disposition": "current_owner_reassigned_retain_original",
-      "review_status": "Current owner and executable evidence mapped; old API-specific contracts distinguished, acceptance/cutover pending.",
+      "disposition": "retired_manual_approval_workflow",
+      "review_status": "Retired by user decision on 2026-10-31; human PR review owns changes to testing policy and expected behavior.",
       "coverage_gaps": [],
-      "current_owner_tests": [
-        ".github/tests/test_validation_governance_ci.py::test_manual_ci_review_is_bound_to_git_and_protection"
-      ],
+      "current_owner_tests": [],
       "migration": {
         "batch": "final-source-inventory-20261028",
         "mode": "current_owner_reassignment",
-        "current_owner": [
-          "validation/support/ci/governance.py",
-          ".github/tests/test_validation_governance_ci.py"
-        ],
-        "current_contract": "All original manual CI immutable-head/protection/reviewer/status/fail-closed API assertions ported to native repository policy tests with actual local Git and HTTP; no scenario or app import during audit.",
+        "current_owner": [],
+        "current_contract": "Dedicated automated manual approval gate retired; CI continues to enforce canonical collection, admission, inventory and scenario results. Human PR review assesses changes to testing policy and assertions.",
         "original_baseline": "validation/runs/reports/20261028_222652_704336.json",
         "original_baseline_status": "passed",
         "evidence": [
@@ -11639,5 +11630,17 @@
         "original_sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af"
       }
     }
-  ]
+  ],
+  "manual_governance_retirement": {
+    "date": "2026-10-31",
+    "decision": "User approved replacing the dedicated manual CI approval gate with normal human PR review.",
+    "retired_contract": "framework.governance.requires_current_manual_approval",
+    "retained_checks": [
+      "canonical collection",
+      "source admission",
+      "structural inventory",
+      "required validation CI"
+    ],
+    "historical_references": "Earlier batches and pilot reviews record the retired implementation; they do not describe current enforcement."
+  }
 }

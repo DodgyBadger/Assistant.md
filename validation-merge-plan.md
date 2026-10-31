@@ -10,13 +10,11 @@ GitHub requires the `validation` check, an up-to-date branch, administrator enfo
 
 The migration also changes production code and browser behavior: 31 files under `core`, `api`, `static` and `scripts` differ from main. Review those changes separately from scenario translations. Historical targeted successes are useful diagnostic evidence, but there is no retained, passing full-profile result for the final branch. Earlier run artifacts were deleted at the user's request; do not reconstruct them or treat their historical paths as available evidence. The reported fixed failure still requires confirmation in a fresh complete run.
 
-## 1. Resolve the governance bootstrap explicitly
+## 1. Keep CI enforcement and human review separate
 
-The `validation-governance` environment already requires approval by DodgyBadger and allows protected branches. However, main does not contain the governance workflow or its trusted checker. The proposed workflow uses `pull_request_target` and checks out the trusted base; it cannot enforce its own initial installation. Branch protection currently requires only `validation`, whereas the new checker expects both `validation` and `validation-governance` once installed.
+User approved removing the dedicated manual governance workflow and its checker/configuration. Canonical collection, admission, inventory and passing `validation` CI remain automated. Human PR review assesses test quality, policy changes and altered expectations. No governance bootstrap PR, environment approval, extra required status or canary is needed.
 
-Recommended route: one migration PR, with explicit human review of the initial governance installation and migration diff. Keep `validation` required throughout. Do not add `validation-governance` as a required check before the trusted workflow exists on main, and do not manually manufacture a successful status. After the passing migration PR merges, add `validation-governance` to required checks while preserving strict checks and administrator enforcement. Verify enforcement with a disposable draft PR before allowing further merges. This is a one-time installation review; it is not evidence that automated governance protected the installation PR.
-
-If automated manual-environment approval must protect the migration PR itself, use two PRs instead: first install the reviewed workflow, trusted checker, policy and required catalog on a small bootstrap branch from main, with main's existing core suite passing; then require the governance check, bring the migration branch up to date, and submit the migration PR under both gates. The bootstrap PR still needs initial human trust and adds an old-runner validation cycle. Do not split unrelated migration code into that PR just to make it pass. Choose between these routes before publishing.
+Keep the existing required `validation` check and strict, administrator and linear-history settings. GitHub does not allow a PR author to approve their own PR, so a required approving review needs another human reviewer; do not configure an impossible self-approval requirement for a sole maintainer. In that case the maintainer reviews the diff before merging under the existing CI gate. This code change does not modify GitHub repository settings. The previously created, unused environment has no role once its workflow is removed.
 
 ## 2. Prepare a CI-ready candidate
 
@@ -41,20 +39,20 @@ If any case fails, pause merge preparation, classify the failure and fix it with
 
 ## 4. Publish and use the actual merge gate
 
-After the bootstrap route and preparatory changes are agreed and complete, push the candidate and open the PR against main. Describe the framework replacement, production/UI fixes, deferred coverage and fresh verification without claiming total code coverage. The local full run reduces avoidable CI iterations; GitHub's required `validation` check remains the merge authority.
+After the preparatory changes are agreed and complete, push the candidate and open the PR against main. Describe the framework replacement, production/UI fixes, deferred coverage and fresh verification without claiming total code coverage. The local full run reduces avoidable CI iterations; GitHub's required `validation` check remains the merge authority.
 
 Wait for `security-audit` and `validation` on the PR's proposed merge revision. Do not treat a workflow-dispatch run on a branch head, a run from an earlier SHA, or a focused test run as a substitute for required PR checks. Review and retain the uploaded artifacts. If main moves, update the candidate and obtain passing checks on the resulting combination before merging. Any scenario or governance changes after review require review of that new revision.
 
 Use squash merge unless a different linear-history strategy is agreed. Do not use an administrative bypass, disable protection or push directly to main. Confirm the PR's current head and base match the reviewed candidate and that GitHub reports the required check successful immediately before merging.
 
-## 5. Activate and verify governance
+## 5. Verify the merged result
 
-For the recommended single-PR installation route, immediately after merge configure branch protection to require both `validation` and `validation-governance`, preserving the existing strict, administrator and linear-history settings. Repository settings changes require explicit authorization when execution reaches this step; this plan does not make them yet.
-
-Use a disposable draft PR containing a benign protected validation change to verify that the trusted-base audit runs, requires the manual environment approval, records approval for the actual head/base and does not accept stale approval after a new push. Also exercise the unchanged/non-sensitive path. Do not merge the canary or claim governance is operational from the existence of the environment alone. Diagnose any configuration mismatch before another merge.
-
-Verify the resulting main checkout can install the locked dependency and collect the canonical suite, and link the passing PR check and artifacts. Run another complete profile only if the merge result or subsequent changes introduce behavior not covered by the tested merge revision.
+Verify the resulting main checkout can install the locked dependency and collect the canonical suite, and link the passing PR check and artifacts. Run another complete profile only if the merge result or subsequent changes introduce behavior not covered by the tested merge revision. There is no additional workflow approval or governance activation step.
 
 ## Documentation review and final decisions
 
-Before implementation, settle the bootstrap route and the destination or deletion of working plans and the deferred list. Relevant maintained docs are AGENTS.md, `docs/agent-guides/testing-and-validation.md`, `docs/agent-guides/project-structure.md`, `docs/development/dev-setup.md` and ADR 0010; these were recently aligned and should change only if the agreed merge procedure exposes a current-contract gap. Present exact proposed text or diffs for any protected documentation or release-note changes and obtain explicit user approval before applying them. Root-plan creation here is planning output, not approval to edit those protected files.
+Before implementation, settle the destination or deletion of working plans and the deferred list. Relevant maintained docs are AGENTS.md, `docs/agent-guides/testing-and-validation.md`, `docs/agent-guides/project-structure.md`, `docs/development/dev-setup.md` and ADR 0010; these were recently aligned and should change only if the agreed merge procedure exposes a current-contract gap. Present exact proposed text or diffs for any protected documentation or release-note changes and obtain explicit user approval before applying them. Root-plan creation here is planning output, not approval to edit those protected files.
+
+Manual-governance removal checkpoint — 2026-10-31: remove the workflow, trusted Git/API checker, dedicated configuration and tests, including its isolated-import smoke check. Preserve existing admission/collection and inventory enforcement, retire the manual-approval catalog contract and record the user decision in migration accounting. Update the approved testing-guide command and review paragraph. Verify the remaining policy suite, structural inventory and production quality gate; this policy-only change does not require a full application run. Full core and browser evidence remain required for merge.
+
+Verification checkpoint: all 26 remaining repository policy tests pass; repository Ruff and Black pass; production MyPy passes for 293 files; structural inventory has zero issues. The full application suite was not rerun for this policy-only removal. The approved guide draft is applied. Two import-formatting issues in retained legacy fragments from the preceding cleanup were corrected and their live fingerprints/line mappings refreshed. GitHub repository settings were not changed.

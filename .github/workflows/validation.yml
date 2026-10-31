@@ -63,7 +63,7 @@ jobs:
           uv tool run --from pip-audit pip-audit --progress-spinner=off --disable-pip -r "$RUNNER_TEMP/audit-requirements.txt"
 
       - name: Check repository validation admission policy
-        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py .github/tests/test_validation_governance_ci.py
+        run: ${{ env.UV_PROJECT_ENVIRONMENT }}/bin/python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
 
   validation:
     needs: security-audit

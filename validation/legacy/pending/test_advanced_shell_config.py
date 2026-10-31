@@ -4,7 +4,6 @@
 
 from pathlib import Path
 
-
 from core.chat.instructions import primary_chat_instruction_layers
 from core.constants import ADVANCED_SHELL_FLIGHT_CARD
 from core.runtime.paths import set_bootstrap_roots

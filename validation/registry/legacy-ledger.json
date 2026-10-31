@@ -19,7 +19,7 @@
             "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once"
           ],
           "test_lines": {
-            "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once": 16
+            "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once": 15
           },
           "contract": "Advanced shell flight card occurs exactly once only when enabled. Evidence: direct instruction tuple.",
           "disposition": "gap",
@@ -36,7 +36,7 @@
         }
       ],
       "area": "authentication, advanced shell, chat MCP lifecycle, MCP manager and OAuth",
-      "sha256": "fb2fe34d75529a4114997fa8948e5265a277bf9d3a15c9208b5b296c640cde18",
+      "sha256": "9576841e3b01c1bdf5612ab0049ee275e6784626083e7fe4251c5df7f20c9985",
       "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "original_path": "validation/test_advanced_shell_config.py",
@@ -678,7 +678,7 @@
             "backend-provider-error-parity"
           ],
           "test_lines": {
-            "test_provider_message_redactions_and_bounding": 15
+            "test_provider_message_redactions_and_bounding": 14
           }
         },
         {
@@ -701,12 +701,12 @@
             "backend-provider-error-parity"
           ],
           "test_lines": {
-            "test_explicit_safe_errors_and_wrapped_sdk_failures": 43
+            "test_explicit_safe_errors_and_wrapped_sdk_failures": 42
           }
         }
       ],
       "area": "settings, storage, search, decision, and configuration editors",
-      "sha256": "79ff351e7dea1317e2d36a47e85a4823db9a508085668d0b87a30c19ebf4b891",
+      "sha256": "1ec322eb8cb8ef725c3a97625d36b2ad4ded82aee7203ffe83fcf18996ca119c",
       "review_status": "contract_reconciliation_complete",
       "execution_in_core": "not_executed_as_a_standalone_suite",
       "retired_groups": [
