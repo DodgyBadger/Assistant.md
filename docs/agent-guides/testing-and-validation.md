@@ -37,11 +37,12 @@ Core scenarios must not depend on live models, public services or real credentia
 
 ## Application integration
 
-Backend scenarios use `pytestmark = pytest.mark.scenario` and the `app` fixture from `validation/scenarios/application.py`. Browser scenarios use `browser_app` and `ui`.
+Backend scenarios use `pytestmark = pytest.mark.scenario` and the `app` fixture from `validation/support/application.py`. Browser scenarios use `browser_app` and `ui`.
 
 - `validation/scenarios/integration/core/`: backend scenarios.
 - `validation/scenarios/browser/`: browser scenarios and configuration.
-- `validation/scenarios/support/` and `validation/support/`: application fixtures and policy helpers.
+- `validation/support/`: application fixtures and helpers, grouped by subsystem.
+- `validation/fixtures/`: sample documents, images and workspace files.
 - `validation/registry/`: source admission and coverage accounting.
 - `validation/runs/`: ignored reports and artifacts.
 - `validation/legacy/pending/`: deferred references excluded from collection.

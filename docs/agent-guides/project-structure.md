@@ -17,3 +17,4 @@
 - Keep side-effect-heavy logic in `core/` services.
 - Keep API layer thin (`api/` should orchestrate, not own business logic).
 - For new Python modules, place the primary class/function near the top; helpers follow below or live in utility modules.
+- Under `validation/`, put behavior scenarios in `scenarios/`, Python fixtures and helpers in `support/`, and sample input files in `fixtures/`. Group helpers by subsystem; keep pytest configuration and fixture registration (`conftest.py`) beside the scenarios they configure.
