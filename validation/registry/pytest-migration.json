@@ -1979,7 +1979,7 @@
     "canonical_collected_cases": 400,
     "full_profile_run": false,
     "evidence_index": "validation/runs/practical_final_review_20261029/summary.json",
-    "review_file": "validation-gap-review.md",
+    "review_file": "/home/codeman/docs/AssistantMD/validation-gap-review.md",
     "current_plugin_revision": "941ede024673a0c8496dee908e1d6066cbaa0c05",
     "note": "Collection counts are not a behavior or code coverage metric. Original sources and historical migration evidence remain retained. Native process isolation and admitted public transport infrastructure remain unfinished.",
     "practical_alternatives": {

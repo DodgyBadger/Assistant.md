@@ -76,6 +76,6 @@ uv run python -m validation.support.inventory
 uv run python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
 ```
 
-CI enforces canonical test collection, admission and inventory checks. Human PR review assesses scenario quality and changes to testing policy or expected behavior. The required `validation` check must pass before merge. Current deferred coverage is recorded in the root `validation-gap-review.md` and `validation/registry/pytest-gaps.json`; deferral is not completed coverage.
+CI enforces canonical test collection, admission and inventory checks. Human PR review assesses scenario quality and changes to testing policy or expected behavior. The required `validation` check must pass before merge.
 
 Python quality checks follow the [Production Python Quality Gate](coding-standards.md#production-python-quality-gate). The independent npm audit uses `node --test .github/tests/test_npm_audit_policy.cjs` and `node scripts/audit-npm.cjs` after dependency installation.
