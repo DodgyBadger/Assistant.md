@@ -918,7 +918,7 @@
         "manual-retry-legacy-sdk-error-classification"
       ],
       "evidence": [
-        "pytest-scenario-library-refactor-plan.md",
+        "/home/codeman/docs/AssistantMD/! completed/validation-framework-refactor-2026-10-31/pytest-scenario-library-refactor-plan.md",
         "validation/runs/pytest_migration/batch11-evidence-index.json",
         "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
         "validation/runs/gap_cleanup_credential_guard_20261029/report.json",
