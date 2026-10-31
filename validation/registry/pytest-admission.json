@@ -2709,6 +2709,21 @@
       "sha256": "ab2a37912a15db5adfa100438fdf24f4fd59fcd4cf7c33c99150d657249276a9"
     },
     {
+      "path": "support/integrations/advanced_shell/diagnose_development.sh",
+      "kind": "support",
+      "sha256": "d6c704496a8ad897fc8fccea168934e529f2dc6f4580f73093324fb9eae3e7c9"
+    },
+    {
+      "path": "support/integrations/advanced_shell/restart_development.sh",
+      "kind": "support",
+      "sha256": "e596de833a551287ebc03622bf2d6fbcc2f2a82d41bd40af1b0589b31bdff02a"
+    },
+    {
+      "path": "support/integrations/advanced_shell/smoke.sh",
+      "kind": "support",
+      "sha256": "fd97cbde4117ce7162f17f1faba384a43301abb59b74c390da9faf084ba14d5c"
+    },
+    {
       "path": "support/integrations/api_failure_http.py",
       "sha256": "04de0cac42432849b6c6db991f815c43162b8fd60ad80e4aad6121f96d2f7cbb",
       "kind": "support"
@@ -2866,7 +2881,7 @@
     {
       "path": "support/inventory.py",
       "kind": "support",
-      "sha256": "db92d6dff033a685d671bd3a3b9af558946c58785babe47a3a0c617474dbdf9b"
+      "sha256": "d867225feee07df7e3986bb95a5062d646677adc24599bc64c940e17e47e0a35"
     },
     {
       "path": "support/memory/__init__.py",

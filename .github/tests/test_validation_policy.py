@@ -149,14 +149,13 @@ def test_support_admission_is_import_free_and_detects_changed_helpers(
     ]
 
 
-def test_unregistered_support_helper_is_detected(tmp_path: Path) -> None:
+@pytest.mark.parametrize("filename", ["unregistered.py", "probe.sh"])
+def test_unregistered_support_helper_is_detected(tmp_path: Path, filename: str) -> None:
     source = _support_source(tmp_path)
-    source.with_name("unregistered.py").write_text(
-        "raise RuntimeError('not imported')\n"
-    )
+    source.with_name(filename).write_text("raise RuntimeError('not imported')\n")
     report = InventoryReport()
     _check_pytest_admission(tmp_path, report)
-    assert report.issues == ["Unregistered pytest source: support/chat/unregistered.py"]
+    assert report.issues == [f"Unregistered pytest source: support/chat/{filename}"]
 
 
 def test_support_directory_cannot_admit_behavioral_cases(tmp_path: Path) -> None:

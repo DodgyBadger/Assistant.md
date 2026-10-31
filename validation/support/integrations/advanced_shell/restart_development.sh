@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repository_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# Manual Docker tool; not part of the deterministic core suite.
+
+repository_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)
 compose_file="${repository_root}/docker/advanced-shell/compose.development.yml"
 if [[ -n ${CONTAINER_SYSTEM_ROOT:-} ]]; then
     state_root="${CONTAINER_SYSTEM_ROOT}/advanced-shell"

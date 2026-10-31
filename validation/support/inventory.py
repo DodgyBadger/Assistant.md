@@ -222,7 +222,7 @@ def _check_pytest_admission(root: Path, report: InventoryReport) -> set[str]:
         for directory in (root / "scenarios", root / "support")
         for path in directory.rglob("*")
         if path.is_file()
-        and path.suffix in {".py", ".ini", ".toml"}
+        and path.suffix in {".py", ".sh", ".ini", ".toml"}
         and "__pycache__" not in path.parts
     }
     for relative in sorted(actual_sources - admitted):

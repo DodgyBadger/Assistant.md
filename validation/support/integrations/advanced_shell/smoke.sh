@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repository_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# Manual Docker tool; not part of the deterministic core suite.
+
+repository_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)
 compose_file="${repository_root}/docker/advanced-shell/compose.smoke.yml"
-smoke_log="${repository_root}/scripts/advanced_shell_smoke.latest.log"
-rm -f -- "${smoke_log}"
-touch "${smoke_log}"
+mkdir -p "${repository_root}/validation/runs"
+run_root=$(mktemp -d "${repository_root}/validation/runs/advanced-shell-smoke.XXXXXX")
+smoke_log="${run_root}/smoke.log"
 exec > >(tee -a "${smoke_log}") 2>&1
 echo "advanced-shell smoke log: ${smoke_log}"
 
@@ -69,14 +71,10 @@ set -e
 [[ $(<"${stderr_path}") == "stderr-value" ]] || fail "stderr was not preserved"
 
 run_ssh \
-    "test ! -e /app/system && test ! -e /run/secrets && "\
-"test ! -r /run/advanced-shell/host-identity/ssh_host_ed25519_key && "\
-"touch /workspace/write-test"
+    "test ! -e /app/system && test ! -e /run/secrets && test ! -r /run/advanced-shell/host-identity/ssh_host_ed25519_key && touch /workspace/write-test"
 
 run_ssh \
-    "set -eu; "\
-"command -v python uv uvx node npm npx bash git curl jq rg tar gzip xz unzip ps >/dev/null; "\
-"python --version; uv --version; node --version; npm --version; jq --version; rg --version | head -n 1"
+    "set -eu; command -v python uv uvx node npm npx bash git curl jq rg tar gzip xz unzip ps >/dev/null; python --version; uv --version; node --version; npm --version; jq --version; rg --version | head -n 1"
 
 set +e
 compose exec -T client bash -c \

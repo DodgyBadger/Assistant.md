@@ -11821,5 +11821,17 @@
       "validation/fixtures/assistantmd_lifecycle_application.py"
     ],
     "historical_references": "Earlier migration and review paths describe their checkpoint. This layout mapping records current helper locations; legacy sources are retained references, not executable compatibility requirements."
+  },
+  "manual_advanced_shell_tools": {
+    "date": "2026-10-31",
+    "scope": "Manual Docker diagnostics, restart and deployment smoke tooling; excluded from deterministic scenario collection and CI execution.",
+    "relocations": {
+      "scripts/restart_advanced_shell_development.sh": "validation/support/integrations/advanced_shell/restart_development.sh",
+      "scripts/diagnose_advanced_shell_development.sh": "validation/support/integrations/advanced_shell/diagnose_development.sh",
+      "scripts/smoke_advanced_shell.sh": "validation/support/integrations/advanced_shell/smoke.sh"
+    },
+    "artifacts": "validation/runs/advanced-shell-diagnostics.* and validation/runs/advanced-shell-smoke.*",
+    "retained_operation": "scripts/start_advanced_shell_development.sh remains the documented local development launcher.",
+    "removed_unused_script": "scripts/seed_ci_secrets.py"
   }
 }
