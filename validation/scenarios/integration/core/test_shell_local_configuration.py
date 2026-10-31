@@ -6,7 +6,7 @@ import stat
 
 import pytest
 
-from validation.scenarios.support.shell_bootstrap_inputs import bootstrap_client
+from validation.support.integrations.shell_bootstrap_inputs import bootstrap_client
 
 pytestmark = pytest.mark.scenario
 

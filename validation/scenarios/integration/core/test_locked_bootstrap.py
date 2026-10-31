@@ -8,8 +8,8 @@ import pytest
 
 from core.connections import BuiltInConnectionService
 from core.identity import LOCAL_USER_AUTHORITY
-from validation.scenarios.application import Application
-from validation.scenarios.support.security_migrations import (
+from validation.support.application import Application
+from validation.support.runtime.security_migrations import (
     isolated_process,
     prepare_locked_database,
     register_synthetic_secrets,
@@ -43,7 +43,7 @@ set_bootstrap_roots(root / 'bootstrap-data', root / 'bootstrap-system')
 import core.runtime.bootstrap
 import api.services.google_connections
 import api.services.maintenance
-from validation.scenarios.support.security_migrations import exercise_locked_startup
+from validation.support.runtime.security_migrations import exercise_locked_startup
 set_bootstrap_roots(root / 'data', root / 'system')
 asyncio.run(exercise_locked_startup(root, sys.argv[2]))
 """,

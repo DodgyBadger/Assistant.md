@@ -5,8 +5,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_journeys import (
+from validation.support.application import Application
+from validation.support.memory.compaction_journeys import (
     add_turn,
     author_payload,
     compaction_provider,

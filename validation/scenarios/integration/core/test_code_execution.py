@@ -6,14 +6,14 @@ from datetime import datetime
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.code_tool_chat import (
+from validation.support.application import Application
+from validation.support.chat.code_tool_chat import (
     STRUCTURED_NOTE,
     call_code_tool,
     code_tool_provider,
     configure_provider,
 )
-from validation.scenarios.support.file_tools import copy_image_fixture
+from validation.support.vault.file_tools import copy_image_fixture
 
 pytestmark = pytest.mark.scenario
 

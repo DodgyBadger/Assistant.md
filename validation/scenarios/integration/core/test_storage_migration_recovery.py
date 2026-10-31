@@ -6,13 +6,13 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_summary_retirement import (
+from validation.support.application import Application
+from validation.support.memory.session_summary_retirement import (
     canonical_snapshot,
     seed_canonical_history,
     seed_legacy_summaries,
 )
-from validation.scenarios.support.storage_migration_recovery import (
+from validation.support.runtime.storage_migration_recovery import (
     canonical_message_rows,
     reject_retirement_bookkeeping,
     seed_pre_migration_transcript,

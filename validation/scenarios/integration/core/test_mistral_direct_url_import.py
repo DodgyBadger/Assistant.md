@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mistral_ocr_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.mistral_ocr_inputs import (
     configure_ocr,
     ocr_provider,
 )

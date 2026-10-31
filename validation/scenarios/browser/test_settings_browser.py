@@ -3,7 +3,7 @@
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_journeys import open_settings
+from validation.support.browser.browser_journeys import open_settings
 
 pytestmark = pytest.mark.scenario
 

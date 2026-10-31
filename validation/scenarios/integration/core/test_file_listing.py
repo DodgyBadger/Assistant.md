@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.file_boundaries import list_paths
+from validation.support.application import Application
+from validation.support.vault.file_boundaries import list_paths
 
 pytestmark = pytest.mark.scenario
 

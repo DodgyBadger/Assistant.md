@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.startup import (
+from validation.support.application import Application
+from validation.support.runtime.startup import (
     MALFORMED_SCHEDULE_WORKFLOW,
     QUICK_JOB_2_WORKFLOW,
     QUICK_JOB_UPDATED_WORKFLOW,

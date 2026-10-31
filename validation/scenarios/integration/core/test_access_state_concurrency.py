@@ -9,16 +9,16 @@ from threading import Event
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.access_state_concurrency import (
-    guarded_write_in_thread,
-    reject_secret_cleanup,
-)
-from validation.scenarios.support.google_connections import grant
-from validation.scenarios.support.oauth_http_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.google_connections import grant
+from validation.support.integrations.oauth_http_inputs import (
     google_oauth_server,
     google_setup,
     start_google,
+)
+from validation.support.runtime.access_state_concurrency import (
+    guarded_write_in_thread,
+    reject_secret_cleanup,
 )
 
 pytestmark = pytest.mark.scenario

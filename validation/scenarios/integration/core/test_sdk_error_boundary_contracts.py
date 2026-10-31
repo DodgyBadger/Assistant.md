@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.sdk_failure_provider import PRIVATE, sdk_provider
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.sdk_failure_provider import PRIVATE, sdk_provider
 
 pytestmark = pytest.mark.scenario
 

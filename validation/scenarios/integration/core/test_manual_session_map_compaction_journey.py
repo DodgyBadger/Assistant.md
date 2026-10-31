@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.map_author_transport import map_author
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.application import Application
+from validation.support.memory.map_author_transport import map_author
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_journey_inputs import (
     conversation,
     seed_session,
 )

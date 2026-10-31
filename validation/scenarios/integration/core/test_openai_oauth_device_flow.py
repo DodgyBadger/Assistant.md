@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.openai_device_oauth import (
+from validation.support.application import Application
+from validation.support.integrations.openai_device_oauth import (
     ACCESS,
     API_KEY,
     AUTH_CODE,

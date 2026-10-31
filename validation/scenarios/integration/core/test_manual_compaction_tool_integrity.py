@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -21,7 +21,7 @@ async def test_manual_compaction_rejects_invalid_tool_replies_without_changing_h
         use_execution_authority,
     )
     from core.runtime.state import get_runtime_context
-    from validation.support.tool_history_fixtures import tool_reply_cases
+    from validation.support.chat.tool_history_fixtures import tool_reply_cases
 
     for key, value in (
         ("compaction_strategy", "session_map"),

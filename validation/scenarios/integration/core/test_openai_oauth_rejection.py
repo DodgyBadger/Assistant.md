@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.openai_oauth_http import oauth_provider
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.openai_oauth_http import oauth_provider
 
 pytestmark = pytest.mark.scenario
 

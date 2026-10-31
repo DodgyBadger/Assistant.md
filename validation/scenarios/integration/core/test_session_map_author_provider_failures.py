@@ -5,13 +5,13 @@ from dataclasses import replace
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.model_failures import (
+from validation.support.application import Application
+from validation.support.integrations.model_failures import (
     PRIVATE_VALUES,
     rejecting_provider,
 )
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_batch15_inputs import (
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_batch15_inputs import (
     author_request,
 )
 

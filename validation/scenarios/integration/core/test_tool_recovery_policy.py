@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.recovery_inputs import (
+from validation.support.application import Application
+from validation.support.chat.recovery_inputs import (
     _assert_snapshot_retention_is_bounded,
     _unresolved_decision,
 )
-from validation.scenarios.support.recovery_replay import replay_pending_read
+from validation.support.chat.recovery_replay import replay_pending_read
 
 pytestmark = pytest.mark.scenario
 

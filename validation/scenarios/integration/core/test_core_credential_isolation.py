@@ -4,8 +4,8 @@ import os
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_tasks import chat_turn
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
 
 pytestmark = pytest.mark.scenario
 

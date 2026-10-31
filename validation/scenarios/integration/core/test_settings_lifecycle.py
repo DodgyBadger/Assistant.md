@@ -11,8 +11,8 @@ import pytest
 
 from core.settings import config_editor, repository
 from core.settings.store import get_default_settings
-from validation.scenarios.application import Application
-from validation.scenarios.support.settings import (
+from validation.support.application import Application
+from validation.support.settings.settings import (
     activity_events,
     general_settings,
 )

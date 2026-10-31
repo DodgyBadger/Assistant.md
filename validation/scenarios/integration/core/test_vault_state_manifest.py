@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -13,7 +13,7 @@ async def test_manifest_tracks_identity_exclusions_and_changes(
     app: Application,
 ) -> None:
     from core.vault_state import VaultStateService
-    from validation.scenarios.support.vault_state import (
+    from validation.support.vault.vault_state import (
         changes_since,
         concurrent_identities,
         manifest_rows,

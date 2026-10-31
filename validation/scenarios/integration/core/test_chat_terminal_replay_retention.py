@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
+from validation.support.application import Application
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
 
 pytestmark = pytest.mark.scenario
 
@@ -68,11 +68,11 @@ async def test_cursor_expiry_after_stream_admission_requests_resync(
 
     from api.endpoints import chat_task_events
     from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
-    from validation.scenarios.support.chat_submission_replay_contracts import (
+    from validation.support.chat.chat_submission_replay_contracts import (
         start_turn,
         submission_provider,
     )
-    from validation.scenarios.support.chat_task_journeys import event_payloads
+    from validation.support.chat.chat_task_journeys import event_payloads
 
     vault = app.vault("AdmittedReplayCursorVault")
     await app.start()
@@ -100,8 +100,8 @@ async def test_cursor_expiry_after_stream_admission_requests_resync(
 async def test_pending_review_does_not_publish_a_fork_boundary(
     app: Application,
 ) -> None:
-    from validation.scenarios.support.active_tool_cancellation import active_provider
-    from validation.scenarios.support.inline_edit_reviews import request_review
+    from validation.support.chat.active_tool_cancellation import active_provider
+    from validation.support.chat.inline_edit_reviews import request_review
 
     vault = app.vault("PendingReviewForkVault")
     await app.start()

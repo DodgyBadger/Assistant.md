@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_stdio_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.mcp_stdio_inputs import (
     IMPORT,
     admit_loopback_preflight,
     connection_request,

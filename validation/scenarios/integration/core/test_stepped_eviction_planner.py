@@ -2,7 +2,7 @@
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -22,7 +22,7 @@ async def test_eviction_planner_preserves_turn_and_tool_boundaries(
         UserPromptPart,
     )
 
-    from validation.support.tool_history_fixtures import tool_reply_cases
+    from validation.support.chat.tool_history_fixtures import tool_reply_cases
 
     def _user(content):
         return ModelRequest(parts=[UserPromptPart(content=content)])

@@ -10,8 +10,8 @@ import yaml
 
 from core.database_migrations import apply_sqlite_migrations
 from core.settings import schema as settings_schema
-from validation.scenarios.application import Application
-from validation.scenarios.support.settings import run_settings_process
+from validation.support.application import Application
+from validation.support.settings.settings import run_settings_process
 
 pytestmark = pytest.mark.scenario
 

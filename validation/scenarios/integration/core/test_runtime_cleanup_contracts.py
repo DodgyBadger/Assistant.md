@@ -8,16 +8,16 @@ from copy import deepcopy
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.compaction_journeys import (
+from validation.support.application import Application
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
+from validation.support.memory.compaction_journeys import (
     add_turn,
     compaction_provider,
     configure_compaction,
 )
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
-from validation.scenarios.support.runtime_cleanup_contracts import live_background_tasks
+from validation.support.runtime.runtime_cleanup_contracts import live_background_tasks
 
 pytestmark = pytest.mark.scenario
 

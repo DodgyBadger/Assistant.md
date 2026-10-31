@@ -13,8 +13,8 @@ from core.secrets.legacy_migration import (
     LEGACY_BACKUP_FILENAME,
     migrate_legacy_secrets_yaml,
 )
-from validation.scenarios.application import Application
-from validation.scenarios.support.secrets_migration import (
+from validation.support.application import Application
+from validation.support.runtime.secrets_migration import (
     installation,
     retain_result,
 )

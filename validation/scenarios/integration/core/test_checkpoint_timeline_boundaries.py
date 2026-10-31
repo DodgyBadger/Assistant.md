@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.checkpoint_boundary_inputs import seed_tool_timeline
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.application import Application
+from validation.support.memory.checkpoint_boundary_inputs import seed_tool_timeline
+from validation.support.memory.session_map_journey_inputs import (
     conversation,
     range_evidence,
     seed_session,

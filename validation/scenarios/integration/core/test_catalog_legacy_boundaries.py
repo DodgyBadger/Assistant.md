@@ -2,7 +2,7 @@
 
 import pytest
 
-from validation.scenarios.support.legacy_model_catalog import import_legacy_catalog
+from validation.support.settings.legacy_model_catalog import import_legacy_catalog
 
 pytestmark = pytest.mark.scenario
 
@@ -112,7 +112,7 @@ async def test_alternate_promotion_and_repeated_rename_survive_reload(app):
 
 async def test_concurrent_cold_loads_publish_one_complete_upgrade_and_backup(app):
     await app.start()
-    from validation.scenarios.support.catalog_cold_load import concurrent_catalog_load
+    from validation.support.settings.catalog_cold_load import concurrent_catalog_load
 
     results, backups, original = await concurrent_catalog_load(app)
     assert len(results) == 3 and results[0] == results[1] == results[2]
@@ -132,7 +132,7 @@ async def test_shared_legacy_alternates_disable_both_models_without_choosing_a_w
 
     from core.llm.model_utils import resolve_model
     from core.settings.model_registry import InvalidModelAlias
-    from validation.scenarios.support.model_configuration import install_legacy_models
+    from validation.support.settings.model_configuration import install_legacy_models
 
     original = app.configuration()
     legacy = deepcopy(original)

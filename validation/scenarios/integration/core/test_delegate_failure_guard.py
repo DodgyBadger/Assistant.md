@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.delegate_guard_inputs import GuardInputs
+from validation.support.application import Application
+from validation.support.authoring.delegate_guard_inputs import GuardInputs
 
 pytestmark = pytest.mark.scenario
 

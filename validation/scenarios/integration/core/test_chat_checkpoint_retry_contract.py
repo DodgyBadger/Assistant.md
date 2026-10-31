@@ -2,13 +2,13 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_checkpoint_retry_provider import (
+from validation.support.application import Application
+from validation.support.chat.chat_checkpoint_retry_provider import (
     checkpoint_retry_provider,
 )
-from validation.scenarios.support.chat_failure_recovery_contracts import set_setting
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
+from validation.support.chat.chat_failure_recovery_contracts import set_setting
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
 
 pytestmark = pytest.mark.scenario
 

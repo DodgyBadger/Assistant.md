@@ -2,15 +2,15 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_failure_recovery_contracts import set_setting
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.rollback_restart_workload import (
+from validation.support.application import Application
+from validation.support.chat.chat_failure_recovery_contracts import set_setting
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.rollback_restart_workload import (
     CHANGED,
     ORIGINAL,
     chat_with_redirects,
 )
-from validation.scenarios.support.settled_read_failed_append import (
+from validation.support.chat.settled_read_failed_append import (
     settled_read_append_server,
 )
 

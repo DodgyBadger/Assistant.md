@@ -7,8 +7,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.openai_oauth_http import oauth_provider
+from validation.support.application import Application
+from validation.support.integrations.openai_oauth_http import oauth_provider
 
 pytestmark = pytest.mark.scenario
 

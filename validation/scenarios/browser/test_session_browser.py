@@ -6,19 +6,19 @@ import re
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import (
+from validation.support.browser.browser_fullstack import (
     deterministic_chat,
     hold_delivery,
     lose_connection,
 )
-from validation.scenarios.support.browser_sessions import (
+from validation.support.browser.browser_sessions import (
     load_thread,
     map_checkpoint,
     session_list,
     session_options,
     thread,
 )
-from validation.scenarios.support.session_discovery import seed_discovery_sessions
+from validation.support.memory.session_discovery import seed_discovery_sessions
 
 pytestmark = pytest.mark.scenario
 
@@ -85,7 +85,7 @@ async def test_late_vault_session_list_cannot_replace_current_vault(browser_app,
         title="First vault session",
     )
     from core.runtime.state import get_runtime_context
-    from validation.scenarios.support.session_map_journey_inputs import (
+    from validation.support.memory.session_map_journey_inputs import (
         conversation,
         seed_session,
     )
@@ -289,9 +289,9 @@ async def test_pending_chat_mode_save_is_scoped_to_its_original_session(
 async def test_model_selection_survives_late_status_and_uses_configured_default(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_fullstack import setting
-    from validation.scenarios.support.chat_idle_provider import idle_provider
-    from validation.scenarios.support.session_ops_chat import configure_provider
+    from validation.support.browser.browser_fullstack import setting
+    from validation.support.chat.chat_idle_provider import idle_provider
+    from validation.support.chat.session_ops_chat import configure_provider
 
     with idle_provider() as provider:
         configure_provider(browser_app.app, provider)
@@ -342,12 +342,12 @@ async def test_real_session_upgrade_preserves_history_and_reports_refresh_outcom
     from contextlib import asynccontextmanager
 
     from core.runtime.state import get_runtime_context
-    from validation.scenarios.support.browser_fullstack import setting
-    from validation.scenarios.support.context_upgrade_recovery_contracts import (
+    from validation.support.browser.browser_fullstack import setting
+    from validation.support.memory.context_upgrade_recovery_contracts import (
         seed_upgrade_input,
     )
-    from validation.scenarios.support.map_author_transport import map_author
-    from validation.scenarios.support.session_map_author_http import configure_author
+    from validation.support.memory.map_author_transport import map_author
+    from validation.support.memory.session_map_author_http import configure_author
 
     store = get_runtime_context().chat_store
     raw = seed_upgrade_input(store, browser_app.vault.name, "upgrade-browser")
@@ -440,7 +440,7 @@ async def test_loaded_markdown_preserves_user_lines_code_and_assistant_copy_sour
 
 async def test_late_compaction_pressure_cannot_replace_current_session(browser_app, ui):
     from core.runtime.state import get_runtime_context
-    from validation.scenarios.support.browser_fullstack import setting
+    from validation.support.browser.browser_fullstack import setting
 
     seed_discovery_sessions(get_runtime_context().chat_store, browser_app.vault.name)
     for key, value in (

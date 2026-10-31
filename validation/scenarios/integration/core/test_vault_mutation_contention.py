@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.vault_mutation_contention import (
+from validation.support.application import Application
+from validation.support.vault.vault_mutation_contention import (
     move_with_competing_edit,
 )
-from validation.scenarios.support.vault_recovery import (
+from validation.support.vault.vault_recovery import (
     query_rows,
     record_activity,
     submit_duplicate_rollbacks,

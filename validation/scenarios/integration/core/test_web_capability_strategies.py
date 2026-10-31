@@ -6,7 +6,7 @@ from inspect import signature
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -145,7 +145,7 @@ async def test_registered_search_dispatch_runs_only_selected_http_workload(
     await app.start()
     from core.web.registry import WebStrategyRegistry, WebStrategySpec
     from core.web.service import WebCapabilityService
-    from validation.scenarios.support.web_strategy_loopback import (
+    from validation.support.integrations.web_strategy_loopback import (
         endpoint,
         search_handler,
     )
@@ -179,7 +179,7 @@ async def test_pinned_raw_curl_fetch_bypasses_configured_proxy(
 ) -> None:
     await app.start()
     from core.web.fetchers.curl import _fetch_once
-    from validation.scenarios.support.web_strategy_loopback import (
+    from validation.support.integrations.web_strategy_loopback import (
         endpoint,
         proxy_environment,
     )

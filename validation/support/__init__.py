@@ -1,1 +1,1 @@
-"""AssistantMD adapters, scenario facade and execution support."""
+"""AssistantMD application fixtures, scenario helpers and validation policy."""

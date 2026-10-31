@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring import (
+from validation.support.application import Application
+from validation.support.authoring.runtime import (
     commit_compacted_history,
     default_context_vaults,
     process_context,

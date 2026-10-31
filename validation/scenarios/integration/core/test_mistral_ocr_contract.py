@@ -4,18 +4,18 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.ingestion_inputs import (
-    pdf_source,
-    require_missing_ocr_secret,
-)
-from validation.scenarios.support.mistral_ocr_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.mistral_ocr_inputs import (
     OCR_KEY,
     PRIVATE_DOCUMENT,
     configure_ocr,
     ocr_provider,
     run_import,
     terminal_activity,
+)
+from validation.support.runtime.ingestion_inputs import (
+    pdf_source,
+    require_missing_ocr_secret,
 )
 
 pytestmark = pytest.mark.scenario

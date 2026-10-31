@@ -2,10 +2,10 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.delegate_inputs import delegate_provider
-from validation.scenarios.support.delegate_queue_inputs import wait_queued
-from validation.scenarios.support.delegate_tasks import (
+from validation.support.application import Application
+from validation.support.authoring.delegate_inputs import delegate_provider
+from validation.support.authoring.delegate_queue_inputs import wait_queued
+from validation.support.authoring.delegate_tasks import (
     managed_launch,
     wait_provider,
 )

@@ -4,13 +4,13 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from validation.scenarios.support.authentication import (
+from validation.support.runtime.authentication import (
     OWNER_SECRET,
     authentication_application,
     authentication_client,
     owner_policy,
 )
-from validation.scenarios.support.authentication_boundaries import websocket_result
+from validation.support.runtime.authentication_boundaries import websocket_result
 
 pytestmark = pytest.mark.scenario
 

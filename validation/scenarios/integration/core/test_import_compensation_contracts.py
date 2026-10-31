@@ -5,15 +5,15 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.support.mistral_ocr_inputs import (
+from validation.support.integrations.mistral_ocr_inputs import (
     configure_ocr,
     ocr_provider,
     run_import,
 )
-from validation.scenarios.support.storage_failure_inputs import (
+from validation.support.runtime.storage_failure_inputs import (
     block_first_binary_parent,
 )
-from validation.scenarios.support.vault_inputs import document_pdf
+from validation.support.vault.vault_inputs import document_pdf
 
 pytestmark = pytest.mark.scenario
 

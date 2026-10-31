@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.transcript_paging_inputs import seed_paging
+from validation.support.application import Application
+from validation.support.chat.transcript_paging_inputs import seed_paging
 
 pytestmark = pytest.mark.scenario
 

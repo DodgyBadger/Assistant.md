@@ -6,7 +6,7 @@ import httpx2
 import pytest
 from pydantic import BaseModel, Field
 
-from validation.scenarios.support.decision_provider import (
+from validation.support.integrations.decision_provider import (
     configure_decision,
     decision_provider,
 )

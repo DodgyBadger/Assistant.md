@@ -3,9 +3,9 @@
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import lose_connection, setting
-from validation.scenarios.support.chat_idle_provider import idle_provider
-from validation.scenarios.support.session_ops_chat import configure_provider
+from validation.support.browser.browser_fullstack import lose_connection, setting
+from validation.support.chat.chat_idle_provider import idle_provider
+from validation.support.chat.session_ops_chat import configure_provider
 
 pytestmark = pytest.mark.scenario
 
@@ -60,7 +60,7 @@ async def test_late_task_poll_cannot_restore_a_task_after_newer_terminal_poll(
 ):
     import asyncio
 
-    from validation.scenarios.support.browser_fullstack import hold_delivery
+    from validation.support.browser.browser_fullstack import hold_delivery
 
     with idle_provider() as provider:
         configure_provider(browser_app.app, provider)

@@ -4,12 +4,12 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_authoring_failure_contract import (
+from validation.support.application import Application
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_authoring_failure_contract import (
     invalid_author,
 )
-from validation.scenarios.support.session_map_batch15_inputs import author_request
+from validation.support.memory.session_map_batch15_inputs import author_request
 
 pytestmark = pytest.mark.scenario
 

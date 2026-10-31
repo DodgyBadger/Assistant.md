@@ -5,8 +5,8 @@ import asyncio
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import hold_delivery
-from validation.scenarios.support.google_connections import grant
+from validation.support.browser.browser_fullstack import hold_delivery
+from validation.support.integrations.google_connections import grant
 
 pytestmark = pytest.mark.scenario
 

@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.task_runner_workloads import (
+from validation.support.application import Application
+from validation.support.runtime.task_runner_workloads import (
     ContentFailureWorkload,
     _slow_task,
     bounded_failure_workload,

@@ -6,8 +6,8 @@ from threading import Thread
 
 import pytest
 
-from validation.scenarios.support.settings import run_settings_process
-from validation.scenarios.support.settings_commit_barrier import (
+from validation.support.settings.settings import run_settings_process
+from validation.support.settings.settings_commit_barrier import (
     pause_next_settings_save,
 )
 

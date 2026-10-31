@@ -7,8 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 from core.runtime.state import get_runtime_context
 from core.scheduling.jobs import setup_scheduler_jobs
-from validation.scenarios.application import Application
-from validation.scenarios.support.workflow_runtime import (
+from validation.support.application import Application
+from validation.support.workflows.workflow_runtime import (
     execute_late_scheduled_workflow,
     workflow_failure,
     workflow_text,

@@ -8,15 +8,15 @@ from pathlib import Path
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import (
+from validation.support.browser.browser_fullstack import (
     hold_delivery,
     lose_connection,
     read_file,
     select_passage,
     setting,
 )
-from validation.scenarios.support.chat_idle_provider import idle_provider
-from validation.scenarios.support.session_ops_chat import configure_provider
+from validation.support.chat.chat_idle_provider import idle_provider
+from validation.support.chat.session_ops_chat import configure_provider
 
 pytestmark = pytest.mark.scenario
 
@@ -289,8 +289,8 @@ async def test_completed_selection_send_respects_current_reader_and_local_edits(
 
 
 async def test_real_tool_write_renders_one_turn_and_persisted_details(browser_app, ui):
-    from validation.scenarios.support.code_tool_chat import code_tool_provider
-    from validation.scenarios.support.code_tool_chat import (
+    from validation.support.chat.code_tool_chat import code_tool_provider
+    from validation.support.chat.code_tool_chat import (
         configure_provider as configure_code_provider,
     )
 
@@ -341,7 +341,7 @@ async def test_real_tool_write_renders_one_turn_and_persisted_details(browser_ap
 
 
 async def test_older_file_refresh_cannot_unlock_a_new_selection_send(browser_app, ui):
-    from validation.scenarios.support.browser_fullstack import hold_deliveries
+    from validation.support.browser.browser_fullstack import hold_deliveries
 
     browser_app.app.write(
         browser_app.vault, "Reading.md", "First evidence.\n\nSecond evidence."
@@ -418,7 +418,7 @@ async def test_selection_send_declined_discard_preserves_real_unsaved_edits(
 async def test_real_chat_execution_failure_is_visible_and_releases_send_controls(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_sessions import session_options
+    from validation.support.browser.browser_sessions import session_options
 
     browser_app.app.write(
         browser_app.vault,

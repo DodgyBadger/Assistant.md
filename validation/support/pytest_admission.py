@@ -1,4 +1,4 @@
-"""Import-free source admission shared by inventory and staged collection."""
+"""Import-free admission for scenario sources and application-owned helpers."""
 
 from __future__ import annotations
 
@@ -28,7 +28,8 @@ def load_admissions(root: Path) -> list[ScenarioAdmission]:
         raise ValueError("Unsupported pytest staging schema version")
     entries: list[ScenarioAdmission] = []
     seen: set[Path] = set()
-    staging = (root / "scenarios").resolve()
+    root = root.resolve()
+    scenarios = root / "scenarios"
     for entry in payload["files"]:
         if (
             not isinstance(entry, dict)
@@ -42,18 +43,19 @@ def load_admissions(root: Path) -> list[ScenarioAdmission]:
         if (
             path.is_absolute()
             or ".." in path.parts
-            or not relative.startswith("scenarios/")
+            or not path.parts
+            or path.parts[0] not in {"scenarios", "support"}
             or source in seen
         ):
             raise ValueError(f"Invalid or duplicate pytest staging path: {relative}")
-        if not source.is_file() or not source.is_relative_to(staging):
+        if not source.is_file() or not source.is_relative_to(root / path.parts[0]):
             raise ValueError(f"Missing or external pytest staging source: {relative}")
         seen.add(source)
         kind = entry["kind"]
         tests = entry.get("tests", [])
         if kind == "behavioral":
             if not any(
-                source.is_relative_to(staging / profile)
+                source.is_relative_to(scenarios / profile)
                 for profile in ("integration/core", "experiments", "browser")
             ):
                 raise ValueError(

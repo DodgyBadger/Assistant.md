@@ -7,8 +7,8 @@ from urllib.parse import quote
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.activity_history import seed_prunable_segments
+from validation.support.application import Application
+from validation.support.vault.activity_history import seed_prunable_segments
 
 pytestmark = pytest.mark.scenario
 

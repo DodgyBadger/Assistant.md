@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.vault_mutation_inputs import (
+from validation.support.application import Application
+from validation.support.vault.vault_mutation_inputs import (
     WRITE_PROBE_WORKFLOW,
     seed_chat_history,
 )
-from validation.scenarios.support.vault_recovery import query_rows, run_workflow
+from validation.support.vault.vault_recovery import query_rows, run_workflow
 
 pytestmark = pytest.mark.scenario
 

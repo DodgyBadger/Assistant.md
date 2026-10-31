@@ -5,8 +5,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.explorer_failure_recovery import (
+from validation.support.application import Application
+from validation.support.vault.explorer_failure_recovery import (
     limit_file_writes,
     reject_second_move,
 )

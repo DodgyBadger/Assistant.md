@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_journeys import add_turn
-from validation.scenarios.support.retained_map_author import retained_author
-from validation.scenarios.support.session_map_author_http import configure_author
+from validation.support.application import Application
+from validation.support.memory.compaction_journeys import add_turn
+from validation.support.memory.retained_map_author import retained_author
+from validation.support.memory.session_map_author_http import configure_author
 
 pytestmark = pytest.mark.scenario
 

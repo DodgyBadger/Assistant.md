@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.task_runner_workloads import (
+from validation.support.application import Application
+from validation.support.runtime.task_runner_workloads import (
     _complete_inline_task,
     _complete_task,
     _fail_task,
@@ -245,7 +245,7 @@ async def test_runner_immediate_cancellation_survives_failing_cancellation_hook(
     from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
     from core.runtime.state import get_runtime_context
     from core.runtime.task_runner import ExecutionTaskHooks, ExecutionTaskSpec
-    from validation.scenarios.support.task_runner_workloads import (
+    from validation.support.runtime.task_runner_workloads import (
         _raise_cancel_hook,
     )
 
@@ -283,7 +283,7 @@ async def test_runner_late_cancellation_cannot_replace_published_failure_or_repe
     from core.runtime.execution_tasks import ExecutionTaskKind, ExecutionTaskSource
     from core.runtime.state import get_runtime_context
     from core.runtime.task_runner import ExecutionTaskHooks, ExecutionTaskSpec
-    from validation.scenarios.support.task_runner_workloads import (
+    from validation.support.runtime.task_runner_workloads import (
         BlockingFailureHook,
     )
 

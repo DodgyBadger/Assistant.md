@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_discovery import (
+from validation.support.application import Application
+from validation.support.memory.session_discovery import (
     add_discovery_checkpoint,
     seed_discovery_sessions,
 )

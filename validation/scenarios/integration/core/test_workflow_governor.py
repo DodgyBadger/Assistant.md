@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.workflow_runtime import (
+from validation.support.application import Application
+from validation.support.workflows.workflow_runtime import (
     WAITING_WORKFLOW,
     configure_workflow_limit,
     execute_workflow,

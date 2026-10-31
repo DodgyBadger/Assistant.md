@@ -6,12 +6,12 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.delegate_inputs import (
+from validation.support.application import Application
+from validation.support.authoring.delegate_inputs import (
     delegate_provider,
     invoke_delegate,
 )
-from validation.scenarios.support.delegate_tasks import (
+from validation.support.authoring.delegate_tasks import (
     managed_launch,
     wait_provider,
 )

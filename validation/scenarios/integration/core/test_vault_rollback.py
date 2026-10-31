@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -12,7 +12,7 @@ pytestmark = pytest.mark.scenario
 async def test_failed_workflow_rolls_back_files_and_reports_partial_directory_recovery(
     app: Application,
 ) -> None:
-    from validation.scenarios.support.vault_recovery import (
+    from validation.support.vault.vault_recovery import (
         FAILING_PROBE_WORKFLOW,
         activity_status,
         mutation_rows,
@@ -131,7 +131,7 @@ async def test_failed_workflow_rolls_back_files_and_reports_partial_directory_re
 
 async def test_task_rollback_conflict_preserves_every_path(app: Application) -> None:
     from core.vault_state.file_mutations import VaultMutationRejected
-    from validation.scenarios.support.vault_recovery import (
+    from validation.support.vault.vault_recovery import (
         conflicting_task,
         rollback_task,
     )

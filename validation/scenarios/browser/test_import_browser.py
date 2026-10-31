@@ -6,7 +6,7 @@ import re
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_journeys import open_document_import
+from validation.support.browser.browser_journeys import open_document_import
 
 pytestmark = pytest.mark.scenario
 
@@ -81,7 +81,7 @@ async def test_queue_only_preserves_source_until_dashboard_processes_job(
 async def test_import_submission_transport_failure_keeps_options_and_retry_works(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_fullstack import lose_connection
+    from validation.support.browser.browser_fullstack import lose_connection
 
     form = await open_document_import(
         ui, browser_app.url, browser_app.vault.name, "source.pdf"
@@ -113,8 +113,8 @@ async def test_import_submission_transport_failure_keeps_options_and_retry_works
 async def test_upload_and_import_uses_real_file_bytes_and_selected_strategy(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_fullstack import open_explorer
-    from validation.scenarios.support.vault_inputs import document_pdf
+    from validation.support.browser.browser_fullstack import open_explorer
+    from validation.support.vault.vault_inputs import document_pdf
 
     explorer = await open_explorer(ui, browser_app)
     await explorer.locator("[data-vault-explorer-upload-input]").set_input_files(
@@ -178,7 +178,7 @@ async def test_failed_document_processing_is_visible_and_source_is_preserved(
     await form.locator("summary").filter(has_text="Options").click()
     await form.get_by_label("PDF strategy").select_option("local_text")
     await form.get_by_role("button", name="Import", exact=True).click()
-    from validation.scenarios.support.browser_imports import wait_import_status
+    from validation.support.browser.browser_imports import wait_import_status
 
     jobs = await wait_import_status(browser_app, "failed")
     await expect(form.locator("[data-vault-explorer-form-status]")).to_contain_text(
@@ -192,9 +192,9 @@ async def test_failed_document_processing_is_visible_and_source_is_preserved(
 async def test_url_import_executes_real_admission_extraction_and_persistence(
     browser_app, ui, monkeypatch
 ):
-    from validation.scenarios.support.browser_fullstack import open_explorer
-    from validation.scenarios.support.external_web import external_web
-    from validation.scenarios.support.vault_inputs import document_pdf
+    from validation.support.browser.browser_fullstack import open_explorer
+    from validation.support.integrations.external_web import external_web
+    from validation.support.vault.vault_inputs import document_pdf
 
     # Only external HTTP bytes and DNS are controlled: the live site would need
     # network access and mutable content. URL admission, import orchestration,
@@ -231,7 +231,7 @@ async def test_url_import_executes_real_admission_extraction_and_persistence(
 async def test_successful_import_reports_real_strategy_fallback_warning(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_fullstack import setting
+    from validation.support.browser.browser_fullstack import setting
 
     setting(
         browser_app.app, "ingestion_pdf_default_strategies", '["pdf_ocr", "pdf_text"]'

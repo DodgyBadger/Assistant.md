@@ -2,7 +2,7 @@
 
 import pytest
 
-from validation.scenarios.support.ssh_endpoint import (
+from validation.support.integrations.ssh_endpoint import (
     PILOT_COMMAND,
     PILOT_STDERR,
     ssh_endpoint,

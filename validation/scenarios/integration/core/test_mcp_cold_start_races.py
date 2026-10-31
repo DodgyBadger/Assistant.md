@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_race_inputs import cold_start
+from validation.support.application import Application
+from validation.support.integrations.mcp_race_inputs import cold_start
 
 pytestmark = pytest.mark.scenario
 

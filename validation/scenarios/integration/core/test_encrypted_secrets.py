@@ -18,8 +18,8 @@ from core.secrets import (
     SecretNamespaceDeletion,
     SecretRelocation,
 )
-from validation.scenarios.application import Application
-from validation.scenarios.support.security_migrations import (
+from validation.support.application import Application
+from validation.support.runtime.security_migrations import (
     isolated_process,
     register_synthetic_secrets,
 )

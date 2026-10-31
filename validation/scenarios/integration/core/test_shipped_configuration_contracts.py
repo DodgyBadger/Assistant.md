@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from validation.scenarios.support.settings import run_settings_process
+from validation.support.settings.settings import run_settings_process
 
 pytestmark = pytest.mark.scenario
 

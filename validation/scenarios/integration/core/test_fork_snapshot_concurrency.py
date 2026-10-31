@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.fork_snapshot_concurrency import (
+from validation.support.application import Application
+from validation.support.chat.fork_snapshot_concurrency import (
     concurrent_fork_and_rewrite,
     map_context,
 )
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.memory.session_map_journey_inputs import (
     conversation,
     seed_session,
 )

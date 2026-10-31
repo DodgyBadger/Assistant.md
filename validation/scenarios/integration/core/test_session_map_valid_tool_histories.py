@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.map_author_citable import map_author
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.application import Application
+from validation.support.memory.map_author_citable import map_author
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_journey_inputs import (
     add_recovery_checkpoint,
     conversation,
     seed_session,
@@ -23,7 +23,7 @@ async def test_valid_tool_exchanges_compact_and_upgrade_through_real_author(
     await app.start()
     from core.identity import LOCAL_USER_PRINCIPAL_ID
     from core.runtime.state import get_runtime_context
-    from validation.support.tool_history_fixtures import tool_reply_cases
+    from validation.support.chat.tool_history_fixtures import tool_reply_cases
 
     with map_author() as server:
         configure_author(app, server)

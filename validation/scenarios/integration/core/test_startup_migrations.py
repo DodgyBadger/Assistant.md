@@ -7,8 +7,8 @@ import sqlite3
 import pytest
 
 from core.system_migrations import get_system_migration_status
-from validation.scenarios.application import Application
-from validation.scenarios.support.startup import (
+from validation.support.application import Application
+from validation.support.runtime.startup import (
     create_goal_ops_v1_db,
     create_legacy_chat_sessions_db,
     create_legacy_session_summaries_db,

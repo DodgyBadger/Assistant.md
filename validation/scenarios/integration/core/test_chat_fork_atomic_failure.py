@@ -4,8 +4,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_journeys import add_turn
+from validation.support.application import Application
+from validation.support.memory.compaction_journeys import add_turn
 
 pytestmark = pytest.mark.scenario
 

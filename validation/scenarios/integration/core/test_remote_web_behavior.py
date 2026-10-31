@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.external_web import external_web
-from validation.scenarios.support.ingestion_inputs import require_missing_ocr_secret
-from validation.scenarios.support.vault_inputs import document_pdf
+from validation.support.application import Application
+from validation.support.integrations.external_web import external_web
+from validation.support.runtime.ingestion_inputs import require_missing_ocr_secret
+from validation.support.vault.vault_inputs import document_pdf
 
 pytestmark = pytest.mark.scenario
 
@@ -52,7 +52,7 @@ async def test_remote_import_preserves_destination_provenance_and_content_detect
         assert "Durable remote content." in outputs[0].read_text()
         assert "A real PDF detected from its bytes." in outputs[1].read_text()
         assert html_url in outputs[0].read_text() and pdf_url in outputs[1].read_text()
-        from validation.scenarios.support.settings import activity_events
+        from validation.support.settings.settings import activity_events
 
         classified = [
             e["data"]

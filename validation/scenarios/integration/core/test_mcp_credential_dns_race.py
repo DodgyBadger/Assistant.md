@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
-from validation.scenarios.support.mcp_network_environment import DNSAnswers
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
+from validation.support.integrations.mcp_network_environment import DNSAnswers
 
 pytestmark = pytest.mark.scenario
 

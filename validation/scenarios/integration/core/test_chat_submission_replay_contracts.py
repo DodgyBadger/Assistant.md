@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_submission_replay_contracts import (
+from validation.support.application import Application
+from validation.support.chat.chat_submission_replay_contracts import (
     start_turn,
     submission_provider,
 )
-from validation.scenarios.support.chat_task_journeys import wait_for_status
+from validation.support.chat.chat_task_journeys import wait_for_status
 
 pytestmark = pytest.mark.scenario
 

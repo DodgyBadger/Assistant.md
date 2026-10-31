@@ -6,8 +6,8 @@ import httpx2
 import pytest
 from pydantic import BaseModel
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.provider_denial_http import denial_provider
+from validation.support.application import Application
+from validation.support.integrations.provider_denial_http import denial_provider
 
 pytestmark = pytest.mark.scenario
 

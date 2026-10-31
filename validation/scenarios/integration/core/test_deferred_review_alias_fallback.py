@@ -4,12 +4,12 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.code_tool_chat import (
+from validation.support.application import Application
+from validation.support.chat.code_tool_chat import (
     code_tool_provider,
     configure_provider,
 )
-from validation.scenarios.support.inline_edit_reviews import (
+from validation.support.chat.inline_edit_reviews import (
     request_review,
     session_tool_results,
     submit_review,

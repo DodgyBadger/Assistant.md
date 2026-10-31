@@ -4,12 +4,12 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_stream_provider import streaming_provider
-from validation.scenarios.support.chat_task_journeys import start_chat
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
-from validation.scenarios.support.session_ops_chat import configure_provider
+from validation.support.application import Application
+from validation.support.chat.chat_stream_provider import streaming_provider
+from validation.support.chat.chat_task_journeys import start_chat
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.chat.session_ops_chat import configure_provider
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
 
 pytestmark = pytest.mark.scenario
 

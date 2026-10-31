@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -159,11 +159,11 @@ async def test_terminal_review_closes_only_matching_pending_calls(
 async def test_failed_resume_rolls_back_approved_write_and_settles_review(
     app: Application,
 ) -> None:
-    from validation.scenarios.support.code_tool_chat import (
+    from validation.support.chat.code_tool_chat import (
         code_tool_provider,
         configure_provider,
     )
-    from validation.scenarios.support.inline_edit_reviews import (
+    from validation.support.chat.inline_edit_reviews import (
         request_review,
         submit_review,
     )

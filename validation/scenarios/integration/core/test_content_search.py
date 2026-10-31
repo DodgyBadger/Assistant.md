@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
 
 async def test_literal_content_search_bounds_and_scope(app: Application) -> None:
-    from validation.scenarios.support.vault_state import search_content
+    from validation.support.vault.vault_state import search_content
 
     vault = app.vault("VaultContentSearchVault")
     app.write(

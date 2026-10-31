@@ -6,12 +6,12 @@ import json
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import (
+from validation.support.browser.browser_fullstack import (
     hold_delivery,
     lose_connection,
     setting,
 )
-from validation.scenarios.support.browser_journeys import open_settings
+from validation.support.browser.browser_journeys import open_settings
 
 pytestmark = pytest.mark.scenario
 
@@ -300,7 +300,7 @@ async def test_restoring_one_default_preserves_another_unsaved_setting(browser_a
 async def test_old_metadata_completion_cannot_unlock_newer_pending_mutation(
     browser_app, ui
 ):
-    from validation.scenarios.support.browser_fullstack import hold_deliveries
+    from validation.support.browser.browser_fullstack import hold_deliveries
 
     key = "browser_max_calls_per_turn"
     card = await open_settings(ui, browser_app.url, key)
@@ -337,7 +337,7 @@ async def test_old_metadata_completion_cannot_unlock_newer_pending_mutation(
 async def test_invalid_saved_value_remains_visible_until_explicitly_repaired(
     browser_app, ui, key, value
 ):
-    from validation.scenarios.support.session_map_readiness import (
+    from validation.support.memory.session_map_readiness import (
         set_invalid_readiness_setting,
     )
 
@@ -358,7 +358,7 @@ async def test_invalid_saved_value_remains_visible_until_explicitly_repaired(
 async def test_failed_validation_refresh_retains_saved_warning_and_reports_unavailability(
     browser_app, ui
 ):
-    from validation.scenarios.support.session_map_readiness import (
+    from validation.support.memory.session_map_readiness import (
         set_invalid_readiness_setting,
     )
 
@@ -452,8 +452,8 @@ async def test_global_defaults_discard_setting_model_and_provider_drafts(
 async def test_failed_save_refreshes_model_choices_without_discarding_draft(
     browser_app, ui
 ):
-    from validation.scenarios.support.chat_idle_provider import idle_provider
-    from validation.scenarios.support.session_ops_chat import configure_provider
+    from validation.support.chat.chat_idle_provider import idle_provider
+    from validation.support.chat.session_ops_chat import configure_provider
 
     key = "default_model"
     baseline = entry(browser_app, key)["value"]
@@ -481,7 +481,7 @@ async def test_failed_save_refreshes_model_choices_without_discarding_draft(
 
 
 async def test_global_reset_waits_for_fresh_model_and_provider_reads(browser_app, ui):
-    from validation.scenarios.support.browser_fullstack import hold_deliveries
+    from validation.support.browser.browser_fullstack import hold_deliveries
 
     # Native configuration input represents a saved nondefault managed provider;
     # all reset, loading and rendering implementations remain the real app.

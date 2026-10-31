@@ -7,8 +7,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.principal_authority import (
+from validation.support.application import Application
+from validation.support.runtime.principal_authority import (
     AUTHORITY_WORKFLOW,
     capture_authority,
     create_legacy_chat_database,

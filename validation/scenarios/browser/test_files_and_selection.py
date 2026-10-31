@@ -3,7 +3,7 @@
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import (
+from validation.support.browser.browser_fullstack import (
     read_file,
     select_passage,
 )

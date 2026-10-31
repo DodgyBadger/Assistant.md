@@ -4,11 +4,11 @@ from copy import deepcopy
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.model_configuration import (
+from validation.support.application import Application
+from validation.support.integrations.model_failures import require_activity
+from validation.support.settings.model_configuration import (
     install_legacy_models,
 )
-from validation.scenarios.support.model_failures import require_activity
 
 pytestmark = pytest.mark.scenario
 

@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.replay_inputs import (
+from validation.support.application import Application
+from validation.support.chat.replay_inputs import (
     seed_bracket_history,
     seed_committed_tool_history,
     seed_deferred_collision,

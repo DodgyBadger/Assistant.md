@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_ops_chat import (
+from validation.support.application import Application
+from validation.support.chat.session_ops_chat import (
     configure_provider,
     session_ops_provider,
 )
-from validation.scenarios.support.transcript_boundary_inputs import (
+from validation.support.chat.transcript_boundary_inputs import (
     seed_boundaries,
     tool_context,
 )
-from validation.scenarios.support.transcript_chat_inputs import call_transcript_tool
+from validation.support.chat.transcript_chat_inputs import call_transcript_tool
 
 pytestmark = pytest.mark.scenario
 

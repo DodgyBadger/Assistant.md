@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_schema import (
+from validation.support.application import Application
+from validation.support.memory.session_map_schema import (
     persist_schema_maps,
     schema_inputs,
 )

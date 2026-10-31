@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.application import Application
+from validation.support.memory.session_map_journey_inputs import (
     add_recovery_checkpoint,
     conversation,
     seed_session,
@@ -22,7 +22,7 @@ async def test_upgrade_readiness_and_admission_follow_tool_history_integrity(
     from core.chat.context_strategy_upgrade import get_session_context_strategy_status
     from core.runtime.execution_tasks import ExecutionTaskKind, chat_session_scope
     from core.runtime.state import get_runtime_context
-    from validation.support.tool_history_fixtures import tool_reply_cases
+    from validation.support.chat.tool_history_fixtures import tool_reply_cases
 
     for key, value in (
         ("compaction_strategy", "session_map"),

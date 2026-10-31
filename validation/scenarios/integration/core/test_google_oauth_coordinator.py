@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.oauth_http_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.oauth_http_inputs import (
     google_oauth_server,
     google_setup,
     start_google,

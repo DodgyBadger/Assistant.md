@@ -6,14 +6,14 @@ import pytest
 import pytest_asyncio
 from playwright._impl._driver import compute_driver_executable
 
-from validation.scenarios.application import _ambient_credential, app
-from validation.scenarios.support.browser_runtime import (
+from validation.support.application import _ambient_credential, app
+from validation.support.browser.browser_runtime import (
     BrowserApplication,
     app_http_listener,
     observed_page,
 )
-from validation.scenarios.support.vault_inputs import document_pdf
 from validation.support.core_processes import declare_core_command
+from validation.support.vault.vault_inputs import document_pdf
 
 __all__ = ["app"]
 

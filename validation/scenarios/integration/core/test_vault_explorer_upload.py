@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.vault_inputs import upload
+from validation.support.application import Application
+from validation.support.vault.vault_inputs import upload
 
 pytestmark = pytest.mark.scenario
 

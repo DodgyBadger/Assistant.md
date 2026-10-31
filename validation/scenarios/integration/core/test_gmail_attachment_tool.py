@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.gmail_http import configure_gmail, gmail_server
+from validation.support.application import Application
+from validation.support.integrations.gmail_http import configure_gmail, gmail_server
 
 pytestmark = pytest.mark.scenario
 

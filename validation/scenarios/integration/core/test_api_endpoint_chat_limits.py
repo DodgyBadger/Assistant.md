@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.code_tool_chat import configure_provider
-from validation.scenarios.support.file_tools import copy_image_fixture
-from validation.scenarios.support.two_review_provider import two_review_provider
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.chat.code_tool_chat import configure_provider
+from validation.support.chat.two_review_provider import two_review_provider
+from validation.support.vault.file_tools import copy_image_fixture
 
 pytestmark = pytest.mark.scenario
 

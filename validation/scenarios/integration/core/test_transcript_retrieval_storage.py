@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.transcript_storage import message, tool_result
+from validation.support.application import Application
+from validation.support.chat.transcript_storage import message, tool_result
 
 pytestmark = pytest.mark.scenario
 

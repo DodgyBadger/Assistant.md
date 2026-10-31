@@ -7,8 +7,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_mutation_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.mcp_mutation_inputs import (
     FailingInvalidation,
     exit_during_mutation,
     reject_access_write,

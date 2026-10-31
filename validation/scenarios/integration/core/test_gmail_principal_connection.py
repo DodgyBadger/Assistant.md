@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.google_connections import (
+from validation.support.application import Application
+from validation.support.integrations.google_connections import (
     grant,
     reject_secret_deletion,
 )

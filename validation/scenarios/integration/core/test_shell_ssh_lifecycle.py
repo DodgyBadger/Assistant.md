@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from validation.scenarios.support.shell_ssh_workloads import (
+from validation.support.integrations.shell_ssh_workloads import (
     DISCONNECT,
     FLOOD,
     HOLD,
@@ -14,7 +14,7 @@ from validation.scenarios.support.shell_ssh_workloads import (
     install_shell_workloads,
     shell_activity,
 )
-from validation.scenarios.support.ssh_endpoint import ssh_endpoint
+from validation.support.integrations.ssh_endpoint import ssh_endpoint
 
 pytestmark = pytest.mark.scenario
 
@@ -217,7 +217,7 @@ async def test_external_ssh_diagnostics_are_classified_without_disclosing_raw_ou
 ):
     await app.start()
     from core.advanced_shell.preflight import AdvancedShellPreflightService
-    from validation.scenarios.support.shell_ssh_workloads import (
+    from validation.support.integrations.shell_ssh_workloads import (
         missing_ssh_snapshot,
         ssh_diagnostic_path,
     )

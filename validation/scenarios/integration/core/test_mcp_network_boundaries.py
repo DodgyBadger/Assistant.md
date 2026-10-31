@@ -10,13 +10,13 @@ import pytest
 from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
-from validation.scenarios.support.mcp_network_environment import (
+from validation.support.application import Application
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
+from validation.support.integrations.mcp_network_environment import (
     DNSAnswers,
     NetworkFailures,
 )
-from validation.scenarios.support.tls_inputs import certificate_rejection, local_tls
+from validation.support.runtime.tls_inputs import certificate_rejection, local_tls
 
 pytestmark = pytest.mark.scenario
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.openai_status_http import openai_status_server
+from validation.support.application import Application
+from validation.support.integrations.openai_status_http import openai_status_server
 
 pytestmark = pytest.mark.scenario
 

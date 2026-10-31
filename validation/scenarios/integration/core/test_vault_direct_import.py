@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.vault_inputs import (
+from validation.support.application import Application
+from validation.support.vault.vault_inputs import (
     document_pdf,
     import_source,
     import_status,

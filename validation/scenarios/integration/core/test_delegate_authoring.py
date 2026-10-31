@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.delegate_workflow_inputs import (
+from validation.support.application import Application
+from validation.support.authoring.delegate_workflow_inputs import (
     DELEGATE_MARKDOWN_IMAGE_WORKFLOW,
     DELEGATE_WITH_TOOLS_WORKFLOW,
 )
-from validation.scenarios.support.vault_recovery import run_workflow
+from validation.support.vault.vault_recovery import run_workflow
 
 pytestmark = pytest.mark.scenario
 

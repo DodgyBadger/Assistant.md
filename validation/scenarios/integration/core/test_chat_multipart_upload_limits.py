@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_surface_journeys import (
+from validation.support.application import Application
+from validation.support.chat.chat_surface_journeys import (
     oversized_image_upload,
 )
 

@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
-from validation.scenarios.support.ssh_endpoint import ssh_endpoint
-from validation.scenarios.support.ssh_mcp_inputs import (
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
+from validation.support.integrations.ssh_endpoint import ssh_endpoint
+from validation.support.integrations.ssh_mcp_inputs import (
     add_ssh_mcp_connection,
     save_mcp_observations,
     ssh_mcp_manager,

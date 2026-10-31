@@ -5,7 +5,7 @@ import json
 import pytest
 from fastmcp.client.auth.oauth import TokenStorageAdapter
 
-from validation.scenarios.support.mcp_oauth_provider import (
+from validation.support.integrations.mcp_oauth_provider import (
     ACCESS,
     REFRESH,
     SECRET,

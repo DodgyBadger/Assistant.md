@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.api_endpoint_inputs import (
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.workflows.api_endpoint_inputs import (
     API_SYSTEM_PROBE_WORKFLOW,
     SKIPPED_PROBE_WORKFLOW,
     STATUS_PROBE_WORKFLOW,
 )
-from validation.scenarios.support.chat_tasks import chat_turn
 
 pytestmark = pytest.mark.scenario
 

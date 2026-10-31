@@ -3,8 +3,8 @@
 import pytest
 from playwright.async_api import Error, expect
 
-from validation.scenarios.support.browser_journeys import open_settings
-from validation.scenarios.support.web_strategy_loopback import endpoint
+from validation.support.browser.browser_journeys import open_settings
+from validation.support.integrations.web_strategy_loopback import endpoint
 
 pytestmark = pytest.mark.scenario
 

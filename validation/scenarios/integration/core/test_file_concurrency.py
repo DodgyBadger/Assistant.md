@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.file_boundaries import (
+from validation.support.application import Application
+from validation.support.vault.file_boundaries import (
     move_directory,
     replace_concurrently,
     replace_stale_child,
 )
-from validation.scenarios.support.vault_recovery import query_rows
+from validation.support.vault.vault_recovery import query_rows
 
 pytestmark = pytest.mark.scenario
 

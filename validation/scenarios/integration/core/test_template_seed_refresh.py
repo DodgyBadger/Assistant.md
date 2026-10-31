@@ -11,7 +11,7 @@ from core.settings import (
     get_model_stream_idle_timeout_seconds,
 )
 from core.settings.store import get_general_settings
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -22,7 +22,7 @@ async def test_session_summary_retirement_preserves_authored_state(
     from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
     from core.runtime.execution_tasks import ExecutionTaskSource
     from core.runtime.state import get_runtime_context
-    from validation.scenarios.support.session_cutover import (
+    from validation.support.memory.session_cutover import (
         RETIRED_OPERATION_WORKFLOW,
     )
 

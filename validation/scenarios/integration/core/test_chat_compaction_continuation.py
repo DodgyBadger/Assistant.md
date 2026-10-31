@@ -5,12 +5,12 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_continuation_inputs import (
+from validation.support.application import Application
+from validation.support.memory.compaction_continuation_inputs import (
     seed_tool_history,
     seed_tool_result_shapes,
 )
-from validation.scenarios.support.compaction_journeys import (
+from validation.support.memory.compaction_journeys import (
     author_payload,
     compaction_provider,
     configure_compaction,

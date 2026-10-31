@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_oauth_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.mcp_oauth_inputs import (
     activity,
     mcp_token_server,
     pending_input,

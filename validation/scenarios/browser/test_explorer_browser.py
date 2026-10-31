@@ -6,7 +6,7 @@ import re
 import pytest
 from playwright.async_api import expect
 
-from validation.scenarios.support.browser_fullstack import hold_delivery, open_explorer
+from validation.support.browser.browser_fullstack import hold_delivery, open_explorer
 
 pytestmark = pytest.mark.scenario
 

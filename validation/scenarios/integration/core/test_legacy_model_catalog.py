@@ -2,12 +2,12 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.legacy_model_catalog import (
+from validation.support.application import Application
+from validation.support.settings.legacy_model_catalog import (
     import_legacy_catalog,
     legacy_catalogs,
 )
-from validation.scenarios.support.model_configuration import (
+from validation.support.settings.model_configuration import (
     install_legacy_models,
 )
 

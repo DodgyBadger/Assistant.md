@@ -6,17 +6,17 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring import run_assembly
-from validation.scenarios.support.chat_persistence import (
+from validation.support.application import Application
+from validation.support.authoring.runtime import run_assembly
+from validation.support.chat.chat_persistence import (
     HISTORY_CODE,
     PERSISTENCE_CONTEXT,
     message_rows,
     seed_uncommitted_tool_call,
     tool_rows,
 )
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.settings import general_settings
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.settings.settings import general_settings
 
 pytestmark = pytest.mark.scenario
 

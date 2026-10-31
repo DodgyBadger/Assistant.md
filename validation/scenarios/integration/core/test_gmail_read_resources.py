@@ -9,8 +9,8 @@ from email.parser import BytesParser
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.gmail_http import (
+from validation.support.application import Application
+from validation.support.integrations.gmail_http import (
     ACCESS_TOKEN,
     configure_gmail,
     gmail_server,

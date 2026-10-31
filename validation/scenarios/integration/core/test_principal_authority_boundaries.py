@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.principal_authority import wait_terminal
+from validation.support.application import Application
+from validation.support.runtime.principal_authority import wait_terminal
 
 pytestmark = pytest.mark.scenario
 

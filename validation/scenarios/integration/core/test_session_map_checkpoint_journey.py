@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_journey_inputs import (
+from validation.support.application import Application
+from validation.support.memory.session_map_journey_inputs import (
     conversation,
     range_evidence,
     seed_session,

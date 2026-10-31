@@ -4,20 +4,20 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.code_tool_chat import (
+from validation.support.application import Application
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.chat.code_tool_chat import (
     code_tool_provider,
     configure_provider,
 )
-from validation.scenarios.support.compaction_journeys import configure_compaction
-from validation.scenarios.support.gated_compaction_author import gated_author
-from validation.scenarios.support.model_failures import (
+from validation.support.integrations.model_failures import (
     PRIVATE_VALUES,
     rejecting_provider,
 )
-from validation.scenarios.support.tool_compaction_outcomes import (
+from validation.support.memory.compaction_journeys import configure_compaction
+from validation.support.memory.gated_compaction_author import gated_author
+from validation.support.memory.tool_compaction_outcomes import (
     compaction_results,
     seed_compactable,
 )

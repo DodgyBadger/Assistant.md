@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -14,7 +14,7 @@ async def test_activity_rollback_conflicts_chaining_and_directory_limits(
 ) -> None:
     import json
 
-    from validation.scenarios.support.vault_recovery import (
+    from validation.support.vault.vault_recovery import (
         activity_rows,
         execute_rollback,
         preview_rollback,
@@ -154,7 +154,7 @@ async def test_duplicate_activity_rollback_submissions_reject_one(
         ActivityRollbackResult,
         ActivityRollbackUnavailable,
     )
-    from validation.scenarios.support.vault_recovery import (
+    from validation.support.vault.vault_recovery import (
         record_activity,
         submit_duplicate_rollbacks,
     )

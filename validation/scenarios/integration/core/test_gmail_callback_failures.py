@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.gmail_callback_inputs import (
+from validation.support.application import Application
+from validation.support.integrations.gmail_callback_inputs import (
     ConfiguredGmailCallbacks,
 )
-from validation.scenarios.support.gmail_http import (
+from validation.support.integrations.gmail_http import (
     configure_gmail,
     gmail_server,
     http_factory,

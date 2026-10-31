@@ -4,8 +4,8 @@ import hashlib
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_batch15_inputs import (
+from validation.support.application import Application
+from validation.support.memory.session_map_batch15_inputs import (
     seed_mixed_evidence,
 )
 

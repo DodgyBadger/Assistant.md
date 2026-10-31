@@ -117,6 +117,34 @@ def test_explicit_external_target_is_rejected_before_import(
     assert "must never import" not in result.stdout + result.stderr
 
 
+@pytest.mark.parametrize("selection", ["file", "directory"])
+def test_admitted_support_cannot_be_selected_as_a_scenario(
+    tmp_path: Path, selection: str
+) -> None:
+    config, _, _ = _project(tmp_path)
+    validation = config.parent.parent
+    source = validation / "support/chat/provider.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("raise RuntimeError('helper must never be collected')\n")
+    manifest = validation / "registry/pytest-admission.json"
+    data = json.loads(manifest.read_text())
+    data["files"].append(
+        {
+            "path": source.relative_to(validation).as_posix(),
+            "kind": "support",
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        }
+    )
+    manifest.write_text(json.dumps(data))
+
+    result = _run(
+        config, tmp_path, str(source if selection == "file" else source.parent)
+    )
+    assert result.returncode == 4
+    assert "not an admitted" in result.stderr
+    assert "helper must never be collected" not in result.stdout + result.stderr
+
+
 def test_source_change_requires_readmission(tmp_path: Path) -> None:
     config, core, _ = _project(tmp_path)
     core.write_text(core.read_text() + "def test_extra(): pass\n")

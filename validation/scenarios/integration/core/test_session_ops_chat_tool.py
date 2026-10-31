@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_ops_chat import (
+from validation.support.application import Application
+from validation.support.chat.session_ops_chat import (
     PRIVATE_QUERY,
     break_discovery_index,
     call_session_ops,

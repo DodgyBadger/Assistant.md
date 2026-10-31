@@ -7,12 +7,12 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.code_tool_chat import (
+from validation.support.application import Application
+from validation.support.chat.code_tool_chat import (
     code_tool_provider,
     configure_provider,
 )
-from validation.scenarios.support.inline_edit_reviews import request_review
+from validation.support.chat.inline_edit_reviews import request_review
 
 pytestmark = pytest.mark.scenario
 
@@ -124,8 +124,8 @@ async def test_review_submission_checks_stale_targets_and_claims_once(
 
 
 async def test_two_reviews_block_new_turn_and_preserve_denial(app: Application) -> None:
-    from validation.scenarios.support.chat_tasks import chat_turn
-    from validation.scenarios.support.two_review_provider import (
+    from validation.support.chat.chat_tasks import chat_turn
+    from validation.support.chat.two_review_provider import (
         two_review_provider,
     )
 

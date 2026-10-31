@@ -4,12 +4,12 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_ops_chat import (
+from validation.support.application import Application
+from validation.support.chat.session_ops_chat import (
     configure_provider,
     session_ops_provider,
 )
-from validation.scenarios.support.transcript_chat_inputs import (
+from validation.support.chat.transcript_chat_inputs import (
     call_transcript_tool,
     seed_transcripts,
 )

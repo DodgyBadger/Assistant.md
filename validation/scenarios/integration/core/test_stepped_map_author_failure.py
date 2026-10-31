@@ -4,14 +4,14 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.model_failures import (
+from validation.support.application import Application
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.model_failures import (
     PRIVATE_VALUES,
     rejecting_provider,
 )
-from validation.scenarios.support.stepped_post_turn_inputs import (
+from validation.support.memory.stepped_post_turn_inputs import (
     configure_post_turn,
     seed_post_turn,
 )

@@ -7,8 +7,8 @@ import pytest
 from core.identity import LOCAL_USER_AUTHORITY
 from core.runtime.execution_tasks import ExecutionTaskSource
 from core.runtime.state import get_runtime_context
-from validation.scenarios.application import Application
-from validation.scenarios.support.workflow_runtime import wait_for_created_path
+from validation.support.application import Application
+from validation.support.workflows.workflow_runtime import wait_for_created_path
 
 pytestmark = pytest.mark.scenario
 

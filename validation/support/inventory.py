@@ -219,7 +219,8 @@ def _check_pytest_admission(root: Path, report: InventoryReport) -> set[str]:
             )
     actual_sources = {
         path.relative_to(root).as_posix()
-        for path in (root / "scenarios").rglob("*")
+        for directory in (root / "scenarios", root / "support")
+        for path in directory.rglob("*")
         if path.is_file()
         and path.suffix in {".py", ".ini", ".toml"}
         and "__pycache__" not in path.parts

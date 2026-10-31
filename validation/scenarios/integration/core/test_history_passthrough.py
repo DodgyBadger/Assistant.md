@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring import (
+from validation.support.application import Application
+from validation.support.authoring.runtime import (
     active_tool_history,
     process_context,
 )

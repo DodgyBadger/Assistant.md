@@ -6,9 +6,12 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.provider_error_inputs import provider, tavily_service
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.provider_error_inputs import (
+    provider,
+    tavily_service,
+)
 
 pytestmark = pytest.mark.scenario
 

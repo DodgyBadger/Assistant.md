@@ -15,8 +15,8 @@ from core.authentication import (
     OwnerSessionCodec,
     SessionVerificationError,
 )
-from validation.scenarios.application import Application
-from validation.scenarios.support.authentication import (
+from validation.support.application import Application
+from validation.support.runtime.authentication import (
     OWNER_SECRET,
     authentication_application,
     authentication_client,

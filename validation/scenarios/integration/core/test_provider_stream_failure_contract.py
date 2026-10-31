@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.provider_stream_failures import (
+from validation.support.application import Application
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.integrations.provider_stream_failures import (
     configure_provider,
     refused_loopback_port,
     stream_failure_provider,

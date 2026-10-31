@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from pydantic_ai.messages import ToolReturn
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring_failure_inputs import (
+from validation.support.application import Application
+from validation.support.authoring.authoring_failure_inputs import (
     CAUGHT_PROBE_WORKFLOW,
     EXPLICIT_FAILURE_WORKFLOW,
     SESSION_SEARCH_FAILURE_WORKFLOW,
 )
-from validation.scenarios.support.session_ops_chat import (
+from validation.support.chat.session_ops_chat import (
     break_discovery_index,
     seed_session_ops_inputs,
 )

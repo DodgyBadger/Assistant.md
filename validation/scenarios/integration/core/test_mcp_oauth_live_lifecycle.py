@@ -2,7 +2,7 @@
 
 import pytest
 
-from validation.scenarios.support.mcp_oauth_provider import (
+from validation.support.integrations.mcp_oauth_provider import (
     ACCESS,
     authorize,
     create_connection,
@@ -32,7 +32,7 @@ async def test_live_oauth_start_callback_state_recovery_and_disconnect(app):
         status = await app.request_async(base + "/status")
         assert status.json()["connected"] is True
         assert len(provider.tokens) == 1
-        from validation.scenarios.support.mcp_oauth_provider import REFRESH, SECRET
+        from validation.support.integrations.mcp_oauth_provider import REFRESH, SECRET
 
         verifier = provider.tokens[0]["code_verifier"][0]
         app.evidence.register_secret(verifier)
@@ -72,7 +72,7 @@ async def test_live_completion_cannot_revive_a_revoked_authorization(app, change
 
     from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
     from core.mcp.oauth import MCPOAuthError
-    from validation.scenarios.support.mcp_oauth_provider import authorization_journey
+    from validation.support.integrations.mcp_oauth_provider import authorization_journey
 
     async with oauth_provider(app) as (provider, _):
         async with authorization_journey(app, provider) as journey:
@@ -153,7 +153,7 @@ async def test_actual_oauth_deadlines_fail_closed_and_record_the_operation(app, 
     import asyncio
 
     from core.mcp.oauth import MCPOAuthError
-    from validation.scenarios.support.mcp_oauth_provider import authorization_journey
+    from validation.support.integrations.mcp_oauth_provider import authorization_journey
 
     deadlines = {"start_seconds": 1, "callback_seconds": 2, "completion_seconds": 1}
     async with oauth_provider(app) as (provider, _):
@@ -216,8 +216,8 @@ async def test_failed_live_supersede_retries_with_one_cancellation_and_a_new_ope
     import sqlite3
 
     from core.mcp.oauth import MCPOAuthError
-    from validation.scenarios.support.mcp_oauth_inputs import reject_revocation
-    from validation.scenarios.support.mcp_oauth_provider import authorization_journey
+    from validation.support.integrations.mcp_oauth_inputs import reject_revocation
+    from validation.support.integrations.mcp_oauth_provider import authorization_journey
 
     async with oauth_provider(app) as (provider, _):
         async with authorization_journey(app, provider) as journey:
@@ -254,7 +254,7 @@ async def test_shutdown_drains_completion_and_overlapping_supersede_and_rejects_
     import asyncio
 
     from core.mcp.oauth import MCPOAuthError
-    from validation.scenarios.support.mcp_oauth_provider import authorization_journey
+    from validation.support.integrations.mcp_oauth_provider import authorization_journey
 
     async with oauth_provider(app) as (provider, _):
         async with authorization_journey(app, provider) as journey:

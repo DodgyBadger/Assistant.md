@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.ingestion_inputs import (
+from validation.support.application import Application
+from validation.support.runtime.ingestion_inputs import (
     pdf_source,
     require_missing_ocr_secret,
 )

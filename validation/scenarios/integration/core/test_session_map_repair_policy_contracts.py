@@ -6,13 +6,13 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.compaction_journeys import add_turn
-from validation.scenarios.support.retained_map_author import retained_author
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_repair_policy_contracts import (
+from validation.support.application import Application
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.memory.compaction_journeys import add_turn
+from validation.support.memory.retained_map_author import retained_author
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_repair_policy_contracts import (
     configure_map_policy,
     disable_chat_tools,
     repair_author,

@@ -12,12 +12,12 @@ from pydantic_ai.messages import (
     ToolReturnPart,
 )
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.fork_lineage_inputs import (
+from validation.support.application import Application
+from validation.support.chat.fork_lineage_inputs import (
     _assistant,
     _user,
 )
-from validation.support.tool_history_fixtures import tool_reply_cases
+from validation.support.chat.tool_history_fixtures import tool_reply_cases
 
 pytestmark = pytest.mark.scenario
 

@@ -13,8 +13,8 @@ from core.database_migrations import SQLiteMigration, apply_sqlite_migrations
 from core.ingestion.service import IngestionService
 from core.migration_backups import MIGRATION_BACKUP_DIRECTORY
 from core.system_migrations import get_system_migration_status, run_system_migrations
-from validation.scenarios.application import Application
-from validation.scenarios.support.security_migrations import (
+from validation.support.application import Application
+from validation.support.runtime.security_migrations import (
     activity_data,
     assert_operation_pairs,
     create_legacy_chat_sessions_db,

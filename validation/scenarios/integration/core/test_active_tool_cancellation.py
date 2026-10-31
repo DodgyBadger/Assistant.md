@@ -4,15 +4,15 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.active_tool_cancellation import (
+from validation.support.application import Application
+from validation.support.chat.active_tool_cancellation import (
     active_provider,
     hold_vault_file_lock,
     wait_active_tool,
 )
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.inline_edit_reviews import (
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.chat.inline_edit_reviews import (
     request_review,
     submit_review,
 )

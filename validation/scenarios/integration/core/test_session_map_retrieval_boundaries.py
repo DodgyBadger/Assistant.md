@@ -5,12 +5,12 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_boundary_inputs import (
+from validation.support.application import Application
+from validation.support.memory.session_map_boundary_inputs import (
     add_turn,
     add_window,
 )
-from validation.scenarios.support.session_map_retrieval_inputs import (
+from validation.support.memory.session_map_retrieval_inputs import (
     seed_retrieval,
 )
 

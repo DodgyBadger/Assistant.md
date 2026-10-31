@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring import assembly_history, run_assembly
+from validation.support.application import Application
+from validation.support.authoring.runtime import assembly_history, run_assembly
 
 pytestmark = pytest.mark.scenario
 

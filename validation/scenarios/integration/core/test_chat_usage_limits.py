@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.code_tool_chat import (
+from validation.support.application import Application
+from validation.support.chat.code_tool_chat import (
     call_code_tool,
     code_tool_provider,
     configure_provider,

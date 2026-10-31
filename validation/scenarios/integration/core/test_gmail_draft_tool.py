@@ -7,8 +7,8 @@ import json
 import pytest
 from pydantic_ai.messages import ToolReturn
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.gmail_http import (
+from validation.support.application import Application
+from validation.support.integrations.gmail_http import (
     configure_gmail,
     corrupt_google_grant,
     draft_message,
@@ -182,6 +182,6 @@ async def test_gmail_locked_storage_returns_actionable_configuration_result(
     app: Application,
 ) -> None:
     await app.start()
-    from validation.scenarios.support.gmail_locked import exercise_locked_gmail
+    from validation.support.integrations.gmail_locked import exercise_locked_gmail
 
     exercise_locked_gmail(app)

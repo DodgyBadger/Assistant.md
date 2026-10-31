@@ -4,11 +4,11 @@ from hashlib import sha256
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.batch_move_external_edit import (
+from validation.support.application import Application
+from validation.support.vault.batch_move_external_edit import (
     delay_move_audit_and_edit,
 )
-from validation.scenarios.support.vault_recovery import query_rows
+from validation.support.vault.vault_recovery import query_rows
 
 pytestmark = pytest.mark.scenario
 

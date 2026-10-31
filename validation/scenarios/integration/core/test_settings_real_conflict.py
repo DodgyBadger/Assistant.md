@@ -8,8 +8,8 @@ from threading import Thread
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.settings_commit_barrier import (
+from validation.support.application import Application
+from validation.support.settings.settings_commit_barrier import (
     pause_next_settings_save,
 )
 

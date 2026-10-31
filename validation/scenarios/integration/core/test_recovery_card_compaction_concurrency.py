@@ -4,13 +4,13 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_journeys import (
+from validation.support.application import Application
+from validation.support.memory.compaction_journeys import (
     add_turn,
     author_payload,
     configure_compaction,
 )
-from validation.scenarios.support.gated_compaction_author import (
+from validation.support.memory.gated_compaction_author import (
     gated_author,
     seed_conversation,
 )

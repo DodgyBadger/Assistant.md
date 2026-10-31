@@ -7,8 +7,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.secrets_crash_recovery import (
+from validation.support.application import Application
+from validation.support.runtime.secrets_crash_recovery import (
     cold_start_process,
     create_crash_installation,
     kill_at_boundary,

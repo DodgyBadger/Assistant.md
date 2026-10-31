@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
 
 pytestmark = pytest.mark.scenario
 

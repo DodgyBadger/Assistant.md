@@ -111,3 +111,73 @@ def test_malformed_manifest_is_a_controlled_inventory_error(
     (tmp_path / "registry/pytest-admission.json").write_text(json.dumps(payload))
     with pytest.raises(InventoryError):
         _check_pytest_admission(tmp_path, InventoryReport())
+
+
+def _support_source(root: Path, *, kind: str = "support") -> Path:
+    _staging(root)
+    source = root / "support/chat/provider.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("raise RuntimeError('helper must not be imported')\n")
+    manifest = root / "registry/pytest-admission.json"
+    data = json.loads(manifest.read_text())
+    data["files"].append(
+        {
+            "path": source.relative_to(root).as_posix(),
+            "kind": kind,
+            "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "tests": [],
+        }
+    )
+    manifest.write_text(json.dumps(data))
+    return source
+
+
+def test_support_admission_is_import_free_and_detects_changed_helpers(
+    tmp_path: Path,
+) -> None:
+    source = _support_source(tmp_path)
+    report = InventoryReport()
+    admitted = _check_pytest_admission(tmp_path, report)
+    assert source.relative_to(tmp_path).as_posix() in admitted
+    assert report.issues == []
+
+    source.write_text("raise RuntimeError('changed helper')\n")
+    report = InventoryReport()
+    _check_pytest_admission(tmp_path, report)
+    assert report.issues == [
+        "Pytest source changed since admission: support/chat/provider.py"
+    ]
+
+
+def test_unregistered_support_helper_is_detected(tmp_path: Path) -> None:
+    source = _support_source(tmp_path)
+    source.with_name("unregistered.py").write_text(
+        "raise RuntimeError('not imported')\n"
+    )
+    report = InventoryReport()
+    _check_pytest_admission(tmp_path, report)
+    assert report.issues == ["Unregistered pytest source: support/chat/unregistered.py"]
+
+
+def test_support_directory_cannot_admit_behavioral_cases(tmp_path: Path) -> None:
+    _support_source(tmp_path, kind="behavioral")
+    with pytest.raises(InventoryError, match="outside admitted roots"):
+        _check_pytest_admission(tmp_path, InventoryReport())
+
+
+@pytest.mark.parametrize("whole_directory", [False, True])
+def test_support_admission_rejects_symlink_escape(
+    tmp_path: Path, whole_directory: bool
+) -> None:
+    source = _support_source(tmp_path)
+    external = tmp_path / "outside"
+    external.mkdir()
+    (external / source.name).write_text(source.read_text())
+    source.unlink()
+    if whole_directory:
+        source.parent.rmdir()
+        source.parent.symlink_to(external, target_is_directory=True)
+    else:
+        source.symlink_to(external / source.name)
+    with pytest.raises(InventoryError, match="external"):
+        _check_pytest_admission(tmp_path, InventoryReport())

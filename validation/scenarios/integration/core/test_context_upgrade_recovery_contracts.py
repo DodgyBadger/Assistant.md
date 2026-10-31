@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.compaction_journeys import add_turn
-from validation.scenarios.support.context_upgrade_recovery_contracts import (
+from validation.support.application import Application
+from validation.support.memory.compaction_journeys import add_turn
+from validation.support.memory.context_upgrade_recovery_contracts import (
     seed_upgrade_input,
     start_upgrade,
     wait_author,
 )
-from validation.scenarios.support.map_author_barrier import blocking_map_author
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_repair_policy_contracts import (
+from validation.support.memory.map_author_barrier import blocking_map_author
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_repair_policy_contracts import (
     configure_map_policy,
 )
 

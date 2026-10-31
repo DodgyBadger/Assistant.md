@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.pending_inputs import PENDING_DIFF_WORKFLOW
-from validation.scenarios.support.vault_recovery import run_workflow
+from validation.support.application import Application
+from validation.support.chat.pending_inputs import PENDING_DIFF_WORKFLOW
+from validation.support.vault.vault_recovery import run_workflow
 
 pytestmark = pytest.mark.scenario
 

@@ -7,8 +7,8 @@ import json
 import pytest
 from pydantic_ai.messages import ToolReturn
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.ingestion_inputs import (
+from validation.support.application import Application
+from validation.support.runtime.ingestion_inputs import (
     pdf_source,
     require_missing_ocr_secret,
     wait_import_terminal,

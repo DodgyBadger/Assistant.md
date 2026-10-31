@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
+from validation.support.application import Application
 
 pytestmark = pytest.mark.scenario
 
@@ -73,7 +73,7 @@ async def test_provider_http_failures_and_retry_transport_contracts(
     )
     from core.llm.openai_client import build_openai_sdk_client
     from core.tools.failures import classify_exception
-    from validation.scenarios.support.api_failure_http import failure_endpoint
+    from validation.support.integrations.api_failure_http import failure_endpoint
 
     with failure_endpoint() as base:
         for status, expected in ((429, True), (503, True), (400, False)):

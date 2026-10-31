@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.support.gmail_http import gmail_server, http_factory
-from validation.scenarios.support.google_connections import grant
+from validation.support.integrations.gmail_http import gmail_server, http_factory
+from validation.support.integrations.google_connections import grant
 
 pytestmark = pytest.mark.scenario
 

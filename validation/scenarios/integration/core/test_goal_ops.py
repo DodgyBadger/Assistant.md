@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.goal_job_inputs import (
+from validation.support.application import Application
+from validation.support.runtime.goal_job_inputs import (
     age_goals,
     goal_rows,
     tool_context,

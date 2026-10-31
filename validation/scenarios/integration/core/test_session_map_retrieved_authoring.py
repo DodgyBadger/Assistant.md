@@ -2,10 +2,10 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.retrieved_map_author import retrieved_author
-from validation.scenarios.support.session_map_author_http import configure_author
-from validation.scenarios.support.session_map_boundary_inputs import (
+from validation.support.application import Application
+from validation.support.memory.retrieved_map_author import retrieved_author
+from validation.support.memory.session_map_author_http import configure_author
+from validation.support.memory.session_map_boundary_inputs import (
     add_turn,
     add_window,
 )

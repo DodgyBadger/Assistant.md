@@ -4,8 +4,8 @@ import sqlite3
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_map_retrieval_inputs import (
+from validation.support.application import Application
+from validation.support.memory.session_map_retrieval_inputs import (
     append_fragment_retrieval,
     seed_retrieval,
 )

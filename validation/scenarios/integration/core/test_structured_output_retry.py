@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.code_tool_chat import configure_provider
-from validation.scenarios.support.retry_provider import retry_provider
+from validation.support.application import Application
+from validation.support.chat.code_tool_chat import configure_provider
+from validation.support.chat.retry_provider import retry_provider
 
 pytestmark = pytest.mark.scenario
 

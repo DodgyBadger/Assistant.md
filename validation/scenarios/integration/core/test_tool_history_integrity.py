@@ -6,12 +6,12 @@ from datetime import datetime
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.authoring import run_assembly
-from validation.scenarios.support.chat_tasks import chat_turn
-from validation.scenarios.support.code_tool_chat import configure_provider
-from validation.scenarios.support.retry_provider import retry_provider
-from validation.scenarios.support.tool_history_inputs import (
+from validation.support.application import Application
+from validation.support.authoring.runtime import run_assembly
+from validation.support.chat.chat_tasks import chat_turn
+from validation.support.chat.code_tool_chat import configure_provider
+from validation.support.chat.retry_provider import retry_provider
+from validation.support.chat.tool_history_inputs import (
     TOOL_HISTORY_BATCH_CODE,
     TOOL_HISTORY_ORPHAN_CODE,
     _batch_history,

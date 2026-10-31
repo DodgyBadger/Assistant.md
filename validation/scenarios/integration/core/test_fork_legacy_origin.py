@@ -2,8 +2,8 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.fork_lineage_inputs import (
+from validation.support.application import Application
+from validation.support.chat.fork_lineage_inputs import (
     _assistant,
     _map_context,
     _user,

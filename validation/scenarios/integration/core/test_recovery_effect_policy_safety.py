@@ -2,14 +2,14 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_failure_recovery_contracts import set_setting
-from validation.scenarios.support.chat_persistence import PERSISTENCE_CONTEXT
-from validation.scenarios.support.recovery_activity import require_recovery_activity
-from validation.scenarios.support.recovery_effect_policy_workload import (
+from validation.support.application import Application
+from validation.support.chat.chat_failure_recovery_contracts import set_setting
+from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
+from validation.support.chat.recovery_activity import require_recovery_activity
+from validation.support.chat.recovery_effect_policy_workload import (
     effect_policy_server,
 )
-from validation.scenarios.support.rollback_restart_workload import (
+from validation.support.chat.rollback_restart_workload import (
     CHANGED,
     ORIGINAL,
     chat_with_redirects,

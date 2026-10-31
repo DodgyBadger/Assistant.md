@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.session_ops_chat import (
+from validation.support.application import Application
+from validation.support.chat.session_ops_chat import (
     call_session_ops,
     configure_provider,
     seed_session_ops_inputs,
     session_ops_provider,
 )
-from validation.scenarios.support.transcript_error_privacy import (
+from validation.support.chat.transcript_error_privacy import (
     PRIVATE_EXCEPTION,
     PRIVATE_QUERY,
     break_transcript_content,

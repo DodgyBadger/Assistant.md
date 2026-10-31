@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.task_runner_workloads import (
+from validation.support.application import Application
+from validation.support.runtime.task_runner_workloads import (
     _wait_for_shutdown_cleanup,
     wait_snapshot,
 )

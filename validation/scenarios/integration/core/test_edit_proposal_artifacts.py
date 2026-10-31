@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.historical_proposals import (
+from validation.support.application import Application
+from validation.support.chat.historical_proposals import (
     seed_historical_proposal,
 )
 

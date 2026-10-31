@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.mcp_http_inputs import mcp_http_server
+from validation.support.application import Application
+from validation.support.integrations.mcp_http_inputs import mcp_http_server
 
 pytestmark = pytest.mark.scenario
 

@@ -2,9 +2,9 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.delegate_attention_provider import attention_provider
-from validation.scenarios.support.delegate_inputs import invoke_delegate
+from validation.support.application import Application
+from validation.support.authoring.delegate_attention_provider import attention_provider
+from validation.support.authoring.delegate_inputs import invoke_delegate
 
 pytestmark = pytest.mark.scenario
 

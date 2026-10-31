@@ -2,10 +2,10 @@
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.chat_retry_provider import retry_provider
-from validation.scenarios.support.chat_retry_setup import prepare_tool_free_retry
-from validation.scenarios.support.chat_tasks import chat_turn
+from validation.support.application import Application
+from validation.support.chat.chat_retry_provider import retry_provider
+from validation.support.chat.chat_retry_setup import prepare_tool_free_retry
+from validation.support.chat.chat_tasks import chat_turn
 
 pytestmark = pytest.mark.scenario
 

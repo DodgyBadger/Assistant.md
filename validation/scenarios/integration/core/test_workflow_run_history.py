@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from validation.scenarios.application import Application
-from validation.scenarios.support.workflow_history_inputs import (
+from validation.support.application import Application
+from validation.support.workflows.workflow_history_inputs import (
     DOMAIN_FAILURE_WORKFLOW,
     RAISED_FAILURE_WORKFLOW,
     TEMPLATE_INPUT,
