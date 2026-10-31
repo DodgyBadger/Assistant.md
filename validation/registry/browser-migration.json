@@ -3,13 +3,13 @@
   "status": "known_legacy_browser_contracts_verified",
   "profile": "validation/scenarios/browser/pytest.ini",
   "legacy_test_files": 27,
-  "originals_retained": true,
+  "originals_retained": false,
   "sources": [
     {
       "source": "validation/legacy/browser/test_app_shell.py",
       "sha256": "6d08346563c6a883c8dea5aadcf5cfb5883572654d01d7ddf88ff576656fb65d",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "app_shell:test_app_shell_controller_contract",
@@ -56,13 +56,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_dashboard_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "6d08346563c6a883c8dea5aadcf5cfb5883572654d01d7ddf88ff576656fb65d",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_composer.py",
       "sha256": "4bd4746d70288a4ed1e56b9aef50539a41fed7018c55bd2e2021892b6726a248",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_composer:test_chat_composer_exposes_layout_and_attachment_controls",
@@ -90,13 +95,18 @@
       "replacement_files": [
         "validation/scenarios/browser/test_chat_browser.py",
         "validation/scenarios/browser/test_files_and_selection.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "4bd4746d70288a4ed1e56b9aef50539a41fed7018c55bd2e2021892b6726a248",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_rendering_modules.py",
       "sha256": "44fd935f7e3e0cc1030499fefa63c845e26bf20f9d77f4b72c6492bf1507c55f",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_rendering_modules:test_shared_markdown_wikilinks_and_preview_source_context",
@@ -260,13 +270,18 @@
         "validation/scenarios/browser/test_chat_browser.py",
         "validation/scenarios/browser/test_session_browser.py",
         "validation/scenarios/browser/test_files_and_selection.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "44fd935f7e3e0cc1030499fefa63c845e26bf20f9d77f4b72c6492bf1507c55f",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_selection.py",
       "sha256": "0e7bc1a83fd836280ad30c7e5bb72e7baad3160502c42c2f5b5c5b586592c93b",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_selection:test_chat_selection_controller_contract",
@@ -303,13 +318,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_session_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "0e7bc1a83fd836280ad30c7e5bb72e7baad3160502c42c2f5b5c5b586592c93b",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_sessions.py",
       "sha256": "b768eaf67eb8ba8ba820b4c1728a6d6bcf61b441a0941b2d20171a066e3bd2df",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_sessions:test_chat_sessions_controller_contract",
@@ -347,7 +367,7 @@
         },
         {
           "id": "chat_sessions:test_pending_chat_mode_save_survives_session_navigation",
-          "contract": "pending chat mode save survives session navigation. Current assertion examples: 195: const assert = require('assert');; 233: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');; 235: assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session\u2019s mode.');; 241: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B\u2019s mode.');",
+          "contract": "pending chat mode save survives session navigation. Current assertion examples: 195: const assert = require('assert');; 233: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit');; 235: assert.strictEqual(elements.chatModeSelector.value, 'normal', 'A pending save must not replace another session’s mode.');; 241: assert.strictEqual(elements.chatModeSelector.value, 'inline_edit', 'Returning to A must restore its pending mode, not retain B’s mode.');",
           "prior_recommendation": "rewrite",
           "disposition": "verified_real_browser_replacement",
           "replacement_files": [
@@ -360,13 +380,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_session_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "b768eaf67eb8ba8ba820b4c1728a6d6bcf61b441a0941b2d20171a066e3bd2df",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_task_stream.py",
       "sha256": "2d2ce7d7f78dc471679523a408ae745acf485e0edb313a674022091f4e102e61",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_task_stream:test_chat_task_stream_consumes_sse_and_releases_matching_stream",
@@ -427,13 +452,18 @@
       "replacement_files": [
         "validation/scenarios/browser/test_chat_browser.py",
         "validation/scenarios/browser/test_dashboard_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "2d2ce7d7f78dc471679523a408ae745acf485e0edb313a674022091f4e102e61",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_chat_tool_details_module.py",
       "sha256": "7257ee36fd30ab53edca72ecbd0b691530b755db3c45f2c04f86bb8e649a63b0",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "chat_tool_details_module:test_tool_detail_back_preserves_map_focus_and_escape_restores_connected_invoker",
@@ -452,13 +482,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_chat_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "7257ee36fd30ab53edca72ecbd0b691530b755db3c45f2c04f86bb8e649a63b0",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_configuration_modules.py",
       "sha256": "960e04f0972abbcffa6d290deedbce054ce30cd442459f41b4b3c4622758145f",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "configuration_modules:test_configuration_modules_load_in_declared_order",
@@ -593,13 +628,18 @@
         "validation/scenarios/browser/test_configuration_browser.py",
         "validation/scenarios/browser/test_system_surfaces.py",
         "validation/scenarios/browser/test_import_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "960e04f0972abbcffa6d290deedbce054ce30cd442459f41b4b3c4622758145f",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_configuration_status_module.py",
       "sha256": "76b6bfc275827aeb918b2ba376d377d9555e377d757abe8ed16db6f8777b1257",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "configuration_status_module:test_configuration_status_controller_contract",
@@ -624,13 +664,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_system_surfaces.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "76b6bfc275827aeb918b2ba376d377d9555e377d757abe8ed16db6f8777b1257",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_dashboard_view.py",
       "sha256": "c27ce108e3913ad79beefdc3bd602d0c78c33c1250451b6b9ac45b9c4a58a896",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "dashboard_view:test_dashboard_polls_for_tasks_while_visible",
@@ -660,13 +705,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_dashboard_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "c27ce108e3913ad79beefdc3bd602d0c78c33c1250451b6b9ac45b9c4a58a896",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_file_reference_modules.py",
       "sha256": "051e2ca544cbf01f0ae3ba765cb3937f225086c142fb41f009ce380c7bbfb2ba",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "file_reference_modules:test_file_references_composes_link_resolver",
@@ -747,13 +797,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_files_and_selection.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "051e2ca544cbf01f0ae3ba765cb3937f225086c142fb41f009ce380c7bbfb2ba",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_model_editors.cjs",
       "sha256": "3af785802c74262ee75e1b1851e7d2f3c2b943358a78e504415454636a84dc73",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "model_editors_01",
@@ -818,13 +873,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_configuration_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "3af785802c74262ee75e1b1851e7d2f3c2b943358a78e504415454636a84dc73",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_quote_selection.cjs",
       "sha256": "35686320666130616901f70ea523be0085e83b6dc57102ac9015cf2cb5854985",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "quote_selection:quote blocks retain multiline text and keep prompt outside the quote",
@@ -872,13 +932,18 @@
       "replacement_files": [
         "validation/scenarios/browser/test_files_and_selection.py",
         "validation/scenarios/browser/test_chat_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "35686320666130616901f70ea523be0085e83b6dc57102ac9015cf2cb5854985",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_quote_selection_browser.py",
       "sha256": "287fc453f409d61fa91a0aeb525e6e60730354a358f3828aa10b1b85a8da6887",
       "source_style": "browser_component_with_synthetic_page",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "quote_selection_browser:test_append_repeated_quotes_and_keep_file_open",
@@ -1161,13 +1226,18 @@
       "replacement_files": [
         "validation/scenarios/browser/test_files_and_selection.py",
         "validation/scenarios/browser/test_chat_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "287fc453f409d61fa91a0aeb525e6e60730354a358f3828aa10b1b85a8da6887",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_session_controls_module.py",
       "sha256": "9efcc5ac074ea825ba089976e07a3e9c709b5730638312f5061741674ba022f4",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "session_controls_module:test_compaction_pressure_updates_map_only_context_and_rejects_stale_responses",
@@ -1209,13 +1279,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_session_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "9efcc5ac074ea825ba089976e07a3e9c709b5730638312f5061741674ba022f4",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_session_map.py",
       "sha256": "e7db08f8532992313b9d6fa4a7e073a41db88c76e16885e6ff5b5facfb5f6f74",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "session_map:test_session_map_controller_contract",
@@ -1290,13 +1365,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_session_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "e7db08f8532992313b9d6fa4a7e073a41db88c76e16885e6ff5b5facfb5f6f74",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_settings_availability_browser.py",
       "sha256": "9ff7adaff9ed08d6d61c15b9479485182d6410f781e0adb20040176f68ed3940",
       "source_style": "browser_component_with_synthetic_page",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "settings_availability_browser:test_controls_unlock_before_metadata_refresh_finishes",
@@ -1313,13 +1393,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_configuration_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "9ff7adaff9ed08d6d61c15b9479485182d6410f781e0adb20040176f68ed3940",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_settings_editors.cjs",
       "sha256": "5f6d1d100d1c3aa873603711f4d9a86af39de8519784c967c100d4a016d67111",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "settings_editors_01",
@@ -1594,13 +1679,18 @@
       "replacement_files": [
         "validation/scenarios/browser/test_configuration_browser.py",
         "validation/scenarios/browser/test_settings_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "5f6d1d100d1c3aa873603711f4d9a86af39de8519784c967c100d4a016d67111",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_system_status_module.py",
       "sha256": "c573650eacd6caebe75811e0ccfb02e578fe26794c4dd739d2f8d4aabef17fa4",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "system_status_module:test_system_status_controller_contract",
@@ -1673,13 +1763,18 @@
         "validation/scenarios/browser/test_system_surfaces.py",
         "validation/scenarios/browser/test_session_browser.py",
         "validation/scenarios/browser/test_dashboard_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "c573650eacd6caebe75811e0ccfb02e578fe26794c4dd739d2f8d4aabef17fa4",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_batch_moves_module.py",
       "sha256": "4334eb73f62eb9353f7d5e898625eb3c0790bd49b8787117ae333f6909f0f283",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_batch_moves_module:test_batch_move_controller_has_a_small_public_contract",
@@ -1694,13 +1789,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "4334eb73f62eb9353f7d5e898625eb3c0790bd49b8787117ae333f6909f0f283",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_controller_module.py",
       "sha256": "d4188d5e4bfc7e53acba439a712ff623f946c4c0dd1617bf8507d89ca5deb7f2",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_controller_module:test_vault_explorer_controller_owns_selection_lifecycle",
@@ -1730,13 +1830,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "d4188d5e4bfc7e53acba439a712ff623f946c4c0dd1617bf8507d89ca5deb7f2",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_destination_module.py",
       "sha256": "e32ce5f1c6cdcb10b88d2da0e8965b678614e2db87e70c833a741a86b1e69cb2",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_destination_module:test_destination_mode_normalizes_paths_and_rejects_self_moves",
@@ -1754,13 +1859,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "e32ce5f1c6cdcb10b88d2da0e8965b678614e2db87e70c833a741a86b1e69cb2",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_imports_module.py",
       "sha256": "3f8135a56426333b79d9ce53dc3c79644eca3156e5963feb3574921bd6fe574a",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_imports_module:test_vault_explorer_imports_exposes_bounded_controller_and_file_support",
@@ -1795,17 +1905,22 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_import_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "3f8135a56426333b79d9ce53dc3c79644eca3156e5963feb3574921bd6fe574a",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_search_module.py",
       "sha256": "b7b9e1fd6d6f61f998c032275e0c2a5127b66368f74d20986fdab0f33928e319",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_search_module:test_vault_explorer_search_renders_structured_escaped_matches",
-          "contract": "vault explorer search renders structured escaped matches. Current assertion examples: 14: const assert = require('assert');; 33: assert.deepStrictEqual(; 55: assert.match(rendered, /Notes\\/&lt;unsafe&gt;\\.md/);; 56: assert.match(rendered, /Line 7 \u00b7 A &lt;script&gt; &amp; more/);",
+          "contract": "vault explorer search renders structured escaped matches. Current assertion examples: 14: const assert = require('assert');; 33: assert.deepStrictEqual(; 55: assert.match(rendered, /Notes\\/&lt;unsafe&gt;\\.md/);; 56: assert.match(rendered, /Line 7 · A &lt;script&gt; &amp; more/);",
           "prior_recommendation": "rewrite",
           "disposition": "verified_real_browser_replacement",
           "replacement_files": [
@@ -1818,13 +1933,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "b7b9e1fd6d6f61f998c032275e0c2a5127b66368f74d20986fdab0f33928e319",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_state_module.py",
       "sha256": "a6deb1994d193171a10e2b1f06d4268d0683cc8556e115695d4bf1c8f4daee22",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_state_module:test_vault_explorer_state_tracks_selection_and_operation_applicability",
@@ -1851,13 +1971,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "a6deb1994d193171a10e2b1f06d4268d0683cc8556e115695d4bf1c8f4daee22",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_explorer_toolbar_module.py",
       "sha256": "53ffdddd4f574eef01eb5cef644e261e792cee1fc5e221dfeb40792b7702407e",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_explorer_toolbar_module:test_vault_explorer_toolbar_renders_and_dispatches_applicable_actions",
@@ -1887,13 +2012,18 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "53ffdddd4f574eef01eb5cef644e261e792cee1fc5e221dfeb40792b7702407e",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/browser/test_vault_path_picker_modules.py",
       "sha256": "78d08618c12d37a6172cfadcb7b0da0f9d91c2df71461c609a8d9b98ef5e4c0e",
       "source_style": "node_module_or_source_harness",
-      "disposition": "retained_original_with_reviewed_behavior_replacements",
+      "disposition": "reviewed_original_removed",
       "contracts": [
         {
           "id": "vault_path_picker_modules:test_refresh_preserves_expanded_tree_selection_and_scroll",
@@ -1952,14 +2082,19 @@
       ],
       "replacement_files": [
         "validation/scenarios/browser/test_explorer_browser.py"
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "78d08618c12d37a6172cfadcb7b0da0f9d91c2df71461c609a8d9b98ef5e4c0e",
+        "state": "removed"
+      }
     }
   ],
   "ancillary_diagnostics": [
     {
       "source": "validation/legacy/browser/check_ui_enhancements_obscura.py",
       "sha256": "f928a93b68168b69c48d79dd5b4d70fecba1dfd8df5cc5dc2aef1e42ccf7c63a",
-      "disposition": "retained_non_gate_diagnostic"
+      "disposition": "removed_non_gate_diagnostic"
     }
   ],
   "pilots": [
@@ -2010,5 +2145,26 @@
     "real_behavior_replacements": 94,
     "retired_implementation_assertions": 33,
     "cleanup_and_artifacts_audited": true
+  },
+  "legacy_cleanup": {
+    "date": "2026-10-31",
+    "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+    "policy": "Retain only deferred source references. Covered, retired and experimental originals are deleted; Git retains their history.",
+    "retained_sources": [
+      "validation/legacy/pending/test_advanced_shell_config.py",
+      "validation/legacy/pending/test_chat_instructions.py",
+      "validation/legacy/pending/test_chat_mcp_lifecycle.py",
+      "validation/legacy/pending/test_ingestion_storage.py",
+      "validation/legacy/pending/test_managed_model_catalog.py",
+      "validation/legacy/pending/test_mcp_manager_hardening.py",
+      "validation/legacy/pending/test_provider_errors.py",
+      "validation/legacy/pending/test_settings_lifecycle.py",
+      "validation/legacy/scenarios/integration/core/browser_resource_policy.py",
+      "validation/legacy/scenarios/integration/core/file_write_directory_delete.py",
+      "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py",
+      "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
+    ],
+    "run_artifacts": "Deleted at user request without copying or archiving elsewhere. Earlier run paths in this registry are historical references, not available artifacts.",
+    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims."
   }
 }

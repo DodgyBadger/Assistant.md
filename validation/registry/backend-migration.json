@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "review_complete_with_explicit_coverage_gaps",
   "scope": "18 formerly root-level backend files; all 93 active and previously retired source-audit groups reviewed. Covered means the cited current assertions establish the stated group scope; partial/open groups remain retained and are not accepted for deletion.",
-  "originals_retained": true,
+  "originals_retained": false,
   "sources": [
     {
       "source": "validation/legacy/pending/test_advanced_shell_config.py",
@@ -214,7 +214,16 @@
           "prior_classification": "rewrite",
           "scope": "Actual capability service with real preflight/SSH yields a manual-recovery tool only for the mapped principal in advanced ready mode; unmapped, restricted and authentication-unavailable cases return no tool. Restricted admission performs no remote probe."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "e668c29cc31bfb88e0c5d0d0176a5ca9e4ba6e4a8cca64152c0d2ef5dd61c7dd",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_primary_chat_instruction_layers_gate_advanced_shell_exactly_once"
+        ],
+        "retained_sha256": "fb2fe34d75529a4114997fa8948e5265a277bf9d3a15c9208b5b296c640cde18"
+      }
     },
     {
       "source": "validation/legacy/pending/test_authentication_middleware.py",
@@ -274,7 +283,12 @@
           "scope": "Real API/runtime middleware covers malformed/duplicate/mixed credentials, public/unknown routes, proxy and exact loopback peers, and authorized/unauthorized unrouted WebSocket admission. No implemented WebSocket feature is claimed.",
           "prior_scope": "Real HTTP login/cookies/CSRF, oversized public-route headers, unknown routes, malformed bearer and peer admission pass. WebSocket admission and the complete malformed transport/header matrix remain unverified."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "5105bd33c0732c31586e9880fce907adb0bc2bd1838fc14783120f43ff506293",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_authentication_policy.py",
@@ -386,7 +400,12 @@
           "scope": "Real loaded owner policy derives a 32-byte session key distinct from the raw credential.",
           "prior_scope": "Cookie secrecy/rotation is covered; cryptographic domain separation and derived-key requirements are not equivalent to cookie round-trip and remain explicit security proof."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "d317315ea87590955a6f43236e5b87d393ecfb074a14b078898fab70136e3a35",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_authentication_rate_limit.py",
@@ -432,7 +451,12 @@
           "scope": "Actual HTTP ingress uses the production limiter with its explicit supported monotonic clock input, proving expiry, successful admission reset and bounded peer eviction. This is not a wall-clock production-default duration test.",
           "prior_scope": "Actual HTTP failure limit and Retry-After are asserted; window expiration, success reset and bounded-peer eviction remain unverified."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "81d3ce49bd794a90313791f0cade0c32d7e02d7227cd3eadecfe05067a340962",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_authentication_session.py",
@@ -528,7 +552,12 @@
           "scope": "Actual issued signed payload has only version/time/CSRF digest/nonce claims, excludes raw secret and CSRF token and is bounded; public codec rejects nonpositive lifetime and naive timestamps.",
           "prior_scope": "Bounded issued cookie excludes credential/CSRF plaintext. Invalid lifetime/naive timestamp input rejection is not covered; review as a public codec contract rather than silently dropping it."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "54241d38495990916f965610b8917520f770572a463cf547807602f2642cfce0",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_chat_instructions.py",
@@ -558,7 +587,16 @@
           "prior_classification": "rewrite",
           "scope": "Base context composition and manager session closure are real, but deferred-resume semantic instruction ordering and releasing an acquired MCP snapshot on primary/deferred preparation failure are not directly asserted. Private fake registration/close counters will not be ported as-is."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "a3691e67eaf273d3e1dc6aa36ccc9806f450ef0956e889847a0b5207a6c7bcee",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_primary_chat_instruction_layers_add_deferred_review_resume_notice"
+        ],
+        "retained_sha256": "f994da6f6aae16cf2e7c79ac1db1a4cb934198a62e72922940b92962ddaee738"
+      }
     },
     {
       "source": "validation/legacy/pending/test_chat_mcp_lifecycle.py",
@@ -612,7 +650,18 @@
           "prior_classification": "rewrite",
           "scope": "Base context composition and manager session closure are real, but deferred-resume semantic instruction ordering and releasing an acquired MCP snapshot on primary/deferred preparation failure are not directly asserted. Private fake registration/close counters will not be ported as-is."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "12bd2d1b08fb5347208d059faa037b24b8486c8dadac3cb87a5dbbcac3694994",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_deferred_preparation_registers_review_resume_notice",
+          "test_deferred_preparation_releases_mcp_snapshot_on_shell_failure",
+          "test_primary_preparation_releases_mcp_snapshot_on_shell_failure"
+        ],
+        "retained_sha256": "ad2d535c35e9e093c7981c28d1657f21debabf4ae27a7a502a73306d3d853bfe"
+      }
     },
     {
       "source": "validation/legacy/pending/test_decision_runtime.py",
@@ -751,7 +800,12 @@
           "scope": "Actual public provider/model/secret configuration resolves an alternate alias, authenticates outgoing HTTP, preserves requested/resolved identities and applies the configured timeout without exposing the key.",
           "prior_scope": "Configuration/capability/readiness and actual remote rejection are covered. Successful typed output/question mapping, usage/confidence/probability normalization, timeout classification and real configured classifier construction remain unverified."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "db13da59229f98fd61c53c9f1a4abd1d2d119fca10a091b84bf92f0ed9c16464",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_ingestion_storage.py",
@@ -877,7 +931,16 @@
           "prior_classification": "covered",
           "scope": "Repeated real import allocates numbered Markdown and page-image namespaces while preserving previous artifact bytes."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "877b58c7daf97f6b5af842af9287671d6f17e502ef2dbd658f8f5cddec48c4f0",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_storage_compensates_prior_outputs_when_a_later_write_fails"
+        ],
+        "retained_sha256": "05063ac28970b62410e4dedc7c6c074afb0f443e8ad62725e4ce44bc095d5a24"
+      }
     },
     {
       "source": "validation/legacy/pending/test_managed_model_catalog.py",
@@ -1357,7 +1420,17 @@
           "prior_classification": "covered",
           "scope": "Fresh-process real legacy imports assert exact original backup and reload idempotence; current catalog retires only the applicable built-ins and preserves independently customized/referenced decision/provider entries."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "9130e9addaa9e7ba02fe2d271c77b9fa87d953f8b16f46d55c60b0f96722ea6f",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_repeated_renames_and_user_removal_are_idempotent",
+          "test_same_model_alternate_promotion_and_collision_rollback"
+        ],
+        "retained_sha256": "6b3315547bae8a1bb014ff907bdbacd1dc4244fd60d19b5646af6602c11d1b3f"
+      }
     },
     {
       "source": "validation/legacy/pending/test_mcp_manager_hardening.py",
@@ -1629,7 +1702,19 @@
           "scope": "Actual worker-thread invalidation acknowledges stale marking and preserves active leases until release. Real stopped-manager synchronous failure is additionally observed through the OAuth API, preserving committed state and safe failure context. Worker-thread failure acknowledgment remains deferred; the public manager shutdown input is available for a future focused case.",
           "prior_scope": "Real shared cold starts, identity-separated sessions, idle eviction, invalidation, shutdown cancellation and stale-publication rejection exist. Partial snapshot cancellation, bounded stdio capacity/HTTP progress, endpoint/credential capture races, cleanup failure diagnostics and synchronous invalidation failure branches remain distinct proof."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "6d5542632f908999b3fc531c5788e9a5e82fc5c70298c5bbfa98e1c35cc9e203",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_client_cleanup_failure_logs_sanitized_connection_context",
+          "test_invalidation_acknowledges_marking_and_preserves_active_lease",
+          "test_invalidation_cleanup_failure_is_observed",
+          "test_worker_invalidation_acknowledges_and_propagates_marking_failure"
+        ],
+        "retained_sha256": "bdebcf34a491de05c92a286f2fdac1e415656d06cef40c34730fec2b3e3456aa"
+      }
     },
     {
       "source": "validation/legacy/pending/test_mcp_oauth_hardening.py",
@@ -1767,7 +1852,12 @@
           "prior_classification": "rewrite",
           "scope": "Real completion held at the external token endpoint overlaps a superseding start and coordinator shutdown. Both completion and superseding work settle, new start/completion are rejected once closed and no late grant becomes connected. This observes public task/storage outcomes without private attempt tables or substituted clients."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "06a392ea79f6ecd14645e9fcb75c5f0f2cec454272704f4070f4ff6607dfa1a7",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_model_alias_registry.py",
@@ -1881,7 +1971,12 @@
           "prior_classification": "covered",
           "scope": "Actual public edits/reloads reject reserved/duplicate aliases without writes, retain aliases while dropping obsolete display fields, and resolve normalized canonical/test identities."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "e97052ead2844f3844fc59e6095787df34f81fda63bb1949e471d74927a06b58",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_provider_errors.py",
@@ -2030,7 +2125,17 @@
           "prior_classification": "covered",
           "scope": "Real external OAuth exchange/refresh rejection retains safe reasons while excluding synthetic access/refresh/client credentials from public diagnostics."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "969dfbe3b373e13a9562c80a94328793b4e24863ffa04a49ae1ecb76b20e3f7b",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_explicit_safe_errors_and_wrapped_sdk_failures",
+          "test_provider_message_redactions_and_bounding"
+        ],
+        "retained_sha256": "79ff351e7dea1317e2d36a47e85a4823db9a508085668d0b87a30c19ebf4b891"
+      }
     },
     {
       "source": "validation/legacy/pending/test_settings_database.py",
@@ -2227,7 +2332,12 @@
           "prior_classification": "covered",
           "scope": "Real legacy import/new installation, exact original backup, stale snapshot rejection, failed SQLite constraint with unchanged cache/persistence, invalid-input retry, retirement and corrupt-file preservation. See the linked assertion lines; original helper replacements are not used."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "23bbe85ba0aeae0a71ff5e2f7bb08ab330450f9533857c1100f03d4bb2cfc670",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_settings_lifecycle.py",
@@ -2444,7 +2554,16 @@
           "prior_classification": "covered",
           "scope": "Real single/global resets check dependency validation, unrelated overrides, durable backups, distinct successive paths and revision changes; matching backed-up revision succeeds."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "f374e50ea578085c20832b85fe2fc4efccbfaacc79bb2f0514a13732959366a8",
+        "state": "deferred_fragment",
+        "retained_tests": [
+          "test_inherited_default_tracks_packaged_value_but_explicit_equal_override_does_not"
+        ],
+        "retained_sha256": "adc5be01e99dfe2a805630734b8c98528cbfc4452e76cc0e7b2e0f08a42fd424"
+      }
     },
     {
       "source": "validation/legacy/pending/test_shipped_settings_defaults.py",
@@ -2503,7 +2622,12 @@
           "scope": "Unset default model is stored with default provenance, compaction author resolution returns None and public status reports one actionable compaction setup error after actual global reset.",
           "prior_scope": "Local override persistence/editor constraints are covered, but the enumerated shipped numeric/strategy/security/provider defaults and unset-default-model compaction setup contract need direct assertions."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "1448147e6d41e4c9240955dd44dd86085d3f3901bbfcf8a83ca64b36665e5ac3",
+        "state": "removed"
+      }
     },
     {
       "source": "validation/legacy/pending/test_vault_content_search.py",
@@ -2656,7 +2780,12 @@
           "prior_classification": "covered",
           "scope": "Actual API/tool with real rg asserts literal scoped structured path/line/column/snippet results, bounds/truncation, leading-dash and Unicode handling, and stable invalid-query/scope errors."
         }
-      ]
+      ],
+      "source_retention": {
+        "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+        "original_sha256": "832e1e83bf0c118fb92369ae4835d08d3632b52f12e48a412405ac4ecfa8c1af",
+        "state": "removed"
+      }
     }
   ],
   "evidence_reports": [
@@ -2749,5 +2878,26 @@
       "full_core_suite_run": false,
       "all_original_sources_unchanged": true
     }
+  },
+  "legacy_cleanup": {
+    "date": "2026-10-31",
+    "original_source_revision": "0cb6b69c8d4dfc4ef3b2cf4d5d0834857cf09a86",
+    "policy": "Retain only deferred source references. Covered, retired and experimental originals are deleted; Git retains their history.",
+    "retained_sources": [
+      "validation/legacy/pending/test_advanced_shell_config.py",
+      "validation/legacy/pending/test_chat_instructions.py",
+      "validation/legacy/pending/test_chat_mcp_lifecycle.py",
+      "validation/legacy/pending/test_ingestion_storage.py",
+      "validation/legacy/pending/test_managed_model_catalog.py",
+      "validation/legacy/pending/test_mcp_manager_hardening.py",
+      "validation/legacy/pending/test_provider_errors.py",
+      "validation/legacy/pending/test_settings_lifecycle.py",
+      "validation/legacy/scenarios/integration/core/browser_resource_policy.py",
+      "validation/legacy/scenarios/integration/core/file_write_directory_delete.py",
+      "validation/legacy/scenarios/integration/core/validation_adapter_lifecycle.py",
+      "validation/legacy/scenarios/integration/core/validation_runner_lifecycle.py"
+    ],
+    "run_artifacts": "Deleted at user request without copying or archiving elsewhere. Earlier run paths in this registry are historical references, not available artifacts.",
+    "historical_records": "Earlier audit prose, progress snapshots and evidence paths describe their original checkpoint. This cleanup record and source_retention fields supersede earlier source-retention claims."
   }
 }

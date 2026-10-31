@@ -1,3 +1,5 @@
+# Deferred reference only; see validation/registry/pytest-gaps.json.
+# Original complete source is available in Git before the 2026-10-31 cleanup.
 """Focused tests for primary chat instruction composition."""
 
 from core.chat.instructions import primary_chat_instruction_layers

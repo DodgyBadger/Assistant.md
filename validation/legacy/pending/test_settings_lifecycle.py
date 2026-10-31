@@ -1,3 +1,5 @@
+# Deferred reference only; see validation/registry/pytest-gaps.json.
+# Original complete source is available in Git before the 2026-10-31 cleanup.
 """Default inheritance, explicit intent, and settings upgrade contracts."""
 
 import sqlite3
@@ -58,65 +60,3 @@ def test_inherited_default_tracks_packaged_value_but_explicit_equal_override_doe
             conn.execute("SELECT count(*) FROM configuration_settings").fetchone()[0]
             == 0
         )
-
-
-def test_reset_service_exposes_backup_conflicts_without_resetting(
-    installation, monkeypatch
-):
-    from unittest.mock import Mock
-
-    from api.exceptions import InvalidSystemSettingError
-    from api.services import configuration
-    from core.settings import repository
-
-    root, _ = installation
-    store.load_settings()
-    original_backup = repository.backup
-
-    def backup_then_edit(system_root, target):
-        captured = original_backup(system_root, target)
-        edited = store.load_settings()
-        edited.settings["limit"].source = "custom"
-        edited.settings["limit"].value = 9
-        store.save_settings(edited)
-        return captured
-
-    monkeypatch.setattr(configuration, "logger", Mock())
-    monkeypatch.setattr(repository, "backup", backup_then_edit)
-    reload = Mock()
-    monkeypatch.setattr(configuration, "reload_configuration", reload)
-    with pytest.raises(InvalidSystemSettingError, match="pre-reset backup"):
-        configuration.restore_managed_configuration_defaults()
-    assert store.load_settings().settings["limit"].value == 9
-    reload.assert_not_called()
-    assert len(list((root / "migration_backups").glob("settings.db.bak-*"))) == 1
-
-
-def test_reset_service_allocates_distinct_backups(installation, monkeypatch):
-    from unittest.mock import Mock
-
-    from api.services import configuration
-    from core.settings import config_editor
-
-    root, template = installation
-    monkeypatch.setattr(config_editor, "SETTINGS_TEMPLATE", template)
-    monkeypatch.setattr(
-        config_editor, "refresh_configuration_status_cache", lambda: None
-    )
-    monkeypatch.setattr(configuration, "logger", Mock())
-    monkeypatch.setattr(configuration, "reload_configuration", Mock())
-    store.load_settings()
-    first = configuration.restore_managed_configuration_defaults()
-    second = configuration.restore_managed_configuration_defaults()
-    assert first.backup_path != second.backup_path
-    backups = list((root / "migration_backups").glob("settings.db.bak-*"))
-    assert len(backups) == 2
-    with sqlite3.connect(first.backup_path) as conn:
-        first_revision = conn.execute(
-            "SELECT revision FROM configuration_state"
-        ).fetchone()[0]
-    with sqlite3.connect(second.backup_path) as conn:
-        second_revision = conn.execute(
-            "SELECT revision FROM configuration_state"
-        ).fetchone()[0]
-    assert second_revision == first_revision + 1

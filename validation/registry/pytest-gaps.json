@@ -1334,7 +1334,7 @@
       "source_scenarios": [
         "integration/core/session_map_evidence_admission"
       ],
-      "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4\u20137/citable4\u20135and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4\u20137/8\u20139/10\u201311 to checkpoint11; this complete sequence remains unproved.",
+      "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4–7/citable4–5and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4–7/8–9/10–11 to checkpoint11; this complete sequence remains unproved.",
       "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
       "retained_coverage": [
         "validation/legacy/scenarios/integration/core/session_map_evidence_admission.py"
@@ -1821,8 +1821,7 @@
       ],
       "missing_proof": "Hypothetical successive managed-catalog generations, alternate promotion/removal across those generations and a supported packaged-catalog fixture remain undecided. Historical family names, shipped SDK profiles, public custom rename/promotion, shared-alias failures and simultaneous cold loads now pass.",
       "retained_coverage": [
-        "validation/legacy/pending/test_managed_model_catalog.py",
-        "validation/legacy/pending/test_model_alias_registry.py"
+        "validation/legacy/pending/test_managed_model_catalog.py"
       ],
       "cleanup_action": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
       "recommendation": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
@@ -1920,7 +1919,6 @@
       ],
       "missing_proof": "Only inherited packaged-default changes versus an explicit equal override remain unverified across template generations. Exact changing-source backup bytes, interrupted first-import recovery and real post-backup global-reset conflict now pass.",
       "retained_coverage": [
-        "validation/legacy/pending/test_settings_database.py",
         "validation/legacy/pending/test_settings_lifecycle.py"
       ],
       "cleanup_action": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
