@@ -73,10 +73,12 @@ jobs:
       UV_LINK_MODE: copy
       UV_COMPILE_BYTECODE: "1"
       UV_CACHE_DIR: ./.uv-cache
-      TIKTOKEN_CACHE_DIR: ${{ runner.temp }}/assistantmd-tiktoken-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure tokenizer cache
+        run: echo "TIKTOKEN_CACHE_DIR=${RUNNER_TEMP}/assistantmd-tiktoken-cache" >> "$GITHUB_ENV"
 
       - name: Check root markdown allowlist
         run: |
