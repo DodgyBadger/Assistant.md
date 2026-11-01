@@ -2336,10 +2336,11 @@
     },
     {
       "path": "scenarios/integration/core/test_workflow_cancellation.py",
-      "sha256": "2437a8e7d251ffbe0797c22b28e343dff9cdb95106e9f5e9813e6178808f2ecb",
+      "sha256": "fb6a434276373b62e3fe8690ff2e13ae7f5e88ad2c17aa53d69c198dedc8e48c",
       "kind": "behavioral",
       "tests": [
-        "test_manual_workflow_cancellation"
+        "test_manual_workflow_cancellation",
+        "test_cancellation_waits_for_blocked_workflow_write"
       ]
     },
     {
@@ -3237,6 +3238,11 @@
       "path": "support/workflows/api_endpoint_inputs.py",
       "sha256": "10acbdb3f9a8e56eaa120e50f24a74dc5b9ddb62a4239fedccc22bb30d5b0373",
       "kind": "support"
+    },
+    {
+      "path": "support/workflows/cancellation.py",
+      "kind": "support",
+      "sha256": "716865f5e384094b09cc83dfd226435a5aa4d2e938d04b10d16b11257e65f157"
     },
     {
       "path": "support/workflows/workflow_history_inputs.py",

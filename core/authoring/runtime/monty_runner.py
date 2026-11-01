@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import keyword
 import re
+from collections.abc import AsyncIterator, Callable, Coroutine
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
@@ -104,25 +108,28 @@ async def run_authoring_monty(
     value: Any = None
     try:
         try:
-            async with AsyncMonty() as pool:
-                async with pool.checkout(
-                    script_name=script_name,
-                    type_check=type_check,
-                    type_check_stubs=(
-                        _build_type_check_stubs(direct_tool_stubs)
-                        if type_check
-                        else None
-                    ),
-                ) as session:
-                    value = await session.feed_run(
-                        code,
-                        inputs=values.convert(effective_inputs) or None,
-                        external_lookup={
-                            name: values.wrap_function(function)
-                            for name, function in external_functions.items()
-                        },
-                        print_callback=capture.callback,
-                    )
+            async with _owned_external_calls(
+                {
+                    name: values.wrap_function(function)
+                    for name, function in external_functions.items()
+                }
+            ) as external_lookup:
+                async with AsyncMonty() as pool:
+                    async with pool.checkout(
+                        script_name=script_name,
+                        type_check=type_check,
+                        type_check_stubs=(
+                            _build_type_check_stubs(direct_tool_stubs)
+                            if type_check
+                            else None
+                        ),
+                    ) as session:
+                        value = await session.feed_run(
+                            code,
+                            inputs=values.convert(effective_inputs) or None,
+                            external_lookup=external_lookup,
+                            print_callback=capture.callback,
+                        )
         except Exception as exc:
             parsed_finish = _extract_finish_signal(exc)
             if parsed_finish is not None:
@@ -159,6 +166,63 @@ async def run_authoring_monty(
         reason=terminal_reason,
         prints=tuple(capture.lines),
     )
+
+
+type _ExternalFunction = Callable[..., Coroutine[Any, Any, Any]]
+
+
+@asynccontextmanager
+async def _owned_external_calls(
+    functions: dict[str, _ExternalFunction],
+) -> AsyncIterator[dict[str, _ExternalFunction]]:
+    """Settle host calls before Monty can publish a terminal task outcome.
+
+    Cancelling the native session can abandon its Python awaitables. Keep our
+    own task references so transactional tools can finish their cancellation
+    fences before the task's rollback observer reads the mutation journal.
+    """
+    pending: set[asyncio.Task[Any]] = set()
+    closing = False
+
+    def finished(task: asyncio.Task[Any]) -> None:
+        pending.discard(task)
+        if not task.cancelled():
+            task.exception()  # The native caller may have abandoned this result.
+
+    def owned(function: _ExternalFunction) -> _ExternalFunction:
+        @wraps(function)
+        async def call(*args: Any, **kwargs: Any) -> Any:
+            if closing:
+                raise asyncio.CancelledError("Authoring execution is closing")
+            task = asyncio.create_task(function(*args, **kwargs))
+            pending.add(task)
+            task.add_done_callback(finished)
+            return await task
+
+        return call
+
+    failure: BaseException | None = None
+    try:
+        yield {name: owned(function) for name, function in functions.items()}
+    except BaseException as error:
+        failure = error
+        raise
+    finally:
+        closing = True
+        calls = tuple(pending)
+        for task in calls:
+            task.cancel()
+        if calls:
+            settled = asyncio.gather(*calls, return_exceptions=True)
+            interruption: asyncio.CancelledError | None = None
+            while not settled.done():
+                try:
+                    await asyncio.shield(settled)
+                except asyncio.CancelledError as error:
+                    interruption = error
+            settled.result()
+            if interruption is not None and failure is None:
+                raise interruption
 
 
 def _build_type_check_stubs(direct_tool_stubs: str) -> str:
