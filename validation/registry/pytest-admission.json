@@ -2048,6 +2048,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_startup_journal_recovery.py",
+      "kind": "behavioral",
+      "sha256": "9b63ff72117bf7b20fb6f6c8c9239a1dbe4f3e1bc786c005b55e553eb3632bde",
+      "tests": [
+        "test_startup_recovers_hot_journal_without_losing_committed_data"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_startup_migrations.py",
       "sha256": "a8dfd7c0d014824a00a9dcf0b2ee64a3cde7f4487f5c8ca02e64217abb0cff4d",
       "kind": "behavioral",
@@ -3093,6 +3101,11 @@
       "path": "support/runtime/security_migrations.py",
       "sha256": "3344fedc90316f6cbc633fd137d44a6bbc9b73d110ddfc218caa8dee193e7f22",
       "kind": "support"
+    },
+    {
+      "path": "support/runtime/sqlite_recovery.py",
+      "kind": "support",
+      "sha256": "1d54430a40a8b5070b70a396ffda3ad5366ad502d813121ff4c166c3785374e7"
     },
     {
       "path": "support/runtime/startup.py",
