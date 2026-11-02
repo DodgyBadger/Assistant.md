@@ -33,6 +33,8 @@ Set up and run browser scenarios:
     scripts/dev setup --browser
     uv run python -m pytest -c validation/scenarios/browser/pytest.ini
 
+Backend scenarios default to four pytest workers locally and in CI. Override the worker count with `-n`, for example `uv run python -m pytest validation/scenarios/integration/core -n 2`. Browser scenarios run with one worker.
+
 Core scenarios must not depend on live models, public services or real credentials. Browser scenarios use synthetic data and controlled local dependencies. Experimental and live-service cases remain opt-in. Validation cadence is defined in [AGENTS.md](../../AGENTS.md).
 
 ## Application integration
