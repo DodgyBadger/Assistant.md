@@ -294,6 +294,10 @@ python -V
 
 ## Development commands
 
+Behavioral tests use pytest with the scenario-harness plugin, installed by `scripts/dev setup`. Scenarios start the real application in isolated runtime directories and verify observable behavior through outputs, persisted state and meaningful application-produced observations. Application services remain real; controlled substitutes may represent external services when live access is impractical.
+
+For writing and reviewing scenarios, follow the skills linked in [Testing and Validation](../agent-guides/testing-and-validation.md). That guide also defines AssistantMD’s fixtures, test locations and admission requirements. Agent skills are separate from Python dependencies; use an installed skill or read its linked instructions.
+
 Run the production Python quality gate:
 
 ```bash
