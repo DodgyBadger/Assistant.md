@@ -4,11 +4,11 @@
 
 Use the appropriate scenario-harness skill:
 
-- Planning: [plan-behavioral-change](https://github.com/DodgyBadger/scenario-harness/blob/941ede024673a0c8496dee908e1d6066cbaa0c05/skills/plan-behavioral-change/SKILL.md).
-- Writing scenarios: [test-application-behavior](https://github.com/DodgyBadger/scenario-harness/blob/941ede024673a0c8496dee908e1d6066cbaa0c05/skills/test-application-behavior/SKILL.md).
-- Review: [review-behavioral-scenarios](https://github.com/DodgyBadger/scenario-harness/blob/941ede024673a0c8496dee908e1d6066cbaa0c05/skills/review-behavioral-scenarios/SKILL.md).
-- Diagnosis: [diagnose-scenario-failures](https://github.com/DodgyBadger/scenario-harness/blob/941ede024673a0c8496dee908e1d6066cbaa0c05/skills/diagnose-scenario-failures/SKILL.md).
-- Fixture integration: [integrate-scenario-testing](https://github.com/DodgyBadger/scenario-harness/blob/941ede024673a0c8496dee908e1d6066cbaa0c05/skills/integrate-scenario-testing/SKILL.md).
+- Planning: [plan-behavioral-change](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/plan-behavioral-change/SKILL.md).
+- Writing scenarios: [test-application-behavior](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/test-application-behavior/SKILL.md).
+- Review: [review-behavioral-scenarios](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/review-behavioral-scenarios/SKILL.md).
+- Diagnosis: [diagnose-scenario-failures](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/diagnose-scenario-failures/SKILL.md).
+- Fixture integration: [integrate-scenario-testing](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/integrate-scenario-testing/SKILL.md).
 
 Install skills from the harness revision pinned in `pyproject.toml`; Python dependency installation does not install agent skills. Read the linked `SKILL.md` when the skill is unavailable in your agent.
 
