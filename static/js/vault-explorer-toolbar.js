@@ -72,6 +72,7 @@
             supportedActions = Object.keys(ACTIONS),
             workspaceMissing = false,
             workspacePath = '',
+            favoritesOnly = false,
         } = {}) {
             currentSnapshot = snapshot;
             openMenuToggle = null;
@@ -120,7 +121,8 @@
                 locationContainer.innerHTML = renderHeaderLocation(
                     activeFolder,
                     workspacePath,
-                    workspaceMissing
+                    workspaceMissing,
+                    favoritesOnly
                 );
             }
             if (selectionContainer) selectionContainer.innerHTML = selectionMenu;
@@ -150,7 +152,7 @@
             `;
         }
 
-        function renderHeaderLocation(activeFolder, workspacePath, workspaceMissing) {
+        function renderHeaderLocation(activeFolder, workspacePath, workspaceMissing, favoritesOnly) {
             const normalizedWorkspace = String(workspacePath || '');
             const inWorkspace = Boolean(normalizedWorkspace) && (
                 activeFolder === normalizedWorkspace
@@ -181,6 +183,12 @@
                         aria-label="${toggleLabel}" title="${escapeHtml(toggleTitle)}"
                         aria-pressed="${String(inWorkspace)}" ${toggleDisabled ? 'disabled' : ''}>
                         ${icons.BRIEFCASE_BUSINESS_ICON_SVG || ''}
+                    </button>
+                    <button type="button" class="ui-icon-button is-compact vault-explorer-favorites-toggle${favoritesOnly ? ' is-bookmarked' : ''}"
+                        data-vault-favorites-filter aria-pressed="${String(favoritesOnly)}"
+                        aria-label="${favoritesOnly ? 'Show all files and folders' : 'Show favorites only'}"
+                        title="${favoritesOnly ? 'Show all files and folders' : 'Show favorites only'}">
+                        ${icons.BOOKMARK_ICON_SVG || ''}
                     </button>
                     ${renderLocation(activeFolder)}
                 </nav>

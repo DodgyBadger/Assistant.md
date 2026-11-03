@@ -1857,7 +1857,8 @@ details summary::-webkit-details-marker {
     align-items: center;
     gap: 0.5rem;
 }
-.vault-explorer-workspace-toggle.ui-icon-button {
+.vault-explorer-workspace-toggle.ui-icon-button,
+.vault-explorer-favorites-toggle.ui-icon-button {
     flex: 0 0 auto;
     width: 1.85rem;
     height: 1.85rem;

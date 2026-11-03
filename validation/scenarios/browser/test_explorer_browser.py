@@ -120,8 +120,18 @@ async def test_explorer_content_search_escapes_untrusted_file_text(browser_app, 
     assert await ui.evaluate("typeof window.browserInjection") == "undefined"
 
 
-async def test_explorer_workspace_save_updates_open_navigation(browser_app, ui):
+@pytest.mark.parametrize("width", [1280, 390], ids=["desktop", "mobile"])
+async def test_explorer_workspace_save_updates_open_navigation(browser_app, ui, width):
+    await ui.set_viewport_size({"width": width, "height": 900})
     browser_app.app.write(browser_app.vault, "Project/Plan.md", "Workspace plan")
+    browser_app.app.write(browser_app.vault, "Project/Ordinary.md", "Ordinary file")
+    browser_app.app.write(browser_app.vault, "Outside.md", "Outside favorite")
+    response = browser_app.app.request(
+        f"/api/vaults/{browser_app.vault.name}/favorites",
+        "PATCH",
+        {"paths": ["Project/Plan.md", "Outside.md"], "favorite": True},
+    )
+    assert response.status_code == 200, response.text
     explorer = await open_explorer(ui, browser_app)
     await explorer.get_by_role("checkbox", name="Select Project", exact=True).check()
     await explorer.get_by_role("button", name="Set as workspace", exact=True).click()
@@ -131,9 +141,38 @@ async def test_explorer_workspace_save_updates_open_navigation(browser_app, ui):
     await expect(
         explorer.get_by_role("checkbox", name="Select Plan.md", exact=True)
     ).to_be_visible()
-    await toggle.click()
+    favorites = explorer.locator("[data-vault-favorites-filter]")
+    await favorites.click()
+    await expect(favorites).to_have_attribute("aria-pressed", "true")
     await expect(
-        explorer.get_by_role("checkbox", name="Select Project", exact=True)
+        explorer.locator('[data-vault-path-picker-select="Project/Plan.md"]')
+    ).to_be_visible()
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Project/Ordinary.md"]')
+    ).to_have_count(0)
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Outside.md"]')
+    ).to_have_count(0)
+    await toggle.click()
+    await expect(toggle).to_have_attribute("aria-pressed", "false")
+    await expect(favorites).to_have_attribute("aria-pressed", "true")
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Outside.md"]')
+    ).to_be_visible()
+    await toggle.click()
+    await expect(toggle).to_have_attribute("aria-pressed", "true")
+    await expect(favorites).to_have_attribute("aria-pressed", "true")
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Outside.md"]')
+    ).to_have_count(0)
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Project/Plan.md"]')
+    ).to_be_visible()
+    await favorites.click()
+    await expect(favorites).to_have_attribute("aria-pressed", "false")
+    await expect(toggle).to_have_attribute("aria-pressed", "true")
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Project/Ordinary.md"]')
     ).to_be_visible()
 
 

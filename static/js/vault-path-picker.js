@@ -87,14 +87,9 @@
             }
         });
 
-        function setFavoritesFilter(overlay, options, active) {
+        function setFavoritesFilter(options, active) {
             options.favoritesOnly = active;
-            const button = overlay.querySelector('[data-vault-favorites-filter]');
-            if (!button) return;
-            button.setAttribute('aria-pressed', String(active));
-            button.classList.toggle('is-bookmarked', active);
-            button.title = active ? 'Show all files and folders' : 'Show favorites only';
-            button.setAttribute('aria-label', button.title);
+            explorer.render();
         }
 
         async function toggleFavorites(overlay, snapshot, options) {
@@ -200,7 +195,6 @@
                             </div>` : ''}
                         `}
                         <div class="app-modal-actions">
-                            ${options.explorer ? `<button type="button" class="ui-icon-button is-compact" data-vault-favorites-filter aria-pressed="false" aria-label="Show favorites only" title="Show favorites only">${icons.BOOKMARK_ICON_SVG}</button>` : ''}
                             <button type="button" class="ui-icon-button is-compact" data-vault-path-picker-close aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                     </div>
@@ -316,7 +310,7 @@
                 }
                 const favoritesFilter = target.closest('[data-vault-favorites-filter]');
                 if (favoritesFilter instanceof HTMLButtonElement) {
-                    setFavoritesFilter(overlay, options, !options.favoritesOnly);
+                    setFavoritesFilter(options, !options.favoritesOnly);
                     loadRoot();
                     return;
                 }
@@ -384,7 +378,7 @@
                         return;
                     }
                     if (kind === 'directory' && options.favoritesOnly && options.expandDirectoriesOnSelect) {
-                        setFavoritesFilter(overlay, options, false);
+                        setFavoritesFilter(options, false);
                         explorer.setActiveFolder(path);
                         resetExplorerSearch(overlay, options);
                         loadRoot();

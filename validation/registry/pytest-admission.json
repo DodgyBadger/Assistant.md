@@ -71,7 +71,7 @@
     },
     {
       "path": "scenarios/browser/test_explorer_browser.py",
-      "sha256": "558b5e9eecffce5a2959b3644f36a8264aa88e7f86c074f1daa2d787c1556a12",
+      "sha256": "1e1ba8b23877302a4d4446cbbbb9bc7d2ff9027e666f843abb1f407a5bf416d1",
       "kind": "behavioral",
       "tests": [
         "test_explorer_selection_applicability_refresh_and_references",

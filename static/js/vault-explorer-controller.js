@@ -213,6 +213,7 @@
                 supportedActions: supportedToolbarActions(options),
                 workspaceMissing: options.workspaceRecovery === true,
                 workspacePath: callbacks.workspacePath?.() || '',
+                favoritesOnly: options.favoritesOnly === true,
             });
         }
 
