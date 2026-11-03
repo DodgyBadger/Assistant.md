@@ -6,6 +6,11 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 
+from anthropic import APIStatusError as AnthropicAPIStatusError
+from google.genai.errors import APIError as GoogleAPIError
+from openai import APIStatusError as OpenAIAPIStatusError
+from pydantic_ai.exceptions import ModelHTTPError
+
 from core.web.security import sanitize_urls_in_text_for_log
 
 
@@ -76,14 +81,29 @@ class ProviderRequestError(RuntimeError):
         super().__init__(str(self.details["error"]))
 
 
-def provider_exception_details(exc: BaseException) -> dict[str, object]:
-    """Find structured HTTP diagnostics in SDK exceptions and explicit causes."""
+def provider_exception_details(
+    exc: BaseException, *, include_transport_errors: bool = True
+) -> dict[str, object]:
+    """Find structured HTTP diagnostics in SDK exceptions and explicit causes.
+
+    Shared task/tool callers can exclude bare transport exceptions so ordinary
+    HTTP failures retain their diagnostics rather than becoming provider errors.
+    """
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen and len(seen) < 8:
         seen.add(id(current))
         if isinstance(current, ProviderRequestError):
             return dict(current.details)
+        if not include_transport_errors and not isinstance(
+            current,
+            AnthropicAPIStatusError
+            | GoogleAPIError
+            | OpenAIAPIStatusError
+            | ModelHTTPError,
+        ):
+            current = current.__cause__
+            continue
         status = getattr(current, "status_code", None)
         if not isinstance(status, int):
             status = getattr(getattr(current, "response", None), "status_code", None)
@@ -99,6 +119,22 @@ def provider_exception_details(exc: BaseException) -> dict[str, object]:
             body = getattr(current, "body", None)
             if body is None:
                 body = getattr(current, "details", None)
+            google_error = (
+                current if isinstance(current, GoogleAPIError) else current.__cause__
+            )
+            if isinstance(google_error, GoogleAPIError):
+                response = google_error.response
+                if response is not None and response.status_code >= 400:
+                    # The Google SDK promotes non-JSON response text into a
+                    # synthetic message. Use the original wire JSON so raw
+                    # bodies cannot become trusted provider diagnostics.
+                    decode = getattr(response, "json", None)
+                    body = None
+                    if callable(decode):
+                        try:
+                            body = decode()
+                        except ValueError:
+                            pass
             return provider_response_error_details(status, body)
         current = current.__cause__
     return {}

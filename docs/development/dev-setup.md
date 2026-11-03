@@ -294,28 +294,36 @@ python -V
 
 ## Development commands
 
+Behavioral tests use pytest with the scenario-harness plugin, installed by `scripts/dev setup`. Scenarios start the real application in isolated runtime directories and verify observable behavior through outputs, persisted state and meaningful application-produced observations. Application services remain real; controlled substitutes may represent external services when live access is impractical.
+
+For writing and reviewing scenarios, follow the skills linked in [Testing and Validation](../agent-guides/testing-and-validation.md). That guide also defines AssistantMD’s fixtures, test locations and admission requirements. Agent skills are separate from Python dependencies; use an installed skill or read its linked instructions.
+
 Run the production Python quality gate:
 
 ```bash
 scripts/dev check
 ```
 
-Run one validation scenario:
+Run one deterministic behavioral scenario:
 
 ```bash
-scripts/dev scenario integration/core/api_error_resilience
+scripts/dev scenario validation/scenarios/integration/core/test_gmail_selected_account_tokens.py
 ```
 
-Maintainers own the full scenario-validation suite. Contributors and coding
-agents should run focused scenarios for the behavior they change. Validation
-runs end with a failure-focused summary and write durable indexes to
-`validation/runs/reports/latest.md` and `validation/runs/reports/latest.json`.
-Pass `--show-passed` to the validation CLI when individual successful scenarios
-are useful:
+Run the full deterministic backend profile during hardening or merge preparation:
 
 ```bash
-uv run python validation/run_validation.py run integration/core --show-passed
+uv run python -m pytest validation/scenarios/integration/core
 ```
+
+Browser scenarios have a separate configuration and require browser setup:
+
+```bash
+scripts/dev setup --browser
+uv run python -m pytest -c validation/scenarios/browser/pytest.ini
+```
+
+Each invocation writes `report.md`, `report.json` and per-case evidence to a fresh directory under `validation/runs/`. Use `--scenario-root PATH` to choose an empty directory and `-v` for verbose case output. Experimental/live-service scenarios remain opt-in. See [Testing and Validation](../agent-guides/testing-and-validation.md) for application fixtures, agent skills, admission policy and evidence limits.
 
 Show all commands:
 

@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "contract_id": "framework.governance.requires_current_manual_approval",
+  "evidence_kind": "pilot_contract_review",
+  "scenario": "integration/core/validation_governance_ci",
+  "recommended_requirement": "The governance CI helper requires the expected audit and approval outcomes and the current pull request head and base before posting success, while validating the configured reviewer, environment, and branch policy.",
+  "proof_surface": [
+    "Runs the production governance CI helper against an isolated Git repository and loopback HTTP GitHub protocol fixture.",
+    "Checks pending and final commit status requests for the intended context and head; exercises approval outcomes, stale head and base, environment, reviewer, branch policy, and API failure.",
+    "Checks that the candidate scenario source is not imported and closes the HTTP server and thread in a finally block."
+  ],
+  "exclusions": [
+    "The fixture does not exercise actual GitHub Actions jobs, environment approval, GitHub authorization, or branch protection enforcement.",
+    "Commit statuses are associated with a head SHA rather than a pull request or base; reuse of a previously successful status is not prevented by this scenario.",
+    "These tests do not establish semantic adequacy of all governance checks or grant approval."
+  ],
+  "coupling": [
+    "Uses the current production helper API and current trusted reviewer and required-context policy with a protocol fixture.",
+    "HTTP fixture responses model a subset of the GitHub API, not the service implementation."
+  ],
+  "outcome_evidence": {
+    "base_commit": "e666b25",
+    "baseline": {
+      "result": "passed",
+      "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
+      "run_id": "20261027_050649_338585"
+    },
+    "mutations": [
+      {
+        "fault": "Replace the production helper condition rejecting unsuccessful approval when review is required with false.",
+        "result": "execution assertion failure",
+        "report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json",
+        "run_id": "20261027_050707_661656"
+      },
+      {
+        "fault": "Replace the production helper condition rejecting a stale pull request head with false.",
+        "result": "execution assertion failure",
+        "report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json",
+        "run_id": "20261027_050721_193009"
+      }
+    ],
+    "method": "Each mutation changed the actual helper in an isolated detached worktree, with its own linked scenario root and the original Python 3.13 environment."
+  },
+  "source_revision": "3f5fb5117b8dbddf55862d6f3d026a6b0e2a7b07",
+  "scenario_sha256": "a862fd118fc67594686d87117e32a146aa8619d05a5e2ef05fe838e6f361920f",
+  "contract_fingerprint": "792ade4ed99d0a24927d476a8e8a3c19a6e317db31224a42cdb1a309c859c80a",
+  "requirement": "The governance CI helper requires the expected audit and approval outcomes and the current PR head and base before posting success, while validating the configured reviewer, environment and branch policy.",
+  "review_status": "evidence_recorded_awaiting_maintainer_review",
+  "oracle_patch": "diff --git a/validation/scenarios/integration/core/validation_governance_ci.py b/validation/scenarios/integration/core/validation_governance_ci.py\nindex 527934e..602ee6d 100644\n--- a/validation/scenarios/integration/core/validation_governance_ci.py\n+++ b/validation/scenarios/integration/core/validation_governance_ci.py\n@@ -13,7 +13,7 @@ from validation.core.base_scenario import BaseScenario\n \n class ValidationGovernanceCiScenario(BaseScenario):\n     async def test_scenario(self) -> None:\n-        from validation.framework.governance_ci import GitHubAPI, finalize, run_audit\n+        from validation.ci.governance import GitHubAPI, finalize, run_audit\n \n         repo = self.artifacts_dir / \"governance-ci-git\"\n         repo.mkdir()\n@@ -52,7 +52,7 @@ class ValidationGovernanceCiScenario(BaseScenario):\n             \"scenarios\": [],\n             \"profiles\": {},\n         }\n-        write(\"validation/framework/governance_audit.py\", \"# baseline checker\\n\")\n+        write(\"validation/ci/audit.py\", \"# baseline checker\\n\")\n         write(\"validation/governance/scenario-catalog.json\", json.dumps(catalog))\n         write(\"app.py\", \"initial\\n\")\n         base = commit(\"baseline\")\n",
+  "proof_summary": [
+    "Runs the production governance CI helper against an isolated Git repository and loopback HTTP GitHub protocol fixture.",
+    "Checks pending and final commit status requests for the intended context and head; exercises approval outcomes, stale head and base, environment, reviewer, branch policy, and API failure.",
+    "Checks that the candidate scenario source is not imported and closes the HTTP server and thread in a finally block."
+  ],
+  "baseline": {
+    "report": "/tmp/validation-layout-70584f81/runs/reports/20261027_165116_979864.json",
+    "scenario_sha256": "a862fd118fc67594686d87117e32a146aa8619d05a5e2ef05fe838e6f361920f",
+    "observation": {
+      "scenario_name": "integration/core/validation_governance_ci",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_165116_979864",
+      "report_sha256": "df37cdd670b0ea241804a15cdd8d4752d1ed5b3cac76e281d848ea1e8b276846"
+    },
+    "source_state": "Application layout relocation on the declared parent revision, preserved in this changeset."
+  },
+  "negative_examples": [
+    {
+      "fault": "Replace the production helper condition rejecting unsuccessful approval when review is required with false.",
+      "source_change": {
+        "path": "validation/framework/governance_ci.py",
+        "before": "or (review_required == \"true\" and approval_result != \"success\")",
+        "after": "or False",
+        "occurrence": 1
+      },
+      "assertion": "Required review with failed, cancelled or skipped approval must post failure.",
+      "observation": {
+        "scenario_name": "integration/core/validation_governance_ci",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py:210 (in test_scenario)\nFailing code: assert finish(sensitive, approval, \"true\") == \"failure\"\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py\", line 210, in test_scenario\n    assert finish(sensitive, approval, \"true\") == \"failure\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050707_661656",
+        "report_sha256": "277b1f93ba177a7ceca8a610db8cc079713274068285d48e9f268c13f5136a18",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/ci-approval-mutant.lYBBMo/root/runs/reports/20261027_050707_661656.json",
+      "historical_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
+    },
+    {
+      "fault": "Replace the production helper condition rejecting a stale pull request head with false.",
+      "source_change": {
+        "path": "validation/framework/governance_ci.py",
+        "before": "or head.get(\"sha\") != head_sha",
+        "after": "or False",
+        "occurrence": 1
+      },
+      "assertion": "An approved audit for a stale PR head must post failure.",
+      "observation": {
+        "scenario_name": "integration/core/validation_governance_ci",
+        "status": "failed",
+        "execution_phase": "execution",
+        "error_message": "Scenario execution error: AssertionError: Assertion failed\nFailure location: ${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py:214 (in test_scenario)\nFailing code: assert finish(sensitive, \"success\", \"true\") == \"failure\"\nTraceback tail:\nFile \"${CHECKOUT}/validation/framework/lifecycle.py\", line 184, in work\n    await _invoke(body)\n  File \"${CHECKOUT}/validation/framework/lifecycle.py\", line 154, in _invoke\n    await result\n  File \"${CHECKOUT}/validation/core/runner.py\", line 345, in body\n    await value\n  File \"${CHECKOUT}/validation/scenarios/integration/core/validation_governance_ci.py\", line 214, in test_scenario\n    assert finish(sensitive, \"success\", \"true\") == \"failure\"\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_050721_193009",
+        "report_sha256": "f91b4e4c11e70412cc800456a7b2085ffe0922104f12f3ff744124ed886c5162",
+        "counts": {
+          "total_scenarios": 1,
+          "passed_scenarios": 0,
+          "failed_scenarios": 1,
+          "error_scenarios": 0
+        }
+      },
+      "local_report": "/tmp/ci-stale-mutant.QV9ADr/root/runs/reports/20261027_050721_193009.json",
+      "historical_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64"
+    }
+  ],
+  "evidence_note": "Committed observations and exact source changes are the portable record. Absolute /tmp paths are optional machine-local diagnostics, not required inputs to inventory or admission.",
+  "historical_evidence_oracle_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+  "source_relocations": [
+    {
+      "kind": "import_and_fixture_path_relocation",
+      "before_sha256": "42083899c0be3ed93edec0b271592beb9771626ca57cd08777e0dc6ebb4d6442",
+      "after_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
+      "equivalent_ast_sha256": "c841fe6e70be53bad3ab22181c3ca415582d2d7ac3b8eac44e618349b4ee3d80",
+      "module_map": {
+        "validation.framework.lifecycle": "scenario_harness.lifecycle",
+        "validation.framework.governance_ci": "validation.ci.governance"
+      },
+      "literal_map": {
+        "validation/framework/governance_audit.py": "validation/ci/audit.py"
+      },
+      "patch": "diff --git a/validation/scenarios/integration/core/validation_governance_ci.py b/validation/scenarios/integration/core/validation_governance_ci.py\nindex 527934e..602ee6d 100644\n--- a/validation/scenarios/integration/core/validation_governance_ci.py\n+++ b/validation/scenarios/integration/core/validation_governance_ci.py\n@@ -13,7 +13,7 @@ from validation.core.base_scenario import BaseScenario\n \n class ValidationGovernanceCiScenario(BaseScenario):\n     async def test_scenario(self) -> None:\n-        from validation.framework.governance_ci import GitHubAPI, finalize, run_audit\n+        from validation.ci.governance import GitHubAPI, finalize, run_audit\n \n         repo = self.artifacts_dir / \"governance-ci-git\"\n         repo.mkdir()\n@@ -52,7 +52,7 @@ class ValidationGovernanceCiScenario(BaseScenario):\n             \"scenarios\": [],\n             \"profiles\": {},\n         }\n-        write(\"validation/framework/governance_audit.py\", \"# baseline checker\\n\")\n+        write(\"validation/ci/audit.py\", \"# baseline checker\\n\")\n         write(\"validation/governance/scenario-catalog.json\", json.dumps(catalog))\n         write(\"app.py\", \"initial\\n\")\n         base = commit(\"baseline\")\n",
+      "scope": "Only import order/module references and the declared audit fixture path changed. Historical counterexample observations remain historical; no behavioral oracle or expected result was regenerated.",
+      "verification": "AST equality after the declared import-order/module and fixture-path mapping; fresh real-worker scenario passed. Counterfactual source-fault observations remain explicitly historical."
+    },
+    {
+      "kind": "application_layout_relocation",
+      "source_parent": "3f5fb5117b8dbddf55862d6f3d026a6b0e2a7b07",
+      "before_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
+      "after_sha256": "a862fd118fc67594686d87117e32a146aa8619d05a5e2ef05fe838e6f361920f",
+      "equivalent_ast_sha256": "8307df1e462350066b74c67e1b6ad96cd26a46a68e69835fb3840547c1d6dad9",
+      "module_map": {
+        "validation.core": "validation.support",
+        "validation.adapters.assistantmd": "validation.support.adapter",
+        "validation.ci": "validation.support.ci"
+      },
+      "literal_path_map": {
+        "validation/core/": "validation/support/",
+        "validation/ci/": "validation/support/ci/",
+        "validation/governance/": "validation/registry/",
+        "validation/templates/AssistantMD": "validation/fixtures/workspaces/AssistantMD",
+        "validation/templates/files": "validation/fixtures/files"
+      },
+      "patch": "diff --git a/validation/scenarios/integration/core/validation_governance_ci.py b/validation/scenarios/integration/core/validation_governance_ci.py\nindex 602ee6d..54ceceb 100644\n--- a/validation/scenarios/integration/core/validation_governance_ci.py\n+++ b/validation/scenarios/integration/core/validation_governance_ci.py\n@@ -8,12 +8,12 @@ import threading\n from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n from typing import Any\n \n-from validation.core.base_scenario import BaseScenario\n+from validation.support.base_scenario import BaseScenario\n \n \n class ValidationGovernanceCiScenario(BaseScenario):\n     async def test_scenario(self) -> None:\n-        from validation.ci.governance import GitHubAPI, finalize, run_audit\n+        from validation.support.ci.governance import GitHubAPI, finalize, run_audit\n \n         repo = self.artifacts_dir / \"governance-ci-git\"\n         repo.mkdir()\n@@ -52,8 +52,8 @@ class ValidationGovernanceCiScenario(BaseScenario):\n             \"scenarios\": [],\n             \"profiles\": {},\n         }\n-        write(\"validation/ci/audit.py\", \"# baseline checker\\n\")\n-        write(\"validation/governance/scenario-catalog.json\", json.dumps(catalog))\n+        write(\"validation/support/ci/audit.py\", \"# baseline checker\\n\")\n+        write(\"validation/registry/scenario-catalog.json\", json.dumps(catalog))\n         write(\"app.py\", \"initial\\n\")\n         base = commit(\"baseline\")\n         write(\"app.py\", \"production change\\n\")\n",
+      "scope": "Only application import namespaces, declared fixture/registry paths and import ordering changed; original counterexample observations remain historical."
+    }
+  ],
+  "historical_baseline": {
+    "result": "passed",
+    "report": "/tmp/governance-ci-baseline.coiJjx/runs/reports/20261027_050649_338585.json",
+    "run_id": "20261027_050649_338585",
+    "observation": {
+      "scenario_name": "integration/core/validation_governance_ci",
+      "status": "passed",
+      "execution_phase": null,
+      "error_message": null,
+      "timed_out": false,
+      "interrupted": false,
+      "run_id": "20261027_050649_338585",
+      "report_sha256": "7be4d8daa2297d9aa524213262579d85f1571ca7567b85ddba0e48fa600af799",
+      "counts": {
+        "total_scenarios": 1,
+        "passed_scenarios": 1,
+        "failed_scenarios": 0,
+        "error_scenarios": 0
+      }
+    }
+  },
+  "historical_source_revision": "e666b254f3d2e596093f66d8cab281d09217eb64",
+  "baseline_history": [
+    {
+      "report": "/tmp/harness-relocation-fko4uh6_/runs/reports/20261027_160952_805240.json",
+      "scenario_sha256": "49390b0ee73203cc44dced44c45a9a4693cd75e5a6d4148a65ec7defda7e2940",
+      "observation": {
+        "scenario_name": "integration/core/validation_governance_ci",
+        "status": "passed",
+        "execution_phase": null,
+        "error_message": null,
+        "timed_out": false,
+        "interrupted": false,
+        "run_id": "20261027_160952_805240",
+        "report_sha256": "8911f1674464374005515584c4cb4066e9ac3f81f9f5bc8d7fe6b5d34a97a815"
+      },
+      "source_state": "Working-tree source relocation on the declared parent revision; preserved in this changeset."
+    }
+  ]
+}

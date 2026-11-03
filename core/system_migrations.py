@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Sequence
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -220,8 +221,7 @@ def get_system_migration_status(
 ) -> SystemMigrationStatus:
     """Return pending system database migrations without mutating databases."""
     root = _resolve_system_root(system_root)
-    targets = tuple(_target_status(target, root) for target in MIGRATION_TARGETS)
-    return SystemMigrationStatus(system_root=str(root), targets=targets)
+    return _migration_status(root)
 
 
 def run_system_migrations(
@@ -246,7 +246,7 @@ def run_system_migrations(
     )
     try:
         organized_backup_count = organize_legacy_migration_backups(root)
-        before = get_system_migration_status(root)
+        before = _migration_status(root, recover_journals=True)
         if not backup:
             for target in MIGRATION_TARGETS:
                 status = next(t for t in before.targets if t.db_name == target.db_name)
@@ -332,8 +332,21 @@ def _resolve_system_root(system_root: str | Path | None) -> Path:
     return Path(system_root).expanduser().resolve()
 
 
+def _migration_status(
+    root: Path, *, recover_journals: bool = False
+) -> SystemMigrationStatus:
+    targets = tuple(
+        _target_status(target, root, recover_journals=recover_journals)
+        for target in MIGRATION_TARGETS
+    )
+    return SystemMigrationStatus(system_root=str(root), targets=targets)
+
+
 def _target_status(
-    target: SystemMigrationTarget, system_root: Path
+    target: SystemMigrationTarget,
+    system_root: Path,
+    *,
+    recover_journals: bool = False,
 ) -> SystemMigrationTargetStatus:
     db_path = Path(get_system_database_path(target.db_name, str(system_root)))
     secrets_status = get_secrets_bootstrap_status()
@@ -354,7 +367,9 @@ def _target_status(
             inspection_error=secrets_status.reason or "Encrypted secrets are locked.",
         )
     applied_versions = (
-        _applied_versions(db_path, namespace=target.namespace)
+        _applied_versions(
+            db_path, namespace=target.namespace, recover_journals=recover_journals
+        )
         if db_path.exists()
         else ()
     )
@@ -378,23 +393,74 @@ def _target_status(
     )
 
 
-def _applied_versions(db_path: Path, *, namespace: str) -> tuple[int, ...]:
-    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
+def _applied_versions(
+    db_path: Path, *, namespace: str, recover_journals: bool = False
+) -> tuple[int, ...]:
     try:
-        if not _table_exists(conn, "schema_migrations"):
-            return ()
-        rows = conn.execute(
-            """
-            SELECT version
-            FROM schema_migrations
-            WHERE namespace = ?
-            ORDER BY version
-            """,
-            (namespace,),
-        ).fetchall()
-    finally:
-        conn.close()
+        with closing(sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)) as conn:
+            if not _table_exists(conn, "schema_migrations"):
+                return ()
+            rows = conn.execute(
+                """
+                SELECT version
+                FROM schema_migrations
+                WHERE namespace = ?
+                ORDER BY version
+                """,
+                (namespace,),
+            ).fetchall()
+    except sqlite3.OperationalError as error:
+        if (
+            not recover_journals
+            or getattr(error, "sqlite_errorcode", None)
+            != sqlite3.SQLITE_READONLY_ROLLBACK
+        ):
+            raise
+        _recover_rollback_journal(db_path, namespace=namespace)
+        return _applied_versions(db_path, namespace=namespace)
     return tuple(int(row[0]) for row in rows)
+
+
+def _recover_rollback_journal(db_path: Path, *, namespace: str) -> None:
+    identity = {
+        "database_name": db_path.name,
+        "namespace": namespace,
+        "recovery_id": uuid4().hex,
+    }
+    logger.add_sink("validation").info(
+        "System database recovery started",
+        data={
+            **identity,
+            "event": "system_database_recovery_started",
+            "status": "started",
+        },
+    )
+    try:
+        # Let SQLite recover its own interrupted transaction under its locks.
+        # mode=rw cannot create a missing database, and the metadata read does
+        # not apply migrations. Never remove a hot journal by hand.
+        with closing(sqlite3.connect(f"{db_path.as_uri()}?mode=rw", uri=True)) as conn:
+            conn.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+    except sqlite3.Error as error:
+        logger.add_sink("validation").error(
+            "System database recovery failed",
+            data={
+                **identity,
+                "event": "system_database_recovery_failed",
+                "status": "failed",
+                "error_type": type(error).__name__,
+                "sqlite_error": getattr(error, "sqlite_errorname", None),
+            },
+        )
+        raise
+    logger.add_sink("validation").info(
+        "System database recovery completed",
+        data={
+            **identity,
+            "event": "system_database_recovery_completed",
+            "status": "completed",
+        },
+    )
 
 
 def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:

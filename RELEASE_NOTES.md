@@ -1,5 +1,11 @@
 # Release Notes
 
+## v0.9.3
+
+- Simplified scenario-based testing with pytest and a reusable evidence-reporting plugin.
+- Migrated the testing suite and expanded backend and browser coverage.
+- Added agent skills for planning, writing and reviewing behavioral tests.
+
 ## v0.9.2
 
 This is the settings update: clearer controls, easier model management, and defaults that stay current while preserving your customizations.

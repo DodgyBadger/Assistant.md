@@ -13,26 +13,18 @@ of internals makes validation brittle during refactors.
 
 ## Decision
 
-Use scenario-based validation as the primary behavioral proof surface. Scenarios
-run against sandboxed runtime roots and assert on end-user artifacts plus
-explicit validation events emitted at important decision boundaries.
+Use scenario-based validation as the primary behavioral proof surface. Ordinary pytest scenarios start the real application with isolated runtime roots and assert actual outputs, persisted state and meaningful application-produced observations. The external scenario-harness plugin owns retained evidence and protected execution; AssistantMD owns application lifecycle, scenarios and project policy.
 
 ## Rationale
 
-Scenario artifacts show what the system actually did: vault outputs, API
-responses, logs, validation events, and run-local state. Validation events let
-tests assert internal decisions such as routing, fallback, cache behavior, and
-task lifecycle without coupling the scenario to private classes or helper
-functions.
+Scenario artifacts show what the system actually did: vault outputs, API responses, logs and run-local state. Where external output cannot establish an important decision, the application developer chooses an observation mechanism, such as structured logs. Semantic observations can establish routing, fallback, cache behavior and task lifecycle without fixing private class layout or collaborator calls as test contracts.
 
 ## Consequences
 
-- Product code should emit validation events at stable decision boundaries when
-  behavior needs deterministic proof.
-- Event names and behavior keys are compatibility surfaces.
-- Scenarios should prefer high-level helpers and artifacts over mocks.
-- Full validation remains maintainer-owned; agents should use targeted local
-  checks and request full-suite results when needed.
+- Keep in-app services and evidence producers real. Justified external-service or environmental doubles must document their boundary and limits.
+- Treat selected semantic observations as behavioral contracts when they provide necessary proof; do not require a harness-owned validation sink or instrument every implementation detail.
+- Preserve readable action/expectation sequences and trustworthy failure evidence across refactoring.
+- Use focused checks during development and complete applicable profiles during hardening or merge preparation, following the project validation policy.
 
 ## Evidence
 

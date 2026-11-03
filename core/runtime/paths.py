@@ -7,6 +7,7 @@ of truth; otherwise, callers must set bootstrap roots explicitly.
 """
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from core.runtime.state import (
@@ -21,6 +22,26 @@ DEFAULT_SYSTEM_ROOT = Path("/app/system")
 
 _bootstrap_data_root: Path | None = None
 _bootstrap_system_root: Path | None = None
+
+
+@dataclass(frozen=True)
+class BootstrapRoots:
+    """Exact bootstrap root state, including unset roots."""
+
+    data_root: Path | None
+    system_root: Path | None
+
+
+def snapshot_bootstrap_roots() -> BootstrapRoots:
+    """Capture bootstrap roots independently of the active runtime."""
+    return BootstrapRoots(_bootstrap_data_root, _bootstrap_system_root)
+
+
+def restore_bootstrap_roots(roots: BootstrapRoots) -> None:
+    """Restore a previously captured bootstrap root state."""
+    global _bootstrap_data_root, _bootstrap_system_root
+    _bootstrap_data_root = roots.data_root
+    _bootstrap_system_root = roots.system_root
 
 
 def set_bootstrap_roots(data_root: Path, system_root: Path) -> None:

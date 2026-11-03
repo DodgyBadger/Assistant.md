@@ -245,6 +245,9 @@ class OpenAIOAuthHTTPTokenAdapter:
     client_id: str = OPENAI_OAUTH_CLIENT_ID
     timeout_seconds: float = 30.0
     http_client: httpx.AsyncClient | None = None
+    device_user_code_url: str = OPENAI_OAUTH_DEVICE_USER_CODE_URL
+    device_token_url: str = OPENAI_OAUTH_DEVICE_TOKEN_URL
+    device_verification_url: str = OPENAI_OAUTH_DEVICE_VERIFICATION_URL
 
     async def exchange_code(
         self,
@@ -280,7 +283,7 @@ class OpenAIOAuthHTTPTokenAdapter:
         """Request an OpenAI OAuth device code."""
 
         data = await self._post_json(
-            OPENAI_OAUTH_DEVICE_USER_CODE_URL,
+            self.device_user_code_url,
             {"client_id": self.client_id},
             pending_statuses=frozenset(),
         )
@@ -305,7 +308,7 @@ class OpenAIOAuthHTTPTokenAdapter:
         return OpenAIOAuthDeviceCodeResult(
             device_auth_id=device_auth_id,
             user_code=user_code,
-            verification_url=OPENAI_OAUTH_DEVICE_VERIFICATION_URL,
+            verification_url=self.device_verification_url,
             poll_interval_seconds=_response_poll_interval_seconds(data),
         )
 
@@ -318,7 +321,7 @@ class OpenAIOAuthHTTPTokenAdapter:
         """Poll an OpenAI OAuth device-code authorization attempt."""
 
         data = await self._post_json(
-            OPENAI_OAUTH_DEVICE_TOKEN_URL,
+            self.device_token_url,
             {"device_auth_id": device_auth_id, "user_code": user_code},
             pending_statuses=frozenset({403, 404}),
         )

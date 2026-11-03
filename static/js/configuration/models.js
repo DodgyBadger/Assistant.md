@@ -113,11 +113,12 @@
             ? model.capabilities.join(', ')
             : 'text';
 
+        const mutationDisabled = state.isSavingModel ? 'disabled' : '';
         const actions = `
-            <button data-action="edit" ${iconButton('edit', 'Edit model details', 'is-primary')}>${iconSvg('edit')}</button>
-            <button data-action="duplicate" ${iconButton('copy', 'Duplicate as custom', 'is-primary')}>${iconSvg('copy')}</button>
+            <button data-action="edit" ${mutationDisabled} ${iconButton('edit', 'Edit model details', 'is-primary')}>${iconSvg('edit')}</button>
+            <button data-action="duplicate" ${mutationDisabled} ${iconButton('copy', 'Duplicate as custom', 'is-primary')}>${iconSvg('copy')}</button>
             ${editable
-                ? `<button data-action="delete" ${iconButton('trash', 'Delete model', 'is-danger')}>${iconSvg('trash')}</button>`
+                ? `<button data-action="delete" ${mutationDisabled} ${iconButton('trash', 'Delete model', 'is-danger')}>${iconSvg('trash')}</button>`
                 : model.managed_id
                 ? `<span class="inline-flex items-center text-txt-secondary" role="img" aria-label="Managed model" title="Managed model"><span class="w-4 h-4">${iconSvg('lock')}</span></span>`
                 : `<span class="inline-block px-2 py-0.5 text-xs text-txt-secondary bg-app-elevated rounded border border-border-primary">Read-only binding</span>`}
