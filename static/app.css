@@ -137,30 +137,10 @@ body.chat-focus-mode {
     font-weight: 600;
     margin-bottom: 0.75rem;
 }
-.chat-start-panel-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-    align-items: start;
-    gap: 0.75rem;
-}
-.chat-start-panel-item {
-    min-width: 0;
-}
-.chat-start-panel-label {
-    display: block;
-    margin-bottom: 0.2rem;
-    color: rgb(var(--text-secondary));
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-.chat-start-panel-value {
-    display: block;
+.chat-start-panel-summary {
     overflow-wrap: anywhere;
-    font-size: 0.86rem;
-}
-.chat-start-panel-value.is-muted {
     color: rgb(var(--text-secondary));
+    font-size: 0.86rem;
 }
 .chat-start-workspace-block {
     margin-top: 0.85rem;
@@ -172,21 +152,6 @@ body.chat-focus-mode {
     gap: 0.5rem;
     color: rgb(var(--text-secondary));
     font-size: 0.86rem;
-}
-.chat-start-workspace-help {
-    margin-top: 0.35rem;
-    color: rgb(var(--text-secondary));
-    font-size: 0.76rem;
-    line-height: 1.35;
-}
-.chat-start-workspace-help a {
-    color: rgb(var(--accent-primary));
-    font-weight: 600;
-}
-.chat-start-workspace-help a:hover,
-.chat-start-workspace-help a:focus-visible {
-    text-decoration: underline;
-    outline: none;
 }
 .chat-start-workspace-label {
     color: rgb(var(--text-secondary));
@@ -248,37 +213,9 @@ body.chat-focus-mode {
 .chat-start-link-button.is-muted {
     color: rgb(var(--text-secondary));
 }
-.chat-start-settings-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.4rem;
-    padding: 0.35rem 0.5rem;
-    border-radius: 0.375rem;
-    color: rgb(var(--text-secondary));
-    font-size: 0.84rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-.chat-start-settings-button svg {
-    width: 1rem;
-    height: 1rem;
-}
-.chat-start-settings-button:hover,
-.chat-start-settings-button:focus-visible {
-    background: rgb(var(--bg-card));
-    color: rgb(var(--text-primary));
-    outline: none;
-}
 @media (max-width: 639px) {
     .chat-start-panel {
         margin: 0.75rem auto;
-    }
-    .chat-start-panel-grid {
-        grid-template-columns: 1fr;
-    }
-    .chat-start-settings-button {
-        justify-content: flex-start;
     }
 }
 .chat-focus-divider {

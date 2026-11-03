@@ -43,7 +43,6 @@
             utils,
             callbacks: {
                 selectSession: callbacks.selectSession,
-                openChatSettings: callbacks.openChatSettings,
                 openWorkspacePicker: callbacks.openWorkspacePicker,
                 renderEmptyState: () => renderChatEmptyState(),
             },
