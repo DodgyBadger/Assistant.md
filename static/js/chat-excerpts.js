@@ -1,5 +1,5 @@
 (function chatExcerptsModule(window, document) {
-    function create({ utils }) {
+    function create({ utils, icons }) {
         let active = null;
 
         function open(button, body) {
@@ -14,15 +14,15 @@
             overlay.innerHTML = `
                 <section class="app-modal-panel chat-excerpt-panel" role="dialog" aria-modal="true" aria-labelledby="chat-excerpt-title">
                     <header class="app-modal-header">
-                        <h2 id="chat-excerpt-title" class="text-lg font-semibold">Copy excerpt</h2>
-                        <button type="button" class="ui-icon-button" data-excerpt-close aria-label="Close">&#215;</button>
+                        <h2 id="chat-excerpt-title" class="text-lg font-semibold text-txt-primary">Copy excerpt</h2>
+                        <button type="button" class="ui-icon-button" data-excerpt-close aria-label="Close">${icons.X_ICON_SVG}</button>
                     </header>
                     <div class="chat-excerpt-instructions">Tap the first paragraph, then the last. Scroll between them as needed.</div>
                     <div class="chat-excerpt-paragraphs" data-excerpt-paragraphs></div>
                     <footer class="chat-excerpt-footer">
                         <span role="status" aria-live="polite" data-excerpt-status>Choose a paragraph to begin.</span>
-                        <button type="button" class="chat-excerpt-action" data-excerpt-cancel>Cancel</button>
-                        <button type="button" class="chat-excerpt-action is-primary" data-excerpt-copy disabled>Copy selected</button>
+                        <button type="button" class="ui-button-secondary" data-excerpt-cancel>Cancel</button>
+                        <button type="button" class="ui-button-primary" data-excerpt-copy disabled>Copy selected</button>
                     </footer>
                 </section>`;
             let start = null;

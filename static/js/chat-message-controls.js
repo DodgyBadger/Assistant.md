@@ -1,6 +1,6 @@
 (function chatMessageControlsModule(window, document) {
     function createChatMessageControls({ state, elements, icons, utils, markdown, callbacks }) {
-        const excerpts = window.ChatExcerpts.create({ utils });
+        const excerpts = window.ChatExcerpts.create({ utils, icons });
         function addLoadingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';

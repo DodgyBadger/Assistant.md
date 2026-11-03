@@ -3981,6 +3981,8 @@ summary.connection-card-summary .summary-title {
     background: rgb(0 0 0 / 0.4);
 }
 .chat-excerpt-panel {
+    color: rgb(var(--text-primary));
+    background: rgb(var(--bg-card));
     display: flex;
     flex-direction: column;
     width: min(48rem, 100%);
@@ -4004,12 +4006,18 @@ summary.connection-card-summary .summary-title {
     width: 100%;
     margin-bottom: 0.35rem;
     padding: 0.75rem;
-    border: 1px solid rgb(var(--border-primary));
+    border: 1px solid rgb(var(--border-secondary));
     border-radius: 0.4rem;
+    background: rgb(var(--bg-app));
+    color: rgb(var(--text-primary));
     text-align: left;
     touch-action: pan-y pinch-zoom;
     user-select: none;
     -webkit-user-select: none;
+}
+.chat-excerpt-paragraph:hover {
+    background: rgb(var(--bg-elevated));
+    border-color: rgb(var(--accent-primary) / 0.5);
 }
 .chat-excerpt-paragraph[aria-pressed="true"] {
     background: rgb(var(--accent-primary) / 0.12);
@@ -4026,10 +4034,15 @@ summary.connection-card-summary .summary-title {
 }
 .chat-excerpt-text {
     min-width: 0;
+    color: inherit;
+    font-size: 0.9rem;
+    line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 .chat-excerpt-footer {
+    background: rgb(var(--bg-card));
+    color: rgb(var(--text-primary));
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -4042,13 +4055,3 @@ summary.connection-card-summary .summary-title {
     font-size: 0.85rem;
     color: rgb(var(--text-secondary));
 }
-.chat-excerpt-action {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid rgb(var(--border-primary));
-    border-radius: 0.4rem;
-}
-.chat-excerpt-action.is-primary {
-    background: rgb(var(--accent-primary));
-    color: white;
-}
-.chat-excerpt-action:disabled { opacity: 0.5; cursor: not-allowed; }
