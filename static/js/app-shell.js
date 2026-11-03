@@ -51,6 +51,7 @@
         };
 
         function switchTab(tabName) {
+            if (callbacks.beforeTabChange?.(tabName) === false) return;
             if (tabName !== 'configuration') {
                 window.ConfigurationPanel?.onTabDeactivated?.();
             }

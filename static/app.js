@@ -120,6 +120,7 @@ const configurationStatus = window.ConfigurationStatus.create({
 const appShell = window.AppShell.create({
     browserStorage,
     callbacks: {
+        beforeTabChange: (tab) => tab === 'chat' || closeDockedExplorer(),
         refreshStatus: () => fetchSystemStatus(),
         setDashboardActive,
     },
@@ -179,7 +180,18 @@ const sessionMap = window.SessionMap.create({
     utils: window.AssistantMDUtils,
 });
 
+const explorerLayout = window.VaultExplorerLayout.create({
+    browserStorage,
+    icons: window.AssistantMDIcons,
+    callbacks: { close: () => fileReferences.closeExplorer() },
+});
+
+function closeDockedExplorer() {
+    return !explorerLayout.isDocked() || (explorerLayout.canClose() && fileReferences.closeExplorer());
+}
+
 const vaultPathPicker = window.VaultPathPicker.create({
+    layout: explorerLayout,
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
@@ -199,6 +211,7 @@ const workspacePicker = window.WorkspacePicker.create({
 });
 
 const fileReferences = window.FileReferences.create({
+    layout: explorerLayout,
     state,
     elements: chatElements,
     icons: window.AssistantMDIcons,
@@ -327,6 +340,7 @@ const chatSessions = window.ChatSessions.create({
     chatTaskActions,
     chatTaskStream,
     callbacks: {
+        beforeSessionChange: (sessionId) => sessionId === state.sessionId || closeDockedExplorer(),
         invalidateSavedPrompts: () => savedPrompts.close(),
         syncControls: syncChatControlLocks,
         handleDeferredReview: handleDeferredReviewEvent,
@@ -553,6 +567,11 @@ function persistSelectedChatMode() {
 }
 
 function handleVaultChange() {
+    const previousVault = explorerLayout.vaultName();
+    if (!closeDockedExplorer()) {
+        chatElements.vaultSelector.value = previousVault;
+        return;
+    }
     savedPrompts.close();
     chatSelection.handleVaultChange();
     savedPrompts.syncControls();
@@ -621,7 +640,7 @@ document.addEventListener('keydown', (event) => {
             setChatFocusMode(false);
             return;
         }
-        workspacePicker.closeModal();
+        if (!explorerLayout.isDocked()) workspacePicker.closeModal();
         vaultActivity.closeDetails();
     }
 });
@@ -860,7 +879,7 @@ async function clearSession(confirmReset = true) {
     const confirmed = confirmReset
         ? window.confirm('Do you want to start a new chat session? The current session remains available in chat history unless you delete it.')
         : true;
-    if (!confirmed) return;
+    if (!confirmed || !closeDockedExplorer()) return;
 
     state.sessionId = null;
     state.pendingDeferredReview = null;

@@ -91,6 +91,16 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_explorer_layout.py",
+      "kind": "behavioral",
+      "sha256": "1ce96f8cea36fa34008a704a14444802629422f015945a4643300989b87e2fc2",
+      "tests": [
+        "test_dock_resize_and_mode_changes_preserve_editor_and_reopen",
+        "test_dock_preference_survives_reload_narrow_windows_and_focus_mode",
+        "test_docked_file_keeps_run_locks_and_guards_vault_changes"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_favorites_browser.py",
       "kind": "behavioral",
       "sha256": "d59e6b4459e88a2f5ff0e080080b5ad63734dbf924b9b86315dafd18034ff623",

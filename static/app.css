@@ -4055,3 +4055,43 @@ summary.connection-card-summary .summary-title {
     font-size: 0.85rem;
     color: rgb(var(--text-secondary));
 }
+
+/* Desktop explorer dock shares the viewport with the chat, including focus mode. */
+body.explorer-docked #app-shell {
+    width: calc(100% - var(--explorer-dock-width));
+    max-width: none;
+    margin-left: 0;
+    margin-right: var(--explorer-dock-width);
+}
+body.explorer-docked.chat-focus-mode #chat-content {
+    right: var(--explorer-dock-width);
+}
+.app-modal-overlay.vault-explorer-docked {
+    left: auto;
+    width: var(--explorer-dock-width);
+    z-index: 46;
+    background: transparent;
+}
+.vault-explorer-docked > .app-modal-panel {
+    max-width: none;
+    box-shadow: none;
+}
+.vault-explorer-docked > [data-vault-file-close] { display: none; }
+.vault-explorer-divider {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: calc(var(--explorer-dock-width) - 4px);
+    width: 8px;
+    z-index: 47;
+    cursor: col-resize;
+    touch-action: none;
+}
+.vault-explorer-divider:hover,
+.vault-explorer-divider:focus-visible {
+    background: rgb(var(--accent-primary) / 0.35);
+    outline: none;
+}
+body.explorer-resizing { cursor: col-resize; user-select: none; }
+
+.ui-icon-button[data-explorer-layout-toggle][hidden] { display: none; }

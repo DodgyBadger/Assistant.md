@@ -1,7 +1,8 @@
 (function vaultPathPickerModule(window, document) {
-    function createVaultPathPickerController({ elements, icons, utils }) {
+    function createVaultPathPickerController({ elements, icons, utils, layout }) {
         const { escapeHtml } = utils;
         let activePickerId = '';
+        let detachLayout = null;
         let activeOnClose = null;
         let activeOptions = null;
         let activeOpener = null;
@@ -244,6 +245,10 @@
                 </section>
             `;
             document.body.appendChild(overlay);
+            if (options.explorer) detachLayout = layout.attach(overlay, {
+                vaultName: options.vaultName || selectedVault(),
+                canClose: () => !isExplorerBusy(),
+            });
             syncInteractionLocks();
 
             const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
@@ -465,7 +470,7 @@
                     menuOptions[nextIndex]?.focus?.();
                     return;
                 }
-                if (event.key === 'Tab') {
+                if (event.key === 'Tab' && !layout.isDocked(overlay)) {
                     const focusable = Array.from(overlay.querySelectorAll(
                         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
                     )).filter((element) => (
@@ -593,6 +598,8 @@
         }
 
         function close() {
+            detachLayout?.();
+            detachLayout = null;
             const opener = activeOpener;
             activeOpener = null;
             cancelPendingSearch();

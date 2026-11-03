@@ -1,7 +1,8 @@
 (function fileReferencesModule(window, document) {
-    function createFileReferencesController({ state, elements, icons, utils, callbacks }) {
+    function createFileReferencesController({ state, elements, icons, utils, callbacks, layout }) {
         const { escapeHtml, formatShortDate } = utils;
         let pickerOpen = false;
+        let detachLayout = null;
         let activeFileCanClose = null;
         let activeFileView = null;
         let activeSelectionPrompt = null;
@@ -235,6 +236,7 @@
                 </section>
             `;
             document.body.appendChild(overlay);
+            detachLayout = layout.attach(overlay, { vaultName: vault });
 
             const editor = overlay.querySelector('#vault-file-modal-editor');
             const statusLabel = overlay.querySelector('#vault-file-modal-status');
@@ -878,6 +880,8 @@
 
         function closeFileModal({ force = false, preserveNavigation = false } = {}) {
             if (!force && activeFileCanClose && !activeFileCanClose()) return false;
+            detachLayout?.();
+            detachLayout = null;
             activeSelectionPrompt?.destroy();
             activeSelectionPrompt = null;
             activeFavoriteEvents?.abort();
@@ -932,6 +936,7 @@
             insertReference,
             openFile,
             closeFileModal,
+            closeExplorer,
             syncInteractionLocks,
             enhanceFileLinks,
             isPickerOpen: () => pickerOpen,
