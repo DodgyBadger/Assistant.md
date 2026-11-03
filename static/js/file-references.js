@@ -192,18 +192,20 @@
                 <div class="absolute inset-0" data-vault-file-close="true"></div>
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="vault-file-modal-title">
                     <div class="app-modal-header vault-file-modal-header flex-none">
-                        ${fileHistory.length || typeof returnToOrigin === 'function' ? `
-                            <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
-                        ` : ''}
-                        <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
-                        <div class="app-modal-actions">
-                            <div class="vault-file-mode-toggle hidden" data-vault-file-mode-toggle role="group" aria-label="File view">
+                        <div class="vault-file-content-actions">
+                            ${fileHistory.length || typeof returnToOrigin === 'function' ? `
+                                <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
+                            ` : ''}
+                            <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
+                            <div class="vault-file-mode-toggle hidden" data-vault-file-mode-toggle role="group" aria-label="File actions">
                                 <button type="button" data-vault-file-mode="preview" aria-label="Preview Markdown" title="Preview Markdown">${icons.EYE_ICON_SVG}</button>
                                 <button type="button" data-vault-file-mode="edit" aria-label="Edit Markdown" title="Edit Markdown">${icons.EDIT_ICON_SVG}</button>
                                 <button type="button" data-vault-file-mode="history" aria-label="Revision history" title="Revision history">${icons.HISTORY_ICON_SVG}</button>
+                                <button type="button" data-vault-file-favorite aria-pressed="false" aria-label="Favorite file" title="Favorite file" disabled>${icons.BOOKMARK_ICON_SVG}</button>
                             </div>
-                            <button type="button" class="ui-icon-button is-compact" data-vault-file-favorite aria-pressed="false" aria-label="Favorite file" title="Favorite file" disabled>${icons.BOOKMARK_ICON_SVG}</button>
                             <button type="button" class="ui-icon-button is-primary is-compact hidden" data-vault-file-save="true" aria-label="Save file" title="Save file" disabled>${icons.SAVE_ICON_SVG}</button>
+                        </div>
+                        <div class="app-modal-actions">
                             <button type="button" class="ui-icon-button is-compact" data-vault-file-close="true" aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                         <div class="app-modal-title-block">

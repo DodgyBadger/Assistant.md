@@ -1889,6 +1889,18 @@ details summary::-webkit-details-marker {
 .vault-file-modal-header {
     flex-wrap: wrap;
 }
+.vault-file-content-actions {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.vault-file-content-actions > button,
+.vault-file-content-actions > .vault-file-mode-toggle {
+    flex-shrink: 0;
+}
 .vault-file-modal-header > .app-modal-title-block {
     flex: 0 0 100%;
 }
@@ -1923,6 +1935,10 @@ details summary::-webkit-details-marker {
 .vault-file-mode-toggle button:focus-visible {
     color: rgb(var(--accent-primary));
     outline: none;
+}
+.vault-file-mode-toggle button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 .vault-file-mode-toggle button.is-active {
     background: rgb(var(--bg-card));
@@ -3875,6 +3891,7 @@ summary.connection-card-summary .summary-title {
 
 /* Shared bookmark controls and new-chat shortcuts. */
 .ui-icon-button.is-bookmarked,
+.vault-file-mode-toggle button.is-bookmarked,
 .session-dropdown-action.is-bookmarked {
     color: rgb(var(--accent-primary));
 }
