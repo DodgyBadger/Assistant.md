@@ -363,12 +363,7 @@ body.chat-focus-mode .chat-focus-divider::before {
 }
 @media (pointer: coarse), (max-width: 639px) {
     body.chat-focus-mode .chat-focus-divider {
-        flex-basis: 2.75rem;
-    }
-    body.chat-focus-mode .chat-focus-divider::before {
-        width: 4rem;
-        height: 0.3rem;
-        background: rgb(var(--text-secondary));
+        flex-basis: 25px;
     }
 }
 @media (max-width: 639px) {
