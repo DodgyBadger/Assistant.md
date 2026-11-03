@@ -277,12 +277,18 @@
             const container = elements.chatMessages;
             let notice = container.querySelector('[data-session-map-context-boundary="true"]');
             if (!notice) notice = createSessionMapCheckpointNotice();
-            const firstRawNode = Array.from(
-                container.querySelectorAll('[data-canonical-start]')
-            ).find(node => Number(node.dataset.canonicalStart) > timelineBoundary);
+            const canonicalNodes = Array.from(container.querySelectorAll('[data-canonical-start]'));
+            const firstRawNode = canonicalNodes.find(node => Number(node.dataset.canonicalStart) > timelineBoundary);
             if (firstRawNode) {
                 container.insertBefore(notice, firstRawNode);
-            } else {
+            } else if (canonicalNodes.length) {
+                // Live user/assistant rows have no canonical range until history reloads.
+                // Keep them after the map boundary instead of moving the notice past them.
+                const lastCanonicalNode = canonicalNodes.at(-1);
+                if (lastCanonicalNode.nextSibling !== notice) {
+                    container.insertBefore(notice, lastCanonicalNode.nextSibling);
+                }
+            } else if (!notice.parentNode) {
                 const failure = container.querySelector('.message-error')?.parentElement || null;
                 container.insertBefore(notice, failure);
             }
