@@ -37,6 +37,16 @@ async def test_dock_resize_and_mode_changes_preserve_editor_and_reopen(browser_a
     await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
     editor = reader.locator("#vault-file-modal-editor")
     await editor.fill("Unsaved file changes")
+    for tab, content in (
+        ("dashboard", "dashboard"),
+        ("configuration", "configuration"),
+        ("chat", "chat"),
+    ):
+        await ui.locator(f"#{tab}-tab").click()
+        await expect(ui.locator(f"#{content}-content")).to_be_visible()
+        await expect(editor).to_be_editable()
+        await expect(editor).to_have_value("Unsaved file changes")
+        await expect(divider).to_be_visible()
     await reader.get_by_role("button", name="Use overlay view", exact=True).click()
     await reader.get_by_role("button", name="Use split view", exact=True).click()
     await expect(editor).to_have_value("Unsaved file changes")
@@ -44,8 +54,10 @@ async def test_dock_resize_and_mode_changes_preserve_editor_and_reopen(browser_a
     await expect(ui.locator("#chat-input")).to_have_value("Keep this chat draft")
     await reader.get_by_role("button", name="Save file", exact=True).click()
     await expect(
-        reader.get_by_role("button", name="Save file", exact=True)
-    ).to_be_disabled()
+        reader.locator("#vault-file-modal-preview").get_by_text(
+            "Unsaved file changes", exact=True
+        )
+    ).to_be_visible()
     assert (browser_app.vault / "Draft.md").read_text() == "Unsaved file changes"
     await ui.locator("#chat-input").focus()
     await ui.keyboard.press("Escape")
@@ -102,6 +114,7 @@ async def test_dock_preference_survives_reload_narrow_windows_and_focus_mode(
 async def test_docked_file_keeps_run_locks_and_guards_vault_changes(browser_app, ui):
     browser_app.app.write(browser_app.vault, "Draft.md", "Original")
     other = browser_app.app.vault("OtherDockVault")
+    browser_app.app.write(other, "Draft.md", "Other vault content")
     assert (
         await browser_app.app.request_async("/api/vaults/rescan", "POST", {})
     ).status_code == 200
@@ -147,3 +160,26 @@ async def test_docked_file_keeps_run_locks_and_guards_vault_changes(browser_app,
         await expect(ui.locator("#vault-selector")).to_have_value(other.name)
         await expect(reader).to_have_count(0)
         assert store.get_session_by_id("dock-chat").vault_name == browser_app.vault.name
+        explorer = ui.get_by_role("dialog", name="Vault Explorer", exact=True)
+        await expect(explorer).to_be_visible()
+        await expect(
+            ui.get_by_role("separator", name="Resize explorer")
+        ).to_be_visible()
+        await explorer.locator('[data-vault-path-picker-select="Draft.md"]').click()
+        await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
+        await expect(editor).to_have_value("Other vault content")
+        await editor.fill("Edited in other vault")
+        await reader.get_by_role("button", name="Save file", exact=True).click()
+        await expect(
+            reader.locator("#vault-file-modal-preview").get_by_text(
+                "Edited in other vault", exact=True
+            )
+        ).to_be_visible()
+        assert (other / "Draft.md").read_text() == "Edited in other vault"
+        assert (browser_app.vault / "Draft.md").read_text() == "Original"
+        await ui.locator("#vault-selector").select_option(browser_app.vault.name)
+        await expect(explorer).to_be_visible()
+        await expect(reader).to_have_count(0)
+        await explorer.locator('[data-vault-path-picker-select="Draft.md"]').click()
+        await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
+        await expect(editor).to_have_value("Original")

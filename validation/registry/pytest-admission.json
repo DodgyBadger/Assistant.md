@@ -93,7 +93,7 @@
     {
       "path": "scenarios/browser/test_explorer_layout.py",
       "kind": "behavioral",
-      "sha256": "1ce96f8cea36fa34008a704a14444802629422f015945a4643300989b87e2fc2",
+      "sha256": "d158ded68597b6a6c83ec06ae1b7c97421a98f4a315766bac6afdca3602ec7b4",
       "tests": [
         "test_dock_resize_and_mode_changes_preserve_editor_and_reopen",
         "test_dock_preference_survives_reload_narrow_windows_and_focus_mode",

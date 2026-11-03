@@ -120,7 +120,6 @@ const configurationStatus = window.ConfigurationStatus.create({
 const appShell = window.AppShell.create({
     browserStorage,
     callbacks: {
-        beforeTabChange: (tab) => tab === 'chat' || closeDockedExplorer(),
         refreshStatus: () => fetchSystemStatus(),
         setDashboardActive,
     },
@@ -567,6 +566,7 @@ function persistSelectedChatMode() {
 }
 
 function handleVaultChange() {
+    const keepExplorerOpen = explorerLayout.isDocked();
     const previousVault = explorerLayout.vaultName();
     if (!closeDockedExplorer()) {
         chatElements.vaultSelector.value = previousVault;
@@ -574,6 +574,7 @@ function handleVaultChange() {
     }
     savedPrompts.close();
     chatSelection.handleVaultChange();
+    if (keepExplorerOpen && chatElements.vaultSelector.value) fileReferences.openExplorer();
     savedPrompts.syncControls();
 }
 
