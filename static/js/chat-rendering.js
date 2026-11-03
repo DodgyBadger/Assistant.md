@@ -559,7 +559,7 @@
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-footer-actions';
 
-            const copyButton = messageControls.createCopyButton(() => context.fullText, 'message-copy-button');
+            const copyButton = messageControls.createCopyButton(() => context.fullText, 'message-copy-button', context.bodyDiv);
             actionsDiv.appendChild(copyButton);
             const forkButton = messageControls.createForkButton(context.sequenceIndex);
             if (forkButton) {

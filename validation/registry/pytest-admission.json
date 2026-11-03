@@ -37,6 +37,15 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_chat_excerpts.py",
+      "kind": "behavioral",
+      "sha256": "b89cd24d45fdff198455f65eb5df4695f3d07f85f8c4357b5e26cf3a6b649a67",
+      "tests": [
+        "test_excerpt_range_survives_scrolling_and_preserves_full_copy",
+        "test_excerpt_keyboard_reverse_single_and_cancel_keep_clipboard_explicit"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_configuration_browser.py",
       "sha256": "1aa2c2d1e88d83e184c02f26c5bab6e674e407fbb584ba966d21cccaa38f3725",
       "kind": "behavioral",

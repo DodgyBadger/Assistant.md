@@ -1,5 +1,6 @@
 (function chatMessageControlsModule(window, document) {
     function createChatMessageControls({ state, elements, icons, utils, markdown, callbacks }) {
+        const excerpts = window.ChatExcerpts.create({ utils });
         function addLoadingMessage(options = {}) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'flex justify-start';
@@ -77,7 +78,8 @@
 
             actionsDiv.appendChild(createCopyButton(
                 () => content,
-                'message-copy-button'
+                'message-copy-button',
+                bodyDiv
             ));
             const forkButton = role === 'assistant' ? createForkButton(options.sequenceIndex) : null;
             if (forkButton) {
@@ -99,7 +101,7 @@
             return messageDiv;
         }
 
-        function createCopyButton(getText, extraClass = '') {
+        function createCopyButton(getText, extraClass = '', excerptBody = null) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `copy-button ${extraClass}`.trim();
@@ -107,8 +109,10 @@
             button.title = 'Copy to clipboard';
             button.innerHTML = icons.COPY_ICON_SVG;
 
+            const excerptGesture = excerptBody ? excerpts.attach(button, excerptBody) : null;
             button.addEventListener('click', async (event) => {
                 event.stopPropagation();
+                if (excerptGesture?.(event)) return;
                 const text = getText();
                 if (!text) {
                     utils.flashCopyFeedback(button, false);
