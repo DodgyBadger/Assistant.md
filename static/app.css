@@ -2260,8 +2260,8 @@ details summary::-webkit-details-marker {
 }
 .message-footer-has-tools .message-footer-content {
     display: flex;
-    flex: 1 1 0;
-    width: 0;
+    flex: 1 1 auto;
+    width: auto;
     min-width: 0;
     max-width: 100%;
     overflow: hidden;

@@ -59,6 +59,9 @@ class OpenAIProviderBuildResult:
 class DefaultOpenAIOAuthRuntimeAdapter:
     """Build a Pydantic AI OpenAI provider backed by ChatGPT OAuth tokens."""
 
+    def __init__(self, *, base_url: str = OPENAI_CHATGPT_CODEX_BASE_URL) -> None:
+        self.base_url = base_url
+
     def build_provider(
         self,
         *,
@@ -82,7 +85,7 @@ class DefaultOpenAIOAuthRuntimeAdapter:
 
         client = build_openai_sdk_client(
             api_key=bearer_token,
-            base_url=OPENAI_CHATGPT_CODEX_BASE_URL,
+            base_url=self.base_url,
             default_headers=headers or None,
             http_client=http_client,
         )

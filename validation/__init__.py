@@ -1,9 +1,4 @@
-"""
-Validation framework package.
-
-Scenarios should import helpers from `validation.core` for interacting with the
-runtime and managing evidence.
-"""
+"""AssistantMD validation integration and application-owned scenarios."""
 
 __all__: list[str] = []
 __version__ = "2.0.0"

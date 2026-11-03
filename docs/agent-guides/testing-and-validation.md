@@ -1,127 +1,61 @@
 # Testing and Validation
 
-## Validation Scope
-- Primary integration testing is scenario validation under `validation/scenarios/`.
-- Prefer adding or adjusting scenario files by feature area (for example, `validation/scenarios/integration/`).
-- Scenario names should be descriptive and behavior-oriented (for example, `context_manager_cache_modes.py`).
-- Scenario coverage is for primary subsystem boundaries, durable contracts, and
-  regressions we have already seen or have strong reason to expect. Do not add a
-  scenario for every small UI detail, formatting tweak, or implementation helper.
-  Use focused smoke checks, code review, or an existing scenario assertion for
-  those narrower changes unless they protect an important cross-subsystem
-  contract.
+## Skills
 
-### Scenario taxonomy and pre-merge profile
+Use the appropriate scenario-harness skill:
 
-Organize scenarios by what they exercise, not merely because they guard against
-a regression:
+- Planning: [plan-behavioral-change](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/plan-behavioral-change/SKILL.md).
+- Writing scenarios: [test-application-behavior](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/test-application-behavior/SKILL.md).
+- Review: [review-behavioral-scenarios](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/review-behavioral-scenarios/SKILL.md).
+- Diagnosis: [diagnose-scenario-failures](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/diagnose-scenario-failures/SKILL.md).
+- Fixture integration: [integrate-scenario-testing](https://github.com/DodgyBadger/scenario-harness/blob/93bfc8dab87c8436775af05876fb32a2610230fd/skills/integrate-scenario-testing/SKILL.md).
 
-- `integration/core`: deterministic integration, persistence, authorization,
-  isolation, encryption, and network-boundary contracts that run without
-  external services; this is the automatic CI and merge-gate profile;
-- `experiments`: live-model, external-service, stress, and diagnostic probes
-  that are not merge gates.
+Install skills from the harness revision pinned in `pyproject.toml`; Python dependency installation does not install agent skills. Read the linked `SKILL.md` when the skill is unavailable in your agent.
 
-`regression` and `security` are not scenario categories. Every deterministic
-contract required to protect a merge belongs in `integration/core`. Security
-probes that depend on live models, external content, or diagnostic judgment
-belong in `experiments` unless they can be made deterministic.
+## Setup and commands
 
-The regular pre-merge validation profile is `integration/core`. Run it with:
+Run from the repository root.
 
-```bash
-python validation/run_validation.py run integration/core
-```
+Install dependencies:
 
-Experimental scenarios are opt-in and are not part of that profile. During active branch development, run the relevant individual scenarios for fast feedback. Once the branch is stable, run the complete `integration/core` profile during either the hardening pass or merge preparation. Do not duplicate the full run in both phases when it already passed against the same effective behavior.
+    uv sync --frozen --all-extras
 
-### npm security audit
+Run one backend scenario; append `::test_name` to select a case:
 
-Run `node scripts/audit-npm.cjs` after `npm ci --include=dev` to use the same high/critical audit policy as CI. Temporary exceptions live in `scripts/npm-audit-exceptions.json`, scoped to an exact advisory and package version in development-only dependency paths, with a rationale and UTC review deadline. CI warns on accepted exceptions and fails once their deadline arrives or they are no longer applicable. Review upstream fixes and the dependency chain before extending a deadline; remove exceptions when updating to patched dependencies. Do not exclude all development dependencies or bypass the audit. Run the deterministic policy checks with `node --test validation/test_npm_audit_policy.cjs` when changing this policy.
+    scripts/dev scenario validation/scenarios/integration/core/test_gmail_selected_account_tokens.py
 
-## Integration Scenario Assertions
-- Never assert on non-deterministic LLM prose in integration scenarios.
-- Prefer deterministic artifacts: API responses, file contents, persisted state, validation events, tool calls, exact helper outputs, and structured fields.
-- Do not test prompt, flight-card, or documentation prose with exact-string or substring assertions. Test instruction-layer ordering, conditional inclusion, structured data, data boundaries, tool calls, or observable behavior instead.
-- Reserve exact-text assertions for text that is itself a machine-consumed protocol or an explicitly stable external contract, not editorial guidance. State that boundary in the test so future maintainers know why wording is fixed.
-- Avoid asserting frontend CSS classes, markup structure, or copy unless that is
-  the explicit product contract under test. Prefer the stable data contract that
-  drives the UI, and leave visual styling details to manual review or a
-  purpose-built frontend harness.
+Run the complete backend profile:
 
-## Validation-First Workflow
+    uv run python -m pytest validation/scenarios/integration/core
 
-Use the validation framework to shape feature design from day one for changes
-that affect durable behavior or subsystem boundaries, not as a blanket rule for
-every edit.
+Set up and run browser scenarios:
 
-### 1) Write the feature spec in terms of artifacts
-- final artifacts users will observe (files, API responses, state changes)
-- internal artifacts required for confidence (validation events at key decision points)
-- non-negotiable invariants (what must never regress)
-- why the behavior warrants scenario coverage instead of a lighter smoke check:
-  for example, it crosses subsystem ownership, preserves user data, guards a
-  previously observed drift point, or defines a durable tool/API/runtime
-  contract
+    scripts/dev setup --browser
+    uv run python -m pytest -c validation/scenarios/browser/pytest.ini
 
-### 2) Add scenario assertions before implementation
-- create or extend a scenario with failing assertions for those artifacts
-- include final artifact assertions (end-user behavior)
-- include internal artifact assertions (decision correctness, skip reasons, routing, cache behavior)
+Backend scenarios default to four pytest workers locally and in CI. Override the worker count with `-n`, for example `uv run python -m pytest validation/scenarios/integration/core -n 2`. Browser scenarios run with one worker.
 
-This makes the scenario the executable contract for the feature.
+Core scenarios must not depend on live models, public services or real credentials. Browser scenarios use synthetic data and controlled local dependencies. Experimental and live-service cases remain opt-in. Validation cadence is defined in [AGENTS.md](../../AGENTS.md).
 
-### 3) Define event contracts in the implementation plan
-- event name
-- minimum payload keys that represent behavior
-- when the event should fire
+## Application integration
 
-Only add events at decision boundaries; avoid noisy instrumentation.
+Backend scenarios use `pytestmark = pytest.mark.scenario` and the `app` fixture from `validation/support/application.py`. Browser scenarios use `browser_app` and `ui`.
 
-### 4) Implement in small slices until scenario contract passes
-- build the smallest increment that satisfies the next failing assertion
-- keep assertions behavior-focused (avoid coupling to internals)
-- prefer deterministic scenarios (`@model test`) unless real model behavior is explicitly required
-- do not assert on free-form LLM wording; assert on validation events you control, exact API/file artifacts, and other deterministic outputs instead
+- `validation/scenarios/integration/core/`: backend scenarios.
+- `validation/scenarios/browser/`: browser scenarios and configuration.
+- `validation/support/`: application fixtures and helpers, grouped by subsystem.
+- `validation/fixtures/`: sample documents, images and workspace files.
+- `validation/registry/`: source admission and coverage accounting.
+- `validation/runs/`: ignored reports and artifacts.
+- `validation/legacy/pending/`: deferred references excluded from collection.
 
-### 5) Tighten and keep
-- keep contract assertions as long-term regression guards
-- remove temporary debug-only events/assertions
-- preserve stable event names/payload keys as compatibility surface for scenarios
+## Admission and CI
 
-## What Matters Now
-- Assert behavior, not implementation accidents.
-- Prefer deterministic scenarios (`@model test`) unless real model behavior is essential.
-- Use local smoke tests to probe exact edge cases quickly, especially for helper functions and failure paths.
-- Keep development feedback fast with directly relevant scenarios, then run the complete deterministic pre-merge profile after the branch stabilizes.
+Canonical scenario and support sources require matching hashes and test identities in `validation/registry/pytest-admission.json`. Update the admission records when those sources change.
 
-## Definition of Done (Workflow Perspective)
-- New behavior is represented by scenario assertions (new or updated).
-- Decision-heavy branches have stable, behavior-oriented validation events when needed.
-- Temporary debug instrumentation is removed.
-- Relevant technical docs are updated (architecture, usage, or examples).
-- The complete `integration/core` profile has passed against the stable branch during hardening or merge preparation, unless an external blocker is documented.
+    uv run python -m validation.support.inventory
+    uv run python -m pytest -c .github/pytest.ini .github/tests/test_validation_policy.py .github/tests/test_pytest_collection_policy.py
 
-## Execution Rules
-- During feature development, run individual scenarios directly to validate the functionality being built.
-- During hardening or merge preparation, run the complete `integration/core` profile once the branch is stable.
-- If behavior changes after that run, rerun affected scenarios immediately and rerun the complete profile when the change could affect broader contracts. Documentation-only changes do not require another full run.
-- Do not run `experiments` or live-service scenarios unless the task requires them; they are not part of the deterministic merge gate.
-- Static analysis is separate from scenario validation. Production Python changes still require the complete [Production Python Quality Gate](coding-standards.md#production-python-quality-gate) before commit or handoff.
+Human PR review assesses testing policy and changed expectations. The required `validation` CI check runs dependency/security checks and both scenario profiles.
 
-## Agent Smoke Tests (Local, Fast)
-- For new functions/modules, run quick ephemeral bash-based smoke tests before handoff.
-- Pattern: `python - <<'PY' ... PY` using isolated temp roots under `/tmp` (for example, `/tmp/workflow-run-check`).
-- For runtime-dependent smoke tests, call `set_bootstrap_roots(data_root, system_root)` before importing modules that read settings/runtime paths.
-- Favor targeted failure probes that assert exact error text/pointers (for example, bad directive value, missing step name).
-
-## Common Mistakes
-- Relying on free-form model output instead of deterministic artifacts.
-- Freezing editable prompt, flight-card, or documentation prose in tests when only composition or behavior matters.
-- Adding noisy events instead of decision-boundary events.
-- Treating smoke tests as a substitute for scenario coverage.
-- Running the complete pre-merge profile after every development edit instead of reserving it for a stable hardening or merge-preparation pass.
-- Reaching merge preparation without a successful `integration/core` run against the branch's effective behavior.
-
-## Phase Exit
-Move to [Refactor and Hardening](refactor-and-hardening.md) once behavior is correct and covered.
+Python checks follow the [Production Python Quality Gate](coding-standards.md#production-python-quality-gate).

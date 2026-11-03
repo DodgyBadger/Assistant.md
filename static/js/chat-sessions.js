@@ -34,6 +34,7 @@
                 await sessionControls.refreshCompactionState();
             } catch (error) {
                 if (isCurrent()) console.error('Error fetching chat sessions:', error);
+                return false;
             }
         }
 

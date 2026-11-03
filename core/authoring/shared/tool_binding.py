@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import inspect
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast, get_type_hints
 
@@ -416,7 +417,39 @@ def _wrap_tool_function(
             result = original_func(**kwargs)
         return _to_tool_return(tool_name, wrap_web_tool_result(tool_name, result))
 
-    wrapper = _call_async if inspect.iscoroutinefunction(original_func) else _call_sync
+    async def _call_transactional_sync(
+        ctx: RunContext[Any], **kwargs: Any
+    ) -> ToolReturn:
+        # Cancellation cannot stop a Python worker thread. Wait for transactional
+        # writes to settle before the owning task runs rollback and publishes its
+        # terminal state, even if cancellation is requested more than once.
+        worker = asyncio.create_task(asyncio.to_thread(_call_sync, ctx, **kwargs))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError as cancellation:
+            while not worker.done():
+                try:
+                    await asyncio.shield(worker)
+                except asyncio.CancelledError:
+                    continue
+                except Exception as error:
+                    cancellation.add_note(
+                        f"Transactional tool failed while cancellation was pending: {type(error).__name__}"
+                    )
+                    break
+            if worker.done() and not worker.cancelled():
+                # Retrieve an exception that raced with cancellation so it cannot
+                # become an unobserved task exception.
+                worker.exception()
+            raise
+
+    wrapper: Callable[..., ToolReturn | Awaitable[ToolReturn]]
+    if inspect.iscoroutinefunction(original_func):
+        wrapper = _call_async
+    elif recovery_policy == ToolRecoveryPolicy.VAULT_TRANSACTIONAL:
+        wrapper = _call_transactional_sync
+    else:
+        wrapper = _call_sync
     untyped_wrapper: Any = wrapper
     try:
         sig = inspect.signature(original_func)

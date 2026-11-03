@@ -403,10 +403,16 @@ async def bootstrap_runtime(
             scheduler.resume()
             runtime_context.start_background_vault_state_refresh(reason="startup")
 
-        except Exception:
+        except BaseException as error:
             # If job synchronization fails, clean up and rethrow
-            scheduler.shutdown(wait=False)
-            clear_runtime_context()
+            try:
+                scheduler.shutdown(wait=False)
+            except BaseException as cleanup_error:
+                error.add_note(
+                    f"Scheduler cleanup failed: {type(cleanup_error).__name__}"
+                )
+            finally:
+                clear_runtime_context()
             raise
 
         logger.info(
@@ -425,48 +431,64 @@ async def bootstrap_runtime(
 
         return runtime_context
 
-    except Exception as e:
-        logger.error(
-            "Runtime bootstrap failed",
-            data={
-                "event": "runtime_bootstrap_failed",
-                "status": "failed",
-                "error_type": type(e).__name__,
-                "error": str(e)[:500],
-            },
-        )
+    except BaseException as e:
+        try:
+            logger.error(
+                "Runtime bootstrap failed",
+                data={
+                    "event": "runtime_bootstrap_failed",
+                    "status": "failed",
+                    "error_type": type(e).__name__,
+                    "error": str(e)[:500],
+                },
+            )
+        except BaseException as log_error:
+            e.add_note(f"Bootstrap failure logging failed: {type(log_error).__name__}")
 
         # Attempt cleanup of any partially initialized services
         try:
             if "scheduler" in locals() and scheduler and scheduler.running:
                 scheduler.shutdown(wait=False)
-        except Exception as cleanup_error:
-            logger.error(
-                "Runtime bootstrap cleanup failed",
-                data={
-                    "event": "runtime_bootstrap_cleanup_failed",
-                    "status": "failed",
-                    "component": "scheduler",
-                    "error_type": type(cleanup_error).__name__,
-                    "error": str(cleanup_error)[:500],
-                },
-            )
+        except BaseException as cleanup_error:
+            e.add_note(f"Scheduler cleanup failed: {type(cleanup_error).__name__}")
+            try:
+                logger.error(
+                    "Runtime bootstrap cleanup failed",
+                    data={
+                        "event": "runtime_bootstrap_cleanup_failed",
+                        "status": "failed",
+                        "component": "scheduler",
+                        "error_type": type(cleanup_error).__name__,
+                    },
+                )
+            except BaseException as log_error:
+                e.add_note(f"Cleanup logging failed: {type(log_error).__name__}")
         try:
             if "mcp_manager" in locals() and mcp_manager is not None:
                 await mcp_manager.shutdown()
-        except Exception as cleanup_error:
-            logger.error(
-                "Runtime bootstrap cleanup failed",
-                data={
-                    "event": "runtime_bootstrap_cleanup_failed",
-                    "status": "failed",
-                    "component": "mcp_manager",
-                    "error_type": type(cleanup_error).__name__,
-                    "error": str(cleanup_error)[:500],
-                },
-            )
+        except BaseException as cleanup_error:
+            e.add_note(f"MCP cleanup failed: {type(cleanup_error).__name__}")
+            try:
+                logger.error(
+                    "Runtime bootstrap cleanup failed",
+                    data={
+                        "event": "runtime_bootstrap_cleanup_failed",
+                        "status": "failed",
+                        "component": "mcp_manager",
+                        "error_type": type(cleanup_error).__name__,
+                    },
+                )
+            except BaseException as log_error:
+                e.add_note(f"Cleanup logging failed: {type(log_error).__name__}")
 
-        if isinstance(e, RuntimeConfigError):
+        if (
+            "runtime_context" in locals()
+            and runtime_state.has_runtime_context()
+            and runtime_state.get_runtime_context() is runtime_context
+        ):
+            clear_runtime_context()
+
+        if not isinstance(e, Exception) or isinstance(e, RuntimeConfigError):
             # Configuration errors retain their public type after partial-start cleanup.
             raise
 

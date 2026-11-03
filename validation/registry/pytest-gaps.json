@@ -1,0 +1,2095 @@
+{
+  "schema_version": 1,
+  "purpose": "Canonical end-of-migration cleanup backlog. Partial ports retain original coverage until replacement evidence or reviewed retirement resolves each gap.",
+  "gaps": [
+    {
+      "id": "settings-api-conflict-translation",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/settings_database_migration"
+      ],
+      "missing_proof": "Real settings API 409 SettingsConflict translation; original manufactures a repository.StaleSettingsError with a private save patch.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/settings_database_migration.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_152922_783295.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json",
+        "validation/runs/gap_cleanup_real_conflict_restart_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 1,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real public settings request reaches its original revision-checked repository commit. A bounded interpreter-profile observer pauses that code entry without replacing the function; an independent writer thread commits a genuine SQLite setting/revision change, then releases the request. The real conflict becomes HTTP409 SettingsConflict, preserves the newer value and allows a successful fresh request. Profiling state is restored, unsupported existing profilers fail clearly, and the earlier ineffective write-lock probe remains historical only.",
+      "resolution_kind": "deterministic_behavior",
+      "prior_investigation": "A real SQLite write-lock fixture blocks schema admission before the request captures a settings revision; it does not force a stale API save. The failed probe is retained under runs/gap_cleanup_recovery_20261029/retained-settings-probe and is excluded from canonical collection. Need a supported deterministic boundary; no private save replacement or weakened 409 oracle introduced."
+    },
+    {
+      "id": "legacy-secrets-abrupt-death",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/legacy_secrets_migration"
+      ],
+      "missing_proof": "Abrupt process-death recovery during import, after import and after source rename. New real SQLite/filesystem exception fixtures prove retry behavior but are not equivalent crash proof.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/legacy_secrets_migration.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_154045_955516.json",
+        "validation/runs/pytest_migration/legacy_secrets_20261028/report.json",
+        "validation/runs/gap_cleanup_secrets_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "review_number": 2,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual SIGKILL at an open import transaction, durable imported-before-rename state and renamed-before-complete bookkeeping; every fresh process restart preserves all credentials and completes without duplicate rows.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "vault-root-alias-contract",
+      "status": "open",
+      "category": "product_contract_review",
+      "source_scenarios": [
+        "integration/core/file_write_directory_delete"
+      ],
+      "missing_proof": "Whether root cleanup via dot/dot-slash is intended product behavior. The evaluation contract required rejection, but that contract was not a historical product specification.",
+      "retained_coverage": [
+        "validation/legacy/pending/file_write_directory_delete.py"
+      ],
+      "evidence": [
+        "validation/runs/skill_evaluations/directory_cleanup_requirements_20261028_6qjyjja0/evaluator-assessment.md"
+      ],
+      "cleanup_action": "Deferred product bug recorded in the user-requested external to-do list; no root-deletion behavior changed.",
+      "review_number": 3,
+      "user_decision": "For later: save as bug fix to /home/codeman/docs/AssistantMD/! To Do.md",
+      "decision_status": "deferred",
+      "tracking_location": "/home/codeman/docs/AssistantMD/! To Do.md"
+    },
+    {
+      "id": "runner-timeout-descendant-guarantees",
+      "status": "resolved",
+      "category": "cutover_capability",
+      "source_scenarios": [
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "missing_proof": "The new plugin declares no hard-hang timeout or descendant-process cleanup guarantee; old runner protections must not disappear silently at cutover.",
+      "retained_coverage": [
+        "validation/legacy/pending/validation_runner_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_comparison/20261027_234735_crash_verified_6ey112b5/comparison.md",
+        "validation/runs/gap_cleanup_watchdog_20261029/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills2/evidence/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills0/evidence/report.json",
+        "validation/runs/practical_native_deadline_confirm_20261029/test_controller_deadline_kills1/evidence/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "review_number": 4,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Controller-enforced whole-item deadlines work independently of the worker GIL; real native blocks in setup/call/teardown fail and replacement workers pass. Existing inherited-session cleanup remains. Deliberately detached sessions are explicitly outside the accepted guarantee.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Protected workers now have a positive whole-item pytest-timeout watchdog and bounded verified Linux session cleanup. Generic34checks and a real full-app hang/descendant/replacement fault profile pass. A true hard process deadline for GIL-held native code and deliberately detached descendant sessions remain unsupported; capability hard_hang_timeout stays false, so this gap stays open. Broad HOME/environment/worker-reuse policy item63 remains deferred."
+    },
+    {
+      "id": "same-path-active-mutation-serialization",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/file_write_same_path_concurrency"
+      ],
+      "missing_proof": "Original max_active_writes==1 assertion required patching the replacement function. New real concurrent operations establish successful statuses and no lost updates, not an observed non-overlap interval.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/file_write_same_path_concurrency.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_161227_753784.json",
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json",
+        "validation/runs/gap_cleanup_concurrent_snapshots_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 5,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Concurrent edits preserve all changes, form a continuous before/after audit-hash chain, have matching original-byte snapshots and leave a matching manifest. Atomic SQLite vault registration fixes the actually reproduced first-refresh collision; strict internal non-overlap count is retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "directory-move-active-child-contention",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_directory_mutation_concurrency"
+      ],
+      "missing_proof": "Original child edit waits during an active directory move depends on pausing os.replace via a patch. Sequential real move and stale-path rejection do not prove active contention/waiting.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_directory_mutation_concurrency.py"
+      ],
+      "evidence": [
+        "validation/runs/reports/20261028_161227_753784.json",
+        "validation/runs/pytest_migration/file_boundaries_batch3/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 6,
+      "user_decision": "Approved to proceed with the test",
+      "decision_status": "approved",
+      "resolution": "A real directory move holds its public mutation lock while a child edit is submitted. The stale edit cannot write through to the old or wrong path; destination content and one directory-move audit record are correct.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "task-rollback-reactivated-snapshot-retry",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_state_rollback"
+      ],
+      "missing_proof": "Original retry fixture deleted mutation history and reactivated an already-rolled-back snapshot. New active-task external-edit conflict and real retry preserve safety outcomes but do not reproduce that manipulated retry state.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_state_rollback.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
+        "validation/runs/pytest_migration/vault_task_rollback_corrected_batch4/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
+      "review_number": 7,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement: manually reactivating a rolled-back snapshot with deleted mutation history is not a supported recovery input. Real conflict/retry and file preservation scenarios remain.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "activity-rollback-paused-restore-serialization",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_activity_rollback"
+      ],
+      "missing_proof": "Original restore_calls==1 while the first restore was paused is not established by real concurrent submissions yielding one success/one rejection and correct final files.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_activity_rollback.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_recovery_batch4/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "status": "resolved",
+      "review_number": 8,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real simultaneous rollback submissions produce exactly one success and one rejection, one coherent restored file, matching source/recovery activities and snapshot/audit rows, and rejection of a later repeat. Internal restore call counts are retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "encrypted-guarded-write-serialization",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/encrypted_secrets_boundaries"
+      ],
+      "missing_proof": "Original guarded-write concurrency window pauses private service._select_row; the new public mutation/integrity/rotation checks do not prove that exact serialization window.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/encrypted_secrets_boundaries.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/security_migrations_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
+      "review_number": 9,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real held SQLite write transaction rotates the encrypted guard while a stale guarded write is submitted; stale write is rejected and newer guard/current secret remain.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "default-context-instruction-semantics",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/default_context"
+      ],
+      "missing_proof": "Generated missing-README scan/create advice and absence of named packaged default-stance/WorkPolicy/GoalTracking prose lack equivalent semantic assertions. Input inclusion, truncation sentinels, custom headings, workspace data and structured activity checks are preserved.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/default_context.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/authoring_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
+      "review_number": 10,
+      "user_decision": "Agreed - integration scenarios should never assert on potentially flaky model output or other forms of prose",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial instruction wording. Canonical default-context scenarios retain controlled source inclusion/exclusion, ordering, bounded content and retained-history boundaries.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "locked-bootstrap-cold-import-scope",
+      "category": "fixture_scope_review",
+      "source_scenarios": [
+        "integration/core/locked_access_bootstrap"
+      ],
+      "missing_proof": "Cold target-root module imports create an unrelated chat database and migration backup. Passing locked cases match the original prewarmed-module/outer-root lifecycle, not every cold import ordering.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/locked_access_bootstrap.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/security_migrations_retry_20261028/report.json",
+        "validation/runs/pytest_migration/locked_bootstrap_warm_import_20261028/report.json",
+        "validation/runs/gap_cleanup_secrets_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
+      "review_number": 11,
+      "user_decision": "Approved to investigate",
+      "decision_status": "approved",
+      "resolution": "Fresh production-style cold and prewarmed locked startups both complete with all managed writes under configured roots, no access.db, and secret execution rejected. Independent chat/database migrations and backups are legitimate.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "observation-redaction-equality",
+      "category": "review_blocker",
+      "priority": "before_further_migration",
+      "source_scenarios": [],
+      "missing_proof": "Confirmed false-positive assertion: distinct registered secrets compare equal after both observed and expected values become [REDACTED]. contains and require accept an incorrect value.",
+      "retained_coverage": [],
+      "evidence": [
+        "validation/runs/pytest_migration/architecture_review/redaction-result.json",
+        "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
+      ],
+      "code_locations": [
+        "../scenario-harness/src/scenario_harness/context.py:85",
+        "../scenario-harness/src/scenario_harness/context.py:113"
+      ],
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "resolution": "Original deep-copied values now drive matching; only serialized copies and error diagnostics are redacted. Four new package regressions pass, including distinct registered values and mutation isolation. Installed-wheel real-app wrong-value oracle fails as expected."
+    },
+    {
+      "id": "capture-mutates-application-logging",
+      "category": "review_blocker",
+      "priority": "before_trusting_affected_evidence",
+      "source_scenarios": [
+        "integration/core/settings_lifecycle",
+        "integration/core/ingress_authentication"
+      ],
+      "missing_proof": "The capture projector sanitizes actual application activity/validation/Logfire emission and warning identity before observation. Registered-secret log-absence assertions cannot establish that the application itself sanitized emissions.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/settings_lifecycle.py",
+        "validation/legacy/scenarios/integration/core/ingress_authentication.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/evidence_controls_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/trusted_evidence_rerun_20261028/report.json"
+      ],
+      "code_locations": [
+        "core/logger.py:755",
+        "validation/scenarios/application.py:172",
+        "validation/support/adapter.py:63"
+      ],
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "scope_note": "The legacy adapter shares this projection hook; this is an application-observation boundary problem, not a reason to revert to the old runner.",
+      "resolution": "Projection is confined to exported YAML copies; observation gets independent original values. Two logging cases prove production warning identity, original activity emissions and callback mutation isolation. Deliberately unsafe logging fails the unchanged confidentiality oracle; settings lifecycle and owner-session assertions pass unchanged."
+    },
+    {
+      "id": "failed-teardown-worker-reuse",
+      "category": "review_blocker",
+      "priority": "before_cutover",
+      "source_scenarios": [],
+      "missing_proof": "Shutdown may fail before background tasks or scheduler stop, yet controller clears global runtime and the next fixture admits another app based only on that cleared sentinel. No active leak was reproduced; the failure-path weakness is established by control flow.",
+      "retained_coverage": [],
+      "evidence": [
+        "validation/runs/pytest_migration/cleanup_failure_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/caught_cleanup_failure_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/crash_recovery_fixed_20261028/report.json"
+      ],
+      "code_locations": [
+        "validation/support/system_controller.py:212",
+        "core/runtime/context.py:115",
+        "validation/scenarios/application.py:148"
+      ],
+      "cleanup_action": "Resolved by focused regression and negative-control evidence; historical finding and original evidence retained.",
+      "status": "resolved",
+      "resolution": "A sticky controller cleanup failure rejects restart. The app fixture marks the pytest session failed on uncertain fixture release and retains the original error. Real filesystem-induced shutdown failures, including a caught earlier close exception, abort the invocation with exit 2 and leave the next selected application incomplete with no phases. Ordinary cleaned-up startup exceptions continue in the worker; native crashes use xdist replacement."
+    },
+    {
+      "id": "direct-import-public-url-success",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_direct_import",
+        "integration/core/content_import_tool"
+      ],
+      "missing_proof": "Public-URL direct-import success and destination handling originally use patched URL fetch success. New PDF input proves actual local ingestion, not public network admission/fetch. Content-import tool successful remote PDF octet-stream signature routing/URL provenance/default remote path and extensionless URL PDF strategy intent also remain source-only. Actual outbound-policy denial proves its real durable failure path, not an arbitrary accepted-network fetch error or remote success.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_direct_import.py",
+        "validation/legacy/scenarios/integration/core/content_import_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json",
+        "validation/runs/practical_remote_web_confirm_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "review_number": 12,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real import services process external HTML and extensionless PDF inputs, preserve destination, content and durable source provenance, and classify PDF from bytes. Only external DNS/curl responses are simulated; unchanged production admission and application services run for real. Successful live public deployment is not claimed.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+    },
+    {
+      "id": "direct-import-authority-before-enqueue",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_direct_import"
+      ],
+      "missing_proof": "Immediate-import missing execution authority must fail before durable job creation; original patches the endpoint authority resolver. New real preflight/repository atomicity does not prove this authority exception ordering.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_direct_import.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_direct_import_batch5_fixed_20261028/report.json",
+        "validation/runs/gap_cleanup_import_chat_failure_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 13,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual content_import without execution authority and unauthenticated/wrong-bearer API requests create no durable jobs. The valid owner then imports the same real local PDF successfully, with exactly one job, completed output and intact source. The synthetic unreachable resolver-exception ordering oracle is retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "explorer-batch-move-compensation",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_explorer_batch_move"
+      ],
+      "missing_proof": "Original injects mid-batch, post-second-file and post-second-directory mutation failures to assert compensation. Passing real API/preflight cases do not establish any of those compensation branches.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_explorer_batch_move.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json",
+        "validation/runs/gap_cleanup_newer_edit_manifest_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 14,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real SQLite audit failures after later physical file/directory moves trigger compensation restoring originals and coherent manifest/audit. A real external writer edits the moved destination during a native SQL workload before failure; compensation returns the newer bytes to the original path and the active manifest hash matches, without overwriting the edit.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "explorer-upload-interrupted-write-cleanup",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/vault_explorer_upload"
+      ],
+      "missing_proof": "Original patches io.open to fail during writing and proves no partial upload remains. New size/preflight/collision cases do not prove interrupted-write cleanup.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/vault_explorer_upload.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/vault_inputs_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 15,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The real app upload service writes a2MiB payload under a restored-finally1MiB kernel file-size limit; actual EFBIG after the partial-write boundary leaves no destination. Existing create-only destination remains unchanged. No write method is mocked and no multipart spool failure is miscounted as a destination write.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "managed-catalog-future-update-conflicts",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/model_alias_resolution"
+      ],
+      "missing_proof": "Patched future SETTINGS_TEMPLATE catalog rename and two update-blocked collision event cases are not replaced. Current-catalog legacy import, adoption/conflict/recovery and retired removal are covered; the synthetic configuration_request validation response is a legacy adapter oracle rather than new HTTP evidence.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/model_alias_resolution.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/legacy_catalog_batch5_20261028/report.json",
+        "validation/runs/gap_cleanup_catalog_release_upgrade_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 16,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real legacy catalog import/backup and running settings reload preserve old managed gpt bindings and an independently owned custom sol collision, retain historical aliases and emit managed_models_update_blocked configuration/activity evidence. Existing actual old-to-current alias migration cases pass. The shipped current catalog is the new-release input; hypothetical future vendor/template patches are retired as approved.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "structured-web-transient-provider-failure",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/structured_tool_failure"
+      ],
+      "missing_proof": "Original constructed HTTP 503 classification, Retry-After values 7/5 and redaction of a query embedded in a provider exception remain unproven through real web transport. The new missing-key path is additional proof only.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/structured_tool_failure.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/failure_contracts_batch5_fixed_20261028/report.json",
+        "validation/runs/gap_cleanup_provider_errors_20261029/report.json"
+      ],
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "review_number": 17,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real builtin Tavily HTTP500/503 responses with integer and date Retry-After values produce retryable sanitized tool diagnostics without the private query in raw replies/activity. Optional adapter endpoint and service composition preserve production defaults; no alternate fake provider is used.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "session-map-editorial-oracle-disposition",
+      "category": "oracle_scope_review",
+      "source_scenarios": [
+        "integration/core/session_map_schema",
+        "integration/core/session_map_readiness"
+      ],
+      "missing_proof": "Three original exact authoring-instruction substrings and one author-model setting-description substring are not ported, following the existing ban on editorial prose assertions. Structured payload/readiness/provenance outputs remain. These ports do not prove the intended instruction semantics merely from their structural checks.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "status": "resolved",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_map_schema.py",
+        "validation/legacy/scenarios/integration/core/session_map_readiness.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_maps_batch6_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 18,
+      "user_decision": "Agreed - similar to above, remove all tests / assertions on exact prompts - those can change too frequently.",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial authoring instruction and settings-description substrings. Canonical schema, provenance and readiness cases remain executable contracts.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "transcript-legacy-index-backfill",
+      "category": "coverage_scope_review",
+      "source_scenarios": [
+        "integration/core/transcript_retrieval_storage"
+      ],
+      "missing_proof": "Both original and port create messages through index-maintaining writes before schema reinitialization. Their passing lookup does not independently establish migration from a legacy database without transcript indexes. This is an identified scope limitation, not dropped proven parity.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "status": "resolved",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/transcript_retrieval_storage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/transcript_tools_batch6_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 19,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Oldest supported ownerless pre-migration chat tables and native messages, with no transcript index/content_text, are migrated through full startup. Original canonical messages and ownership survive, indexed search works, and repeated schema startup is stable.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "session-ops-private-exception-payload",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_ops_chat_tool",
+        "integration/core/authoring_tool_failure_semantics"
+      ],
+      "missing_proof": "Original patched search raises OperationalError with arbitrary private payload text. Genuine missing-external-content FTS failure yields a generic SQL logic error; passing private-query absence and metadata assertions do not prove sanitization of arbitrary private exception-message text. The authoring failure port proves actual uncaught durable failure/operation context, but its generic FTS error likewise cannot replace the original injected private backend-message absence proof.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "status": "resolved",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_ops_chat_tool.py",
+        "validation/legacy/scenarios/integration/core/authoring_tool_failure_semantics.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_ops_batch6_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/tool_contracts_batch8_20261028/report.json",
+        "validation/runs/gap_cleanup_transcript_privacy_20261029/report.json"
+      ],
+      "review_number": 20,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The real application diagnostics projector receives an OperationalError containing private input and traceback; it emits payload-free bounded locations. A full app/local-provider session_ops search against genuinely broken FTS proves the actual failed tool uses that same diagnostics path with correlated run/tool identifiers and no private query in activity or replies. The real SQLite failure is not falsely claimed to echo the sentinel.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "google-connection-transaction-races",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/builtin_connection_configuration"
+      ],
+      "missing_proof": "Original patched interleavings for deleted replacement default, changed client identity before transaction, stale credential/grant observation, authorization change before disconnect and deletion before token commit remain unproved. Forced reused UUID integrity failure is also retained only in original. Real concurrent create/default and ordinary cleanup rollback do not prove those race windows.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 21,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved consolidation: real gated OAuth completion cannot resurrect a deleted connection; existing actual client-identity/secret mutation races, default/name invariants and reauthorization checks pass. Private pause locations and reused UUID fabrication are retired as separate requirements.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "google-disconnect-cleanup-rollback",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/builtin_connection_configuration"
+      ],
+      "missing_proof": "Original injected disconnect cleanup failure/rollback is not independently replaced; client identity update and secret rotation have genuine SQLite-abort rollback proof. HTTP cleanup-failure translation is not inferred from those successful domain exception cases.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/builtin_connection_configuration.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/google_connections_batch7_20261028/report.json",
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 22,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A genuine encrypted-secret DELETE trigger aborts disconnect; connection metadata, client credential and grant remain unchanged, then retry clears the grant while retaining the client. Existing atomic mutation and postcommit-notification cases remain distinct.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "gmail-connection-ui-policy",
+      "status": "resolved",
+      "category": "deferred_ui",
+      "source_scenarios": [
+        "integration/core/gmail_connection_api"
+      ],
+      "missing_proof": "Original static JavaScript policy/save-before-authorization and missing-compose warning text/style assertions are not migrated. Real API OAuth scopes/readiness/activity do not establish rendered UI behavior; browser work remains deferred.",
+      "cleanup_action": "Completed. Current browser contract mapping is validation/registry/browser-migration.json.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/gmail_connection_api.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/google_api_batch7_final_20261028/report.json",
+        "validation/runs/browser_complete_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/evidence-index.json"
+      ],
+      "review_number": 23,
+      "user_decision": "Agreed",
+      "decision_status": "implemented",
+      "progress_note": "Completed in the canonical browser profile; all 79 browser cases pass with audited screenshot/trace, listener/app/context cleanup and exited native processes.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real browser journeys enforce saving Gmail capability changes before authorization and show a reauthorization warning for a real stored read-only grant when draft creation requires compose scope. App API, encrypted connection state, policy and rendered controls are real; the synthetic saved grant is native initial input. Static copy/style oracles are retired. This does not claim live OAuth completion or the separately deferred account-specific token-routing proof."
+    },
+    {
+      "id": "chat-replay-expiry-projection-and-fork-faults",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_task_event_stream_api"
+      ],
+      "missing_proof": "Original unresolved-tool fork suppression, injected fork-projection rollback, API cursor preflight/race410, compact snapshot after raw expiry/API terminal retention miss, and reasoning/tool projection remain unproved end to end. Public buffer expiry/tool-state reduction is retained, but is not API retention evidence. Ordinary cursor replay, handoff, snapshot task boundaries and running cancellation now have real API proof.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_task_event_stream_api.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json",
+        "validation/runs/gap_cleanup_remaining_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_fork_checkpoint_boundaries_20261029/report.json"
+      ],
+      "review_number": 24,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real API raw-cursor expiry returns410 with a retained compact replay; a genuine delayed SSE body after successful route admission emits chat_event_cursor_expired after the producer exceeds retention. Actual101 completed chats evict the first coordinator record, correctly returning the established ExecutionTaskNotFound404 while its durable conversation survives. A pending real reviewed tool call has no fork boundary and rejects that incomplete prefix. Real assistant commit and fork-copy transaction failures leave no advertised/partial fork, retry excludes future history, and actual replay preserves reasoning/tool visibility without private arguments. Private injected query-failure variants add no separate output guarantee.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "chat-queue-preflight-approval-contracts",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_task_session_queue"
+      ],
+      "missing_proof": "Accepted approval-mode capture versus changed preferences, queued cancellation during actual preflight and explicit no-preflight-invocation assertions remain unproved. Captured provider requests demonstrate narrower no-model-invocation while queued, actual serialized history and queued cancellation.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_task_session_queue.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/chat_tasks_batch7_extended_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_replay_20261029/report.json",
+        "validation/runs/gap_cleanup_preflight_confirm_20261029/report.json"
+      ],
+      "review_number": 25,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A queued turn keeps its accepted restrictive review policy after later preferences relax, and cancelling queued work makes no provider request. A separate real MCP list_tools barrier proves preflight is executing before cancellation; no primary-model/tool dispatch escapes, cancellation is terminal in replay, and a subsequent turn succeeds. Preparation intentionally precedes mark_started, so no incidental running-status requirement is imposed during preflight.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "code-execution-delegated-image-scope",
+      "status": "resolved",
+      "category": "coverage_scope_review",
+      "source_scenarios": [
+        "integration/core/code_execution"
+      ],
+      "missing_proof": "The original delegated-image case and this port assert delegate completion without independently observing image consumption. Image fixture availability plus a successful delegate response does not establish that image bytes reached the intended model boundary. This is a retained original scope limit, not dropped parity.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/code_execution.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/code_inline_batch7_20261028/report.json",
+        "validation/runs/gap_cleanup_network_20261029/report.json"
+      ],
+      "review_number": 26,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real delegate reads Markdown with an embedded JPEG using the actual file tool. The captured child-provider HTTP request contains base64 image bytes whose SHA256 equals the fixture, and the child completes. No model interpretation/prose quality is asserted.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "mcp-oauth-socket-authoritative-transport",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_oauth_storage"
+      ],
+      "missing_proof": "Original patches resolved addresses and httpcore backend to return HTTP200 and asserts MCP OAuth socket-authoritative request succeeds. New port checks actual client redirect/environment policy and all storage/fence contracts, but does not execute equivalent guarded public-address transport. Client policy flags alone are not socket or DNS boundary proof.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_oauth_storage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_batch8_20261028/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "review_number": 27,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The actual OAuth client factory and guarded transport perform a real local HTTPS MCP initialization/tool session and closure, preserving Host/SNI and verified certificates. Only the explicit fixture trust store differs from the default. Public deployment and the deferred OAuth lifecycle are outside this proof.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+    },
+    {
+      "id": "workflow-history-governor-output-files",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/workflow_run_history"
+      ],
+      "missing_proof": "Original substitutes a nonempty WorkflowExecutionResult.output_files. Current production executor sets output_files=[] on real paths, so this artificial governor propagation input is not reproduced. Public store finalization/reload separately proves nonempty output-path persistence; actual failed-domain/task/history outcomes pass.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/workflow_run_history.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/activity_history_batch9_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 28,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of injected nonempty governor output_files propagation: the actual governor has no producer. Removed the unnecessary seeded nonempty-output side case; real workflow failures, durable audit and history remain.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "chat-unexpected-exception-diagnostics",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_failure_logging",
+        "integration/core/chat_stream_failure_logging"
+      ],
+      "missing_proof": "Original injects generic RuntimeError into preparation/agent streaming and expects its exact type and diagnostic text. Real missing-image ValueError and provider ModelHTTPError now prove their actual diagnostic/marker/recovery boundaries, but are not evidence that arbitrary unexpected RuntimeError inputs retain those original semantics.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_failure_logging.py",
+        "validation/legacy/scenarios/integration/core/chat_stream_failure_logging.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/chat_inputs_batch9_fixed_20261028/report.json",
+        "validation/runs/pytest_migration/chat_recovery_context_batch9_20261028/report.json",
+        "validation/runs/gap_cleanup_chat_recovery_confirm2_20261029/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
+      ],
+      "review_number": 29,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A genuinely malformed persisted message fails actual chat preflight without model dispatch; repairing the native message permits the next turn. A real provider emits malformed SSE JSON containing a private sentinel: the actual failed task, recovery marker and correlated diagnostics stay safe, and the next real stream succeeds and clears the marker. Synthetic exception identity/text is retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "chat-guidance-editorial-oracles",
+      "status": "resolved",
+      "category": "oracle_scope_review",
+      "source_scenarios": [
+        "integration/core/chat_tool_metadata_visibility",
+        "integration/core/chat_usage_limits",
+        "integration/core/chat_history_compaction",
+        "integration/core/auto_chat_history_compaction",
+        "integration/core/mcp_chat_tool_search"
+      ],
+      "missing_proof": "Original dynamic-browser description substring and exact user/error/recovery checkpoint guidance are not ported per the existing ban on editorial prompt/copy assertions. Named tool presence, structured usage error/default/limit/persistence and actual enforcement retain proof; these outputs do not certify the intended guidance semantics. Manual/automatic recovery-card source prompt/settings description and MCP unavailable-instruction prose oracles are also deferred; structural card identity/preamble dedup and actual author payload partition/provenance remain asserted.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_tool_metadata_visibility.py",
+        "validation/legacy/scenarios/integration/core/chat_usage_limits.py",
+        "validation/legacy/scenarios/integration/core/chat_history_compaction.py",
+        "validation/legacy/scenarios/integration/core/auto_chat_history_compaction.py",
+        "validation/legacy/scenarios/integration/core/mcp_chat_tool_search.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/tool_metadata_batch10_reviewed_20261028/report.json",
+        "validation/runs/pytest_migration/usage_limits_batch10_reviewed_20261028/report.json",
+        "validation/runs/pytest_migration/manual_compaction_metadata_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_continuation_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_search_lease_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 30,
+      "user_decision": "Agreed - same as above - always remove prompt assertions.",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of editorial chat/tool/recovery guidance substrings. Structured reason codes, composition and actual enforced behavior remain; no model prose obedience claim.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "content-import-ui-behavior",
+      "status": "resolved",
+      "category": "deferred_ui",
+      "source_scenarios": [
+        "integration/core/content_import_tool"
+      ],
+      "missing_proof": "Original static CSS/JavaScript/source-string checks are not migrated; passing ingestion APIs/tools do not prove rendered import UI interactions or warnings. Browser work remains deferred.",
+      "cleanup_action": "Completed. Current browser contract mapping is validation/registry/browser-migration.json.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/content_import_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/ingestion_batch10_20261028/report.json",
+        "validation/runs/browser_pilot_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/report.json",
+        "validation/runs/browser_complete_final_20261029/evidence-index.json"
+      ],
+      "review_number": 31,
+      "user_decision": "Approved",
+      "decision_status": "implemented",
+      "progress_note": "Completed in the canonical browser profile; all 79 browser cases pass with audited screenshot/trace, listener/app/context cleanup and exited native processes.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real browser journeys cover local PDF submission and completion, queue-only and dashboard processing, upload/import, URL submission and real import pipeline execution, saved defaults and option reset, connection failure with draft-preserving retry, actual document-processing errors and source preservation, and successful OCR-to-local-text fallback warnings in the explorer. Only external URL DNS/HTTP bytes are substituted in the URL case, with the boundary documented. Incidental CSS/source-order assertions are retired."
+    },
+    {
+      "id": "execution-runner-private-race-windows",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/execution_task_runner"
+      ],
+      "missing_proof": "Original pauses private mark_started, mark_completed and mark_failed publication, create_queued_task returning after reservation, parent terminal transition before child admission, and private concurrency cleanup guard. Real same-loop immediate cancellation, published-failure hook cancellation, public gates/capacity and constructor observer shutdown preserve portable outcomes, but do not deterministically establish those six exact earlier interleavings.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/execution_task_runner.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/execution_runner_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_lifecycle_oauth_20261029/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+      ],
+      "review_number": 32,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved consolidation retains real runner completion/failure/deadline/late-cancellation and pre-attachment terminalization cases, real detached delegate parent/cancellation behavior, and the new active transactional cancellation barriers. Focused runner/delegate lifecycle cases pass. Exact private scheduling pauses and incidental preparation-call counts are retired where they add no distinct durable guarantee.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "manual-retry-legacy-sdk-error-classification",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_manual_retry"
+      ],
+      "missing_proof": "Original fake agent raises raw openai.APIError and requires transient_provider. Current real adapter normalizes both typed and untyped HTTP200 SSE error inputs to ModelServerError/provider_unavailable. Actual transport interruption proves transient_network manual recovery, not the original raw legacy SDK compatibility branch. Both failed SSE probes are retained.",
+      "cleanup_action": "Completed under the user-approved behavioral contract; historical source remains archived.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_manual_retry.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/manual_retry_batch11_transport_final_20261028/report.json",
+        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json",
+        "validation/runs/pytest_migration/manual_retry_batch11_generic_error_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 33,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved retirement of arbitrary raw SDK APIError category equivalence. The real interrupted-provider manual retry scenario verifies app-owned transient_network/retryability, history settlement and successful recovery.",
+      "resolution_kind": "approved_oracle_retirement"
+    },
+    {
+      "id": "automatic-retry-recovery-branches",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_stream_auto_retry"
+      ],
+      "missing_proof": "Real no-tool partial retry, disable behavior and shared request-budget semantics pass. Original fake stalled idle timeout, active slow-tool idle exemption/state, injected long/private diagnostic truncation, checkpoint replay after read-only effects, rollback-restart and rollback-disabled recovery branches remain unproved by these real wire inputs.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_stream_auto_retry.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/auto_retry_batch11_tool_free_20261028/report.json",
+        "validation/runs/pytest_migration/retry_budget_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_real_conflict_restart_20261029/report.json",
+        "validation/runs/gap_cleanup_failed_effect_safety_before_20261029/report.json",
+        "validation/runs/gap_cleanup_chat_recovery_confirm2_20261029/report.json",
+        "validation/runs/gap_cleanup_failed_effect_safety_verified_20261029/report.json"
+      ],
+      "review_number": 34,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual idle-stream timeout, active-tool exemption and settled-checkpoint resume pass. A genuine configured transactional append/HTTP503 after a completed read reproduced duplicate data. The app now treats failed transactional effects as requiring authorized successful rollback before bounded replacement and audits all runs before replaying a whole turn. Real recovery, budget exhaustion, disabled-rollback refusal, duplicate prevention, failed unknown/manual refusal, prior completed external POST exactly once, and replay-safe continuation all pass with original file/history/count oracles preserved. Global restart exhaustion now reports the correct budget reason. No SDK state or fake exception is injected.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "chat-cancellation-active-tool-boundary",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_cancellation"
+      ],
+      "missing_proof": "Current real case cancels while the model waits after a real mutation tool completed. Original cancellation during a hanging tool and its exact private preflight-history comparison are not replaced by that later boundary. Actual rollback/history/follow-up proof is narrower.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_cancellation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/chat_retries_batch11_20261028/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+      ],
+      "review_number": 35,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real active code tool writes a file then waits in an actual child provider request. Cancellation stops the task, rolls back that effect, settles tool history and permits a successful subsequent turn. Exact private preflight-history comparison is retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "deterministic-core-model-call-audit",
+      "status": "resolved",
+      "category": "governance_scope_review",
+      "priority": "follow_up_discussion_before_cutover",
+      "source_scenarios": [],
+      "missing_proof": "User requires core scenarios never depend on live models and requested review of the Terra call/reference. Current audit found Terra as a development subagent and model-alias lookup fixture; latest model-driven scenarios use TestModel or configured loopback HTTP providers. This audit is not fail-closed enforcement against every possible accidental external model dispatch.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "retained_coverage": [],
+      "related_gap_ids": [
+        "manual-retry-legacy-sdk-error-classification"
+      ],
+      "evidence": [
+        "/home/codeman/docs/AssistantMD/! completed/validation-framework-refactor-2026-10-31/pytest-scenario-library-refactor-plan.md",
+        "validation/runs/pytest_migration/batch11-evidence-index.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_credential_guard_20261029/report.json",
+        "validation/runs/gap_cleanup_tokenizer_preparation_20261029/verification.json",
+        "validation/runs/practical_guard_compatibility_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        ".github/tests/test_pytest_collection_policy.py",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "review_number": 36,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Core Python egress and ambient-credential controls are supplemented by fail-closed subprocess admission, exact fixture child declarations, bounded run-owned search and loopback-pinned curl. Shell/exec replacements, alternate executables and leaked prior-case declarations are rejected. Mixed core/live invocations are refused. This accepted scope prevents accidental dispatch; full native networking and mounted-file isolation remain explicitly unsupported.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Core imports now install a process-wide Python audit guard allowing only loopback or Unix sockets. Actual SDK outbound-denial and loopback controls pass. Core app fixtures remove ambient provider/keyring credentials, and CI prepares the checksum-pinned tokenizer asset before guarded execution. Remaining: child/native/curl egress containment and undeclared credential-file access. Mixed core/experiment invocations inherit the irreversible guard; live experiment-only invocations remain separate."
+    },
+    {
+      "id": "gmail-selected-connection-token-routing",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/gmail_attachment_tool",
+        "integration/core/gmail_draft_tool"
+      ],
+      "missing_proof": "",
+      "cleanup_action": "Completed; original scenarios retained and current parity recorded in pytest-migration.json.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/gmail_attachment_tool.py",
+        "validation/legacy/scenarios/integration/core/gmail_draft_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/gmail_boundaries_batch12_20261028/report.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
+      ],
+      "review_number": 37,
+      "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
+      "decision_status": "approved_local_scope_completed",
+      "prior_missing_proof": "The supported GmailResourceService client_factory receives execution authority but not the selected connection ID. The real fixture resolves the saved default grant. Selector/policy/activity and default grant HTTP behavior pass, but do not establish that each explicitly selected account supplies its own token as the original private client stub asserted.",
+      "prior_user_decision": "Defer to the end - I want to address this cooperatively",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Two real encrypted Google accounts supply distinct correct bearer tokens for explicit selection and default selection across real search, attachment download and draft creation HTTP. A transport-level HTTP factory seam preserves the resource service internally constructed client and production selected-ID OAuth lookup; no service/token resolver is replaced."
+    },
+    {
+      "id": "web-extraction-mixed-and-binary-responses",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/web_capability_strategies"
+      ],
+      "missing_proof": "Source patches public URL resolution and fetch response to prove mixed successful/rejected extraction and PDF binary failure guidance. New real inputs prove local policy rejection and separate raw transport, not public-policy accepted extraction or binary classification through that path.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/web_capability_strategies.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/web_strategies_batch13_20261028/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "review_number": 38,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real extraction services preserve a successful HTML result alongside direct private-target rejection, binary PDF rejection and a rejected private redirect. External DNS/curl responses are controlled; the production policy, fetch orchestration and extraction remain real. Live public deployment is not claimed.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+    },
+    {
+      "id": "bootstrap-mcp-exact-cleanup-lifecycle",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/runtime_bootstrap_cleanup"
+      ],
+      "missing_proof": "Real invalid startup and repaired restart pass, but runtime sentinel/cleanup success do not prove the original fake MCP manager started and shutdown exactly once.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/runtime_bootstrap_cleanup.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json",
+        "validation/runs/gap_cleanup_resource_ownership_20261029/report.json"
+      ],
+      "review_number": 39,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real invalid-configuration bootstrap failure leaves no newly live background tasks, no runtime and no uncertain cleanup. Repaired startup first demonstrates live app-owned tasks, acquires an actual local MCP lease, then shutdown finishes those tasks and closes real MCP sessions. Resource observation avoids implementation method names and exact manager construction/start counts.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "summary-retirement-interrupted-bookkeeping",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_summary_data_retirement"
+      ],
+      "missing_proof": "Actual successful scoped retirement and dependency refusals pass. The original injected failure after owned table drops but before migration bookkeeping demonstrated transaction rollback and subsequent successful retry; that exact interruption is not reproduced.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_summary_data_retirement.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/runtime_retirement_batch13_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 40,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real SQLite trigger rejects retirement version bookkeeping only after the owned table has been dropped. All logical tables/rows and FTS restore transactionally; retry drops only owned summary tables, preserving unknown state and canonical history.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "automatic-compaction-private-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/auto_chat_history_compaction"
+      ],
+      "missing_proof": "Real owned compaction success, HTTP author failure and SQLite checkpoint failure pass. Original injected pre-domain callback failure, coordinator admission rejection and missing/stopped runtime boundary remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/auto_chat_history_compaction.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/compaction_replay_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/compaction_final_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_resource_ownership_20261029/report.json"
+      ],
+      "review_number": 41,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real completed chat remains completed with unchanged canonical history when the actual task coordinator is shut down and post-turn compaction attempts admission. No compaction/author/provider work is created, and the real Activity API retains the safe failure reason. This is an explicit production-helper call at a closed admission boundary, not a fabricated callback error or a claimed natural scheduler race.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "deferred-review-inflight-interruption",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/deferred_review_interruption"
+      ],
+      "missing_proof": "Actual resumed tool write completes before a subsequent provider failure. This does not establish cancellation/failure during an active reviewed tool with a missing durable return, follow-up no replay of interrupted calls, or injected settlement-warning privacy.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/deferred_review_interruption.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/deferred_reviews_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json",
+        "validation/runs/gap_cleanup_recovery_20261029/report.json"
+      ],
+      "review_number": 42,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "An actual reviewed file_write is held at the filesystem mutation lock while executing. Cancellation now drains the synchronous transactional worker before existing rollback and review/history settlement, preventing a late write. The unchanged regression verifies absent effect, cancelled review, interrupted reply, no replay and a usable next turn.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "mcp-mutation-private-race-windows",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_mutation_recovery"
+      ],
+      "missing_proof": "Actual sequential stale snapshots/adapters and abrupt shared-transaction death pass. Original before-lock OAuth client-secret and credential-mode interleavings, plus exact death inside composed public credential mutation before commit, remain unproved.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_mutation_recovery.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_mutations_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 43,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Approved consolidation with access-state guards: stale MCP adapter rejects a grant after actual credential rotation; existing SQLite mutation rollback, abrupt shared-transaction death and committed-notification cases pass. Exact private instruction/death point is retired.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "mcp-advanced-stdio-successful-ssh",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_advanced_shell_stdio_connections"
+      ],
+      "missing_proof": "",
+      "cleanup_action": "Completed app-side SSH/MCP transport scope; deployment-only isolation/wrapper guarantees remain outside this evidence.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_advanced_shell_stdio_connections.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/replay_stdio_batch14_20261028/report.json",
+        "validation/runs/ssh_transport_pilot_20261030/report.json",
+        "validation/runs/ssh_transport_pilot_confirm_20261030/report.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
+      ],
+      "review_number": 44,
+      "user_decision": "Defer, I'm not convinced we're going to be able to adequately test this through scenarios.",
+      "decision_status": "deferred",
+      "backend_root_contract_ids": [
+        "test_advanced_shell_config:238",
+        "test_advanced_shell_config:388",
+        "test_advanced_shell_config:450"
+      ],
+      "prior_missing_proof": "Real connection gates/persistence/import and refused SSH preflight pass. Source fake successful transport checked fixed remote launch envelope, root forwarding and one-time retained-client close; no actual SSH server is available to reproduce success.",
+      "recommendation": "Extend the fixture-owned local SSH endpoint to carry a deterministic MCP stdio server and held/rejected sessions. No advanced-shell image or sibling container is needed for application transport contracts; deployment isolation and remote wrapper behavior require separate evidence.",
+      "scope_update": "User approved local SSH implementation; no advanced-shell image, other container or live model was used.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real app SSH transport, successful authenticated readiness/cache, key/trust rejection, input/output limits, deadline/cancellation/capacity recovery, sanitized tool activity, MCP initialization/discovery/calls/roots, native session closure, reuse and active-lease shutdown now pass against fixture-owned SSH endpoints. A real failing closure reproduction exposed manager keep_alive=True retaining the native SSH child; keep_alive=False makes exiting the manager-owned client terminate it. DNS/generic diagnostic projection uses documented external executable output; actual OS DNS failure, deployed forced-command behavior and remote descendant cleanup are not claimed. Instruction composition is separately retained under item 65."
+    },
+    {
+      "id": "mcp-controlled-dns-and-tls-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_connection_isolation"
+      ],
+      "missing_proof": "Actual numeric-address policy and pinned HTTP sockets pass. Original fake DNS rebinding between discovery and request, multiple resolved-address attempts under one total budget, cancellation of blocked DNS resolution and HTTPS SNI/host verification against controlled resolver outputs remain unproved.",
+      "cleanup_action": "Practical alternative implemented and verified; removed from human review file.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
+        "validation/runs/practical_guard_compatibility_20261029/report.json",
+        "validation/runs/practical_installed_plugin_20261029/report.json",
+        "validation/runs/practical_verification_causes_20261029/report.json",
+        "validation/runs/practical_final_review_20261029/summary.json"
+      ],
+      "review_number": 45,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual local TLS proves original-host SNI, verified identity, wrong-host and untrusted-certificate rejection. Controlled external DNS/socket failures exercise unchanged MCP policy, numeric address order, a shared retry budget and cancellation/timeout during DNS or connect. Resolver threads are released; no in-app services are mocked. Live DNS deployment remains unproved.",
+      "resolution_kind": "accepted_scope_with_explicit_limits",
+      "accepted_scope": "User approved practical alternatives and explicitly permits documented external-service mocks while keeping in-app services real.",
+      "prior_progress_note": "Blocked infrastructure proof: this host denies unshare -n and cannot configure a public-address test network namespace. Ordinary loopback listeners are correctly rejected by public-target policy. No localhost exemption, fake DNS admission or LD_PRELOAD socket redirection was introduced; a controlled network/TLS fixture is still required."
+    },
+    {
+      "id": "mcp-real-timeout-classification",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/mcp_connection_isolation"
+      ],
+      "missing_proof": "Original fake timeout requires status timeout. Actual9s delayed initialization raises SDK-normalized RuntimeError and yields connection_failed. Actual6s initialization plus blocked list hits the production total deadline near10s but stream closure returns HTTP500 and the app reports http_error. These real failures do not certify the timeout oracle. Both failed reports and original assertions remain; the unsupported staged timeout probe was removed rather than accepting another result as equivalent.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_connection_isolation.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_sanitized_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_lifecycle_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_transport_batch14_20261028/report.json",
+        "validation/runs/pytest_migration/mcp_deadline_batch14_20261028/report.json",
+        "validation/runs/gap_cleanup_network_20261029/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json"
+      ],
+      "review_number": 46,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The application owns separate eight-second initialization and ten-second total deadlines, preserving timeout classification even when SDK cleanup discards or replaces its error. Real MCP HTTP initialization timeout, total-deadline and early HTTP500 controls all pass; early HTTP errors stay http_error.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "google-oauth-synchronous-pending-races",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/google_oauth_coordinator"
+      ],
+      "missing_proof": "Actual HTTP mutation races and stale credential guards pass. Original exact supersede-before-conditional-pending-delete, disconnect before transaction with concurrent secret/client replacement, and start metadata/credential pre/post-write/disconnect/competing-start interleavings remain unproved.",
+      "cleanup_action": "Completed; approved durable contract is covered by the focused scenarios and historical evidence remains available.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/google_oauth_coordinator.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_access_timeout_confirm_20261029/report.json",
+        "validation/runs/gap_cleanup_batch1_20261029/report.json"
+      ],
+      "review_number": 47,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual authorization starts supersede previous pending state, each state is single-use, and a newer start survives older gated external completion. Existing changed-client/secret/disconnect and reauthorization races pass; private pause-specific variants are retired.",
+      "resolution_kind": "deterministic_behavior_and_approved_consolidation"
+    },
+    {
+      "id": "mcp-oauth-live-authorization-lifecycle",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "validation/test_mcp_oauth_hardening.py"
+      ],
+      "missing_proof": "",
+      "cleanup_action": "Completed; remove from the human deferred list. Original archived scenarios remain retained.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_mcp_oauth_hardening.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/oauth_coordinators_batch15_20261028/report.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json",
+        "validation/runs/mcp_oauth_acknowledgment_final_20261030/report.json"
+      ],
+      "review_number": 48,
+      "user_decision": "Approved closing the OAuth acknowledgment gap and deferring the remaining validation review items on 2026-10-30.",
+      "decision_status": "approved_local_scope_completed",
+      "backend_root_contract_ids": [
+        "test_mcp_oauth_hardening:43",
+        "test_mcp_oauth_hardening:153",
+        "test_mcp_oauth_hardening:276"
+      ],
+      "prior_missing_proof": "Seeded encrypted pending resume and durable disconnect failure/retry pass, not actual discovery/start generation. Source manufactured live attempts additionally assert start state/redirect/activity, live wrong-state retry/operation identity, completion timeout, supersede/disconnect reasons and failed durable supersede followed by one cancellation and distinct new operation.",
+      "prior_user_decision": "Defer - I want to understand better",
+      "remaining_contract_ids": [],
+      "recommendation": "Closed by real manager lifecycle failure and full API/restart evidence.",
+      "prior_retained_coverage": [
+        "validation/legacy/scenarios/integration/core/mcp_oauth_coordinator.py"
+      ],
+      "prior_source_scenarios": [
+        "integration/core/mcp_oauth_coordinator"
+      ],
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Three actual API scenarios shut down the real manager through its public lifecycle, then exercise live/resumed grant completion or disconnect against a real local OAuth provider. The durable outcome remains committed while HTTP503 declares committed=true, retry_safe=false and retryable=false. Original activity records actual runtime invalidation failure without credentials/state/verifier. Real restart recovery preserves the result and reuses the existing grant without another token request. No application service or method is replaced."
+    },
+    {
+      "id": "api-device-oauth-and-connected-fallback",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/api_endpoints"
+      ],
+      "missing_proof": "Real manual OpenAI OAuth completion/readiness passes. Original mocked device-code start/pending/poll/authorized and API-key-mode fallback while connected are not replaced; production device URLs are hardcoded remote endpoints.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/api_endpoints.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/api_journeys_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_lifecycle_oauth_20261029/report.json"
+      ],
+      "review_number": 49,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The real device adapter uses configurable test-owned endpoints with production defaults preserved. Actual API start/pending/authorized/token exchange persists encrypted tokens; the actual runtime provider sends OAuth bearer/account headers when connected, then API-key bearer without the account header after disconnect and configured fallback. No live account or model inference is used.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "api-classification-and-attribution-branches",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/api_error_resilience"
+      ],
+      "missing_proof": "Actual HTTP and OpenAI SDK status classification passes. Original non-status APIError/transient_provider, overloaded RuntimeError/provider_overloaded, model stream idle timeout, httpx/httpx2 ConnectError retry predicates and OpenRouter attribution environment headers remain unproved. SDK500 provider_unavailable does not replace generic APIError.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/api_error_resilience.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/sdk_status_contract_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_oauth_explorer_20261029/report.json",
+        "validation/runs/gap_cleanup_openrouter_attribution_20261029/report.json",
+        "validation/runs/gap_cleanup_provider_semantics_20261029/report.json",
+        "validation/runs/gap_cleanup_chat_recovery_confirm2_20261029/report.json"
+      ],
+      "review_number": 50,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual model-provider503 responses, real HTTP429 retry metadata, a supported HTTP200 SSE overloaded_error producer, actual local connection refusal and real model idle timeout preserve app-owned categories/retryability. The real OpenRouter factory-built model sends enabled/disabled attribution and synthetic bearer headers to a loopback provider through its public SDK base_url composition. Arbitrary constructed SDK-class equivalence is retired; no private header helper/factory patch or live service is used.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "session-map-authoring-failure-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_authoring_task"
+      ],
+      "missing_proof": "Real HTTP provider failures establish safe bounded provider detail and distinct warnings, not original long private RuntimeError/generic100-character fallback. Repeated invalid provenance ends as UnexpectedModelBehavior/maximum output retries in the real pipeline; the old stub bypassed that retry layer and required SessionMapProvenanceError. The failed real probe and its source are retained; its expectation was not changed to count as parity.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_map_authoring_task.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/provider_diagnostics_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/retained-probe-source",
+        "validation/runs/gap_cleanup_mutation_authoring_20261029/report.json"
+      ],
+      "review_number": 51,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real repeated invalid citations exhaust SDK output retries and normalize to app-owned SessionMapProvenanceError/invalid_provenance while retaining the original cause, safe bounded diagnostics and the previous checkpoint. A separate real schema retry-exhaustion control remains a non-provenance failure. Incidental synthetic 100-character oracle retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "session-map-legacy-admission-repair",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_evidence_admission"
+      ],
+      "missing_proof": "Mixed/recursive evidence and verified admission marker pass. Original legacy map reduction independently rejects retrieval citations2/6, leaves prior checkpoint/raw unchanged after invalid author, carries excluded legacy2 plus envelope4–7/citable4–5and7 and verified seq0, checkpoints through/observed9, then repairs pending envelopes4–7/8–9/10–11 to checkpoint11; this complete sequence remains unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_map_evidence_admission.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/api_authoring_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_map_repair_policy_20261029/report.json"
+      ],
+      "review_number": 52,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "The oldest explicitly supported v1 map and supported pending-evidence metadata run through real HTTP-backed reductions. Repeated invalid citations preserve previous checkpoint, revision and raw history; verified historical evidence then advances safely and consumes pending evidence once, with a later real reduction excluding already-consumed sources.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "retained-session-map-automatic-trigger",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_retained_evidence"
+      ],
+      "missing_proof": "Real explicit compact API drives the same reduction and retained citation boundaries; it does not establish original automatic post-turn invocation/task-parent semantics. Controlled author output preserves artifact/citation semantics rather than exact original authored draft.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_map_retained_evidence.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/session_map_evidence_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/session_map_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/retrieval_range_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/additional_boundaries_batch15_20261028/report.json",
+        "validation/runs/pytest_migration/author_provenance_boundary_batch15_20261028/report.json",
+        "validation/runs/gap_cleanup_map_move_preflight_20261029/report.json"
+      ],
+      "review_number": 53,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A real automatic post-turn reduction delivers retained raw evidence to the actual author and persists its citations, with verified chat-to-compaction-to-author task lineage. Consolidated with pinned-policy behavior rather than a separate trigger fixture per evidence projection.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "browser-resource-admission-deferred",
+      "status": "open",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/browser_resource_policy"
+      ],
+      "missing_proof": "Actual public tool budget is proved without browser launch. Original concurrent successful browser work and low-memory admission used private browse/memory replacement and remain unproved; real host cgroup maximum is unbounded. Browser execution remains explicitly deferred.",
+      "cleanup_action": "Add genuine browser-resource fixtures/local browser workloads and a supported resource observation boundary when browser capability work resumes; do not launch Chromium to work around the current deferral.",
+      "retained_coverage": [
+        "validation/legacy/pending/browser_resource_policy.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json"
+      ],
+      "review_number": 54,
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "progress_note": "UI pilot runs real Chromium, but application BrowserTool resource/concurrency guarantees are separate backend behavior and remain open.",
+      "decision_before_final_deferral": {
+        "user_decision": "Approved",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "fork-private-hydration-and-snapshot-windows",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/chat_session_fork_lineage"
+      ],
+      "missing_proof": "Public origin/checkpoint/tool/protocol outcomes and genuine SQLite rollback pass. Original instrumented no-prefix hydration and metadata-scan no-hydration assertions, plus source rewrite precisely inside raw-fetch to prove writer exclusion/same-snapshot/later independence remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/chat_session_fork_lineage.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_fork_lineage_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
+      ],
+      "review_number": 55,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "A genuine fork transaction is held by a native SQLite workload while a separate writer attempts an atomic canonical-history/checkpoint rewrite. Actual lock contention is observed: the first child receives one coherent original raw/checkpoint pair, the source and later fork receive the new pair, and the first child stays independent. Existing provenance/future-exclusion and transactional rollback cases remain. Private no-hydration implementation prohibitions are retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "delegate-unported-observer-and-error-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/delegate_tool"
+      ],
+      "missing_proof": "Real tasks/models/tools/queued cancellation pass. Original preattachment spawn/cancel interception, private observer RetryPrompt counters and distinct attention issue IDs, pure helper denied/interrupted/benign/cyclic/compaction/redaction/unsettled branches and synthetic inner TimeoutError/internal classification remain unproved. Actual init config/disconnect error types differ from injected RuntimeError/ReadError; direct model-limit result does not prove original parent-chat completion/prose guidance.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/delegate_tool.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_delegate_20261028/report.json",
+        "validation/runs/pytest_migration/final_guard_failure_input_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_default_input_20261028/report.json",
+        "validation/runs/gap_cleanup_transcript_delegate_compaction_20261029/report.json",
+        "validation/runs/gap_cleanup_remaining_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
+      ],
+      "review_number": 56,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real parent chat survives a child request-limit failure with settled history and terminal child linkage. Two genuine repeated operation failures create distinct task-correlated attention records. A real truncated child stream after completed file tools exposes safe interrupted handoff references and a settled correlated audit. Existing real queued cancellation plus runner pre-attachment controls retain terminal/no-dispatch guarantees; exact private spawn interception, impossible cyclic inputs and synthetic observer/helper exception branches are retired as approved.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "manual-map-tool-source-and-failure-matrix",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/manual_session_map_compaction"
+      ],
+      "missing_proof": "Actual API compaction/tool-history validity/no-op and author/task provenance pass. Original tool-sourced compaction parent/result, detailed recovery-card/session-map failure and cancellation/activity variants, no-op classification branches and per-failure/API/export diagnostic projections remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/manual_session_map_compaction.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+        "validation/runs/gap_cleanup_transcript_delegate_compaction_20261029/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json"
+      ],
+      "review_number": 57,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "An actual primary model invokes chat_history_compact, which produces a governed child task, structured persisted tool result and checkpoint; raw history survives and the next real turn works. Actual tool calls additionally cover genuine no-op, local author HTTP failure and gated author cancellation without changing history/checkpoints. Shared author/privacy and transcript evidence supplies the common diagnostic matrix rather than duplicating private projections for each caller.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "map-checkpoint-specialized-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_map_checkpoint"
+      ],
+      "missing_proof": "Public real checkpoint/revision/timeline/map/corruption outputs pass. Source specialized checkpoint boundary matrix, canonical tool timeline projection/filtering/paging and deliberate private metadata-display drift injection remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_map_checkpoint.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/gap_cleanup_fork_checkpoint_boundaries_20261029/report.json"
+      ],
+      "review_number": 58,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real canonical grouped tool/retry turns preserve checkpoint-scoped detail, timeline filtering/paging and original fork positions. Invalid evidence prefixes and observation cutoffs are rejected atomically without checkpoint/raw-state changes. Existing historical map and genuine persisted corruption cases remain. Forced private display-metadata drift and its synthetic warning are retired as approved.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "context-upgrade-races-and-recovery-matrix",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_context_strategy_upgrade"
+      ],
+      "missing_proof": "Real complete upgrade, valid/invalid tool histories and provider-gated duplicate/cancel pass. Original plan shape/floor matrix, fork/start/stale append/delete races, serial gate/manual contention, full sanitized failure/dedup projections and shutdown/restart/successful retry after cancellation remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_context_strategy_upgrade.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_map_journeys_20261028/report.json",
+        "validation/runs/pytest_migration/final_delegate_boundaries_20261028/report.json",
+        "validation/runs/pytest_migration/final_map_boundaries_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_same_loop_ingress_20261029/report.json",
+        "validation/runs/gap_cleanup_credential_guard_20261029/report.json"
+      ],
+      "review_number": 59,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Real gated-author upgrades reject stale append/deletion without history loss or resurrection; concurrent forks retain a coherent independent legacy checkpoint while the parent upgrades, as supported by the fork snapshot contract. Actual stop/restart cancels the old task and permits a new successful upgrade over unchanged durable history. Same-loop actual HTTP compaction contention cannot downgrade the completed map, and real invalid-citation failures retain safe task-correlated diagnostics without altering raw/effective/checkpoint history. Internal plan-shape and private timing oracles are retired. No blanket concurrent-fork rejection is invented.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "transcript-tool-error-and-limit-matrix",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/session_ops_transcript_retrieval"
+      ],
+      "missing_proof": "Actual tool and service search/windows/cursors/paging/echo/starvation boundaries pass. Original tool-level multi-message serialized budget and fragment continuation, max query/list title projection, explicit cross-workspace/deep/access matrix, genuine FTS failure correlation/privacy and untrusted-operation logging remain unproved.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/session_ops_transcript_retrieval.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_guarded_contracts_20261029/report.json",
+        "validation/runs/gap_cleanup_transcript_privacy_20261029/report.json"
+      ],
+      "review_number": 60,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual model-issued session_ops calls enforce workspace visibility and title bounds, continue bounded transcript fragments with contiguous offsets and exact reconstruction, and reject oversized queries or foreign sessions. Tail fragments truthfully mark content_complete false because an individual item is not the whole message. Shared real FTS failure/privacy evidence supplies correlated tool/run diagnostics, and retrieved content remains explicitly untrusted.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "stepped-map-pinned-and-policy-boundaries",
+      "status": "resolved",
+      "category": "migration_parity",
+      "source_scenarios": [
+        "integration/core/stepped_session_map_post_turn"
+      ],
+      "missing_proof": "Real automatic success and genuine commit/provider failure pass. Source pinned map after global strategy switch plus failing author, direct recovery-card rejection, exact high-watermark equality, exact repeated8-row/unavailable-model sequence and distinct-warning dedup remain unproved. Actual IntegrityError/ModelHTTPError do not certify fake ValueError/RuntimeError-specific classification.",
+      "cleanup_action": "Completed; focused behavioral evidence and historical coverage remain recorded.",
+      "retained_coverage": [
+        "validation/legacy/scenarios/integration/core/stepped_session_map_post_turn.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final_transcript_postturn_20261028/report.json",
+        "validation/runs/pytest_migration/final_policy_paging_20261028/report.json",
+        "validation/runs/gap_cleanup_map_repair_policy_20261029/report.json",
+        "validation/runs/gap_cleanup_map_move_preflight_20261029/report.json",
+        "validation/runs/gap_cleanup_map_distinct_confirm_20261029/report.json"
+      ],
+      "review_number": 61,
+      "user_decision": "Approved",
+      "decision_status": "approved",
+      "resolution": "Actual automatic reductions preserve the session-map strategy after the global policy changes, never fall back when the configured author becomes unavailable, and preserve checkpoint/raw history across repeated completed turns. The documented has-reached policy is inclusive: one token below the actual estimate does not trigger, equality does. Repeated real invalid-citation failures retain two distinct task-correlated issues through the real Activity API. The incidental eight-message oracle is retired.",
+      "resolution_kind": "deterministic_behavior"
+    },
+    {
+      "id": "legacy-adapter-observation-contract-review",
+      "status": "open",
+      "category": "ownership_contract_review",
+      "source_scenarios": [
+        "integration/core/validation_adapter_lifecycle"
+      ],
+      "missing_proof": "The original old adapter self-test fails its requirement that producer activity.log itself is rewritten to [REDACTED]. Current capture preserves producer observations and redacts exported evidence; generic observation-fidelity tests pass, as do actual app startup failure/crash recovery and cleanup-stop probes. Exact eleven old adapter injection modes/caller cache and handler restoration oracles are not claimed from that evidence.",
+      "cleanup_action": "Review old adapter-only lifecycle/producer-log expectations against the accepted current fixture/capture contract, retaining the original and failing baseline until explicitly dispositioned.",
+      "retained_coverage": [
+        "validation/legacy/pending/validation_adapter_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final-current-owner-evidence.json",
+        "validation/runs/reports/20261028_222652_704336.json"
+      ],
+      "review_number": 62,
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "decision_before_final_deferral": {
+        "user_decision": "Defer - I want to understand better",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "legacy-runner-policy-differences",
+      "status": "open",
+      "category": "ownership_contract_review",
+      "source_scenarios": [
+        "integration/core/validation_runner_lifecycle"
+      ],
+      "missing_proof": "Current generic pytest plugin owns collection/verdict/reporting and worker-crash evidence; the app fixture owns startup/cleanup safety. Tests pass for these current owners. The old dedicated runner also enforced per-scenario fresh process/HOME/TMP/environment whitelist and hard execution/cleanup process deadlines; these policies are not certified by current reused xdist workers and are not silently treated as parity.",
+      "cleanup_action": "Decide any required per-project environment and hard-timeout policy before cutover, using existing pytest tooling where appropriate; preserve the old runner self-test and its passing baseline as reference.",
+      "retained_coverage": [
+        "validation/legacy/pending/validation_runner_lifecycle.py"
+      ],
+      "evidence": [
+        "validation/runs/pytest_migration/final-current-owner-evidence.json",
+        "validation/runs/reports/20261028_222933_609608.json"
+      ],
+      "review_number": 63,
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "decision_before_final_deferral": {
+        "user_decision": "Defer - I want to understand better",
+        "decision_status": "deferred"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-authentication-boundary-parity",
+      "review_number": 64,
+      "status": "resolved",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_authentication_middleware.py",
+        "validation/test_authentication_policy.py",
+        "validation/test_authentication_rate_limit.py",
+        "validation/test_authentication_session.py"
+      ],
+      "contract_ids": [
+        "test_authentication_middleware:52",
+        "test_authentication_policy:21",
+        "test_authentication_policy:26",
+        "test_authentication_policy:75",
+        "test_authentication_rate_limit:8",
+        "test_authentication_session:35",
+        "test_authentication_session:114"
+      ],
+      "missing_proof": "",
+      "retained_coverage": [
+        "validation/legacy/pending/test_authentication_middleware.py",
+        "validation/legacy/pending/test_authentication_policy.py",
+        "validation/legacy/pending/test_authentication_rate_limit.py",
+        "validation/legacy/pending/test_authentication_session.py"
+      ],
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
+      "recommendation": "Keep the security outcomes. Exercise startup with isolated configuration and actual HTTP/WebSocket admission; use an explicit clock input or a bounded short real window for throttling. Review codec argument-only checks separately from application security guarantees.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "test_authentication_middleware:52",
+        "test_authentication_policy:21",
+        "test_authentication_policy:26",
+        "test_authentication_policy:75",
+        "test_authentication_rate_limit:8",
+        "test_authentication_session:35",
+        "test_authentication_session:114"
+      ],
+      "original_missing_proof": "Explicit startup mode/secret-file validation; full peer/header/WebSocket and malformed-cookie matrix; domain-separated session keys; failure-window expiry, successful-login reset and bounded peer eviction. Real HTTP admission covers part of this, not every primitive contract.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Real API/runtime middleware covers malformed/duplicate/mixed credentials, public/unknown routes, proxy and exact loopback peers, and authorized/unauthorized unrouted WebSocket admission. No implemented WebSocket feature is claimed.; Real policy loading rejects missing/invalid mode or secret, direct/file conflicts and invalid proxy configuration; a one-newline file secret admits actual HTTP requests without exposing the secret.; Actual HTTP requests exercise IPv4/IPv6 exact loopback, denied non-loopback/hostname peers, optional proxy allowlist and two allowed CIDRs, denied peers and wrong assertions; existing owner/disabled ingress scenarios retain mechanism outcomes.; Real loaded owner policy derives a 32-byte session key distinct from the raw credential.; Actual HTTP ingress uses the production limiter with its explicit supported monotonic clock input, proving expiry, successful admission reset and bounded peer eviction. This is not a wall-clock production-default duration test.; Actual malformed cookie/header admission extends the existing current/expired/future/exclusive-expiry/rotated/CSRF scenario. Non-ASCII codec input fails uniformly; credentials never select a permissive fallback.; Actual issued signed payload has only version/time/CSRF digest/nonce claims, excludes raw secret and CSRF token and is bounded; public codec rejects nonpositive lifetime and naive timestamps."
+    },
+    {
+      "id": "backend-chat-mcp-preparation",
+      "review_number": 65,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_chat_instructions.py",
+        "validation/test_chat_mcp_lifecycle.py",
+        "validation/test_advanced_shell_config.py"
+      ],
+      "contract_ids": [
+        "test_chat_instructions:7",
+        "test_chat_mcp_lifecycle:78",
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
+      ],
+      "missing_proof": "Semantic instruction inclusion/order for advanced-shell availability and deferred resumption still needs a requirements-backed application-output oracle. Exact flight-card copy and fake registration counters are not being frozen. Primary/deferred preparation cleanup needs an agreed real failure input: the original tests injected a shell-resolution exception, whereas actual SSH failures normally produce sanitized unavailability.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_chat_instructions.py",
+        "validation/legacy/pending/test_chat_mcp_lifecycle.py",
+        "validation/legacy/pending/test_advanced_shell_config.py"
+      ],
+      "cleanup_action": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
+      "recommendation": "Clarify the instruction/preparation contracts and an honest post-acquisition failure input. Do not substitute app shell services or create synthetic agent failures solely to reproduce the old mocks.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "test_chat_instructions:7",
+        "test_chat_mcp_lifecycle:78",
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
+      ],
+      "original_missing_proof": "Deferred resume semantic instruction ordering and releasing acquired MCP resources when primary/deferred preparation fails. Existing context composition and manager closure scenarios do not establish those exact paths.",
+      "remaining_contract_ids": [
+        "test_chat_instructions:7",
+        "test_chat_mcp_lifecycle:78",
+        "test_chat_mcp_lifecycle:121",
+        "test_advanced_shell_config:207"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-decision-runtime-parity",
+      "review_number": 66,
+      "status": "resolved",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_decision_runtime.py"
+      ],
+      "contract_ids": [
+        "decision_runtime_02",
+        "decision_runtime_03",
+        "decision_runtime_04",
+        "decision_runtime_05"
+      ],
+      "missing_proof": "",
+      "retained_coverage": [
+        "validation/legacy/pending/test_decision_runtime.py"
+      ],
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
+      "recommendation": "Keep. Drive the actual decision classifier and configured factory against a controlled external TypeSafe HTTP boundary; assert typed results and real semantic log events. External transport substitution is acceptable; do not replace the classifier, logger, model resolver or secret service.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "decision_runtime_02",
+        "decision_runtime_03",
+        "decision_runtime_04",
+        "decision_runtime_05"
+      ],
+      "original_missing_proof": "Successful TypeSafe question/state mapping, typed output and usage, confidence/probability normalization, timeout classification and configured classifier/alias/secret construction. Current cases cover configuration and an actual rejection, not successful classification.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual configured factory and installed TypeSafe SDK map state/questions/model/auth and preserve typed output/usage; an external transport observes the explicit request timeout, and a held local HTTP response verifies the public configured factory deadline.; Real typed classification normalizes confidence/probabilities and records semantic success with actual usage.; External transport read timeout and an actual held provider response produce safe categorized failures and real decision_model_failed activity. No model/classifier/logger is replaced.; Actual public provider/model/secret configuration resolves an alternate alias, authenticates outgoing HTTP, preserves requested/resolved identities and applies the configured timeout without exposing the key."
+    },
+    {
+      "id": "backend-ingestion-storage-compensation",
+      "review_number": 67,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_ingestion_storage.py"
+      ],
+      "contract_ids": [
+        "ingestion_storage_02",
+        "ingestion_storage_03",
+        "ingestion_storage_04",
+        "ingestion_storage_05"
+      ],
+      "missing_proof": "Only the narrow post-publication binary-write fault remains: a binary artifact is partially published before the writer raises. Prior Markdown cleanup, user-edit preservation, OCR allocated namespaces and job-finalization compensation now pass.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_ingestion_storage.py"
+      ],
+      "cleanup_action": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
+      "recommendation": "Agree an honest filesystem/process fault input for the post-write window before adding this case; do not replace application storage methods.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "ingestion_storage_02",
+        "ingestion_storage_03",
+        "ingestion_storage_04",
+        "ingestion_storage_05"
+      ],
+      "original_missing_proof": "OCR-specific allocated image namespace; partial output-write cleanup; preserving artifacts modified after the import wrote them; job-finalization failure clearing output/manifest state. Existing source-cleanup failures are a different stage.",
+      "remaining_contract_ids": [
+        "ingestion_storage_03"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-managed-catalog-parity",
+      "review_number": 68,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_managed_model_catalog.py",
+        "validation/test_model_alias_registry.py"
+      ],
+      "contract_ids": [
+        "managed_model_catalog_06",
+        "managed_model_catalog_07",
+        "managed_model_catalog_09",
+        "managed_model_catalog_10",
+        "managed_model_catalog_16",
+        "model_alias_registry_05"
+      ],
+      "missing_proof": "Hypothetical successive managed-catalog generations, alternate promotion/removal across those generations and a supported packaged-catalog fixture remain undecided. Historical family names, shipped SDK profiles, public custom rename/promotion, shared-alias failures and simultaneous cold loads now pass.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_managed_model_catalog.py"
+      ],
+      "cleanup_action": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
+      "recommendation": "Discuss the value and supported input contract for future packaged-catalog generations; public custom renames are not equivalent proof.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "managed_model_catalog_06",
+        "managed_model_catalog_07",
+        "managed_model_catalog_09",
+        "managed_model_catalog_10",
+        "managed_model_catalog_16",
+        "model_alias_registry_05"
+      ],
+      "original_missing_proof": "Older model naming/profile forms, shipped adaptive-thinking/schema capabilities, repeated catalog generations and same-model alternate promotion, full malformed/shared-alternate matrix, simultaneous cold loads with one complete upgrade/backup. Current shipped-catalog adoption/collision/idempotence already has coverage.",
+      "remaining_contract_ids": [
+        "managed_model_catalog_09",
+        "managed_model_catalog_10"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-mcp-manager-parity",
+      "review_number": 69,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_mcp_manager_hardening.py"
+      ],
+      "contract_ids": [
+        "test_mcp_manager_hardening:179",
+        "test_mcp_manager_hardening:226",
+        "test_mcp_manager_hardening:246",
+        "test_mcp_manager_hardening:345",
+        "test_mcp_manager_hardening:385"
+      ],
+      "missing_proof": "Cleanup-failure telemetry and worker-thread propagation of invalidation failure remain unverified. Real stopped-manager synchronous invalidation failure is now proved through the OAuth API; the same public shutdown input is available for future worker-thread hardening. Ordinary worker-thread invalidation, credential binding, stdio capacity/cancellation and HTTP progress already pass.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_mcp_manager_hardening.py"
+      ],
+      "cleanup_action": "Deferred hardening: extend real public-lifecycle failure input to worker-thread error acknowledgment, and establish a reliable external cleanup-failure input. No application-service replacement is needed for stopped-manager behavior.",
+      "recommendation": "Deferred hardening: extend real public-lifecycle failure input to worker-thread error acknowledgment, and establish a reliable external cleanup-failure input. No application-service replacement is needed for stopped-manager behavior.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json",
+        "validation/runs/ssh_implementation_summary_20261030/evidence.json",
+        "validation/runs/account_oauth_priority_summary_20261030/evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "test_mcp_manager_hardening:179",
+        "test_mcp_manager_hardening:226",
+        "test_mcp_manager_hardening:246",
+        "test_mcp_manager_hardening:345",
+        "test_mcp_manager_hardening:385"
+      ],
+      "original_missing_proof": "Cancellation during partial multi-connection acquisition, stdio capacity/serialization and HTTP progress, endpoint/credential capture races, cleanup failure telemetry, and synchronous invalidation failure/worker-call branches. Real shared sessions and cold-start fences cover only part of this.",
+      "remaining_contract_ids": [
+        "test_mcp_manager_hardening:345",
+        "test_mcp_manager_hardening:385"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "prior_missing_proof": "Remaining proof is limited to the narrow pre-DNS credential-capture race, cleanup-failure telemetry at a supported real failure boundary and private synchronous invalidation error propagation. SSH stdio launch serialization, cancellation recovery and independent HTTP progress now pass, as do safe persisted capacity defaults/bounds. Existing partial-snapshot, endpoint/token change, stale/forged rejection and worker-thread invalidation evidence remains valid.",
+      "prior_user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_before_final_deferral": {
+        "user_decision": "Approved priority implementation on 2026-10-30; previously excluded uncertain error-injection cases remain pending.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-settings-boundary-parity",
+      "review_number": 70,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_settings_database.py",
+        "validation/test_settings_lifecycle.py"
+      ],
+      "contract_ids": [
+        "settings_database_05",
+        "settings_database_06",
+        "settings_lifecycle_01",
+        "settings_lifecycle_09",
+        "settings_lifecycle_07"
+      ],
+      "missing_proof": "Only inherited packaged-default changes versus an explicit equal override remain unverified across template generations. Exact changing-source backup bytes, interrupted first-import recovery and real post-backup global-reset conflict now pass.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_settings_lifecycle.py"
+      ],
+      "cleanup_action": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
+      "recommendation": "Agree how to supply a different packaged-default generation without replacing the settings store or silently modifying shipped product inputs.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "settings_database_05",
+        "settings_database_06",
+        "settings_lifecycle_01",
+        "settings_lifecycle_09",
+        "settings_lifecycle_07"
+      ],
+      "original_missing_proof": "Exact original YAML bytes when the source changes between read and backup; interrupted first-import transaction recovery; inherited packaged-default changes versus explicit equal overrides; global-reset API/service backup-edit race. Ordinary transaction rollback and backed-up revision domain checks already pass.",
+      "remaining_contract_ids": [
+        "settings_lifecycle_01"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-provider-error-parity",
+      "review_number": 71,
+      "status": "open",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_provider_errors.py"
+      ],
+      "contract_ids": [
+        "provider_errors_01",
+        "provider_errors_02",
+        "provider_errors_03",
+        "provider_errors_04"
+      ],
+      "missing_proof": "Actual Anthropic/Google structured/text/list/detail failures, message bounds, standard credential redaction and original producer-log secrecy now pass. Arbitrary explicit-redaction helper arguments, synthetic wrapped provider attribution and cyclic exception graphs remain a separate public-helper contract decision.",
+      "retained_coverage": [
+        "validation/legacy/pending/test_provider_errors.py"
+      ],
+      "cleanup_action": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
+      "recommendation": "Review whether these synthetic helper inputs are supported behavior worth retaining; app-level provider error/secrecy evidence is complete for the exercised external SDK shapes.",
+      "user_decision": "Deferred at user request after closing the OAuth acknowledgment gap on 2026-10-30.",
+      "decision_status": "deferred",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "provider_errors_01",
+        "provider_errors_02",
+        "provider_errors_03",
+        "provider_errors_04"
+      ],
+      "original_missing_proof": "Anthropic/Google SDK rejection variants, unstructured bodies, explicit message bounds/redaction matrix and wrapped/cyclic errors. Existing real OpenAI-compatible failures and OAuth rejection protect only part of the original contract.",
+      "remaining_contract_ids": [
+        "provider_errors_02",
+        "provider_errors_04"
+      ],
+      "scope_note": "The completed portion is recorded by canonical assertion references in backend-migration.json; this composite item is not fully resolved.",
+      "decision_before_final_deferral": {
+        "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+        "decision_status": "approved_local_scope"
+      },
+      "deferral_note": "Unverified scope is retained explicitly; deferral is not coverage completion or retirement."
+    },
+    {
+      "id": "backend-search-execution-errors",
+      "review_number": 72,
+      "status": "resolved",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_vault_content_search.py"
+      ],
+      "contract_ids": [
+        "vault_content_search_07",
+        "vault_content_search_08"
+      ],
+      "missing_proof": "",
+      "retained_coverage": [
+        "validation/legacy/pending/test_vault_content_search.py"
+      ],
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
+      "recommendation": "Keep stable errors. Run isolated configuration/process environments that omit the executable, select an unusable external executable, or run a bounded held external process. Leave the application search service real and verify cleanup after timeout.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "vault_content_search_07",
+        "vault_content_search_08"
+      ],
+      "original_missing_proof": "Distinct stable missing-executable, process-start OS-error and timeout results. Actual rg search, query/scope validation and structured results are already covered.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual search in isolated child environments distinguishes absent executable from a real process-start permission failure using stable error codes.; A declared external executable is held beyond the real search deadline; actual timeout code and terminated child PID prove bounded execution/cleanup without replacing the search service."
+    },
+    {
+      "id": "backend-shipped-default-contracts",
+      "review_number": 73,
+      "status": "resolved",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_shipped_settings_defaults.py"
+      ],
+      "contract_ids": [
+        "shipped_settings_defaults_01",
+        "shipped_settings_defaults_02"
+      ],
+      "missing_proof": "",
+      "retained_coverage": [
+        "validation/legacy/pending/test_shipped_settings_defaults.py"
+      ],
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
+      "recommendation": "Keep agreed product defaults and setup readiness. Assert actual freshly bootstrapped metadata/settings and public compaction admission. Separate deliberately fixed product defaults from incidental catalog versions before pinning additional exact values.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "shipped_settings_defaults_01",
+        "shipped_settings_defaults_02"
+      ],
+      "original_missing_proof": "The enumerated numeric/strategy/security/provider defaults and the unset-default-model storage/compaction setup contract. Existing editor/override scenarios are not a complete assertion of those defaults.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Fresh real settings process asserts the agreed numeric/strategy/security/provider default values and provenance; explicit compaction override persists after cache reload.; Unset default model is stored with default provenance, compaction author resolution returns None and public status reports one actionable compaction setup error after actual global reset."
+    },
+    {
+      "id": "backend-advanced-shell-configuration",
+      "review_number": 74,
+      "status": "resolved",
+      "category": "legacy_root_parity",
+      "source_scenarios": [
+        "validation/test_advanced_shell_config.py"
+      ],
+      "contract_ids": [
+        "test_advanced_shell_config:44",
+        "test_advanced_shell_config:55",
+        "test_advanced_shell_config:118",
+        "test_advanced_shell_config:327"
+      ],
+      "missing_proof": "",
+      "retained_coverage": [
+        "validation/legacy/pending/test_advanced_shell_config.py"
+      ],
+      "cleanup_action": "Completed locally; retained original source and precise canonical assertion mapping remain in backend-migration.json.",
+      "recommendation": "Keep deployment boundaries separately from successful SSH item 44. Use isolated bootstrap subprocesses and generated test keys, without a live SSH server where unnecessary; place deployment-only checks with CI infrastructure and application runtime boundaries in core.",
+      "user_decision": "Complete clear local cases; exclude real advanced shell, other containers and uncertain contracts.",
+      "decision_status": "approved_local_scope",
+      "evidence": [
+        "validation/registry/backend-migration.json",
+        "validation/runs/backend_gap_closure_20261030/closure-evidence.json"
+      ],
+      "backend_root_contract_ids": [
+        "test_advanced_shell_config:44",
+        "test_advanced_shell_config:55",
+        "test_advanced_shell_config:118",
+        "test_advanced_shell_config:327"
+      ],
+      "original_missing_proof": "Complete profile/mode startup matrix, key/trust bootstrap artifacts, full stdio envelope budget and status privacy. A restricted or refused SSH connection does not exercise configuration/bootstrap combinations.",
+      "resolution_kind": "deterministic_behavior",
+      "resolution": "Actual configuration validates profile/mode combinations, defaults, invalid coordinates and environment-owned transport/key-root paths. This constructs configuration only and does not launch SSH or use another container.; Production structured launch encoder bounds the complete environment/payload and round-trips protocol arguments.; Actual local client bootstrap script uses isolated root environment inputs and real ssh-keygen; mismatches create no client directories, enabled bootstrap produces proper identity/public/trust files and modes, and missing public key is reconstructed without rotating identity. No SSH service/container is used.; Real missing-identity preflight and status projection expose only public coordinates/readiness, excluding private alias and local system paths. Successful authentication/caching remains deferred under item 44."
+    }
+  ]
+}

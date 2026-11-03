@@ -1,6 +1,6 @@
 [project]
 name = "project-assistant"
-version = "0.9.2"
+version = "0.9.3"
 description = "Automated personal productivity system with AI-powered markdown workflows"
 authors = [
     { name = "AssistantMD Team" }
@@ -100,12 +100,22 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["validation"]
+testpaths = ["validation/scenarios/integration/core"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+scenario_mode = "protected"
 python_files = ["test_*.py", "*_test.py"]
-addopts = "-v --tb=short"
+addopts = "-p no:playwright-asyncio -p validation.support.pytest_policy -v --tb=short -n 4 --max-worker-restart=1"
+
+[tool.uv.sources]
+scenario-harness = { git = "https://github.com/DodgyBadger/scenario-harness.git", rev = "93bfc8dab87c8436775af05876fb32a2610230fd" }
 
 [dependency-groups]
 dev = [
+    "asyncssh>=2.24,<3",
+    "pytest-playwright-asyncio>=0.10.0",
+    "pytest-xdist>=3.8,<4",
+    "scenario-harness",
     "types-python-dateutil>=2.9.0.20260716",
     "types-pyyaml>=6.0.12.20260724",
     "types-requests>=2.32.4.20250809",

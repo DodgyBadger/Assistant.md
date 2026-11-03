@@ -640,7 +640,8 @@
 
                 let refreshError = null;
                 try {
-                    await callbacks.fetchSessions(vault, state.sessionId || '');
+                    const refreshed = await callbacks.fetchSessions(vault, state.sessionId || '');
+                    if (refreshed === false) throw new Error('Could not refresh chat sessions');
                     if (state.sessionId === sessionId) {
                         await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
                     }
@@ -743,6 +744,7 @@
                 sessionMap.openModalForSession(session, {
                     backLabel: 'Sessions',
                     onBack: openSessionBrowserModal,
+                    returnFocusTarget: elements.sessionBrowserTrigger,
                 });
                 return;
             }

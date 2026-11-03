@@ -54,6 +54,9 @@
                             const detail = job.error
                                 ? escapeHtml(job.error)
                                 : actions.renderImportOutputLinks(outputs, job.vault, { compact: true });
+                            const warning = job.status !== 'failed' && job.fallback_reason
+                                ? `<div class="state-warning">${escapeHtml(job.fallback_reason)}</div>`
+                                : '';
                             const strategy = [
                                 job.selected_strategy,
                                 job.selected_provider,
@@ -72,7 +75,7 @@
                                     <td data-label="Status" class="cell-xs import-job-compact">${escapeHtml(job.status || 'unknown')}</td>
                                     <td data-label="Strategy" class="cell-xs">${escapeHtml(strategy)}</td>
                                     <td data-label="Updated" class="cell-xs import-job-compact">${escapeHtml(formatDateTime(job.updated_at))}</td>
-                                    <td data-label="Output / Error" class="cell-xs">${detail}</td>
+                                    <td data-label="Output / Error" class="cell-xs">${detail}${warning}</td>
                                     <td data-label="Actions" class="cell-center import-job-actions import-job-compact"><div class="import-job-action-buttons">${cancelButton}${editButton}</div></td>
                                 </tr>
                             `;

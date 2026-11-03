@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import ssl
 from typing import Any
 
 import httpx
@@ -152,7 +153,11 @@ def _oauth_http_client(
     )
 
 
-def mcp_oauth_http_client_factory(*, allow_private_http: bool) -> McpHttpClientFactory:
+def mcp_oauth_http_client_factory(
+    *,
+    allow_private_http: bool,
+    ssl_context: ssl.SSLContext | None = None,
+) -> McpHttpClientFactory:
     """Create clients that validate every MCP/OAuth request immediately before use."""
 
     async def validate_request(request: httpx.Request) -> None:
@@ -174,7 +179,7 @@ def mcp_oauth_http_client_factory(*, allow_private_http: bool) -> McpHttpClientF
             follow_redirects=False,
             trust_env=False,
             event_hooks={"request": [validate_request]},
-            transport=MCPAsyncHTTPTransport(),
+            transport=MCPAsyncHTTPTransport(ssl_context=ssl_context),
         )
 
     return create_client
