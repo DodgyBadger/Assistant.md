@@ -135,6 +135,7 @@ from .models import (
     OperationResult,
     ProviderConfigRequest,
     ProviderInfo,
+    SavedPromptsResponse,
     SecretInfo,
     SecretUpdateRequest,
     SettingInfo,
@@ -303,6 +304,7 @@ from .services.mcp import (
     test_mcp_connection,
     update_mcp_connection,
 )
+from .services.saved_prompts import get_saved_prompts
 from .utils import create_error_response, serialize_exception
 
 # Create API router
@@ -2931,4 +2933,15 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: Exception
     ) -> JSONResponse:
         """Handle unexpected exceptions with generic error responses."""
+        return create_error_response(exc)
+
+
+@router.get("/vaults/{vault_name}/saved-prompts", response_model=SavedPromptsResponse)
+async def saved_workspace_prompts(
+    vault_name: str, workspace_path: str = ""
+) -> SavedPromptsResponse | JSONResponse:
+    """Read saved prompts only when explicitly requested by the UI."""
+    try:
+        return get_saved_prompts(vault_name, workspace_path)
+    except Exception as exc:
         return create_error_response(exc)

@@ -69,6 +69,8 @@ const chatElements = {
     attachCountBadge: document.getElementById('attach-count-badge'),
     attachmentPopover: document.getElementById('chat-attachment-popover'),
     sendBtn: document.getElementById('send-btn'),
+    savedPromptsBtn: document.getElementById('saved-prompts-btn'),
+    savedPromptsMenu: document.getElementById('saved-prompts-menu'),
     focusToggleInline: document.getElementById('chat-focus-toggle-inline'),
     focusDivider: document.getElementById('chat-focus-divider'),
     composer: document.getElementById('chat-composer'),
@@ -143,6 +145,14 @@ const chatComposer = window.ChatComposer.create({
     utils: window.AssistantMDUtils,
     browserStorage,
 });
+const savedPrompts = window.SavedPrompts.create({
+    state, elements: chatElements, composer: chatComposer,
+    callbacks: {
+        send: () => chatTaskActions.sendMessage(),
+        stop: () => chatTaskActions.stopChatResponse(),
+    },
+});
+
 const {
     addPendingAttachments,
     clearPendingAttachments,
@@ -318,6 +328,7 @@ const chatSessions = window.ChatSessions.create({
     chatTaskActions,
     chatTaskStream,
     callbacks: {
+        invalidateSavedPrompts: () => savedPrompts.close(),
         syncControls: syncChatControlLocks,
         handleDeferredReview: handleDeferredReviewEvent,
         updateStatus,
@@ -463,6 +474,7 @@ function syncSendButtonState() {
             ? 'Tool review is pending. Resolve the review card before resuming normal message flow.'
             : '';
     }
+    savedPrompts.syncControls();
 }
 
 function syncChatControlLocks() {
@@ -521,6 +533,7 @@ function syncVaultExplorerButtons() {
 
 
 function fetchMetadata() {
+    savedPrompts.close();
     return chatSelection.fetchMetadata();
 }
 
@@ -541,7 +554,9 @@ function persistSelectedChatMode() {
 }
 
 function handleVaultChange() {
+    savedPrompts.close();
     chatSelection.handleVaultChange();
+    savedPrompts.syncControls();
 }
 
 function fetchTemplates(vault, preferredTemplate = '') {
@@ -615,20 +630,14 @@ document.addEventListener('keydown', (event) => {
 // Setup event listeners
 function setupEventListeners() {
     if (chatElements.sendBtn) {
-        chatElements.sendBtn.addEventListener('click', () => {
-            if (state.isLoading) {
-                chatTaskActions.stopChatResponse();
-                return;
-            }
-            chatTaskActions.sendMessage();
-        });
+        chatElements.sendBtn.addEventListener('click', savedPrompts.handleSendClick);
     }
 
     if (chatElements.chatInput) {
         chatElements.chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                chatTaskActions.sendMessage();
+                if (!savedPrompts.isOpen()) chatTaskActions.sendMessage();
             }
         });
     }
@@ -655,6 +664,8 @@ function setupEventListeners() {
 
     if (chatElements.workspacePathInput) {
         chatElements.workspacePathInput.addEventListener('input', () => {
+            savedPrompts.close();
+            savedPrompts.syncControls();
             state.workspaceExists = null;
             workspacePicker.syncControls();
             refreshChatEmptyState();
@@ -846,6 +857,7 @@ function finalizeAssistantMessage(context, metadata) {
 // Clear session
 
 async function clearSession(confirmReset = true) {
+    savedPrompts.close();
     const confirmed = confirmReset
         ? window.confirm('Do you want to start a new chat session? The current session remains available in chat history unless you delete it.')
         : true;

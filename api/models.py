@@ -2246,3 +2246,18 @@ class ConfigurationError(BaseModel):
     slug: str | None = None
     display_name: str | None = None
     is_default: bool = False
+
+
+class SavedPromptInfo(BaseModel):
+    id: str
+    title: str
+    body: str
+
+
+class SavedPromptsResponse(BaseModel):
+    workspace_path: str
+    source_path: str | None = None
+    status: Literal[
+        "available", "no_workspace", "workspace_missing", "file_missing", "empty"
+    ]
+    prompts: list[SavedPromptInfo] = Field(default_factory=list)

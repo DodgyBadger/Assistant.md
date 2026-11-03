@@ -282,6 +282,14 @@ function appendPromptBlock(block) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function insertSavedPrompt(text, caret) {
+    const input = chatElements.chatInput;
+    if (input.disabled || state.isLoading || state.pendingDeferredReview || state.chatModeSavePending) return;
+    input.setRangeText(text, caret, caret, 'end');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+}
+
 function createClientSessionId(vault) {
     const safeVault = String(vault || 'chat').trim().replace(/[\s/\\]+/g, '_') || 'chat';
     const now = new Date();
@@ -301,6 +309,7 @@ function createClientSessionId(vault) {
 return Object.freeze({
     addPendingAttachments,
     appendPromptBlock,
+    insertSavedPrompt,
     clearPendingAttachments,
     createClientSessionId,
     handleChatFocusDividerKeydown,

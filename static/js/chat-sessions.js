@@ -39,6 +39,7 @@
         }
 
         async function loadSession(sessionId, options = {}) {
+            callbacks.invalidateSavedPrompts?.();
             const requestId = ++sessionLoadRequestId;
             const chatModeRevision = state.chatModeRevision;
             const vault = elements.vaultSelector?.value || '';

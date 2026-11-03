@@ -124,6 +124,16 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_saved_prompts_browser.py",
+      "kind": "behavioral",
+      "sha256": "f3a174afbeb7f8e6dfa18a71219a404f1fd3a4a2c42afa1c6adfd0882556e007",
+      "tests": [
+        "test_saved_prompt_inserts_without_consuming_draft_or_attachments",
+        "test_saved_prompt_only_enters_model_context_after_explicit_send_and_stop_stays_available",
+        "test_late_library_cannot_insert_into_another_session_and_reopening_reads_edits"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_session_browser.py",
       "sha256": "4a9c01a04744f5bd8e6fd4ee6af718335be076f7081c8f2b1ddb8ff90cf59b6e",
       "kind": "behavioral",
@@ -2394,6 +2404,16 @@
       "tests": [
         "test_workflow_run_history_matches_real_domain_and_scheduler_outcomes",
         "test_workflow_history_retention_and_cross_vault_template_projection"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_workspace_saved_prompts.py",
+      "kind": "behavioral",
+      "sha256": "c8ae490b359e6af26cd3c70574c186bb076645ef77d30585ed508b271ef39667",
+      "tests": [
+        "test_workspace_library_preserves_selected_content_and_reads_current_file",
+        "test_workspace_library_rejects_escape_ambiguous_and_unbounded_input",
+        "test_saved_prompt_filename_is_validated_and_persisted"
       ]
     },
     {

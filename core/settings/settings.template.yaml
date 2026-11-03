@@ -44,6 +44,11 @@ settings:
     description: "Strategy used by web_crawl. Currently supported: tavily."
     category: "Browser and API"
     restart_required: false
+  workspace_prompts_filename:
+    value: prompts.md
+    description: "Markdown filename containing saved prompts in the current workspace."
+    category: "Chat"
+    restart_required: false
   chat_tool_calls_limit:
     value: 0
     description: "Maximum tool calls allowed in one chat response. 0 disables the limit. Set a low value to force tighter tool use or encourage code_execution for batch work."
