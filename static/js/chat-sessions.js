@@ -39,7 +39,6 @@
         }
 
         async function loadSession(sessionId, options = {}) {
-            if (callbacks.beforeSessionChange?.(sessionId) === false) return;
             callbacks.invalidateSavedPrompts?.();
             const requestId = ++sessionLoadRequestId;
             const chatModeRevision = state.chatModeRevision;

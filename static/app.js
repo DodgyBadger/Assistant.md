@@ -185,10 +185,6 @@ const explorerLayout = window.VaultExplorerLayout.create({
     callbacks: { close: () => fileReferences.closeExplorer() },
 });
 
-function closeDockedExplorer() {
-    return !explorerLayout.isDocked() || (explorerLayout.canClose() && fileReferences.closeExplorer());
-}
-
 const vaultPathPicker = window.VaultPathPicker.create({
     layout: explorerLayout,
     elements: chatElements,
@@ -339,7 +335,6 @@ const chatSessions = window.ChatSessions.create({
     chatTaskActions,
     chatTaskStream,
     callbacks: {
-        beforeSessionChange: (sessionId) => sessionId === state.sessionId || closeDockedExplorer(),
         invalidateSavedPrompts: () => savedPrompts.close(),
         syncControls: syncChatControlLocks,
         handleDeferredReview: handleDeferredReviewEvent,
@@ -568,7 +563,7 @@ function persistSelectedChatMode() {
 function handleVaultChange() {
     const keepExplorerOpen = explorerLayout.isDocked();
     const previousVault = explorerLayout.vaultName();
-    if (!closeDockedExplorer()) {
+    if (keepExplorerOpen && (!explorerLayout.canClose() || !fileReferences.closeExplorer())) {
         chatElements.vaultSelector.value = previousVault;
         return;
     }
@@ -880,7 +875,7 @@ async function clearSession(confirmReset = true) {
     const confirmed = confirmReset
         ? window.confirm('Do you want to start a new chat session? The current session remains available in chat history unless you delete it.')
         : true;
-    if (!confirmed || !closeDockedExplorer()) return;
+    if (!confirmed) return;
 
     state.sessionId = null;
     state.pendingDeferredReview = null;

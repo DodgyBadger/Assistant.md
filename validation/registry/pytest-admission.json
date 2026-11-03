@@ -93,11 +93,12 @@
     {
       "path": "scenarios/browser/test_explorer_layout.py",
       "kind": "behavioral",
-      "sha256": "d158ded68597b6a6c83ec06ae1b7c97421a98f4a315766bac6afdca3602ec7b4",
+      "sha256": "c392f0c755085afe93d3bde5512250a25e99c33962ae1d3eae682a922d130942",
       "tests": [
         "test_dock_resize_and_mode_changes_preserve_editor_and_reopen",
         "test_dock_preference_survives_reload_narrow_windows_and_focus_mode",
-        "test_docked_file_keeps_run_locks_and_guards_vault_changes"
+        "test_docked_file_keeps_run_locks_and_guards_vault_changes",
+        "test_session_selection_and_new_chat_preserve_docked_file_edits"
       ]
     },
     {

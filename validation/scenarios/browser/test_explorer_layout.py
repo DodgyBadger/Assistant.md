@@ -6,7 +6,11 @@ import pytest
 from playwright.async_api import expect
 
 from validation.support.browser.browser_fullstack import open_explorer, setting
-from validation.support.browser.browser_sessions import load_thread, thread
+from validation.support.browser.browser_sessions import (
+    load_thread,
+    session_list,
+    thread,
+)
 from validation.support.chat.chat_idle_provider import idle_provider
 from validation.support.chat.session_ops_chat import configure_provider
 
@@ -183,3 +187,51 @@ async def test_docked_file_keeps_run_locks_and_guards_vault_changes(browser_app,
         await explorer.locator('[data-vault-path-picker-select="Draft.md"]').click()
         await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
         await expect(editor).to_have_value("Original")
+
+
+async def test_session_selection_and_new_chat_preserve_docked_file_edits(
+    browser_app, ui
+):
+    browser_app.app.write(browser_app.vault, "Draft.md", "Original")
+    thread(browser_app, "dock-first", [("First question", "First answer")])
+    thread(browser_app, "dock-second", [("Second question", "Second answer")])
+    await load_thread(ui, browser_app, "dock-first")
+    explorer = await open_explorer(ui, browser_app)
+    await explorer.get_by_role("button", name="Use split view", exact=True).click()
+    await load_thread(ui, browser_app, "dock-second")
+    await expect(
+        ui.locator("#chat-messages").get_by_text("Second answer", exact=True)
+    ).to_be_visible()
+    await expect(explorer).to_be_visible()
+    await explorer.locator('[data-vault-path-picker-select="Draft.md"]').click()
+    reader = ui.get_by_role("dialog").filter(has=ui.locator("#vault-file-modal-path"))
+    await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
+    editor = reader.locator("#vault-file-modal-editor")
+    await editor.fill("Retained across conversations")
+    await load_thread(ui, browser_app, "dock-first")
+    await expect(
+        ui.locator("#chat-messages").get_by_text("First answer", exact=True)
+    ).to_be_visible()
+    # Loading history uses the existing preview/read-only lock; return to editing afterward.
+    await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
+    await expect(editor).to_be_visible()
+    await expect(editor).to_be_editable()
+    await expect(editor).to_have_value("Retained across conversations")
+    dialog = await session_list(ui, browser_app)
+    await dialog.get_by_role("button", name="New session", exact=True).click()
+    await expect(dialog).to_have_count(0)
+    await expect(
+        ui.locator("#chat-messages").get_by_text("First answer", exact=True)
+    ).to_have_count(0)
+    await expect(ui.locator("#chat-input")).to_be_editable()
+    await expect(ui.get_by_role("separator", name="Resize explorer")).to_be_visible()
+    await expect(editor).to_have_value("Retained across conversations")
+    await reader.get_by_role("button", name="Save file", exact=True).click()
+    await expect(
+        reader.locator("#vault-file-modal-preview").get_by_text(
+            "Retained across conversations", exact=True
+        )
+    ).to_be_visible()
+    assert (
+        browser_app.vault / "Draft.md"
+    ).read_text() == "Retained across conversations"
