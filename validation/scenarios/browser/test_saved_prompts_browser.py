@@ -18,6 +18,11 @@ from validation.support.chat.session_ops_chat import configure_provider
 pytestmark = pytest.mark.scenario
 
 
+async def open_saved_prompts(ui):
+    await ui.locator("#send-btn").focus()
+    await ui.keyboard.press("Alt+ArrowDown")
+
+
 async def new_workspace(ui, browser_app):
     await ui.goto(browser_app.url)
     await ui.locator("#vault-selector").select_option(browser_app.vault.name)
@@ -48,7 +53,7 @@ async def test_saved_prompt_inserts_without_consuming_draft_or_attachments(
         await ui.locator("#attach-input").set_input_files(
             Path("validation/fixtures/files/test_image.jpg")
         )
-        await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+        await open_saved_prompts(ui)
         await ui.get_by_role("menuitem", name="Insert", exact=True).focus()
         await ui.keyboard.press("Enter")
         # Exact draft text protects user-authored input, not product prose.
@@ -92,7 +97,7 @@ async def test_saved_prompt_inserts_without_consuming_draft_or_attachments(
             == []
         )
         (browser_app.vault / "Project/prompts.md").unlink()
-        await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+        await open_saved_prompts(ui)
         await expect(ui.get_by_role("menuitem")).to_have_count(0)
         await ui.keyboard.press("Escape")
         await expect(draft).to_have_value("Retain this draft")
@@ -112,7 +117,7 @@ async def test_saved_prompt_only_enters_model_context_after_explicit_send_and_st
         configure_provider(browser_app.app, provider)
         setting(browser_app.app, "default_model", "session-ops-model")
         await new_workspace(ui, browser_app)
-        await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+        await open_saved_prompts(ui)
         await ui.get_by_role("menuitem", name="Chosen", exact=True).click()
         await ui.locator("#chat-input").fill("Chosen body edited")
         assert not provider.requests
@@ -124,9 +129,8 @@ async def test_saved_prompt_only_enters_model_context_after_explicit_send_and_st
         messages = json.dumps(provider.requests[0]["messages"])
         assert "Chosen body edited" in messages
         assert "UNSELECTED_LIBRARY_SENTINEL" not in messages
-        await expect(
-            ui.get_by_role("button", name="Saved prompts", exact=True)
-        ).to_be_disabled()
+        await open_saved_prompts(ui)
+        await expect(ui.get_by_role("menuitem")).to_have_count(0)
         await expect(
             ui.get_by_role("button", name="Stop the active response", exact=True)
         ).to_be_enabled()
@@ -154,7 +158,7 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
         )
     await load_thread(ui, browser_app, "first")
     async with hold_delivery(ui, browser_app.app, "**/saved-prompts?*") as held:
-        await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+        await open_saved_prompts(ui)
         await asyncio.wait_for(held.held.wait(), 10)
         await load_thread(ui, browser_app, "second")
         await ui.locator("#chat-input").fill("Second draft")
@@ -164,7 +168,7 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
     browser_app.app.write(
         browser_app.vault, "Project/prompts.md", "## Updated\nUpdated body"
     )
-    await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+    await open_saved_prompts(ui)
     await ui.get_by_role("menuitem", name="Updated", exact=True).click()
     await expect(ui.locator("#chat-input")).to_have_value("Second draftUpdated body")
 
@@ -174,7 +178,7 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
         "## Different\nOther workspace body",
     )
     async with hold_delivery(ui, browser_app.app, "**/saved-prompts?*") as held:
-        await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+        await open_saved_prompts(ui)
         await asyncio.wait_for(held.held.wait(), 10)
         await ui.get_by_role("button", name=re.compile("^Open vault explorer")).click()
         explorer = ui.get_by_role("dialog", name="Vault Explorer", exact=True)
@@ -194,7 +198,7 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
     await expect(ui.get_by_role("menuitem", name="Updated", exact=True)).to_have_count(
         0
     )
-    await ui.get_by_role("button", name="Saved prompts", exact=True).click()
+    await open_saved_prompts(ui)
     await ui.get_by_role("menuitem", name="Different", exact=True).click()
     await expect(ui.locator("#chat-input")).to_have_value(
         "Second draftUpdated bodyOther workspace body"

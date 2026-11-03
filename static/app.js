@@ -69,7 +69,6 @@ const chatElements = {
     attachCountBadge: document.getElementById('attach-count-badge'),
     attachmentPopover: document.getElementById('chat-attachment-popover'),
     sendBtn: document.getElementById('send-btn'),
-    savedPromptsBtn: document.getElementById('saved-prompts-btn'),
     savedPromptsMenu: document.getElementById('saved-prompts-menu'),
     focusToggleInline: document.getElementById('chat-focus-toggle-inline'),
     focusDivider: document.getElementById('chat-focus-divider'),
@@ -458,7 +457,7 @@ function syncSendButtonState() {
         ? 'Tool review is pending. Resolve the review card before sending another message.'
         : state.isLoading
         ? (state.isCancellingChat ? 'Stopping active response' : 'Stop the active response')
-        : modeSaving ? 'Saving file approvals…' : 'Send message';
+        : modeSaving ? 'Saving file approvals…' : 'Send message (hold or Alt+ArrowDown for saved prompts)';
     btn.setAttribute(
         'aria-label',
         reviewPending

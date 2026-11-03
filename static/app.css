@@ -3926,13 +3926,6 @@ summary.connection-card-summary .summary-title {
     cursor: not-allowed;
 }
 
-.chat-send-controls {
-    position: relative;
-    display: flex;
-    flex: 0 0 auto;
-    align-items: stretch;
-    gap: 0.2rem;
-}
 .saved-prompts-menu {
     position: fixed;
     z-index: 60;

@@ -1,6 +1,6 @@
 (function savedPromptsModule(window, document) {
     function create({ state, elements, composer, callbacks }) {
-        const trigger = elements.savedPromptsBtn;
+        const trigger = elements.sendBtn;
         const menu = elements.savedPromptsMenu;
         const send = elements.sendBtn;
         let generation = 0;
@@ -114,7 +114,15 @@
         }
 
         function syncControls() {
-            trigger.disabled = locked() || !elements.vaultSelector.value;
+            if (locked()) {
+                trigger.removeAttribute('aria-haspopup');
+                trigger.removeAttribute('aria-controls');
+                trigger.removeAttribute('aria-keyshortcuts');
+            } else {
+                trigger.setAttribute('aria-haspopup', 'menu');
+                trigger.setAttribute('aria-controls', menu.id);
+                trigger.setAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
+            }
             if (opened && (locked() || opened.scope !== scope())) close();
             if (gesture && (locked() || gesture.scope !== scope())) cancelGesture(true);
         }
@@ -132,9 +140,12 @@
             else callbacks.send();
         }
 
-        trigger.addEventListener('click', () => {
-            if (opened) close({ restoreFocus: true });
-            else void open();
+        send.addEventListener('keydown', (event) => {
+            if (event.altKey && event.key === 'ArrowDown' && !locked()) {
+                event.preventDefault();
+                if (opened) close({ restoreFocus: true });
+                else void open();
+            }
         });
         send.addEventListener('pointerdown', (event) => {
             if (event.button !== 0 || !event.isPrimary) return;
@@ -183,7 +194,7 @@
             }
         }, true);
         document.addEventListener('click', (event) => {
-            if (opened && !menu.contains(event.target) && !trigger.contains(event.target) && !send.contains(event.target)) close();
+            if (opened && !menu.contains(event.target) && !send.contains(event.target)) close();
         }, true);
         window.addEventListener('resize', () => { if (opened) positionMenu(); });
         window.addEventListener('blur', () => { cancelGesture(true); close(); });
