@@ -53,6 +53,7 @@
             importSources: initialImportSources = [],
             importUrl = '',
             revealPath = '',
+            initialFolder = '',
             vaultName = '',
             workspaceSelection = false,
         } = {}) {
@@ -75,6 +76,7 @@
                     ? 'vault'
                     : (savedWorkspace ? 'workspace' : 'vault'),
                 revealInitialPath: workspaceRecovery ? '' : revealPath,
+                initialFolder,
                 selectedLabel: workspaceRecovery
                     ? 'Workspace folder not found'
                     : (workspaceSelectionMode && savedWorkspace ? 'Current workspace' : ''),
@@ -238,7 +240,17 @@
                 </section>
             `;
             document.body.appendChild(overlay);
-            detachLayout = layout.attach(overlay, { vaultName: vault });
+            detachLayout = layout.attach(overlay, {
+                vaultName: vault,
+                snapshot: () => {
+                    const view = activeFileView?.snapshot();
+                    return { file: {
+                        path,
+                        initialMode: view?.initialMode || 'preview',
+                        initialRevisionId: view?.initialRevisionId || '',
+                    } };
+                },
+            });
 
             const editor = overlay.querySelector('#vault-file-modal-editor');
             const statusLabel = overlay.querySelector('#vault-file-modal-status');

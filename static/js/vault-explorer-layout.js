@@ -6,6 +6,49 @@
         const savedRatio = Number(browserStorage.getItem('vaultExplorerRatio'));
         let ratio = savedRatio > 0 && savedRatio < 1 ? savedRatio : 0.4;
         let dragging = false;
+        let trackingView = false;
+
+        function rememberView() {
+            if (!trackingView) return;
+            if (mode !== 'split' || !surfaces.size) {
+                browserStorage.removeItem('vaultExplorerView');
+                return;
+            }
+            const activeSurfaces = Array.from(surfaces.values());
+            const vaultName = activeSurfaces.at(-1).vaultName;
+            const view = { version: 1, vaultName, folder: '', ...callbacks.snapshotContext() };
+            for (const surface of activeSurfaces) {
+                if (surface.vaultName === vaultName) Object.assign(view, surface.snapshot());
+            }
+            browserStorage.setItem('vaultExplorerView', JSON.stringify(view));
+        }
+
+        function restorableView(vaults) {
+            if (!desktop.matches || mode !== 'split' || surfaces.size) return null;
+            let view;
+            try {
+                view = JSON.parse(browserStorage.getItem('vaultExplorerView'));
+            } catch (error) {
+                if (!(error instanceof SyntaxError)) throw error;
+                browserStorage.removeItem('vaultExplorerView');
+                return null;
+            }
+            if (view?.version !== 1 || typeof view.vaultName !== 'string'
+                || !vaults.includes(view.vaultName)) return null;
+            return {
+                vaultName: view.vaultName,
+                folder: typeof view.folder === 'string' ? view.folder : '',
+                tab: ['chat', 'dashboard', 'configuration'].includes(view.tab) ? view.tab : 'chat',
+                file: typeof view.file?.path === 'string' && view.file.path ? {
+                    path: view.file.path,
+                    initialMode: ['preview', 'edit', 'history'].includes(view.file.initialMode)
+                        ? view.file.initialMode : 'preview',
+                    initialRevisionId: typeof view.file.initialRevisionId === 'string'
+                        ? view.file.initialRevisionId : '',
+                } : null,
+            };
+        }
+        window.addEventListener('pagehide', rememberView);
         const divider = document.createElement('div');
         divider.className = 'vault-explorer-divider';
         divider.hidden = true;
@@ -49,6 +92,7 @@
                 toggle.setAttribute('aria-pressed', String(docked));
                 toggle.title = label;
             }
+            rememberView();
         }
 
         function resize(width) {
@@ -98,7 +142,7 @@
             if (canClose()) callbacks.close();
         });
 
-        function attach(overlay, { vaultName, canClose = () => true }) {
+        function attach(overlay, { vaultName, canClose = () => true, snapshot = () => ({}) }) {
             const toggle = document.createElement('button');
             toggle.type = 'button';
             toggle.dataset.explorerLayoutToggle = 'true';
@@ -106,7 +150,8 @@
             toggle.innerHTML = icons.PANEL_RIGHT_ICON_SVG;
             const actions = overlay.querySelector('.app-modal-header .app-modal-actions');
             actions.insertBefore(toggle, actions.lastElementChild);
-            surfaces.set(overlay, { toggle, vaultName, canClose });
+            trackingView = true;
+            surfaces.set(overlay, { toggle, vaultName, canClose, snapshot });
             toggle.addEventListener('click', () => {
                 mode = isDocked() ? 'overlay' : 'split';
                 browserStorage.setItem('vaultExplorerLayout', mode);
@@ -125,6 +170,7 @@
 
         return {
             attach,
+            restorableView,
             isDocked,
             canClose,
             vaultName: () => Array.from(surfaces.values()).at(-1)?.vaultName,

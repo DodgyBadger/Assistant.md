@@ -182,7 +182,10 @@ const sessionMap = window.SessionMap.create({
 const explorerLayout = window.VaultExplorerLayout.create({
     browserStorage,
     icons: window.AssistantMDIcons,
-    callbacks: { close: () => fileReferences.closeExplorer() },
+    callbacks: {
+        close: () => fileReferences.closeExplorer(),
+        snapshotContext: () => ({ tab: appShell.activeTab() }),
+    },
 });
 
 const vaultPathPicker = window.VaultPathPicker.create({
@@ -611,6 +614,21 @@ async function init() {
     renderChatEmptyState();
     renderPendingAttachments();
     updateCollapsibleArrows();
+    const explorerView = explorerLayout.restorableView(state.metadata?.vaults || []);
+    if (explorerView) {
+        chatElements.vaultSelector.value = explorerView.vaultName;
+        handleVaultChange();
+        fileReferences.openExplorer({ vaultName: explorerView.vaultName, initialFolder: explorerView.folder });
+        if (explorerView.file) {
+            await fileReferences.openFile(explorerView.file.path, {
+                vaultName: explorerView.vaultName,
+                initialMode: explorerView.file.initialMode,
+                initialRevisionId: explorerView.file.initialRevisionId,
+                onBack: () => {},
+            });
+        }
+        appShell.switchTab(explorerView.tab);
+    }
     void fetchSystemStatus();
 }
 

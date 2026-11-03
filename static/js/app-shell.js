@@ -15,6 +15,8 @@
             }
         };
 
+        let activeTab = 'chat';
+
         const themeManager = {
             themes: [
                 { name: 'light', label: 'Light' },
@@ -51,6 +53,7 @@
         };
 
         function switchTab(tabName) {
+            activeTab = tabName;
             if (tabName !== 'configuration') {
                 window.ConfigurationPanel?.onTabDeactivated?.();
             }
@@ -85,7 +88,7 @@
             });
         }
 
-        return Object.freeze({ init, switchTab });
+        return Object.freeze({ init, switchTab, activeTab: () => activeTab });
     }
 
     window.AppShell = Object.freeze({ create: createAppShell });

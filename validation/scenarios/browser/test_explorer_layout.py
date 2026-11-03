@@ -235,3 +235,45 @@ async def test_session_selection_and_new_chat_preserve_docked_file_edits(
     assert (
         browser_app.vault / "Draft.md"
     ).read_text() == "Retained across conversations"
+
+
+async def test_reload_restores_split_file_vault_and_tab_until_explicit_close(
+    browser_app, ui
+):
+    other = browser_app.app.vault("ReloadVault")
+    browser_app.app.write(other, "Reload.md", "File in restored vault")
+    assert (
+        await browser_app.app.request_async("/api/vaults/rescan", "POST", {})
+    ).status_code == 200
+    explorer = await open_explorer(ui, browser_app)
+    await explorer.get_by_role("button", name="Use split view", exact=True).click()
+    divider = ui.get_by_role("separator", name="Resize explorer")
+    await divider.focus()
+    await ui.keyboard.press("ArrowLeft")
+    width = (await explorer.bounding_box())["width"]
+    await ui.locator("#vault-selector").select_option(other.name)
+    await explorer.locator('[data-vault-path-picker-select="Reload.md"]').click()
+    reader = ui.get_by_role("dialog").filter(has=ui.locator("#vault-file-modal-path"))
+    await reader.get_by_role("button", name="Edit Markdown", exact=True).click()
+    await ui.locator("#dashboard-tab").click()
+    await ui.reload()
+    await expect(reader).to_be_visible()
+    await expect(divider).to_be_visible()
+    await expect(ui.locator("#vault-selector")).to_have_value(other.name)
+    await expect(ui.locator("#dashboard-content")).to_be_visible()
+    editor = reader.locator("#vault-file-modal-editor")
+    await expect(editor).to_be_visible()
+    await expect(editor).to_have_value("File in restored vault")
+    assert abs((await reader.bounding_box())["width"] - width) <= 2
+    await reader.get_by_role("button", name="Browse vault tree", exact=True).click()
+    await expect(
+        explorer.locator('[data-vault-path-picker-select="Reload.md"]')
+    ).to_be_visible()
+    await explorer.get_by_role("button", name="Close", exact=True).click()
+    await ui.reload()
+    await expect(
+        ui.locator("#vault-selector option").filter(has_text=other.name)
+    ).to_have_count(1)
+    await expect(divider).to_be_hidden()
+    await expect(explorer).to_have_count(0)
+    await expect(reader).to_have_count(0)

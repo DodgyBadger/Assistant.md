@@ -248,6 +248,7 @@
             if (options.explorer) detachLayout = layout.attach(overlay, {
                 vaultName: options.vaultName || selectedVault(),
                 canClose: () => !isExplorerBusy(),
+                snapshot: () => ({ folder: explorer.snapshot().activeFolder }),
             });
             syncInteractionLocks();
 
@@ -260,7 +261,7 @@
             }
             if (options.explorer) {
                 explorer.open(overlay, options, {
-                    activeFolder: options.initialScope === 'workspace' ? workspacePath() : '',
+                    activeFolder: options.initialFolder || (options.initialScope === 'workspace' ? workspacePath() : ''),
                 });
                 if (options.importUrl) {
                     explorerImports.showUrl(overlay, {
