@@ -21,7 +21,6 @@
                     <div class="chat-excerpt-paragraphs" data-excerpt-paragraphs></div>
                     <footer class="chat-excerpt-footer">
                         <span role="status" aria-live="polite" data-excerpt-status>Choose a paragraph to begin.</span>
-                        <button type="button" class="ui-button-secondary" data-excerpt-cancel>Cancel</button>
                         <button type="button" class="ui-button-primary" data-excerpt-copy disabled>Copy selected</button>
                     </footer>
                 </section>`;
@@ -78,7 +77,6 @@
                 choices.push(choice);
             });
             overlay.querySelector('[data-excerpt-close]').addEventListener('click', close);
-            overlay.querySelector('[data-excerpt-cancel]').addEventListener('click', close);
             overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
             copy.addEventListener('click', async () => {
                 if (start === null || pending) return;
