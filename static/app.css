@@ -361,6 +361,16 @@ body.chat-focus-mode .chat-focus-divider::before {
     border-radius: 9999px;
     background: rgb(var(--text-tertiary));
 }
+@media (pointer: coarse), (max-width: 639px) {
+    body.chat-focus-mode .chat-focus-divider {
+        flex-basis: 2.75rem;
+    }
+    body.chat-focus-mode .chat-focus-divider::before {
+        width: 4rem;
+        height: 0.3rem;
+        background: rgb(var(--text-secondary));
+    }
+}
 @media (max-width: 639px) {
     body.chat-focus-mode #chat-composer {
         height: var(--chat-compose-height, 42vh);
