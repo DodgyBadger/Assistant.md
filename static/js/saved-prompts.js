@@ -8,6 +8,10 @@
         let opened = null;
         let gesture = null;
         let consumeClick = false;
+        let availabilityScope = '';
+        let availabilityRequest = null;
+        let available = false;
+        let wasLocked = false;
 
         function scope() {
             return JSON.stringify([
@@ -19,6 +23,53 @@
         function locked() {
             return Boolean(state.isLoading || state.isCancellingChat || state.pendingDeferredReview
                 || state.chatModeSavePending || elements.chatInput.disabled);
+        }
+
+        function renderAvailability() {
+            const visible = available && !locked();
+            send.classList.toggle('has-saved-prompts', visible);
+            if (visible) {
+                send.setAttribute('aria-description', 'Saved prompts available. Hold or press Alt+ArrowDown to choose.');
+            } else {
+                send.removeAttribute('aria-description');
+            }
+        }
+
+        async function loadPrompts(signal) {
+            const params = new URLSearchParams({ workspace_path: elements.workspacePathInput?.value.trim() || '' });
+            const response = await fetch(`api/vaults/${encodeURIComponent(elements.vaultSelector.value)}/saved-prompts?${params}`, {
+                signal, cache: 'no-store',
+            });
+            if (!response.ok) throw new Error('Saved prompts could not be loaded.');
+            const payload = await response.json();
+            return Array.isArray(payload.prompts) ? payload.prompts : [];
+        }
+
+        async function refreshAvailability(force = false) {
+            const currentScope = scope();
+            if (!force && availabilityScope === currentScope) return;
+            availabilityRequest = null;
+            availabilityScope = currentScope;
+            available = false;
+            renderAvailability();
+            if (!elements.vaultSelector.value || !elements.workspacePathInput?.value.trim() || locked()) return;
+            // Background reads finish independently; only the current scope can update the cue.
+            const token = {};
+            availabilityRequest = token;
+            try {
+                const prompts = await loadPrompts();
+                if (availabilityRequest !== token || currentScope !== scope()) return;
+                available = prompts.length > 0;
+                renderAvailability();
+            } catch (error) {
+                // Optional library failures must not interfere with normal Send/Stop.
+                if (availabilityRequest === token && currentScope === scope()) {
+                    available = false;
+                    renderAvailability();
+                }
+            } finally {
+                if (availabilityRequest === token) availabilityRequest = null;
+            }
         }
 
         function cancelGesture(consume = false) {
@@ -73,15 +124,13 @@
             status('Loading saved prompts…');
             positionMenu();
             request = new AbortController();
-            const params = new URLSearchParams({ workspace_path: elements.workspacePathInput?.value.trim() || '' });
+            availabilityRequest = null;
             try {
-                const response = await fetch(`api/vaults/${encodeURIComponent(elements.vaultSelector.value)}/saved-prompts?${params}`, {
-                    signal: request.signal, cache: 'no-store',
-                });
-                if (!response.ok) throw new Error('Saved prompts could not be loaded.');
-                const payload = await response.json();
+                const prompts = await loadPrompts(request.signal);
                 if (generation !== current.generation || scope() !== current.scope || locked()) return;
-                const prompts = Array.isArray(payload.prompts) ? payload.prompts : [];
+                availabilityScope = current.scope;
+                available = prompts.length > 0;
+                renderAvailability();
                 if (!prompts.length) {
                     status('No saved prompts found for this workspace.');
                     return;
@@ -108,12 +157,18 @@
                 menu.querySelector('[role="menuitem"]')?.focus({ preventScroll: true });
             } catch (error) {
                 if (error.name !== 'AbortError' && generation === current.generation) {
+                    available = false;
+                    renderAvailability();
                     status('Saved prompts could not be loaded.');
                 }
             }
         }
 
         function syncControls() {
+            const unlocked = wasLocked && !locked();
+            wasLocked = locked();
+            void refreshAvailability(unlocked);
+            renderAvailability();
             if (locked()) {
                 trigger.removeAttribute('aria-haspopup');
                 trigger.removeAttribute('aria-controls');
@@ -196,9 +251,12 @@
         document.addEventListener('click', (event) => {
             if (opened && !menu.contains(event.target) && !send.contains(event.target)) close();
         }, true);
+        window.addEventListener('focus', () => { void refreshAvailability(true); });
         window.addEventListener('resize', () => { if (opened) positionMenu(); });
         window.addEventListener('blur', () => { cancelGesture(true); close(); });
-        return Object.freeze({ close, handleSendClick, isOpen: () => Boolean(opened), syncControls });
+        return Object.freeze({ close, handleSendClick, isOpen: () => Boolean(opened), syncControls,
+            refreshAvailability: () => { void refreshAvailability(true); },
+        });
     }
     window.SavedPrompts = Object.freeze({ create });
 })(window, document);

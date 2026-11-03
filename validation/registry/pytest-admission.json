@@ -126,7 +126,7 @@
     {
       "path": "scenarios/browser/test_saved_prompts_browser.py",
       "kind": "behavioral",
-      "sha256": "1d0684e45ad878bfa3cf632bb978fe9be7b64fd0c7acbe87c9cc79d9fe669d3c",
+      "sha256": "bf624e20677868d5fde2b4725e6f3ff0625fd4450e125ecc1de106dc9efd3526",
       "tests": [
         "test_saved_prompt_inserts_without_consuming_draft_or_attachments",
         "test_saved_prompt_only_enters_model_context_after_explicit_send_and_stop_stays_available",

@@ -157,7 +157,11 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
             workspace_path="Project",
         )
     await load_thread(ui, browser_app, "first")
-    async with hold_delivery(ui, browser_app.app, "**/saved-prompts?*") as held:
+    # Finish automatic availability discovery before delaying the explicit menu read.
+    await ui.wait_for_load_state("networkidle")
+    async with hold_delivery(
+        ui, browser_app.app, "**/saved-prompts?*", first_only=True
+    ) as held:
         await open_saved_prompts(ui)
         await asyncio.wait_for(held.held.wait(), 10)
         await load_thread(ui, browser_app, "second")
@@ -177,7 +181,11 @@ async def test_late_library_cannot_insert_into_another_session_and_reopening_rea
         "OtherProject/prompts.md",
         "## Different\nOther workspace body",
     )
-    async with hold_delivery(ui, browser_app.app, "**/saved-prompts?*") as held:
+    # Finish automatic availability discovery before delaying the explicit menu read.
+    await ui.wait_for_load_state("networkidle")
+    async with hold_delivery(
+        ui, browser_app.app, "**/saved-prompts?*", first_only=True
+    ) as held:
         await open_saved_prompts(ui)
         await asyncio.wait_for(held.held.wait(), 10)
         await ui.get_by_role("button", name=re.compile("^Open vault explorer")).click()

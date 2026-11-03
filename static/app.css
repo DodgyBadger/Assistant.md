@@ -374,9 +374,21 @@ body.chat-focus-mode .chat-focus-divider::before {
     }
 }
 #send-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+#send-btn.has-saved-prompts::after {
+    content: '';
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: currentColor;
+    pointer-events: none;
 }
 #send-btn svg {
     width: 1.15rem;

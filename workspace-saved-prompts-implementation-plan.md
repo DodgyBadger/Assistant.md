@@ -125,3 +125,7 @@ Before editing any protected documentation, present the exact affected files and
 ## Follow-up: single Send control
 
 Removed the extra arrow at the user's request. Long press and Alt+ArrowDown on Send open the existing menu, and Escape restores focus to Send. Normal Send and Stop retain their existing click behavior. Existing behavioral scenarios use the shortcut and long press; no presentation assertions were added. The prior proposed documentation draft needs its menu-opening sentence updated before approval.
+
+## Follow-up: saved prompt availability indicator
+
+Show a small dot at the upper right of Send when the current workspace library contains prompts. Check availability when the conversation/workspace changes, configuration is refreshed, the window regains focus, or active work finishes; explicit menu opening also updates availability. Clear previous scope state immediately and discard late responses. Hide the cue while Send is acting as Stop or prompt insertion is locked. The cue uses a CSS pseudo-element so Send/Stop icon replacement preserves it. Announce availability through accessibility metadata. Reuse the bounded library endpoint; no new backend or persistent state is introduced. Review the visual cue directly and rerun existing behavioral interactions without adding layout/text assertions.

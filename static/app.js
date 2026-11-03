@@ -533,7 +533,7 @@ function syncVaultExplorerButtons() {
 
 function fetchMetadata() {
     savedPrompts.close();
-    return chatSelection.fetchMetadata();
+    return chatSelection.fetchMetadata().then(() => savedPrompts.refreshAvailability());
 }
 
 function populateSelectors() {
