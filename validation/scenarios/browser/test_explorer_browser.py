@@ -202,3 +202,59 @@ async def test_batch_move_keeps_contents_and_rejects_descendant_destination(
     ).read_text() == "first content"
     assert (browser_app.vault / "Target/B.md").read_text() == "second content"
     assert (browser_app.vault / "Target/Existing.md").read_text() == "existing content"
+
+
+async def test_bulk_delete_across_folders_requires_confirmation_and_can_cancel(
+    browser_app, ui
+):
+    browser_app.app.write(browser_app.vault, "First/A.md", "alpha")
+    browser_app.app.write(browser_app.vault, "Second/B.md", "beta")
+    browser_app.app.write(browser_app.vault, "Second/Keep.md", "retain")
+    explorer = await open_explorer(ui, browser_app)
+    await explorer.get_by_role("button", name="Expand First", exact=True).click()
+    await explorer.get_by_role("button", name="Expand Second", exact=True).click()
+    await explorer.get_by_role("checkbox", name="Select A.md", exact=True).check()
+    await explorer.get_by_role("checkbox", name="Select B.md", exact=True).check()
+    await explorer.get_by_role("button", name="Delete", exact=True).click()
+    form = explorer.locator(
+        '[data-vault-explorer-mutation-form][data-operation="delete"]'
+    )
+    await expect(form).to_be_visible()
+    assert (browser_app.vault / "First/A.md").exists()
+    assert (browser_app.vault / "Second/B.md").exists()
+    await form.get_by_role("button", name="Cancel", exact=True).click()
+    assert (browser_app.vault / "First/A.md").exists()
+    assert (browser_app.vault / "Second/B.md").exists()
+    await explorer.get_by_role("button", name="Delete", exact=True).click()
+    await form.get_by_role("button", name="Delete", exact=True).click()
+    await expect(
+        explorer.get_by_role("checkbox", name="Select A.md", exact=True)
+    ).to_have_count(0)
+    await expect(
+        explorer.get_by_role("checkbox", name="Select B.md", exact=True)
+    ).to_have_count(0)
+    assert not (browser_app.vault / "First/A.md").exists()
+    assert not (browser_app.vault / "Second/B.md").exists()
+    assert (browser_app.vault / "Second/Keep.md").read_text() == "retain"
+    await explorer.get_by_role("checkbox", name="Select Second", exact=True).check()
+    await explorer.get_by_role("button", name="Delete", exact=True).click()
+    assert (browser_app.vault / "Second/Keep.md").exists()
+    async with ui.expect_response(
+        lambda response: "/paths/delete-batch" in response.url
+    ) as deletion:
+        await form.get_by_role("button", name="Delete", exact=True).click()
+    activity_id = (await (await deletion.value).json())["activity_id"]
+    await expect(
+        explorer.get_by_role("checkbox", name="Select Second", exact=True)
+    ).to_have_count(0)
+    assert not (browser_app.vault / "Second").exists()
+    await explorer.get_by_role("button", name="Close", exact=True).click()
+    await ui.locator("#dashboard-tab").click()
+    await ui.locator("#dashboard-vault-activity-section > summary").click()
+    await ui.get_by_role("button", name="Refresh Activity", exact=True).click()
+    await ui.locator(f'[data-vault-activity-id="{activity_id}"]').click()
+    activity = ui.locator("#vault-activity-modal")
+    ui.once("dialog", lambda dialog: dialog.accept())
+    await activity.get_by_role("button", name="Rollback activity", exact=True).click()
+    await expect(activity).to_have_count(0)
+    assert (browser_app.vault / "Second/Keep.md").read_text() == "retain"

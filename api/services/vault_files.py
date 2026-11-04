@@ -23,12 +23,12 @@ from core.vault_state.file_mutations import (
 from core.vault_state.file_operations import (
     VaultFileOperationRejected,
     VaultFileOperationResult,
-    delete_vault_path_operation,
     make_vault_directory_operation,
     move_vault_directory_operation,
     move_vault_path_operation,
     replace_full_text_content,
 )
+from core.vault_state.path_deletion import delete_vault_paths
 from core.vault_state.pathing import (
     VaultRootResolutionError,
     normalize_vault_relative_path,
@@ -39,6 +39,7 @@ from core.vault_state.service import VaultStateService
 
 from ..exceptions import APIException
 from ..models import (
+    VaultBatchDeleteResponse,
     VaultBatchMoveResponse,
     VaultDirectoryInfo,
     VaultDirectoryListResponse,
@@ -795,6 +796,10 @@ def mutate_vault_path(
 ) -> VaultPathMutationResponse:
     """Apply one direct explorer mutation through shared vault operations."""
     vault_root, normalized, full_path = _resolve_vault_file_path(vault_name, path)
+    if operation == "delete":
+        return delete_vault_paths_batch(
+            vault_name=vault_name, sources=[normalized], confirmed_sources=[normalized]
+        ).results[0]
     with _explorer_activity(
         label=f"{operation.replace('_', ' ').title()} {normalized}",
     ):
@@ -807,6 +812,44 @@ def mutate_vault_path(
             destination=destination,
             content=content,
         )
+
+
+def delete_vault_paths_batch(
+    *, vault_name: str, sources: list[str], confirmed_sources: list[str]
+) -> VaultBatchDeleteResponse:
+    vault_root = resolve_vault_root(vault_name)
+    with _explorer_activity(
+        label=f"Delete {len(sources)} selected item(s)"
+    ) as activity:
+        try:
+            deleted = delete_vault_paths(
+                vault_path=vault_root,
+                sources=sources,
+                confirmed_sources=confirmed_sources,
+            )
+        except VaultMutationRejected as exc:
+            raise _vault_path_mutation_error(
+                exc, vault_name=vault_name, path=", ".join(sources)
+            ) from exc
+        except ValueError as exc:
+            raise APIException(
+                status_code=400, error_type="InvalidVaultPath", message=str(exc)
+            ) from exc
+    return VaultBatchDeleteResponse(
+        activity_id=activity.activity_id,
+        results=[
+            VaultPathMutationResponse(
+                operation="delete",
+                path=item.path,
+                destination="",
+                kind=item.kind,
+                message=f"Deleted {item.path}.",
+                metadata={"activity_id": activity.activity_id},
+            )
+            for item in deleted
+        ],
+        message=f"Deleted {len(deleted)} selected item(s), including folder contents.",
+    )
 
 
 def move_vault_paths_batch(
@@ -1191,27 +1234,6 @@ def _mutate_vault_path_attributed(
             operation=operation,
             path=normalized,
             destination=normalized_destination,
-            kind=kind,
-            result=result,
-        )
-
-    if operation == "delete":
-        kind = "directory" if full_path.is_dir() else "file"
-        if kind == "directory" and any(full_path.iterdir()):
-            raise APIException(
-                status_code=409,
-                error_type="VaultDirectoryNotEmpty",
-                message=f"Cannot delete non-empty directory: {normalized}",
-                details={"path": normalized, "vault_name": vault_name},
-            )
-        result = delete_vault_path_operation(
-            vault_path=vault_root,
-            path=normalized,
-            confirm_path=normalized,
-        )
-        return _vault_path_operation_response(
-            operation=operation,
-            path=normalized,
             kind=kind,
             result=result,
         )

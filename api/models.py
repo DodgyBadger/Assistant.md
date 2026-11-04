@@ -309,6 +309,21 @@ class VaultPathMutationResponse(BaseModel):
     )
 
 
+class VaultBatchDeleteRequest(BaseModel):
+    """A confirmed selection, including recursive folder contents."""
+
+    sources: list[str] = Field(..., min_length=1)
+    confirmed_sources: list[str] = Field(..., min_length=1)
+
+
+class VaultBatchDeleteResponse(BaseModel):
+    """One recorded deletion activity for the complete selection."""
+
+    activity_id: str
+    results: list[VaultPathMutationResponse]
+    message: str
+
+
 class VaultBatchMoveRequest(BaseModel):
     """One atomic multi-item move requested from the vault explorer."""
 
@@ -769,7 +784,7 @@ class VaultActivityRollbackPathInfo(BaseModel):
         None, description="Expected current content hash"
     )
     restore_exists: bool = Field(
-        ..., description="Whether rollback restores file content"
+        ..., description="Whether rollback restores the file or directory"
     )
     restore_sha256: str | None = Field(None, description="Restored content hash")
 

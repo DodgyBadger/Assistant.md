@@ -325,6 +325,7 @@ from .vault_activity import (
     rollback_vault_activity,
 )
 from .vault_files import (
+    delete_vault_paths_batch,
     get_vault_favorites,
     get_vault_file,
     get_vault_file_revisions,

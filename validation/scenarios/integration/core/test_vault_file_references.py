@@ -364,6 +364,7 @@ async def test_inline_edits_and_revision_restoration(app: Application) -> None:
 
 async def test_explorer_moves_deletes_and_activity(app: Application) -> None:
     vault = reference_vault(app)
+    app.write(vault, "RecursiveExplorer/child.md", "recursive child")
     await app.start()
     create_directory = app.request(
         f"/api/vaults/{vault.name}/paths/mutate",
@@ -479,10 +480,10 @@ async def test_explorer_moves_deletes_and_activity(app: Application) -> None:
     non_empty_delete = app.request(
         f"/api/vaults/{vault.name}/paths/mutate",
         method="POST",
-        data={"operation": "delete", "path": "MovedExplorer"},
+        data={"operation": "delete", "path": "RecursiveExplorer"},
     )
-    assert non_empty_delete.status_code == 409
-    assert non_empty_delete.json().get("error") == "VaultDirectoryNotEmpty"
+    assert non_empty_delete.status_code == 200
+    assert not (vault / "RecursiveExplorer").exists()
     delete_file = app.request(
         f"/api/vaults/{vault.name}/paths/mutate",
         method="POST",

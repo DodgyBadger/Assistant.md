@@ -152,6 +152,8 @@ from .models import (
     VaultActivityRollbackPreviewResponse,
     VaultActivityRollbackRequest,
     VaultActivityRollbackResponse,
+    VaultBatchDeleteRequest,
+    VaultBatchDeleteResponse,
     VaultBatchMoveRequest,
     VaultBatchMoveResponse,
     VaultContentSearchMatch,
@@ -195,6 +197,7 @@ from .services import (
     delete_configurable_model,
     delete_configurable_provider,
     delete_secret_entry,
+    delete_vault_paths_batch,
     disconnect_openai_oauth_connection,
     execute_workflow_manually,
     export_chat_session_markdown,
@@ -2366,6 +2369,23 @@ async def mutate_vault_explorer_path(
             path=request.path,
             destination=request.destination,
             content=request.content,
+        )
+    except Exception as e:
+        return create_error_response(e)
+
+
+@router.post(
+    "/vaults/{vault_name}/paths/delete-batch", response_model=VaultBatchDeleteResponse
+)
+async def delete_vault_explorer_paths_batch(
+    vault_name: str, request: VaultBatchDeleteRequest
+) -> VaultBatchDeleteResponse | JSONResponse:
+    """Delete a confirmed selection with one recoverable activity."""
+    try:
+        return delete_vault_paths_batch(
+            vault_name=vault_name,
+            sources=request.sources,
+            confirmed_sources=request.confirmed_sources,
         )
     except Exception as e:
         return create_error_response(e)

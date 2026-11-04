@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import uuid
 from collections.abc import Iterable
@@ -14,7 +15,15 @@ from sqlalchemy import select
 from core.logger import UnifiedLogger
 from core.utils.hash import hash_file_bytes
 from core.vault_state.activity import VaultActivityContext, use_vault_activity
-from core.vault_state.file_mutations import FileStateRestore, restore_vault_file_states
+from core.vault_state.favorites import remove_favorite_paths
+from core.vault_state.file_mutations import (
+    FileStateRestore,
+    RecordedMutationResult,
+    VaultMutationRejected,
+    record_vault_directory_mutation,
+    restore_vault_file_states,
+    vault_directory_mutation_lock,
+)
 from core.vault_state.identity import resolve_or_create_vault_identity
 from core.vault_state.models import FileSnapshot, VaultActivity, VaultMutation
 from core.vault_state.pathing import resolve_vault_relative_path
@@ -44,6 +53,7 @@ class ActivityRollbackPath:
     restore_sha256: str | None
     snapshot_id: int | None
     snapshot_path: Path | None
+    target_kind: str = "file"
 
     @property
     def action(self) -> str:
@@ -124,6 +134,23 @@ def preview_activity_rollback(
         paths.append(planned_path)
         issues.extend(path_issues)
 
+    planned_names = {item.path for item in paths}
+    for item in paths:
+        if item.target_kind != "directory" or item.restore_exists:
+            continue
+        directory = vault_root / item.path
+        if directory.is_dir() and any(
+            child.relative_to(vault_root).as_posix() not in planned_names
+            for child in directory.rglob("*")
+        ):
+            issues.append(
+                ActivityRollbackIssue(
+                    code="state_conflict",
+                    message=f"'{item.path}' contains newer items outside this activity.",
+                    path=item.path,
+                )
+            )
+
     return ActivityRollbackPlan(
         activity_id=activity.activity_id,
         activity_label=activity.label,
@@ -202,7 +229,10 @@ def _activity_rollback_issues(
             "This activity has no retained mutations to roll back.",
         ),
         (
-            any(row.target_kind != "file" for row in rows),
+            any(
+                row.target_kind != "file" and not _recorded_directory_state(row)
+                for row in rows
+            ),
             "unsupported_directory_operation",
             "Directory operations do not retain enough state for full rollback.",
         ),
@@ -248,7 +278,20 @@ def _plan_rollback_path(
         if actual_exists and full_path.is_file()
         else None
     )
-    if actual_exists != bool(last.after_exists) or actual_hash != last.after_hash:
+    wrong_kind = (
+        (vault_root / path).is_symlink()
+        or actual_exists
+        and (
+            full_path.is_dir()
+            if first.target_kind == "file"
+            else not full_path.is_dir()
+        )
+    )
+    if (
+        wrong_kind
+        or actual_exists != bool(last.after_exists)
+        or actual_hash != last.after_hash
+    ):
         issues.append(
             ActivityRollbackIssue(
                 code="state_conflict",
@@ -265,6 +308,7 @@ def _plan_rollback_path(
             restore_sha256=first.before_hash,
             snapshot_id=first.before_snapshot_id,
             snapshot_path=snapshot_path,
+            target_kind=first.target_kind,
         ),
         tuple(issues),
     )
@@ -278,7 +322,7 @@ def _resolve_rollback_snapshot(
     snapshots: dict[int, FileSnapshot],
     now: datetime,
 ) -> tuple[Path | None, ActivityRollbackIssue | None]:
-    if not mutation.before_exists:
+    if _recorded_directory_state(mutation) or not mutation.before_exists:
         return None, None
     snapshot = snapshots.get(mutation.before_snapshot_id or 0)
     unavailable = ActivityRollbackIssue(
@@ -310,7 +354,7 @@ def execute_activity_rollback(
     vault_root = Path(vault_path).resolve()
     lock_key = f"{vault_root}:{activity_id}"
     lock = _ACTIVITY_ROLLBACK_LOCKS[hash(lock_key) % len(_ACTIVITY_ROLLBACK_LOCKS)]
-    with lock:
+    with lock, vault_directory_mutation_lock(vault_root):
         return _execute_activity_rollback_locked(
             vault_root=vault_root,
             activity_id=activity_id,
@@ -368,6 +412,7 @@ def _execute_activity_rollback_locked(
             content_sha256=path.restore_sha256,
         )
         for path in plan.paths
+        if path.target_kind == "file"
     )
     service.ensure_activity(
         context=context,
@@ -392,11 +437,8 @@ def _execute_activity_rollback_locked(
     )
     with use_vault_activity(context):
         try:
-            restore_vault_file_states(
-                vault_path=vault_root,
-                states=states,
-                operation="rollback_activity",
-                metadata={"source_activity_id": activity_id},
+            _restore_activity_states(
+                vault_root=vault_root, plan=plan, states=states, service=service
             )
         except Exception as exc:
             service.finish_activity(activity_id=rollback_activity_id, status="failed")
@@ -442,12 +484,124 @@ def _execute_activity_rollback_locked(
     )
 
 
+def _recorded_directory_state(row: VaultMutation) -> bool:
+    return (
+        row.target_kind == "directory"
+        and json.loads(row.metadata_json or "{}").get("directory_state") is True
+    )
+
+
+def _record_directory_transition(
+    vault_root: Path, path: ActivityRollbackPath, *, reverse: bool = False
+) -> None:
+    after = path.expected_exists if reverse else path.restore_exists
+    before = path.restore_exists if reverse else path.expected_exists
+    record_vault_directory_mutation(
+        vault_path=vault_root,
+        path=path.path,
+        operation="rollback_activity",
+        before_exists=before,
+        after_exists=after,
+        metadata={"directory_state": True},
+    )
+
+
+def _restore_activity_states(
+    *,
+    vault_root: Path,
+    plan: ActivityRollbackPlan,
+    states: tuple[FileStateRestore, ...],
+    service: VaultStateService,
+) -> None:
+    created: list[ActivityRollbackPath] = []
+    removed: list[ActivityRollbackPath] = []
+    file_results: tuple[RecordedMutationResult, ...] = ()
+    directories = sorted(
+        (
+            path
+            for path in plan.paths
+            if path.target_kind == "directory"
+            and path.restore_exists != path.expected_exists
+        ),
+        key=lambda path: len(Path(path.path).parts),
+    )
+    try:
+        for path in directories:
+            if path.restore_exists:
+                (vault_root / path.path).mkdir()
+                created.append(path)
+                _record_directory_transition(vault_root, path)
+        if states:
+            file_results = restore_vault_file_states(
+                vault_path=vault_root,
+                states=states,
+                operation="rollback_activity",
+                metadata={"source_activity_id": plan.activity_id},
+            )
+        for path in reversed(directories):
+            if not path.restore_exists:
+                (vault_root / path.path).rmdir()
+                removed.append(path)
+                _record_directory_transition(vault_root, path)
+        if removed:
+            remove_favorite_paths(vault_root, [path.path for path in removed])
+        service.refresh_vault(vault_root, vault_name=plan.vault_name)
+    except Exception as cause:
+        try:
+            for path in reversed(removed):
+                (vault_root / path.path).mkdir()
+                _record_directory_transition(vault_root, path, reverse=True)
+            _compensate_activity_files(vault_root, file_results, service)
+            for path in reversed(created):
+                (vault_root / path.path).rmdir()
+                _record_directory_transition(vault_root, path, reverse=True)
+        except Exception as compensation_error:
+            raise VaultMutationRejected(
+                "mutation_state_uncertain",
+                f"Rollback failed and compensation was incomplete: {compensation_error}",
+            ) from cause
+        raise
+
+
+def _compensate_activity_files(
+    vault_root: Path,
+    results: tuple[RecordedMutationResult, ...],
+    service: VaultStateService,
+) -> None:
+    states = []
+    for result in results:
+        snapshot = (
+            service.resolve_snapshot_file(result.before_snapshot_id)
+            if result.before_snapshot_id
+            else None
+        )
+        if result.before_exists and snapshot is None:
+            raise VaultMutationRejected(
+                "snapshot_unavailable", f"Missing compensation snapshot: {result.path}"
+            )
+        states.append(
+            FileStateRestore(
+                path=result.path,
+                expected_exists=result.after_exists,
+                expected_sha256=result.after_hash,
+                content_path=snapshot.path if snapshot else None,
+                content_sha256=result.before_hash,
+            )
+        )
+    if states:
+        restore_vault_file_states(
+            vault_path=vault_root,
+            states=tuple(states),
+            operation="rollback_compensation",
+        )
+
+
 def _group_rows_by_path(
     rows: Iterable[VaultMutation],
 ) -> tuple[tuple[str, tuple[VaultMutation, ...]], ...]:
     grouped: dict[str, list[VaultMutation]] = {}
     for row in rows:
-        if row.target_kind == "file":
+        if row.target_kind == "file" or _recorded_directory_state(row):
             grouped.setdefault(row.path, []).append(row)
     return tuple((path, tuple(grouped[path])) for path in sorted(grouped))
 

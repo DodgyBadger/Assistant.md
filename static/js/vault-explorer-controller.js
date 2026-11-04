@@ -25,6 +25,7 @@
             state.reset({ activeFolder });
             state.setFeatures({
                 batchMove: typeof options.onBatchMove === 'function',
+                batchDelete: typeof options.onDelete === 'function',
             });
         }
 
@@ -149,7 +150,13 @@
                     );
                     return;
                 }
-                if (['rename', 'move', 'delete'].includes(action) && selectedItem) {
+                if (action === 'delete') {
+                    await callbacks.handleMutationAction(overlay, {
+                        action, items: currentSnapshot.selectedItems,
+                    }, options);
+                    return;
+                }
+                if (['rename', 'move'].includes(action) && selectedItem) {
                     await callbacks.handleMutationAction(overlay, {
                         action,
                         path: selectedItem.path,

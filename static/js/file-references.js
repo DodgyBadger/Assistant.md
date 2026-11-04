@@ -105,6 +105,7 @@
                 } : undefined,
                 onMutate: (payload) => mutatePath(payload, vault),
                 onBatchMove: (payload) => movePathsBatch(payload, vault),
+                onDelete: (payload) => deletePaths(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),
                 onImportSources: (payload) => importSources(payload, vault),
                 onGetImportJob: (jobId) => getImportJob(jobId),
@@ -134,6 +135,20 @@
         async function getImportJob(jobId) {
             const response = await fetch(`api/import/jobs/${encodeURIComponent(jobId)}`, {
                 cache: 'no-store',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function deletePaths(payload, vault) {
+            if (interactionLocked()) throw new Error('Wait for the active response to finish.');
+            const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/paths/delete-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));

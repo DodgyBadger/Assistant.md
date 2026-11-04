@@ -80,14 +80,15 @@
     },
     {
       "path": "scenarios/browser/test_explorer_browser.py",
-      "sha256": "1e1ba8b23877302a4d4446cbbbb9bc7d2ff9027e666f843abb1f407a5bf416d1",
+      "sha256": "d04f7c85e30659bcd02cf239490f6a2a439de4dafd95272fe2cfb3b7f0809cda",
       "kind": "behavioral",
       "tests": [
         "test_explorer_selection_applicability_refresh_and_references",
         "test_explorer_create_rename_delete_and_duplicate_submit_lock",
         "test_explorer_content_search_escapes_untrusted_file_text",
         "test_explorer_workspace_save_updates_open_navigation",
-        "test_batch_move_keeps_contents_and_rejects_descendant_destination"
+        "test_batch_move_keeps_contents_and_rejects_descendant_destination",
+        "test_bulk_delete_across_folders_requires_confirmation_and_can_cancel"
       ]
     },
     {
@@ -1069,6 +1070,15 @@
       "kind": "behavioral",
       "tests": [
         "test_runner_shutdown_cancels_detached_children_and_notifies_after_cleanup"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_explorer_bulk_delete.py",
+      "kind": "behavioral",
+      "sha256": "ca783af743f75c4807482dd38928b4724fc1d4acfebfa5ddb0968efc069f89db",
+      "tests": [
+        "test_recursive_bulk_delete_and_activity_rollback_restore_exact_states",
+        "test_bulk_delete_preflights_confirmation_and_all_targets"
       ]
     },
     {
@@ -2307,7 +2317,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_file_references.py",
-      "sha256": "24812162d8094219968d41e419adfd93a0ca3bf34aafad5b3db8045a6f79b8fd",
+      "sha256": "95afb9770258fcba71790cb3964c6d2100490df12867f4c70a1e6c81767b281b",
       "kind": "behavioral",
       "tests": [
         "test_reference_listing_and_resolution",

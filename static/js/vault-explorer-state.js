@@ -177,7 +177,7 @@
                 operation: 'delete',
                 count,
                 batchEnabled: features.batchDelete,
-                batchConflictReason,
+                batchConflictReason: '',
             }),
         };
         for (const operation of SINGLE_ITEM_OPERATIONS) {
