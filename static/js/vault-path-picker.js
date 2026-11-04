@@ -1073,7 +1073,7 @@
             const path = String(item.path || '');
             const name = String(item.name || path || 'Path');
             const kind = item.kind === 'directory' ? 'directory' : 'file';
-            const indent = Math.min(Math.max(depth, 0) * 1.25, 5);
+            const indent = Math.max(depth, 0) * 1.25;
             const canExpand = kind === 'directory' && item.has_children && !options.favoritesOnly;
             const icon = kind === 'directory' ? icons.FOLDER_ICON_SVG : fileIcon();
             const selected = options.explorer
