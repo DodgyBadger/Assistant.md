@@ -603,6 +603,7 @@ def _restore_vault_file_states_locked(
                 service=service,
                 context=context,
                 results=results,
+                vault_root=vault_root,
                 operation_id=operation_id,
                 created_at=created_at,
                 expires_at=mutation_expires_at,
@@ -620,9 +621,6 @@ def _restore_vault_file_states_locked(
                 before_states=before_states,
                 finalize=persist_restore,
             ),
-        )
-        remove_favorite_paths(
-            vault_root, [result.path for result in results if not result.after_exists]
         )
         return results
 
@@ -1743,7 +1741,7 @@ def _persist_or_log_mutation(
         )
         session.commit()
 
-    logger.add_sink("validation").info(
+    logger.set_sinks(["validation"]).info(
         "vault_mutation_recorded",
         data={
             "event": "vault_mutation_recorded",
@@ -1775,6 +1773,7 @@ def _persist_mutation_batch(
     service: VaultStateService,
     context: VaultActivityContext,
     results: tuple[RecordedMutationResult, ...],
+    vault_root: Path,
     operation_id: str,
     created_at: datetime,
     expires_at: datetime | None,
@@ -1818,10 +1817,15 @@ def _persist_mutation_batch(
                     ),
                 )
             )
+        remove_favorite_paths(
+            vault_root,
+            [result.path for result in results if not result.after_exists],
+            session=session,
+        )
         session.commit()
 
     for result in results:
-        logger.add_sink("validation").info(
+        logger.set_sinks(["validation"]).info(
             "vault_mutation_recorded",
             data={
                 "event": "vault_mutation_recorded",

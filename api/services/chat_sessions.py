@@ -296,6 +296,7 @@ def set_chat_session_favorite(vault_name: str, session_id: str, favorite: bool) 
         "Chat session favorite updated",
         data={
             "event": "chat_session_favorite_updated",
+            "status": "completed",
             "vault_name": vault_name,
             "session_id": session_id,
             "favorite": favorite,

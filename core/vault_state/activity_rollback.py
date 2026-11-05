@@ -134,6 +134,7 @@ def preview_activity_rollback(
         paths.append(planned_path)
         issues.extend(path_issues)
 
+    issues.extend(_directory_restore_parent_issues(vault_root, paths))
     planned_names = {item.path for item in paths}
     for item in paths:
         if item.target_kind != "directory" or item.restore_exists:
@@ -161,6 +162,41 @@ def preview_activity_rollback(
         paths=tuple(paths),
         issues=tuple(_deduplicate_issues(issues)),
     )
+
+
+def _directory_restore_parent_issues(
+    vault_root: Path, paths: list[ActivityRollbackPath]
+) -> list[ActivityRollbackIssue]:
+    restoring = {
+        path.path
+        for path in paths
+        if path.target_kind == "directory" and path.restore_exists
+    }
+    issues = []
+    for path in paths:
+        if path.path not in restoring:
+            continue
+        for parent in Path(path.path).parents:
+            if parent == Path("."):
+                break
+            full_parent = vault_root / parent
+            if full_parent.is_dir() and not full_parent.is_symlink():
+                continue
+            if (
+                not full_parent.exists()
+                and not full_parent.is_symlink()
+                and parent.as_posix() in restoring
+            ):
+                continue
+            issues.append(
+                ActivityRollbackIssue(
+                    code="parent_state_conflict",
+                    message=f"Restore parent directory '{parent.as_posix()}' before rolling back '{path.path}'.",
+                    path=path.path,
+                )
+            )
+            break
+    return issues
 
 
 def _load_rollback_records(

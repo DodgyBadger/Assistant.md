@@ -1,11 +1,17 @@
 """Durable path bookmarks, independent of manifest refresh and retention."""
 
+from __future__ import annotations
+
 from contextlib import closing
 from pathlib import Path
+
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
 
 from core.database import connect_sqlite_from_system_db
 from core.identity import require_current_execution_authority
 from core.vault_state.identity import resolve_or_create_vault_identity
+from core.vault_state.models import VaultFavorite
 from core.vault_state.pathing import resolve_vault_relative_path
 
 
@@ -74,11 +80,20 @@ def move_favorite_paths(vault_root: Path, source: str, destination: str) -> None
             )
 
 
-def remove_favorite_paths(vault_root: Path, paths: list[str]) -> None:
-    """Forget deleted exact paths for every principal; restores start unbookmarked."""
+def remove_favorite_paths(
+    vault_root: Path, paths: list[str], *, session: Session | None = None
+) -> None:
+    """Forget deleted paths, joining an owning mutation transaction when supplied."""
     if not paths:
         return
     vault_id = resolve_or_create_vault_identity(vault_root).vault_id
+    if session is not None:
+        session.execute(
+            delete(VaultFavorite).where(
+                VaultFavorite.vault_id == vault_id, VaultFavorite.path.in_(paths)
+            )
+        )
+        return
     with closing(connect_sqlite_from_system_db("vault_state")) as conn, conn:
         conn.executemany(
             "DELETE FROM vault_favorites WHERE vault_id = ? AND path = ?",

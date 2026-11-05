@@ -1107,6 +1107,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_favorite_mutation_hardening.py",
+      "kind": "behavioral",
+      "sha256": "baa5131e5f021db757f2b8eb48e2dd3ecd5d90c241678d356e97602d0d98b438",
+      "tests": [
+        "test_bookmark_cleanup_failure_compensates_files_and_durable_mutation",
+        "test_delete_lifecycle_is_correlated_and_file_detail_stays_out_of_system_activity",
+        "test_completion_record_failure_leaves_deletion_recoverable_and_logs_terminal"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_file_concurrency.py",
       "sha256": "125ce55b7292ad02cc66a8e05050f4ed83c871b85ed993ccc5a00e430dfd6635",
       "kind": "behavioral",
@@ -1599,6 +1609,16 @@
       "kind": "behavioral",
       "tests": [
         "test_provider_billing_failure_is_classified_and_sanitized"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_mutation_hardening.py",
+      "kind": "behavioral",
+      "sha256": "76d9641843060ccbedf85710c0b1e65e492194b83ccddb7870d2ccedce185b26",
+      "tests": [
+        "test_delete_preflights_vault_identity_before_touching_mixed_selection",
+        "test_directory_rollback_preview_rejects_missing_or_blocked_parent",
+        "test_directory_journal_failure_restores_unrecorded_empty_directory"
       ]
     },
     {

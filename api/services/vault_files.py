@@ -591,6 +591,7 @@ def update_vault_favorites(
                 "Vault favorites updated",
                 data={
                     "event": "vault_file_favorites_updated",
+                    "status": "completed",
                     "vault_name": vault_name,
                     "favorite": favorite,
                     "requested_count": len(paths),
@@ -818,23 +819,77 @@ def delete_vault_paths_batch(
     *, vault_name: str, sources: list[str], confirmed_sources: list[str]
 ) -> VaultBatchDeleteResponse:
     vault_root = resolve_vault_root(vault_name)
-    with _explorer_activity(
-        label=f"Delete {len(sources)} selected item(s)"
-    ) as activity:
-        try:
+    identities: dict[str, str | int] = {
+        "vault_name": vault_name,
+        "requested_count": len(sources),
+    }
+    try:
+        with _explorer_activity(
+            label=f"Delete {len(sources)} selected item(s)"
+        ) as activity:
+            identities["activity_id"] = activity.activity_id
+            logger.info(
+                "Explorer deletion started",
+                data={
+                    **identities,
+                    "event": "vault_explorer_delete_started",
+                    "status": "running",
+                },
+            )
             deleted = delete_vault_paths(
                 vault_path=vault_root,
                 sources=sources,
                 confirmed_sources=confirmed_sources,
             )
-        except VaultMutationRejected as exc:
+    except Exception as exc:
+        rejected = isinstance(exc, ValueError) or (
+            isinstance(exc, VaultMutationRejected)
+            and exc.code
+            in {
+                "confirmation_required",
+                "invalid_target",
+                "symlink_target",
+                "file_not_found",
+                "protected_vault_identity",
+            }
+        )
+        outcome = "rejected" if rejected else "failed"
+        log = logger.warning if rejected else logger.error
+        log(
+            "Explorer deletion did not complete",
+            data={
+                **identities,
+                "event": f"vault_explorer_delete_{outcome}",
+                "status": outcome,
+                "issue": f"explorer_delete:{identities.get('activity_id', vault_name)}",
+                "error_type": (
+                    exc.code
+                    if isinstance(exc, VaultMutationRejected)
+                    else type(exc).__name__
+                ),
+                "error": (
+                    str(exc)
+                    if rejected
+                    else "Deletion failed. Inspect the linked Vault Activity before retrying."
+                ),
+            },
+        )
+        if isinstance(exc, VaultMutationRejected):
             raise _vault_path_mutation_error(
                 exc, vault_name=vault_name, path=", ".join(sources)
             ) from exc
-        except ValueError as exc:
-            raise APIException(
-                status_code=400, error_type="InvalidVaultPath", message=str(exc)
-            ) from exc
+        if isinstance(exc, ValueError):
+            raise APIException(400, "InvalidVaultPath", str(exc)) from exc
+        raise
+    logger.info(
+        "Explorer deletion completed",
+        data={
+            **identities,
+            "event": "vault_explorer_delete_completed",
+            "status": "completed",
+            "deleted_source_count": len(deleted),
+        },
+    )
     return VaultBatchDeleteResponse(
         activity_id=activity.activity_id,
         results=[
@@ -1263,11 +1318,10 @@ def _explorer_activity(
     with use_vault_activity(context):
         try:
             yield context
+            service.finish_activity(activity_id=context.activity_id, status="completed")
         except Exception:
             service.finish_activity(activity_id=context.activity_id, status="failed")
             raise
-        else:
-            service.finish_activity(activity_id=context.activity_id, status="completed")
 
 
 def _vault_path_operation_response(

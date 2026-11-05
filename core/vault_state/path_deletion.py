@@ -16,6 +16,7 @@ from core.vault_state.file_mutations import (
     restore_vault_file_states,
     vault_directory_mutation_lock,
 )
+from core.vault_state.identity import VAULT_METADATA_RELATIVE_PATH
 from core.vault_state.pathing import resolve_vault_relative_path
 from core.vault_state.service import VaultStateService
 
@@ -42,6 +43,12 @@ def delete_vault_paths(
             if target == root:
                 raise VaultMutationRejected(
                     "invalid_target", "Cannot delete the vault root."
+                )
+            metadata = (root / VAULT_METADATA_RELATIVE_PATH).resolve()
+            if target == metadata or target in metadata.parents:
+                raise VaultMutationRejected(
+                    "protected_vault_identity",
+                    "Vault identity metadata and its containing folders cannot be deleted.",
                 )
             _validate_target(root / source)
             candidates[target.relative_to(root).as_posix()] = target
@@ -82,14 +89,24 @@ def delete_vault_paths(
             )
         for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
             path.rmdir()
-            record_vault_directory_mutation(
-                vault_path=root,
-                path=path.relative_to(root).as_posix(),
-                operation="delete",
-                before_exists=True,
-                after_exists=False,
-                metadata={"directory_state": True},
-            )
+            try:
+                record_vault_directory_mutation(
+                    vault_path=root,
+                    path=path.relative_to(root).as_posix(),
+                    operation="delete",
+                    before_exists=True,
+                    after_exists=False,
+                    metadata={"directory_state": True},
+                )
+            except Exception as cause:
+                try:
+                    path.mkdir(exist_ok=True)
+                except OSError as compensation_error:
+                    raise VaultMutationRejected(
+                        "mutation_state_uncertain",
+                        f"Directory recording failed and '{path.relative_to(root).as_posix()}' could not be restored: {compensation_error}",
+                    ) from cause
+                raise
         remove_favorite_paths(
             root, [path.relative_to(root).as_posix() for path in directories]
         )
