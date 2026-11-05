@@ -25,4 +25,4 @@ Final evidence (seven distinct targeted scenarios across these runs):
 
 All selected phase verdicts passed without worker crashes. Retained lifecycle and listener artifacts confirm app/runtime cleanup; browser contexts closed without page errors. Complete production Ruff, Black and MyPy gates passed, along with JavaScript syntax, admission inventory and whitespace checks. No full suite or live-service scenarios were run.
 
-Documentation pending: the exact proposed amendments to ADR 0025 were presented in chat and explicit approval requested under AGENTS.md. No protected documentation has been edited.
+Documentation completed: the user approved the two proposed amendments to ADR 0025, and the approved text was applied to its directory-recording bullet and rollback-limits paragraph.

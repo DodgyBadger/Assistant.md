@@ -31,8 +31,7 @@ Use a source-neutral durable vault activity ledger.
   identity, related paths, and retained snapshot references under an activity.
 - Execution task, goal, step, session, and source metadata are provenance on the
   owning activity rather than the activity's identity model.
-- Directory operations are represented as one logical directory mutation rather
-  than synthetic child-file mutations.
+- Directory hierarchy changes have logical directory mutation records. Explorer folder deletion additionally records every deleted file and directory so its complete retained state can be rolled back.
 
 Retain pre-mutation file states as snapshot records owned by either an execution
 task or explicit activity. Those snapshots provide exact-path revision history
@@ -60,10 +59,7 @@ after-state. It is all-or-nothing. A successful rollback is recorded as a new
 linked Explorer activity whose displaced states are retained, so that rollback
 can itself be rolled back while expected current states still match.
 
-Automatic rollback remains a terminal execution-task policy, but it uses the
-same restoration primitive and expected-state checks. Directory mutations are
-durably auditable but are not eligible for automatic task rollback, exact-path
-revision restore, or explicit file-state activity rollback.
+Automatic task rollback and exact-path revision restore remain limited to file states. Explicit activity rollback also supports recorded Explorer deletions, including file contents and empty directory structure, and their subsequent rollback activities. Other directory operations remain auditable but are not eligible for explicit activity rollback.
 
 ## Rationale
 
