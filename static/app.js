@@ -516,6 +516,11 @@ function syncChatControlLocks() {
 function syncVaultExplorerButtons() {
     const workspacePath = (chatElements.workspacePathInput?.value || '').trim();
     const workspaceMissing = Boolean(workspacePath) && state.workspaceExists === false;
+    vaultPathPicker.syncWorkspaceContext({
+        vaultName: chatElements.vaultSelector?.value || '',
+        path: workspacePath,
+        exists: state.workspaceExists,
+    });
     const explorerReadOnly = state.isLoading || Boolean(state.pendingDeferredReview);
     const baseTitle = explorerReadOnly
         ? 'Open vault explorer in read-only mode'

@@ -134,9 +134,35 @@
             browserStorage.setItem('vaultExplorerRatio', String(ratio));
         });
         window.addEventListener('resize', sync);
+        function focusableControls(surface) {
+            return Array.from(surface.querySelectorAll(
+                'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+            )).filter((element) => (
+                !element.closest('[hidden], .hidden, [inert], details:not([open])')
+                && element.getClientRects().length > 0
+            ));
+        }
+
         document.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape' || event.defaultPrevented || !isDocked()) return;
-            if (event.target !== divider && !Array.from(surfaces.keys()).some((node) => node.contains(event.target))) return;
+            if (event.defaultPrevented || !surfaces.size) return;
+            const topSurface = Array.from(surfaces.keys()).at(-1);
+            if (!topSurface.contains(event.target)
+                && !(isDocked() && event.target === divider)) return;
+            if (event.key === 'Tab' && !isDocked(topSurface)) {
+                const controls = focusableControls(topSurface);
+                const first = controls[0];
+                const last = controls.at(-1);
+                if (event.shiftKey && event.target === first) {
+                    event.preventDefault();
+                    last?.focus();
+                } else if (!event.shiftKey && event.target === last) {
+                    event.preventDefault();
+                    first?.focus();
+                }
+            }
+            if (event.key !== 'Escape') return;
+            // Nested menus/action panels handle Escape before it reaches here.
+            // Busy operations retain their surface in both modal and split mode.
             event.preventDefault();
             event.stopImmediatePropagation();
             if (canClose()) callbacks.close();
@@ -158,6 +184,7 @@
                 sync();
             });
             sync();
+            if (!isDocked(overlay)) focusableControls(overlay)[0]?.focus({ preventScroll: true });
             return () => {
                 surfaces.delete(overlay);
                 sync();

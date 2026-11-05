@@ -102,6 +102,19 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_explorer_hardening.py",
+      "kind": "behavioral",
+      "sha256": "b7ad0c9ff58a35ca590b1fceb1ffa43068e5317033c33763130f2a74dca3d7b6",
+      "tests": [
+        "test_preserved_dock_follows_current_session_workspace_and_new_chat",
+        "test_overlay_escape_cannot_dismiss_an_inflight_confirmed_delete",
+        "test_file_reader_overlay_traps_keyboard_focus_and_split_releases_it",
+        "test_normal_composer_tool_write_refreshes_clean_docked_file",
+        "test_older_workspace_save_cannot_replace_new_session_context",
+        "test_older_workspace_save_cannot_replace_a_newer_same_session_choice"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_explorer_layout.py",
       "kind": "behavioral",
       "sha256": "1dc34c5c645d2f250516cbd6baedc3ae00329b876f54c35e0669d956a196bd19",

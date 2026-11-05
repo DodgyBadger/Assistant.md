@@ -8,6 +8,7 @@
         let activeSelectionPrompt = null;
         let activeFavoriteEvents = null;
         let fileHistory = [];
+        let interactionWasLocked = false;
 
         const linkResolver = window.FileReferenceLinks.create({
             callbacks: {
@@ -83,6 +84,7 @@
                 selectedPath: workspaceSelectionMode ? savedWorkspace : '',
                 workspaceRecovery,
                 workspaceSelectionMode,
+                workspaceSelectionRequested: workspaceSelection,
                 workspacePath: savedWorkspace,
                 explorer: true,
                 importOptions,
@@ -99,8 +101,10 @@
                 onAddReference: contextBound ? insertReference : undefined,
                 onSetWorkspace: contextBound ? async (path) => {
                     if (interactionLocked()) return false;
+                    const closeAfterSelection = workspaceSelection
+                        || (Boolean(workspacePath()) && state.workspaceExists === false);
                     const saved = await callbacks.setWorkspace?.(path);
-                    if (workspaceSelectionMode && saved === true) closePicker();
+                    if (closeAfterSelection && saved === true) closePicker();
                     return saved === true;
                 } : undefined,
                 onMutate: (payload) => mutatePath(payload, vault),
@@ -306,25 +310,18 @@
                         options.onStartError(new Error('Send cancelled. Your file changes and selection prompt are intact.'));
                         return false;
                     }
-                    let accepted = false;
-                    try {
-                        return await callbacks.sendSelectionPrompt(block, {
-                            ...options,
-                            onAccepted: (started) => {
-                                accepted = true;
-                                if (discardEdits) {
-                                    const scrollTop = preview.scrollTop;
-                                    editor.value = savedContent;
-                                    renderPreview();
-                                    preview.scrollTop = scrollTop;
-                                }
-                                options.onAccepted(started);
-                            },
-                        });
-                    } finally {
-                        // Navigation may have replaced this reader while the task ran.
-                        if (accepted) await activeFileView?.refresh(vault);
-                    }
+                    return callbacks.sendSelectionPrompt(block, {
+                        ...options,
+                        onAccepted: (started) => {
+                            if (discardEdits) {
+                                const scrollTop = preview.scrollTop;
+                                editor.value = savedContent;
+                                renderPreview();
+                                preview.scrollTop = scrollTop;
+                            }
+                            options.onAccepted(started);
+                        },
+                    });
                 },
                 onAccepted: () => preview.focus({ preventScroll: true }),
             });
@@ -930,10 +927,16 @@
         }
 
         function syncInteractionLocks() {
+            const locked = interactionLocked();
+            const unlocked = interactionWasLocked && !locked;
+            interactionWasLocked = locked;
             callbacks.syncPathPickerLocks?.();
             document.getElementById('vault-file-modal')?.dispatchEvent(
                 new CustomEvent('vault-explorer-lock-change')
             );
+            // All ordinary, selection, resumed and review runs release this lock.
+            // The reader owns clean/dirty, mode and stale-response checks.
+            if (unlocked) void activeFileView?.refresh(selectedVault());
         }
 
         function enhanceFileLinks(container, context) {

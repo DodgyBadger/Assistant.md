@@ -149,6 +149,49 @@
             explorer.batchMutationCompleted(results);
         }
 
+        function renderSelectionNotice(options) {
+            return options.selectedLabel ? `
+                <div data-vault-path-picker-selection-notice class="p-3 rounded border border-border-primary bg-app-elevated">
+                    <div class="text-xs uppercase text-txt-secondary">${escapeHtml(options.selectedLabel)}</div>
+                    <div class="mt-1 text-sm cell-mono text-txt-primary">${escapeHtml(options.selectedPath || 'None')}</div>
+                    ${options.workspaceSelectionMode
+                        ? `<div class="mt-2 text-xs text-txt-secondary">Choose <strong>Use</strong> beside a folder to ${options.workspaceRecovery ? 'replace it' : 'set a new workspace'}.</div>`
+                        : ''}
+                </div>` : '';
+        }
+
+        function syncWorkspaceContext({ vaultName, path, exists }) {
+            if (!activeOptions?.explorer || activeOptions.vaultName !== vaultName
+                || typeof activeOptions.onSetWorkspace !== 'function') return;
+            const previous = workspacePath();
+            const next = String(path || '').trim();
+            const missing = Boolean(next) && exists === false;
+            if (previous === next && activeOptions.workspaceRecovery === missing) return;
+            const overlay = document.getElementById(activePickerId);
+            if (!(overlay instanceof HTMLElement)) return;
+            const folder = explorer.snapshot().activeFolder;
+            const wasInWorkspace = Boolean(previous)
+                && (folder === previous || folder.startsWith(`${previous}/`));
+            activeOptions.workspacePath = next;
+            activeOptions.workspaceRecovery = missing;
+            activeOptions.workspaceSelectionMode = activeOptions.workspaceSelectionRequested || missing;
+            activeOptions.selectedLabel = missing ? 'Workspace folder not found'
+                : activeOptions.workspaceSelectionMode && next ? 'Current workspace' : '';
+            activeOptions.selectedPath = activeOptions.workspaceSelectionMode ? next : '';
+            overlay.querySelector('[data-vault-path-picker-selection-notice]')?.remove();
+            overlay.querySelector('.vault-path-picker-body')?.insertAdjacentHTML(
+                'afterbegin', renderSelectionNotice(activeOptions)
+            );
+            if (wasInWorkspace) {
+                explorer.setActiveFolder(missing ? '' : next);
+                void loadCurrentResults(overlay, activeOptions).catch((error) => {
+                    if (error.name !== 'AbortError' && isActiveOverlay(overlay)) {
+                        setStatus(overlay, `Unable to load paths: ${error.message}`, true);
+                    }
+                });
+            } else explorer.render();
+        }
+
         function open(options = {}) {
             const vault = options.vaultName || selectedVault();
             if (!vault) {
@@ -200,15 +243,7 @@
                         </div>
                     </div>
                     <div class="vault-path-picker-body p-4 flex-1 min-h-0 flex flex-col gap-3">
-                        ${options.selectedLabel ? `
-                            <div class="p-3 rounded border border-border-primary bg-app-elevated">
-                                <div class="text-xs uppercase text-txt-secondary">${escapeHtml(options.selectedLabel)}</div>
-                                <div class="mt-1 text-sm cell-mono text-txt-primary">${escapeHtml(options.selectedPath || 'None')}</div>
-                                ${options.workspaceSelectionMode
-                                    ? `<div class="mt-2 text-xs text-txt-secondary">Choose <strong>Use</strong> beside a folder to ${options.workspaceRecovery ? 'replace it' : 'set a new workspace'}.</div>`
-                                    : ''}
-                            </div>
-                        ` : ''}
+                        ${renderSelectionNotice(options)}
                         ${options.explorer ? `
                             <input type="file" class="hidden" data-vault-explorer-upload-input multiple />
                             <div class="vault-explorer-toolbar">
@@ -471,7 +506,7 @@
                     menuOptions[nextIndex]?.focus?.();
                     return;
                 }
-                if (event.key === 'Tab' && !layout.isDocked(overlay)) {
+                if (event.key === 'Tab' && !options.explorer) {
                     const focusable = Array.from(overlay.querySelectorAll(
                         'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
                     )).filter((element) => (
@@ -493,7 +528,14 @@
                         }
                     }
                 }
-                if (!options.explorer) return;
+                if (!options.explorer) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!isExplorerBusy()) close();
+                    }
+                    return;
+                }
                 if (event.key === 'Escape') {
                     const panel = overlay.querySelector('[data-vault-explorer-action-panel]');
                     if (panel instanceof HTMLElement && !panel.classList.contains('hidden')) {
@@ -1258,7 +1300,7 @@
             return debounced;
         }
 
-        return Object.freeze({ open, close, syncInteractionLocks });
+        return Object.freeze({ open, close, syncInteractionLocks, syncWorkspaceContext });
     }
 
     window.VaultPathPicker = Object.freeze({
