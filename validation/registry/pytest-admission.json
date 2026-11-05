@@ -90,7 +90,7 @@
     },
     {
       "path": "scenarios/browser/test_explorer_browser.py",
-      "sha256": "d04f7c85e30659bcd02cf239490f6a2a439de4dafd95272fe2cfb3b7f0809cda",
+      "sha256": "33c4b39733dcbeca5b469d96af394ee9b1430752ca1c2593b26c555b274b351d",
       "kind": "behavioral",
       "tests": [
         "test_explorer_selection_applicability_refresh_and_references",
@@ -98,7 +98,8 @@
         "test_explorer_content_search_escapes_untrusted_file_text",
         "test_explorer_workspace_save_updates_open_navigation",
         "test_batch_move_keeps_contents_and_rejects_descendant_destination",
-        "test_bulk_delete_across_folders_requires_confirmation_and_can_cancel"
+        "test_bulk_delete_across_folders_requires_confirmation_and_can_cancel",
+        "test_explorer_controls_handle_pending_initial_tree"
       ]
     },
     {

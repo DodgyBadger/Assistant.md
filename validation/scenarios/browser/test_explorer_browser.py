@@ -258,3 +258,45 @@ async def test_bulk_delete_across_folders_requires_confirmation_and_can_cancel(
     await activity.get_by_role("button", name="Rollback activity", exact=True).click()
     await expect(activity).to_have_count(0)
     assert (browser_app.vault / "Second/Keep.md").read_text() == "retain"
+
+
+@pytest.mark.parametrize("action", ["expand", "create"])
+async def test_explorer_controls_handle_pending_initial_tree(browser_app, ui, action):
+    browser_app.app.write(browser_app.vault, "Notes/Ready.md", "Ready to read")
+    async with hold_delivery(
+        ui,
+        browser_app.app,
+        browser_app.url + f"/api/vaults/{browser_app.vault.name}/file-refs?scope=vault",
+        first_only=True,
+    ) as held:
+        explorer = await open_explorer(ui, browser_app)
+        await asyncio.wait_for(held.held.wait(), 10)
+        expand = explorer.get_by_role("button", name="Expand all folders")
+        if action == "expand":
+            await expect(expand).to_be_disabled()
+        else:
+            await explorer.get_by_role("button", name="Create or upload").click()
+            await expect(
+                explorer.get_by_role("menuitem", name="New file", exact=True)
+            ).to_be_visible()
+        held.release.set()
+    await expect(
+        explorer.get_by_role("button", name="Expand Notes", exact=True)
+    ).to_be_visible()
+    if action == "expand":
+        await expect(expand).to_be_enabled()
+        await expand.click()
+        await explorer.locator(
+            '[data-vault-path-picker-select="Notes/Ready.md"]'
+        ).click()
+        await expect(ui.locator("#vault-file-modal-preview")).to_contain_text(
+            "Ready to read"
+        )
+    else:
+        await explorer.get_by_role("menuitem", name="New file", exact=True).click()
+        await explorer.get_by_label("File name", exact=True).fill("Ready.md")
+        await explorer.locator("[data-vault-explorer-mutation-form]").get_by_role(
+            "button", name="Create", exact=True
+        ).click()
+        await expect(ui.locator("#vault-file-modal-path")).to_have_text("Ready.md")
+        assert (browser_app.vault / "Ready.md").is_file()

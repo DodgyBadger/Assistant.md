@@ -839,53 +839,61 @@
             rootAbortController?.abort();
             const controller = new AbortController();
             rootAbortController = controller;
-            const mode = options.mode === 'directories' ? 'directories' : 'files';
-            setStatus(overlay, 'Loading...');
-            const results = overlay.querySelector('[data-vault-path-picker-results]');
-            if (!(results instanceof HTMLElement)) return;
-            results.innerHTML = '';
-            if (mode === 'directories') {
-                const payload = await fetchDirectories(path, controller.signal, options);
-                if (generation !== rootLoadGeneration || !overlay.isConnected) return;
-                const items = Array.isArray(payload.directories)
-                    ? payload.directories.map((item) => ({ ...item, kind: 'directory' }))
-                    : [];
-                setStatus(overlay, items.length ? `Showing ${items.length} folder${items.length === 1 ? '' : 's'}.` : 'No folders available.');
-                results.innerHTML = items.length
-                    ? items.map((item) => renderRow(item, 0, options)).join('')
-                    : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No folders available.')}</p>`;
-                explorer.render();
-                return;
-            }
+            const treeControls = overlay.querySelectorAll('[data-vault-explorer-tree]');
+            treeControls.forEach((button) => { button.disabled = true; });
+            try {
+                const mode = options.mode === 'directories' ? 'directories' : 'files';
+                setStatus(overlay, 'Loading...');
+                const results = overlay.querySelector('[data-vault-path-picker-results]');
+                if (!(results instanceof HTMLElement)) return;
+                results.innerHTML = '';
+                if (mode === 'directories') {
+                    const payload = await fetchDirectories(path, controller.signal, options);
+                    if (generation !== rootLoadGeneration || !overlay.isConnected) return;
+                    const items = Array.isArray(payload.directories)
+                        ? payload.directories.map((item) => ({ ...item, kind: 'directory' }))
+                        : [];
+                    setStatus(overlay, items.length ? `Showing ${items.length} folder${items.length === 1 ? '' : 's'}.` : 'No folders available.');
+                    results.innerHTML = items.length
+                        ? items.map((item) => renderRow(item, 0, options)).join('')
+                        : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No folders available.')}</p>`;
+                    explorer.render();
+                    return;
+                }
 
-            const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
-            const scopeSelect = overlay.querySelector('[data-vault-path-picker-scope]');
-            const selectedScope = scopeSelect instanceof HTMLSelectElement
-                ? scopeSelect.value
-                : options.explorer ? 'vault' : 'workspace';
-            const favoriteRevision = options.favoriteRevision;
-            const [payload, favorites] = await Promise.all([
-                fetchFileRefs({
-                    path: path || (options.explorer
-                        ? explorer.snapshot().activeFolder
-                        : selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
-                    query: queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '',
-                    scope: selectedScope === 'active' ? 'vault' : selectedScope,
-                    signal: controller.signal,
-                    options,
-                }),
-                options.explorer
-                    ? window.VaultFavorites.read(options.vaultName || selectedVault(), { signal: controller.signal })
-                    : Promise.resolve(new Set()),
-            ]);
-            if (generation !== rootLoadGeneration || !overlay.isConnected) return;
-            if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
-            const items = Array.isArray(payload.items) ? payload.items : [];
-            setStatus(overlay, renderFileStatus(payload, items.length));
-            results.innerHTML = items.length
-                ? items.map((item) => renderRow(item, 0, options)).join('') + renderLoadMore(payload, 0, options)
-                : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No matching files.')}</p>`;
-            explorer.render();
+                const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
+                const scopeSelect = overlay.querySelector('[data-vault-path-picker-scope]');
+                const selectedScope = scopeSelect instanceof HTMLSelectElement
+                    ? scopeSelect.value
+                    : options.explorer ? 'vault' : 'workspace';
+                const favoriteRevision = options.favoriteRevision;
+                const [payload, favorites] = await Promise.all([
+                    fetchFileRefs({
+                        path: path || (options.explorer
+                            ? explorer.snapshot().activeFolder
+                            : selectedScope === 'active' ? explorer.snapshot().activeFolder : ''),
+                        query: queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '',
+                        scope: selectedScope === 'active' ? 'vault' : selectedScope,
+                        signal: controller.signal,
+                        options,
+                    }),
+                    options.explorer
+                        ? window.VaultFavorites.read(options.vaultName || selectedVault(), { signal: controller.signal })
+                        : Promise.resolve(new Set()),
+                ]);
+                if (generation !== rootLoadGeneration || !overlay.isConnected) return;
+                if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                setStatus(overlay, renderFileStatus(payload, items.length));
+                results.innerHTML = items.length
+                    ? items.map((item) => renderRow(item, 0, options)).join('') + renderLoadMore(payload, 0, options)
+                    : `<p class="text-sm text-txt-secondary">${escapeHtml(options.emptyText || 'No matching files.')}</p>`;
+                explorer.render();
+            } finally {
+                if (generation === rootLoadGeneration && isActiveOverlay(overlay)) {
+                    treeControls.forEach((button) => { button.disabled = false; });
+                }
+            }
         }
 
         function loadCurrentResults(overlay, options) {
@@ -919,23 +927,31 @@
             const queryInput = overlay.querySelector('[data-vault-path-picker-query]');
             const query = queryInput instanceof HTMLInputElement ? queryInput.value.trim() : '';
             const generation = rootLoadGeneration;
-            const favoriteRevision = options.favoriteRevision;
-            const favorites = options.explorer ? await window.VaultFavorites.read(options.vaultName || selectedVault()) : new Set();
-            if (generation !== rootLoadGeneration || !isActiveOverlay(overlay)) return;
-            if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
-            explorer.render();
-            await explorerSearch.load({
-                favoritesOnly: Boolean(options.favoritesOnly),
-                overlay,
-                vault: options.vaultName || selectedVault(),
-                query,
-                path: searchScopePath(overlay),
-                selectable: options.explorer === true,
-                selectedPaths: explorer.snapshot().selectedPaths,
-                supportsPath: window.VaultExplorerImports.supportsPath,
-                setStatus: (message) => setStatus(overlay, message),
-                onRendered: explorer.render,
-            });
+            const treeControls = overlay.querySelectorAll('[data-vault-explorer-tree]');
+            treeControls.forEach((button) => { button.disabled = true; });
+            try {
+                const favoriteRevision = options.favoriteRevision;
+                const favorites = options.explorer ? await window.VaultFavorites.read(options.vaultName || selectedVault()) : new Set();
+                if (generation !== rootLoadGeneration || !isActiveOverlay(overlay)) return;
+                if (favoriteRevision === options.favoriteRevision) options.favoritePaths = favorites;
+                explorer.render();
+                await explorerSearch.load({
+                    favoritesOnly: Boolean(options.favoritesOnly),
+                    overlay,
+                    vault: options.vaultName || selectedVault(),
+                    query,
+                    path: searchScopePath(overlay),
+                    selectable: options.explorer === true,
+                    selectedPaths: explorer.snapshot().selectedPaths,
+                    supportsPath: window.VaultExplorerImports.supportsPath,
+                    setStatus: (message) => setStatus(overlay, message),
+                    onRendered: explorer.render,
+                });
+            } finally {
+                if (generation === rootLoadGeneration && isActiveOverlay(overlay)) {
+                    treeControls.forEach((button) => { button.disabled = false; });
+                }
+            }
         }
 
         async function fetchDirectories(path, signal = undefined, options = {}) {

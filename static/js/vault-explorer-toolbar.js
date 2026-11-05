@@ -47,6 +47,7 @@
         let selectionContainer = null;
         let currentSnapshot = null;
         let openMenuToggle = null;
+        const renderedMarkup = new WeakMap();
 
         function mount(nextContainer, nextLocationContainer = null, nextSelectionContainer = null) {
             if (
@@ -75,7 +76,6 @@
             favoritesOnly = false,
         } = {}) {
             currentSnapshot = snapshot;
-            openMenuToggle = null;
             if (!container) return;
             const selectedCount = Number(snapshot?.selectedCount || 0);
             const activeFolder = snapshot?.activeFolder || '';
@@ -118,20 +118,29 @@
             }).join('');
             const selectionMenu = selectedCount ? renderSelectionMenu(selectedCount) : '';
             if (locationContainer) {
-                locationContainer.innerHTML = renderHeaderLocation(
+                updateMarkup(locationContainer, renderHeaderLocation(
                     activeFolder,
                     workspacePath,
                     workspaceMissing,
                     favoritesOnly
-                );
+                ));
             }
-            if (selectionContainer) selectionContainer.innerHTML = selectionMenu;
-            container.innerHTML = `
+            if (selectionContainer) updateMarkup(selectionContainer, selectionMenu);
+            updateMarkup(container, `
                 <div class="vault-explorer-toolbar-actions">
                     ${selectionContainer ? '' : selectionMenu}
                     ${actionGroups}
                 </div>
-            `;
+            `);
+            if (openMenuToggle && !openMenuToggle.isConnected) openMenuToggle = null;
+        }
+
+        function updateMarkup(element, markup) {
+            // Background tree loads must preserve open menus and keyboard focus
+            // when the available actions and their state have not changed.
+            if (renderedMarkup.get(element) === markup) return;
+            element.innerHTML = markup;
+            renderedMarkup.set(element, markup);
         }
 
         function renderSelectionMenu(selectedCount) {
@@ -407,9 +416,11 @@
             selectionContainer?.removeEventListener?.('click', handleClick);
             selectionContainer?.removeEventListener?.('keydown', handleKeydown);
             window.document?.removeEventListener?.('click', handleDocumentClick);
-            if (container) container.innerHTML = '';
-            if (locationContainer) locationContainer.innerHTML = '';
-            if (selectionContainer) selectionContainer.innerHTML = '';
+            for (const element of [container, locationContainer, selectionContainer]) {
+                if (!element) continue;
+                element.innerHTML = '';
+                renderedMarkup.delete(element);
+            }
             container = null;
             locationContainer = null;
             selectionContainer = null;
