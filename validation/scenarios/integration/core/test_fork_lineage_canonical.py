@@ -88,6 +88,7 @@ async def test_fork_canonical_prefix_and_safe_checkpoint_lineage(
             "map": SessionMapDraft().model_dump(mode="json"),
         },
     )
+    store.set_session_favorite(session_id, vault.name, True)
     source_before = store.get_stored_messages(session_id, vault.name, mode="raw")
     response = app.request(
         f"/api/chat/sessions/{session_id}/fork",
@@ -97,6 +98,8 @@ async def test_fork_canonical_prefix_and_safe_checkpoint_lineage(
     assert response.status_code == 200, response.text
     payload = response.json()
     child_id = payload["session"]["session_id"]
+    assert payload["session"]["favorite"] is False
+    assert store.get_session_metadata(session_id, vault.name)["favorite"] is True
     assert (
         payload["copied_message_count"] == 6
     ), "Fork should report canonical raw messages copied"

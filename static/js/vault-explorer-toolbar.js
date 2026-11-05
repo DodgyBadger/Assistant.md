@@ -6,6 +6,7 @@
         import_url: { label: 'Import URL', icon: 'LINK_ICON_SVG', locks: true },
         refresh: { label: 'Refresh', icon: 'REFRESH_ICON_SVG', locks: false },
         reference: { label: 'Add to prompt', icon: 'MESSAGE_SQUARE_PLUS_ICON_SVG', locks: true },
+        favorite: { label: 'Favorite selected', icon: 'BOOKMARK_ICON_SVG', locks: false },
         copy: { label: 'Copy path', icon: 'CLIPBOARD_COPY_ICON_SVG', locks: false },
         import_file: { label: 'Import to Markdown', icon: 'FILE_DOWN_ICON_SVG', locks: true },
         workspace: { label: 'Set as workspace', icon: 'BRIEFCASE_BUSINESS_ICON_SVG', locks: true },
@@ -31,7 +32,7 @@
     ]);
     const ACTION_MENUS_BY_NAME = new Map(ACTION_MENUS.map((menu) => [menu.name, menu]));
     const TOOLBAR_GROUPS = Object.freeze([
-        Object.freeze({ name: 'use', items: Object.freeze(['reference', 'copy']) }),
+        Object.freeze({ name: 'use', items: Object.freeze(['reference', 'copy', 'favorite']) }),
         Object.freeze({
             name: 'manage',
             items: Object.freeze(['create', 'rename', 'move', 'import', 'delete']),
@@ -46,6 +47,7 @@
         let selectionContainer = null;
         let currentSnapshot = null;
         let openMenuToggle = null;
+        const renderedMarkup = new WeakMap();
 
         function mount(nextContainer, nextLocationContainer = null, nextSelectionContainer = null) {
             if (
@@ -71,9 +73,9 @@
             supportedActions = Object.keys(ACTIONS),
             workspaceMissing = false,
             workspacePath = '',
+            favoritesOnly = false,
         } = {}) {
             currentSnapshot = snapshot;
-            openMenuToggle = null;
             if (!container) return;
             const selectedCount = Number(snapshot?.selectedCount || 0);
             const activeFolder = snapshot?.activeFolder || '';
@@ -116,19 +118,29 @@
             }).join('');
             const selectionMenu = selectedCount ? renderSelectionMenu(selectedCount) : '';
             if (locationContainer) {
-                locationContainer.innerHTML = renderHeaderLocation(
+                updateMarkup(locationContainer, renderHeaderLocation(
                     activeFolder,
                     workspacePath,
-                    workspaceMissing
-                );
+                    workspaceMissing,
+                    favoritesOnly
+                ));
             }
-            if (selectionContainer) selectionContainer.innerHTML = selectionMenu;
-            container.innerHTML = `
+            if (selectionContainer) updateMarkup(selectionContainer, selectionMenu);
+            updateMarkup(container, `
                 <div class="vault-explorer-toolbar-actions">
                     ${selectionContainer ? '' : selectionMenu}
                     ${actionGroups}
                 </div>
-            `;
+            `);
+            if (openMenuToggle && !openMenuToggle.isConnected) openMenuToggle = null;
+        }
+
+        function updateMarkup(element, markup) {
+            // Background tree loads must preserve open menus and keyboard focus
+            // when the available actions and their state have not changed.
+            if (renderedMarkup.get(element) === markup) return;
+            element.innerHTML = markup;
+            renderedMarkup.set(element, markup);
         }
 
         function renderSelectionMenu(selectedCount) {
@@ -149,7 +161,7 @@
             `;
         }
 
-        function renderHeaderLocation(activeFolder, workspacePath, workspaceMissing) {
+        function renderHeaderLocation(activeFolder, workspacePath, workspaceMissing, favoritesOnly) {
             const normalizedWorkspace = String(workspacePath || '');
             const inWorkspace = Boolean(normalizedWorkspace) && (
                 activeFolder === normalizedWorkspace
@@ -180,6 +192,12 @@
                         aria-label="${toggleLabel}" title="${escapeHtml(toggleTitle)}"
                         aria-pressed="${String(inWorkspace)}" ${toggleDisabled ? 'disabled' : ''}>
                         ${icons.BRIEFCASE_BUSINESS_ICON_SVG || ''}
+                    </button>
+                    <button type="button" class="ui-icon-button is-compact vault-explorer-favorites-toggle${favoritesOnly ? ' is-bookmarked' : ''}"
+                        data-vault-favorites-filter aria-pressed="${String(favoritesOnly)}"
+                        aria-label="${favoritesOnly ? 'Show all files and folders' : 'Show favorites only'}"
+                        title="${favoritesOnly ? 'Show all files and folders' : 'Show favorites only'}">
+                        ${icons.BOOKMARK_ICON_SVG || ''}
                     </button>
                     ${renderLocation(activeFolder)}
                 </nav>
@@ -262,20 +280,23 @@
         function shouldRenderAction(name, operationState, selectedCount) {
             if (!ACTIONS[name] || !operationState) return false;
             if (operationState.enabled) return true;
-            return selectedCount > 1 && ['move', 'delete'].includes(name);
+            return (name === 'favorite' && selectedCount > 0)
+                || (selectedCount > 1 && ['move', 'delete'].includes(name));
         }
 
         function renderActionButton(name, operationState, { lockMessage, readOnly }) {
             const definition = ACTIONS[name];
             const locked = readOnly && definition.locks;
             const disabled = locked || operationState.enabled !== true;
+            const label = name === 'favorite' && operationState.pressed ? 'Remove selected favorites' : definition.label;
             const reason = locked
                 ? lockMessage
-                : operationState.reason || definition.label;
+                : operationState.reason || label;
             return `
-                <button type="button" class="ui-icon-button is-compact vault-explorer-toolbar-action"
+                <button type="button" class="ui-icon-button is-compact vault-explorer-toolbar-action${name === 'favorite' && operationState.pressed ? ' is-bookmarked' : ''}"
+                    ${name === 'favorite' ? `aria-pressed="${Boolean(operationState.pressed)}"` : ''}
                     data-vault-explorer-toolbar-action="${name}"
-                    aria-label="${escapeHtml(definition.label)}"
+                    aria-label="${escapeHtml(label)}"
                     title="${escapeHtml(reason)}" ${disabled ? 'disabled' : ''}>
                     ${icons[definition.icon] || ''}
                 </button>
@@ -395,9 +416,11 @@
             selectionContainer?.removeEventListener?.('click', handleClick);
             selectionContainer?.removeEventListener?.('keydown', handleKeydown);
             window.document?.removeEventListener?.('click', handleDocumentClick);
-            if (container) container.innerHTML = '';
-            if (locationContainer) locationContainer.innerHTML = '';
-            if (selectionContainer) selectionContainer.innerHTML = '';
+            for (const element of [container, locationContainer, selectionContainer]) {
+                if (!element) continue;
+                element.innerHTML = '';
+                renderedMarkup.delete(element);
+            }
             container = null;
             locationContainer = null;
             selectionContainer = null;

@@ -1,5 +1,23 @@
 (function workspacePickerModule(window) {
     function createWorkspacePickerController({ state, elements, callbacks }) {
+        let workspaceChangeGeneration = 0;
+        elements.workspacePathInput?.addEventListener('input', () => {
+            // A newer manual draft owns the input even before its next save.
+            workspaceChangeGeneration += 1;
+        });
+
+        function beginWorkspaceChange() {
+            const generation = ++workspaceChangeGeneration;
+            const vault = elements.vaultSelector?.value || '';
+            const sessionId = state.sessionId || '';
+            return {
+                vault,
+                sessionId,
+                isCurrent: () => generation === workspaceChangeGeneration
+                    && state.sessionId === (sessionId || null)
+                    && elements.vaultSelector?.value === vault,
+            };
+        }
         function syncControls() {
             const input = elements.workspacePathInput;
             if (!input) return;
@@ -47,10 +65,12 @@
             return (elements.workspacePathInput?.value || '').trim();
         }
 
-        async function savePath() {
+        function savePath() {
+            return persistPath(beginWorkspaceChange());
+        }
+
+        async function persistPath({ vault, sessionId, isCurrent }) {
             const input = elements.workspacePathInput;
-            const vault = elements.vaultSelector?.value || '';
-            const sessionId = state.sessionId || '';
             if (!input || !vault || !sessionId || state.isLoading) return false;
 
             const path = currentPath();
@@ -65,18 +85,21 @@
                     throw new Error(errorData.message || `HTTP ${response.status}`);
                 }
                 const payload = await response.json().catch(() => null);
+                if (!isCurrent()) return false;
                 input.value = payload?.path || '';
                 state.workspaceExists = payload?.path
                     ? payload.exists === true
                     : null;
                 await callbacks.fetchSessions(vault, sessionId);
-                return true;
+                return isCurrent();
             } catch (error) {
-                console.error('Failed to save workspace path:', error);
-                callbacks.addChatErrorMessage(`Workspace not saved: ${error.message}`);
+                if (isCurrent()) {
+                    console.error('Failed to save workspace path:', error);
+                    callbacks.addChatErrorMessage(`Workspace not saved: ${error.message}`);
+                }
                 return false;
             } finally {
-                syncControls();
+                if (isCurrent()) syncControls();
             }
         }
 
@@ -86,16 +109,17 @@
             const previousExists = state.workspaceExists;
             elements.workspacePathInput.value = path || '';
             elements.workspacePathInput.dispatchEvent(new Event('input', { bubbles: true }));
+            const change = beginWorkspaceChange();
             state.workspaceExists = path ? true : null;
             syncControls();
-            if (!state.sessionId) return true;
-            const saved = await savePath();
-            if (!saved) {
+            if (!change.sessionId) return change.isCurrent();
+            const saved = await persistPath(change);
+            if (!saved && change.isCurrent()) {
                 elements.workspacePathInput.value = previousPath;
                 state.workspaceExists = previousExists;
                 syncControls();
             }
-            return saved;
+            return saved && change.isCurrent();
         }
 
         async function clearPath(event) {

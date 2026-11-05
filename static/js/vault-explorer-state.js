@@ -160,6 +160,7 @@
             refresh: enabled(),
             clear: hasSelection ? enabled() : disabled('Nothing is selected.'),
             reference: hasSelection ? enabled() : disabled('Select one or more items.'),
+            favorite: hasSelection ? enabled() : disabled('Select one or more items.'),
             copy: single ? enabled() : disabled('Select one item.'),
             workspace: singleDirectory ? enabled() : disabled('Select one folder.'),
             rename: single ? enabled() : disabled('Select one item.'),
@@ -176,7 +177,7 @@
                 operation: 'delete',
                 count,
                 batchEnabled: features.batchDelete,
-                batchConflictReason,
+                batchConflictReason: '',
             }),
         };
         for (const operation of SINGLE_ITEM_OPERATIONS) {

@@ -25,6 +25,7 @@
             state.reset({ activeFolder });
             state.setFeatures({
                 batchMove: typeof options.onBatchMove === 'function',
+                batchDelete: typeof options.onDelete === 'function',
             });
         }
 
@@ -84,6 +85,10 @@
             if (!overlay || !options) return;
             const selectedItem = currentSnapshot.selectedItems[0] || null;
             try {
+                if (action === 'favorite') {
+                    await callbacks.toggleFavorites(overlay, currentSnapshot, options);
+                    return;
+                }
                 if (action === 'clear') {
                     state.clearSelection();
                     return;
@@ -145,7 +150,13 @@
                     );
                     return;
                 }
-                if (['rename', 'move', 'delete'].includes(action) && selectedItem) {
+                if (action === 'delete') {
+                    await callbacks.handleMutationAction(overlay, {
+                        action, items: currentSnapshot.selectedItems,
+                    }, options);
+                    return;
+                }
+                if (['rename', 'move'].includes(action) && selectedItem) {
                     await callbacks.handleMutationAction(overlay, {
                         action,
                         path: selectedItem.path,
@@ -191,7 +202,17 @@
                     );
                 }
             });
-            toolbar.render(currentSnapshot, {
+            const allFavorites = currentSnapshot.selectedCount > 0 && currentSnapshot.selectedPaths.every(
+                path => options.favoritePaths?.has(path)
+            );
+            toolbar.render({
+                ...currentSnapshot,
+                operations: { ...currentSnapshot.operations, favorite: {
+                    ...currentSnapshot.operations.favorite,
+                    enabled: currentSnapshot.selectedCount > 0 && !options.favoritesPending,
+                    pressed: allFavorites,
+                } },
+            }, {
                 readOnly: callbacks.isReadOnly(options) || callbacks.isBusy(),
                 lockMessage: callbacks.isBusy()
                     ? 'Available after the upload finishes.'
@@ -199,6 +220,7 @@
                 supportedActions: supportedToolbarActions(options),
                 workspaceMissing: options.workspaceRecovery === true,
                 workspacePath: callbacks.workspacePath?.() || '',
+                favoritesOnly: options.favoritesOnly === true,
             });
         }
 
@@ -213,7 +235,7 @@
             }
             actions.push('refresh');
             if (typeof currentOptions.onAddReference === 'function') actions.push('reference');
-            actions.push('copy');
+            actions.push('copy', 'favorite');
             if (typeof currentOptions.onSetWorkspace === 'function') actions.push('workspace');
             actions.push('rename', 'move', 'delete');
             if (typeof currentOptions.onImportSources === 'function') {

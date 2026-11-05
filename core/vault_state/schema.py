@@ -18,6 +18,7 @@ from core.vault_state.models import (
     FileSnapshot,
     SnapshotSet,
     VaultActivity,
+    VaultFavorite,
     VaultFile,
     VaultFileEvent,
     VaultMutation,
@@ -52,6 +53,7 @@ def ensure_vault_state_schema(
                     cast(Table, model.__table__)
                     for model in (
                         VaultRecord,
+                        VaultFavorite,
                         VaultFile,
                         VaultFileEvent,
                         VaultActivity,

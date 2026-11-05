@@ -318,17 +318,16 @@
         function showMutationForm(overlay, { operation, title, label = '', value = '', submitLabel, path = '', kind = '', parent = '' }) {
             const panel = actionPanel(overlay);
             if (!(panel instanceof HTMLElement)) return;
-            const isDelete = operation === 'delete';
             panel.innerHTML = `
                 <div class="vault-explorer-action-header">
                     <strong>${escapeHtml(title)}</strong>
                     <button type="button" class="ui-icon-button is-compact" data-vault-explorer-action-cancel aria-label="Cancel" title="Cancel">${icons.X_ICON_SVG}</button>
                 </div>
                 <form class="vault-explorer-mutation-form" data-vault-explorer-mutation-form data-operation="${operation}" data-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" data-parent="${escapeHtml(parent)}">
-                    ${isDelete ? `<p>Delete <span class="cell-mono">${escapeHtml(path)}</span>?</p>` : `<label>${escapeHtml(label)}<input name="value" value="${escapeHtml(value)}" class="vault-explorer-path-input" autocomplete="off" required /></label>`}
+                    <label>${escapeHtml(label)}<input name="value" value="${escapeHtml(value)}" class="vault-explorer-path-input" autocomplete="off" required /></label>
                     <div class="vault-explorer-form-actions">
                         <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
-                        <button type="submit" class="${isDelete ? 'ui-button-danger' : 'ui-button-primary'}">${escapeHtml(submitLabel)}</button>
+                        <button type="submit" class="ui-button-primary">${escapeHtml(submitLabel)}</button>
                     </div>
                     <div class="text-sm" data-vault-explorer-form-status></div>
                 </form>`;
@@ -393,7 +392,7 @@
             syncDestinationSelection(overlay);
         }
 
-        async function handleAction(overlay, { action, path = '', kind = '' }, options) {
+        async function handleAction(overlay, { action, path = '', kind = '', items = [] }, options) {
             if (action === 'reference') return options.onAddReference?.(path);
             if (action === 'workspace') return options.onSetWorkspace?.(path);
             if (action === 'create_file') return showCreateForm(overlay, 'file', path);
@@ -411,8 +410,29 @@
             } else if (action === 'move') {
                 showMoveForm(overlay, { path, kind });
             } else if (action === 'delete') {
-                showMutationForm(overlay, { operation: 'delete', title: `Delete ${kind}`, submitLabel: 'Delete', path, kind });
+                showDeleteForm(overlay, items);
             }
+        }
+
+        function showDeleteForm(overlay, items) {
+            const panel = actionPanel(overlay);
+            if (!panel || !items.length) return;
+            panel.innerHTML = `
+                <div class="vault-explorer-action-header"><strong>Delete selected items</strong>
+                    <button type="button" class="ui-icon-button is-compact" data-vault-explorer-action-cancel aria-label="Cancel" title="Cancel">${icons.X_ICON_SVG}</button>
+                </div>
+                <form class="vault-explorer-mutation-form" data-vault-explorer-mutation-form
+                    data-operation="delete" data-sources="${escapeHtml(JSON.stringify(items))}">
+                    <p>Delete these items? Folders include all files and subfolders inside them.</p>
+                    <ul class="cell-mono">${items.map((item) => `<li>${escapeHtml(item.path)}</li>`).join('')}</ul>
+                    <div class="vault-explorer-form-actions">
+                        <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
+                        <button type="submit" class="ui-button-danger">Delete</button>
+                    </div>
+                    <div class="text-sm" data-vault-explorer-form-status></div>
+                </form>`;
+            panel.classList.remove('hidden');
+            panel.querySelector('[data-vault-explorer-action-cancel]')?.focus();
         }
 
         async function submitMutation(overlay, form, options) {
@@ -474,6 +494,22 @@
             mutationInProgress = true;
             callbacks.syncInteractionLocks();
             try {
+                if (operation === 'delete') {
+                    const items = JSON.parse(form.dataset.sources || '[]');
+                    const sources = items.map((item) => item.path);
+                    await options.onDelete({ sources, confirmed_sources: sources });
+                    if (!callbacks.isActiveOverlay(overlay)) return;
+                    for (const item of items) callbacks.mutationCompleted({
+                        operation: 'delete', sourcePath: item.path, kind: item.kind,
+                    });
+                    closeActionPanel(overlay, { restoreFocus: false });
+                    try {
+                        await callbacks.refreshExplorer(overlay, options);
+                    } catch (refreshError) {
+                        callbacks.setStatus(overlay, `Deletion succeeded, but refresh failed: ${refreshError.message}`, true);
+                    }
+                    return;
+                }
                 const destination = operation === 'rename'
                     ? joinPath(parentPath(sourcePath), value)
                     : operation === 'move'

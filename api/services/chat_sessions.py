@@ -288,10 +288,27 @@ def set_chat_session_mode(
     return normalized
 
 
+def set_chat_session_favorite(vault_name: str, session_id: str, favorite: bool) -> None:
+    """Bookmark one authorized session without touching chat history."""
+    _require_chat_session_access(vault_name, session_id)
+    _chat_store.set_session_favorite(session_id, vault_name, favorite)
+    logger.info(
+        "Chat session favorite updated",
+        data={
+            "event": "chat_session_favorite_updated",
+            "status": "completed",
+            "vault_name": vault_name,
+            "session_id": session_id,
+            "favorite": favorite,
+        },
+    )
+
+
 def list_chat_sessions(vault_name: str) -> list[ChatSessionInfo]:
     """List persisted chat sessions for a vault ordered by latest activity."""
     sessions = get_runtime_context().chat_session_access.list_sessions(vault_name)
-    return [_chat_session_info(session) for session in sessions]
+    rows = [_chat_session_info(session) for session in sessions]
+    return sorted(rows, key=lambda row: not row.favorite)
 
 
 def search_chat_sessions(
@@ -336,6 +353,10 @@ def _chat_session_info(
     )
     return ChatSessionInfo(
         session_id=session_id,
+        favorite=_chat_store.get_session_metadata(session_id, vault_name).get(
+            "favorite"
+        )
+        is True,
         created_at=session.created_at,
         last_activity_at=session.last_activity_at,
         title=session.title or None,

@@ -1,9 +1,9 @@
 [project]
-name = "project-assistant"
-version = "0.9.3"
-description = "Automated personal productivity system with AI-powered markdown workflows"
+name = "Assistant.md"
+version = "0.9.4"
+description = "Self-hosted, Markdown-first agent workspace for knowledge work."
 authors = [
-    { name = "AssistantMD Team" }
+    { name = "Assistant.md Team" }
 ]
 readme = "README.md"
 requires-python = ">=3.13,<3.14"

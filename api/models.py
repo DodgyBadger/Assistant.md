@@ -109,6 +109,7 @@ class VaultFileResponse(BaseModel):
     vault_name: str = Field(..., description="Vault name")
     path: str = Field(..., description="Vault-relative file path")
     name: str = Field(..., description="File basename")
+    favorite: bool = False
     content: str = Field(..., description="Complete text content")
     sha256: str = Field(..., description="SHA-256 hash of the returned content")
     size_bytes: int = Field(..., description="UTF-8 content size in bytes")
@@ -171,12 +172,26 @@ class VaultFileRevisionRestoreResponse(BaseModel):
     message: str = Field(..., description="Human-readable restore result")
 
 
+class VaultFavoritesRequest(BaseModel):
+    """Set the bookmark state of one or more files or folders."""
+
+    paths: list[str] = Field(..., min_length=1, max_length=500)
+    favorite: bool
+
+
+class VaultFavoritesResponse(BaseModel):
+    """Existing favorite paths visible to the current principal in one vault."""
+
+    paths: list[str]
+
+
 class VaultFileReferenceInfo(BaseModel):
     """One file or folder candidate for chat reference insertion."""
 
     name: str = Field(..., description="Path basename")
     path: str = Field(..., description="Vault-relative path")
     kind: Literal["file", "directory"] = Field(..., description="Reference kind")
+    favorite: bool = False
     size_bytes: int | None = Field(None, description="File size in bytes")
     modified_at: datetime | None = Field(
         None, description="Filesystem modification timestamp"
@@ -292,6 +307,21 @@ class VaultPathMutationResponse(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Mutation audit metadata"
     )
+
+
+class VaultBatchDeleteRequest(BaseModel):
+    """A confirmed selection, including recursive folder contents."""
+
+    sources: list[str] = Field(..., min_length=1)
+    confirmed_sources: list[str] = Field(..., min_length=1)
+
+
+class VaultBatchDeleteResponse(BaseModel):
+    """One recorded deletion activity for the complete selection."""
+
+    activity_id: str
+    results: list[VaultPathMutationResponse]
+    message: str
 
 
 class VaultBatchMoveRequest(BaseModel):
@@ -754,7 +784,7 @@ class VaultActivityRollbackPathInfo(BaseModel):
         None, description="Expected current content hash"
     )
     restore_exists: bool = Field(
-        ..., description="Whether rollback restores file content"
+        ..., description="Whether rollback restores the file or directory"
     )
     restore_sha256: str | None = Field(None, description="Restored content hash")
 
@@ -1105,6 +1135,7 @@ class ChatSessionInfo(BaseModel):
     """Persisted chat session summary for UI selection."""
 
     session_id: str = Field(..., description="Session identifier")
+    favorite: bool = False
     created_at: str = Field(..., description="Session creation timestamp")
     last_activity_at: str = Field(..., description="Most recent activity timestamp")
     title: str | None = Field(None, description="User-defined title, if set")
@@ -1236,6 +1267,13 @@ class ChatSessionForkResponse(BaseModel):
     copied_message_count: int = Field(
         ..., description="Number of messages copied into the fork"
     )
+
+
+class ChatSessionFavoriteRequest(BaseModel):
+    """Set the desired session bookmark state."""
+
+    vault_name: str
+    favorite: bool
 
 
 class ChatSessionTitleRequest(BaseModel):
@@ -2223,3 +2261,18 @@ class ConfigurationError(BaseModel):
     slug: str | None = None
     display_name: str | None = None
     is_default: bool = False
+
+
+class SavedPromptInfo(BaseModel):
+    id: str
+    title: str
+    body: str
+
+
+class SavedPromptsResponse(BaseModel):
+    workspace_path: str
+    source_path: str | None = None
+    status: Literal[
+        "available", "no_workspace", "workspace_missing", "file_missing", "empty"
+    ]
+    prompts: list[SavedPromptInfo] = Field(default_factory=list)

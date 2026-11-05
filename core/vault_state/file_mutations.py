@@ -26,6 +26,7 @@ from core.vault_state.activity import (
     get_current_vault_activity,
     task_activity_id,
 )
+from core.vault_state.favorites import move_favorite_paths, remove_favorite_paths
 from core.vault_state.identity import VaultIdentity, resolve_or_create_vault_identity
 from core.vault_state.models import VaultActivity, VaultMutation
 from core.vault_state.pathing import (
@@ -602,6 +603,7 @@ def _restore_vault_file_states_locked(
                 service=service,
                 context=context,
                 results=results,
+                vault_root=vault_root,
                 operation_id=operation_id,
                 created_at=created_at,
                 expires_at=mutation_expires_at,
@@ -609,7 +611,7 @@ def _restore_vault_file_states_locked(
             )
             return results
 
-        return cast(
+        results = cast(
             tuple[RecordedMutationResult, ...],
             _run_file_state_restore_transaction(
                 service=service,
@@ -620,6 +622,7 @@ def _restore_vault_file_states_locked(
                 finalize=persist_restore,
             ),
         )
+        return results
 
 
 def _capture_restore_before_states(
@@ -936,6 +939,7 @@ def _delete_empty_vault_directory_tree_locked(
     blocker_paths = _remaining_directory_blockers(vault_root, full_path)
     event_sequence = None
     if removed_paths:
+        remove_favorite_paths(vault_root, removed_paths)
         refresh = service.refresh_vault(vault_root, vault_name=vault_name)
         event_sequence = refresh.latest_sequence
 
@@ -1058,6 +1062,7 @@ def _move_vault_directory_locked(
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(source_path, destination_path)
             stage = "refresh"
+            move_favorite_paths(vault_root, source_relative, destination_relative)
             refresh = service.refresh_vault(vault_root, vault_name=vault_name)
         except Exception as exc:
             logger.add_sink("validation").warning(
@@ -1304,6 +1309,8 @@ def _move_vault_file_locked(
         stage = "mutate"
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         os.replace(source_path, destination_path)
+        stage = "refresh"
+        move_favorite_paths(vault_root, source_relative, destination_relative)
 
         destination_after_hash = hash_file_bytes(destination_path, length=None)
         stage = "refresh"
@@ -1516,6 +1523,8 @@ def _mutate_vault_file_locked(
         after_hash = hash_file_bytes(full_path, length=None) if after_exists else None
 
         stage = "refresh"
+        if not after_exists:
+            remove_favorite_paths(vault_root, [relative_path])
         refresh = service.refresh_vault(vault_root, vault_name=vault_name)
         event_sequence = refresh.latest_sequence
         result = RecordedMutationResult(
@@ -1732,7 +1741,7 @@ def _persist_or_log_mutation(
         )
         session.commit()
 
-    logger.add_sink("validation").info(
+    logger.set_sinks(["validation"]).info(
         "vault_mutation_recorded",
         data={
             "event": "vault_mutation_recorded",
@@ -1764,6 +1773,7 @@ def _persist_mutation_batch(
     service: VaultStateService,
     context: VaultActivityContext,
     results: tuple[RecordedMutationResult, ...],
+    vault_root: Path,
     operation_id: str,
     created_at: datetime,
     expires_at: datetime | None,
@@ -1807,10 +1817,15 @@ def _persist_mutation_batch(
                     ),
                 )
             )
+        remove_favorite_paths(
+            vault_root,
+            [result.path for result in results if not result.after_exists],
+            session=session,
+        )
         session.commit()
 
     for result in results:
-        logger.add_sink("validation").info(
+        logger.set_sinks(["validation"]).info(
             "vault_mutation_recorded",
             data={
                 "event": "vault_mutation_recorded",

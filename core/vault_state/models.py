@@ -28,6 +28,16 @@ class VaultRecord(Base):
     )
 
 
+class VaultFavorite(Base):
+    """Durable principal-owned bookmarks without manifest foreign keys."""
+
+    __tablename__ = "vault_favorites"
+
+    principal_id: Mapped[str] = mapped_column(String, primary_key=True)
+    vault_id: Mapped[str] = mapped_column(String, primary_key=True)
+    path: Mapped[str] = mapped_column(String, primary_key=True)
+
+
 class VaultFile(Base):
     """Current observed state for one vault file."""
 

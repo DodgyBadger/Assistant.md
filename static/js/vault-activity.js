@@ -339,7 +339,7 @@
             if (!preview?.can_rollback || interactionLocked()) return;
             const total = (preview.restore_count || 0) + (preview.delete_count || 0);
             if (!window.confirm(
-                `Rollback ${total} file state${total === 1 ? '' : 's'} from this activity? The current states will remain available as revisions.`
+                `Rollback ${total} path state${total === 1 ? '' : 's'} from this activity? This will create a new activity.`
             )) return;
 
             button.disabled = true;
@@ -409,7 +409,7 @@
                     type="button"
                     class="ui-button-secondary vault-file-revision-action-button"
                     data-vault-activity-rollback="true"
-                    title="Restore ${total} file state${total === 1 ? '' : 's'}"
+                    title="Restore ${total} path state${total === 1 ? '' : 's'}"
                 >
                     ${icons.RESTORE_ICON_SVG}
                     <span>Rollback activity</span>

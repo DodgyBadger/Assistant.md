@@ -132,7 +132,7 @@ def rollback_vault_activity(
         restored_count=result.restored_count,
         deleted_count=result.deleted_count,
         message=(
-            f"Rolled back {result.restored_count + result.deleted_count} file state(s)."
+            f"Rolled back {result.restored_count + result.deleted_count} path state(s)."
         ),
     )
 

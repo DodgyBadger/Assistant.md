@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.9.4
+
+- Bookmark chat sessions and files for quicker access
+- Define resuable prompts by adding prompts.md to any workspace, and then access by long-pressing Submit button.
+- New split view in the Vault Explorer (desktop only) so you can chat and browse files at the same time.
+- Easier message copying by long pressing the copy button.
+- Fixed session-map marker ordering.
+- Allow multiple file deletion in the Vault Explorer
+
 ## v0.9.3
 
 - Simplified scenario-based testing with pytest and a reusable evidence-reporting plugin.

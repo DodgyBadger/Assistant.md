@@ -469,3 +469,45 @@ async def test_late_compaction_pressure_cannot_replace_current_session(browser_a
     await expect(ui.locator("#chat-compaction-track")).to_have_attribute(
         "title", re.compile(rf"^{percent}%")
     )
+
+
+async def test_session_map_boundary_stays_before_live_user_and_response(
+    browser_app, ui
+):
+    from validation.support.browser.browser_fullstack import setting
+    from validation.support.chat.chat_idle_provider import idle_provider
+    from validation.support.chat.session_ops_chat import configure_provider
+
+    with idle_provider() as provider:
+        # Only the external model response is delayed. Real submission, persisted
+        # checkpoints, compaction-status API and transcript rendering stay active.
+        configure_provider(browser_app.app, provider)
+        setting(browser_app.app, "default_model", "session-ops-model")
+        store = thread(browser_app, "tail-map", [("Earlier request", "Earlier answer")])
+        map_checkpoint(store, "tail-map", browser_app.vault.name, "tail-checkpoint", 1)
+        await load_thread(ui, browser_app, "tail-map")
+        messages = ui.locator("#chat-messages")
+        boundary = messages.locator('[data-session-map-context-boundary="true"]')
+        await expect(boundary).to_be_visible()
+        await ui.locator("#chat-input").fill("New request after compaction")
+        async with hold_delivery(
+            ui, browser_app.app, "**/api/chat/sessions/tail-map/compaction-status?*"
+        ) as held:
+            await ui.get_by_role("button", name="Send message", exact=True).click()
+            assert await asyncio.to_thread(provider.started.wait, 15)
+            await asyncio.wait_for(held.held.wait(), 10)
+            held.release.set()
+        # Let the real refresh be rendered before inspecting the live timeline.
+        await ui.evaluate("() => new Promise(requestAnimationFrame)")
+        user = messages.get_by_text("New request after compaction", exact=True)
+        stream = messages.locator(".stream-progress").last
+        await expect(stream).to_be_visible()
+        # Relative order is the context-boundary contract, not incidental styling.
+        follows = "(marker, message) => Boolean(marker.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING)"
+        assert await boundary.evaluate(follows, await user.element_handle())
+        assert await boundary.evaluate(follows, await stream.element_handle())
+        provider.release.set()
+        answer = messages.get_by_text("idle response", exact=True)
+        await expect(answer).to_be_visible(timeout=20000)
+        assert await boundary.evaluate(follows, await user.element_handle())
+        assert await boundary.evaluate(follows, await answer.element_handle())

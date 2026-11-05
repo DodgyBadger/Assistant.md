@@ -1,5 +1,5 @@
 (function chatStartPanelModule(window) {
-    function createChatStartPanelController({ elements, icons, utils, callbacks }) {
+    function createChatStartPanelController({ state = {}, elements, icons, utils, callbacks }) {
         let workspaceEditorOpen = false;
 
         function renderChatEmptyState() {
@@ -8,31 +8,29 @@
 
         function renderChatStartPanel(container) {
             const modelText = selectedOptionText(elements.modelSelector) || 'No model selected';
-            const thinkingText = selectedOptionText(elements.thinkingSelector).replace(/^Thinking:\s*/i, '') || 'Default';
+            const thinkingText = selectedOptionText(elements.thinkingSelector).replace(/^Thinking:\s*/i, '').toLowerCase() || 'default';
             const workspacePath = (elements.workspacePathInput?.value || '').trim();
 
             const panel = document.createElement('div');
             panel.className = 'chat-start-panel';
             panel.innerHTML = `
                 <div class="chat-start-panel-title">Ready for a new chat</div>
-                <div class="chat-start-panel-grid">
-                    <div class="chat-start-panel-item">
-                        <span class="chat-start-panel-label">Model</span>
-                        <span class="chat-start-panel-value">${utils.escapeHtml(modelText)}</span>
-                    </div>
-                    <div class="chat-start-panel-item">
-                        <span class="chat-start-panel-label">Thinking</span>
-                        <span class="chat-start-panel-value">${utils.escapeHtml(thinkingText)}</span>
-                    </div>
-                    <button type="button" class="chat-start-settings-button" data-chat-start-settings="true" aria-label="Change chat settings" title="Change chat settings">
-                        <span>Change settings</span>
-                        ${icons.SETTINGS_ICON_SVG}
-                    </button>
-                </div>
+                <div class="chat-start-panel-summary"><button type="button" class="text-accent hover:underline" data-chat-start-model-options aria-haspopup="dialog">${utils.escapeHtml(modelText)}</button> - ${utils.escapeHtml(thinkingText)}</div>
                 ${renderWorkspaceRow(workspacePath)}
+                ${renderFavorites()}
             `;
             attachChatStartPanelEvents(panel);
             container.appendChild(panel);
+        }
+
+        function renderFavorites() {
+            const sessions = (state.sessions || []).filter(session => session.favorite);
+            if (!sessions.length) return '';
+            return `<div class="chat-favorites"><h3>Favorite chats</h3><div class="chat-favorite-cards">${sessions.map(session => `
+                <button type="button" class="chat-favorite-card" data-chat-favorite="${utils.escapeHtml(session.session_id)}" ${state.isLoading ? 'disabled' : ''}>
+                    ${icons.BOOKMARK_ICON_SVG}
+                    <span><strong>${utils.escapeHtml(session.title || session.session_id)}</strong>${session.workspace?.path ? `<small>${utils.escapeHtml(session.workspace.path)}</small>` : ''}</span>
+                </button>`).join('')}</div></div>`;
         }
 
         function selectedOptionText(select) {
@@ -52,7 +50,6 @@
                             ? `<span class="chat-start-workspace-path">${utils.escapeHtml(workspacePath)}</span>`
                             : renderWorkspaceEntryControls()}
                     </div>
-                    <p class="chat-start-workspace-help">A workspace is a folder in your vault. Setting this helps orient the chat agent. See <a href="https://github.com/DodgyBadger/Assistant.md/blob/main/docs/use/getting-the-most.md" target="_blank" rel="noopener noreferrer">Getting the Most from Assistant.md</a> for more info.</p>
                 </div>
             `;
         }
@@ -81,8 +78,13 @@
             panel.addEventListener('click', (event) => {
                 const target = event.target;
                 if (!(target instanceof Element)) return;
-                if (target.closest('[data-chat-start-settings]')) {
-                    callbacks.openChatSettings?.();
+                if (target.closest('[data-chat-start-model-options]')) {
+                    callbacks.openSessionOptions?.();
+                    return;
+                }
+                const favorite = target.closest('[data-chat-favorite]');
+                if (favorite) {
+                    if (!state.isLoading) callbacks.selectSession?.(favorite.dataset.chatFavorite);
                     return;
                 }
                 if (target.closest('[data-chat-start-workspace-open]')) {

@@ -1,6 +1,7 @@
 (function sessionControlsModule(window) {
     function createSessionControlsController({ state, elements, icons, utils, sessionMap, callbacks }) {
         const { escapeHtml } = utils;
+        const pendingFavorites = new Set();
         let editingSessionId = '';
         let sessionBrowserFilter = '';
         let sessionBrowserSearchMode = 'name';
@@ -102,12 +103,14 @@
         function renderSelector() {
             renderSessionBrowserList();
             focusEditingInput();
+            callbacks.refreshEmptyState?.();
         }
 
         function renderSessionActions(session) {
             const sessionId = session?.session_id || '';
             return `
                 <div class="session-dropdown-row-actions" aria-label="Session actions">
+                    ${renderRowActionButton('favorite', sessionId, session.favorite ? 'Remove favorite' : 'Favorite session', icons.BOOKMARK_ICON_SVG, session.favorite ? 'is-bookmarked' : '')}
                     ${session?.can_upgrade_to_v2
                         ? renderRowActionButton('upgrade-v2', sessionId, 'Upgrade to Compaction v2', icons.REFRESH_ICON_SVG)
                         : ''}
@@ -118,8 +121,14 @@
             `;
         }
 
+        function favoriteRequestKey(vault, sessionId) {
+            return JSON.stringify([vault, sessionId]);
+        }
+
         function isSessionActionLocked(action, sessionId) {
-            return Boolean(state.isLoading && sessionId === state.sessionId
+            return (action === 'favorite' && pendingFavorites.has(
+                favoriteRequestKey(elements.vaultSelector?.value || '', sessionId)
+            )) || Boolean(state.isLoading && sessionId === state.sessionId
                 && ['delete', 'upgrade-v2'].includes(action));
         }
 
@@ -154,6 +163,7 @@
                 <button
                     type="button"
                     class="${classes}"
+                    ${action === 'favorite' ? `aria-pressed="${extraClass === 'is-bookmarked'}"` : ''}
                     data-session-action="${action}"
                     data-session-action-id="${escapeHtml(sessionId)}"
                     ${isSessionActionLocked(action, sessionId) ? 'disabled' : ''}
@@ -350,7 +360,7 @@
                 return;
             }
 
-            const sessions = filteredBrowserSessions();
+            const sessions = [...filteredBrowserSessions()].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
             if (count) {
                 count.textContent = searchingContents
                     ? `${sessions.length} matches · up to ${sessionBrowserSearchLimit} best matches shown`
@@ -427,7 +437,7 @@
             `;
         }
 
-        function openSessionBrowserModal() {
+        function openSessionBrowserModal({ expandOptions = false } = {}) {
             closeSessionBrowserModal();
             const overlay = document.createElement('div');
             overlay.id = 'session-browser-modal';
@@ -454,7 +464,7 @@
                     </div>
                     <div class="session-browser-body flex-1">
                         <p data-chat-settings-flight-notice hidden class="mb-3 text-xs text-txt-secondary">Setting changes apply to your next message. The current response keeps its settings.</p>
-                        <details class="chat-settings-options">
+                        <details class="chat-settings-options" ${expandOptions ? 'open' : ''}>
                             <summary class="chat-settings-options-summary">
                                 <span>Options</span>
                                 <svg class="chat-settings-options-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -501,10 +511,54 @@
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
             scheduleSessionBrowserSearch();
-            const filterInput = overlay.querySelector('#session-browser-filter');
-            if (filterInput instanceof HTMLInputElement) {
-                filterInput.focus();
-                filterInput.select();
+            const focusControl = expandOptions
+                ? elements.modelSelector
+                : overlay.querySelector('#session-browser-filter');
+            focusControl?.focus();
+            if (focusControl instanceof HTMLInputElement) {
+                focusControl.select();
+            }
+        }
+
+        async function toggleFavorite(sessionId, button) {
+            const vault = elements.vaultSelector?.value || '';
+            const session = state.sessions.find(row => row.session_id === sessionId);
+            const key = favoriteRequestKey(vault, sessionId);
+            if (!vault || !session || button.disabled || pendingFavorites.has(key)) return;
+            pendingFavorites.add(key);
+            const modal = sessionBrowserModal();
+            modal?.querySelector('[data-session-favorite-error]')?.remove();
+            button.disabled = true;
+            try {
+                const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/favorite`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vault_name: vault, favorite: !session.favorite }),
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                if (elements.vaultSelector?.value !== vault) return;
+                const current = state.sessions.find(row => row.session_id === sessionId);
+                if (current) current.favorite = result.favorite;
+                const hit = sessionBrowserSearchMatches.find(row => row.session.session_id === sessionId);
+                if (hit) hit.session.favorite = result.favorite;
+                state.sessions.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite))
+                    || String(b.last_activity_at).localeCompare(String(a.last_activity_at))
+                    || String(b.created_at).localeCompare(String(a.created_at))
+                    || b.session_id.localeCompare(a.session_id));
+            } catch (error) {
+                if (elements.vaultSelector?.value === vault && sessionBrowserModal() === modal) {
+                    const notice = document.createElement('p');
+                    notice.dataset.sessionFavoriteError = 'true';
+                    notice.className = 'state-error';
+                    notice.setAttribute('role', 'alert');
+                    notice.textContent = `Unable to update favorite: ${error.message}. Try again.`;
+                    modal?.querySelector('#session-browser-list')?.before(notice);
+                }
+            } finally {
+                pendingFavorites.delete(key);
+                button.disabled = false;
+                if (elements.vaultSelector?.value === vault) renderSelector();
             }
         }
 
@@ -681,6 +735,10 @@
             if (!sessionId) return;
             if (isSessionActionLocked(action, sessionId)) return;
 
+            if (action === 'favorite') {
+                await toggleFavorite(sessionId, button);
+                return;
+            }
             if (action === 'edit-title') {
                 editingSessionId = sessionId;
                 renderSelector();
@@ -846,6 +904,7 @@
 
         return Object.freeze({
             syncModalControls,
+            selectSession,
             formatOptionLabel,
             renderSelector,
             clearCompactionProgress,

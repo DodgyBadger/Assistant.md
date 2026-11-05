@@ -37,6 +37,25 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_chat_excerpts.py",
+      "kind": "behavioral",
+      "sha256": "b89cd24d45fdff198455f65eb5df4695f3d07f85f8c4357b5e26cf3a6b649a67",
+      "tests": [
+        "test_excerpt_range_survives_scrolling_and_preserves_full_copy",
+        "test_excerpt_keyboard_reverse_single_and_cancel_keep_clipboard_explicit"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_chat_feature_hardening.py",
+      "kind": "behavioral",
+      "sha256": "04d365f86d44b05ac3f1af40e5903d4624aef839a0724e8e13253467d7a0d7d4",
+      "tests": [
+        "test_excerpt_copy_preserves_preformatted_indentation",
+        "test_session_favorite_transport_failure_is_visible_and_retryable",
+        "test_pending_session_favorite_stays_locked_after_vault_round_trip"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_configuration_browser.py",
       "sha256": "1aa2c2d1e88d83e184c02f26c5bab6e674e407fbb584ba966d21cccaa38f3725",
       "kind": "behavioral",
@@ -71,14 +90,52 @@
     },
     {
       "path": "scenarios/browser/test_explorer_browser.py",
-      "sha256": "558b5e9eecffce5a2959b3644f36a8264aa88e7f86c074f1daa2d787c1556a12",
+      "sha256": "33c4b39733dcbeca5b469d96af394ee9b1430752ca1c2593b26c555b274b351d",
       "kind": "behavioral",
       "tests": [
         "test_explorer_selection_applicability_refresh_and_references",
         "test_explorer_create_rename_delete_and_duplicate_submit_lock",
         "test_explorer_content_search_escapes_untrusted_file_text",
         "test_explorer_workspace_save_updates_open_navigation",
-        "test_batch_move_keeps_contents_and_rejects_descendant_destination"
+        "test_batch_move_keeps_contents_and_rejects_descendant_destination",
+        "test_bulk_delete_across_folders_requires_confirmation_and_can_cancel",
+        "test_explorer_controls_handle_pending_initial_tree"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_explorer_hardening.py",
+      "kind": "behavioral",
+      "sha256": "b7ad0c9ff58a35ca590b1fceb1ffa43068e5317033c33763130f2a74dca3d7b6",
+      "tests": [
+        "test_preserved_dock_follows_current_session_workspace_and_new_chat",
+        "test_overlay_escape_cannot_dismiss_an_inflight_confirmed_delete",
+        "test_file_reader_overlay_traps_keyboard_focus_and_split_releases_it",
+        "test_normal_composer_tool_write_refreshes_clean_docked_file",
+        "test_older_workspace_save_cannot_replace_new_session_context",
+        "test_older_workspace_save_cannot_replace_a_newer_same_session_choice"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_explorer_layout.py",
+      "kind": "behavioral",
+      "sha256": "1dc34c5c645d2f250516cbd6baedc3ae00329b876f54c35e0669d956a196bd19",
+      "tests": [
+        "test_dock_resize_and_mode_changes_preserve_editor_and_reopen",
+        "test_dock_preference_survives_reload_narrow_windows_and_focus_mode",
+        "test_docked_file_keeps_run_locks_and_guards_vault_changes",
+        "test_session_selection_and_new_chat_preserve_docked_file_edits",
+        "test_reload_restores_split_file_vault_and_tab_until_explicit_close"
+      ]
+    },
+    {
+      "path": "scenarios/browser/test_favorites_browser.py",
+      "kind": "behavioral",
+      "sha256": "d59e6b4459e88a2f5ff0e080080b5ad63734dbf924b9b86315dafd18034ff623",
+      "tests": [
+        "test_chat_bookmarks_resume_existing_history",
+        "test_late_chat_bookmark_does_not_modify_another_vault",
+        "test_file_folder_bookmarks_filter_search_and_follow_reader_changes",
+        "test_pending_and_disconnected_bookmark_keeps_selection_usable"
       ]
     },
     {
@@ -113,8 +170,18 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_saved_prompts_browser.py",
+      "kind": "behavioral",
+      "sha256": "bf624e20677868d5fde2b4725e6f3ff0625fd4450e125ecc1de106dc9efd3526",
+      "tests": [
+        "test_saved_prompt_inserts_without_consuming_draft_or_attachments",
+        "test_saved_prompt_only_enters_model_context_after_explicit_send_and_stop_stays_available",
+        "test_late_library_cannot_insert_into_another_session_and_reopening_reads_edits"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_session_browser.py",
-      "sha256": "4a9c01a04744f5bd8e6fd4ee6af718335be076f7081c8f2b1ddb8ff90cf59b6e",
+      "sha256": "4c5ecf9244bcc548042fdd724b2248bb94e67d71c4f9dd8ce79e71b105149346",
       "kind": "behavioral",
       "tests": [
         "test_session_title_edit_and_content_search_preserve_real_history",
@@ -128,7 +195,8 @@
         "test_model_selection_survives_late_status_and_uses_configured_default",
         "test_real_session_upgrade_preserves_history_and_reports_refresh_outcome",
         "test_loaded_markdown_preserves_user_lines_code_and_assistant_copy_source",
-        "test_late_compaction_pressure_cannot_replace_current_session"
+        "test_late_compaction_pressure_cannot_replace_current_session",
+        "test_session_map_boundary_stays_before_live_user_and_response"
       ]
     },
     {
@@ -1029,6 +1097,15 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_explorer_bulk_delete.py",
+      "kind": "behavioral",
+      "sha256": "ca783af743f75c4807482dd38928b4724fc1d4acfebfa5ddb0968efc069f89db",
+      "tests": [
+        "test_recursive_bulk_delete_and_activity_rollback_restore_exact_states",
+        "test_bulk_delete_preflights_confirmation_and_all_targets"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_explorer_failure_recovery.py",
       "sha256": "695108fe35e7ed8bc3909d3f1bfd141b8b708b20655714ffaa21310e4b0eeb08",
       "kind": "behavioral",
@@ -1051,6 +1128,16 @@
       "kind": "behavioral",
       "tests": [
         "test_completed_read_does_not_hide_failed_transactional_append"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_favorite_mutation_hardening.py",
+      "kind": "behavioral",
+      "sha256": "baa5131e5f021db757f2b8eb48e2dd3ecd5d90c241678d356e97602d0d98b438",
+      "tests": [
+        "test_bookmark_cleanup_failure_compensates_files_and_durable_mutation",
+        "test_delete_lifecycle_is_correlated_and_file_detail_stays_out_of_system_activity",
+        "test_completion_record_failure_leaves_deletion_recoverable_and_logs_terminal"
       ]
     },
     {
@@ -1107,7 +1194,7 @@
     },
     {
       "path": "scenarios/integration/core/test_fork_lineage_canonical.py",
-      "sha256": "e8662db6c276a1876c6aad5017e405817711dbf6d87a5ab32d764fdde8483f7e",
+      "sha256": "d7503c051f960c570d6dbd3df98f0a322945a7bdc1f18305cd74c5a3cc9f869a",
       "kind": "behavioral",
       "tests": [
         "test_fork_canonical_prefix_and_safe_checkpoint_lineage"
@@ -1549,6 +1636,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_mutation_hardening.py",
+      "kind": "behavioral",
+      "sha256": "76d9641843060ccbedf85710c0b1e65e492194b83ccddb7870d2ccedce185b26",
+      "tests": [
+        "test_delete_preflights_vault_identity_before_touching_mixed_selection",
+        "test_directory_rollback_preview_rejects_missing_or_blocked_parent",
+        "test_directory_journal_failure_restores_unrecorded_empty_directory"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_openai_oauth_device_flow.py",
       "sha256": "ef1d1aae0111a71695de526fd9b225922e78bedeee87f1868aeaf8843bf946c9",
       "kind": "behavioral",
@@ -1688,6 +1785,14 @@
       "tests": [
         "test_failed_bootstrap_cleans_mcp_workers_and_repair_closes_real_client",
         "test_closed_task_admission_preserves_completed_chat_and_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_saved_prompt_observability.py",
+      "kind": "behavioral",
+      "sha256": "03e5f9877eb006bb0ead45da6f4342fbee3875e76eff34932a604609fcf0654f",
+      "tests": [
+        "test_prompt_failures_retain_distinct_scope_and_reason_without_content"
       ]
     },
     {
@@ -2198,6 +2303,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_ui_favorites.py",
+      "kind": "behavioral",
+      "sha256": "ed30bcb4c1084a52f9736ee532e048a1259055473f58f6cca578b01fcb2cc803",
+      "tests": [
+        "test_bookmarks_persist_and_follow_vault_mutations"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_user_notes_compaction_workflow.py",
       "sha256": "1a2b0d162c6ee260e4f2a43986c6ae17a66e454f381dff99c4a99655027f7417",
       "kind": "behavioral",
@@ -2256,7 +2369,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_file_references.py",
-      "sha256": "24812162d8094219968d41e419adfd93a0ca3bf34aafad5b3db8045a6f79b8fd",
+      "sha256": "95afb9770258fcba71790cb3964c6d2100490df12867f4c70a1e6c81767b281b",
       "kind": "behavioral",
       "tests": [
         "test_reference_listing_and_resolution",
@@ -2378,6 +2491,16 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_workspace_saved_prompts.py",
+      "kind": "behavioral",
+      "sha256": "c8ae490b359e6af26cd3c70574c186bb076645ef77d30585ed508b271ef39667",
+      "tests": [
+        "test_workspace_library_preserves_selected_content_and_reads_current_file",
+        "test_workspace_library_rejects_escape_ambiguous_and_unbounded_input",
+        "test_saved_prompt_filename_is_validated_and_persisted"
+      ]
+    },
+    {
       "path": "scenarios/pytest.ini",
       "sha256": "405386d9af358b10643cce4440241af6cb7d7e1381cf9b830ac0384d763fd0f7",
       "kind": "support"
@@ -2454,7 +2577,7 @@
     },
     {
       "path": "support/browser/browser_fullstack.py",
-      "sha256": "853b27d5e518f150940ab933281e6a8647d55e8e696f097bc52a29d3ddf05fa6",
+      "sha256": "0a4031fb46482d9708a357317b00633758a9c4b7973e810e3d491d2aa8d3fba0",
       "kind": "support"
     },
     {

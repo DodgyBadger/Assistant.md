@@ -239,6 +239,7 @@ from .chat_sessions import (
     purge_chat_sessions,
     resolve_chat_session_for_request,
     search_chat_sessions,
+    set_chat_session_favorite,
     set_chat_session_mode,
     set_chat_session_title,
     set_chat_session_workspace,
@@ -324,6 +325,8 @@ from .vault_activity import (
     rollback_vault_activity,
 )
 from .vault_files import (
+    delete_vault_paths_batch,
+    get_vault_favorites,
     get_vault_file,
     get_vault_file_revisions,
     list_vault_directories,
@@ -334,6 +337,7 @@ from .vault_files import (
     resolve_vault_root,
     resolve_vault_upload_target,
     restore_vault_file_revision,
+    update_vault_favorites,
     update_vault_file,
     upload_vault_file,
 )

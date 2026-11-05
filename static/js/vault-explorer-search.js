@@ -4,11 +4,12 @@
         let abortController = null;
         let generation = 0;
 
-        async function search({ vault, query, path = '', limit = 100 }) {
+        async function search({ vault, query, path = '', limit = 100, favoritesOnly = false }) {
             cancel();
             abortController = new AbortController();
             const params = new URLSearchParams({ query, limit: String(limit) });
             if (path) params.set('path', path);
+            if (favoritesOnly) params.set('favorites_only', 'true');
             const response = await fetch(
                 `api/vaults/${encodeURIComponent(vault)}/content-search?${params}`,
                 { signal: abortController.signal }
@@ -51,6 +52,7 @@
 
         async function load({
             overlay,
+            favoritesOnly = false,
             vault,
             query,
             path = '',
@@ -70,7 +72,7 @@
             }
             setStatus('Searching contents...');
             results.innerHTML = '';
-            const pendingSearch = search({ vault, query, path });
+            const pendingSearch = search({ vault, query, path, favoritesOnly });
             const currentGeneration = generation;
             const payload = await pendingSearch;
             if (currentGeneration !== generation || !overlay.isConnected) return;

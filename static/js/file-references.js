@@ -1,11 +1,14 @@
 (function fileReferencesModule(window, document) {
-    function createFileReferencesController({ state, elements, icons, utils, callbacks }) {
+    function createFileReferencesController({ state, elements, icons, utils, callbacks, layout }) {
         const { escapeHtml, formatShortDate } = utils;
         let pickerOpen = false;
+        let detachLayout = null;
         let activeFileCanClose = null;
         let activeFileView = null;
         let activeSelectionPrompt = null;
+        let activeFavoriteEvents = null;
         let fileHistory = [];
+        let interactionWasLocked = false;
 
         const linkResolver = window.FileReferenceLinks.create({
             callbacks: {
@@ -51,6 +54,7 @@
             importSources: initialImportSources = [],
             importUrl = '',
             revealPath = '',
+            initialFolder = '',
             vaultName = '',
             workspaceSelection = false,
         } = {}) {
@@ -73,12 +77,14 @@
                     ? 'vault'
                     : (savedWorkspace ? 'workspace' : 'vault'),
                 revealInitialPath: workspaceRecovery ? '' : revealPath,
+                initialFolder,
                 selectedLabel: workspaceRecovery
                     ? 'Workspace folder not found'
                     : (workspaceSelectionMode && savedWorkspace ? 'Current workspace' : ''),
                 selectedPath: workspaceSelectionMode ? savedWorkspace : '',
                 workspaceRecovery,
                 workspaceSelectionMode,
+                workspaceSelectionRequested: workspaceSelection,
                 workspacePath: savedWorkspace,
                 explorer: true,
                 importOptions,
@@ -95,12 +101,15 @@
                 onAddReference: contextBound ? insertReference : undefined,
                 onSetWorkspace: contextBound ? async (path) => {
                     if (interactionLocked()) return false;
+                    const closeAfterSelection = workspaceSelection
+                        || (Boolean(workspacePath()) && state.workspaceExists === false);
                     const saved = await callbacks.setWorkspace?.(path);
-                    if (workspaceSelectionMode && saved === true) closePicker();
+                    if (closeAfterSelection && saved === true) closePicker();
                     return saved === true;
                 } : undefined,
                 onMutate: (payload) => mutatePath(payload, vault),
                 onBatchMove: (payload) => movePathsBatch(payload, vault),
+                onDelete: (payload) => deletePaths(payload, vault),
                 onUpload: (file, path) => uploadFile(file, path, vault),
                 onImportSources: (payload) => importSources(payload, vault),
                 onGetImportJob: (jobId) => getImportJob(jobId),
@@ -130,6 +139,20 @@
         async function getImportJob(jobId) {
             const response = await fetch(`api/import/jobs/${encodeURIComponent(jobId)}`, {
                 cache: 'no-store',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function deletePaths(payload, vault) {
+            if (interactionLocked()) throw new Error('Wait for the active response to finish.');
+            const response = await fetch(`api/vaults/${encodeURIComponent(vault)}/paths/delete-batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -190,17 +213,20 @@
                 <div class="absolute inset-0" data-vault-file-close="true"></div>
                 <section class="app-modal-panel relative flex flex-col" role="dialog" aria-modal="true" aria-labelledby="vault-file-modal-title">
                     <div class="app-modal-header vault-file-modal-header flex-none">
-                        ${fileHistory.length || typeof returnToOrigin === 'function' ? `
-                            <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
-                        ` : ''}
-                        <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
-                        <div class="app-modal-actions">
-                            <div class="vault-file-mode-toggle hidden" data-vault-file-mode-toggle role="group" aria-label="File view">
+                        <div class="vault-file-content-actions">
+                            ${fileHistory.length || typeof returnToOrigin === 'function' ? `
+                                <button type="button" class="ui-icon-button is-compact" data-vault-file-back="true" aria-label="Back" title="Back">${icons.ARROW_LEFT_ICON_SVG}</button>
+                            ` : ''}
+                            <button type="button" class="ui-icon-button is-compact" data-vault-file-tree="true" aria-label="Browse vault tree" title="Browse vault tree">${icons.FOLDER_TREE_ICON_SVG}</button>
+                            <div class="vault-file-mode-toggle hidden" data-vault-file-mode-toggle role="group" aria-label="File actions">
                                 <button type="button" data-vault-file-mode="preview" aria-label="Preview Markdown" title="Preview Markdown">${icons.EYE_ICON_SVG}</button>
                                 <button type="button" data-vault-file-mode="edit" aria-label="Edit Markdown" title="Edit Markdown">${icons.EDIT_ICON_SVG}</button>
                                 <button type="button" data-vault-file-mode="history" aria-label="Revision history" title="Revision history">${icons.HISTORY_ICON_SVG}</button>
+                                <button type="button" data-vault-file-favorite aria-pressed="false" aria-label="Favorite file" title="Favorite file" disabled>${icons.BOOKMARK_ICON_SVG}</button>
                             </div>
                             <button type="button" class="ui-icon-button is-primary is-compact hidden" data-vault-file-save="true" aria-label="Save file" title="Save file" disabled>${icons.SAVE_ICON_SVG}</button>
+                        </div>
+                        <div class="app-modal-actions">
                             <button type="button" class="ui-icon-button is-compact" data-vault-file-close="true" aria-label="Close" title="Close">${icons.X_ICON_SVG}</button>
                         </div>
                         <div class="app-modal-title-block">
@@ -233,6 +259,17 @@
                 </section>
             `;
             document.body.appendChild(overlay);
+            detachLayout = layout.attach(overlay, {
+                vaultName: vault,
+                snapshot: () => {
+                    const view = activeFileView?.snapshot();
+                    return { file: {
+                        path,
+                        initialMode: view?.initialMode || 'preview',
+                        initialRevisionId: view?.initialRevisionId || '',
+                    } };
+                },
+            });
 
             const editor = overlay.querySelector('#vault-file-modal-editor');
             const statusLabel = overlay.querySelector('#vault-file-modal-status');
@@ -252,6 +289,10 @@
             let historyLoadPromise = null;
             let selectedRevisionId = initialRevisionId;
             let currentFileExists = false;
+            let currentFavorite = false;
+            let favoritePending = false;
+            let favoriteRevision = 0;
+            const favoriteButton = overlay.querySelector('[data-vault-file-favorite]');
             let currentFileHashKnown = false;
             let refreshRequestId = 0;
             const supportsPreview = /\.(md|markdown)$/i.test(path);
@@ -269,25 +310,18 @@
                         options.onStartError(new Error('Send cancelled. Your file changes and selection prompt are intact.'));
                         return false;
                     }
-                    let accepted = false;
-                    try {
-                        return await callbacks.sendSelectionPrompt(block, {
-                            ...options,
-                            onAccepted: (started) => {
-                                accepted = true;
-                                if (discardEdits) {
-                                    const scrollTop = preview.scrollTop;
-                                    editor.value = savedContent;
-                                    renderPreview();
-                                    preview.scrollTop = scrollTop;
-                                }
-                                options.onAccepted(started);
-                            },
-                        });
-                    } finally {
-                        // Navigation may have replaced this reader while the task ran.
-                        if (accepted) await activeFileView?.refresh(vault);
-                    }
+                    return callbacks.sendSelectionPrompt(block, {
+                        ...options,
+                        onAccepted: (started) => {
+                            if (discardEdits) {
+                                const scrollTop = preview.scrollTop;
+                                editor.value = savedContent;
+                                renderPreview();
+                                preview.scrollTop = scrollTop;
+                            }
+                            options.onAccepted(started);
+                        },
+                    });
                 },
                 onAccepted: () => preview.focus({ preventScroll: true }),
             });
@@ -342,6 +376,7 @@
                 const requestId = ++refreshRequestId;
                 const originalHash = sha256;
                 const originalContent = editor.value;
+                const originalFavoriteRevision = favoriteRevision;
                 try {
                     const data = await fetchVaultFile(path, vault);
                     if (document.getElementById('vault-file-modal') !== overlay
@@ -360,6 +395,7 @@
                         renderPreview();
                         preview.scrollTop = scrollTop;
                     }
+                    if (originalFavoriteRevision === favoriteRevision) currentFavorite = Boolean(data.favorite);
                     statusLabel?.classList.add('hidden');
                     applyInteractionLock();
                 } catch (error) {
@@ -401,9 +437,29 @@
                 });
             }
 
+            function syncFavoriteButton() {
+                if (!favoriteButton) return;
+                favoriteButton.disabled = !currentFileExists || favoritePending;
+                favoriteButton.setAttribute('aria-pressed', String(currentFavorite));
+                favoriteButton.classList.toggle('is-bookmarked', currentFavorite);
+                favoriteButton.title = currentFavorite ? 'Remove favorite' : 'Favorite file';
+                favoriteButton.setAttribute('aria-label', favoriteButton.title);
+            }
+
+            // The file modal can remain open above the Explorer; synchronize either control.
+            const onFavoritesChanged = (event) => {
+                if (event.detail.vault !== vault) return;
+                favoriteRevision += 1;
+                currentFavorite = event.detail.paths.has(path);
+                syncFavoriteButton();
+            };
+            activeFavoriteEvents = new AbortController();
+            document.addEventListener('vault-favorites-changed', onFavoritesChanged, { signal: activeFavoriteEvents.signal });
+
             function applyInteractionLock() {
                 selectionPrompt.syncLocks();
                 const locked = interactionLocked();
+                syncFavoriteButton();
                 if (editor instanceof HTMLTextAreaElement) {
                     editor.readOnly = locked;
                     editor.title = locked ? lockMessage : '';
@@ -432,6 +488,25 @@
                 if (document.getElementById('vault-file-modal') !== overlay) return;
                 const target = event.target;
                 if (!(target instanceof Element)) return;
+                if (target.closest('[data-vault-file-favorite]')) {
+                    if (!currentFileExists || favoritePending) return;
+                    favoritePending = true;
+                    syncFavoriteButton();
+                    try {
+                        const paths = await window.VaultFavorites.set(vault, [path], !currentFavorite);
+                        if (document.getElementById('vault-file-modal') !== overlay) return;
+                        currentFavorite = paths.has(path);
+                    } catch (error) {
+                        if (document.getElementById('vault-file-modal') === overlay && statusLabel) {
+                            statusLabel.classList.remove('hidden');
+                            statusLabel.textContent = `Unable to update favorite: ${error.message}`;
+                        }
+                    } finally {
+                        favoritePending = false;
+                        syncFavoriteButton();
+                    }
+                    return;
+                }
                 if (target.closest('[data-vault-file-back="true"]')) {
                     const prior = fileHistory.at(-1);
                     if (prior) {
@@ -473,6 +548,8 @@
                         currentFileHashKnown = true;
                     }, () => sha256);
                     if (saved) {
+                        currentFavorite = Boolean(saved.favorite);
+                        syncFavoriteButton();
                         savedContent = editor.value;
                         historyLoaded = false;
                         if (historyList instanceof HTMLElement) historyList.innerHTML = '';
@@ -492,6 +569,8 @@
                 if (document.getElementById('vault-file-modal') !== overlay) return;
                 sha256 = data.sha256 || '';
                 currentFileExists = true;
+                currentFavorite = Boolean(data.favorite);
+                syncFavoriteButton();
                 currentFileHashKnown = true;
                 if (editor instanceof HTMLTextAreaElement) {
                     editor.value = data.content || '';
@@ -545,6 +624,14 @@
                 }
                 if (error.errorType === 'VaultFileNotText') {
                     currentFileExists = true;
+                    try {
+                        const paths = await window.VaultFavorites.read(vault);
+                        if (document.getElementById('vault-file-modal') !== overlay) return;
+                        currentFavorite = paths.has(path);
+                        syncFavoriteButton();
+                    } catch (favoriteError) {
+                        if (statusLabel) statusLabel.textContent = `Unable to load favorite: ${favoriteError.message}`;
+                    }
                     currentFileHashKnown = false;
                     if (initialMode === 'history') {
                         showHistoryOnly('This file is not editable as plain text.');
@@ -819,8 +906,12 @@
 
         function closeFileModal({ force = false, preserveNavigation = false } = {}) {
             if (!force && activeFileCanClose && !activeFileCanClose()) return false;
+            detachLayout?.();
+            detachLayout = null;
             activeSelectionPrompt?.destroy();
             activeSelectionPrompt = null;
+            activeFavoriteEvents?.abort();
+            activeFavoriteEvents = null;
             document.getElementById('vault-file-modal')?.remove();
             activeFileCanClose = null;
             activeFileView = null;
@@ -836,10 +927,16 @@
         }
 
         function syncInteractionLocks() {
+            const locked = interactionLocked();
+            const unlocked = interactionWasLocked && !locked;
+            interactionWasLocked = locked;
             callbacks.syncPathPickerLocks?.();
             document.getElementById('vault-file-modal')?.dispatchEvent(
                 new CustomEvent('vault-explorer-lock-change')
             );
+            // All ordinary, selection, resumed and review runs release this lock.
+            // The reader owns clean/dirty, mode and stale-response checks.
+            if (unlocked) void activeFileView?.refresh(selectedVault());
         }
 
         function enhanceFileLinks(container, context) {
@@ -871,6 +968,7 @@
             insertReference,
             openFile,
             closeFileModal,
+            closeExplorer,
             syncInteractionLocks,
             enhanceFileLinks,
             isPickerOpen: () => pickerOpen,

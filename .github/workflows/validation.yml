@@ -67,7 +67,8 @@ jobs:
 
   validation:
     needs: security-audit
-    runs-on: ubuntu-latest
+    # Keep the browser-test OS within the pinned Playwright version's support.
+    runs-on: ubuntu-24.04
     env:
       UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venv
       UV_LINK_MODE: copy

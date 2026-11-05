@@ -69,6 +69,7 @@ const chatElements = {
     attachCountBadge: document.getElementById('attach-count-badge'),
     attachmentPopover: document.getElementById('chat-attachment-popover'),
     sendBtn: document.getElementById('send-btn'),
+    savedPromptsMenu: document.getElementById('saved-prompts-menu'),
     focusToggleInline: document.getElementById('chat-focus-toggle-inline'),
     focusDivider: document.getElementById('chat-focus-divider'),
     composer: document.getElementById('chat-composer'),
@@ -143,6 +144,14 @@ const chatComposer = window.ChatComposer.create({
     utils: window.AssistantMDUtils,
     browserStorage,
 });
+const savedPrompts = window.SavedPrompts.create({
+    state, elements: chatElements, composer: chatComposer,
+    callbacks: {
+        send: () => chatTaskActions.sendMessage(),
+        stop: () => chatTaskActions.stopChatResponse(),
+    },
+});
+
 const {
     addPendingAttachments,
     clearPendingAttachments,
@@ -170,7 +179,17 @@ const sessionMap = window.SessionMap.create({
     utils: window.AssistantMDUtils,
 });
 
+const explorerLayout = window.VaultExplorerLayout.create({
+    browserStorage,
+    icons: window.AssistantMDIcons,
+    callbacks: {
+        close: () => fileReferences.closeExplorer(),
+        snapshotContext: () => ({ tab: appShell.activeTab() }),
+    },
+});
+
 const vaultPathPicker = window.VaultPathPicker.create({
+    layout: explorerLayout,
     elements: chatElements,
     icons: window.AssistantMDIcons,
     utils: window.AssistantMDUtils,
@@ -190,6 +209,7 @@ const workspacePicker = window.WorkspacePicker.create({
 });
 
 const fileReferences = window.FileReferences.create({
+    layout: explorerLayout,
     state,
     elements: chatElements,
     icons: window.AssistantMDIcons,
@@ -253,6 +273,7 @@ sessionControls = window.SessionControls.create({
         clearSession,
         clearPendingAttachments,
         renderChatEmptyState,
+        refreshEmptyState: () => chatRendering.refreshEmptyState(),
         updateCompactionState: status => chatRendering.updateCompactionState(status),
         resetChatModeToDefault,
         syncChatControlLocks,
@@ -269,8 +290,9 @@ const chatRendering = window.ChatRendering.create({
         scrollChatToBottom,
         fetchSessions,
         loadSession,
+        selectSession: (sessionId) => sessionControls.selectSession(sessionId),
         openWorkspacePicker: () => workspacePicker.openModal(),
-        openChatSettings: () => sessionControls.openSessionBrowserModal(),
+        openSessionOptions: () => sessionControls.openSessionBrowserModal({ expandOptions: true }),
         openSessionMap: ({ checkpointId = '' } = {}) => sessionMap.openModalForSession(
             { session_id: state.sessionId },
             { checkpointId }
@@ -317,6 +339,7 @@ const chatSessions = window.ChatSessions.create({
     chatTaskActions,
     chatTaskStream,
     callbacks: {
+        invalidateSavedPrompts: () => savedPrompts.close(),
         syncControls: syncChatControlLocks,
         handleDeferredReview: handleDeferredReviewEvent,
         updateStatus,
@@ -446,7 +469,7 @@ function syncSendButtonState() {
         ? 'Tool review is pending. Resolve the review card before sending another message.'
         : state.isLoading
         ? (state.isCancellingChat ? 'Stopping active response' : 'Stop the active response')
-        : modeSaving ? 'Saving file approvals…' : 'Send message';
+        : modeSaving ? 'Saving file approvals…' : 'Send message (hold or Alt+ArrowDown for saved prompts)';
     btn.setAttribute(
         'aria-label',
         reviewPending
@@ -462,6 +485,7 @@ function syncSendButtonState() {
             ? 'Tool review is pending. Resolve the review card before resuming normal message flow.'
             : '';
     }
+    savedPrompts.syncControls();
 }
 
 function syncChatControlLocks() {
@@ -493,6 +517,11 @@ function syncChatControlLocks() {
 function syncVaultExplorerButtons() {
     const workspacePath = (chatElements.workspacePathInput?.value || '').trim();
     const workspaceMissing = Boolean(workspacePath) && state.workspaceExists === false;
+    vaultPathPicker.syncWorkspaceContext({
+        vaultName: chatElements.vaultSelector?.value || '',
+        path: workspacePath,
+        exists: state.workspaceExists,
+    });
     const explorerReadOnly = state.isLoading || Boolean(state.pendingDeferredReview);
     const baseTitle = explorerReadOnly
         ? 'Open vault explorer in read-only mode'
@@ -520,7 +549,8 @@ function syncVaultExplorerButtons() {
 
 
 function fetchMetadata() {
-    return chatSelection.fetchMetadata();
+    savedPrompts.close();
+    return chatSelection.fetchMetadata().then(() => savedPrompts.refreshAvailability());
 }
 
 function populateSelectors() {
@@ -540,7 +570,16 @@ function persistSelectedChatMode() {
 }
 
 function handleVaultChange() {
+    const keepExplorerOpen = explorerLayout.isDocked();
+    const previousVault = explorerLayout.vaultName();
+    if (keepExplorerOpen && (!explorerLayout.canClose() || !fileReferences.closeExplorer())) {
+        chatElements.vaultSelector.value = previousVault;
+        return;
+    }
+    savedPrompts.close();
     chatSelection.handleVaultChange();
+    if (keepExplorerOpen && chatElements.vaultSelector.value) fileReferences.openExplorer();
+    savedPrompts.syncControls();
 }
 
 function fetchTemplates(vault, preferredTemplate = '') {
@@ -581,6 +620,21 @@ async function init() {
     renderChatEmptyState();
     renderPendingAttachments();
     updateCollapsibleArrows();
+    const explorerView = explorerLayout.restorableView(state.metadata?.vaults || []);
+    if (explorerView) {
+        chatElements.vaultSelector.value = explorerView.vaultName;
+        handleVaultChange();
+        fileReferences.openExplorer({ vaultName: explorerView.vaultName, initialFolder: explorerView.folder });
+        if (explorerView.file) {
+            await fileReferences.openFile(explorerView.file.path, {
+                vaultName: explorerView.vaultName,
+                initialMode: explorerView.file.initialMode,
+                initialRevisionId: explorerView.file.initialRevisionId,
+                onBack: () => {},
+            });
+        }
+        appShell.switchTab(explorerView.tab);
+    }
     void fetchSystemStatus();
 }
 
@@ -606,7 +660,7 @@ document.addEventListener('keydown', (event) => {
             setChatFocusMode(false);
             return;
         }
-        workspacePicker.closeModal();
+        if (!explorerLayout.isDocked()) workspacePicker.closeModal();
         vaultActivity.closeDetails();
     }
 });
@@ -614,20 +668,14 @@ document.addEventListener('keydown', (event) => {
 // Setup event listeners
 function setupEventListeners() {
     if (chatElements.sendBtn) {
-        chatElements.sendBtn.addEventListener('click', () => {
-            if (state.isLoading) {
-                chatTaskActions.stopChatResponse();
-                return;
-            }
-            chatTaskActions.sendMessage();
-        });
+        chatElements.sendBtn.addEventListener('click', savedPrompts.handleSendClick);
     }
 
     if (chatElements.chatInput) {
         chatElements.chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                chatTaskActions.sendMessage();
+                if (!savedPrompts.isOpen()) chatTaskActions.sendMessage();
             }
         });
     }
@@ -654,6 +702,8 @@ function setupEventListeners() {
 
     if (chatElements.workspacePathInput) {
         chatElements.workspacePathInput.addEventListener('input', () => {
+            savedPrompts.close();
+            savedPrompts.syncControls();
             state.workspaceExists = null;
             workspacePicker.syncControls();
             refreshChatEmptyState();
@@ -845,6 +895,7 @@ function finalizeAssistantMessage(context, metadata) {
 // Clear session
 
 async function clearSession(confirmReset = true) {
+    savedPrompts.close();
     const confirmed = confirmReset
         ? window.confirm('Do you want to start a new chat session? The current session remains available in chat history unless you delete it.')
         : true;

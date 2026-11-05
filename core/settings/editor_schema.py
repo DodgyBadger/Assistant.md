@@ -348,6 +348,13 @@ def value_issues(name: str, value: Any, editor: SettingEditor) -> list[SettingIs
         message = "Value must be a JSON object."
     elif editor.kind == "text" and not isinstance(value, str):
         message = "Value must be text."
+    if not message and name == "workspace_prompts_filename":
+        from core.chat.workspace_prompts import validate_prompt_filename
+
+        try:
+            validate_prompt_filename(value)
+        except ValueError as exc:
+            code, message = "filename", str(exc)
     return [SettingIssue(code=code, message=message)] if message else []
 
 

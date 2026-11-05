@@ -1533,8 +1533,8 @@ wheels = [
 ]
 
 [[package]]
-name = "project-assistant"
-version = "0.9.3"
+name = "assistant-md"
+version = "0.9.4"
 source = { virtual = "." }
 dependencies = [
     { name = "anyio" },

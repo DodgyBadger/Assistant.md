@@ -37,12 +37,14 @@
             },
         });
         const startPanel = window.ChatStartPanel.create({
+            state,
             elements,
             icons,
             utils,
             callbacks: {
-                openChatSettings: callbacks.openChatSettings,
+                selectSession: callbacks.selectSession,
                 openWorkspacePicker: callbacks.openWorkspacePicker,
+                openSessionOptions: callbacks.openSessionOptions,
                 renderEmptyState: () => renderChatEmptyState(),
             },
         });
@@ -558,7 +560,7 @@
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-footer-actions';
 
-            const copyButton = messageControls.createCopyButton(() => context.fullText, 'message-copy-button');
+            const copyButton = messageControls.createCopyButton(() => context.fullText, 'message-copy-button', context.bodyDiv);
             actionsDiv.appendChild(copyButton);
             const forkButton = messageControls.createForkButton(context.sequenceIndex);
             if (forkButton) {

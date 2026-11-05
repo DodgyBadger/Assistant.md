@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 
 from playwright.async_api import expect
@@ -75,6 +75,36 @@ class DeliveryGate:
 
 
 @asynccontextmanager
+async def _scoped_route(ui, pattern, handler):
+    # Keep interception on the context's existing catch-all admission route.
+    # Removing the last page route can auto-continue a queued request before
+    # its Python callback reaches admission, producing a double-handled route.
+    active = True
+    pending = set()
+
+    async def dispatch(route):
+        task = asyncio.current_task()
+        pending.add(task)
+        try:
+            if active:
+                await handler(route)
+            else:
+                await route.fallback()
+        finally:
+            pending.discard(task)
+
+    await ui.context.route(pattern, dispatch)
+    try:
+        yield
+    finally:
+        active = False
+        # Remove only this scope; concurrent and nested gates retain ownership.
+        await ui.context.unroute(pattern, dispatch)
+        if pending:
+            await asyncio.wait_for(asyncio.gather(*pending), 15)
+
+
+@asynccontextmanager
 async def hold_delivery(ui, app, pattern, *, method="GET", first_only=False):
     gate = DeliveryGate(method=method)
     claimed = False
@@ -99,15 +129,13 @@ async def hold_delivery(ui, app, pattern, *, method="GET", first_only=False):
         await route.fulfill(response=response)
         row["delivery"] = "forwarded_unchanged"
 
-    await ui.route(pattern, hold)
     try:
-        yield gate
+        async with _scoped_route(ui, pattern, hold):
+            try:
+                yield gate
+            finally:
+                gate.release.set()
     finally:
-        gate.release.set()
-        # The public wait policy drains SDK-tracked invocations, including ones
-        # queued before our callback starts. Tracking only callback tasks misses
-        # that interval and can cause a late route to be handled twice.
-        await asyncio.wait_for(ui.unroute_all(behavior="wait"), 15)
         app.evidence.append(
             "network-delivery-gates.jsonl",
             {
@@ -132,11 +160,10 @@ async def lose_connection(ui, app, pattern, *, method="GET"):
         calls.append(route.request.url)
         await route.abort("connectionfailed")
 
-    await ui.route(pattern, abort)
     try:
-        yield calls
+        async with _scoped_route(ui, pattern, abort):
+            yield calls
     finally:
-        await ui.unroute(pattern, abort)
         app.evidence.append(
             "network-drops.jsonl",
             {"pattern": pattern, "method": method, "calls": calls},
@@ -145,32 +172,34 @@ async def lose_connection(ui, app, pattern, *, method="GET"):
 
 @asynccontextmanager
 async def hold_deliveries(ui, app, *specifications):
-    """Coordinate multiple real responses without nesting page-route ownership."""
+    """Coordinate real responses with independent, scoped route ownership."""
     gates = []
-    for pattern, method in specifications:
-        gate = DeliveryGate(method=method)
-        gates.append(gate)
-
-        async def hold(route, _request, *, current=gate):
-            if route.request.method != current.method:
-                await route.fallback()
-                return
-            # Environmental timing only: retain the real app response intact.
-            response = await route.fetch()
-            row = {"url": route.request.url, "status": response.status}
-            current.requests.append(row)
-            current.held.set()
-            await current.release.wait()
-            await route.fulfill(response=response)
-            row["delivery"] = "forwarded_unchanged"
-
-        await ui.route(pattern, hold)
     try:
-        yield gates
+        async with AsyncExitStack() as stack:
+            try:
+                for pattern, method in specifications:
+                    gate = DeliveryGate(method=method)
+                    gates.append(gate)
+
+                    async def hold(route, *, current=gate):
+                        if route.request.method != current.method:
+                            await route.fallback()
+                            return
+                        # Environmental timing only: retain the real app response intact.
+                        response = await route.fetch()
+                        row = {"url": route.request.url, "status": response.status}
+                        current.requests.append(row)
+                        current.held.set()
+                        await current.release.wait()
+                        await route.fulfill(response=response)
+                        row["delivery"] = "forwarded_unchanged"
+
+                    await stack.enter_async_context(_scoped_route(ui, pattern, hold))
+                yield gates
+            finally:
+                for gate in gates:
+                    gate.release.set()
     finally:
-        for gate in gates:
-            gate.release.set()
-        await asyncio.wait_for(ui.unroute_all(behavior="wait"), 15)
         app.evidence.save_json(
             "coordinated-response-delivery.json", [g.requests for g in gates]
         )
