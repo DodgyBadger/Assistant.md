@@ -15,7 +15,7 @@
             panel.className = 'chat-start-panel';
             panel.innerHTML = `
                 <div class="chat-start-panel-title">Ready for a new chat</div>
-                <div class="chat-start-panel-summary">${utils.escapeHtml(modelText)} - ${utils.escapeHtml(thinkingText)}</div>
+                <div class="chat-start-panel-summary"><button type="button" class="text-accent hover:underline" data-chat-start-model-options aria-haspopup="dialog">${utils.escapeHtml(modelText)}</button> - ${utils.escapeHtml(thinkingText)}</div>
                 ${renderWorkspaceRow(workspacePath)}
                 ${renderFavorites()}
             `;
@@ -78,6 +78,10 @@
             panel.addEventListener('click', (event) => {
                 const target = event.target;
                 if (!(target instanceof Element)) return;
+                if (target.closest('[data-chat-start-model-options]')) {
+                    callbacks.openSessionOptions?.();
+                    return;
+                }
                 const favorite = target.closest('[data-chat-favorite]');
                 if (favorite) {
                     if (!state.isLoading) callbacks.selectSession?.(favorite.dataset.chatFavorite);

@@ -44,6 +44,7 @@
             callbacks: {
                 selectSession: callbacks.selectSession,
                 openWorkspacePicker: callbacks.openWorkspacePicker,
+                openSessionOptions: callbacks.openSessionOptions,
                 renderEmptyState: () => renderChatEmptyState(),
             },
         });

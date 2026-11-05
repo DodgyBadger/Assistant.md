@@ -437,7 +437,7 @@
             `;
         }
 
-        function openSessionBrowserModal() {
+        function openSessionBrowserModal({ expandOptions = false } = {}) {
             closeSessionBrowserModal();
             const overlay = document.createElement('div');
             overlay.id = 'session-browser-modal';
@@ -464,7 +464,7 @@
                     </div>
                     <div class="session-browser-body flex-1">
                         <p data-chat-settings-flight-notice hidden class="mb-3 text-xs text-txt-secondary">Setting changes apply to your next message. The current response keeps its settings.</p>
-                        <details class="chat-settings-options">
+                        <details class="chat-settings-options" ${expandOptions ? 'open' : ''}>
                             <summary class="chat-settings-options-summary">
                                 <span>Options</span>
                                 <svg class="chat-settings-options-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -511,10 +511,12 @@
             document.body.appendChild(overlay);
             moveSettingsControlsIntoModal(overlay);
             scheduleSessionBrowserSearch();
-            const filterInput = overlay.querySelector('#session-browser-filter');
-            if (filterInput instanceof HTMLInputElement) {
-                filterInput.focus();
-                filterInput.select();
+            const focusControl = expandOptions
+                ? elements.modelSelector
+                : overlay.querySelector('#session-browser-filter');
+            focusControl?.focus();
+            if (focusControl instanceof HTMLInputElement) {
+                focusControl.select();
             }
         }
 

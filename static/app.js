@@ -292,6 +292,7 @@ const chatRendering = window.ChatRendering.create({
         loadSession,
         selectSession: (sessionId) => sessionControls.selectSession(sessionId),
         openWorkspacePicker: () => workspacePicker.openModal(),
+        openSessionOptions: () => sessionControls.openSessionBrowserModal({ expandOptions: true }),
         openSessionMap: ({ checkpointId = '' } = {}) => sessionMap.openModalForSession(
             { session_id: state.sessionId },
             { checkpointId }
