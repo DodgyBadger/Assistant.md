@@ -9,6 +9,8 @@ Assistant.md is a self-hosted AI agent harness for non-coding knowledge work. It
 
 Mount one or more Markdown vaults when you install Assistant.md, and they become available to the chat agent and automated workflows. At the start of each chat session, choose any folder within a vault as the workspace, giving the agent immediate project context.
 
+<img src="static/assistantmd-split-view.png" alt="Assistant.md chat, favorite sessions, and Vault Explorer in split view" width="1200">
+
 ## Features
 
 - **Agentic work sessions:** Run long-lived, tool-heavy work that continues after you disconnect, with context protection, subagent delegation, goal tracking, and automatic session compaction.
