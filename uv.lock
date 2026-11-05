@@ -1533,7 +1533,7 @@ wheels = [
 ]
 
 [[package]]
-name = "project-assistant"
+name = "assistant-md"
 version = "0.9.4"
 source = { virtual = "." }
 dependencies = [

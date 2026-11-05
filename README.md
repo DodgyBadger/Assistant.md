@@ -13,7 +13,7 @@ Mount one or more Markdown vaults when you install Assistant.md, and they become
 
 - **Agentic work sessions:** Run long-lived, tool-heavy work that continues after you disconnect, with context protection, subagent delegation, goal tracking, and automatic session compaction.
 - **Inspectable session memory:** Search earlier conversations and retrieve original messages after compaction. Optional Compaction v2 preserves structured, source-linked session maps with inspectable revisions.
-- **Project-aware workspaces:** Scope a chat to any vault folder and provide project-specific guidance through familiar Markdown files such as `README.md` and `playbook.md`.
+- **Project-aware workspaces:** Scope a chat to any vault folder and provide project-specific guidance through familiar Markdown files such as `README.md`, `playbook.md` and `prompts.md`.
 - **Vault explorer:** Browse, preview, edit, upload, import, move, organize, and search files in your vault.
 - **MCP tools:** Connect to remote Streamable HTTP or SSE servers with lazy tool discovery that keeps the context window lean.
 - **Gmail connections:** Search and read mail, import PDF attachments to Markdown, and create unsent drafts across one or more connected accounts.

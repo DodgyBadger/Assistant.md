@@ -7,6 +7,7 @@
 - New split view in the Vault Explorer (desktop only) so you can chat and browse files at the same time.
 - Easier message copying by long pressing the copy button.
 - Fixed session-map marker ordering.
+- Allow multiple file deletion in the Vault Explorer
 
 ## v0.9.3
 
