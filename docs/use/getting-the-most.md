@@ -22,10 +22,11 @@ Describe the outcome, important constraints, and where useful work should be sav
 
 Set a project folder as the chat workspace when the agent needs orientation to ongoing work. The workspace supplies a starting point without restricting the agent to that folder.
 
-Use these files to give future conversations durable context and working preferences:
+Use these files for durable project context, working preferences, and reusable prompts:
 
 - `{workspace}/README.md` explains the project: its purpose, current state, important files, terminology, and active priorities.
 - `{workspace}/playbook.md` defines project-specific working rules, such as review expectations, file conventions, or sources of truth.
+- `{workspace}/prompts.md` stores reusable message drafts under `##` headings. Long-press the submit button to choose one, then review and send it from the composer.
 - `AssistantMD/playbook.md` defines preferences and policies that should apply across the vault.
 - `AssistantMD/soul.md` shapes the agent's personality, tone, and communication style.
 
