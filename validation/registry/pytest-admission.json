@@ -46,6 +46,16 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_chat_feature_hardening.py",
+      "kind": "behavioral",
+      "sha256": "04d365f86d44b05ac3f1af40e5903d4624aef839a0724e8e13253467d7a0d7d4",
+      "tests": [
+        "test_excerpt_copy_preserves_preformatted_indentation",
+        "test_session_favorite_transport_failure_is_visible_and_retryable",
+        "test_pending_session_favorite_stays_locked_after_vault_round_trip"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_configuration_browser.py",
       "sha256": "1aa2c2d1e88d83e184c02f26c5bab6e674e407fbb584ba966d21cccaa38f3725",
       "kind": "behavioral",
@@ -1761,6 +1771,14 @@
       "tests": [
         "test_failed_bootstrap_cleans_mcp_workers_and_repair_closes_real_client",
         "test_closed_task_admission_preserves_completed_chat_and_history"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_saved_prompt_observability.py",
+      "kind": "behavioral",
+      "sha256": "03e5f9877eb006bb0ead45da6f4342fbee3875e76eff34932a604609fcf0654f",
+      "tests": [
+        "test_prompt_failures_retain_distinct_scope_and_reason_without_content"
       ]
     },
     {

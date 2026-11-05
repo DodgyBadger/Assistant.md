@@ -4,7 +4,10 @@
 
         function open(button, body) {
             const paragraphs = Array.from(body.children)
-                .map(block => block.innerText.trim()).filter(Boolean);
+                .map(block => block.matches('pre')
+                    ? (block.querySelector('code')?.textContent ?? block.innerText)
+                    : block.innerText.trim())
+                .filter(Boolean);
             if (!paragraphs.length && body.innerText.trim()) paragraphs.push(body.innerText.trim());
             if (!paragraphs.length) return;
             active?.close();

@@ -1,6 +1,7 @@
 (function sessionControlsModule(window) {
     function createSessionControlsController({ state, elements, icons, utils, sessionMap, callbacks }) {
         const { escapeHtml } = utils;
+        const pendingFavorites = new Set();
         let editingSessionId = '';
         let sessionBrowserFilter = '';
         let sessionBrowserSearchMode = 'name';
@@ -120,8 +121,14 @@
             `;
         }
 
+        function favoriteRequestKey(vault, sessionId) {
+            return JSON.stringify([vault, sessionId]);
+        }
+
         function isSessionActionLocked(action, sessionId) {
-            return Boolean(state.isLoading && sessionId === state.sessionId
+            return (action === 'favorite' && pendingFavorites.has(
+                favoriteRequestKey(elements.vaultSelector?.value || '', sessionId)
+            )) || Boolean(state.isLoading && sessionId === state.sessionId
                 && ['delete', 'upgrade-v2'].includes(action));
         }
 
@@ -514,7 +521,11 @@
         async function toggleFavorite(sessionId, button) {
             const vault = elements.vaultSelector?.value || '';
             const session = state.sessions.find(row => row.session_id === sessionId);
-            if (!vault || !session || button.disabled) return;
+            const key = favoriteRequestKey(vault, sessionId);
+            if (!vault || !session || button.disabled || pendingFavorites.has(key)) return;
+            pendingFavorites.add(key);
+            const modal = sessionBrowserModal();
+            modal?.querySelector('[data-session-favorite-error]')?.remove();
             button.disabled = true;
             try {
                 const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/favorite`, {
@@ -533,11 +544,19 @@
                     || String(b.last_activity_at).localeCompare(String(a.last_activity_at))
                     || String(b.created_at).localeCompare(String(a.created_at))
                     || b.session_id.localeCompare(a.session_id));
-                renderSelector();
             } catch (error) {
-                callbacks.updateStatus?.(`Unable to update favorite: ${error.message}`, 'error');
+                if (elements.vaultSelector?.value === vault && sessionBrowserModal() === modal) {
+                    const notice = document.createElement('p');
+                    notice.dataset.sessionFavoriteError = 'true';
+                    notice.className = 'state-error';
+                    notice.setAttribute('role', 'alert');
+                    notice.textContent = `Unable to update favorite: ${error.message}. Try again.`;
+                    modal?.querySelector('#session-browser-list')?.before(notice);
+                }
             } finally {
+                pendingFavorites.delete(key);
                 button.disabled = false;
+                if (elements.vaultSelector?.value === vault) renderSelector();
             }
         }
 
