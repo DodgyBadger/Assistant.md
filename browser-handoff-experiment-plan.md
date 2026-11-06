@@ -79,6 +79,12 @@ Desktop quick start after cloning the experimental branch: run `scripts/dev setu
 
 The final desktop-entry-point checks passed: six actual launcher checks, the 23-check viewer/sign-in/submission exercise, and local synthetic probes in all three browser modes. Evidence: `launcher-green.json`, `desktop-console-green.json`, and `desktop-probe-green.json` under `validation/runs/browser-handoff/`. Repository-wide Ruff/Black, production/experiment MyPy, and shell syntax validation passed. No public-site probes or real credentials were used for packaging validation. Desktop-native display paths are supported by platform gating but were not run on macOS or Windows here.
 
+### Missing desktop Chromium
+
+The desktop launch reported a missing Playwright-managed Chromium executable. Before starting Uvicorn or writing access codes, the launcher must resolve the current user's expected executable and give `uv run python -m playwright install chromium` as the repair command when it is absent. Do not automatically download a browser or silently select another executable. Reuse the same prerequisite check in standalone probes. Extend the actual launcher exercise with an empty `PLAYWRIGHT_BROWSERS_PATH` to reproduce the missing-install condition without replacing application code; require an actionable error, no traceback, no access-file creation, and no initialized runtime roots, then retain the existing successful-start checks with the installed cache.
+
+The missing-cache red case reproduced the absent repair instruction. All ten launcher checks then passed, including clean failure before access-code creation and successful launch with the installed cache. Evidence: `validation/runs/browser-handoff/missing-browser-red.json` and `missing-browser-green.json`. Repository-wide Ruff/Black and production/experiment MyPy passed. The desktop repair remains a user-run browser installation for the same checkout/account, followed by retrying the experiment command.
+
 ## Steps and evidence
 
 1. Create the experimental branch and inspect the existing browser, validation rules, AgenticOS implementation, and external retailer investigation.

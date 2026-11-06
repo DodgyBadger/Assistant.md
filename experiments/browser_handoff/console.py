@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import secrets
@@ -22,7 +23,12 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from experiments.browser_handoff.fixture import login_site
-from experiments.browser_handoff.probe import MODES, launch
+from experiments.browser_handoff.probe import (
+    MODES,
+    BrowserInstallError,
+    chromium_executable,
+    launch,
+)
 from experiments.browser_handoff.runtime import browser_runtime
 from experiments.browser_handoff.session import (
     AgentCommand,
@@ -193,6 +199,11 @@ def create_app(options: Options) -> FastAPI:
     return app
 
 
+async def check_browser_installation() -> None:
+    async with async_playwright() as playwright:
+        chromium_executable(playwright)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8766)
@@ -204,6 +215,10 @@ def main() -> None:
         default=Path("validation/runs/browser-handoff/console-access.json"),
     )
     args = parser.parse_args()
+    try:
+        asyncio.run(check_browser_installation())
+    except BrowserInstallError as exc:
+        parser.exit(1, f"ERROR: {exc}\n")
     options = Options(
         secrets.token_urlsafe(32),
         secrets.token_urlsafe(32),

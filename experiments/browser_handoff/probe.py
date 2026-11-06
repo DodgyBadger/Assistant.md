@@ -164,8 +164,25 @@ async def handoff_checks(browser: Browser) -> dict[str, bool]:
     )
 
 
+class BrowserInstallError(RuntimeError):
+    """The selected Playwright installation has no managed Chromium binary."""
+
+
+def chromium_executable(playwright: Playwright) -> str:
+    executable = Path(playwright.chromium.executable_path)
+    if not executable.is_file():
+        raise BrowserInstallError(
+            f"Playwright Chromium is missing at {executable}.\n"
+            "Install it for this checkout and user with:\n"
+            "  uv run python -m playwright install chromium\n"
+            "Then retry: scripts/dev run --browser-handoff"
+        )
+    return str(executable)
+
+
 @asynccontextmanager
 async def launch(playwright: Playwright, mode: str) -> AsyncIterator[Browser]:
+    executable = chromium_executable(playwright)
     if mode != "headful_cdp":
         browser = await playwright.chromium.launch(
             headless=mode == "headless", channel="chromium"
@@ -178,7 +195,7 @@ async def launch(playwright: Playwright, mode: str) -> AsyncIterator[Browser]:
     with TemporaryDirectory(prefix="assistantmd-browser-probe-") as profile:
         process = subprocess.Popen(
             [
-                playwright.chromium.executable_path,
+                executable,
                 "--remote-debugging-port=0",
                 "--remote-debugging-address=127.0.0.1",
                 f"--user-data-dir={profile}",

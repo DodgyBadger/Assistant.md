@@ -28,6 +28,38 @@ def exercise(output: Path) -> int:
             environment = dict(
                 os.environ, ASSISTANTMD_DEV_RUNTIME_ROOT=str(root / "runtime")
             )
+            missing = subprocess.run(
+                [
+                    "scripts/dev",
+                    "run",
+                    "--browser-handoff",
+                    "--port",
+                    str(port),
+                    "--",
+                    "--access-file",
+                    str(access_file),
+                ],
+                env=dict(
+                    environment,
+                    PLAYWRIGHT_BROWSERS_PATH=str(root / "empty-browser-cache"),
+                ),
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            diagnostics = missing.stdout + missing.stderr
+            assert missing.returncode != 0, "missing_browser_rejected"
+            checks["missing_browser_rejected"] = True
+            assert (
+                "uv run python -m playwright install chromium" in diagnostics
+            ), "missing_browser_reports_install_command"
+            checks["missing_browser_reports_install_command"] = True
+            assert "Traceback" not in diagnostics, "missing_browser_has_no_traceback"
+            checks["missing_browser_has_no_traceback"] = True
+            assert (
+                not access_file.exists()
+            ), "missing_browser_does_not_create_access_file"
+            checks["missing_browser_does_not_create_access_file"] = True
             with (root / "launcher.log").open("w") as log:
                 process = subprocess.Popen(
                     [
