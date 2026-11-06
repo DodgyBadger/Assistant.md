@@ -11,7 +11,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import secrets
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -142,9 +141,7 @@ async def exercise(output: Path) -> int:
         "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "checks": checks,
     }
-    options = Options(
-        secrets.token_urlsafe(32), secrets.token_urlsafe(32), mode="headless"
-    )
+    options = Options(mode="headless")
     try:
         async with serve(options) as upstream, async_playwright() as playwright:
             browser = await playwright.chromium.launch(
@@ -163,28 +160,6 @@ async def exercise(output: Path) -> int:
                             page.on("request", escape_recorder(origin, escaped))
                             await page.goto(origin)
                             frame = page.frame_locator("iframe")
-                            await frame.get_by_label("Access code", exact=True).fill(
-                                "invalid-code"
-                            )
-                            await frame.get_by_role(
-                                "button", name="Connect", exact=True
-                            ).click()
-                            try:
-                                await expect(frame.get_by_role("status")).to_have_text(
-                                    "unauthorized", timeout=5000
-                                )
-                            except AssertionError:
-                                checks[label + "_invalid_code_rejected"] = False
-                                raise AssertionError(
-                                    label + "_invalid_code_rejected"
-                                ) from None
-                            checks[label + "_invalid_code_rejected"] = True
-                            await frame.get_by_label("Access code", exact=True).fill(
-                                options.human_token
-                            )
-                            await frame.get_by_role(
-                                "button", name="Connect", exact=True
-                            ).click()
                             try:
                                 await expect(frame.locator("#owner")).to_have_text(
                                     "agent", timeout=5000

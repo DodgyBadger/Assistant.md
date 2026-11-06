@@ -4,17 +4,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import os
-import secrets
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from playwright.async_api import Error as PlaywrightError
@@ -41,13 +38,10 @@ from experiments.browser_handoff.session import (
 )
 
 ASSETS = Path(__file__).parent / "console"
-LOCAL_TEST_PASSWORD = "browser-test"
 
 
 @dataclass(frozen=True)
 class Options:
-    human_token: str = field(repr=False)
-    agent_token: str = field(repr=False)
     mode: str = "headful_cdp"
     demo: bool = True
 
@@ -77,25 +71,6 @@ def create_app(options: Options) -> FastAPI:
         if session is None:
             raise HTTPException(503, "browser_not_ready")
         return session
-
-    def authenticate(
-        request: Request, token: str, *, human_header: bool = False
-    ) -> None:
-        supplied = (
-            request.headers.get("X-Browser-Handoff-Token", "") if human_header else ""
-        )
-        expected = token
-        if not supplied:
-            supplied = request.headers.get("Authorization", "")
-            expected = "Bearer " + token
-        if not secrets.compare_digest(supplied.encode(), expected.encode()):
-            raise HTTPException(401, "unauthorized")
-
-    def human(request: Request) -> None:
-        authenticate(request, options.human_token, human_header=True)
-
-    def agent(request: Request) -> None:
-        authenticate(request, options.agent_token)
 
     @app.middleware("http")
     async def private_responses(
@@ -133,38 +108,38 @@ def create_app(options: Options) -> FastAPI:
     async def stylesheet() -> FileResponse:
         return FileResponse(ASSETS / "console.css", media_type="text/css")
 
-    @app.get("/human/state", dependencies=[Depends(human)])
-    @app.get("/agent/state", dependencies=[Depends(agent)])
+    @app.get("/human/state")
+    @app.get("/agent/state")
     async def state() -> State:
         return await browser_session().status()
 
-    @app.post("/human/control", dependencies=[Depends(human)])
+    @app.post("/human/control")
     async def control(command: Control) -> State:
         return await browser_session().control(command)
 
-    @app.post("/human/navigate", dependencies=[Depends(human)])
+    @app.post("/human/navigate")
     async def navigate(command: Navigate) -> State:
         return await browser_session().navigate(command)
 
-    @app.post("/human/input", dependencies=[Depends(human)])
+    @app.post("/human/input")
     async def browser_input(command: HumanInput) -> State:
         return await browser_session().input(command)
 
-    @app.get("/human/frame", dependencies=[Depends(human)])
+    @app.get("/human/frame")
     async def frame() -> Response:
         return Response(await browser_session().frame(), media_type="image/jpeg")
 
-    @app.post("/human/close", dependencies=[Depends(human)])
+    @app.post("/human/close")
     async def close() -> State:
         return await browser_session().close()
 
-    @app.get("/human/demo", dependencies=[Depends(human)])
+    @app.get("/human/demo")
     async def demo_access() -> dict[str, str]:
         if demo is None:
             raise HTTPException(404, "demo_disabled")
         return {"url": demo[0] + "/login", "password": demo[1]}
 
-    @app.post("/human/demo-run", dependencies=[Depends(human)])
+    @app.post("/human/demo-run")
     async def demo_run() -> View:
         current = browser_session()
         if demo is None or current.page.url != demo[0] + "/workspace":
@@ -193,7 +168,7 @@ def create_app(options: Options) -> FastAPI:
             )
         return view
 
-    @app.post("/agent", dependencies=[Depends(agent)])
+    @app.post("/agent")
     async def execute(command: AgentCommand) -> View:
         return await browser_session().execute(command)
 
@@ -210,35 +185,16 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--mode", choices=MODES, default="headful_cdp")
     parser.add_argument("--no-demo", action="store_true")
-    parser.add_argument(
-        "--access-file",
-        type=Path,
-        default=Path("validation/runs/browser-handoff/console-access.json"),
-    )
     args = parser.parse_args()
     try:
         asyncio.run(check_browser_installation())
     except BrowserInstallError as exc:
         parser.exit(1, f"ERROR: {exc}\n")
     options = Options(
-        LOCAL_TEST_PASSWORD,
-        secrets.token_urlsafe(32),
         mode=args.mode,
         demo=not args.no_demo,
     )
-    access = {
-        "url": f"http://127.0.0.1:{args.port}/",
-        "human_token": options.human_token,
-        "agent_token": options.agent_token,
-    }
-    args.access_file.parent.mkdir(parents=True, exist_ok=True)
-    with os.fdopen(
-        os.open(args.access_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w"
-    ) as handle:
-        os.fchmod(handle.fileno(), 0o600)
-        json.dump(access, handle)
-    print(f"Console: {access['url']} (access codes: {args.access_file})", flush=True)
-    print(f"Local test password: {LOCAL_TEST_PASSWORD}", flush=True)
+    print(f"Console: http://127.0.0.1:{args.port}/", flush=True)
     uvicorn.run(
         create_app(options),
         host="127.0.0.1",

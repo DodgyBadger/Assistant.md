@@ -268,7 +268,7 @@ run_server() {
   cd "${REPO_ROOT}"
   if [ "${browser_handoff}" = true ]; then
     [ "${address_option_set}" = false ] || die "--browser-handoff is loopback-only; omit --address."
-    [ "${auth_mode_option_set}" = false ] || die "--browser-handoff uses its own access codes; omit --auth-mode."
+    [ "${auth_mode_option_set}" = false ] || die "--browser-handoff is a standalone local experiment; omit --auth-mode."
     exec uv run python -m experiments.browser_handoff.console --port "${port}" "${uvicorn_args[@]}"
   fi
   ensure_runtime_roots

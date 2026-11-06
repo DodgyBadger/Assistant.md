@@ -13,7 +13,6 @@ import argparse
 import asyncio
 import hashlib
 import json
-import secrets
 import socket
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -60,12 +59,20 @@ async def exercise(checks: dict[str, bool]) -> None:
         if not condition:
             raise AssertionError(name)
 
-    options = Options(secrets.token_urlsafe(32), secrets.token_urlsafe(32))
+    options = Options()
     async with serve(options) as origin, async_playwright() as playwright:
         viewer = await playwright.chromium.launch(headless=True, channel="chromium")
         try:
             page = await viewer.new_page(viewport={"width": 1440, "height": 1100})
-            await page.goto(origin + "/#" + options.human_token)
+            await page.add_init_script(
+                "try { sessionStorage.setItem('browser-human-token', 'obsolete-token'); } catch {}"
+            )
+            await page.goto(origin + "/")
+            try:
+                await expect(page.locator("#owner")).to_have_text("agent", timeout=3000)
+            except AssertionError:
+                require(False, "passwordless_connection")
+            require(True, "passwordless_connection")
             require(
                 await page.get_by_role(
                     "button", name="Take control", exact=True
@@ -75,28 +82,12 @@ async def exercise(checks: dict[str, bool]) -> None:
             )
             async with (
                 httpx.AsyncClient(base_url=origin, timeout=15) as anonymous,
-                httpx.AsyncClient(
-                    base_url=origin,
-                    timeout=15,
-                    headers={"Authorization": "Bearer " + options.agent_token},
-                ) as agent,
-                httpx.AsyncClient(
-                    base_url=origin,
-                    timeout=15,
-                    headers={"Authorization": "Bearer " + options.human_token},
-                ) as human,
+                httpx.AsyncClient(base_url=origin, timeout=15) as agent,
+                httpx.AsyncClient(base_url=origin, timeout=15) as human,
             ):
                 require(
-                    (await anonymous.get("/human/state")).status_code == 401,
-                    "human_capability_required",
-                )
-                require(
-                    (await agent.get("/human/state")).status_code == 401,
-                    "agent_cannot_use_human_capability",
-                )
-                require(
-                    (await human.get("/agent/state")).status_code == 401,
-                    "human_token_not_agent_token",
+                    (await anonymous.get("/human/state")).status_code == 200,
+                    "local_access_needs_no_key",
                 )
                 initial = (await agent.get("/agent/state")).json()
                 view = await agent.post(
@@ -134,8 +125,6 @@ async def exercise(checks: dict[str, bool]) -> None:
                     and denied.json()["detail"] == "human_in_control",
                     "agent_write_paused",
                 )
-                denied = await agent.get("/human/frame")
-                require(denied.status_code == 401, "agent_cannot_read_human_frames")
                 demo = (await human.get("/human/demo")).json()
                 password = demo["password"]
                 # Click the remote body's margin, then use real viewer keyboard

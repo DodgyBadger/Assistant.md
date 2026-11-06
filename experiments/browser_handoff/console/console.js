@@ -2,15 +2,6 @@
 
 const element = id => document.getElementById(id);
 const baseUrl = new URL('.', document.baseURI);
-function storedToken() {
-  try { return sessionStorage.getItem('browser-human-token') || ''; }
-  catch { return ''; } // Opaque-origin preview frames have no browser storage.
-}
-function rememberToken() {
-  try { sessionStorage.setItem('browser-human-token', token); }
-  catch { /* The access code can remain in memory for this preview. */ }
-}
-let token = location.hash.slice(1) || storedToken();
 try { history.replaceState(null, '', location.pathname + location.search); }
 catch { /* Sandboxed frames cannot modify history. */ }
 let state = null;
@@ -34,7 +25,7 @@ function render(next) {
 async function api(path, body) {
   const response = await fetch(new URL(path.replace(/^\/+/, ''), baseUrl), {
     method: body === undefined ? 'GET' : 'POST',
-    headers: {'X-Browser-Handoff-Token': token, ...(body === undefined ? {} : {'Content-Type': 'application/json'})},
+    headers: body === undefined ? {} : {'Content-Type': 'application/json'},
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
   });
@@ -62,11 +53,10 @@ function input(body) {
 }
 
 async function refresh() {
-  if (!token || polling || document.hidden) return;
+  if (polling || document.hidden) return;
   polling = true;
   try {
     render(await (await api('/human/state')).json());
-    element('access').hidden = true;
     if (state.owner !== 'closed') {
       const blob = await (await api('/human/frame')).blob();
       const previous = frameUrl;
@@ -82,14 +72,6 @@ async function refresh() {
   finally { polling = false; }
 }
 
-element('access').addEventListener('submit', event => {
-  event.preventDefault();
-  token = element('token').value;
-  element('token').value = '';
-  rememberToken();
-  message('');
-  refresh();
-});
 element('take').addEventListener('click', () => enqueue(() => control('human')));
 element('give').addEventListener('click', () => enqueue(() => control('agent')));
 element('close').addEventListener('click', () => enqueue(async () => render(await (await api('/human/close', {})).json())));
@@ -134,6 +116,5 @@ element('screen').addEventListener('wheel', event => {
   event.preventDefault(); input({kind: 'scroll', delta_x: Math.max(-2000, Math.min(2000, event.deltaX)), delta_y: Math.max(-2000, Math.min(2000, event.deltaY))});
 }, {passive: false});
 window.addEventListener('pagehide', () => { if (frameUrl) URL.revokeObjectURL(frameUrl); });
-if (token) rememberToken();
 refresh();
 setInterval(refresh, 750);

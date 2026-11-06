@@ -24,7 +24,6 @@ def exercise(output: Path) -> int:
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
                 port = listener.getsockname()[1]
-            access_file = root / "access.json"
             environment = dict(
                 os.environ, ASSISTANTMD_DEV_RUNTIME_ROOT=str(root / "runtime")
             )
@@ -35,9 +34,6 @@ def exercise(output: Path) -> int:
                     "--browser-handoff",
                     "--port",
                     str(port),
-                    "--",
-                    "--access-file",
-                    str(access_file),
                 ],
                 env=dict(
                     environment,
@@ -56,10 +52,6 @@ def exercise(output: Path) -> int:
             checks["missing_browser_reports_install_command"] = True
             assert "Traceback" not in diagnostics, "missing_browser_has_no_traceback"
             checks["missing_browser_has_no_traceback"] = True
-            assert (
-                not access_file.exists()
-            ), "missing_browser_does_not_create_access_file"
-            checks["missing_browser_does_not_create_access_file"] = True
             with (root / "launcher.log").open("w") as log:
                 process = subprocess.Popen(
                     [
@@ -68,9 +60,6 @@ def exercise(output: Path) -> int:
                         "--browser-handoff",
                         "--port",
                         str(port),
-                        "--",
-                        "--access-file",
-                        str(access_file),
                     ],
                     env=environment,
                     stdout=log,
@@ -86,10 +75,7 @@ def exercise(output: Path) -> int:
                             if process.poll() is not None:
                                 raise AssertionError("launcher_exited_before_ready")
                             try:
-                                if (
-                                    access_file.exists()
-                                    and client.get("/").status_code == 200
-                                ):
+                                if client.get("/").status_code == 200:
                                     break
                             except httpx.TransportError:
                                 pass
@@ -97,32 +83,12 @@ def exercise(output: Path) -> int:
                                 raise AssertionError("launcher_startup_timeout")
                             time.sleep(0.1)
                         checks["special_flag_starts_prototype"] = True
-                        access = json.loads(access_file.read_text())
-                        assert (
-                            access["url"] == f"http://127.0.0.1:{port}/"
-                        ), "explicit_port_honored"
-                        checks["explicit_port_honored"] = True
-                        assert (
-                            client.get("/human/state").status_code == 401
-                        ), "unauthenticated_access_denied"
-                        checks["unauthenticated_access_denied"] = True
-                        assert (
-                            client.get(
-                                "/human/state",
-                                headers={"X-Browser-Handoff-Token": "wrong-password"},
-                            ).status_code
-                            == 401
-                        ), "wrong_password_rejected"
-                        checks["wrong_password_rejected"] = True
-                        response = client.get(
-                            "/human/state",
-                            headers={"X-Browser-Handoff-Token": "browser-test"},
-                        )
+                        response = client.get("/human/state")
                         assert (
                             response.status_code == 200
                             and response.json()["owner"] == "agent"
-                        ), "static_password_accepted"
-                        checks["static_password_accepted"] = True
+                        ), "passwordless_local_access"
+                        checks["passwordless_local_access"] = True
                         assert not (
                             root / "runtime"
                         ).exists(), "main_runtime_state_not_initialized"
