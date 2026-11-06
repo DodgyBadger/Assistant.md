@@ -25,8 +25,9 @@ Run options:
   -p, --port <port>       Listen on this port (default: 8000)
   -a, --address <address> Override the authentication mode's listen address
       --auth-mode <mode>  Authentication: loopback, disabled, owner_token, or trusted_proxy
+      --browser-handoff   Run the standalone browser experiment on loopback (default port: 8766)
   -h, --help              Show run-specific help
-  --                       Pass remaining arguments to Uvicorn
+  --                       Pass remaining arguments to Uvicorn or the browser experiment
 
 Environment:
   ASSISTANTMD_DEV_RUNTIME_ROOT  Use an alternate parent for data/ and system/
@@ -201,12 +202,17 @@ setup_environment() {
   echo "Runtime system: ${SYSTEM_ROOT}"
   print_secrets_key_guidance
   echo "Start AssistantMD with: scripts/dev run"
+  if [ "${with_browser}" = true ]; then
+    echo "Start the standalone browser experiment (no API keys needed): scripts/dev run --browser-handoff"
+  fi
 }
 
 run_server() {
   local address="${ASSISTANTMD_DEV_HOST:-}"
   local address_option_set=false
   local port="${ASSISTANTMD_DEV_PORT:-8000}"
+  local port_option_set=false
+  local browser_handoff=false
   local auth_mode="${ASSISTANTMD_AUTH_MODE:-}"
   local auth_mode_option_set=false
   local -a uvicorn_args=()
@@ -216,6 +222,7 @@ run_server() {
       -p|--port)
         [ "$#" -ge 2 ] || die "$1 requires a port number."
         port="$2"
+        port_option_set=true
         shift 2
         ;;
       -a|--address)
@@ -237,22 +244,34 @@ run_server() {
         usage
         return
         ;;
+      --browser-handoff)
+        browser_handoff=true
+        shift
+        ;;
       --)
         shift
         uvicorn_args=("$@")
         break
         ;;
       *)
-        die "Unknown run option: $1. Put advanced Uvicorn arguments after --."
+        die "Unknown run option: $1. Put server-specific arguments after --."
         ;;
     esac
   done
 
+  if [ "${browser_handoff}" = true ] && [ "${port_option_set}" = false ] && [ -z "${ASSISTANTMD_DEV_PORT:-}" ]; then
+    port=8766
+  fi
   validate_port "${port}"
   require_command uv "Install it from https://docs.astral.sh/uv/getting-started/installation/."
   require_environment
-  ensure_runtime_roots
   cd "${REPO_ROOT}"
+  if [ "${browser_handoff}" = true ]; then
+    [ "${address_option_set}" = false ] || die "--browser-handoff is loopback-only; omit --address."
+    [ "${auth_mode_option_set}" = false ] || die "--browser-handoff uses its own access codes; omit --auth-mode."
+    exec uv run python -m experiments.browser_handoff.console --port "${port}" "${uvicorn_args[@]}"
+  fi
+  ensure_runtime_roots
   export CONTAINER_DATA_ROOT="${DATA_ROOT}"
   export CONTAINER_SYSTEM_ROOT="${SYSTEM_ROOT}"
   if [ -z "${auth_mode}" ]; then

@@ -1,6 +1,6 @@
 """Opt-in acceptance exercise for the real standalone prototype, not the main app.
 
-Run with DISPLAY and browser runtime dependencies available:
+Run with browser runtime dependencies installed:
     uv run python -m experiments.browser_handoff.exercise --output PATH
 The local synthetic website is the only external-site substitute. Both browsers,
 the rendered console, HTTP control routes, ownership and form submission are real.
@@ -26,6 +26,7 @@ import uvicorn
 from playwright.async_api import async_playwright, expect
 
 from experiments.browser_handoff.console import Options, create_app
+from experiments.browser_handoff.runtime import browser_runtime
 
 
 @asynccontextmanager
@@ -276,7 +277,8 @@ async def run(output: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    return asyncio.run(run(parser.parse_args().output))
+    with browser_runtime("headful_cdp"):
+        return asyncio.run(run(parser.parse_args().output))
 
 
 if __name__ == "__main__":

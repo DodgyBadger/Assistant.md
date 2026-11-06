@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import select
 import shutil
 import subprocess
@@ -14,15 +15,12 @@ from pathlib import Path
 @contextmanager
 def browser_runtime(mode: str) -> Iterator[None]:
     """Use installed dependencies, or the already-extracted investigation runtime."""
-    root = Path(
-        os.environ.get(
-            "BROWSER_EXPERIMENT_RUNTIME_ROOT", "/tmp/assistantmd-browser-deps/root"
-        )
-    )
+    runtime_root = os.environ.get("BROWSER_EXPERIMENT_RUNTIME_ROOT", "")
+    root = Path(runtime_root) if runtime_root else None
     xvfb = shutil.which("Xvfb")
     changes: dict[str, str] = {}
-    fallback = xvfb is None and root.is_dir()
-    if fallback:
+    fallback = xvfb is None and root is not None and root.is_dir()
+    if fallback and root is not None:
         libraries = [*root.glob("usr/lib/*-linux-gnu"), *root.glob("lib/*-linux-gnu")]
         changes["LD_LIBRARY_PATH"] = ":".join(
             [*(str(path) for path in libraries), os.environ.get("LD_LIBRARY_PATH", "")]
@@ -38,10 +36,14 @@ def browser_runtime(mode: str) -> Iterator[None]:
     process: subprocess.Popen[bytes] | None = None
     try:
         os.environ.update(changes)
-        if mode != "headless" and not os.environ.get("DISPLAY"):
+        if (
+            mode != "headless"
+            and platform.system() == "Linux"
+            and not os.environ.get("DISPLAY")
+        ):
             if xvfb is None:
                 raise RuntimeError(
-                    "Headful browsing needs an existing DISPLAY or Xvfb installed in this container"
+                    "Headful browsing needs DISPLAY or Xvfb. Run scripts/dev setup --browser."
                 )
             read_fd, write_fd = os.pipe()
             try:
@@ -55,7 +57,7 @@ def browser_runtime(mode: str) -> Iterator[None]:
                     "-nolisten",
                     "tcp",
                 ]
-                if fallback:
+                if fallback and root is not None:
                     command.extend(
                         [
                             "-xkbdir",

@@ -53,6 +53,7 @@ def create_app(options: Options) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal session, demo
         async with AsyncExitStack() as stack:
+            stack.enter_context(browser_runtime(options.mode))
             demo = stack.enter_context(login_site()) if options.demo else None
             playwright = await stack.enter_async_context(async_playwright())
             browser = await stack.enter_async_context(launch(playwright, options.mode))
@@ -221,14 +222,13 @@ def main() -> None:
         os.fchmod(handle.fileno(), 0o600)
         json.dump(access, handle)
     print(f"Console: {access['url']} (access codes: {args.access_file})", flush=True)
-    with browser_runtime(args.mode):
-        uvicorn.run(
-            create_app(options),
-            host="127.0.0.1",
-            port=args.port,
-            access_log=False,
-            log_level="warning",
-        )
+    uvicorn.run(
+        create_app(options),
+        host="127.0.0.1",
+        port=args.port,
+        access_log=False,
+        log_level="warning",
+    )
 
 
 if __name__ == "__main__":

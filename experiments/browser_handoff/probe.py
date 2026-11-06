@@ -1,7 +1,7 @@
 """Opt-in real-browser characterization, independent of AssistantMD runtime.
 
 Run: uv run python -m experiments.browser_handoff.probe --help
-Requires Playwright Chromium and DISPLAY for headful modes. No personal profiles,
+Requires Playwright Chromium; starts Xvfb on Linux if needed. No personal profiles,
 real logins, storage exports, screenshots, traces, or request bodies are retained.
 """
 
@@ -11,7 +11,6 @@ import argparse
 import asyncio
 import ipaddress
 import json
-import os
 import socket
 import subprocess
 from collections import Counter
@@ -34,6 +33,7 @@ from playwright.async_api import (
 from playwright.async_api import Error as PlaywrightError
 
 from experiments.browser_handoff.fixture import login_site
+from experiments.browser_handoff.runtime import browser_runtime
 
 MODES = ("headless", "headful", "headful_cdp")
 SITES = {
@@ -370,8 +370,6 @@ async def run(args: argparse.Namespace) -> int:
     exit_code = 0
     async with async_playwright() as playwright:
         for mode in args.mode:
-            if mode != "headless" and not os.environ.get("DISPLAY"):
-                raise RuntimeError("Headful modes require DISPLAY (a desktop or Xvfb)")
             async with launch(playwright, mode) as browser:
                 row: dict[str, object] = {
                     "mode": mode,
@@ -429,7 +427,10 @@ def main() -> int:
         parser.error("--settle must be between 0 and 30 seconds")
     if len(set(args.mode)) != len(args.mode):
         parser.error("Duplicate modes are not allowed")
-    return asyncio.run(run(args))
+    with browser_runtime(
+        "headful_cdp" if any(mode != "headless" for mode in args.mode) else "headless"
+    ):
+        return asyncio.run(run(args))
 
 
 if __name__ == "__main__":
