@@ -54,7 +54,17 @@ def login_site() -> Iterator[tuple[str, str]]:
             self.end_headers()
 
         def do_GET(self) -> None:
-            if self.path == "/font":
+            if self.path == "/slow-headers":
+                release_font.wait(timeout=20)
+                self.reply(200, "<main>Slow response</main>")
+            elif self.path == "/many-links":
+                self.reply(
+                    200,
+                    "<main>"
+                    + '<a href="/workspace">Workspace</a><br>' * 2500
+                    + "</main>",
+                )
+            elif self.path == "/font":
                 self.reply(
                     200,
                     '<link rel="stylesheet" href="/font.css"><main>Slow font page</main>',

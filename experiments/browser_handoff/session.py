@@ -271,32 +271,40 @@ class BrowserSession:
                     await self._invalidate()
             return await self._snapshot()
 
+    async def open_for_agent(self, url: str) -> None:
+        """Open a page without requiring extraction before human takeover."""
+        async with self.operation():
+            self._require(owner="agent")
+            await self._check_url(url)
+            await self._invalidate()
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=10000)
+
     async def _snapshot(self) -> View:
         await self._invalidate()
-        handles = await self.page.query_selector_all(
-            "a[href],button,input:not([type=hidden]),select,textarea,[role=button]"
+        selected = await self.page.evaluate_handle(
+            """() => Array.from(document.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,[role=button]')).filter(e => !e.matches('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"],input[autocomplete="one-time-code"]') && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').slice(0,80)"""
         )
         table: list[Element] = []
-        # Dispose every handle, including invisible/overflow entries. Bound the
-        # returned table without preserving an unbounded set of browser handles.
-        for handle in handles:
-            description = await handle.evaluate(
-                """e => ({tag: e.tagName.toLowerCase(), credential: e.matches('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"],input[autocomplete="one-time-code"]'), label: (e.getAttribute('aria-label') || (e.labels && Array.from(e.labels).map(l => l.innerText).join(' ')) || e.innerText || e.getAttribute('name') || e.tagName).trim().slice(0,160)})"""
+        try:
+            descriptions = await selected.evaluate(
+                """elements => elements.map(e => ({tag: e.tagName.toLowerCase(), label: (e.getAttribute('aria-label') || (e.labels && Array.from(e.labels).map(l => l.innerText).join(' ')) || e.innerText || e.getAttribute('name') || e.tagName).trim().slice(0,160)}))"""
             )
-            if (
-                len(table) < 80
-                and not description["credential"]
-                and await handle.is_visible()
-            ):
-                index = len(table) + 1
-                self.elements[index] = handle
-                table.append(
-                    Element(
-                        id=index, tag=description["tag"], label=description["label"]
+            handles = await selected.get_properties()
+            for key, handle in handles.items():
+                element = handle.as_element()
+                if key.isdecimal() and element is not None:
+                    index = int(key) + 1
+                    description = descriptions[int(key)]
+                    self.elements[index] = element
+                    table.append(
+                        Element(
+                            id=index, tag=description["tag"], label=description["label"]
+                        )
                     )
-                )
-            else:
-                await handle.dispose()
+                else:
+                    await handle.dispose()
+        finally:
+            await selected.dispose()
         text = await self.page.locator("body").inner_text(timeout=5000)
         self.elements_revision = self.revision
         return View(

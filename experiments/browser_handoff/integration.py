@@ -11,9 +11,11 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from playwright.async_api import Browser, async_playwright
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from api.principal import use_request_authority
 from core.identity import require_current_execution_authority
+from core.logger import UnifiedLogger
 from core.runtime.execution_tasks import get_current_execution_task
 from experiments.browser_handoff.console import ASSETS
 from experiments.browser_handoff.probe import launch
@@ -26,6 +28,8 @@ from experiments.browser_handoff.session import (
     Navigate,
     State,
 )
+
+logger = UnifiedLogger(tag="browser-handoff")
 
 
 @dataclass
@@ -138,10 +142,40 @@ async def browse(
         raise RuntimeError(
             "Human currently controls this browser. Request human help to wait for handback."
         )
+    timeout_reason = "The page took too long to inspect. Please check it in the browser, then return control."
     if session.owner == "agent" and url and url != session.page.url:
-        await session.execute(
-            AgentCommand(operation="navigate", revision=session.revision, url=url)
-        )
+        try:
+            await session.open_for_agent(url)
+        except (HTTPException, PlaywrightTimeoutError) as exc:
+            if isinstance(exc, HTTPException) and exc.status_code != 504:
+                raise
+            request_human = True
+            reason = reason or timeout_reason
+            logger.info(
+                "interactive_browser_timeout_handoff",
+                data={"phase": "navigation", "browser_id": entry.id},
+            )
+    if not request_human:
+        try:
+            view = await session.execute(
+                AgentCommand(
+                    operation=operation,
+                    revision=session.revision,
+                    element_id=element_id,
+                    value=value,
+                )
+            )
+        except (HTTPException, PlaywrightTimeoutError) as exc:
+            if operation != "read" or (
+                isinstance(exc, HTTPException) and exc.status_code != 504
+            ):
+                raise
+            request_human = True
+            reason = reason or timeout_reason
+            logger.info(
+                "interactive_browser_timeout_handoff",
+                data={"phase": "read", "browser_id": entry.id},
+            )
     if request_human:
         entry.returned.clear()
         entry.waiting = True
@@ -160,13 +194,9 @@ async def browse(
         finally:
             entry.waiting = False
             await publish(entry, "returned" if completed else "stopped", "")
-    command = AgentCommand(
-        operation="read" if request_human else operation,
-        revision=session.revision,
-        element_id=element_id,
-        value=value,
-    )
-    view = await session.execute(command)
+        view = await session.execute(
+            AgentCommand(operation="read", revision=session.revision)
+        )
     return (
         view.model_dump_json()
         + "\nInteractive browser retained for this chat. Use element IDs for click/fill/select; call request_human=true if a human step is needed. Never request or enter the user's passwords."
