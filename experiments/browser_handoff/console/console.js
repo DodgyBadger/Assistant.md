@@ -8,85 +8,138 @@ let state = null;
 let queue = Promise.resolve();
 let frameUrl = null;
 let polling = false;
+let previewing = false;
+let busy = false;
+let draftUrl = false;
+let inputEpoch = 0;
+let connectionError = false;
+const retiredSessions = new Set();
 
 function message(text) { element('message').textContent = text; }
+function clearFrame() {
+  element('screen').removeAttribute('src');
+  if (frameUrl) URL.revokeObjectURL(frameUrl);
+  frameUrl = null;
+}
 function render(next) {
-  if (state && next.revision < state.revision) return;
+  if (state && state.session_id !== next.session_id) {
+    if (retiredSessions.has(next.session_id)) return;
+    retiredSessions.add(state.session_id);
+    inputEpoch++;
+    draftUrl = false;
+    clearFrame();
+  } else if (state && next.revision < state.revision) return;
+  if (state && state.owner !== next.owner) inputEpoch++;
   state = next;
   element('owner').textContent = next.owner;
-  element('take').disabled = next.owner !== 'agent';
-  element('give').disabled = next.owner !== 'human';
-  element('go').disabled = next.owner !== 'human';
-  element('close').disabled = next.owner === 'closed';
-  element('run').disabled = next.owner !== 'agent';
-  if (document.activeElement !== element('url')) element('url').value = next.url === 'about:blank' ? '' : next.url;
+  element('take').disabled = busy || next.owner !== 'agent';
+  element('give').disabled = busy || next.owner !== 'human';
+  element('go').disabled = busy || next.owner !== 'human';
+  element('close').disabled = busy || next.owner === 'closed';
+  element('run').disabled = busy || next.owner !== 'agent';
+  element('demo').disabled = busy || next.owner === 'closed';
+  element('reset').disabled = busy;
+  if (!draftUrl && document.activeElement !== element('url')) element('url').value = next.url === 'about:blank' ? '' : next.url;
+  if (next.owner === 'closed') clearFrame();
 }
 
-async function api(path, body) {
-  const response = await fetch(new URL(path.replace(/^\/+/, ''), baseUrl), {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? {} : {'Content-Type': 'application/json'},
-    body: body === undefined ? undefined : JSON.stringify(body),
-    cache: 'no-store',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    if (error.detail === 'credential_field_still_populated') throw new Error('Submit or clear the password field before giving back control.');
-    throw new Error(error.detail || 'Browser request failed');
-  }
-  return response;
+async function api(path, body, timeout = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(new URL(path.replace(/^\/+/, ''), baseUrl), {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: body === undefined ? {} : {'Content-Type': 'application/json'},
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: 'no-store', signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      if (error.detail === 'credential_field_still_populated') throw new Error('Submit or clear the password field before giving back control.');
+      if (error.detail === 'browser_operation_timed_out') throw new Error('The page stopped responding. Try Reset browser.');
+      throw new Error(error.detail || 'Browser request failed');
+    }
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('The request timed out. Try Reset browser.');
+    throw error;
+  } finally { clearTimeout(timer); }
 }
 
-function enqueue(action) {
-  queue = queue.then(action).catch(error => message(error.message));
-  return queue;
+async function action(label, perform) {
+  if (busy) return;
+  busy = true;
+  if (state) render(state);
+  message(label);
+  try { await queue; await perform(); message(''); }
+  catch (error) { message(error.message); }
+  finally { busy = false; if (state) render(state); }
 }
 
 async function control(owner) {
   render(await (await api('/human/control', {owner, revision: state.revision})).json());
-  message('');
 }
 
 function input(body) {
   if (!state || state.owner !== 'human') return;
-  enqueue(async () => render(await (await api('/human/input', {...body, revision: state.revision})).json()));
+  const epoch = inputEpoch, session = state.session_id;
+  queue = queue.then(async () => {
+    if (epoch !== inputEpoch || session !== state.session_id || state.owner !== 'human') return;
+    render(await (await api('/human/input', {...body, revision: state.revision})).json());
+  }).catch(error => message(error.message));
 }
 
 async function refresh() {
   if (polling || document.hidden) return;
   polling = true;
   try {
-    render(await (await api('/human/state')).json());
-    if (state.owner !== 'closed') {
-      const blob = await (await api('/human/frame')).blob();
-      const previous = frameUrl;
-      frameUrl = URL.createObjectURL(blob);
-      element('screen').src = frameUrl;
-      if (previous) URL.revokeObjectURL(previous);
-    } else {
-      element('screen').removeAttribute('src');
-      if (frameUrl) URL.revokeObjectURL(frameUrl);
-      frameUrl = null;
-    }
-  } catch (error) { message(error.message); }
+    render(await (await api('/human/state', undefined, 4000)).json());
+    if (connectionError) message('');
+    connectionError = false;
+  }
+  catch (error) { connectionError = true; message(error.message); }
   finally { polling = false; }
 }
 
-element('take').addEventListener('click', () => enqueue(() => control('human')));
-element('give').addEventListener('click', () => enqueue(() => control('agent')));
-element('close').addEventListener('click', () => enqueue(async () => render(await (await api('/human/close', {})).json())));
+async function refreshFrame() {
+  if (previewing || document.hidden || !state || state.owner === 'closed') return;
+  previewing = true;
+  const session = state.session_id;
+  try {
+    const blob = await (await api('/human/frame', undefined, 5000)).blob();
+    if (state.session_id !== session || state.owner === 'closed') return;
+    const previous = frameUrl;
+    frameUrl = URL.createObjectURL(blob);
+    element('screen').src = frameUrl;
+    if (previous) URL.revokeObjectURL(previous);
+    element('preview-status').textContent = '';
+  } catch {
+    if (state.session_id === session && state.owner !== 'closed') element('preview-status').textContent = 'Preview delayed. Browser controls are still available.';
+  } finally { previewing = false; }
+}
+
+element('take').addEventListener('click', () => action('Taking control…', () => control('human')));
+element('give').addEventListener('click', () => action('Giving back control…', () => control('agent')));
+element('close').addEventListener('click', () => action('Closing browser…', async () => render(await (await api('/human/close', {})).json())));
+element('reset').addEventListener('click', () => action('Resetting browser…', async () => render(await (await api('/human/reset', {})).json())));
+element('url').addEventListener('input', () => { draftUrl = true; });
 element('navigation').addEventListener('submit', event => {
   event.preventDefault();
   const url = element('url').value;
-  enqueue(async () => render(await (await api('/human/navigate', {url, revision: state.revision})).json()));
+  action('Opening page…', async () => {
+    const next = await (await api('/human/navigate', {url, revision: state.revision})).json();
+    draftUrl = false;
+    render(next);
+  });
 });
-element('demo').addEventListener('click', () => enqueue(async () => {
+element('demo').addEventListener('click', () => action('Opening demo…', async () => {
   if (state.owner === 'agent') await control('human');
   const demo = await (await api('/human/demo')).json();
   element('demo-password').textContent = demo.password;
+  draftUrl = false;
   render(await (await api('/human/navigate', {url: demo.url, revision: state.revision})).json());
 }));
-element('run').addEventListener('click', () => enqueue(async () => {
+element('run').addEventListener('click', () => action('Running form automation…', async () => {
   const result = await (await api('/human/demo-run', {})).json();
   element('result').textContent = result.text;
   await refresh();
@@ -117,4 +170,5 @@ element('screen').addEventListener('wheel', event => {
 }, {passive: false});
 window.addEventListener('pagehide', () => { if (frameUrl) URL.revokeObjectURL(frameUrl); });
 refresh();
-setInterval(refresh, 750);
+setInterval(refresh, 500);
+setInterval(refreshFrame, 750);

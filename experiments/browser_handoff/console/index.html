@@ -5,11 +5,12 @@
   <header><h1>Browser handoff experiment</h1><p>Take control to sign in, then give the browser back for form automation.</p></header>
   <section aria-label="Browser controls">
     <p>Control: <strong id="owner">connecting</strong></p>
-    <div class="controls"><button id="take">Take control</button><button id="give">Give back</button><button id="close">Close browser</button></div>
+    <div class="controls"><button id="take" disabled>Take control</button><button id="give" disabled>Give back</button><button id="close" disabled>Close browser</button><button id="reset">Reset browser</button></div>
     <form id="navigation"><label>Website <input id="url" type="url" placeholder="https://…" required></label><button id="go">Go</button></form>
   </section>
   <p id="message" role="status" aria-live="polite"></p>
   <div id="viewport"><img id="screen" tabindex="0" alt="Remote browser"></div>
+  <p id="preview-status" role="status" aria-live="polite"></p>
   <p>Click the browser view to type or scroll. Paste is supported. Use Tab and Enter to move through forms.</p>
   <details open><summary>Synthetic sign-in demo</summary><p>This demo uses a temporary local account. After signing in, give back control and run the form automation.</p><div class="controls"><button id="demo">Open demo sign-in</button><button id="run">Run form automation demo</button></div><p>Demo password: <code id="demo-password"></code></p><pre id="result"></pre></details>
 </main></body></html>

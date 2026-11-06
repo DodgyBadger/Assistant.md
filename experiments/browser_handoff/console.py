@@ -14,8 +14,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
+from playwright.async_api import Browser, async_playwright
 from playwright.async_api import Error as PlaywrightError
-from playwright.async_api import async_playwright
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -48,18 +48,24 @@ class Options:
 
 def create_app(options: Options) -> FastAPI:
     session: BrowserSession | None = None
+    browser: Browser | None = None
     demo: tuple[str, str] | None = None
+    reset_lock = asyncio.Lock()
+
+    async def close_active_session() -> None:
+        if session is not None:
+            await session.close()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        nonlocal session, demo
+        nonlocal session, demo, browser
         async with AsyncExitStack() as stack:
             stack.enter_context(browser_runtime(options.mode))
             demo = stack.enter_context(login_site()) if options.demo else None
             playwright = await stack.enter_async_context(async_playwright())
             browser = await stack.enter_async_context(launch(playwright, options.mode))
             session = await BrowserSession.create(browser, demo[0] if demo else None)
-            stack.push_async_callback(session.close)
+            stack.push_async_callback(close_active_session)
             yield
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
@@ -132,6 +138,19 @@ def create_app(options: Options) -> FastAPI:
     @app.post("/human/close")
     async def close() -> State:
         return await browser_session().close()
+
+    @app.post("/human/reset")
+    async def reset() -> State:
+        nonlocal session
+        async with reset_lock:
+            if browser is None:
+                raise HTTPException(503, "browser_not_ready")
+            await browser_session().close()
+            async with asyncio.timeout(10):
+                session = await BrowserSession.create(
+                    browser, demo[0] if demo else None
+                )
+            return await session.status()
 
     @app.get("/human/demo")
     async def demo_access() -> dict[str, str]:

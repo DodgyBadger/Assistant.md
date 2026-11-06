@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
+from threading import Event, Thread
 from urllib.parse import parse_qs
 
 
@@ -16,6 +16,8 @@ def login_site() -> Iterator[tuple[str, str]]:
     password = secrets.token_urlsafe(24)
     sessions: set[str] = set()
     saved = ""
+    release_font = Event()
+    font_requested = Event()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
@@ -38,7 +40,10 @@ def login_site() -> Iterator[tuple[str, str]]:
             if cookie:
                 self.send_header("Set-Cookie", cookie)
             self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # An abandoned slow asset can outlive its browser page.
 
         def redirect(self, cookie: str | None = None) -> None:
             self.send_response(303)
@@ -49,7 +54,25 @@ def login_site() -> Iterator[tuple[str, str]]:
             self.end_headers()
 
         def do_GET(self) -> None:
-            if self.path == "/login":
+            if self.path == "/font":
+                self.reply(
+                    200,
+                    '<link rel="stylesheet" href="/font.css"><main>Slow font page</main>',
+                )
+            elif self.path == "/font.css":
+                data = b'@font-face { font-family: delayed; src: url("/font.woff2"); } main { font-family: delayed, sans-serif; }'
+                self.send_response(200)
+                self.send_header("Content-Type", "text/css")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            elif self.path == "/font.woff2":
+                font_requested.set()
+                release_font.wait(timeout=20)
+                self.reply(404, "")
+            elif self.path == "/font-state":
+                self.reply(200, "requested" if font_requested.is_set() else "waiting")
+            elif self.path == "/login":
                 self.reply(
                     200,
                     '<main><form action="/login" method="post"><label>Password<input name="password" type="password" autocomplete="off"></label><button>Sign in</button></form></main>',
@@ -100,6 +123,7 @@ def login_site() -> Iterator[tuple[str, str]]:
     try:
         yield f"http://127.0.0.1:{server.server_port}", password
     finally:
+        release_font.set()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)

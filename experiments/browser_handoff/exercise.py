@@ -29,9 +29,10 @@ from experiments.browser_handoff.runtime import browser_runtime
 
 
 @asynccontextmanager
-async def serve(options: Options) -> AsyncIterator[str]:
+async def serve(options: Options, *, port: int = 0) -> AsyncIterator[str]:
     with socket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", port))
         listener.listen()
         port = listener.getsockname()[1]
         server = uvicorn.Server(

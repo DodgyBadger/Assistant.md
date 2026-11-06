@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
 from fastapi import HTTPException
-from playwright.async_api import Browser, BrowserContext, ElementHandle, Page, Route
+from playwright.async_api import (
+    Browser,
+    BrowserContext,
+    CDPSession,
+    ElementHandle,
+    Page,
+    Route,
+)
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import BaseModel, ConfigDict, Field
 
 from experiments.browser_handoff.probe import public_host
@@ -75,6 +87,7 @@ class View(BaseModel):
 
 
 class State(BaseModel):
+    session_id: str
     revision: int
     owner: Owner
     url: str
@@ -85,13 +98,22 @@ class BrowserSession:
     """Cooperative API authority; unrestricted container code is outside this boundary."""
 
     def __init__(
-        self, context: BrowserContext, page: Page, demo_origin: str | None
+        self,
+        context: BrowserContext,
+        page: Page,
+        demo_origin: str | None,
+        preview: CDPSession,
     ) -> None:
         self.context, self.page, self.demo_origin = context, page, demo_origin
+        self.preview = preview
         self.owner: Owner = "agent"
+        self.session_id = uuid4().hex
         self.revision = 0
         self.lock = asyncio.Lock()
+        self.preview_lock = asyncio.Lock()
         self.elements: dict[int, ElementHandle] = {}
+        self.elements_revision = -1
+        self.published = self.state()
 
     @classmethod
     async def create(cls, browser: Browser, demo_origin: str | None) -> BrowserSession:
@@ -102,7 +124,7 @@ class BrowserSession:
         )
         page = await context.new_page()
         page.set_default_timeout(5000)
-        session = cls(context, page, demo_origin)
+        session = cls(context, page, demo_origin, await context.new_cdp_session(page))
         await context.route("**/*", session._route)
 
         async def close_popup(popup: Page) -> None:
@@ -116,6 +138,7 @@ class BrowserSession:
         parsed = urlsplit(self.page.url)
         safe_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
         return State(
+            session_id=self.session_id,
             revision=self.revision,
             owner=self.owner,
             url=safe_url,
@@ -123,8 +146,23 @@ class BrowserSession:
         )
 
     async def status(self) -> State:
+        # State observation must not wait for page rendering or browser commands.
+        return self.published.model_copy(
+            update={"url": self.state().url, "page_closed": self.page.is_closed()}
+        )
+
+    @asynccontextmanager
+    async def operation(self) -> AsyncIterator[None]:
         async with self.lock:
-            return self.state()
+            try:
+                async with asyncio.timeout(12):
+                    yield
+            except TimeoutError as exc:
+                self.revision += 1
+                self.elements_revision = -1
+                raise HTTPException(504, "browser_operation_timed_out") from exc
+            finally:
+                self.published = self.state()
 
     def _require(self, revision: int | None = None, owner: Owner | None = None) -> None:
         if self.owner == "closed" or self.page.is_closed():
@@ -138,12 +176,13 @@ class BrowserSession:
 
     async def _invalidate(self) -> None:
         self.revision += 1
+        self.elements_revision = -1
         previous, self.elements = self.elements, {}
         for handle in previous.values():
             await handle.dispose()
 
     async def control(self, command: Control) -> State:
-        async with self.lock:
+        async with self.operation():
             # A takeover supersedes the agent's latest view. It must remain
             # available while the agent is actively reading or acting.
             self._require(None if command.owner == "human" else command.revision)
@@ -159,7 +198,7 @@ class BrowserSession:
             return self.state()
 
     async def navigate(self, command: Navigate) -> State:
-        async with self.lock:
+        async with self.operation():
             self._require(command.revision, "human")
             await self._check_url(command.url)
             await self._invalidate()
@@ -169,7 +208,7 @@ class BrowserSession:
             return self.state()
 
     async def input(self, command: HumanInput) -> State:
-        async with self.lock:
+        async with self.operation():
             self._require(command.revision, "human")
             if command.kind == "click":
                 await self.page.mouse.click(command.x, command.y)
@@ -182,12 +221,21 @@ class BrowserSession:
             return self.state()
 
     async def frame(self) -> bytes:
-        async with self.lock:
+        async with self.preview_lock:
             self._require()
-            return await self.page.screenshot(type="jpeg", quality=65, timeout=5000)
+            try:
+                async with asyncio.timeout(3):
+                    # A live view shows the current compositor frame; it must not
+                    # wait for web fonts or prepare a publication screenshot.
+                    result = await self.preview.send(
+                        "Page.captureScreenshot", {"format": "jpeg", "quality": 65}
+                    )
+                    return base64.b64decode(result["data"], validate=True)
+            except (TimeoutError, PlaywrightTimeoutError) as exc:
+                raise HTTPException(504, "browser_frame_timed_out") from exc
 
     async def execute(self, command: AgentCommand) -> View:
-        async with self.lock:
+        async with self.operation():
             self._require(command.revision, "agent")
             if command.operation == "navigate":
                 await self._check_url(command.url)
@@ -197,7 +245,11 @@ class BrowserSession:
                 )
             elif command.operation != "read":
                 handle = self.elements.get(command.element_id)
-                if handle is None or not await handle.evaluate("e => e.isConnected"):
+                if (
+                    self.elements_revision != command.revision
+                    or handle is None
+                    or not await handle.evaluate("e => e.isConnected")
+                ):
                     raise HTTPException(409, "stale_element")
                 credential = await handle.evaluate(
                     """e => e.matches('input[type="password"],input[autocomplete="current-password"],input[autocomplete="new-password"],input[autocomplete="one-time-code"]')"""
@@ -246,6 +298,7 @@ class BrowserSession:
             else:
                 await handle.dispose()
         text = await self.page.locator("body").inner_text(timeout=5000)
+        self.elements_revision = self.revision
         return View(
             revision=self.revision,
             url=self.state().url,
@@ -254,7 +307,7 @@ class BrowserSession:
         )
 
     async def close(self) -> State:
-        async with self.lock:
+        async with self.operation():
             if self.owner != "closed":
                 await self._invalidate()
                 await self.context.close()
