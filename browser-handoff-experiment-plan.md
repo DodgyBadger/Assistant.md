@@ -59,6 +59,14 @@ This prototype has one temporary tab, with bounded DOM observations and no raw e
 
 Repository-wide Ruff and Black, MyPy over production and experiment modules, and JavaScript syntax validation passed. A separate CLI smoke check started the console without display/library environment setup, received HTTP 200 for the console and authenticated JPEG view, verified mode-0600 capability storage, and observed the owned display/browser processes exit on shutdown. The full deterministic pre-merge profile was not run for this standalone experimental slice; production application behavior is unchanged.
 
+### Forwarded URL-tab compatibility
+
+Investigate the user's Codeman URL-tab connection failure through a controlled proxy fixture. Read-only inspection of Codeman shows that its proxy removes frame-ancestor restrictions and Authorization headers, rewrites HTML into a path prefix, and normally embeds the page in an opaque-origin sandbox. Its injected inline URL shim can also be refused by the prototype's CSP. The user disabled the sandbox and still could not connect, so preserving the capability across the proxy and keeping API requests within its prefix are required independently of browser storage.
+
+Acceptance must connect and receive real browser frames through this prefix in both sandboxed and unsandboxed frames, while invalid access codes remain rejected. Keep CSP and host protections in the prototype; do not edit Codeman or its tab configuration. Make storage optional, remove URL fragments without navigating out of the proxy prefix, resolve assets/API URLs against the document base, and use a dedicated human-capability header that the proxy forwards. The existing agent Authorization contract remains unchanged. Preserve a meaningful red connection failure and a green rerun with sanitized evidence. This fixture represents the inspected proxy behaviors; it is not a claim of testing the complete Codeman deployment.
+
+The proxy reproduction failed before the fix and passed all ten checks afterward, covering both sandbox modes. Evidence: `validation/runs/browser-handoff/proxy-red.json` and `proxy-green.json`; the original exercise is retained as `proxy-exercise-red.py`. The original 23-check sign-in/submission exercise also passed unchanged in `console-proxy-regression.json`. Repository-wide lint/formatting, production/experiment typing, and JavaScript syntax checks passed. The running prototype was restarted with the original capabilities preserved; no Codeman configuration or source was changed. Reload the URL tab to receive the corrected scripts, and use the same human access code.
+
 ## Steps and evidence
 
 1. Create the experimental branch and inspect the existing browser, validation rules, AgenticOS implementation, and external retailer investigation.

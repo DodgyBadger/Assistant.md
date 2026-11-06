@@ -1,8 +1,18 @@
 'use strict';
 
 const element = id => document.getElementById(id);
-let token = location.hash.slice(1) || sessionStorage.getItem('browser-human-token') || '';
-history.replaceState(null, '', '/');
+const baseUrl = new URL('.', document.baseURI);
+function storedToken() {
+  try { return sessionStorage.getItem('browser-human-token') || ''; }
+  catch { return ''; } // Opaque-origin preview frames have no browser storage.
+}
+function rememberToken() {
+  try { sessionStorage.setItem('browser-human-token', token); }
+  catch { /* The access code can remain in memory for this preview. */ }
+}
+let token = location.hash.slice(1) || storedToken();
+try { history.replaceState(null, '', location.pathname + location.search); }
+catch { /* Sandboxed frames cannot modify history. */ }
 let state = null;
 let queue = Promise.resolve();
 let frameUrl = null;
@@ -22,9 +32,9 @@ function render(next) {
 }
 
 async function api(path, body) {
-  const response = await fetch(path, {
+  const response = await fetch(new URL(path.replace(/^\/+/, ''), baseUrl), {
     method: body === undefined ? 'GET' : 'POST',
-    headers: {'Authorization': `Bearer ${token}`, ...(body === undefined ? {} : {'Content-Type': 'application/json'})},
+    headers: {'X-Browser-Handoff-Token': token, ...(body === undefined ? {} : {'Content-Type': 'application/json'})},
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
   });
@@ -76,7 +86,8 @@ element('access').addEventListener('submit', event => {
   event.preventDefault();
   token = element('token').value;
   element('token').value = '';
-  sessionStorage.setItem('browser-human-token', token);
+  rememberToken();
+  message('');
   refresh();
 });
 element('take').addEventListener('click', () => enqueue(() => control('human')));
@@ -123,6 +134,6 @@ element('screen').addEventListener('wheel', event => {
   event.preventDefault(); input({kind: 'scroll', delta_x: Math.max(-2000, Math.min(2000, event.deltaX)), delta_y: Math.max(-2000, Math.min(2000, event.deltaY))});
 }, {passive: false});
 window.addEventListener('pagehide', () => { if (frameUrl) URL.revokeObjectURL(frameUrl); });
-if (token) sessionStorage.setItem('browser-human-token', token);
+if (token) rememberToken();
 refresh();
 setInterval(refresh, 750);

@@ -70,13 +70,21 @@ def create_app(options: Options) -> FastAPI:
             raise HTTPException(503, "browser_not_ready")
         return session
 
-    def authenticate(request: Request, token: str) -> None:
-        supplied = request.headers.get("Authorization", "")
-        if not secrets.compare_digest(supplied.encode(), ("Bearer " + token).encode()):
+    def authenticate(
+        request: Request, token: str, *, human_header: bool = False
+    ) -> None:
+        supplied = (
+            request.headers.get("X-Browser-Handoff-Token", "") if human_header else ""
+        )
+        expected = token
+        if not supplied:
+            supplied = request.headers.get("Authorization", "")
+            expected = "Bearer " + token
+        if not secrets.compare_digest(supplied.encode(), expected.encode()):
             raise HTTPException(401, "unauthorized")
 
     def human(request: Request) -> None:
-        authenticate(request, options.human_token)
+        authenticate(request, options.human_token, human_header=True)
 
     def agent(request: Request) -> None:
         authenticate(request, options.agent_token)
