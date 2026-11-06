@@ -1,7 +1,7 @@
 'use strict';
 
 const element = id => document.getElementById(id);
-const baseUrl = new URL('.', document.baseURI);
+const baseUrl = new URL(document.currentScript?.dataset.browserBase || '.', document.baseURI);
 const integrated = baseUrl.pathname.startsWith('/browser/');
 let autoTakeover = integrated && new URLSearchParams(location.search).has('takeover');
 if (integrated) {

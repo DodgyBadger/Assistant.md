@@ -9,7 +9,7 @@ from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from playwright.async_api import Browser, async_playwright
 
 from api.principal import use_request_authority
@@ -177,11 +177,16 @@ def router() -> APIRouter:
     routes = APIRouter(prefix="/browser", dependencies=[Depends(use_request_authority)])
 
     @routes.get("/{entry_id}/")
-    async def index(entry_id: str) -> FileResponse:
+    async def index(entry_id: str) -> HTMLResponse:
         browsers.lookup(entry_id)
-        return FileResponse(
-            ASSETS / "index.html", headers={"Cache-Control": "no-store"}
+        base = f"/browser/{entry_id}/"
+        html = (ASSETS / "index.html").read_text()
+        html = html.replace('href="console.css"', f'href="{base}console.css"')
+        html = html.replace(
+            'src="console.js"',
+            f'src="{base}console.js" data-browser-base="{base}"',
         )
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
     @routes.get("/{entry_id}/console.js")
     async def javascript(entry_id: str) -> FileResponse:
