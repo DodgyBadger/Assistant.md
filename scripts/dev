@@ -271,6 +271,12 @@ run_server() {
   require_command uv "Install it from https://docs.astral.sh/uv/getting-started/installation/."
   require_environment
   cd "${REPO_ROOT}"
+  if { [ "${browser_handoff}" = true ] || [ "${ASSISTANTMD_INTERACTIVE_BROWSER:-}" = 1 ]; } \
+    && [ -z "${BROWSER_EXPERIMENT_RUNTIME_ROOT:-}" ] \
+    && [ -x /tmp/assistantmd-browser-deps/root/usr/bin/Xvfb-local ]; then
+    export BROWSER_EXPERIMENT_RUNTIME_ROOT=/tmp/assistantmd-browser-deps/root
+    echo "Using extracted browser dependencies: ${BROWSER_EXPERIMENT_RUNTIME_ROOT}"
+  fi
   if [ "${browser_handoff}" = true ]; then
     [ "${address_option_set}" = false ] || die "--browser-handoff is loopback-only; omit --address."
     [ "${auth_mode_option_set}" = false ] || die "--browser-handoff is a standalone local experiment; omit --auth-mode."
