@@ -106,15 +106,23 @@ def exercise(output: Path) -> int:
                             client.get("/human/state").status_code == 401
                         ), "unauthenticated_access_denied"
                         checks["unauthenticated_access_denied"] = True
+                        assert (
+                            client.get(
+                                "/human/state",
+                                headers={"X-Browser-Handoff-Token": "wrong-password"},
+                            ).status_code
+                            == 401
+                        ), "wrong_password_rejected"
+                        checks["wrong_password_rejected"] = True
                         response = client.get(
                             "/human/state",
-                            headers={"X-Browser-Handoff-Token": access["human_token"]},
+                            headers={"X-Browser-Handoff-Token": "browser-test"},
                         )
                         assert (
                             response.status_code == 200
                             and response.json()["owner"] == "agent"
-                        ), "isolated_capability_works"
-                        checks["isolated_capability_works"] = True
+                        ), "static_password_accepted"
+                        checks["static_password_accepted"] = True
                         assert not (
                             root / "runtime"
                         ).exists(), "main_runtime_state_not_initialized"

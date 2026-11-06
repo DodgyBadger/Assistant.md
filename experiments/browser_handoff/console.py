@@ -41,6 +41,7 @@ from experiments.browser_handoff.session import (
 )
 
 ASSETS = Path(__file__).parent / "console"
+LOCAL_TEST_PASSWORD = "browser-test"
 
 
 @dataclass(frozen=True)
@@ -220,7 +221,7 @@ def main() -> None:
     except BrowserInstallError as exc:
         parser.exit(1, f"ERROR: {exc}\n")
     options = Options(
-        secrets.token_urlsafe(32),
+        LOCAL_TEST_PASSWORD,
         secrets.token_urlsafe(32),
         mode=args.mode,
         demo=not args.no_demo,
@@ -237,6 +238,7 @@ def main() -> None:
         os.fchmod(handle.fileno(), 0o600)
         json.dump(access, handle)
     print(f"Console: {access['url']} (access codes: {args.access_file})", flush=True)
+    print(f"Local test password: {LOCAL_TEST_PASSWORD}", flush=True)
     uvicorn.run(
         create_app(options),
         host="127.0.0.1",
