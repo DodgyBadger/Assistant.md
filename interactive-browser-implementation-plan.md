@@ -10,20 +10,6 @@ When human help is needed, the current chat shows a compact Open browser action.
 
 Include navigation, bounded page/element reading, clicks, text entry, selections, scrolling, human takeover and context reuse across chat turns. Existing user authorization governs actions; authenticated access does not expand the task's scope. Upload/download workflows, persistent browser profiles, device-native passkeys/security-key forwarding, multiple browser engines, Telegram, cross-session messaging, arbitrary browser JavaScript tools and a general browser-management dashboard are outside this implementation.
 
-## Evidence to preserve before discarding the prototype
-
-- Live DigiKey browsing succeeded after human challenge completion, including handback, search and catalogue filtering. Amazon search succeeded after correcting query/control selection. The grants portal exposed authenticated dashboard and application navigation. These establish feasibility on those sessions, not universal site compatibility or a newly performed login on every site.
-- The most recent live session is `Personal_20261106_135915_32_a2rx`. Keep a sanitized summary of observations; do not copy private portal contents, account identifiers or authenticated URLs into product documentation.
-- A preview operation waiting on fonts blocked controls. State, control and preview must remain independently responsive; capture the current rendered frame rather than waiting for publication-style screenshot readiness.
-- Per-element browser round trips on large pages exhausted operation deadlines. Select and describe a bounded element set in the page before exporting handles. Retain actual element references and reject stale revisions.
-- Extraction/navigation deadlines suppressed the human-help link. Explicit human help must not require successful extraction; a recoverable read/navigation timeout must offer takeover. An empty extraction alone is not evidence of a CAPTCHA.
-- Codeman forwarding lost relative viewer asset/API paths. Use explicit same-origin routing and validate nested deployment paths/base-URL interference, including CSRF and existing application authentication.
-- Browser identity must change on reset/restart; reject late responses from retired contexts without rejecting a new context's lower revision. Browser state is lost on application restart, and the UI must explain expired sessions.
-- A forced development restart left an orphaned Chromium/display pair. Normal shutdown callbacks alone are insufficient lifecycle evidence.
-- One resource snapshot attributed approximately 606 MiB PSS to the active browser/display and 264 MiB to an orphan. The development cgroup had no memory limit and included unrelated work and filesystem cache. These figures do not establish that the supported 2 GiB deployment is sufficient; remeasure under the real Compose limits.
-
-The root `browser-handoff-experiment-plan.md` and ignored `validation/runs/browser-handoff/` artifacts contain the investigation history and smoke evidence. Capture the useful baseline before removing experiment imports, special flags, `/tmp` dependency discovery and prototype routes from the production path. Do not promote the experiment wholesale or treat its smoke scripts as production acceptance scenarios.
-
 ## Browser choice
 
 Start with Chromium because this repository already packages it and the successful prototype depends on its launch/CDP/frame-capture path. This is an evidence-based initial choice, not a claim that Chromium is the smallest engine or cannot be replaced.
@@ -48,7 +34,7 @@ Retain browser contexts across turns while within the idle lifetime. Proposed st
 
 ### Tool and escalation policy
 
-Keep the existing `browser` tool name and non-interactive default. Add a documented `interactive` selector, typed element actions and an explicit human-help request with a short reason. Reuse an existing interactive context for subsequent calls in the same chat; omitting `url` means inspect or act on its current page. Continue to keep URLs and element revisions distinct from context identity.
+Keep the existing `browser` tool name and non-interactive default. Add a documented `interactive` selector, typed element actions and an explicit human-help request with a short reason. Reuse an existing interactive context for subsequent calls in the same chat; omitting `url` means inspect or act on its current page. Keep URLs and element revisions distinct from context identity. Select and describe a bounded set of visible elements inside the page before exporting element references, so large pages do not cause unbounded browser round trips.
 
 Separate navigation, observation, interaction and human-help operations internally. A requested human-help operation publishes its link once a usable browser exists, regardless of extraction success. Recoverable navigation/read deadlines offer takeover with a factual explanation; invalid targets, missing dependencies, exhausted capacity and dead browser processes produce distinct actionable failures. Do not treat all errors as human challenges. Failed writes are never automatically replayed; inspect the resulting state before repeating a possibly completed action.
 
@@ -60,11 +46,11 @@ Use one network-policy implementation for public target validation, redirects, s
 
 Use protected same-origin API/UI routes under the existing application authentication boundary, principal/session authorization and owner-session CSRF rules. Do not add a public viewer service or put bearer credentials in tool results or links. Direct API calls must enforce the same ownership and authority checks as the viewer.
 
-Represent human help as a typed chat event with browser identity, safe viewer reference, reason and waiting/returned/expired/stopped state. Preserve it through stream reconnection and compact replay; persist the minimal nonsecret reference/status needed for history rendering. After process restart, an old reference displays expired and a new browser can be requested. Do not present an old link as a live authenticated session.
+Represent human help as a typed chat event with browser identity, safe viewer reference, reason and waiting/returned/expired/stopped state. Preserve it through stream reconnection and compact replay; persist the minimal nonsecret reference/status needed for history rendering. Give every browser instance a distinct identity. After reset or restart, accept the replacement instance's initial revision and reject late state/frame responses from retired instances. After process restart, an old reference displays expired and a new browser can be requested. Do not present an old link as a live authenticated session.
 
 Open the viewer in a large accessible modal with a close action, keyboard/focus behavior and the existing screen/input controls. Return control closes the viewer only after the server accepts handback; a rejected handback remains visible with a useful explanation. Closing the modal unloads preview polling without changing backend ownership. Reopen works while the tool waits. Show navigation progress and actual connection/operation failures rather than a generic error or an indefinite connecting label. Normalize ordinary hostname input to HTTPS while retaining server-side URL policy.
 
-Stream or poll frames only while the viewer is visible. State observation and takeover remain responsive during delayed frame capture. Serve assets and API calls from explicit application/browser paths that remain valid under supported forwarding and base-path deployments. The viewer displays the remote page's rendered pixels; destination websites are not themselves embedded as third-party iframes.
+Stream or poll frames only while the viewer is visible. Capture the current rendered frame without waiting for fonts or page-load completion. State observation, control operations and preview capture remain independently responsive during delayed rendering. Serve assets and API calls from explicit application/browser paths that remain valid under supported forwarding and base-path deployments. The viewer displays the remote page's rendered pixels; destination websites are not themselves embedded as third-party iframes.
 
 ### Credentials and execution boundary
 
@@ -106,7 +92,7 @@ Run fast relevant scenarios while developing, plus `uv run ruff check .`, `uv ru
 
 ## Delivery sequence
 
-First preserve the experiment findings and establish a clean replacement baseline using the pre-experiment revision plus any unrelated work that must survive. Review the final experiment diff to enumerate useful existing contracts without carrying production imports from `experiments/` forward. Do not reset or overwrite the current working tree as part of planning. Commit validated slices locally; pushing follows the user's existing authorization for this effort. Keep the working prototype available until the durable path has passed its replacement journey, then remove its production hooks and disposable harness as a deliberate final cleanup.
+Establish a clean replacement baseline using the pre-experiment revision plus any unrelated work that must survive. Review the final experiment diff to enumerate useful existing contracts without carrying production imports from `experiments/` forward. Do not reset or overwrite the current working tree as part of planning. Commit validated slices locally; pushing follows the user's existing authorization for this effort. Keep the working prototype available until the durable path has passed its replacement journey, then remove its production hooks and disposable harness as a deliberate final cleanup.
 
 Next concrete step after plan review: define the runtime-service/admission acceptance condition and fixture for slice 1, obtain its meaningful red evidence, then implement that slice. No feature code is changed by this planning task.
 
