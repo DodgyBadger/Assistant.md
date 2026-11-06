@@ -1,0 +1,19 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #182c38; background: #eef2f3; }
+body { margin: 0; }
+main { max-width: 1320px; margin: auto; padding: 20px; }
+h1 { font-size: 1.4rem; margin-bottom: 8px; }
+p { line-height: 1.5; }
+input, button { font: inherit; padding: 8px 12px; border: 1px solid #9aadb5; border-radius: 5px; }
+button { cursor: pointer; background: white; }
+button:disabled { opacity: .5; cursor: default; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+form { display: flex; gap: 8px; margin: 14px 0; }
+#navigation label { display: flex; flex: 1; align-items: center; gap: 12px; }
+#url { flex: 1; min-width: 0; }
+#viewport { background: white; border: 1px solid #9aadb5; min-height: 80px; }
+#screen { display: block; width: 100%; aspect-ratio: 1280 / 800; object-fit: contain; outline-offset: 2px; }
+#screen:focus { outline: 3px solid #186f76; }
+#message { min-height: 1.5em; color: #8a3b19; }
+details { padding: 16px; background: white; margin-top: 16px; border-radius: 6px; }
+pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
