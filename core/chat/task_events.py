@@ -25,6 +25,7 @@ CHAT_TASK_PROJECTED_EVENTS = frozenset(
         "tool_call_started",
         "tool_call_finished",
         "review_required",
+        "browser_handoff",
         *CHAT_TASK_TERMINAL_EVENTS,
     }
 )
@@ -91,6 +92,7 @@ class _ChatTaskReplayProjection:
     reasoning_event: ChatTaskEvent | None = None
     tool_events: dict[str, _ProjectedToolState] = field(default_factory=dict)
     review_event: ChatTaskEvent | None = None
+    browser_event: ChatTaskEvent | None = None
     terminal_event: ChatTaskEvent | None = None
     latest_sequence: int = 0
     available: bool = True
@@ -219,6 +221,8 @@ class ChatTaskEventBuffer:
                     events.append(tool_state.latest_event)
             if projection.review_event is not None:
                 events.append(projection.review_event)
+            if projection.browser_event is not None:
+                events.append(projection.browser_event)
             if projection.terminal_event is not None:
                 events.append(projection.terminal_event)
             events.sort(key=lambda event: event.sequence)
@@ -339,6 +343,9 @@ class ChatTaskEventBuffer:
             if content:
                 projection.reasoning_text.write(content)
                 projection.reasoning_event = event
+            return
+        if event.event == "browser_handoff":
+            projection.browser_event = event
             return
         if event.event == "chat_retry_scheduled":
             if event.data.get("reset_response") is True:

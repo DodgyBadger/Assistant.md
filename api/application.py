@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import os
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -33,7 +35,26 @@ def create_application(
     include_ui: bool = True,
 ) -> FastAPI:
     """Build the production-equivalent route and middleware topology."""
+    if os.environ.get("ASSISTANTMD_INTERACTIVE_BROWSER") == "1":
+        from experiments.browser_handoff.integration import browsers, router
+
+        original_lifespan = lifespan
+
+        @asynccontextmanager
+        async def browser_lifespan(application: FastAPI) -> AsyncIterator[None]:
+            try:
+                if original_lifespan is None:
+                    yield
+                else:
+                    async with original_lifespan(application):
+                        yield
+            finally:
+                await browsers.close()
+
+        lifespan = browser_lifespan
     app = FastAPI(lifespan=lifespan, version=APPLICATION_VERSION)
+    if os.environ.get("ASSISTANTMD_INTERACTIVE_BROWSER") == "1":
+        app.include_router(router())
     app.state.authentication_policy = authentication_policy
     effective_shell_config = (
         advanced_shell_config or AdvancedShellConfig.restricted_default()

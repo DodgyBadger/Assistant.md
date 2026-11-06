@@ -26,6 +26,7 @@ Run options:
   -a, --address <address> Override the authentication mode's listen address
       --auth-mode <mode>  Authentication: loopback, disabled, owner_token, or trusted_proxy
       --browser-handoff   Run the standalone browser experiment on loopback (default port: 8766)
+      --interactive-browser Enable the browser handoff prototype inside the chat app
   -h, --help              Show run-specific help
   --                       Pass remaining arguments to Uvicorn or the browser experiment
 
@@ -246,6 +247,10 @@ run_server() {
         ;;
       --browser-handoff)
         browser_handoff=true
+        shift
+        ;;
+      --interactive-browser)
+        export ASSISTANTMD_INTERACTIVE_BROWSER=1
         shift
         ;;
       --)

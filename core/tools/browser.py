@@ -10,10 +10,11 @@ blocked, and browser state is isolated per call.
 from __future__ import annotations
 
 import asyncio
+import os
 from collections import OrderedDict
 from pathlib import Path
 from threading import BoundedSemaphore, Lock
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from markdownify import markdownify as html_to_markdown
@@ -114,12 +115,18 @@ class BrowserTool(BaseTool):
 
         async def browser(
             *,
-            url: str,
+            url: str = "",
             goal: str = "",
             wait_until: str = "domcontentloaded",
             wait_for_selector: str = "",
             extract_selector: str = "",
             include_links: bool = False,
+            interactive: bool = False,
+            operation: Literal["read", "click", "fill", "select"] = "read",
+            element_id: int = 0,
+            value: str = "",
+            request_human: bool = False,
+            reason: str = "",
         ) -> str | ToolReturn:
             """Open a page in a headless browser and extract compact page content.
 
@@ -129,8 +136,14 @@ class BrowserTool(BaseTool):
                         :param wait_for_selector: Optional selector to wait for after navigation
                         :param extract_selector: Optional selector to extract instead of the main content area
                         :param include_links: Include a short list of visible links from the extracted region
+                        :param interactive: Opt into a persistent headed browser after ordinary extraction fails
+                        :param operation: Interactive action; read returns current page text and element IDs
+                        :param element_id: Element ID from the most recent interactive read
+                        :param value: Value for interactive fill or select
+                        :param request_human: Show an Open browser link and wait for the human to return control
+                        :param reason: Brief explanation of the sign-in or CAPTCHA step the human must complete
 
-            Policy notes:
+            Default extraction policy notes (interactive prototype allows forms):
                         - Only public http/https URLs are allowed by default; `data:` is allowed for testing.
                         - Redirects or subrequests to local/private network targets are blocked.
                         - Only read-oriented HTTP methods are allowed (`GET`, `HEAD`).
@@ -138,6 +151,29 @@ class BrowserTool(BaseTool):
                         - Browser state is isolated per call.
             """
             try:
+                if os.environ.get("ASSISTANTMD_INTERACTIVE_BROWSER") == "1":
+                    from experiments.browser_handoff.integration import browse, browsers
+
+                    if interactive or request_human or browsers.active():
+                        cls._log_event(
+                            "interactive_browser_invoked",
+                            tool="browser",
+                            url=url,
+                            operation=operation,
+                            request_human=request_human,
+                        )
+                        return await browse(
+                            url=url,
+                            operation=operation,
+                            element_id=element_id,
+                            value=value,
+                            request_human=request_human,
+                            reason=reason,
+                        )
+                elif interactive or request_human:
+                    raise RuntimeError(
+                        "Start the development app with scripts/dev run --interactive-browser to enable this prototype."
+                    )
                 cls._record_scoped_call()
                 cls._log_event(
                     "tool_invoked",
@@ -189,6 +225,12 @@ class BrowserTool(BaseTool):
             description=(
                 "Open a dynamic web page in a headless browser and extract content "
                 "from the main page region. Prefer web_extract for ordinary static pages."
+                " If extraction fails, retry with interactive=true for a persistent browser."
+                " Interactive calls return page text and element IDs for read/click/fill/select."
+                " Omit url to continue on the current page; the interactive session is reused."
+                " For CAPTCHA or sign-in, call request_human=true with a reason; the chat"
+                " shows an Open browser link and this call waits for handback, then resumes."
+                " Never ask the user to put passwords in chat or tool arguments."
             ),
         )
 

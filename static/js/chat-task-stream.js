@@ -39,6 +39,32 @@
         function applyChatStreamPayload(payload, assistantMessage, options = {}) {
             const { render = true } = options;
             const eventType = payload.event || 'delta';
+            if (eventType === 'browser_handoff') {
+                let prompt = assistantMessage.browserPrompt;
+                if (!prompt) {
+                    prompt = document.createElement('p');
+                    prompt.className = 'message-body prose prose-sm';
+                    assistantMessage.contentDiv.appendChild(prompt);
+                    assistantMessage.browserPrompt = prompt;
+                }
+                prompt.replaceChildren();
+                if (payload.status === 'waiting') {
+                    prompt.append(document.createTextNode(`${payload.reason || 'Your help is needed in the browser.'} `));
+                    // Only navigate to the application's own experimental viewer.
+                    if (/^\/browser\/[a-f0-9]+\/\?takeover=1$/.test(payload.url || '')) {
+                        const link = document.createElement('a');
+                        link.href = payload.url;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.textContent = 'Open browser';
+                        prompt.appendChild(link);
+                    }
+                    chatRendering.setAssistantStatus(assistantMessage, 'Waiting for you in the browser', 'tools');
+                } else {
+                    prompt.textContent = payload.status === 'returned' ? 'Browser returned to agent.' : 'Browser handoff stopped.';
+                }
+                return { finished: false, messageCount: 0 };
+            }
             if (eventType === 'delta') {
                 const delta = payload.choices?.[0]?.delta?.content;
                 if (delta) {

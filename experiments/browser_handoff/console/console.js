@@ -2,6 +2,15 @@
 
 const element = id => document.getElementById(id);
 const baseUrl = new URL('.', document.baseURI);
+const integrated = baseUrl.pathname.startsWith('/browser/');
+let autoTakeover = integrated && new URLSearchParams(location.search).has('takeover');
+if (integrated) {
+  document.querySelector('header h1').textContent = 'Browser';
+  document.querySelector('header p').textContent = 'Complete the requested step, then return control to continue your chat.';
+  document.querySelector('details').hidden = true;
+  element('reset').hidden = true;
+  element('give').textContent = 'Return control to agent';
+}
 try { history.replaceState(null, '', location.pathname + location.search); }
 catch { /* Sandboxed frames cannot modify history. */ }
 let state = null;
@@ -49,7 +58,10 @@ async function api(path, body, timeout = 30000) {
   try {
     const response = await fetch(new URL(path.replace(/^\/+/, ''), baseUrl), {
       method: body === undefined ? 'GET' : 'POST',
-      headers: body === undefined ? {} : {'Content-Type': 'application/json'},
+      headers: body === undefined ? {} : {
+        'Content-Type': 'application/json',
+        'x-assistantmd-csrf': decodeURIComponent(document.cookie.split('; ').find(item => item.startsWith('assistantmd_csrf='))?.split('=').slice(1).join('=') || ''),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: 'no-store', signal: controller.signal,
     });
@@ -94,6 +106,10 @@ async function refresh() {
   polling = true;
   try {
     render(await (await api('/human/state', undefined, 4000)).json());
+    if (autoTakeover && state.owner === 'agent') {
+      autoTakeover = false;
+      await action('Taking control…', () => control('human'));
+    }
     if (connectionError) message('');
     connectionError = false;
   }
