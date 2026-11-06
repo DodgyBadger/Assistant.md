@@ -90,6 +90,9 @@ async function action(label, perform) {
 
 async function control(owner) {
   render(await (await api('/human/control', {owner, revision: state.revision})).json());
+  if (integrated && owner === 'agent' && window.parent !== window) {
+    window.parent.postMessage({type: 'assistantmd-browser-returned'}, location.origin);
+  }
 }
 
 function input(body) {
@@ -106,9 +109,9 @@ async function refresh() {
   polling = true;
   try {
     render(await (await api('/human/state', undefined, 4000)).json());
-    if (autoTakeover && state.owner === 'agent') {
+    if (autoTakeover) {
       autoTakeover = false;
-      await action('Taking control…', () => control('human'));
+      if (state.owner === 'agent') await action('Taking control…', () => control('human'));
     }
     if (connectionError) message('');
     connectionError = false;

@@ -4,6 +4,51 @@
     const CHAT_STREAM_RECONNECT_BASE_DELAY_MS = 500;
 
     function createChatTaskStreamController({ state, chatRendering, callbacks }) {
+        let browserViewer = null;
+
+        function closeBrowserViewer(url) {
+            if (browserViewer && (!url || browserViewer.url === url)) {
+                browserViewer.dialog.close();
+            }
+        }
+
+        function openBrowserViewer(url, returnFocus) {
+            closeBrowserViewer();
+            const dialog = document.createElement('dialog');
+            dialog.setAttribute('aria-label', 'Browser');
+            dialog.style.cssText = 'width:96vw;max-width:1600px;height:94vh;max-height:96vh;padding:0;border:1px solid #9aadb5;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;';
+            const toolbar = document.createElement('div');
+            toolbar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #9aadb5;';
+            const title = document.createElement('strong');
+            title.textContent = 'Browser';
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.textContent = 'Close viewer';
+            close.addEventListener('click', () => dialog.close());
+            toolbar.append(title, close);
+            const frame = document.createElement('iframe');
+            frame.title = 'Interactive browser';
+            frame.style.cssText = 'width:100%;flex:1;min-height:0;border:0;background:white;';
+            frame.src = url;
+            const onMessage = event => {
+                if (event.origin === location.origin && event.source === frame.contentWindow
+                    && event.data?.type === 'assistantmd-browser-returned') {
+                    dialog.close();
+                }
+            };
+            window.addEventListener('message', onMessage);
+            dialog.addEventListener('close', () => {
+                window.removeEventListener('message', onMessage);
+                if (browserViewer?.dialog === dialog) browserViewer = null;
+                dialog.remove();
+                if (returnFocus?.isConnected) returnFocus.focus();
+            }, { once: true });
+            dialog.append(toolbar, frame);
+            document.body.appendChild(dialog);
+            browserViewer = { dialog, url };
+            dialog.showModal();
+        }
+
         function parseSseEvent(rawEvent) {
             if (!rawEvent) return null;
 
@@ -54,13 +99,16 @@
                     if (/^\/browser\/[a-f0-9]+\/\?takeover=1$/.test(payload.url || '')) {
                         const link = document.createElement('a');
                         link.href = payload.url;
-                        link.target = '_blank';
-                        link.rel = 'noopener';
                         link.textContent = 'Open browser';
+                        link.addEventListener('click', event => {
+                            event.preventDefault();
+                            openBrowserViewer(payload.url, link);
+                        });
                         prompt.appendChild(link);
                     }
                     chatRendering.setAssistantStatus(assistantMessage, 'Waiting for you in the browser', 'tools');
                 } else {
+                    closeBrowserViewer(payload.url);
                     prompt.textContent = payload.status === 'returned' ? 'Browser returned to agent.' : 'Browser handoff stopped.';
                 }
                 return { finished: false, messageCount: 0 };
