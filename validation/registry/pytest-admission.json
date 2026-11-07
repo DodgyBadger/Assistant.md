@@ -139,6 +139,14 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_file_copy_browser.py",
+      "kind": "behavioral",
+      "sha256": "7e2881c55471187ed5641e163df4ac0205551aa612155084875f660406e1df51",
+      "tests": [
+        "test_binary_copy_card_uses_approved_destination"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_files_and_selection.py",
       "sha256": "d362dec4a8d40d6108e27000aac4d3ac3b7cac8d22ada5e63589bede86137fc7",
       "kind": "behavioral",
@@ -425,6 +433,19 @@
       "kind": "behavioral",
       "tests": [
         "test_batch_move_compensation_preserves_external_edit"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_binary_text_file_tools.py",
+      "sha256": "2429710a044a01f8b707c61eb2358670061ce7b2fff2e5cdc29e73c6a5ee1bc5",
+      "kind": "behavioral",
+      "tests": [
+        "test_copy_and_move_preserve_arbitrary_bytes_and_recovery",
+        "test_plain_text_operations_use_literal_paths_and_preserve_text",
+        "test_text_operations_reject_binary_before_mutation",
+        "test_copy_review_and_failed_task_preserve_source_and_destination",
+        "test_gmail_downloads_arbitrary_attachment_types_with_real_metadata",
+        "test_copy_journal_failure_compensates_destination_without_changing_source"
       ]
     },
     {
@@ -1124,7 +1145,7 @@
     },
     {
       "path": "scenarios/integration/core/test_extensionless_file_edits.py",
-      "sha256": "ca3a9ba68666a7bbaf6b87009ed8c06ab4ec3a1d8d38ca98978e8d0bcb135859",
+      "sha256": "d4a858fa05fa3e79ec92765a52da24e7975d12f2e4545c6fd2c53f3fd4f4406e",
       "kind": "behavioral",
       "tests": [
         "test_extensionless_file_edits"
@@ -1245,7 +1266,7 @@
     },
     {
       "path": "scenarios/integration/core/test_gmail_attachment_tool.py",
-      "sha256": "41666d0b137cdc3a8bb4e3a179c043a3b177cb9e978388ead8b4fcba6a66067e",
+      "sha256": "8579cbdce7c36c6539ed3153173c0b5a8942b46eaa985159d9766e0ef8666666",
       "kind": "behavioral",
       "tests": [
         "test_gmail_attachment_policy_and_numbered_tool_writes"

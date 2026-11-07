@@ -37,6 +37,7 @@ ROLLBACK_MUTATION_OPERATIONS = frozenset(
         "truncate",
         "delete",
         "move",
+        "copy",
         "mkdir",
     }
 )

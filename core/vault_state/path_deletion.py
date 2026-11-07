@@ -4,23 +4,14 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from core.logger import UnifiedLogger
-from core.runtime.execution_tasks import (
-    get_current_execution_task,
-    goal_context_from_metadata,
-)
 from core.utils.hash import hash_bytes, hash_file_bytes
 from core.vault_state.activity import (
-    VaultActivityContext,
     get_current_vault_activity,
-    use_vault_activity,
 )
 from core.vault_state.favorites import remove_favorite_paths
 from core.vault_state.file_mutations import (
@@ -146,35 +137,6 @@ def _prepare_selection(root: Path, sources: list[str]) -> VaultDeletionSelection
             sorted(path.relative_to(root).as_posix() for path in directories)
         ),
     )
-
-
-@contextmanager
-def vault_deletion_activity() -> Iterator[VaultActivityContext]:
-    """Give tool deletion its own recoverable unit while preserving task provenance."""
-    task = get_current_execution_task()
-    goal_id, step_id = goal_context_from_metadata(task.metadata if task else None)
-    context = VaultActivityContext(
-        activity_id=f"activity_{uuid.uuid4().hex}",
-        kind=task.kind if task else "tool",
-        source=task.source if task else "tool",
-        scope=task.scope if task else None,
-        label=task.label if task else "Delete selected vault paths",
-        task_id=task.task_id if task else None,
-        goal_id=goal_id,
-        step_id=step_id,
-    )
-    with use_vault_activity(context):
-        try:
-            yield context
-        except Exception:
-            VaultStateService().finish_activity(
-                activity_id=context.activity_id, status="failed"
-            )
-            raise
-        else:
-            VaultStateService().finish_activity(
-                activity_id=context.activity_id, status="completed"
-            )
 
 
 def delete_vault_paths(

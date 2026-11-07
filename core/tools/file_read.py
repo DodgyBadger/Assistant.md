@@ -43,10 +43,10 @@ class FileRead(BaseTool):
             start_line: int = 0,
             line_count: int = 0,
         ) -> ToolReturn:
-            """Read, list, or search vault files.
+            """Read plain UTF-8 text or images, list or search files, and inspect Markdown frontmatter.
 
             :param operation: One of read, list, search, frontmatter.
-            :param path: Vault-relative file or directory path.
+            :param path: Exact vault-relative filename or directory path; no extension is inferred.
             :param recursive: Recurse through subdirectories for list.
             :param search_term: Text to search for.
             :param keys: Optional comma-separated frontmatter keys to return.
@@ -127,7 +127,7 @@ class FileRead(BaseTool):
         return Tool(
             file_read,
             name="file_read",
-            description="Read, list, search, and inspect frontmatter within the current vault.",
+            description="Read plain UTF-8 text and images, list, search, and inspect frontmatter within the current vault.",
         )
 
 

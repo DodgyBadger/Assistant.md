@@ -17,7 +17,7 @@ did not align with deferred tool review, which is applied at the tool-call level
 Expose two model-facing tools:
 
 - `file_read` performs `read`, `list`, `search`, and `frontmatter` operations.
-- `file_write` performs `write`, `append`, `edit_line`, `replace_text`, `move`,
+- `file_write` performs `write`, `append`, `edit_line`, `replace_text`, `copy`, `move`,
   `delete`, and `mkdir` operations.
 
 Both tools are thin adapters over shared operations in
@@ -41,6 +41,8 @@ operation content or a move destination, but cannot change the operation target
 or overwrite policy.
 
 In inline-edit mode, a `delete` call is reviewed as one normalized selection. Directory selections include all contents. Review captures file hashes, target kinds, and directory topology; changes invalidate approval, and deletion rechecks the snapshot under its mutation lock.
+
+Copying preserves source bytes and records the destination mutation. Copy review captures source and destination file states. Direct text operations support plain UTF-8 files; Markdown-specific context processing and ingestion capabilities remain separate.
 
 Tool availability is app-wide through the registered tool set minus
 `disabled_tools`; chat does not select a per-turn tool subset in the UI.

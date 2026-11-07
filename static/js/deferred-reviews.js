@@ -171,7 +171,7 @@
                     </div>
                 `;
             }
-            if (operation === 'move') {
+            if (operation === 'move' || operation === 'copy') {
                 return `
                     <div class="edit-proposal-path-edit">
                         <label class="edit-proposal-label" for="deferred-review-destination-${escapeHtml(toolCallId)}">Destination</label>

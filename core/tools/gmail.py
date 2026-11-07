@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
@@ -16,11 +16,11 @@ from core.integrations.google.gmail_service import GmailConfigurationError
 from core.integrations.google.oauth import GoogleOAuthError
 from core.runtime.state import get_runtime_context
 from core.tools.failures import FailureClassification, tool_failure_return
+from core.tools.utils import validate_and_resolve_path
 from core.vault_state.file_mutations import (
     VaultMutationRejected,
     write_vault_file_bytes,
 )
-from core.vault_state.pathing import resolve_vault_relative_path
 
 from .base import BaseTool, ToolRecoveryPolicy
 
@@ -48,7 +48,7 @@ class Gmail(BaseTool):
             subject: str = "",
             body: str = "",
         ) -> str | ToolReturn:
-            """Read Gmail, download a PDF, or create an unsent draft if enabled.
+            """Read Gmail, download an attachment, or create an unsent draft if enabled.
 
             :param operation: connections, status, search, get_message, get_thread, download_attachment, or create_draft
             :param query: Gmail search syntax for the search operation
@@ -57,7 +57,7 @@ class Gmail(BaseTool):
             :param thread_id: Thread handle returned by search or get_message
             :param attachment_id: Attachment handle returned by get_message
             :param connection: Optional Google connection slug; omitted uses the default
-            :param destination_path: Vault-relative PDF path for download_attachment
+            :param destination_path: Exact vault-relative filename for download_attachment
             :param subject: Required subject for create_draft
             :param body: Plain-text body for create_draft
             """
@@ -156,7 +156,7 @@ class Gmail(BaseTool):
             gmail,
             name="gmail",
             description=(
-                "Read configured Gmail accounts, save PDF attachments, and create "
+                "Read configured Gmail accounts, save attachments of any file type, and create "
                 "unsent drafts when enabled. "
                 "List connections when account choice is unclear; omitted connection "
                 "uses the default. Search first, then retrieve a message or thread by "
@@ -271,8 +271,6 @@ def _write_numbered_attachment(
 ) -> str:
     """Create a binary vault file, adding a numbered suffix on collision."""
     requested = PurePosixPath(destination_path.strip())
-    if requested.suffix.lower() != ".pdf":
-        raise GmailRequestError("Gmail PDF destination_path must end with .pdf.")
     for number in range(10_000):
         candidate = requested
         if number:
@@ -296,12 +294,17 @@ def _write_numbered_attachment(
 def _validate_attachment_destination(vault_path: str, destination_path: str) -> None:
     """Reject invalid destinations before downloading external bytes."""
     requested = PurePosixPath(destination_path.strip())
-    if requested.suffix.lower() != ".pdf":
-        raise GmailRequestError("Gmail PDF destination_path must end with .pdf.")
     try:
-        resolve_vault_relative_path(
-            vault_path=vault_path,
-            path=requested.as_posix(),
+        resolved = Path(
+            validate_and_resolve_path(
+                requested.as_posix(), vault_path, markdown_only=False
+            )
         )
+        if (
+            destination_path.strip().endswith("/")
+            or resolved == Path(vault_path).resolve()
+            or resolved.is_dir()
+        ):
+            raise ValueError("Attachment destination must be a filename.")
     except ValueError as exc:
         raise GmailRequestError(str(exc)) from exc
