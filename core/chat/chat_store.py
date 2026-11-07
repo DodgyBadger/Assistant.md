@@ -1876,6 +1876,78 @@ class ChatStore:
             conn.close()
         return [self._context_checkpoint_from_row(row) for row in rows]
 
+    def session_map_history_bounds(
+        self, session_id: str, vault_name: str, *, through_id: int | None = None
+    ) -> tuple[int, int]:
+        """Return the last row identity and map count within a history snapshot."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT coalesce(max(id), 0), count(*)
+                FROM chat_compaction_checkpoints
+                WHERE session_id = ? AND vault_name = ?
+                  AND checkpoint_kind = 'session_map' AND (? IS NULL OR id <= ?)
+                """,
+                (session_id, vault_name, through_id, through_id),
+            ).fetchone()
+        finally:
+            conn.close()
+        return int(row[0]), int(row[1])
+
+    def list_session_map_revisions(
+        self,
+        session_id: str,
+        vault_name: str,
+        *,
+        through_id: int,
+        after_revision: int = 0,
+        limit: int,
+        checkpoint_ids: Sequence[str] | None = None,
+    ) -> list[tuple[int, StoredContextCheckpoint]]:
+        """Read bounded map payloads with stable session-local revision numbers."""
+        parameters: list[str | int] = [
+            session_id,
+            vault_name,
+            through_id,
+            after_revision,
+        ]
+        selection = ""
+        if checkpoint_ids is not None:
+            if not checkpoint_ids:
+                return []
+            selection = (
+                "AND checkpoint_id IN (" + ",".join("?" for _ in checkpoint_ids) + ")"
+            )
+            parameters.extend(checkpoint_ids)
+        parameters.append(limit)
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                f"""
+                WITH numbered AS (
+                    SELECT id, checkpoint_id, session_id, vault_name, created_at,
+                           source, checkpoint_kind, message_count_before,
+                           last_message_sequence_index, summary_message_json,
+                           replacement_history_json,
+                           replacement_source_sequence_indexes_json, metadata_json,
+                           row_number() OVER (ORDER BY id) AS revision
+                    FROM chat_compaction_checkpoints
+                    WHERE session_id = ? AND vault_name = ?
+                      AND checkpoint_kind = 'session_map' AND id <= ?
+                )
+                SELECT * FROM numbered
+                WHERE revision > ? {selection}
+                ORDER BY revision ASC LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        finally:
+            conn.close()
+        return [
+            (int(row[-1]), self._context_checkpoint_from_row(row[:-1])) for row in rows
+        ]
+
     def get_highest_message_sequence_index(
         self, session_id: str, vault_name: str
     ) -> int:
