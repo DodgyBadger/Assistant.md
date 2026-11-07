@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.9.5
+
+- Improved recall in long-running chats: the assistant can trace conversations chronologically and retrieve earlier plans and recommendations after compaction.
+- Copy files of any type within the vault, including PDFs, Office documents, and files produced by the advanced shell.
+- Read and edit plain-text files such as JSON, YAML, CSV, and source code. Markdown remains the preferred format for notes and analysis.
+- Download Gmail attachments of any type directly into the vault.
+- Delete multiple files or entire folders together, with one approval card when inline edit mode is enabled.
+- Added protection against deleting the vault root and improved recovery of deleted folders, including their empty subfolders.
+
 ## v0.9.4
 
 - Bookmark chat sessions and files for quicker access
