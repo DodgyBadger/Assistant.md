@@ -1,6 +1,6 @@
 # Binary File Operations and Content Capabilities Plan
 
-Branch: `dev/tool-upgrades`. Status: scope agreed; final implementation details remain to settle. Support unrestricted byte-preserving file handling and UTF-8 plain-text read/edit operations, with format-specific ingestion limited by implemented handlers. Implementation has not started. Branch issues: [TOOL_UPGRADES_PLAN.md](TOOL_UPGRADES_PLAN.md). Conversation decisions take precedence over the original PDF-only TODO.
+Branch: `dev/tool-upgrades`. Status: implementation authorized; scope and product decisions are settled. Support unrestricted byte-preserving file handling and UTF-8 plain-text read/edit operations, with format-specific ingestion limited by implemented handlers. Beginning validation-first implementation. Branch issues: [TOOL_UPGRADES_PLAN.md](TOOL_UPGRADES_PLAN.md). Conversation decisions take precedence over the original PDF-only TODO.
 
 ## Agreed scope
 
@@ -10,7 +10,8 @@ Markdown remains the working representation for notes and context. Supporting tr
 
 ## Settled decisions
 
-- File-tool calls use explicit filenames and extensions, with no `.md` inference or Markdown-sibling preference. Directory names do not require extensions. Preserve app-level Markdown link conveniences outside generic file-tool resolution. Handling of actual extensionless files remains an edge case to settle; do not rename files implicitly.
+- Exact filenames (agreed, refining the earlier extensions-required wording): file-tool paths identify literal filenames, including actual extensionless names such as `LICENSE`. Never infer `.md`, select a Markdown sibling, or rename a file implicitly. Directory names do not require extensions. Preserve app-level Markdown link conveniences outside generic file-tool resolution.
+- Copy scope (agreed): native copy handles files only in this workstream; recursive directory copying is outside scope. Use existing overwrite and normal/inline-edit approval rules.
 - Direct reads of unsupported binary content return a simple unsupported-content error. No shell guidance, automatic extraction, or assumption that the optional advanced shell exists. Preserve existing Markdown and image content handling.
 - File tools use vault-relative paths; shell commands use shell-side paths. No shortcuts, aliases, or automatic path translation.
 - Exchange is a deployment convention. Operators may mount a narrow folder or the whole vault. No Exchange-location setting, special staging exception, or mount discovery is needed. App tools do not impose a disk-wide invariant on files written directly by users or the shell.
@@ -34,12 +35,15 @@ Markdown remains the working representation for notes and context. Supporting tr
 - Preserve image reads and the agreed simple unsupported-content error for formats without native reading support. No automatic Office extraction or general encoding-conversion subsystem is proposed.
 - Source correction: `_read_existing_text_file` already attempts UTF-8 reads for non-image files beyond Markdown; the main functional expansion is removing Markdown-only text-edit restrictions and making the text/binary boundary consistent. Record a real baseline for existing non-Markdown text reads before claiming that behavior is new.
 
-## Remaining decisions before implementation
+## Gmail attachment policy (agreed)
 
-1. Define consistent text/binary validation for the agreed UTF-8 read/edit contract, including binary files whose bytes happen to decode. Reuse shared validation and preserve unsupported-content errors; no text-extension allowlist.
-2. Settle native copy scope, especially directory copying, overwrite handling, and review expectations, without expanding into unrelated file-management features.
-3. Settle actual extensionless files under exact path semantics and audit existing executable consumers of Markdown shorthand.
-4. Identify review-payload and persistence impacts. No file-type permission settings or settings migration are proposed. Keep existing attachment size settings.
+Allow any attachment type, consistent with byte-preserving file transport. Do not add a connector extension allowlist. Preserve connector download enablement, size limits, safe destination paths, collision handling, and recorded writes. Downloading does not enable native reading, ingestion, or execution.
+
+## Implementation details to resolve during development
+
+- Share text/binary validation across UTF-8 read/edit operations, including binary formats that can decode as UTF-8. Keep unsupported-content errors and no text-extension allowlist; use meaningful acceptance cases rather than ask the user to design detection heuristics.
+- Audit review payloads, recorded copy/recovery, and executable consumers of Markdown shorthand. Preserve existing approval and overwrite policy. No file-type permission settings or migration are proposed; retain attachment size settings.
+- URL capability finding: built-in `web_extract` with the curl strategy accepts JSON as transient text; URL ingestion currently rejects `application/json`. Broad text tools permit working with saved JSON but do not add an ingestion strategy. JSON URL ingestion remains outside this workstream.
 
 ## Acceptance and validation
 
@@ -48,13 +52,13 @@ Markdown remains the working representation for notes and context. Supporting tr
 - Add a native copy journey through production tool binding. Compare complete bytes, source preservation, overwrite behavior, recorded recovery, and applicable inline-edit review. Expected meaningful red: absent native copy support.
 - Extend Gmail attachment scenarios with the existing local HTTP provider boundary. Download DOCX/PPTX/XLSX and an unlisted format such as ODT, preserve exact bytes, and verify actual filenames/types, size limits, collision handling, and recorded writes. Expected meaningful red: PDF-only transfer restrictions. Keep application services real.
 - Verify unknown extensions can be copied, moved, downloaded, listed, and deleted while direct unsupported content reads and ingestion still return their respective errors. Neither operation support nor error text should depend on advanced-shell availability or a folder being called Exchange.
-- Exercise exact filenames with `report`, `report.md`, and `report.docx` together, proving no sibling selection or inferred filenames. Directory operations must accept directory names without extensions. Settle the actual extensionless-file expectation before encoding it.
+- Exercise exact filenames with `report`, `report.md`, and `report.docx` together, proving no sibling selection or inferred filenames. Directory operations must accept directory names without extensions. Actual extensionless files must be addressed literally and work without selecting an `.md` sibling.
 - Verify vault-relative exchange placement through real file operations. Claim a shell round trip only when an isolated deterministic fixture exercises an actual shared mount; otherwise report that deployment boundary as untested.
 - Preserve traversal rejection, read-only mounts, vault-root/identity protection, overwrite safeguards, standard approval/script policy, and recovery. Do not add binary content to routine Markdown context or text-edit paths.
 
 ## Implementation sequence
 
-1. Settle the remaining text-validation, copy-scope, and exact-path edge cases without reopening the agreed unrestricted transport and broad text support.
+1. Establish acceptance scenarios for the agreed file-only copy, exact literal filenames including extensionless files, unrestricted file handling and Gmail downloads, and broad text support.
 2. Establish working baselines and add targeted failing scenarios for native copy, non-Markdown edits, PDF-only Gmail restrictions, and removed Markdown shorthand.
 3. Implement byte-preserving copy through recorded mutations, generalize attachment transfer, and share text validation across read/write/append/edit/replace. Keep ingestion handler selection and Markdown-specific context behavior independent.
 4. Verify approval, overwrite, recovery, exact bytes, text integrity, and unsupported binary content through real production entry points. Run the required quality gate and stable-branch core profile.
@@ -68,4 +72,4 @@ Once decisions are settled, implement the failing acceptance scenario first, con
 
 Finish with documentation review: identify affected file-tool, Gmail, shell/exchange, and architecture documents; present exact proposed text or diffs; obtain explicit user approval; then apply approved updates. No protected documentation changes are authorized by this planning discussion.
 
-Next phase: settle remaining implementation details for text validation, native copy, and exact filenames, then move to Feature Development using the acceptance scenarios above. No production code or runtime settings have changed.
+Current phase: Feature Development using the acceptance scenarios above. Text validation and review plumbing are implementation work, not further product approval gates. Protected documentation edits still require approval of exact drafts.
