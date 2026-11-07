@@ -2,6 +2,8 @@
 
 Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tools, compaction continuity, vault-root protection, multi-delete, and binary/text file operations are complete. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
 
+Branch-wide hardening: parallel review and focused corrections are recorded in [TOOL_UPGRADES_HARDENING_PLAN.md](TOOL_UPGRADES_HARDENING_PLAN.md); 552 core scenarios, both browser approval journeys, and quality/admission checks pass; one ADR wording clarification awaits approval.
+
 ## Selected issues
 
 | Issue | Status | Implementation plan |
