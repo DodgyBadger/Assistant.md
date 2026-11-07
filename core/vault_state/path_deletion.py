@@ -93,6 +93,7 @@ def prepare_vault_deletion(
 def _prepare_selection(root: Path, sources: list[str]) -> VaultDeletionSelection:
     candidates: dict[str, Path] = {}
     for source in sources:
+        source = source.replace("\\", "/").strip()
         target = resolve_vault_deletion_target(vault_path=root, path=source)
         metadata = (root / VAULT_METADATA_RELATIVE_PATH).resolve()
         if target == metadata or target in metadata.parents:
@@ -278,6 +279,11 @@ def _ancestors(path: str) -> tuple[str, ...]:
 
 
 def _validate_target(path: Path) -> None:
+    if "\\" in path.name:
+        raise VaultMutationRejected(
+            "invalid_path",
+            "Cannot delete a filesystem name containing a literal backslash.",
+        )
     if path.is_symlink():
         raise VaultMutationRejected(
             "symlink_target", f"Cannot recursively delete symbolic link: {path.name}"
