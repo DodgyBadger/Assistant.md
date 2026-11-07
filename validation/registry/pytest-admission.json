@@ -1739,6 +1739,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_plain_text_line_hardening.py",
+      "kind": "behavioral",
+      "sha256": "5f40430502dc8eacd7be66954c6154dd71e84a153781b0edc235dc212c8319c5",
+      "tests": [
+        "test_line_edits_count_physical_lines_in_plain_text"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_principal_authority_boundaries.py",
       "sha256": "8d59bee753f3e7ef3b190f5d31c348ed53eaf95f1c5c6bc2a9c10d4cd9257b71",
       "kind": "behavioral",
