@@ -410,6 +410,15 @@ def replace_vault_file_content(
     )
 
 
+def resolve_vault_deletion_target(*, vault_path: str | Path, path: str) -> Path:
+    """Resolve a deletion target inside the vault while protecting the root."""
+    vault_root = Path(vault_path).resolve()
+    target = resolve_vault_relative_path(vault_path=vault_root, path=path)
+    if target == vault_root:
+        raise VaultMutationRejected("invalid_target", "Cannot delete the vault root.")
+    return target
+
+
 def delete_vault_file(
     *,
     vault_path: str | Path,
@@ -880,10 +889,9 @@ def delete_empty_vault_directory_tree(
 ) -> DirectoryCleanupResult:
     """Delete empty directories under ``path`` and leave non-empty dirs in place."""
     vault_root = Path(vault_path).resolve()
-    full_path = resolve_vault_relative_path(
+    full_path = resolve_vault_deletion_target(
         vault_path=vault_root,
         path=path,
-        markdown_only=False,
     )
     with vault_directory_mutation_lock(vault_root, full_path):
         return _delete_empty_vault_directory_tree_locked(
@@ -900,15 +908,9 @@ def _delete_empty_vault_directory_tree_locked(
     """Delete empty directories while holding the vault hierarchy lock."""
     vault_root = Path(vault_path).resolve()
     relative_path = normalize_vault_relative_path(path)
-    if not relative_path:
-        raise VaultMutationRejected(
-            "invalid_target",
-            "Cannot delete the vault root directory.",
-        )
-    full_path = resolve_vault_relative_path(
+    full_path = resolve_vault_deletion_target(
         vault_path=vault_root,
         path=relative_path,
-        markdown_only=False,
     )
     if not full_path.exists():
         raise VaultMutationRejected(

@@ -82,6 +82,21 @@ def copy_image_fixture(vault: Path) -> None:
     shutil.copyfile(source, destination)
 
 
+def vault_tree_snapshot(vault: Path) -> dict[str, str | None]:
+    """Retain exact file bytes and directory topology for preservation checks."""
+    if not vault.is_dir():
+        return {}
+    return {
+        ".": None,
+        **{
+            path.relative_to(vault).as_posix(): (
+                None if path.is_dir() else path.read_bytes().hex()
+            )
+            for path in sorted(vault.rglob("*"))
+        },
+    }
+
+
 def record_operation(
     app: Application, result: VaultFileOperationResult
 ) -> VaultFileOperationResult:

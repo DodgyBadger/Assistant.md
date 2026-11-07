@@ -2424,6 +2424,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_vault_root_delete_protection.py",
+      "sha256": "6e4a0756d9ef41c6de187b88a4d7db8bcbfd106efaddcd93a8be324d806c8bb3",
+      "kind": "behavioral",
+      "tests": [
+        "test_root_alias_rejection_preserves_complete_vault"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_vault_state_manifest.py",
       "sha256": "cb1c2e780171c579c9d922a4e49bb5132a8c44f66eb78e747ce682e2d2fe7721",
       "kind": "behavioral",
@@ -3348,7 +3356,7 @@
     },
     {
       "path": "support/vault/file_tools.py",
-      "sha256": "9633e9b34aac38caec497e0b86669934afe24cf7d4c41a4de101264038b1399d",
+      "sha256": "9bf8fcc943c2a6f788e1b938789a4371520d1dae2f624033ac761c3e3b39b5a9",
       "kind": "support"
     },
     {
