@@ -1961,6 +1961,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_session_map_hardening.py",
+      "kind": "behavioral",
+      "sha256": "faa663a2cc655ffc61b0b3e9fe20a4fb6fc2dbe0a481970e33ec82fe8fcfb9f9",
+      "tests": [
+        "test_corrupt_map_diagnostics_identify_authorized_checkpoint_without_text"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_session_map_mixed_retained_return.py",
       "sha256": "7dee812dbc730857ba5c9c95186c8e3af0bcb596a1f439f945e4f111925026bb",
       "kind": "behavioral",

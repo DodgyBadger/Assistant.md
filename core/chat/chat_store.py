@@ -1895,6 +1895,24 @@ class ChatStore:
             conn.close()
         return int(row[0]), int(row[1])
 
+    def session_map_snapshot_checkpoint_id(
+        self, session_id: str, vault_name: str, *, snapshot_id: int
+    ) -> str | None:
+        """Read a snapshot anchor identity without loading checkpoint payloads."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT checkpoint_id FROM chat_compaction_checkpoints
+                WHERE id = ? AND session_id = ? AND vault_name = ?
+                  AND checkpoint_kind = 'session_map'
+                """,
+                (snapshot_id, session_id, vault_name),
+            ).fetchone()
+        finally:
+            conn.close()
+        return str(row[0]) if row is not None else None
+
     def list_session_map_revisions(
         self,
         session_id: str,
@@ -1926,19 +1944,29 @@ class ChatStore:
             rows = conn.execute(
                 f"""
                 WITH numbered AS (
-                    SELECT id, checkpoint_id, session_id, vault_name, created_at,
-                           source, checkpoint_kind, message_count_before,
-                           last_message_sequence_index, summary_message_json,
-                           replacement_history_json,
-                           replacement_source_sequence_indexes_json, metadata_json,
+                    SELECT id, checkpoint_id,
                            row_number() OVER (ORDER BY id) AS revision
                     FROM chat_compaction_checkpoints
                     WHERE session_id = ? AND vault_name = ?
                       AND checkpoint_kind = 'session_map' AND id <= ?
+                ), selected AS (
+                    SELECT id, revision FROM numbered
+                    WHERE revision > ? {selection}
+                    ORDER BY revision ASC LIMIT ?
                 )
-                SELECT * FROM numbered
-                WHERE revision > ? {selection}
-                ORDER BY revision ASC LIMIT ?
+                SELECT checkpoint.id, checkpoint.checkpoint_id,
+                       checkpoint.session_id, checkpoint.vault_name,
+                       checkpoint.created_at, checkpoint.source,
+                       checkpoint.checkpoint_kind, checkpoint.message_count_before,
+                       checkpoint.last_message_sequence_index,
+                       checkpoint.summary_message_json,
+                       checkpoint.replacement_history_json,
+                       checkpoint.replacement_source_sequence_indexes_json,
+                       checkpoint.metadata_json, selected.revision
+                FROM selected
+                JOIN chat_compaction_checkpoints AS checkpoint
+                  ON checkpoint.id = selected.id
+                ORDER BY selected.revision ASC
                 """,
                 parameters,
             ).fetchall()

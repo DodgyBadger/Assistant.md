@@ -12,13 +12,39 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from core.chat.chat_store import ChatStore, StoredContextCheckpoint
 from core.chat.session_access import ChatSessionAccessService
-from core.memory.session_map.checkpoints import load_session_map_checkpoint
-from core.memory.session_map.models import SessionMapEntryKind
+from core.memory.session_map.checkpoints import (
+    SessionMapCheckpointCorrupt,
+    load_session_map_checkpoint,
+)
+from core.memory.session_map.models import SessionMapDraft, SessionMapEntryKind
 from core.settings.store import get_general_settings
 
 
 class SessionMapRequestError(ValueError):
     """A recoverable map-tool request error, without private resource details."""
+
+
+class SessionMapRetrievalCorrupt(SessionMapCheckpointCorrupt):
+    """Sanitized stored-map failure carrying its already-authorized identity."""
+
+    def __init__(self, checkpoint: StoredContextCheckpoint) -> None:
+        super().__init__(
+            "Stored session map is invalid; inspect the identified checkpoint."
+        )
+        self.checkpoint_id = checkpoint.checkpoint_id
+        self.checkpoint_session_id = checkpoint.session_id
+
+
+def _load_map(checkpoint: StoredContextCheckpoint) -> tuple[SessionMapDraft, int]:
+    """Validate content and boundary before exposing either projection."""
+    try:
+        return (
+            load_session_map_checkpoint(checkpoint),
+            checkpoint.observed_through_sequence_index,
+        )
+    except ValueError:
+        # Validation inputs and chained exceptions may contain private map text.
+        raise SessionMapRetrievalCorrupt(checkpoint) from None
 
 
 @dataclass(frozen=True)
@@ -96,6 +122,7 @@ class SessionMapRetrievalService:
         checkpoint: StoredContextCheckpoint,
         revision: int,
         current_id: str | None,
+        observed_through_sequence_index: int,
     ) -> dict[str, object]:
         current = checkpoint.checkpoint_id == current_id
         return {
@@ -105,7 +132,7 @@ class SessionMapRetrievalService:
             "created_at": checkpoint.created_at,
             "is_current": current,
             "historical": not current,
-            "observed_through_sequence_index": checkpoint.observed_through_sequence_index,
+            "observed_through_sequence_index": observed_through_sequence_index,
             "compacted_through_sequence_index": checkpoint.last_message_sequence_index,
         }
 
@@ -139,15 +166,13 @@ class SessionMapRetrievalService:
                     "Invalid list_session_maps cursor. Use next_cursor from the previous "
                     "page for the same session, or omit cursor to start again."
                 ) from exc
-            anchor = self._store.get_context_checkpoint(
-                session_id, vault_name, decoded.snapshot_checkpoint_id
+            anchor_id = self._store.session_map_snapshot_checkpoint_id(
+                session_id, vault_name, snapshot_id=decoded.snapshot_id
             )
             if (
                 decoded.session_id != session_id
                 or decoded.vault_name != vault_name
-                or anchor is None
-                or anchor.id != decoded.snapshot_id
-                or anchor.checkpoint_kind != "session_map"
+                or anchor_id != decoded.snapshot_checkpoint_id
             ):
                 raise SessionMapRequestError(
                     "Stale or mismatched list_session_maps cursor. Omit cursor to start again."
@@ -171,11 +196,14 @@ class SessionMapRetrievalService:
         )
         maps = []
         for revision, checkpoint in rows:
-            draft = load_session_map_checkpoint(checkpoint)
+            draft, observed_through = _load_map(checkpoint)
             maps.append(
                 {
                     **self._metadata(
-                        checkpoint, revision, latest.checkpoint_id if latest else None
+                        checkpoint,
+                        revision,
+                        latest.checkpoint_id if latest else None,
+                        observed_through,
                     ),
                     "schema_version": draft.schema_version,
                     "trajectory_excerpt": (
@@ -188,18 +216,18 @@ class SessionMapRetrievalService:
             )
         next_cursor = None
         if rows and rows[-1][0] < total:
-            snapshot = self._store.list_session_map_revisions(
-                session_id,
-                vault_name,
-                through_id=snapshot_id,
-                after_revision=total - 1,
-                limit=1,
-            )[0][1]
+            anchor_id = self._store.session_map_snapshot_checkpoint_id(
+                session_id, vault_name, snapshot_id=snapshot_id
+            )
+            if anchor_id is None:
+                raise SessionMapRequestError(
+                    "Stale list_session_maps snapshot. Omit cursor to start again."
+                )
             next_cursor = _MapCursor(
                 session_id=session_id,
                 vault_name=vault_name,
                 snapshot_id=snapshot_id,
-                snapshot_checkpoint_id=snapshot.checkpoint_id,
+                snapshot_checkpoint_id=anchor_id,
                 after_revision=rows[-1][0],
             ).encode()
         return {
@@ -283,7 +311,7 @@ class SessionMapRetrievalService:
             )
         maps = []
         for revision, checkpoint in rows:
-            draft = load_session_map_checkpoint(checkpoint)
+            draft, observed_through = _load_map(checkpoint)
             selected: dict[str, object] = {"schema_version": draft.schema_version}
             if "trajectory" in sections:
                 selected["trajectory"] = (
@@ -300,7 +328,10 @@ class SessionMapRetrievalService:
             maps.append(
                 {
                     **self._metadata(
-                        checkpoint, revision, latest.checkpoint_id if latest else None
+                        checkpoint,
+                        revision,
+                        latest.checkpoint_id if latest else None,
+                        observed_through,
                     ),
                     "map": selected,
                 }

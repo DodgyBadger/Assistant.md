@@ -32,6 +32,7 @@ from core.memory.session_discovery import (
 )
 from core.memory.session_map.retrieval import (
     SessionMapRequestError,
+    SessionMapRetrievalCorrupt,
     SessionMapRetrievalService,
 )
 from core.runtime.state import get_runtime_context
@@ -798,4 +799,7 @@ def _session_failure_diagnostics(exc: Exception) -> dict[str, str]:
             for frame in traceback.extract_tb(exc.__traceback__, limit=-12)
         ),
     }
+    if isinstance(exc, SessionMapRetrievalCorrupt):
+        diagnostics["checkpoint_id"] = exc.checkpoint_id
+        diagnostics["checkpoint_session_id"] = exc.checkpoint_session_id
     return diagnostics
