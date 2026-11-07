@@ -51,6 +51,19 @@ async def test_delete_preflight_rejects_unrepresentable_tree_names(
     with pytest.raises(VaultMutationRejected) as failure:
         prepare_vault_deletion(vault_path=vault, sources=["Tree"])
     assert failure.value.code == "invalid_path"
+    response = app.request(
+        f"/api/vaults/{vault.name}/paths/delete-batch",
+        "POST",
+        {"sources": ["Tree"], "confirmed_sources": ["Tree"]},
+    )
+    assert response.status_code == 400
+    activity = app.request("/api/system/activity-log", params={"limit": 200})
+    assert any(
+        row.get("data", {}).get("event") == "vault_explorer_delete_rejected"
+        and row["data"].get("error_type") == "invalid_path"
+        and row["data"].get("vault_name") == vault.name
+        for row in activity.json()["entries"]
+    )
     assert (vault / "Tree/keep.md").read_text() == "must survive"
     assert (vault / "Tree/literal\\name.md").read_bytes() == b"literal bytes"
 

@@ -1057,7 +1057,7 @@
     {
       "path": "scenarios/integration/core/test_deletion_boundary_hardening.py",
       "kind": "behavioral",
-      "sha256": "beee117ae75659d444df9c292f6c572151dea5047ce06c6875003bc969a9ffb8",
+      "sha256": "0d20460ae91c1e6f783cb9ad746aa10b04e490b1131ef0dd2fb9451a1b0afb53",
       "tests": [
         "test_delete_normalizes_separator_syntax_before_target_preflight",
         "test_delete_preflight_rejects_unrepresentable_tree_names",
