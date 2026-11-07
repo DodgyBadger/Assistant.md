@@ -1038,6 +1038,17 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_deletion_boundary_hardening.py",
+      "kind": "behavioral",
+      "sha256": "beee117ae75659d444df9c292f6c572151dea5047ce06c6875003bc969a9ffb8",
+      "tests": [
+        "test_delete_normalizes_separator_syntax_before_target_preflight",
+        "test_delete_preflight_rejects_unrepresentable_tree_names",
+        "test_deletion_review_lock_wait_does_not_block_event_loop",
+        "test_delete_separator_normalization_cannot_bypass_vault_identity"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_directory_cleanup.py",
       "sha256": "33d0a4763879a82bdd157878eb4081f5fb3bae70a1241ca891714ff9fbff0cac",
       "kind": "behavioral",

@@ -1,5 +1,6 @@
 """Deferred chat-review inspection, validation, and resume API services."""
 
+import asyncio
 from collections import Counter
 from typing import Any
 
@@ -108,7 +109,8 @@ async def submit_chat_deferred_review(
         artifact_ref=artifact_ref,
     )
     vault_path = str(resolve_vault_root(vault_name))
-    conflicts = deferred_review_conflicts(
+    conflicts = await asyncio.to_thread(
+        deferred_review_conflicts,
         review=review,
         approved_call_ids={
             tool_call_id

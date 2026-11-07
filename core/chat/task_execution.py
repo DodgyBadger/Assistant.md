@@ -1163,6 +1163,15 @@ async def _run_prepared_chat_stream_task_inner(
                     session_id=session_id,
                     vault_name=vault_name,
                 ):
+                    review_context = (
+                        await asyncio.to_thread(
+                            capture_deferred_review_context,
+                            vault_path=vault_path,
+                            requests=deferred_requests,
+                        )
+                        if isinstance(deferred_requests, DeferredToolRequests)
+                        else None
+                    )
                     with _CHAT_STORE.transaction() as connection:
                         committed_sequence_indexes = _CHAT_STORE.add_messages(
                             session_id,
@@ -1199,10 +1208,7 @@ async def _run_prepared_chat_stream_task_inner(
                                 requests=deferred_requests,
                                 resume_messages=list(final_result.all_messages()),
                                 resume_config=prepared.resume_config(),
-                                review_context=capture_deferred_review_context(
-                                    vault_path=vault_path,
-                                    requests=deferred_requests,
-                                ),
+                                review_context=review_context,
                                 connection=connection,
                                 log_created=False,
                             )

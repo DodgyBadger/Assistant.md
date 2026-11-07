@@ -599,6 +599,17 @@ def deferred_review_conflicts(
     *, review: StoredDeferredReview, approved_call_ids: set[str], vault_path: str
 ) -> list[dict[str, Any]]:
     """Return reviewed targets that changed after the review was created."""
+    logger.set_sinks(["validation"]).info(
+        "Deferred review file validation started",
+        data={
+            "event": "chat_deferred_review_validation_started",
+            "status": "running",
+            "vault_name": review.vault_name,
+            "session_id": review.session_id,
+            "artifact_ref": review.artifact_ref,
+            "approved_call_count": len(approved_call_ids),
+        },
+    )
     snapshots = review.review_context.get("file_write_snapshots") or {}
     conflicts: list[dict[str, Any]] = []
     deletions = review.review_context.get("file_delete_snapshots") or {}
