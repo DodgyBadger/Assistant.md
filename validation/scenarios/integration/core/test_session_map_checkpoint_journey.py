@@ -102,7 +102,7 @@ async def test_map_checkpoints_preserve_provenance_and_reject_stale_commits(
     } == {
         "map_schema_version": 3,
         "authoring_prompt_version": "eviction-map-v8",
-        "context_prompt_version": "session-map-context-v2",
+        "context_prompt_version": "session-map-context-v3",
         "author_model_alias": "gpt-mini",
         "author_thinking": "low",
         "source_history_revision": revision,

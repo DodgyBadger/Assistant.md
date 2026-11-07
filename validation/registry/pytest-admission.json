@@ -1888,7 +1888,7 @@
     },
     {
       "path": "scenarios/integration/core/test_session_map_checkpoint_journey.py",
-      "sha256": "d83209bac9aab349dbbf4d864a6b77b3a241f22e816280f552956e61afcc1b05",
+      "sha256": "5ddcbf425650fab5bb27ef1b1b543477db0eb6f25fcc2dbccbc0df4caa8e843c",
       "kind": "behavioral",
       "tests": [
         "test_map_checkpoints_preserve_provenance_and_reject_stale_commits"
