@@ -848,6 +848,7 @@ def delete_vault_paths_batch(
             in {
                 "confirmation_required",
                 "invalid_target",
+                "invalid_path",
                 "symlink_target",
                 "file_not_found",
                 "protected_vault_identity",
