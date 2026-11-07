@@ -796,6 +796,7 @@ def copy_vault_file_operation(
     path: str,
     destination: str,
     overwrite: bool = False,
+    reviewed_states: tuple[FileStateRestore, ...] | None = None,
 ) -> VaultFileOperationResult:
     """Copy exact file bytes into one recorded, recoverable destination state."""
     source = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
@@ -815,7 +816,46 @@ def copy_vault_file_operation(
         raise VaultFileOperationRejected(
             "invalid_target", "Copy source and destination must be different files."
         )
-    with vault_file_mutation_lock(vault_path, source.full_path, target.full_path):
+    root = Path(vault_path).resolve()
+    with vault_file_mutation_lock(root, source.full_path, target.full_path):
+        checked_source = resolve_text_target(
+            vault_path=root, path=path, markdown_only=False
+        )
+        checked_target = resolve_text_target(
+            vault_path=root, path=destination, markdown_only=False
+        )
+        if (
+            checked_source.full_path != source.full_path
+            or checked_target.full_path != target.full_path
+        ):
+            raise VaultMutationRejected(
+                (
+                    "review_target_changed"
+                    if reviewed_states is not None
+                    else "file_conflict"
+                ),
+                "Copy source or destination path changed while waiting. Request a new review or retry the operation.",
+            )
+        if reviewed_states is not None:
+            actual_paths = (source.full_path, target.full_path)
+            if len(reviewed_states) != 2:
+                raise VaultMutationRejected(
+                    "review_snapshot_missing", "Request a new copy review."
+                )
+            for state, actual in zip(reviewed_states, actual_paths, strict=True):
+                exists = actual.exists()
+                digest = (
+                    hash_file_bytes(actual, length=None) if actual.is_file() else None
+                )
+                if (
+                    actual.relative_to(root).as_posix() != state.path
+                    or exists != state.expected_exists
+                    or digest != state.expected_sha256
+                ):
+                    raise VaultMutationRejected(
+                        "review_target_changed",
+                        "The reviewed copy source or destination changed. Request a new review.",
+                    )
         if not source.full_path.exists():
             raise VaultFileOperationRejected(
                 "file_not_found", f"Source file does not exist: {source.path}"
@@ -837,12 +877,18 @@ def copy_vault_file_operation(
                 exists=True,
                 error_type="file_exists",
             )
+        canonical_destination = target.full_path.relative_to(root).as_posix()
+        if "\\" in canonical_destination:
+            raise VaultMutationRejected(
+                "invalid_path",
+                "Copy destination contains an unrepresentable filesystem name.",
+            )
         with recorded_vault_activity(label="Copy vault file") as activity:
             mutation = restore_vault_file_states(
-                vault_path=vault_path,
+                vault_path=root,
                 states=(
                     FileStateRestore(
-                        path=target.path,
+                        path=canonical_destination,
                         expected_exists=existed,
                         expected_sha256=(
                             hash_file_bytes(target.full_path, length=None)

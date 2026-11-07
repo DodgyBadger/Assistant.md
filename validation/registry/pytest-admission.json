@@ -855,6 +855,23 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_copy_lock_identity.py",
+      "kind": "behavioral",
+      "sha256": "bef46b7edcaf823051ab7d9cc37e7f64c37195bdc350be314920075369194044",
+      "tests": [
+        "test_copy_rejects_destination_retargeted_while_waiting_for_file_lock"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_copy_review_hardening.py",
+      "kind": "behavioral",
+      "sha256": "a7971ea6bb0251fbdcb0a9d1b0a02142fd2ee242c204a419efacbf2b32b09b6f",
+      "tests": [
+        "test_approved_copy_rechecks_states_after_waiting_for_session_gate",
+        "test_copy_destination_override_ignores_unused_old_destination"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_core_credential_isolation.py",
       "sha256": "79377a0712173193472b9d35091b1cbdc388c7df02c6f966a42612463d8697df",
       "kind": "behavioral",

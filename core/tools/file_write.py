@@ -190,11 +190,14 @@ def _execute_write_operation(
             count=count,
         )
     if normalized == "copy":
+        from core.chat.deferred_reviews import reviewed_copy_states
+
         return copy_vault_file_operation(
             vault_path=vault_path,
             path=path,
             destination=destination,
             overwrite=overwrite,
+            reviewed_states=reviewed_copy_states(tool_call_id),
         )
     if normalized == "move":
         return move_vault_path_operation(

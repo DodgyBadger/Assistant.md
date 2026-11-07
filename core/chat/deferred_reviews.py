@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import TypeAdapter
-from pydantic_ai import DeferredToolRequests, DeferredToolResults
+from pydantic_ai import (
+    DeferredToolRequests,
+    DeferredToolResults,
+    ToolApproved,
+    ToolDenied,
+)
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -23,7 +28,7 @@ from core.identity import LOCAL_USER_PRINCIPAL_ID
 from core.logger import UnifiedLogger
 from core.runtime.execution_tasks import get_current_execution_task
 from core.utils.hash import hash_file_bytes
-from core.vault_state.file_mutations import VaultMutationRejected
+from core.vault_state.file_mutations import FileStateRestore, VaultMutationRejected
 from core.vault_state.path_deletion import deletion_sources, prepare_vault_deletion
 from core.vault_state.pathing import (
     normalize_vault_relative_path,
@@ -242,6 +247,7 @@ def mark_deferred_review_submitted(
     artifact_ref: str,
     results: DeferredToolResults,
     resumed_task_id: str,
+    review_context: dict[str, Any] | None = None,
 ) -> StoredDeferredReview:
     """Atomically claim a pending review before starting its resume task."""
     result_json = _DEFERRED_TOOL_RESULTS_ADAPTER.dump_json(results).decode("utf-8")
@@ -256,13 +262,19 @@ def mark_deferred_review_submitted(
             SET status = 'resuming',
                 result_json = ?,
                 submitted_at = CURRENT_TIMESTAMP,
-                resumed_task_id = ?
+                resumed_task_id = ?,
+                review_context_json = COALESCE(?, review_context_json)
             WHERE artifact_ref = ? AND session_id = ? AND vault_name = ?
               AND status = 'pending'
             """,
             (
                 result_json,
                 resumed_task_id or None,
+                (
+                    json.dumps(review_context, ensure_ascii=False, sort_keys=True)
+                    if review_context is not None
+                    else None
+                ),
                 artifact_ref,
                 session_id,
                 vault_name,
@@ -538,18 +550,22 @@ def capture_deferred_review_context(
 
 def _capture_file_snapshot(vault_path: str, path: str) -> dict[str, Any]:
     normalized = normalize_vault_relative_path(path)
-    full_path = resolve_vault_relative_path(vault_path=vault_path, path=normalized)
+    root = Path(vault_path).resolve()
+    full_path = resolve_vault_relative_path(
+        vault_path=root, path=path.replace("\\", "/").strip()
+    )
     return {
         "path": normalized,
-        "exists": full_path.is_file(),
+        "resolved_path": full_path.relative_to(root).as_posix(),
+        "exists": full_path.exists(),
         "sha256": (
             hash_file_bytes(full_path, length=None) if full_path.is_file() else None
         ),
     }
 
 
-def reviewed_deletion_fingerprint(tool_call_id: str | None) -> str | None:
-    """Bind an approved deletion to its review-time tree, also at execution."""
+def _review_for_tool_call(tool_call_id: str | None) -> StoredDeferredReview | None:
+    """Read review state only for the actual approved call being resumed."""
     task = get_current_execution_task()
     if task is None or not tool_call_id:
         return None
@@ -564,11 +580,106 @@ def reviewed_deletion_fingerprint(tool_call_id: str | None) -> str | None:
     if review is None:
         raise VaultMutationRejected(
             "review_unavailable",
-            "The deletion review is unavailable. Request a new review.",
+            "The file-operation review is unavailable. Request a new review.",
         )
     if not any(
         str(call.tool_call_id) == tool_call_id for call in review.requests.approvals
     ):
+        return None
+    return review
+
+
+def _copy_snapshots(
+    review: StoredDeferredReview, tool_call_id: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    copies = review.review_context.get("file_copy_snapshots")
+    snapshots = copies.get(tool_call_id) if isinstance(copies, dict) else None
+    if (
+        not isinstance(snapshots, list)
+        or len(snapshots) != 2
+        or any(
+            not isinstance(snapshot, dict)
+            or not isinstance(snapshot.get("path"), str)
+            or not isinstance(snapshot.get("resolved_path"), str)
+            or not isinstance(snapshot.get("exists"), bool)
+            or (
+                snapshot.get("sha256") is not None
+                and not isinstance(snapshot.get("sha256"), str)
+            )
+            for snapshot in snapshots
+        )
+    ):
+        raise VaultMutationRejected(
+            "review_snapshot_missing",
+            "The copy review lacks complete file states. Request a new review.",
+        )
+    return snapshots[0], snapshots[1]
+
+
+def prepare_approved_review_context(
+    *,
+    review: StoredDeferredReview,
+    approvals: dict[str, bool | ToolApproved | ToolDenied],
+    vault_path: str,
+) -> dict[str, Any]:
+    """Bind source state and the user's effective destination at submission."""
+    context = dict(review.review_context)
+    copies = dict(context.get("file_copy_snapshots") or {})
+    for call in review.requests.approvals:
+        call_id = str(call.tool_call_id)
+        approval = approvals.get(call_id)
+        args = call.args_as_dict()
+        if (
+            approval is None
+            or approval is False
+            or isinstance(approval, ToolDenied)
+            or call.tool_name != "file_write"
+            or str(args.get("operation") or "").strip().lower() != "copy"
+        ):
+            continue
+        source, destination = _copy_snapshots(review, call_id)
+        effective = (
+            approval.override_args
+            if isinstance(approval, ToolApproved) and approval.override_args is not None
+            else args
+        )
+        chosen = effective.get("destination", "")
+        if not isinstance(chosen, str):
+            raise VaultMutationRejected(
+                "invalid_path", "Copy destination must be a vault-relative filename."
+            )
+        if chosen != args.get("destination", ""):
+            selected = _capture_file_snapshot(vault_path, chosen)
+            destination = (
+                {**destination, "path": selected["path"]}
+                if selected["resolved_path"] == destination["resolved_path"]
+                else selected
+            )
+        copies[call_id] = [source, destination]
+    context["file_copy_snapshots"] = copies
+    return context
+
+
+def reviewed_copy_states(
+    tool_call_id: str | None,
+) -> tuple[FileStateRestore, ...] | None:
+    review = _review_for_tool_call(tool_call_id)
+    if review is None:
+        return None
+    return tuple(
+        FileStateRestore(
+            path=snapshot["resolved_path"],
+            expected_exists=snapshot["exists"],
+            expected_sha256=snapshot["sha256"],
+        )
+        for snapshot in _copy_snapshots(review, str(tool_call_id))
+    )
+
+
+def reviewed_deletion_fingerprint(tool_call_id: str | None) -> str | None:
+    """Bind an approved deletion to its review-time tree, also at execution."""
+    review = _review_for_tool_call(tool_call_id)
+    if review is None:
         return None
     snapshot = review.review_context.get("file_delete_snapshots", {}).get(tool_call_id)
     if not isinstance(snapshot, dict) or not isinstance(
@@ -646,10 +757,15 @@ def deferred_review_conflicts(
             path=path,
             markdown_only=False,
         )
-        exists = full_path.is_file()
-        actual_sha256 = hash_file_bytes(full_path, length=None) if exists else None
-        if exists != bool(snapshot.get("exists")) or actual_sha256 != snapshot.get(
-            "sha256"
+        exists = full_path.exists()
+        actual_sha256 = (
+            hash_file_bytes(full_path, length=None) if full_path.is_file() else None
+        )
+        resolved_path = full_path.relative_to(Path(vault_path).resolve()).as_posix()
+        if (
+            exists != bool(snapshot.get("exists"))
+            or actual_sha256 != snapshot.get("sha256")
+            or snapshot.get("resolved_path", resolved_path) != resolved_path
         ):
             conflicts.append(
                 {
