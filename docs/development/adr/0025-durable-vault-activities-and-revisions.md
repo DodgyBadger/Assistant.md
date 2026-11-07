@@ -59,7 +59,7 @@ after-state. It is all-or-nothing. A successful rollback is recorded as a new
 linked Explorer activity whose displaced states are retained, so that rollback
 can itself be rolled back while expected current states still match.
 
-Automatic task rollback and exact-path revision restore remain limited to file states. Explicit activity rollback also supports recorded Explorer deletions, including file contents and empty directory structure, and their subsequent rollback activities. Other directory operations remain auditable but are not eligible for explicit activity rollback.
+Automatic task rollback restores file states and recorded deleted directories, including empty directory structure. Exact-path revision restore remains limited to file states. Explicit activity rollback supports recorded recursive deletions from tools and Vault Explorer, including file contents and directory structure, and their subsequent rollback activities. Other directory operations remain auditable but are not eligible for explicit activity rollback.
 
 ## Rationale
 

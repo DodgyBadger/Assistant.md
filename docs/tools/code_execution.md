@@ -242,29 +242,14 @@ candidates = listed.metadata.get("empty_directory_candidates", [])
 
 Mutation example:
 
+`delete` removes selected folders and their contents recursively. Results include the effective `paths` and recovery `activity_id`.
+
 ```python
 code_execution(
     code="""
-targets = [
-    "Archive/old-empty-folder",
-    "Projects/completed",
-]
-results = []
-
-for path in targets:
-    result = await file_write(
-        operation="delete",
-        path=path,
-        confirm_path=path,
-    )
-    results.append({
-        "path": path,
-        "status": result.metadata.get("status"),
-        "removed": result.metadata.get("removed_directories", []),
-        "skipped_non_empty": result.metadata.get("skipped_non_empty_directories", []),
-    })
-
-results
+targets = ["Archive/old-empty-folder", "Projects/completed"]
+result = await file_write(operation="delete", paths=targets)
+result.metadata
 """,
 )
 ```
