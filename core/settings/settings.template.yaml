@@ -175,6 +175,26 @@ settings:
     description: "When chat tool output exceeds this estimated token count, store it in cache and return a compact preview plus cache ref instead of inlining the full payload. 0 = disabled. Caution: very low values will increase tool churn and token usage."
     category: "Chat"
     restart_required: false
+  session_map_history_page_size:
+    value: 20
+    description: "Default number of chronological map index records per session_ops list_session_maps page. Must not exceed session_map_history_max_page_size."
+    category: "Chat"
+    restart_required: false
+  session_map_history_max_page_size:
+    value: 100
+    description: "Maximum number of map index records per session_ops list_session_maps page."
+    category: "Chat"
+    restart_required: false
+  session_map_trajectory_max_maps:
+    value: 20
+    description: "Maximum maps per session_ops get_session_map call when selecting trajectory only."
+    category: "Chat"
+    restart_required: false
+  session_map_entries_max_maps:
+    value: 5
+    description: "Maximum maps per session_ops get_session_map call when entries are included, even with entry-kind filtering."
+    category: "Chat"
+    restart_required: false
   compaction_type:
     value: auto
     description: "Chat history compaction policy: auto, suggested, or none. Auto is recommended for long-running tasks; suggested or none may reduce reliability as context grows. To compact less often, increase compaction_high_watermark_tokens first."

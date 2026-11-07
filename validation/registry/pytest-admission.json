@@ -2003,6 +2003,17 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_session_map_tool_history.py",
+      "sha256": "f101785cf19c68b1eea12716b67a7c7d8cbcd5ace0cb906cc0975a46249e7d87",
+      "kind": "behavioral",
+      "tests": [
+        "test_map_discovery_snapshot_and_selected_history",
+        "test_map_retrieval_authority_forks_and_empty_results",
+        "test_map_input_errors_are_actionable",
+        "test_map_limits_are_live_validated_settings"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_session_map_valid_tool_histories.py",
       "sha256": "d8ed69c0c4681c312bdf117d0485b9c068bb3ac6ea3638ceab5365375172fa52",
       "kind": "behavioral",
@@ -2012,7 +2023,7 @@
     },
     {
       "path": "scenarios/integration/core/test_session_ops_chat_tool.py",
-      "sha256": "cc964240948fa291381506b99e1b75a74da1f378b5eb977a57e92b2cf6de93fd",
+      "sha256": "1c83c365caba61ea06b00162bd7d63b46a89f7ea018a1aa9ec57e6bd891c7dd7",
       "kind": "behavioral",
       "tests": [
         "test_session_ops_chat_discovery_and_safe_failure"
@@ -3138,6 +3149,11 @@
     {
       "path": "support/memory/session_map_schema.py",
       "sha256": "13edee3bb944f27ea62c18a76814aa930e0c051ac9c64669cc44e060d98726e4",
+      "kind": "support"
+    },
+    {
+      "path": "support/memory/session_map_tools.py",
+      "sha256": "d6f52e1a8812a75f8bcf25ac2a2ecfcc163a012a0856cdaac8e52bb602dfa5b4",
       "kind": "support"
     },
     {

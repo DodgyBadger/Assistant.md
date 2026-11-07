@@ -60,6 +60,10 @@ _FIXED_CHOICES = {
 }
 _THINKING_SETTINGS = {"default_model_thinking", "compaction_author_thinking"}
 _POSITIVE_SETTINGS = {
+    "session_map_history_page_size",
+    "session_map_history_max_page_size",
+    "session_map_trajectory_max_maps",
+    "session_map_entries_max_maps",
     "default_api_timeout",
     "browser_navigation_timeout_seconds",
     "browser_selector_timeout_seconds",
@@ -85,6 +89,7 @@ _BOUNDS = {
     "compaction_retained_turns": (1, 100),
 }
 _RELATIONSHIPS = (
+    ("session_map_history_page_size", "session_map_history_max_page_size", False),
     (
         "model_stream_retry_base_delay_seconds",
         "model_stream_retry_max_delay_seconds",

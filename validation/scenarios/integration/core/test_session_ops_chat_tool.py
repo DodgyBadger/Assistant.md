@@ -97,9 +97,38 @@ async def test_session_ops_chat_discovery_and_safe_failure(app: Application) -> 
                 )
             ).result_text
         )
-        assert inspected["status"] == "found"
-        assert inspected["session_map"]["map"] == draft
+        assert inspected["status"] == "ok"
+        assert inspected["session_maps"][0]["map"] == draft
         assert inspected["historical_content_is_untrusted"] is True
+        map_index = json.loads(
+            (
+                await call_session_ops(
+                    app,
+                    server,
+                    vault.name,
+                    {"operation": "list_session_maps", "session_id": "source"},
+                )
+            ).result_text
+        )
+        assert map_index["session_maps"][0]["checkpoint_id"] == "source-map"
+        projected = json.loads(
+            (
+                await call_session_ops(
+                    app,
+                    server,
+                    vault.name,
+                    {
+                        "operation": "get_session_map",
+                        "session_id": "source",
+                        "checkpoint_ids": ["source-map"],
+                        "fields": ["trajectory"],
+                    },
+                )
+            ).result_text
+        )
+        assert projected["order"] == "oldest_first"
+        assert projected["session_maps"][0]["map"]["trajectory"] == draft["trajectory"]
+        assert "entries" not in projected["session_maps"][0]["map"]
         missing = json.loads(
             (
                 await call_session_ops(
@@ -109,12 +138,11 @@ async def test_session_ops_chat_discovery_and_safe_failure(app: Application) -> 
                     {
                         "operation": "get_session_map",
                         "session_id": "sibling",
-                        "checkpoint_id": "source-map",
                     },
                 )
             ).result_text
         )
-        assert missing["status"] == "not_found" and missing["session_map"] is None
+        assert missing["status"] == "ok" and missing["session_maps"] == []
         listed = json.loads(
             (
                 await call_session_ops(
@@ -178,6 +206,15 @@ async def test_session_ops_chat_discovery_and_safe_failure(app: Application) -> 
         app.events.require(
             "tool_invoked", tool="session_ops", operation="search_sessions"
         )
+        app.events.require(
+            "session_map_lookup_completed",
+            operation="list_session_maps",
+            returned_count=1,
+        )
+        assert not any(
+            entry.get("data", {}).get("event") == "session_map_lookup_completed"
+            for entry in activity.json()["entries"]
+        ), "Successful retrieval helper events belong in validation, not System Activity"
         # Inspect actual production log output before evidence redaction.
         for entry in activity.json()["entries"]:
             if entry.get("data", {}).get("event") == "session_ops_failed":
