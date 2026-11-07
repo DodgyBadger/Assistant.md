@@ -7,6 +7,7 @@ write/delete/move recording still belongs to ``core.vault_state.file_mutations``
 from __future__ import annotations
 
 import glob
+import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -727,7 +728,7 @@ def _edit_vault_line_locked(
             metadata=target.requested_path_metadata,
         )
 
-    lines = _read_existing_text_file(target).splitlines(keepends=True)
+    lines = io.StringIO(_read_existing_text_file(target), newline="").readlines()
     if line_number > len(lines):
         return _operation_result(
             f"Line {line_number} does not exist - file only has {len(lines)} lines",
