@@ -71,6 +71,7 @@ file_write(operation="delete", path="Scratch.md", confirm_path="Scratch.md")
 ## Notes
 
 - Paths are vault-relative.
+- `delete` cannot target the vault root, including aliases such as `.` and `./`.
 - Mutating operations cannot write to virtual mounts.
 - Use `replace_text` for exact in-file edits.
 - Use `edit_line` when the line number and existing line content are both known.

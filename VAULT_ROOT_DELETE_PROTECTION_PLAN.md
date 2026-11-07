@@ -1,6 +1,6 @@
 # Vault Root Deletion Protection Plan
 
-Branch: `dev/tool-upgrades`. Status: implemented and validated; agent-facing documentation note awaiting approval. Branch issues: [TOOL_UPGRADES_PLAN.md](TOOL_UPGRADES_PLAN.md). Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07; conversation decisions take precedence.
+Branch: `dev/tool-upgrades`. Status: complete; implementation, focused validation, and approved documentation update finished. Branch issues: [TOOL_UPGRADES_PLAN.md](TOOL_UPGRADES_PLAN.md). Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07; conversation decisions take precedence.
 
 ## Scope
 
@@ -51,7 +51,7 @@ Run narrow deterministic scenarios during development. Production Python changes
 - Quality gate passes: `uv run ruff check .`, `uv run black --check .` (780 files), and `uv run mypy api core` (298 production source files). Scenario inventory and all 34 admission/collection policy checks passed. No checker configuration, casts, suppressions, settings, schema, or runtime-state migrations were introduced.
 - Hardening review: the shared invariant belongs at the existing mutation layer, keeping read/list root access intact; validation happens before identity creation or directory removal; both consumers retain their existing locks and error envelopes. Explorer rejection continues through its existing correlated `vault_explorer_delete_rejected` activity event, while the tool returns `invalid_target` without recording a successful cleanup. No new logging family or frontend flow was introduced. Validation uses real local services and isolated storage, without live dependencies or browser interaction.
 - Full deterministic profile rerun is deferred to merge preparation after the remaining branch work. The earlier 497-case result predates this change and is not claimed as validation of root protection.
-- Documentation draft presented for `docs/tools/file_write.md`: add the note "`delete` cannot target the vault root, including aliases such as `.` and `./`." Explicit approval is pending; no protected documentation file has been edited. ADR 0025's shared mutation and recovery contract is preserved and needs no change.
+- Documentation update explicitly approved and applied to `docs/tools/file_write.md`: "`delete` cannot target the vault root, including aliases such as `.` and `./`." Direct diff review and `git diff --check` cover this prose-only update. ADR 0025's shared mutation and recovery contract is preserved and needs no change.
 
 ## Implementation steps
 
@@ -62,4 +62,4 @@ Run narrow deterministic scenarios during development. Production Python changes
 5. Run relevant hardening and quality checks and record evidence and limitations.
 6. Review relevant documentation (file-tool deletion, path-boundary documentation, and mutation decisions as applicable), identify affected files, present exact proposed text or diffs in chat, obtain explicit user approval, and then apply approved updates. Documentation edits remain pending until approval.
 
-Next phase: apply the documentation note if approved and prepare this validated milestone for review. Native multi-delete remains a separate workstream and must add its own mixed-selection root-alias regression before enabling that tool input.
+Next phase: review preparation for this completed milestone. Native multi-delete remains a separate workstream and must add its own mixed-selection root-alias regression before enabling that tool input.

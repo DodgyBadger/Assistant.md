@@ -10,7 +10,7 @@ Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`
 | Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
 | Byte-preserving PDF copying and supported exchange access | Planned; path and reading semantics to settle | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
 | Native multi-delete with standard normal/inline-edit approval rules | Planned; scripts retain current behavior | [Multi Delete](MULTI_DELETE_PLAN.md) |
-| Vault-root deletion rejection, including normalized aliases | Implemented with shared validation; 31 focused cases and quality gate pass, docs approval pending | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
+| Vault-root deletion rejection, including normalized aliases | Complete; shared validation, 31 focused cases and quality gate pass, approved docs applied | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
 
 ## Existing capabilities verified
 
