@@ -13,11 +13,11 @@ from core.vault_state.file_mutations import (
     FileStateRestore,
     VaultMutationRejected,
     record_vault_directory_mutation,
+    resolve_vault_deletion_target,
     restore_vault_file_states,
     vault_directory_mutation_lock,
 )
 from core.vault_state.identity import VAULT_METADATA_RELATIVE_PATH
-from core.vault_state.pathing import resolve_vault_relative_path
 from core.vault_state.service import VaultStateService
 
 
@@ -39,11 +39,7 @@ def delete_vault_paths(
     with vault_directory_mutation_lock(root):
         candidates: dict[str, Path] = {}
         for source in sources:
-            target = resolve_vault_relative_path(vault_path=root, path=source)
-            if target == root:
-                raise VaultMutationRejected(
-                    "invalid_target", "Cannot delete the vault root."
-                )
+            target = resolve_vault_deletion_target(vault_path=root, path=source)
             metadata = (root / VAULT_METADATA_RELATIVE_PATH).resolve()
             if target == metadata or target in metadata.parents:
                 raise VaultMutationRejected(
