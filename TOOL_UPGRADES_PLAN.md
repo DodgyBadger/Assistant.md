@@ -1,13 +1,13 @@
 # Tool Upgrades Branch Issues
 
-Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tool implementation is validated; other issues remain planned. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
+Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tool and compaction continuity work are implemented and validated; file-tool issues remain planned. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
 
 ## Selected issues
 
 | Issue | Status | Implementation plan |
 | --- | --- | --- |
 | Session map discovery and selective retrieval with references and oldest-first ordering | Complete; 497 core cases and quality gate pass, approved docs applied | [Session Map Discovery](SESSION_MAP_DISCOVERY_PLAN.md) |
-| Continuity after compaction of consequential assistant responses | Planned | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
+| Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
 | Byte-preserving PDF copying and supported exchange access | Planned; path and reading semantics to settle | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
 | Native multi-delete with standard normal/inline-edit approval rules | Planned; scripts retain current behavior | [Multi Delete](MULTI_DELETE_PLAN.md) |
 | Vault-root deletion rejection, including normalized aliases | Suspected tool-path gap; reproduction pending | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
