@@ -65,8 +65,11 @@ file_write(operation="move", path="Draft.md", destination="Archive/Draft.md")
 `move` does not replace an existing destination unless `overwrite=True` is explicitly provided.
 
 ```python
-file_write(operation="delete", path="Scratch.md", confirm_path="Scratch.md")
+file_write(operation="delete", path="Scratch.md")
+file_write(operation="delete", paths=["Scratch.md", "Archive/old-project"])
 ```
+
+Use `path` for one delete target or `paths` for several, never both. Deleting a folder recursively removes all its contents. Duplicate targets and children of selected folders are collapsed. Invalid, missing, or protected targets reject the whole selection.
 
 ## Notes
 
@@ -77,6 +80,6 @@ file_write(operation="delete", path="Scratch.md", confirm_path="Scratch.md")
 - Use `edit_line` when the line number and existing line content are both known.
 - Clear an existing file with `write(overwrite=True, content="")`; there is no separate truncate operation.
 - Use `file_read` before calling `file_write` when you need to inspect context.
-- For multiple independent changes, issue separate `file_write` calls in one response. Inline edit mode can then review and return each operation independently.
+- Use `paths` for one deletion selection. Use separate `file_write` calls for other independent mutations.
 - Mutations targeting the same file are serialized, so independent text edits issued together cannot overwrite one another with stale full-file content.
 - Sequence dependent mutations across turns, or use a bounded script when deterministic ordered processing is required.
