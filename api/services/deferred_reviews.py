@@ -2,6 +2,7 @@
 
 import asyncio
 from collections import Counter
+from dataclasses import replace
 from typing import Any
 
 from pydantic_ai import DeferredToolResults, ToolApproved, ToolDenied
@@ -14,6 +15,7 @@ from core.chat.deferred_reviews import (
     get_deferred_review,
     mark_deferred_review_submitted,
     mark_deferred_review_terminal,
+    prepare_approved_review_context,
 )
 from core.chat.edit_proposals import (
     EditProposalError,
@@ -22,6 +24,7 @@ from core.chat.edit_proposals import (
 from core.chat.task_execution import start_deferred_review_resume_task
 from core.constants import INLINE_EDIT_DENIAL_MESSAGE
 from core.llm.thinking import ThinkingValue, normalize_thinking_value
+from core.vault_state.file_mutations import VaultMutationRejected
 
 from ..exceptions import APIException
 from ..models import (
@@ -109,6 +112,18 @@ async def submit_chat_deferred_review(
         artifact_ref=artifact_ref,
     )
     vault_path = str(resolve_vault_root(vault_name))
+    try:
+        approved_context = await asyncio.to_thread(
+            prepare_approved_review_context,
+            review=review,
+            approvals=approvals,
+            vault_path=vault_path,
+        )
+    except (VaultMutationRejected, ValueError) as exc:
+        raise APIException(
+            status_code=400, error_type="DeferredReviewInvalidTarget", message=str(exc)
+        ) from exc
+    review = replace(review, review_context=approved_context)
     conflicts = await asyncio.to_thread(
         deferred_review_conflicts,
         review=review,
@@ -133,6 +148,7 @@ async def submit_chat_deferred_review(
             artifact_ref=artifact_ref,
             results=results,
             resumed_task_id="",
+            review_context=approved_context,
         )
     except DeferredReviewError as exc:
         raise _deferred_review_api_error(exc) from exc
