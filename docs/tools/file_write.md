@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Create, append, edit, move, delete, and create folders in the current vault.
+Create and edit plain UTF-8 text; copy, move, and delete files of any type; create folders.
 
 ## Operations
 
@@ -10,6 +10,7 @@ Create, append, edit, move, delete, and create folders in the current vault.
 - `append`
 - `edit_line`
 - `replace_text`
+- `copy`
 - `move`
 - `delete`
 - `mkdir`
@@ -62,7 +63,11 @@ file_write(
 file_write(operation="move", path="Draft.md", destination="Archive/Draft.md")
 ```
 
-`move` does not replace an existing destination unless `overwrite=True` is explicitly provided.
+```python
+file_write(operation="copy", path="Project/source.docx", destination="AssistantMD/shell-exchange/source.docx")
+```
+
+`copy` supports files only. `copy` and `move` replace an existing destination only with `overwrite=True`.
 
 ```python
 file_write(operation="delete", path="Scratch.md")
@@ -73,7 +78,7 @@ Use `path` for one delete target or `paths` for several, never both. Deleting a 
 
 ## Notes
 
-- Paths are vault-relative.
+- Paths are vault-relative exact filenames; no extension is inferred.
 - `delete` cannot target the vault root, including aliases such as `.` and `./`.
 - Mutating operations cannot write to virtual mounts.
 - Use `replace_text` for exact in-file edits.

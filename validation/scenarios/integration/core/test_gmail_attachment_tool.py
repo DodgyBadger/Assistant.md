@@ -20,7 +20,6 @@ async def test_gmail_attachment_policy_and_numbered_tool_writes(
     await app.start()
     from core.authoring.shared.tool_binding import resolve_tool_binding
     from core.identity import use_execution_authority
-    from core.integrations.google.gmail import GmailError
     from core.tools.base import ToolRecoveryPolicy, recovery_policy_from_tool_metadata
     from core.tools.gmail import Gmail
 
@@ -52,10 +51,10 @@ async def test_gmail_attachment_policy_and_numbered_tool_writes(
             7,
         )
         provider.attachment_content = b"not a pdf"
-        with pytest.raises(GmailError, match="valid PDF"):
-            await service.download_attachment(
-                authority, "message-1", "attachment-1", connection=enabled.slug
-            )
+        arbitrary = await service.download_attachment(
+            authority, "message-1", "attachment-1", connection=enabled.slug
+        )
+        assert arbitrary.content == b"not a pdf"
         provider.attachment_content = content
         # Compose the real service selected above into the running application.
         from core.runtime.state import get_runtime_context
@@ -88,14 +87,23 @@ async def test_gmail_attachment_policy_and_numbered_tool_writes(
             assert all(
                 (vault / item["path"]).read_bytes() == content for item in results
             )
-            downloads = provider.requests[before:]
+            downloads = [
+                request
+                for request in provider.requests[before:]
+                if "/attachments/" in request["path"]
+            ]
             assert len(downloads) == 2
             assert all(
                 request["path"].endswith("/messages/message-1/attachments/attachment-1")
                 for request in downloads
             )
             before = len(provider.requests)
-            for destination in ("../escape.pdf", "/absolute.pdf", "Inbox/file.docx"):
+            for destination in (
+                "../escape.pdf",
+                "/absolute.pdf",
+                "__virtual_docs__/file.docx",
+                ".",
+            ):
                 result = await tool.function(
                     operation="download_attachment",
                     message_id="message-1",

@@ -23,7 +23,7 @@ The connection is ready when its card reports that Gmail tools are available. Fo
 
 Reading messages is enabled when you authorize the connection. Two more capabilities are deliberately off by default:
 
-- **Allow attachment downloads** permits bounded PDF attachments to be saved into a vault path. Set the size limit appropriate for your installation.
+- **Allow attachment downloads** permits attachments of any type, within the configured size limit, to be saved into a vault path. Set the size limit appropriate for your installation.
 - **Allow draft creation** permits Assistant.md to create unsent, recipient-free drafts. Enabling it requires you to authorize again so Google can grant the additional permission.
 
 Disabling drafts blocks creation in Assistant.md but does not revoke Google's permission. See [Gmail security](../setup/security.md#gmail-and-google-connections) for revoking that grant.

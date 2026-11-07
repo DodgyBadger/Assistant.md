@@ -35,24 +35,22 @@ async def test_extensionless_file_edits(app: Application) -> None:
 
     edited = await file_write(
         operation="edit_line",
-        path="notes/edit-target",
+        path="notes/edit-target.md",
         line_number=2,
         old_text="replace me",
         new_text="changed",
     )
     assert (
         edited.metadata.get("status") == "completed"
-    ), "Extensionless edit_line should resolve to the existing markdown file"
+    ), "edit_line should use the exact markdown filename"
     assert (
         edited.metadata.get("path") == "notes/edit-target.md"
     ), "edit_line metadata should report the effective markdown path"
-    assert (
-        edited.metadata.get("requested_path") == "notes/edit-target"
-    ), "edit_line metadata should preserve the requested extensionless path"
+    assert "requested_path" not in edited.metadata
     assert (vault / "notes" / "edit-target.md").read_text(
         encoding="utf-8"
     ) == "first\nchanged\nlast\n", (
-        "edit_line should mutate the markdown file selected by extensionless resolution"
+        "edit_line should mutate the explicitly selected markdown file"
     )
     crlf_edit = await file_write(
         operation="edit_line",
@@ -71,7 +69,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     )
     replaced = await file_write(
         operation="replace_text",
-        path="notes/edit-target",
+        path="notes/edit-target.md",
         old_text="changed",
         new_text="done",
         count=1,
@@ -81,18 +79,18 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ), "replace_text metadata should report the effective markdown path"
     assert (vault / "notes" / "edit-target.md").read_text(
         encoding="utf-8"
-    ) == "first\ndone\nlast\n", "replace_text should mutate the markdown file selected by extensionless resolution"
+    ) == "first\ndone\nlast\n", (
+        "replace_text should mutate the explicitly selected markdown file"
+    )
     truncated = await file_write(
-        operation="write", path="notes/edit-target", content="", overwrite=True
+        operation="write", path="notes/edit-target.md", content="", overwrite=True
     )
     assert (
         truncated.metadata.get("path") == "notes/edit-target.md"
     ), "truncate metadata should report the effective markdown path"
     assert (vault / "notes" / "edit-target.md").read_text(
         encoding="utf-8"
-    ) == "", (
-        "truncate should clear the markdown file selected by extensionless resolution"
-    )
+    ) == "", "truncate should clear the explicitly selected markdown file"
     fallback = await file_write(
         operation="replace_text",
         path="notes/no-extension",
@@ -102,7 +100,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     )
     assert (
         fallback.metadata.get("path") == "notes/no-extension"
-    ), "Extensionless fallback should still allow an existing no-extension target when no .md file exists"
+    ), "Exact extensionless filenames remain valid"
     assert (vault / "notes" / "no-extension").read_text(
         encoding="utf-8"
-    ) == "beta\n", "Extensionless fallback should mutate the original target when no markdown sibling exists"
+    ) == "beta\n", "Exact extensionless editing should mutate the requested file"

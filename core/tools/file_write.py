@@ -14,6 +14,7 @@ from core.vault_state.file_operations import (
     VaultFileOperationRejected,
     VaultFileOperationResult,
     append_vault_file_operation,
+    copy_vault_file_operation,
     delete_vault_path_operation,
     edit_vault_line_operation,
     make_vault_directory_operation,
@@ -29,7 +30,7 @@ logger = UnifiedLogger(tag="file-write-tool")
 
 
 class FileWrite(BaseTool):
-    """Create, edit, move, and delete vault files."""
+    """Create, edit, copy, move, and delete vault files."""
 
     @classmethod
     def get_recovery_policy(cls) -> ToolRecoveryPolicy:
@@ -53,18 +54,18 @@ class FileWrite(BaseTool):
             count: int = 1,
             overwrite: bool = False,
         ) -> ToolReturn:
-            """Create, edit, move, or delete vault files.
+            """Create, edit, copy, move, or delete vault files.
 
-            :param operation: One of write, append, edit_line, replace_text, move, delete, mkdir. Write is create-only unless overwrite is true.
+            :param operation: One of write, append, edit_line, replace_text, copy, move, delete, mkdir. Write is create-only unless overwrite is true.
             :param path: Vault-relative file or directory path.
             :param paths: Nonempty list of targets for delete, mutually exclusive with path. Folder deletion includes all contents. Duplicate and overlapping targets are collapsed.
             :param content: Full content for write, or content to append.
-            :param destination: Destination path for move.
+            :param destination: Exact destination filename for copy or move. Copy supports files only.
             :param old_text: Exact text to replace for replace_text.
             :param new_text: Replacement text for replace_text.
             :param line_number: One-indexed target line for edit_line.
             :param count: Replacement count for replace_text.
-            :param overwrite: For write, set true when updating or rewriting a known existing file. For move, set true to replace an existing destination. False keeps both operations create-only/non-destructive.
+            :param overwrite: For write, set true when updating or rewriting a known existing file. For copy or move, set true to replace an existing destination. False keeps both operations create-only/non-destructive.
             """
             try:
                 logger.set_sinks(["validation"]).info(
@@ -132,10 +133,10 @@ class FileWrite(BaseTool):
             file_write,
             name="file_write",
             description=(
-                "Create, append, edit lines, replace text, move, delete, and create "
+                "Create and edit plain UTF-8 text, copy and move any file, delete, and create "
                 "folders within the current vault. The write operation is create-only by "
                 "default; when the user asks to update or rewrite a known existing file, "
-                "call write with overwrite=true."
+                "call write with overwrite=true. Use exact filenames; no extension is inferred."
             ),
         )
 
@@ -188,6 +189,13 @@ def _execute_write_operation(
             new_text=new_text,
             count=count,
         )
+    if normalized == "copy":
+        return copy_vault_file_operation(
+            vault_path=vault_path,
+            path=path,
+            destination=destination,
+            overwrite=overwrite,
+        )
     if normalized == "move":
         return move_vault_path_operation(
             vault_path=vault_path,
@@ -209,7 +217,7 @@ def _execute_write_operation(
     return VaultFileOperationResult(
         return_value=(
             f"Unknown operation '{operation}'. Available: write, append, edit_line, "
-            "replace_text, move, delete, mkdir"
+            "replace_text, copy, move, delete, mkdir"
         ),
         metadata={
             "status": "error",

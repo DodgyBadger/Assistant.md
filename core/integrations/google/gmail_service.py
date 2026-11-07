@@ -261,7 +261,7 @@ class GmailResourceService:
         *,
         connection: str | None = None,
     ) -> GmailAttachmentDownload:
-        """Authorize and download one bounded PDF attachment."""
+        """Authorize and download one bounded attachment with its actual metadata."""
         selected, preferences = self._preferences(authority, connection)
         operation_id = uuid4().hex
         if not preferences.attachment_download_enabled:
@@ -291,20 +291,30 @@ class GmailResourceService:
         )
         try:
             client = self._client(authority, selected.connection_id)
+            message = await client.get_message(message_id, max_characters=1)
+            attachment = next(
+                (
+                    item
+                    for item in message.attachments
+                    if item.attachment_id == attachment_id.strip()
+                ),
+                None,
+            )
+            if attachment is None:
+                raise GmailError(
+                    "Attachment was not found in the selected message.",
+                    category="not_found",
+                )
+            if (
+                attachment.declared_size is not None
+                and attachment.declared_size > limit
+            ):
+                raise GmailError(
+                    "Gmail attachment exceeds the configured size limit.",
+                    category="attachment_too_large",
+                )
             content = await client.download_attachment(
                 message_id, attachment_id, max_bytes=limit
-            )
-            if not content.startswith(b"%PDF-"):
-                raise GmailError(
-                    "Gmail attachment content is not a valid PDF.",
-                    category="provider_response",
-                )
-            attachment = GmailAttachment(
-                attachment_id=attachment_id,
-                filename="",
-                media_type="application/pdf",
-                declared_size=len(content),
-                message_id=message_id,
             )
         except Exception as exc:
             _log_failure(

@@ -1,6 +1,6 @@
 # Tool Upgrades Branch Issues
 
-Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tool, compaction continuity, and vault-root protection are complete; multi-delete is complete and binary/exchange work remains planned. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
+Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tools, compaction continuity, vault-root protection, multi-delete, and binary/text file operations are complete. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
 
 ## Selected issues
 
@@ -8,7 +8,7 @@ Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`
 | --- | --- | --- |
 | Session map discovery and selective retrieval with references and oldest-first ordering | Complete; 497 core cases and quality gate pass, approved docs applied | [Session Map Discovery](SESSION_MAP_DISCOVERY_PLAN.md) |
 | Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
-| Binary file operations, UTF-8 text tools, and general attachments | Implementation authorized; unrestricted file handling and Gmail downloads, UTF-8 text read/edit, file-only copy, and literal filenames agreed | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
+| Binary file operations, UTF-8 text tools, and general attachments | Complete; 538 core cases, browser copy approval, and quality checks pass; approved docs and Markdown-first flight cards applied | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
 | Native multi-delete with standard normal/inline-edit approval rules | Complete; 530 core cases, browser approval, and quality checks pass; approved docs applied | [Multi Delete](MULTI_DELETE_PLAN.md) |
 | Vault-root deletion rejection, including normalized aliases | Complete; shared validation, 31 focused cases and quality gate pass, approved docs applied | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
 
@@ -34,4 +34,4 @@ Follow validation-first development and the appropriate behavioral testing skill
 
 ## Documentation review
 
-For each implemented issue, identify relevant documentation, present exact proposed text or diffs in chat, obtain explicit approval, and apply only the approved updates. Approved session-map, root-protection, code-execution, and review/recovery ADR updates are applied. The approved shortened multi-delete file-write guidance is applied. The original plan split does not itself authorize edits under `docs/`, `README.md`, or `RELEASE_NOTES.md`. The external library TODO is unchanged.
+For each implemented issue, identify relevant documentation, present exact proposed text or diffs in chat, obtain explicit approval, and apply only the approved updates. Approved session-map, root-protection, code-execution, and review/recovery ADR updates are applied. Approved multi-delete and binary/text file-tool guidance, general Gmail attachment documentation, and Markdown-first flight-card updates are applied. The original plan split does not itself authorize edits under `docs/`, `README.md`, or `RELEASE_NOTES.md`. The external library TODO is unchanged.

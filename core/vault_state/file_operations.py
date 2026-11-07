@@ -31,8 +31,10 @@ from core.settings import (
 )
 from core.utils.hash import hash_file_bytes, hash_file_content
 from core.utils.image_inputs import build_image_tool_payload
+from core.vault_state.activity import recorded_vault_activity
 from core.vault_state.file_mutations import (
     DirectoryMoveResult,
+    FileStateRestore,
     RecordedMutationResult,
     VaultMutationRejected,
     append_vault_file,
@@ -41,6 +43,7 @@ from core.vault_state.file_mutations import (
     move_vault_file,
     record_vault_directory_mutation,
     replace_vault_file_content,
+    restore_vault_file_states,
     vault_directory_mutation_lock,
     vault_file_mutation_lock,
     write_vault_file,
@@ -48,13 +51,13 @@ from core.vault_state.file_mutations import (
 from core.vault_state.path_deletion import (
     delete_vault_paths,
     deletion_sources,
-    vault_deletion_activity,
 )
 from core.vault_state.pathing import (
     normalize_vault_relative_path,
     resolve_vault_relative_path,
 )
 from core.vault_state.search import VaultContentSearchError, search_content_roots
+from core.vault_state.text_content import UnsupportedTextContent, decode_plain_text
 
 
 class VaultFileOperationRejected(Exception):
@@ -176,7 +179,6 @@ def read_vault_file_operation(
         vault_path=vault_path,
         path=path,
         markdown_only=False,
-        prefer_markdown_extension=True,
     )
     if target.full_path.is_dir():
         if _should_try_markdown_file(target.requested_path):
@@ -480,18 +482,20 @@ def write_vault_file_operation(
     content: str,
     overwrite: bool = False,
 ) -> VaultFileOperationResult:
-    """Create a markdown file, or replace full content when overwrite is true."""
+    """Create a UTF-8 text file, or replace full content when overwrite is true."""
     if overwrite:
         return overwrite_vault_file_operation(
             vault_path=vault_path, path=path, content=content
         )
+    _validate_text_content(content, path=path)
+    target = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
     try:
         mutation = write_vault_file(
             vault_path=vault_path,
-            path=path,
+            path=target.path,
             content=content,
             fail_if_exists=True,
-            markdown_only=True,
+            markdown_only=False,
         )
     except VaultMutationRejected as exc:
         if exc.code != "file_exists":
@@ -520,7 +524,7 @@ def overwrite_vault_file_operation(
     path: str,
     content: str,
 ) -> VaultFileOperationResult:
-    """Create or overwrite a markdown file with full content."""
+    """Create or overwrite a UTF-8 text file with full content."""
     if not path.strip():
         return _operation_result(
             "Path is required for write.",
@@ -529,20 +533,30 @@ def overwrite_vault_file_operation(
             status="error",
             error_type="invalid_path",
         )
+    _validate_text_content(content, path=path)
     target = resolve_text_target(
         vault_path=vault_path,
         path=path,
-        markdown_only=True,
-        prefer_markdown_extension=True,
+        markdown_only=False,
     )
+    with vault_file_mutation_lock(vault_path, target.full_path):
+        return _overwrite_text_locked(
+            vault_path=vault_path, target=target, content=content
+        )
+
+
+def _overwrite_text_locked(
+    *, vault_path: str | Path, target: VaultTextTarget, content: str
+) -> VaultFileOperationResult:
     existed_before = target.full_path.exists()
     if existed_before:
+        _read_existing_text_file(target)
         mutation = replace_vault_file_content(
             vault_path=vault_path,
             path=target.path,
             content=content,
             operation="write",
-            markdown_only=True,
+            markdown_only=False,
         )
     else:
         mutation = write_vault_file(
@@ -550,7 +564,7 @@ def overwrite_vault_file_operation(
             path=target.path,
             content=content,
             fail_if_exists=False,
-            markdown_only=True,
+            markdown_only=False,
         )
     return _mutation_result(
         (
@@ -576,13 +590,27 @@ def append_vault_file_operation(
     path: str,
     content: str,
 ) -> VaultFileOperationResult:
-    """Append text to an existing markdown file."""
+    """Append text to an existing UTF-8 text file."""
+    _validate_text_content(content, path=path)
+    target = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
+    with vault_file_mutation_lock(vault_path, target.full_path):
+        if target.full_path.exists():
+            current = _read_existing_text_file(target)
+            _validate_text_content(current + content, path=target.path)
+        return _append_text_locked(
+            vault_path=vault_path, path=target.path, content=content
+        )
+
+
+def _append_text_locked(
+    *, vault_path: str | Path, path: str, content: str
+) -> VaultFileOperationResult:
     try:
         mutation = append_vault_file(
             vault_path=vault_path,
             path=path,
             content=content,
-            markdown_only=True,
+            markdown_only=False,
         )
     except VaultMutationRejected as exc:
         if exc.code != "file_not_found":
@@ -613,7 +641,7 @@ def replace_text_vault_file_operation(
     new_text: str,
     count: int,
 ) -> VaultFileOperationResult:
-    """Replace exact text in an existing markdown file."""
+    """Replace exact text in an existing UTF-8 text file."""
     try:
         result = replace_text(
             vault_path=vault_path,
@@ -622,8 +650,7 @@ def replace_text_vault_file_operation(
             new_text=new_text,
             count=count,
             operation="replace_text",
-            markdown_only=True,
-            prefer_markdown_extension=True,
+            markdown_only=False,
         )
     except VaultFileOperationRejected as exc:
         return _rejected_result(exc, operation="replace_text", fallback_path=path)
@@ -649,7 +676,7 @@ def edit_vault_line_operation(
     new_text: str,
 ) -> VaultFileOperationResult:
     """Replace one validated line in an existing markdown file."""
-    target = resolve_markdown_text_target(vault_path=vault_path, path=path)
+    target = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
     with vault_file_mutation_lock(vault_path, target.full_path):
         return _edit_vault_line_locked(
             vault_path=vault_path,
@@ -700,8 +727,7 @@ def _edit_vault_line_locked(
             metadata=target.requested_path_metadata,
         )
 
-    with target.full_path.open("r", encoding="utf-8", newline="") as file:
-        lines = file.readlines()
+    lines = _read_existing_text_file(target).splitlines(keepends=True)
     if line_number > len(lines):
         return _operation_result(
             f"Line {line_number} does not exist - file only has {len(lines)} lines",
@@ -742,12 +768,13 @@ def _edit_vault_line_locked(
         ]
     else:
         lines[line_number - 1] = new_text + line_ending
+    _validate_text_content("".join(lines), path=target.path)
     mutation = replace_vault_file_content(
         vault_path=vault_path,
         path=target.path,
         content="".join(lines),
         operation="edit_line",
-        markdown_only=True,
+        markdown_only=False,
     )
     return _mutation_result(
         f"Successfully edited line {line_number} in '{target.path}'",
@@ -762,6 +789,86 @@ def _edit_vault_line_locked(
     )
 
 
+def copy_vault_file_operation(
+    *,
+    vault_path: str | Path,
+    path: str,
+    destination: str,
+    overwrite: bool = False,
+) -> VaultFileOperationResult:
+    """Copy exact file bytes into one recorded, recoverable destination state."""
+    source = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
+    target = resolve_text_target(
+        vault_path=vault_path, path=destination, markdown_only=False
+    )
+    if (
+        not path.strip()
+        or not destination.strip()
+        or path.endswith("/")
+        or destination.endswith("/")
+    ):
+        raise VaultFileOperationRejected(
+            "invalid_path", "Copy requires source and destination filenames."
+        )
+    if source.full_path == target.full_path:
+        raise VaultFileOperationRejected(
+            "invalid_target", "Copy source and destination must be different files."
+        )
+    with vault_file_mutation_lock(vault_path, source.full_path, target.full_path):
+        if not source.full_path.exists():
+            raise VaultFileOperationRejected(
+                "file_not_found", f"Source file does not exist: {source.path}"
+            )
+        if not source.full_path.is_file() or (
+            target.full_path.exists() and not target.full_path.is_file()
+        ):
+            raise VaultFileOperationRejected(
+                "invalid_target", "Copy supports files only."
+            )
+        existed = target.full_path.exists()
+        if existed and not overwrite:
+            return _operation_result(
+                f"Destination already exists: {target.path}",
+                operation="copy",
+                path=source.path,
+                destination=target.path,
+                status="already_exists",
+                exists=True,
+                error_type="file_exists",
+            )
+        with recorded_vault_activity(label="Copy vault file") as activity:
+            mutation = restore_vault_file_states(
+                vault_path=vault_path,
+                states=(
+                    FileStateRestore(
+                        path=target.path,
+                        expected_exists=existed,
+                        expected_sha256=(
+                            hash_file_bytes(target.full_path, length=None)
+                            if existed
+                            else None
+                        ),
+                        content_path=source.full_path,
+                        content_sha256=hash_file_bytes(source.full_path, length=None),
+                    ),
+                ),
+                operation="copy",
+                metadata={"source_path": source.path},
+            )[0]
+            return _mutation_result(
+                f"Copied '{source.path}' to '{target.path}'",
+                operation="copy",
+                path=source.path,
+                mutation=mutation,
+                exists=True,
+                metadata={
+                    "activity_id": activity.activity_id,
+                    "destination": target.path,
+                    "overwrote_destination": existed,
+                },
+            )
+
+
 def move_vault_path_operation(
     *,
     vault_path: str | Path,
@@ -770,6 +877,7 @@ def move_vault_path_operation(
     overwrite: bool = False,
 ) -> VaultFileOperationResult:
     """Move a vault file, optionally overwriting an existing destination."""
+    source = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
     destination_target = resolve_text_target(
         vault_path=vault_path,
         path=destination,
@@ -779,8 +887,8 @@ def move_vault_path_operation(
     try:
         source_mutation, destination_mutation = move_vault_file(
             vault_path=vault_path,
-            path=path,
-            destination=destination,
+            path=source.path,
+            destination=destination_target.path,
             overwrite=overwrite,
         )
     except VaultMutationRejected as exc:
@@ -865,7 +973,7 @@ def delete_vault_path_operation(
     sources = deletion_sources(path=path, paths=paths)
     for source in sources:
         _reject_virtual_mount_path(normalize_vault_relative_path(source))
-    with vault_deletion_activity() as activity:
+    with recorded_vault_activity(label="Delete selected vault paths") as activity:
         deleted = delete_vault_paths(
             vault_path=Path(vault_path),
             sources=sources,
@@ -928,48 +1036,21 @@ def resolve_text_target(
     vault_path: str | Path,
     path: str,
     markdown_only: bool,
-    prefer_markdown_extension: bool = False,
 ) -> VaultTextTarget:
-    """Resolve a vault-relative text target with optional markdown-first lookup."""
+    """Resolve an exact vault-relative filename without extension inference."""
     requested_path = normalize_vault_relative_path(path)
     _reject_virtual_mount_path(requested_path)
     vault_root = Path(vault_path).resolve()
 
-    if prefer_markdown_extension and _should_try_markdown_file(requested_path):
-        markdown_path = f"{requested_path}.md"
-        markdown_full_path = resolve_vault_relative_path(
-            vault_path=vault_root,
-            path=markdown_path,
-            markdown_only=markdown_only,
-        )
-        if markdown_full_path.is_file():
-            return VaultTextTarget(
-                requested_path=requested_path,
-                path=markdown_path,
-                full_path=markdown_full_path,
-            )
-
     full_path = resolve_vault_relative_path(
         vault_path=vault_root,
-        path=requested_path,
+        path=path.replace("\\", "/").strip(),
         markdown_only=markdown_only,
     )
     return VaultTextTarget(
         requested_path=requested_path,
         path=requested_path,
         full_path=full_path,
-    )
-
-
-def resolve_markdown_text_target(
-    *, vault_path: str | Path, path: str
-) -> VaultTextTarget:
-    """Resolve a markdown text mutation target with extensionless .md preference."""
-    return resolve_text_target(
-        vault_path=vault_path,
-        path=path,
-        markdown_only=True,
-        prefer_markdown_extension=True,
     )
 
 
@@ -982,7 +1063,6 @@ def replace_text(
     count: int,
     operation: str,
     markdown_only: bool = True,
-    prefer_markdown_extension: bool = False,
     expected_sha256: str | None = None,
     require_match_count: int | None = None,
 ) -> TextMutationResult:
@@ -991,7 +1071,6 @@ def replace_text(
         vault_path=vault_path,
         path=path,
         markdown_only=markdown_only,
-        prefer_markdown_extension=prefer_markdown_extension,
     )
     with vault_file_mutation_lock(vault_path, target.full_path):
         return _replace_text_locked(
@@ -1055,6 +1134,7 @@ def _replace_text_locked(
         )
 
     replacement_count = min(match_count, count)
+    _validate_text_content(current.replace(old_text, new_text, count), path=target.path)
     mutation = replace_vault_file_content(
         vault_path=vault_path,
         path=target.path,
@@ -1616,12 +1696,21 @@ def _read_existing_text_file(target: VaultTextTarget) -> str:
             details={"path": target.path, **target.requested_path_metadata},
         )
     try:
-        return target.full_path.read_text(encoding="utf-8")
-    except UnicodeDecodeError as exc:
+        return decode_plain_text(target.full_path.read_bytes())
+    except UnsupportedTextContent as exc:
         raise VaultFileOperationRejected(
             "file_not_text",
-            f"Vault file is not UTF-8 text: {target.path}",
+            f"Direct text operations are not supported for this file: {target.path}",
             details={"path": target.path, **target.requested_path_metadata},
+        ) from exc
+
+
+def _validate_text_content(content: str, *, path: str) -> None:
+    try:
+        decode_plain_text(content.encode("utf-8"))
+    except (UnsupportedTextContent, UnicodeEncodeError) as exc:
+        raise VaultFileOperationRejected(
+            "file_not_text", "Content must be plain UTF-8 text.", details={"path": path}
         ) from exc
 
 
@@ -1889,8 +1978,6 @@ def _read_virtual_file_operation(
             status="unsupported",
             error_type="unsupported_file_type",
         )
-    if "." not in Path(rel).name:
-        rel = f"{rel}.md"
     full_path = (root / rel).resolve()
     try:
         _ensure_within_root(root, full_path)

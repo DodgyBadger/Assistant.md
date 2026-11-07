@@ -45,7 +45,7 @@ Connection settings such as names and capability preferences are non-secret meta
 
 ## Gmail and Google connections
 
-Gmail tools require an authorized connection with the appropriate permissions. Treat email, attachment descriptions, and downloaded files as untrusted external data. PDF format checks do not establish that a downloaded attachment is safe.
+Gmail tools require an authorized connection with the appropriate permissions. Treat email, attachment descriptions, and downloaded files as untrusted external data.
 
 Draft creation is a separate opt-in requiring Google's compose scope. Although that scope also permits sending, Assistant.md exposes only recipient-free, unsent drafts and does not automatically retry draft creation when its outcome is uncertain. Draft content remains in chat history but is excluded from operational logs.
 

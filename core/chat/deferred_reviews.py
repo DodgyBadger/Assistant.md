@@ -494,12 +494,14 @@ def capture_deferred_review_context(
     """Capture review-time file facts for destructive existing-file operations."""
     snapshots: dict[str, dict[str, Any]] = {}
     deletions: dict[str, dict[str, Any]] = {}
+    copies: dict[str, list[dict[str, Any]]] = {}
     for call in requests.approvals:
         args = call.args_as_dict()
         operation = str(args.get("operation") or "").strip().lower()
         if call.tool_name != "file_write" or operation not in {
             "write",
             "move",
+            "copy",
             "delete",
         }:
             continue
@@ -517,22 +519,33 @@ def capture_deferred_review_context(
                 "targets": selection.target_info(),
             }
             continue
+        if operation == "copy":
+            copies[str(call.tool_call_id)] = [
+                _capture_file_snapshot(vault_path, str(args.get(key) or ""))
+                for key in ("path", "destination")
+            ]
+            continue
         path = normalize_vault_relative_path(str(args.get("path") or ""))
         if not path:
             continue
-        full_path = resolve_vault_relative_path(
-            vault_path=vault_path,
-            path=path,
-            markdown_only=False,
-        )
-        snapshots[str(call.tool_call_id)] = {
-            "path": path,
-            "exists": full_path.is_file(),
-            "sha256": (
-                hash_file_bytes(full_path, length=None) if full_path.is_file() else None
-            ),
-        }
-    return {"file_write_snapshots": snapshots, "file_delete_snapshots": deletions}
+        snapshots[str(call.tool_call_id)] = _capture_file_snapshot(vault_path, path)
+    return {
+        "file_write_snapshots": snapshots,
+        "file_delete_snapshots": deletions,
+        "file_copy_snapshots": copies,
+    }
+
+
+def _capture_file_snapshot(vault_path: str, path: str) -> dict[str, Any]:
+    normalized = normalize_vault_relative_path(path)
+    full_path = resolve_vault_relative_path(vault_path=vault_path, path=normalized)
+    return {
+        "path": normalized,
+        "exists": full_path.is_file(),
+        "sha256": (
+            hash_file_bytes(full_path, length=None) if full_path.is_file() else None
+        ),
+    }
 
 
 def reviewed_deletion_fingerprint(tool_call_id: str | None) -> str | None:
@@ -608,10 +621,14 @@ def deferred_review_conflicts(
             conflicts.append(
                 {"tool_call_id": call_id, "reason": "deletion_selection_changed"}
             )
-    for tool_call_id in approved_call_ids:
-        snapshot = snapshots.get(tool_call_id)
-        if not isinstance(snapshot, dict):
-            continue
+    copy_snapshots = review.review_context.get("file_copy_snapshots") or {}
+    targets = [
+        (call_id, snapshot)
+        for call_id in approved_call_ids
+        for snapshot in [snapshots.get(call_id), *copy_snapshots.get(call_id, [])]
+        if isinstance(snapshot, dict)
+    ]
+    for tool_call_id, snapshot in targets:
         path = str(snapshot.get("path") or "")
         full_path = resolve_vault_relative_path(
             vault_path=vault_path,

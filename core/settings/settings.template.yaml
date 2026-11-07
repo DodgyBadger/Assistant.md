@@ -539,7 +539,7 @@ providers:
 tools:
   gmail:
     module: core.tools.gmail
-    description: "Read connected Gmail accounts, save bounded PDF attachments, and create unsent drafts when enabled"
+    description: "Read connected Gmail accounts, save bounded attachments, and create unsent drafts when enabled"
     requires_secrets: []
     requires_connection: google.gmail.read
     user_editable: false
