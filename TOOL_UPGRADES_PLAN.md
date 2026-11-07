@@ -8,7 +8,7 @@ Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`
 | --- | --- | --- |
 | Session map discovery and selective retrieval with references and oldest-first ordering | Complete; 497 core cases and quality gate pass, approved docs applied | [Session Map Discovery](SESSION_MAP_DISCOVERY_PLAN.md) |
 | Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
-| Byte-preserving PDF copying and supported exchange access | Planned; path and reading semantics to settle | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
+| Binary file operations, UTF-8 text tools, and general attachments | Scope agreed: unrestricted file handling and UTF-8 text read/edit; ingestion support stays separate; final implementation details remain | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
 | Native multi-delete with standard normal/inline-edit approval rules | Complete; 530 core cases, browser approval, and quality checks pass; approved docs applied | [Multi Delete](MULTI_DELETE_PLAN.md) |
 | Vault-root deletion rejection, including normalized aliases | Complete; shared validation, 31 focused cases and quality gate pass, approved docs applied | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
 
