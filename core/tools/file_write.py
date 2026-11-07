@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic_ai import RunContext
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
 from core.logger import UnifiedLogger
+from core.vault_state.file_mutations import VaultMutationRejected
 from core.vault_state.file_operations import (
     VaultFileOperationRejected,
     VaultFileOperationResult,
@@ -19,6 +21,7 @@ from core.vault_state.file_operations import (
     replace_text_vault_file_operation,
     write_vault_file_operation,
 )
+from core.vault_state.path_deletion import VaultDeletionFailed
 
 from .base import BaseTool, ToolRecoveryPolicy
 
@@ -37,9 +40,11 @@ class FileWrite(BaseTool):
         """Return the Pydantic AI tool for mutating vault operations."""
 
         def file_write(
+            ctx: RunContext,
             *,
             operation: str,
             path: str = "",
+            paths: list[str] | None = None,
             content: str = "",
             destination: str = "",
             old_text: str = "",
@@ -47,12 +52,12 @@ class FileWrite(BaseTool):
             line_number: int = 0,
             count: int = 1,
             overwrite: bool = False,
-            confirm_path: str = "",
         ) -> ToolReturn:
             """Create, edit, move, or delete vault files.
 
             :param operation: One of write, append, edit_line, replace_text, move, delete, mkdir. Write is create-only unless overwrite is true.
             :param path: Vault-relative file or directory path.
+            :param paths: Nonempty list of targets for delete, mutually exclusive with path. Folder deletion includes all contents. Duplicate and overlapping targets are collapsed.
             :param content: Full content for write, or content to append.
             :param destination: Destination path for move.
             :param old_text: Exact text to replace for replace_text.
@@ -60,7 +65,6 @@ class FileWrite(BaseTool):
             :param line_number: One-indexed target line for edit_line.
             :param count: Replacement count for replace_text.
             :param overwrite: For write, set true when updating or rewriting a known existing file. For move, set true to replace an existing destination. False keeps both operations create-only/non-destructive.
-            :param confirm_path: Required path confirmation for delete.
             """
             try:
                 logger.set_sinks(["validation"]).info(
@@ -81,6 +85,7 @@ class FileWrite(BaseTool):
                     vault_path=vault_path,
                     operation=operation,
                     path=path,
+                    paths=paths,
                     content=content,
                     destination=destination,
                     old_text=old_text,
@@ -88,9 +93,24 @@ class FileWrite(BaseTool):
                     line_number=line_number,
                     count=count,
                     overwrite=overwrite,
-                    confirm_path=confirm_path,
+                    tool_call_id=ctx.tool_call_id,
                 )
                 return _to_tool_return(result)
+            except VaultDeletionFailed as exc:
+                return _error_result(
+                    str(exc),
+                    operation=operation,
+                    path=path,
+                    error_type=exc.code,
+                    metadata={
+                        "activity_id": exc.activity_id,
+                        "recovery_status": exc.recovery_status,
+                    },
+                )
+            except VaultMutationRejected as exc:
+                return _error_result(
+                    str(exc), operation=operation, path=path, error_type=exc.code
+                )
             except VaultFileOperationRejected as exc:
                 return _error_result(
                     str(exc),
@@ -125,6 +145,7 @@ def _execute_write_operation(
     vault_path: str,
     operation: str,
     path: str,
+    paths: list[str] | None,
     content: str,
     destination: str,
     old_text: str,
@@ -132,9 +153,14 @@ def _execute_write_operation(
     line_number: int,
     count: int,
     overwrite: bool,
-    confirm_path: str,
+    tool_call_id: str | None,
 ) -> VaultFileOperationResult:
     normalized = operation.strip().lower()
+    if paths is not None and normalized != "delete":
+        raise VaultMutationRejected(
+            "invalid_parameters",
+            "paths is only supported for delete. Use path for other operations.",
+        )
     if normalized == "write":
         return write_vault_file_operation(
             vault_path=vault_path,
@@ -170,10 +196,13 @@ def _execute_write_operation(
             overwrite=overwrite,
         )
     if normalized == "delete":
+        from core.chat.deferred_reviews import reviewed_deletion_fingerprint
+
         return delete_vault_path_operation(
             vault_path=vault_path,
             path=path,
-            confirm_path=confirm_path,
+            paths=paths,
+            expected_fingerprint=reviewed_deletion_fingerprint(tool_call_id),
         )
     if normalized == "mkdir":
         return make_vault_directory_operation(vault_path=vault_path, path=path)

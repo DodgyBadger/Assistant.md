@@ -32,12 +32,10 @@ from core.settings import (
 from core.utils.hash import hash_file_bytes, hash_file_content
 from core.utils.image_inputs import build_image_tool_payload
 from core.vault_state.file_mutations import (
-    DirectoryCleanupResult,
     DirectoryMoveResult,
     RecordedMutationResult,
     VaultMutationRejected,
     append_vault_file,
-    delete_empty_vault_directory_tree,
     delete_vault_file,
     move_vault_directory,
     move_vault_file,
@@ -46,6 +44,11 @@ from core.vault_state.file_mutations import (
     vault_directory_mutation_lock,
     vault_file_mutation_lock,
     write_vault_file,
+)
+from core.vault_state.path_deletion import (
+    delete_vault_paths,
+    deletion_sources,
+    vault_deletion_activity,
 )
 from core.vault_state.pathing import (
     normalize_vault_relative_path,
@@ -854,54 +857,37 @@ def move_vault_directory_operation(
 def delete_vault_path_operation(
     *,
     vault_path: str | Path,
-    path: str,
-    confirm_path: str,
+    path: str = "",
+    paths: list[str] | None = None,
+    expected_fingerprint: str | None = None,
 ) -> VaultFileOperationResult:
-    """Delete a vault file or empty directory tree after path confirmation."""
-    if path != confirm_path:
-        return _operation_result(
-            f"Path confirmation failed - path '{path}' does not match confirm_path '{confirm_path}'",
-            operation="delete",
-            path=path,
-            status="error",
-            error_type="confirmation_failed",
+    """Delete one preflighted recursive selection with a durable recovery activity."""
+    sources = deletion_sources(path=path, paths=paths)
+    for source in sources:
+        _reject_virtual_mount_path(normalize_vault_relative_path(source))
+    with vault_deletion_activity() as activity:
+        deleted = delete_vault_paths(
+            vault_path=Path(vault_path),
+            sources=sources,
+            expected_fingerprint=expected_fingerprint,
         )
-    target = resolve_text_target(vault_path=vault_path, path=path, markdown_only=False)
-    if not target.full_path.exists():
+        effective = [target.path for target in deleted]
         return _operation_result(
-            f"Cannot delete '{target.path}' - file does not exist",
+            f"Deleted {len(deleted)} selected target(s), including folder contents.",
             operation="delete",
-            path=target.path,
-            status="not_found",
+            path=effective[0] if len(effective) == 1 else "",
+            status="completed",
             exists=False,
-            error_type="file_not_found",
-            metadata=target.requested_path_metadata,
+            metadata={
+                "paths": effective,
+                "activity_id": activity.activity_id,
+                "task_id": activity.task_id,
+                "deleted": [
+                    {"path": target.path, "kind": target.kind} for target in deleted
+                ],
+                "target_type": deleted[0].kind if len(deleted) == 1 else "selection",
+            },
         )
-    if target.full_path.is_dir():
-        return _delete_empty_directory_operation(
-            vault_path=vault_path, path=target.path
-        )
-    try:
-        mutation = delete_vault_file(vault_path=vault_path, path=target.path)
-    except VaultMutationRejected as exc:
-        if exc.code != "file_not_found":
-            raise
-        return _operation_result(
-            f"Cannot delete '{target.path}' - file does not exist",
-            operation="delete",
-            path=target.path,
-            status="not_found",
-            exists=False,
-            error_type="file_not_found",
-        )
-    return _mutation_result(
-        f"Successfully deleted '{target.path}'",
-        operation="delete",
-        path=target.path,
-        mutation=mutation,
-        exists=False,
-        metadata={"target_type": "file"},
-    )
 
 
 def make_vault_directory_operation(
@@ -1795,85 +1781,6 @@ def _rejected_result(
         exists=False if exc.code == "file_not_found" else None,
         error_type=exc.code,
         metadata=exc.details,
-    )
-
-
-def _delete_empty_directory_operation(
-    *,
-    vault_path: str | Path,
-    path: str,
-) -> VaultFileOperationResult:
-    try:
-        cleanup = delete_empty_vault_directory_tree(vault_path=vault_path, path=path)
-    except VaultMutationRejected as exc:
-        status = "not_found" if exc.code == "directory_not_found" else "invalid_target"
-        return _operation_result(
-            str(exc),
-            operation="delete",
-            path=path,
-            status=status,
-            exists=exc.code != "directory_not_found",
-            error_type=exc.code,
-        )
-    return _directory_cleanup_result(
-        vault_path=vault_path,
-        path=path,
-        cleanup=cleanup,
-    )
-
-
-def _directory_cleanup_result(
-    *,
-    vault_path: str | Path,
-    path: str,
-    cleanup: DirectoryCleanupResult,
-) -> VaultFileOperationResult:
-    removed = list(cleanup.removed_paths)
-    skipped = list(cleanup.skipped_paths)
-    blockers = list(cleanup.blocker_paths)
-    if skipped:
-        message = (
-            f"Removed {len(removed)} empty directories under '{path}'. "
-            f"Skipped {len(skipped)} non-empty directories: " + ", ".join(skipped)
-        )
-        status = "partial"
-    elif removed:
-        message = f"Removed {len(removed)} empty directories under '{path}'"
-        status = "completed"
-    else:
-        message = f"No empty directories were removed under '{path}'"
-        status = "partial"
-    if removed:
-        record_vault_directory_mutation(
-            vault_path=vault_path,
-            path=path,
-            operation="delete",
-            before_exists=True,
-            after_exists=cleanup.after_exists,
-            event_sequence=cleanup.event_sequence,
-            metadata={
-                "removed_directory_count": len(removed),
-                "skipped_directory_count": len(skipped),
-            },
-        )
-    return _operation_result(
-        message,
-        operation="delete",
-        path=path,
-        status=status,
-        exists=cleanup.after_exists,
-        metadata={
-            "target_type": "directory",
-            "removed_directories": removed,
-            "skipped_non_empty_directories": skipped,
-            "remaining_directory_contents": blockers,
-            "removed_count": len(removed),
-            "skipped_count": len(skipped),
-            "remaining_content_count": len(blockers),
-            "task_id": cleanup.task_id,
-            "vault_id": cleanup.vault_id,
-            "event_sequence": cleanup.event_sequence,
-        },
     )
 
 

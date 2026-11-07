@@ -143,25 +143,22 @@ async def test_workflow_mutations_record_snapshots_and_activity(
     ).read_text() == "Overwrite attachment source\n"
     response = app.request(f"/api/vaults/{vault.name}/activity", params={"limit": 5})
     assert response.status_code == 200
-    group = next(
+    groups = [
         group for group in response.json()["groups"] if group["task_id"] == task_id
-    )
-    assert (
-        group["status"],
-        group["activity_kind"],
-        group["task_kind"],
-        group["task_source"],
-        group["task_label"],
-        group["mutation_count"],
-    ) == (
-        "completed",
-        "workflow",
-        "workflow",
-        "api",
-        f"{vault.name}/write_probe",
-        len(rows),
-    )
-    mutations = group["mutations"]
+    ]
+    assert groups
+    # Deletion selections have their own recovery activities while retaining
+    # the original task provenance; account for the complete task across them.
+    for group in groups:
+        assert (
+            group["status"],
+            group["activity_kind"],
+            group["task_kind"],
+            group["task_source"],
+            group["task_label"],
+        ) == ("completed", "workflow", "workflow", "api", f"{vault.name}/write_probe")
+    assert sum(group["mutation_count"] for group in groups) == len(rows)
+    mutations = [mutation for group in groups for mutation in group["mutations"]]
     assert len(mutations) == len(rows) and expected <= {
         (m["operation"], m["path"]) for m in mutations
     }

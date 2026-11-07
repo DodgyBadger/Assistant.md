@@ -57,7 +57,7 @@ Test the unsafe file operations tool by performing these operations:
 4. Create a separate file 'delete-test.md' with some content
 
 5. Test DELETE with safety confirmation on delete-test.md:
-   - Try delete without matching confirm_path (should fail)
-   - Then delete with matching confirm_path (should succeed)
+   - Delete a file using its path
+   - Delete multiple selected files using paths
 
 6. Document all operations and their results, including safety validations

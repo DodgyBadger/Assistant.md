@@ -12,31 +12,19 @@ pytestmark = pytest.mark.scenario
 async def test_extensionless_file_edits(app: Application) -> None:
     from typing import Any
 
-    from pydantic_ai.messages import ToolReturn
-
-    from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
-    from core.tools.file_write import FileWrite
+    from core.authoring.contracts import ScriptToolResult
+    from validation.support.vault.file_tools import BoundFileTools
 
     vault = app.vault("FileOpsExtensionlessTextMutationsVault")
     app.write(vault, "notes/edit-target.md", "first\nreplace me\nlast\n")
     app.write(vault, "notes/no-extension", "alpha\n")
     app.write(vault, "notes/crlf-target.md", "first\r\nreplace me\r\nlast\r\n")
     await app.start()
-    tool = FileWrite.get_tool(str(vault))
+    tools = BoundFileTools(app, vault)
 
-    def file_write(**arguments: Any) -> ToolReturn:
+    async def file_write(**arguments: Any) -> ScriptToolResult:
         checkpoint = app.events.checkpoint()
-        with use_execution_authority(LOCAL_USER_AUTHORITY):
-            result = tool.function(**arguments)
-        app.evidence.append(
-            "tool-results.jsonl",
-            {
-                "tool": "file_write",
-                "arguments": arguments,
-                "metadata": result.metadata,
-                "result": result.return_value,
-            },
-        )
+        result = await tools.call("file_write", **arguments)
         app.events.require(
             "tool_invoked",
             after=checkpoint,
@@ -45,7 +33,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
         )
         return result
 
-    edited = file_write(
+    edited = await file_write(
         operation="edit_line",
         path="notes/edit-target",
         line_number=2,
@@ -66,7 +54,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ) == "first\nchanged\nlast\n", (
         "edit_line should mutate the markdown file selected by extensionless resolution"
     )
-    crlf_edit = file_write(
+    crlf_edit = await file_write(
         operation="edit_line",
         path="notes/crlf-target.md",
         line_number=2,
@@ -81,7 +69,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ).read_bytes() == b"first\r\nchanged\r\nlast\r\n", (
         "edit_line should preserve CRLF line endings when replacing a line"
     )
-    replaced = file_write(
+    replaced = await file_write(
         operation="replace_text",
         path="notes/edit-target",
         old_text="changed",
@@ -94,7 +82,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     assert (vault / "notes" / "edit-target.md").read_text(
         encoding="utf-8"
     ) == "first\ndone\nlast\n", "replace_text should mutate the markdown file selected by extensionless resolution"
-    truncated = file_write(
+    truncated = await file_write(
         operation="write", path="notes/edit-target", content="", overwrite=True
     )
     assert (
@@ -105,7 +93,7 @@ async def test_extensionless_file_edits(app: Application) -> None:
     ) == "", (
         "truncate should clear the markdown file selected by extensionless resolution"
     )
-    fallback = file_write(
+    fallback = await file_write(
         operation="replace_text",
         path="notes/no-extension",
         old_text="alpha",

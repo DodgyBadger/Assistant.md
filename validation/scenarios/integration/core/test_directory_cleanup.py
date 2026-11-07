@@ -10,7 +10,9 @@ from validation.support.vault.file_tools import record_operation
 pytestmark = pytest.mark.scenario
 
 
-async def test_empty_directory_cleanup_preserves_files(app: Application) -> None:
+async def test_directory_deletion_and_recovery_preserve_exact_contents(
+    app: Application,
+) -> None:
     from core.vault_state.file_operations import (
         delete_vault_path_operation,
         list_vault_paths_operation,
@@ -65,89 +67,24 @@ async def test_empty_directory_cleanup_preserves_files(app: Application) -> None
         truncated_metadata.get("files") == []
     ), "Directory-first truncation should omit files when directories fill the cap"
 
-    first = record_operation(
-        app,
-        delete_vault_path_operation(
-            vault_path=str(vault), path="cleanup", confirm_path="cleanup"
-        ),
-    )
-    first_metadata = first.metadata
-    assert (
-        first_metadata.get("status") == "partial"
-    ), "First directory cleanup should be partial"
-    assert (
-        first_metadata.get("target_type") == "directory"
-    ), "Directory cleanup should identify target type"
-    assert not (
-        vault / "cleanup" / "empty-a"
-    ).exists(), "Empty nested branch should be removed recursively"
-    assert not (
-        vault / "cleanup" / "mixed" / "empty-child"
-    ).exists(), (
-        "Empty sibling directory should be removed even when other branches remain"
-    )
-    assert (
-        vault / "cleanup" / "mixed" / "keep.md"
-    ).exists(), "File inside non-empty directory should remain"
-    assert (
-        vault / "cleanup" / "png-only" / "image.png"
-    ).exists(), "Non-markdown file inside non-empty directory should remain"
-    assert (
-        vault / "cleanup" / "hidden-only" / ".keep"
-    ).exists(), "Hidden file inside non-empty directory should remain"
-    skipped = set(first_metadata.get("skipped_non_empty_directories") or [])
-    assert {
-        "cleanup",
-        "cleanup/hidden-only",
-        "cleanup/mixed",
-        "cleanup/mixed/nonempty-child",
-        "cleanup/png-only",
-    }.issubset(
-        skipped
-    ), "Partial cleanup should report non-empty directories for follow-up"
-    remaining_contents = set(first_metadata.get("remaining_directory_contents") or [])
-    assert {
-        "cleanup/hidden-only/.keep",
-        "cleanup/mixed/keep.md",
-        "cleanup/mixed/nonempty-child/keep.txt",
-        "cleanup/png-only/image.png",
-    }.issubset(
-        remaining_contents
-    ), "Partial cleanup should report remaining files, including hidden files"
-    delete_vault_path_operation(
-        vault_path=str(vault),
-        path="cleanup/mixed/keep.md",
-        confirm_path="cleanup/mixed/keep.md",
-    )
-    delete_vault_path_operation(
-        vault_path=str(vault),
-        path="cleanup/mixed/nonempty-child/keep.txt",
-        confirm_path="cleanup/mixed/nonempty-child/keep.txt",
-    )
-    delete_vault_path_operation(
-        vault_path=str(vault),
-        path="cleanup/png-only/image.png",
-        confirm_path="cleanup/png-only/image.png",
-    )
-    delete_vault_path_operation(
-        vault_path=str(vault),
-        path="cleanup/hidden-only/.keep",
-        confirm_path="cleanup/hidden-only/.keep",
+    # The accepted file-tool contract now deletes selected folders recursively.
+    from validation.support.vault.file_tools import vault_tree_snapshot
+    from validation.support.vault.vault_recovery import (
+        execute_rollback,
+        preview_rollback,
     )
 
-    second = record_operation(
+    before = vault_tree_snapshot(vault / "cleanup")
+    deleted = record_operation(
         app,
-        delete_vault_path_operation(
-            vault_path=str(vault), path="cleanup", confirm_path="cleanup"
-        ),
+        delete_vault_path_operation(vault_path=str(vault), path="cleanup"),
     )
-    second_metadata = second.metadata
-    assert (
-        second_metadata.get("status") == "completed"
-    ), "Second cleanup should remove the now-empty directory tree"
-    assert not (
-        vault / "cleanup"
-    ).exists(), "Directory root should be removed after all files are gone"
-    assert (
-        second_metadata.get("skipped_non_empty_directories") == []
-    ), "Completed cleanup should not report skipped directories"
+    assert deleted.metadata["status"] == "completed"
+    assert deleted.metadata["target_type"] == "directory"
+    assert not (vault / "cleanup").exists()
+    activity_id = deleted.metadata["activity_id"]
+    preview = preview_rollback(app, vault.name, activity_id)
+    assert preview["can_rollback"] is True, preview
+    restored = execute_rollback(app, vault.name, activity_id, preview)
+    assert restored.status_code == 200, restored.text
+    assert vault_tree_snapshot(vault / "cleanup") == before

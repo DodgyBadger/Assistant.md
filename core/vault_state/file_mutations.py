@@ -255,21 +255,6 @@ class SnapshotAttribution:
 
 
 @dataclass(frozen=True)
-class DirectoryCleanupResult:
-    """Result of a best-effort empty-directory cleanup inside a vault."""
-
-    vault_id: str
-    vault_name: str
-    path: str
-    removed_paths: tuple[str, ...]
-    skipped_paths: tuple[str, ...]
-    blocker_paths: tuple[str, ...]
-    after_exists: bool
-    task_id: str | None
-    event_sequence: int | None
-
-
-@dataclass(frozen=True)
 class DirectoryMoveResult:
     """Result of one observed directory move inside a vault."""
 
@@ -880,98 +865,6 @@ def _compensate_file_state_restores(
             "mutation_state_uncertain",
             f"File-state restoration failed and compensation was incomplete: {rollback_exc}",
         ) from cause
-
-
-def delete_empty_vault_directory_tree(
-    *,
-    vault_path: str | Path,
-    path: str,
-) -> DirectoryCleanupResult:
-    """Delete empty directories under ``path`` and leave non-empty dirs in place."""
-    vault_root = Path(vault_path).resolve()
-    full_path = resolve_vault_deletion_target(
-        vault_path=vault_root,
-        path=path,
-    )
-    with vault_directory_mutation_lock(vault_root, full_path):
-        return _delete_empty_vault_directory_tree_locked(
-            vault_path=vault_root,
-            path=path,
-        )
-
-
-def _delete_empty_vault_directory_tree_locked(
-    *,
-    vault_path: str | Path,
-    path: str,
-) -> DirectoryCleanupResult:
-    """Delete empty directories while holding the vault hierarchy lock."""
-    vault_root = Path(vault_path).resolve()
-    relative_path = normalize_vault_relative_path(path)
-    full_path = resolve_vault_deletion_target(
-        vault_path=vault_root,
-        path=relative_path,
-    )
-    if not full_path.exists():
-        raise VaultMutationRejected(
-            "directory_not_found",
-            f"Cannot delete '{relative_path}' - directory does not exist.",
-        )
-    if not full_path.is_dir():
-        raise VaultMutationRejected(
-            "not_directory",
-            f"Cannot delete '{relative_path}' as a directory - target is not a directory.",
-        )
-
-    identity = resolve_or_create_vault_identity(vault_root)
-    vault_name = vault_root.name
-    task = get_current_execution_task()
-    service = VaultStateService()
-    removed_paths: list[str] = []
-
-    for root, _dirs, _files in os.walk(full_path, topdown=False):
-        directory = Path(root)
-        try:
-            directory.rmdir()
-        except OSError:
-            continue
-        removed_paths.append(_relative_to_vault(vault_root, directory))
-
-    skipped_paths = _remaining_directory_paths(vault_root, full_path)
-    blocker_paths = _remaining_directory_blockers(vault_root, full_path)
-    event_sequence = None
-    if removed_paths:
-        remove_favorite_paths(vault_root, removed_paths)
-        refresh = service.refresh_vault(vault_root, vault_name=vault_name)
-        event_sequence = refresh.latest_sequence
-
-    result = DirectoryCleanupResult(
-        vault_id=identity.vault_id,
-        vault_name=vault_name,
-        path=relative_path,
-        removed_paths=tuple(sorted(removed_paths)),
-        skipped_paths=tuple(skipped_paths),
-        blocker_paths=tuple(blocker_paths),
-        after_exists=full_path.exists(),
-        task_id=task.task_id if task is not None else None,
-        event_sequence=event_sequence,
-    )
-    logger.add_sink("validation").info(
-        "vault_empty_directory_cleanup_completed",
-        data={
-            "event": "vault_empty_directory_cleanup_completed",
-            "task_id": result.task_id,
-            "vault_id": result.vault_id,
-            "vault_name": result.vault_name,
-            "path": result.path,
-            "removed_count": len(result.removed_paths),
-            "skipped_count": len(result.skipped_paths),
-            "blocker_count": len(result.blocker_paths),
-            "after_exists": result.after_exists,
-            "event_sequence": result.event_sequence,
-        },
-    )
-    return result
 
 
 def move_vault_directory(
@@ -1621,18 +1514,6 @@ def _log_mutation_failed(
     )
 
 
-def _remaining_directory_paths(vault_root: Path, target: Path) -> tuple[str, ...]:
-    """Return directories still present under target after cleanup."""
-    if not target.exists() or not target.is_dir():
-        return ()
-    paths = [_relative_to_vault(vault_root, target)]
-    for root, dirs, _files in os.walk(target):
-        root_path = Path(root)
-        for directory_name in dirs:
-            paths.append(_relative_to_vault(vault_root, root_path / directory_name))
-    return tuple(sorted(paths))
-
-
 def _directory_descendant_counts(path: Path) -> tuple[int, int]:
     """Count files and child directories without following directory symlinks."""
     file_count = 0
@@ -1641,26 +1522,6 @@ def _directory_descendant_counts(path: Path) -> tuple[int, int]:
         directory_count += len(directories)
         file_count += len(files)
     return file_count, directory_count
-
-
-def _remaining_directory_blockers(vault_root: Path, target: Path) -> tuple[str, ...]:
-    """Return files and inaccessible leaf directories still present under target."""
-    if not target.exists() or not target.is_dir():
-        return ()
-    paths: list[str] = []
-    for root, dirs, files in os.walk(target):
-        root_path = Path(root)
-        for file_name in files:
-            paths.append(_relative_to_vault(vault_root, root_path / file_name))
-        for directory_name in dirs:
-            directory = root_path / directory_name
-            try:
-                next(directory.iterdir())
-            except StopIteration:
-                paths.append(_relative_to_vault(vault_root, directory))
-            except OSError:
-                paths.append(_relative_to_vault(vault_root, directory))
-    return tuple(sorted(paths))
 
 
 def _relative_to_vault(vault_root: Path, path: Path) -> str:

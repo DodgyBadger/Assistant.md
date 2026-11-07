@@ -1,6 +1,6 @@
 # Tool Upgrades Branch Issues
 
-Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tool, compaction continuity, and vault-root protection are implemented and validated; binary/exchange and multi-delete work remain planned. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
+Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`, reviewed 2026-11-07. Session tool, compaction continuity, and vault-root protection are complete; multi-delete is implemented and validated with documentation approval pending and binary/exchange work remains planned. This file tracks branch issues and status; linked root-level plans own their detailed contracts, acceptance conditions, steps, and evidence.
 
 ## Selected issues
 
@@ -9,12 +9,12 @@ Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`
 | Session map discovery and selective retrieval with references and oldest-first ordering | Complete; 497 core cases and quality gate pass, approved docs applied | [Session Map Discovery](SESSION_MAP_DISCOVERY_PLAN.md) |
 | Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
 | Byte-preserving PDF copying and supported exchange access | Planned; path and reading semantics to settle | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
-| Native multi-delete with standard normal/inline-edit approval rules | Planned; scripts retain current behavior | [Multi Delete](MULTI_DELETE_PLAN.md) |
+| Native multi-delete with standard normal/inline-edit approval rules | Implemented and validated; 530 core cases, browser approval, and quality checks pass; docs approval pending | [Multi Delete](MULTI_DELETE_PLAN.md) |
 | Vault-root deletion rejection, including normalized aliases | Complete; shared validation, 31 focused cases and quality gate pass, approved docs applied | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
 
 ## Existing capabilities verified
 
-Explorer multi-selection, recursive deletion, confirmation, and rollback are implemented. File-tool empty-directory cleanup is implemented. Agents can delete multiple files through Monty loops over single-target calls. Native multi-delete will preserve scripting and existing approval rules; the external TODO's always-required approval proposal is superseded by the user's decision.
+The baseline audit confirmed explorer multi-selection, recursive deletion, confirmation, rollback, and file-tool empty-directory cleanup. Native file-tool deletion now removes selected folders recursively and supports multiple targets, while preserving Monty scripting and existing approval rules. The external TODO's always-required approval proposal is superseded by the user's decision.
 
 On 2026-11-07, the existing explorer bulk-deletion, split file-tool, and inline-edit policy scenarios passed: 8 tests, report `validation/runs/pytest_20261107_001234_e6ec4fab60/report.md`. The dedicated empty-directory cleanup scenario also passed: 1 test, report `validation/runs/pytest_20261107_001246_dfc55e5af4/report.md`. These checks establish existing behavior; no production or scenario code was changed during this scope audit. Browser interaction was inspected in source, not exercised in a browser.
 

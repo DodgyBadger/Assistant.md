@@ -1366,6 +1366,7 @@ def _vault_path_mutation_error(
         "file_not_found": 404,
         "invalid_path": 400,
         "mutation_state_uncertain": 500,
+        "delete_failed": 500,
     }
     return APIException(
         status_code=status_by_code.get(exc.code, 400),
