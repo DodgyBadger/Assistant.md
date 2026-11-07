@@ -509,7 +509,7 @@
 
         function reviewStatusLabel(status) {
             if (status === 'resuming') return 'Resuming';
-            if (status === 'completed') return 'Applied';
+            if (status === 'completed') return 'Reviewed';
             if (status === 'failed') return 'Failed';
             if (status === 'cancelled') return 'Cancelled';
             if (status === 'submitted') return 'Submitted';
