@@ -9,7 +9,7 @@ Branch: `dev/tool-upgrades`. Source: `/home/codeman/docs/AssistantMD/! To Do.md`
 | Session map discovery and selective retrieval with references and oldest-first ordering | Complete; 497 core cases and quality gate pass, approved docs applied | [Session Map Discovery](SESSION_MAP_DISCOVERY_PLAN.md) |
 | Continuity after compaction of consequential assistant responses | Complete; context-only guidance, 13 focused cases and quality gate pass | [Compaction Continuity](COMPACTION_CONTINUITY_PLAN.md) |
 | Byte-preserving PDF copying and supported exchange access | Planned; path and reading semantics to settle | [Binary Files Exchange](BINARY_FILES_EXCHANGE_PLAN.md) |
-| Native multi-delete with standard normal/inline-edit approval rules | Implemented and validated; 530 core cases, browser approval, and quality checks pass; docs approval pending | [Multi Delete](MULTI_DELETE_PLAN.md) |
+| Native multi-delete with standard normal/inline-edit approval rules | Implemented and validated; 530 core cases, browser approval, and quality checks pass; shortened file-write doc approval pending | [Multi Delete](MULTI_DELETE_PLAN.md) |
 | Vault-root deletion rejection, including normalized aliases | Complete; shared validation, 31 focused cases and quality gate pass, approved docs applied | [Vault Root Delete Protection](VAULT_ROOT_DELETE_PROTECTION_PLAN.md) |
 
 ## Existing capabilities verified
@@ -34,4 +34,4 @@ Follow validation-first development and the appropriate behavioral testing skill
 
 ## Documentation review
 
-For each implemented issue, identify relevant documentation, present exact proposed text or diffs in chat, obtain explicit approval, and apply only the approved updates. Documentation changes remain pending. No edits under `docs/`, `README.md`, or `RELEASE_NOTES.md` are authorized by this split. The external library TODO is unchanged.
+For each implemented issue, identify relevant documentation, present exact proposed text or diffs in chat, obtain explicit approval, and apply only the approved updates. Approved session-map, root-protection, code-execution, and review/recovery ADR updates are applied. The shortened multi-delete file-write draft remains pending explicit approval. The original plan split does not itself authorize edits under `docs/`, `README.md`, or `RELEASE_NOTES.md`. The external library TODO is unchanged.

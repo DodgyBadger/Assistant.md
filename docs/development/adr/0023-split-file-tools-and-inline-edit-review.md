@@ -40,6 +40,8 @@ the reviewed target changed before submission. Review overrides may edit
 operation content or a move destination, but cannot change the operation target
 or overwrite policy.
 
+In inline-edit mode, a `delete` call is reviewed as one normalized selection. Directory selections include all contents. Review captures file hashes, target kinds, and directory topology; changes invalidate approval, and deletion rechecks the snapshot under its mutation lock.
+
 Tool availability is app-wide through the registered tool set minus
 `disabled_tools`; chat does not select a per-turn tool subset in the UI.
 
