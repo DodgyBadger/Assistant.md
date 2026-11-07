@@ -110,9 +110,7 @@ async def test_directory_journal_failure_restores_unrecorded_empty_directory(
             connection.execute("DROP TRIGGER reject_directory_record")
     activity = app.request(f"/api/vaults/{vault.name}/activity").json()
     failed = next(group for group in activity["groups"] if group["status"] == "failed")
-    preview = preview_rollback(app, vault.name, failed["activity_id"])
-    assert preview["can_rollback"] is True, preview
-    rollback = execute_rollback(app, vault.name, failed["activity_id"], preview)
-    assert rollback.status_code == 200, rollback.text
     assert (vault / "Keep.md").read_text() == "recoverable file bytes"
     assert (vault / "Empty/Deep").is_dir()
+    # Recovery of retained file states was attempted before reporting failure.
+    assert failed["rollback_status"] == "completed"

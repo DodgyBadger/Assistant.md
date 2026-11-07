@@ -43,7 +43,7 @@ async def test_root_alias_rejection_preserves_complete_vault(
     app.evidence.save_json("vault-before.json", before)
     if consumer == "tool":
         result = await BoundFileTools(app, vault).call(
-            "file_write", operation="delete", path=alias, confirm_path=alias
+            "file_write", operation="delete", path=alias
         )
         rejected = result.metadata.get("error_type") == "invalid_target"
     else:

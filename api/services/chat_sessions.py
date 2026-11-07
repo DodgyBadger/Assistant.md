@@ -220,6 +220,8 @@ def _deferred_review_response(
     review: StoredDeferredReview,
 ) -> DeferredReviewResponse:
     """Translate a stored deferred review into its API representation."""
+    from core.chat.deferred_reviews import deferred_deletion_targets
+
     return DeferredReviewResponse(
         artifact_ref=review.artifact_ref,
         artifact_kind="deferred_tool_review",
@@ -232,6 +234,7 @@ def _deferred_review_response(
                 tool_call_id=call.tool_call_id,
                 tool_name=call.tool_name,
                 args=call.args,
+                deletion_targets=deferred_deletion_targets(review, call.tool_call_id),
             )
             for call in review.requests.approvals
         ],
@@ -240,6 +243,7 @@ def _deferred_review_response(
                 tool_call_id=call.tool_call_id,
                 tool_name=call.tool_name,
                 args=call.args,
+                deletion_targets=None,
             )
             for call in review.requests.calls
         ],

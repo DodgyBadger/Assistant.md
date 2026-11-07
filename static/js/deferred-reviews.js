@@ -105,7 +105,7 @@
                             ${icons.CIRCLE_X_ICON_SVG || icons.X_ICON_SVG || ''}<span>Deny</span>
                         </button>
                     </div>
-                    ${renderCallFields(toolName, toolCallId, args, locked)}
+                    ${renderCallFields(toolName, toolCallId, args, locked, call.deletion_targets)}
                     <div class="edit-proposal-comment-block hidden" data-deferred-review-deny-block>
                         <label class="edit-proposal-label" for="deferred-review-deny-${escapeHtml(toolCallId)}">Reason (optional)</label>
                         <textarea id="deferred-review-deny-${escapeHtml(toolCallId)}" class="edit-proposal-comment" data-deferred-review-message="${escapeHtml(toolCallId)}" spellcheck="true" ${locked ? 'disabled' : ''}></textarea>
@@ -114,14 +114,14 @@
             `;
         }
 
-        function renderCallFields(toolName, toolCallId, args, locked) {
+        function renderCallFields(toolName, toolCallId, args, locked, deletionTargets) {
             if (toolName === 'file_write') {
-                return renderFileOpsFields(toolCallId, args, locked);
+                return renderFileOpsFields(toolCallId, args, locked, deletionTargets);
             }
             return `<pre class="tool-status-block">${escapeHtml(JSON.stringify(args, null, 2))}</pre>`;
         }
 
-        function renderFileOpsFields(toolCallId, args, locked) {
+        function renderFileOpsFields(toolCallId, args, locked, deletionTargets) {
             const operation = String(args.operation || '').toLowerCase();
             if (operation === 'write') {
                 return `
@@ -191,8 +191,14 @@
                 `;
             }
             if (operation === 'delete') {
+                const targets = Array.isArray(deletionTargets)
+                    ? deletionTargets
+                    : (Array.isArray(args.paths) ? args.paths : [args.path]).filter(Boolean).map((path) => ({ path }));
                 return `
-                    <div class="edit-proposal-delete-note">${escapeHtml(fileOpsStaticDescription(operation, args))}</div>
+                    <div class="edit-proposal-delete-note">
+                        Delete this selection. Folders include all files and subfolders.
+                        <ul>${targets.map((target) => `<li>${escapeHtml(String(target.path))}${target.kind === 'directory' ? ' (folder and all contents)' : ''}</li>`).join('')}</ul>
+                    </div>
                 `;
             }
             return `
@@ -480,7 +486,7 @@
         }
 
         function fileOpsStaticDescription(operation, args) {
-            if (operation === 'delete') return `Delete @${String(args.path || '')}`;
+            if (operation === 'delete') return Array.isArray(args.paths) ? `Delete ${args.paths.length} selected targets` : `Delete @${String(args.path || '')}`;
             if (operation === 'mkdir') return `Create folder @${String(args.path || '')}`;
             return operation || 'file operation';
         }

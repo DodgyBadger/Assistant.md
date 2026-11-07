@@ -196,7 +196,6 @@ async def test_split_file_tool_contract(app: Application) -> None:
         "file_write",
         operation="delete",
         path="archive/new.md",
-        confirm_path="archive/new.md",
     )
     assert deleted.metadata["status"] == "completed"
     assert not (vault / "archive/new.md").exists()

@@ -368,6 +368,9 @@ class DeferredReviewCallInfo(BaseModel):
     tool_call_id: str = Field(..., description="Provider tool call id")
     tool_name: str = Field(..., description="Tool name")
     args: Any = Field(None, description="Validated tool arguments")
+    deletion_targets: list[dict[str, str]] | None = Field(
+        None, description="Effective reviewed deletion selection"
+    )
 
 
 class DeferredReviewResponse(BaseModel):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ from core.settings import get_task_rollback_enabled
 from core.vault_state.file_mutations import (
     FileStateRestore,
     restore_file_states_atomically,
+    vault_directory_mutation_lock,
 )
 from core.vault_state.identity import resolve_or_create_vault_identity
 from core.vault_state.models import (
@@ -20,6 +22,7 @@ from core.vault_state.models import (
     VaultActivity,
     VaultMutation,
 )
+from core.vault_state.pathing import resolve_vault_relative_path
 from core.vault_state.service import VaultStateService
 
 logger = UnifiedLogger(tag="vault-rollback")
@@ -123,9 +126,45 @@ def rollback_task_file_mutations(
             .order_by(VaultMutation.id.asc())
             .all()
         )
-        rows = [row for row in all_rows if row.target_kind == "file"]
-        nonrollbackable_rows = [row for row in all_rows if row.target_kind != "file"]
-        if not rows:
+        activities = {
+            activity.activity_id: activity
+            for activity in session.query(VaultActivity)
+            .filter(VaultActivity.task_id == task_id)
+            .all()
+        }
+        active_rows = [
+            row
+            for row in all_rows
+            if activities[row.activity_id].rollback_status != "completed"
+        ]
+        if all_rows and not active_rows:
+            result = _skipped_result(
+                task_id=task_id,
+                status=status,
+                reason="already_rolled_back",
+                mutation_rows_seen=len(all_rows),
+            )
+            logger.set_sinks(["validation"]).info(
+                "task_rollback_skipped",
+                data={
+                    "event": "task_rollback_skipped",
+                    "task_id": task_id,
+                    "terminal_status": status,
+                    "reason": result.reason,
+                    "mutation_rows_seen": len(all_rows),
+                },
+            )
+            return result
+        rows = [row for row in active_rows if row.target_kind == "file"]
+        directory_deletions = [
+            row for row in active_rows if _recorded_directory_deletion(row)
+        ]
+        nonrollbackable_rows = [
+            row
+            for row in active_rows
+            if row.target_kind != "file" and not _recorded_directory_deletion(row)
+        ]
+        if not rows and not directory_deletions:
             if nonrollbackable_rows:
                 service.finish_task_activities(
                     task_id=task_id,
@@ -182,29 +221,61 @@ def rollback_task_file_mutations(
             },
         )
 
-        activities = {
-            activity.activity_id: activity
-            for activity in session.query(VaultActivity)
-            .filter(VaultActivity.task_id == task_id)
-            .all()
-        }
         plans = _task_rollback_plans(
             service=service,
             rows=rows,
             activities=activities,
             task_id=task_id,
         )
+        directory_plans: dict[str, list[VaultMutation]] = {}
+        initial_directory_states: dict[tuple[str, str], bool] = {}
+        for row in active_rows:
+            if row.target_kind == "directory":
+                initial_directory_states.setdefault(
+                    (activities[row.activity_id].vault_name, row.path),
+                    bool(row.before_exists),
+                )
+        for row in directory_deletions:
+            vault_name = activities[row.activity_id].vault_name
+            if initial_directory_states[(vault_name, row.path)]:
+                directory_plans.setdefault(vault_name, []).append(row)
+                plans.setdefault(vault_name, [])
         for vault_name, path_plans in sorted(plans.items()):
             vault_root = _vault_root(vault_name)
             current_identity = resolve_or_create_vault_identity(vault_root)
-            if current_identity.vault_id != path_plans[0].activity.vault_id:
+            expected_vault_id = (
+                path_plans[0].activity.vault_id
+                if path_plans
+                else activities[directory_plans[vault_name][0].activity_id].vault_id
+            )
+            if current_identity.vault_id != expected_vault_id:
                 raise RuntimeError(
                     f"Cannot rollback task mutations for an earlier vault named '{vault_name}'"
                 )
-            transitions = restore_file_states_atomically(
-                vault_path=vault_root,
-                states=tuple(plan.state for plan in path_plans),
-            )
+            with vault_directory_mutation_lock(vault_root):
+                directories = {
+                    resolve_vault_relative_path(vault_path=vault_root, path=row.path)
+                    for row in directory_plans.get(vault_name, [])
+                }
+                for directory in directories:
+                    if directory.exists() and not directory.is_dir():
+                        raise RuntimeError(
+                            "A deleted directory was replaced by a file; task rollback cannot restore it."
+                        )
+                transitions = (
+                    restore_file_states_atomically(
+                        vault_path=vault_root,
+                        states=tuple(plan.state for plan in path_plans),
+                    )
+                    if path_plans
+                    else ()
+                )
+                for directory in sorted(directories, key=lambda path: len(path.parts)):
+                    existed = directory.is_dir()
+                    directory.mkdir(parents=True, exist_ok=True)
+                    paths_restored += int(not existed)
+                if directories:
+                    service.refresh_vault(vault_root, vault_name=vault_name)
             vaults_refreshed += 1
             for plan, transition in zip(path_plans, transitions, strict=True):
                 if plan.state.restore_exists:
@@ -264,6 +335,16 @@ def rollback_task_file_mutations(
         },
     )
     return result
+
+
+def _recorded_directory_deletion(row: VaultMutation) -> bool:
+    return (
+        row.target_kind == "directory"
+        and row.operation == "delete"
+        and bool(row.before_exists)
+        and not row.after_exists
+        and json.loads(row.metadata_json or "{}").get("directory_state") is True
+    )
 
 
 def _task_rollback_policy_skip_reason(status: str) -> str | None:

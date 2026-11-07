@@ -6,6 +6,7 @@ import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from pydantic import TypeAdapter
@@ -20,7 +21,10 @@ from pydantic_ai.messages import (
 from core.database import connect_sqlite_from_system_db
 from core.identity import LOCAL_USER_PRINCIPAL_ID
 from core.logger import UnifiedLogger
+from core.runtime.execution_tasks import get_current_execution_task
 from core.utils.hash import hash_file_bytes
+from core.vault_state.file_mutations import VaultMutationRejected
+from core.vault_state.path_deletion import deletion_sources, prepare_vault_deletion
 from core.vault_state.pathing import (
     normalize_vault_relative_path,
     resolve_vault_relative_path,
@@ -489,6 +493,7 @@ def capture_deferred_review_context(
 ) -> dict[str, Any]:
     """Capture review-time file facts for destructive existing-file operations."""
     snapshots: dict[str, dict[str, Any]] = {}
+    deletions: dict[str, dict[str, Any]] = {}
     for call in requests.approvals:
         args = call.args_as_dict()
         operation = str(args.get("operation") or "").strip().lower()
@@ -499,6 +504,18 @@ def capture_deferred_review_context(
         }:
             continue
         if operation == "write" and not bool(args.get("overwrite")):
+            continue
+        if operation == "delete":
+            selection = prepare_vault_deletion(
+                vault_path=Path(vault_path),
+                sources=deletion_sources(
+                    path=args.get("path", ""), paths=args.get("paths")
+                ),
+            )
+            deletions[str(call.tool_call_id)] = {
+                "fingerprint": selection.fingerprint,
+                "targets": selection.target_info(),
+            }
             continue
         path = normalize_vault_relative_path(str(args.get("path") or ""))
         if not path:
@@ -515,7 +532,54 @@ def capture_deferred_review_context(
                 hash_file_bytes(full_path, length=None) if full_path.is_file() else None
             ),
         }
-    return {"file_write_snapshots": snapshots}
+    return {"file_write_snapshots": snapshots, "file_delete_snapshots": deletions}
+
+
+def reviewed_deletion_fingerprint(tool_call_id: str | None) -> str | None:
+    """Bind an approved deletion to its review-time tree, also at execution."""
+    task = get_current_execution_task()
+    if task is None or not tool_call_id:
+        return None
+    reference = task.metadata.get("deferred_review_artifact_ref")
+    if not reference:
+        return None
+    review = get_deferred_review(
+        vault_name=str(task.metadata.get("vault") or ""),
+        session_id=str(task.metadata.get("session_id") or ""),
+        artifact_ref=str(reference),
+    )
+    if review is None:
+        raise VaultMutationRejected(
+            "review_unavailable",
+            "The deletion review is unavailable. Request a new review.",
+        )
+    if not any(
+        str(call.tool_call_id) == tool_call_id for call in review.requests.approvals
+    ):
+        return None
+    snapshot = review.review_context.get("file_delete_snapshots", {}).get(tool_call_id)
+    if not isinstance(snapshot, dict) or not isinstance(
+        snapshot.get("fingerprint"), str
+    ):
+        raise VaultMutationRejected(
+            "review_snapshot_missing",
+            "The deletion review lacks a complete target snapshot. Request a new review.",
+        )
+    fingerprint = snapshot.get("fingerprint")
+    if not isinstance(fingerprint, str):
+        raise VaultMutationRejected(
+            "review_snapshot_missing", "Request a new deletion review."
+        )
+    return fingerprint
+
+
+def deferred_deletion_targets(
+    review: StoredDeferredReview, tool_call_id: str | None
+) -> list[dict[str, str]] | None:
+    snapshot = review.review_context.get("file_delete_snapshots", {}).get(
+        str(tool_call_id)
+    )
+    return snapshot.get("targets") if isinstance(snapshot, dict) else None
 
 
 def deferred_review_conflicts(
@@ -524,6 +588,26 @@ def deferred_review_conflicts(
     """Return reviewed targets that changed after the review was created."""
     snapshots = review.review_context.get("file_write_snapshots") or {}
     conflicts: list[dict[str, Any]] = []
+    deletions = review.review_context.get("file_delete_snapshots") or {}
+    for call in review.requests.approvals:
+        call_id = str(call.tool_call_id)
+        if call_id not in approved_call_ids or call_id not in deletions:
+            continue
+        args = call.args_as_dict()
+        try:
+            selection = prepare_vault_deletion(
+                vault_path=Path(vault_path),
+                sources=deletion_sources(
+                    path=args.get("path", ""), paths=args.get("paths")
+                ),
+            )
+            changed = selection.fingerprint != deletions[call_id]["fingerprint"]
+        except (VaultMutationRejected, ValueError, OSError):
+            changed = True
+        if changed:
+            conflicts.append(
+                {"tool_call_id": call_id, "reason": "deletion_selection_changed"}
+            )
     for tool_call_id in approved_call_ids:
         snapshot = snapshots.get(tool_call_id)
         if not isinstance(snapshot, dict):
@@ -624,7 +708,13 @@ def _update_deferred_review_state(
 
 def summarize_deferred_review(review: StoredDeferredReview) -> dict[str, Any]:
     """Return compact JSON-safe data suitable for chat task events."""
-    approvals = [_tool_call_summary(call) for call in review.requests.approvals]
+    approvals = [
+        {
+            **_tool_call_summary(call),
+            "deletion_targets": deferred_deletion_targets(review, call.tool_call_id),
+        }
+        for call in review.requests.approvals
+    ]
     calls = [_tool_call_summary(call) for call in review.requests.calls]
     return {
         "artifact_ref": review.artifact_ref,

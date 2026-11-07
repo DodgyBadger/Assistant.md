@@ -170,6 +170,14 @@
       ]
     },
     {
+      "path": "scenarios/browser/test_multi_delete_browser.py",
+      "kind": "behavioral",
+      "sha256": "33885712c14dffd3a17aa5d2005b9cedec3502d92ff1c1d4627ef7b25caa1765",
+      "tests": [
+        "test_multi_delete_card_reviews_effective_selection_before_deleting"
+      ]
+    },
+    {
       "path": "scenarios/browser/test_saved_prompts_browser.py",
       "kind": "behavioral",
       "sha256": "bf624e20677868d5fde2b4725e6f3ff0625fd4450e125ecc1de106dc9efd3526",
@@ -1010,10 +1018,10 @@
     },
     {
       "path": "scenarios/integration/core/test_directory_cleanup.py",
-      "sha256": "4bafebf193ae196994d188c7ed42770ee177b6070818b141901ec05888614d73",
+      "sha256": "33d0a4763879a82bdd157878eb4081f5fb3bae70a1241ca891714ff9fbff0cac",
       "kind": "behavioral",
       "tests": [
-        "test_empty_directory_cleanup_preserves_files"
+        "test_directory_deletion_and_recovery_preserve_exact_contents"
       ]
     },
     {
@@ -1116,7 +1124,7 @@
     },
     {
       "path": "scenarios/integration/core/test_extensionless_file_edits.py",
-      "sha256": "26dbdced765b255c18692dc171f87d36c94a921f92053aa51134842030105c52",
+      "sha256": "ca3a9ba68666a7bbaf6b87009ed8c06ab4ec3a1d8d38ca98978e8d0bcb135859",
       "kind": "behavioral",
       "tests": [
         "test_extensionless_file_edits"
@@ -1178,7 +1186,7 @@
     },
     {
       "path": "scenarios/integration/core/test_file_tools.py",
-      "sha256": "359b0a89e5cc5940b015e222547f2d9f0b16fb94f6ed2be2be45c5b8377aeff7",
+      "sha256": "6c825a6fbf9793146937a1bcd5e4511c9b4e32ca11774a8e6d2ea0981bcd5b9b",
       "kind": "behavioral",
       "tests": [
         "test_split_file_tool_contract"
@@ -1636,9 +1644,22 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_multi_delete.py",
+      "sha256": "a39491c5f2544933b0231b2d80bb74e3abd8854fab7309aa3cf6211dbf3955e0",
+      "kind": "behavioral",
+      "tests": [
+        "test_native_multi_delete_normalizes_and_recovers_complete_trees",
+        "test_multi_delete_preflight_preserves_all_targets",
+        "test_multi_delete_review_covers_effective_selection_and_tree_changes",
+        "test_multi_delete_normal_mode_denial_and_scripts_keep_standard_policy",
+        "test_multi_delete_storage_failure_reports_compensation",
+        "test_failed_chat_recovers_recursive_deletion_and_empty_directories"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_mutation_hardening.py",
       "kind": "behavioral",
-      "sha256": "76d9641843060ccbedf85710c0b1e65e492194b83ccddb7870d2ccedce185b26",
+      "sha256": "908c974ea61cb45c68c4ecb239cc82127aa73725c66e2d5b1c4cdb9eee8c9304",
       "tests": [
         "test_delete_preflights_vault_identity_before_touching_mixed_selection",
         "test_directory_rollback_preview_rejects_missing_or_blocked_parent",
@@ -2400,7 +2421,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_mutation_recording.py",
-      "sha256": "bc43a752c966752ee262fe44b48b534ca3c0a1997891bf26b0c955336cae3aaa",
+      "sha256": "ba36384be9f204521010c763fae8de331020eaf8ce5e661de9bef55b28747ee8",
       "kind": "behavioral",
       "tests": [
         "test_workflow_mutations_record_snapshots_and_activity"
@@ -2425,7 +2446,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_root_delete_protection.py",
-      "sha256": "6e4a0756d9ef41c6de187b88a4d7db8bcbfd106efaddcd93a8be324d806c8bb3",
+      "sha256": "855b66c673497bb1ea9da0587d9243638da871f077cdce957e47048685883bd8",
       "kind": "behavioral",
       "tests": [
         "test_root_alias_rejection_preserves_complete_vault"
@@ -3371,12 +3392,12 @@
     },
     {
       "path": "support/vault/vault_mutation_inputs.py",
-      "sha256": "7fc30de93203e77485d7b93f0dbce045b7fca32928413e63e6a5701478664130",
+      "sha256": "9074c6a96bcce12598d64e0a771dd95b63f4985f3f71cfbfbfaeafc1bcc21f74",
       "kind": "support"
     },
     {
       "path": "support/vault/vault_recovery.py",
-      "sha256": "7241501f82f03d856d1196c4f2c1d52e443b280f0b5ab58e1a3246e3ed89d21f",
+      "sha256": "7373ad679dd4b80553f390341cac6259ebd0b3d51f04695b4f45a7a39bdf8a8c",
       "kind": "support"
     },
     {

@@ -513,7 +513,6 @@ await file_write(
 await file_write(
     operation="delete",
     path="notes/preexisting-delete.md",
-    confirm_path="notes/preexisting-delete.md",
 )
 await file_write(
     operation="move",
