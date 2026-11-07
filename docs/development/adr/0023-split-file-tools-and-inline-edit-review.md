@@ -42,7 +42,7 @@ or overwrite policy.
 
 In inline-edit mode, a `delete` call is reviewed as one normalized selection. Directory selections include all contents. Review captures file hashes, target kinds, and directory topology; changes invalidate approval, and deletion rechecks the snapshot under its mutation lock.
 
-Copying preserves source bytes and records the destination mutation. Copy review captures source and destination file states. Direct text operations support plain UTF-8 files; Markdown-specific context processing and ingestion capabilities remain separate.
+Copying preserves source bytes and records the destination mutation. Copy review captures source and destination file states, including an edited destination at submission, and execution rechecks those states under the mutation lock. Direct text operations support plain UTF-8 files; Markdown-specific context processing and ingestion capabilities remain separate.
 
 Tool availability is app-wide through the registered tool set minus
 `disabled_tools`; chat does not select a per-turn tool subset in the UI.
