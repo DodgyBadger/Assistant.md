@@ -1310,6 +1310,14 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_gmail_empty_attachment.py",
+      "kind": "behavioral",
+      "sha256": "59d1a614a59bfb4968b1c2a0d82b2eba77f8fd779c7cbce1eaa0cc7d56b1124d",
+      "tests": [
+        "test_gmail_downloads_a_zero_byte_attachment"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_gmail_failure_chat.py",
       "sha256": "e183e45dbd412fecc3bb75aa9559d3bad6eadea79eb21409d8725ac095726cb1",
       "kind": "behavioral",
