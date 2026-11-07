@@ -219,7 +219,7 @@ class GmailAPIClient:
                 category="attachment_too_large",
             )
         encoded = payload.get("data")
-        if not isinstance(encoded, str) or not encoded:
+        if not isinstance(encoded, str):
             raise GmailError(
                 "Gmail returned invalid attachment data.",
                 category="provider_response",
