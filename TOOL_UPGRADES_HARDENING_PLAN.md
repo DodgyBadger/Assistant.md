@@ -1,6 +1,6 @@
 # Tool Upgrades Branch Hardening
 
-Branch: `dev/tool-upgrades`. Baseline: `718a7a5`; comparison base: `391ad820d8f767afc1744cbfcde0d2d6d663f820` (`main`). Status: all parallel reviews and correction reviews complete; confirmed fixes are committed and focused checks pass. Final deterministic validation passed: 552 core scenarios and both browser approval journeys, all with completed cleanup. One ADR wording clarification awaits approval.
+Branch: `dev/tool-upgrades`. Baseline: `718a7a5`; comparison base: `391ad820d8f767afc1744cbfcde0d2d6d663f820` (`main`). Status: all parallel reviews and correction reviews complete; confirmed fixes are committed and focused checks pass. Final deterministic validation passed: 552 core scenarios and both browser approval journeys, all with completed cleanup. The approved ADR wording clarification is applied.
 
 ## Scope and review assignments
 
@@ -71,13 +71,13 @@ For confirmed functional defects, follow the behavioral planning/scenario skills
 3. Lifecycle/failures: exercised actual queue waits, alias changes, failed/cancelled task recovery, journal compensation, unsupported paths, corrupt maps, empty downloads, and denial semantics. Worker scans are read-only after cancellation; cancellation-under-lock-contention remains a coverage limit, not a demonstrated defect.
 4. Observability: verified checkpoint/session identity without private map text, Explorer rejection classification, actual copy activity completion, and validation-only review-scan start events. Mutation details remain in Vault Activity; no high-frequency System Activity stream was added.
 5. Frontend/operator: actual browser journeys pass, destination controls remain usable, and the neutral reviewed label no longer implies every operation succeeded. No CSS or layout change required rebuilding styles.
-6. Docs/release/validation: existing product docs and approved v0.9.5 notes remain accurate. A precise ADR 0023 copy-fence clarification was drafted and approval requested; it has not been applied. No unrelated dependency update is justified by the findings, so dependency versions remain unchanged. Final broader validation passed; no confirmed code finding remains unresolved.
+6. Docs/release/validation: existing product docs and approved v0.9.5 notes remain accurate. The user approved the precise ADR 0023 copy-fence clarification, which is applied. No unrelated dependency update is justified by the findings, so dependency versions remain unchanged. Final broader validation passed; no confirmed code finding remains unresolved.
 
 ## Documentation and delivery
 
 Root implementation plans can be updated during integration. Before changing protected documentation or release notes, present exact proposed text/diffs and obtain explicit user approval under AGENTS.md. Do not treat earlier approval of the previous drafts as approval for newly required changes. Commit validated milestones locally; do not push or merge without authorization.
 
-Code hardening is complete: all confirmed findings are corrected and locally committed, all required checks pass, and no confirmed code finding remains unresolved. The precise ADR 0023 wording clarification remains pending explicit draft approval and is the only unapplied documentation proposal. No push or merge has occurred.
+Code hardening is complete: all confirmed findings are corrected and locally committed, all required checks pass, and no confirmed code finding remains unresolved. The approved ADR 0023 wording clarification is applied; no documentation proposal remains pending. The user authorized committing and pushing the branch. Merge remains separate.
 
 ## Corrected source boundaries
 
