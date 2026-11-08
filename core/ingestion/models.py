@@ -61,7 +61,7 @@ class Chunk:
 @dataclass
 class RenderOptions:
     mode: RenderMode = RenderMode.FULL
-    path_pattern: str = "Imported/"
+    path_pattern: str = ""
     max_tokens_per_chunk: int = 0  # 0 = no limit
     overlap: int = 0
     store_original: bool = False

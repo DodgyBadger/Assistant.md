@@ -23,8 +23,6 @@ AUTHORING_DIR = (
 SKILLS_DIR = "Skills"  # User-defined skill files
 CHAT_SESSIONS_DIR = "Chat_Sessions"
 WORKFLOW_LOGS_DIR = "Logs"
-IMPORT_DIR = "Import"
-IMPORT_ATTACHMENTS_DIR = "_attachments"
 
 # Assistant timeout validation bounds
 TIMEOUT_MIN = 30  # Minimum timeout in seconds

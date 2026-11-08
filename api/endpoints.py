@@ -23,8 +23,6 @@ from api.import_models import (
     ImportJobListResponse,
     ImportJobRequestOptions,
     ImportRunNowResponse,
-    ImportScanRequest,
-    ImportScanResponse,
     ImportSourcesRequest,
     ImportSourcesResponse,
     ImportUrlRequest,
@@ -59,7 +57,6 @@ from core.settings import (
     get_vault_upload_max_bytes_per_file,
     get_vault_upload_max_mb_per_file,
 )
-from core.settings.store import get_general_settings
 from core.vault_state.pathing import VaultRootResolutionError
 from core.vault_state.search import VaultContentSearchError
 
@@ -257,7 +254,6 @@ from .services import (
     restore_vault_file_revision,
     rollback_vault_activity,
     run_system_database_migrations,
-    scan_import_folder,
     search_chat_sessions,
     search_vault_text,
     set_chat_session_favorite,
@@ -1006,12 +1002,7 @@ def _import_job_info(job: IngestionJob, *, fallback_vault: str = "") -> ImportJo
     options = job.options if isinstance(job.options, dict) else {}
     extractor_options = options.get("extractor_options")
     extractor_options = extractor_options if isinstance(extractor_options, dict) else {}
-    output_path_pattern = options.get("output_path_pattern")
-    if output_path_pattern is None:
-        configured = get_general_settings().get("ingestion_output_path_pattern")
-        output_path_pattern = (
-            configured.value if configured is not None else "Imported/"
-        )
+    output_path_pattern = options.get("output_path_pattern", "")
     public_options = {
         "destination": str(output_path_pattern or ""),
         "strategies": options.get("strategies"),
@@ -1054,7 +1045,7 @@ def _import_job_info(job: IngestionJob, *, fallback_vault: str = "") -> ImportJo
 
 
 def _ocr_options_from_request(
-    request: ImportScanRequest | ImportSourcesRequest | ImportUrlRequest,
+    request: ImportSourcesRequest | ImportUrlRequest,
 ) -> dict[str, object]:
     return {
         key: value
@@ -1156,44 +1147,6 @@ async def run_import_queue_now() -> ImportRunNowResponse | JSONResponse:
             accepted=True,
             queued_count=queued_count,
             triggered_at=triggered_at,
-        )
-    except Exception as e:
-        return create_error_response(e)
-
-
-@router.post("/import/scan", response_model=ImportScanResponse)
-async def import_scan(
-    request: ImportScanRequest,
-) -> ImportScanResponse | JSONResponse:
-    try:
-        jobs, skipped = await scan_import_folder(
-            vault=request.vault,
-            queue_only=request.queue_only,
-            strategies=request.strategies,
-            capture_ocr_images=request.capture_ocr_images,
-            pdf_mode=request.pdf_mode,
-            ocr_options=_ocr_options_from_request(request),
-        )
-        job_infos = [
-            _import_job_info(job, fallback_vault=request.vault) for job in jobs
-        ]
-        return ImportScanResponse(jobs_created=job_infos, skipped=skipped)
-    except VaultRootResolutionError as e:
-        return create_error_response(
-            APIException(
-                status_code=404 if e.code == "vault_not_found" else 400,
-                error_type="InvalidImportVault",
-                message=str(e),
-                details={"vault_name": e.vault_name},
-            )
-        )
-    except ValueError as e:
-        return create_error_response(
-            APIException(
-                status_code=400,
-                error_type="InvalidImportRequest",
-                message=str(e),
-            )
         )
     except Exception as e:
         return create_error_response(e)

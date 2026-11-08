@@ -1,4 +1,4 @@
-"""Actual PDF inbox import records extraction, cleanup and durable vault activity."""
+"""PDF processing records extraction, cleanup and durable vault activity."""
 
 from __future__ import annotations
 
@@ -16,35 +16,29 @@ from validation.support.runtime.ingestion_inputs import (
 pytestmark = pytest.mark.scenario
 
 
-async def test_pdf_inbox_import_and_preserved_source(app: Application) -> None:
+async def test_pdf_processing_consumed_and_preserved_source(app: Application) -> None:
     vault = app.vault("ImportPipelineVault")
     import_path = pdf_source(
         vault, "AssistantMD/Import/sample.pdf", "Import validation\nLine two"
     )
     await app.start()
     require_missing_ocr_secret(app)
-    response = app.request(
-        "/api/import/scan",
-        method="POST",
-        data={"vault": vault.name, "queue_only": False},
+    processed = await process_file_job(
+        app, vault.name, "AssistantMD/Import/sample.pdf", consume=True
     )
-    assert response.status_code == 200, "Import scan should succeed"
-    payload = response.json()
-    jobs = payload.get("jobs_created") or []
-    assert len(jobs) == 1, "One job should be created for the PDF"
-    job = jobs[0]
+    response = app.request(f"/api/import/jobs/{processed.id}")
+    assert response.status_code == 200, response.text
+    job = response.json()
     assert job.get("status") == "completed", "Job should complete inline"
     assert job.get("selected_strategy") == "pdf_text"
     assert job.get("selected_provider") == "local"
     assert job.get("strategy_attempts") == ["pdf_ocr", "pdf_text"]
     assert job.get("fallback_reason") == "pdf_ocr:missing_secret:MISTRAL_API_KEY"
     outputs = job.get("outputs") or []
-    assert len(outputs) > 0, "Import scan should return at least one output path"
+    assert len(outputs) > 0, "Processing should return at least one output path"
     sample_rel_path = outputs[0]
     assert sample_rel_path.endswith(".md"), "Import output should be markdown"
-    assert sample_rel_path.startswith(
-        "Imported/"
-    ), "Import output should be under Imported/"
+    assert (vault / sample_rel_path).parent == vault
     assert not import_path.exists(), "Source file should be cleaned up"
     sample_path = vault / sample_rel_path
     assert sample_path.exists(), f"Expected {sample_rel_path} to be created"

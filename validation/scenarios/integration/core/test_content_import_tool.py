@@ -295,8 +295,8 @@ async def test_content_import_real_fetch_failure_and_authority_path_denials(
         invalid = await tool.function(operation="submit", sources="../outside.pdf")
         assert invalid.metadata["status"] == "failed"
     escaped = app.request(
-        "/api/import/scan",
+        "/api/import/sources",
         method="POST",
-        data={"vault": "../outside", "queue_only": True},
+        data={"vault": "../outside", "sources": ["input.pdf"], "queue_only": True},
     )
     assert escaped.status_code == 400

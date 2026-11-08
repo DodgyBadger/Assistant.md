@@ -289,7 +289,6 @@ from .ingestion import (
     import_url_direct,
     list_recent_import_jobs,
     process_import_jobs_background,
-    scan_import_folder,
     trigger_import_queue_now,
 )
 from .maintenance import (

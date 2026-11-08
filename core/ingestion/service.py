@@ -12,7 +12,6 @@ from urllib.parse import unquote, urlsplit
 
 import yaml
 
-from core.constants import ASSISTANTMD_ROOT_DIR, IMPORT_DIR
 from core.ingestion.jobs import (
     IngestionJob,
     IngestionJobCreate,
@@ -154,10 +153,6 @@ class IngestionService:
                 data_root=data_root, vault_name=vault
             )
             vault = vault_root.name
-            import_root = vault_root / ASSISTANTMD_ROOT_DIR / IMPORT_DIR
-            legacy_import_root = data_root / vault / ASSISTANTMD_ROOT_DIR / "import"
-            import_root.mkdir(parents=True, exist_ok=True)
-
             source_path: Path | None = None
             raw_doc = None
             relative_dir = ""
@@ -215,8 +210,6 @@ class IngestionService:
                 source_path = self._resolve_file_source(
                     source_uri=job.source_uri,
                     vault_root=vault_root,
-                    import_root=import_root,
-                    legacy_import_root=legacy_import_root,
                 )
                 if not source_path.exists():
                     raise FileNotFoundError(f"Source file not found: {source_path}")
@@ -280,18 +273,9 @@ class IngestionService:
                 else "markdown"
             )
             output_base_dir = self._resolve_output_base_dir(
-                configured_value=options.get(
-                    "output_path_pattern",
-                    ingestion_settings.get("output_base_dir", "Imported/"),
-                ),
+                configured_value=options.get("output_path_pattern", ""),
                 vault_root=vault_root,
             )
-            if source_path:
-                relative_dir = self._compute_relative_import_dir(
-                    source_path=source_path,
-                    import_root=import_root,
-                )
-
             if raw_doc.mime == "application/pdf" and pdf_mode == "page_images":
                 update_job_provenance(
                     job_id,
@@ -537,8 +521,6 @@ class IngestionService:
         *,
         source_uri: str,
         vault_root: Path,
-        import_root: Path,
-        legacy_import_root: Path,
     ) -> Path:
         raw_path = Path(source_uri)
         if raw_path.is_absolute():
@@ -550,40 +532,11 @@ class IngestionService:
         except ValueError as exc:
             raise ValueError("Ingestion file source escapes the vault") from exc
 
-        if candidate.exists():
-            return candidate
-
-        # Compatibility for queued jobs created before sources were persisted as
-        # vault-relative paths.
-        if raw_path.parent == Path("."):
-            inbox_candidate = (import_root / raw_path).resolve()
-            if inbox_candidate.exists():
-                return inbox_candidate
-            legacy_candidate = (legacy_import_root / raw_path).resolve()
-            if legacy_candidate.exists():
-                return legacy_candidate
         return candidate
-
-    def _compute_relative_import_dir(self, source_path: Path, import_root: Path) -> str:
-        try:
-            source_parent = source_path.parent.resolve()
-            import_root_resolved = import_root.resolve()
-            if str(source_parent).startswith(str(import_root_resolved)):
-                relative_dir = str(
-                    source_parent.relative_to(import_root_resolved)
-                ).strip("/")
-                if relative_dir in ("", "."):
-                    return ""
-                return f"{relative_dir}/"
-        except Exception:
-            return ""
-        return ""
 
     @staticmethod
     def _resolve_output_base_dir(*, configured_value: object, vault_root: Path) -> str:
-        raw_value = str(
-            "Imported/" if configured_value is None else configured_value
-        ).strip()
+        raw_value = str("" if configured_value is None else configured_value).strip()
         if raw_value in {"", "."}:
             return ""
         output_path = Path(raw_value)
@@ -871,7 +824,6 @@ class IngestionService:
         ocr_model = "mistral-ocr-latest"
         ocr_endpoint = "https://api.mistral.ai/v1/ocr"
         image_default_strategies: list[str] = []
-        base_output_dir = "Imported/"
         url_read_timeout_seconds = 10
         url_connect_timeout_seconds = 10
         url_fetch_strategy = "curl"
@@ -911,10 +863,6 @@ class IngestionService:
         except Exception:
             image_default_strategies = []
         try:
-            base_output_dir = str(setting_value("ingestion_output_path_pattern"))
-        except Exception:
-            base_output_dir = "Imported/"
-        try:
             url_read_timeout_seconds = int(
                 setting_value("ingestion_url_read_timeout_seconds")
             )
@@ -950,7 +898,6 @@ class IngestionService:
                 "ocr_model": ocr_model,
                 "ocr_endpoint": ocr_endpoint,
             },
-            "output_base_dir": base_output_dir,
             "url": {
                 "read_timeout_seconds": max(1, url_read_timeout_seconds),
                 "connect_timeout_seconds": max(1, url_connect_timeout_seconds),

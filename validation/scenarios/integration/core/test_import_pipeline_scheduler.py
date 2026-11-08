@@ -19,17 +19,22 @@ async def test_scheduler_worker_processes_queued_pdf_with_owned_task(
     vault = app.vault("ImportPipelineSchedulerVault")
     source = pdf_source(
         vault,
-        "AssistantMD/Import/scheduled.pdf",
+        "Sources/scheduled.pdf",
         "Scheduled import validation\nLine two",
     )
+    original = source.read_bytes()
     await app.start()
     require_missing_ocr_secret(app)
     from core.runtime.state import get_runtime_context
 
     response = app.request(
-        "/api/import/scan",
+        "/api/import/sources",
         method="POST",
-        data={"vault": vault.name, "queue_only": True},
+        data={
+            "vault": vault.name,
+            "sources": [source.relative_to(vault).as_posix()],
+            "queue_only": True,
+        },
     )
     assert response.status_code == 200, response.text
     jobs = response.json()["jobs_created"]
@@ -45,7 +50,7 @@ async def test_scheduler_worker_processes_queued_pdf_with_owned_task(
     assert "Scheduled import validation" in (vault / job.outputs[0]).read_text(
         encoding="utf-8"
     )
-    assert not source.exists()
+    assert source.read_bytes() == original
     tasks = await runtime.task_coordinator.list_tasks(kind="ingestion")
     matching = [
         task

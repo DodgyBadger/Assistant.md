@@ -16,6 +16,7 @@ _WEB_TOOL_RENAMES = {
 
 RETIRED_SETTINGS = frozenset(
     {
+        "ingestion_output_path_pattern",
         "context_reduction_strategy",
         "compaction_keep_recent",
         "compaction_token_threshold",

@@ -347,11 +347,6 @@ settings:
     description: "Image ingestion strategies in priority order. Keep at least one strategy."
     category: "Import"
     restart_required: false
-  ingestion_output_path_pattern:
-    value: "Imported/"
-    description: "Vault-relative path where imports are written."
-    category: "Import"
-    restart_required: false
   ingestion_url_fetch_strategy:
     value: "curl"
     description: "URL transport strategy used by ingestion. Currently supported: curl."
