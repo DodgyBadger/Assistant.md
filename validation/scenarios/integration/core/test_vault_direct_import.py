@@ -157,9 +157,7 @@ async def test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers
         mime_hint=None,
         options={"consume_source": False},
     )
-    assert (
-        import_status(app, legacy.id)["request_options"]["destination"] == "Imported/"
-    )
+    assert import_status(app, legacy.id)["request_options"]["destination"] == ""
     capabilities = app.request("/api/metadata").json()["ingestion_capabilities"][
         "file_import"
     ]

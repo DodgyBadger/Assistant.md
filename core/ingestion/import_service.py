@@ -244,10 +244,7 @@ class ContentImportService:
             entry = general_settings.get(key)
             return fallback if entry is None else entry.value
 
-        destination = options.get(
-            "destination",
-            setting_value("ingestion_output_path_pattern", "Imported/"),
-        )
+        destination = options.get("destination", "")
         if destination is not None:
             if not isinstance(destination, str):
                 raise ValueError("destination must be a vault-relative path")

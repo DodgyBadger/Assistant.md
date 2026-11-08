@@ -813,7 +813,7 @@
     },
     {
       "path": "scenarios/integration/core/test_content_import_tool.py",
-      "sha256": "a416d35ea4688e792b44d99730860a13189782bbd8e6660cadceff8511bc2844",
+      "sha256": "d4149d9d35ba93d924dda5be98d019abed2cd834210317fea3bb1c949c4515bf",
       "kind": "behavioral",
       "tests": [
         "test_content_import_local_lifecycle_and_scheduler_trigger",
@@ -1438,17 +1438,26 @@
       ]
     },
     {
+      "path": "scenarios/integration/core/test_import_folder_retirement.py",
+      "kind": "behavioral",
+      "sha256": "a6c66b02b55b387a7187f33414f1f44a0c29b252c5b3ca352321ada44f94fc80",
+      "tests": [
+        "test_url_import_defaults_to_vault_root",
+        "test_root_and_explicit_import_destinations_preserve_existing_folders"
+      ]
+    },
+    {
       "path": "scenarios/integration/core/test_import_pipeline_core.py",
-      "sha256": "282a6abdd9a00f0eaa20b52b8d8c14e4475824d340fe666595049fd906d4a838",
+      "sha256": "0286bce561dbff2031a33eaf78b9953b840d711bc7ba4e5db67bf7aef13d40f8",
       "kind": "behavioral",
       "tests": [
-        "test_pdf_inbox_import_and_preserved_source",
+        "test_pdf_processing_consumed_and_preserved_source",
         "test_distinct_real_source_cleanup_failures_retain_outputs_and_diagnostics"
       ]
     },
     {
       "path": "scenarios/integration/core/test_import_pipeline_scheduler.py",
-      "sha256": "b1cee0e684f51522fa8ab03a6fd1a935d2f71966db42ee57a4fec5a8d665bc00",
+      "sha256": "72bee86a6b024e9be80ae97fe6768f4c312f60ccb84eccd9acc1281bce396074",
       "kind": "behavioral",
       "tests": [
         "test_scheduler_worker_processes_queued_pdf_with_owned_task"
@@ -2450,7 +2459,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_direct_import.py",
-      "sha256": "06b7ac1df6edeab09ab48a3096cdf29627db136f5e5b8b9ec5630c0aebef9a6d",
+      "sha256": "61a06759e384676ee5639accf43273e2188e1dd160dfe074dd1d796eadfdd551",
       "kind": "behavioral",
       "tests": [
         "test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers_outputs"
