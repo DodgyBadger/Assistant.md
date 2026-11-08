@@ -1438,15 +1438,6 @@
       ]
     },
     {
-      "path": "scenarios/integration/core/test_import_folder_retirement.py",
-      "kind": "behavioral",
-      "sha256": "a6c66b02b55b387a7187f33414f1f44a0c29b252c5b3ca352321ada44f94fc80",
-      "tests": [
-        "test_url_import_defaults_to_vault_root",
-        "test_root_and_explicit_import_destinations_preserve_existing_folders"
-      ]
-    },
-    {
       "path": "scenarios/integration/core/test_import_pipeline_core.py",
       "sha256": "0286bce561dbff2031a33eaf78b9953b840d711bc7ba4e5db67bf7aef13d40f8",
       "kind": "behavioral",
