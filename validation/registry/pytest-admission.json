@@ -1294,10 +1294,11 @@
     },
     {
       "path": "scenarios/integration/core/test_gmail_attachment_tool.py",
-      "sha256": "8579cbdce7c36c6539ed3153173c0b5a8942b46eaa985159d9766e0ef8666666",
+      "sha256": "98aa65aa2abcc7d3f7d247c207b73965e880e364a6fe19e323d27bf8902863b8",
       "kind": "behavioral",
       "tests": [
-        "test_gmail_attachment_policy_and_numbered_tool_writes"
+        "test_gmail_attachment_policy_and_numbered_tool_writes",
+        "test_gmail_read_attachment_handle_downloads_when_provider_tokens_change"
       ]
     },
     {

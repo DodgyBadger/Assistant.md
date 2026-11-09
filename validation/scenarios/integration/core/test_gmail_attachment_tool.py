@@ -138,3 +138,93 @@ async def test_gmail_attachment_policy_and_numbered_tool_writes(
         assert completed and all(
             row["connection_id"] == enabled.connection_id for row in completed
         )
+
+
+async def test_gmail_read_attachment_handle_downloads_when_provider_tokens_change(
+    app: Application,
+) -> None:
+    import base64
+    from copy import deepcopy
+
+    from validation.support.integrations.gmail_http import message_payload
+
+    vault = app.vault("GmailChangingAttachmentVault")
+    await app.start()
+    from core.identity import use_execution_authority
+    from core.runtime.state import get_runtime_context
+    from core.tools.gmail import Gmail
+
+    with gmail_server(app) as provider:
+        authority, connection, service, _ = configure_gmail(app, provider)
+        get_runtime_context().gmail = service
+        original = message_payload("message-1", "thread-1")
+        first = original["payload"]["parts"][1]
+        first["partId"] = "1"
+        first["body"]["attachmentId"] = "first-token-old"
+        selected = deepcopy(first)
+        selected["partId"] = "2.1"
+        selected["mimeType"] = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        selected["body"]["attachmentId"] = "selected-token-old"
+        # The duplicate filename and nested MIME structure force identity-based
+        # selection. Only remote HTTP responses are controlled; application
+        # reads, token/account access, download, limits and vault writes are real.
+        original["payload"]["parts"].append(
+            {"partId": "2", "mimeType": "multipart/mixed", "parts": [selected]}
+        )
+        refreshed = deepcopy(original)
+        refreshed["payload"]["parts"][1]["body"]["attachmentId"] = "first-token-new"
+        refreshed["payload"]["parts"][2]["parts"][0]["body"][
+            "attachmentId"
+        ] = "selected-token-new"
+        content = b"PK\x03\x04document bytes"
+        provider.queue(payload=original)
+        with use_execution_authority(authority):
+            tool = Gmail.get_tool(str(vault))
+            read = json.loads(
+                await tool.function(
+                    operation="get_message",
+                    message_id="message-1",
+                    connection=connection.slug,
+                )
+            )
+            descriptor = read["attachments"][1]
+            provider.queue(payload=refreshed)
+            provider.queue(
+                payload={
+                    "size": len(content),
+                    "data": base64.urlsafe_b64encode(content).decode(),
+                }
+            )
+            result = await tool.function(
+                operation="download_attachment",
+                message_id=read["message_id"],
+                attachment_id=descriptor["attachment_id"],
+                connection=connection.slug,
+                destination_path="Inbox/selected.docx",
+            )
+            assert isinstance(result, str), getattr(result, "metadata", result)
+            downloaded = json.loads(result)
+            assert (vault / downloaded["path"]).read_bytes() == content
+            assert downloaded["attachment"]["filename"] == descriptor["filename"]
+            assert downloaded["attachment"]["media_type"] == selected["mimeType"]
+            downloads = [r for r in provider.requests if "/attachments/" in r["path"]]
+            assert len(downloads) == 1
+            assert downloads[0]["path"].endswith(
+                "/messages/message-1/attachments/selected-token-new"
+            )
+            assert "selected-token-old" not in json.dumps(downloads)
+            assert "content" not in downloaded
+            # Attachment-specific recovery must not advise draft recreation or
+            # changing a valid containing-message ID.
+            provider.queue(payload=refreshed)
+            missing = await tool.function(
+                operation="download_attachment",
+                message_id="message-1",
+                attachment_id="part:missing",
+                connection=connection.slug,
+                destination_path="Inbox/missing.docx",
+            )
+            assert missing.metadata["gmail_category"] == "attachment_not_found"
+            assert "get_message" in missing.metadata["suggested_action"]
