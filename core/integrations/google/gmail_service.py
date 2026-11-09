@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import uuid4
 
 from core.connections import (
@@ -154,7 +154,13 @@ class GmailResourceService:
                 "operation_id": operation_id,
             },
         )
-        return result, capped
+        return (
+            replace(
+                result,
+                messages=tuple(_attachment_handles(item) for item in result.messages),
+            ),
+            capped,
+        )
 
     async def get_message(
         self,
@@ -202,7 +208,7 @@ class GmailResourceService:
                 "operation_id": operation_id,
             },
         )
-        return result
+        return _attachment_handles(result)
 
     async def get_thread(
         self,
@@ -251,7 +257,10 @@ class GmailResourceService:
                 "operation_id": operation_id,
             },
         )
-        return result
+        return replace(
+            result,
+            messages=tuple(_attachment_handles(item) for item in result.messages),
+        )
 
     async def download_attachment(
         self,
@@ -292,18 +301,23 @@ class GmailResourceService:
         try:
             client = self._client(authority, selected.connection_id)
             message = await client.get_message(message_id, max_characters=1)
+            requested = attachment_id.strip()
             attachment = next(
                 (
                     item
                     for item in message.attachments
-                    if item.attachment_id == attachment_id.strip()
+                    if (
+                        item.part_id == requested.removeprefix("part:")
+                        if requested.startswith("part:")
+                        else item.attachment_id == requested
+                    )
                 ),
                 None,
             )
             if attachment is None:
                 raise GmailError(
                     "Attachment was not found in the selected message.",
-                    category="not_found",
+                    category="attachment_not_found",
                 )
             if (
                 attachment.declared_size is not None
@@ -314,7 +328,7 @@ class GmailResourceService:
                     category="attachment_too_large",
                 )
             content = await client.download_attachment(
-                message_id, attachment_id, max_bytes=limit
+                message_id, attachment.attachment_id, max_bytes=limit
             )
         except Exception as exc:
             _log_failure(
@@ -337,7 +351,9 @@ class GmailResourceService:
                 "operation_id": operation_id,
             },
         )
-        return GmailAttachmentDownload(attachment=attachment, content=content)
+        return GmailAttachmentDownload(
+            attachment=_attachment_handle(attachment), content=content
+        )
 
     async def create_draft(
         self,
@@ -475,6 +491,20 @@ class GmailResourceService:
             ),
             http_client_factory=self._http_client_factory,
         )
+
+
+def _attachment_handle(attachment: GmailAttachment) -> GmailAttachment:
+    """Expose the immutable part identity rather than a provider download token."""
+    if attachment.part_id is None:
+        return attachment
+    return replace(attachment, attachment_id=f"part:{attachment.part_id}")
+
+
+def _attachment_handles(message: GmailMessage) -> GmailMessage:
+    return replace(
+        message,
+        attachments=tuple(_attachment_handle(item) for item in message.attachments),
+    )
 
 
 def _log_failure(

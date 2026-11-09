@@ -11,7 +11,12 @@ from pydantic_ai.tools import Tool
 
 from core.identity import require_current_execution_authority
 from core.integrations.google.connection import GoogleConnectionConfigurationError
-from core.integrations.google.gmail import GmailError, GmailRequestError
+from core.integrations.google.gmail import (
+    GmailAttachment,
+    GmailError,
+    GmailMessage,
+    GmailRequestError,
+)
 from core.integrations.google.gmail_service import GmailConfigurationError
 from core.integrations.google.oauth import GoogleOAuthError
 from core.runtime.state import get_runtime_context
@@ -82,19 +87,29 @@ class Gmail(BaseTool):
                         max_results=max_results,
                         connection=connection or None,
                     )
-                    payload = {**asdict(result), "max_results_capped": capped}
+                    payload = {
+                        **asdict(result),
+                        "messages": [
+                            _message_payload(item) for item in result.messages
+                        ],
+                        "max_results_capped": capped,
+                    }
                 elif normalized == "get_message":
-                    payload = asdict(
+                    payload = _message_payload(
                         await service.get_message(
                             authority, message_id, connection=connection or None
                         )
                     )
                 elif normalized == "get_thread":
-                    payload = asdict(
-                        await service.get_thread(
-                            authority, thread_id, connection=connection or None
-                        )
+                    thread = await service.get_thread(
+                        authority, thread_id, connection=connection or None
                     )
+                    payload = {
+                        **asdict(thread),
+                        "messages": [
+                            _message_payload(item) for item in thread.messages
+                        ],
+                    }
                 elif normalized == "download_attachment":
                     if not vault_path:
                         raise GmailRequestError(
@@ -119,7 +134,7 @@ class Gmail(BaseTool):
                     payload = {
                         "status": "downloaded",
                         "path": created_path,
-                        "attachment": asdict(downloaded.attachment),
+                        "attachment": _attachment_payload(downloaded.attachment),
                     }
                 elif normalized == "create_draft":
                     payload = asdict(
@@ -173,6 +188,19 @@ class Gmail(BaseTool):
         return ToolRecoveryPolicy.MANUAL_REQUIRED
 
 
+def _attachment_payload(attachment: GmailAttachment) -> dict[str, object]:
+    payload = asdict(attachment)
+    payload.pop("part_id", None)
+    return payload
+
+
+def _message_payload(message: GmailMessage) -> dict[str, object]:
+    return {
+        **asdict(message),
+        "attachments": [_attachment_payload(item) for item in message.attachments],
+    }
+
+
 def _gmail_error_result(operation: str, exc: GmailError) -> ToolReturn:
     """Return a recoverable tool result for an expected Gmail API failure."""
     category = exc.category
@@ -183,6 +211,11 @@ def _gmail_error_result(operation: str, exc: GmailError) -> ToolReturn:
         suggested_action = (
             "Reconnect the selected Google account with the required Gmail permission "
             "before trying again."
+        )
+    elif category == "attachment_not_found":
+        suggested_action = (
+            "Read the selected message again with get_message and use an attachment_id "
+            "returned by that read, with its containing message_id."
         )
     elif category == "not_found":
         suggested_action = (

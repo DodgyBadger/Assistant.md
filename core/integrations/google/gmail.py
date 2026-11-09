@@ -52,6 +52,7 @@ class GmailAttachment:
     media_type: str
     declared_size: int | None
     message_id: str
+    part_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -503,6 +504,9 @@ def _walk_parts(
                     media_type=media_type,
                     declared_size=_integer(body.get("size")),
                     message_id=message_id,
+                    part_id=(
+                        part["partId"] if isinstance(part.get("partId"), str) else None
+                    ),
                 )
             )
     elif data := body.get("data"):
