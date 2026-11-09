@@ -25,6 +25,8 @@ For each user-visible operation, activity logging should answer:
 
 ## Retention And Inspection
 
+Activity-file storage failures do not block other diagnostic sinks or application operations. A compact stderr warning marks the outage, and System Activity records its duration and failed-record count once file writes recover. The outage summary is held in memory and does not survive a process restart.
+
 System Activity rotates daily in UTC and retains up to 30 days, bounded by a
 100 MiB total-size ceiling. The API reads the newest data across the active log
 and retained segments rather than treating `activity.log` as the complete

@@ -1,6 +1,6 @@
 # Scheduler storage-failure recovery
 
-Status: implementation and focused validation complete; protected documentation additions await approval. Scope includes automatic scheduler recovery and useful System Activity diagnostics. Do not rerun the full suite for this change; use the directly relevant scenarios and quality checks.
+Status: implementation, focused validation, and approved documentation updates complete. Scope includes automatic scheduler recovery and useful System Activity diagnostics. Do not rerun the full suite for this change; use the directly relevant scenarios and quality checks.
 
 ## Evidence and contract
 
@@ -23,7 +23,7 @@ Capture meaningful red against current production behavior, implement, and rerun
 
 ## Documentation review
 
-Review `docs/agent-guides/activity-logging.md` and relevant scheduler/runtime architecture documentation for the resulting contract. Present any proposed protected-document edits in chat and obtain explicit approval before applying them. No protected documentation changes are authorized yet.
+Review `docs/agent-guides/activity-logging.md` and relevant scheduler/runtime architecture documentation for the resulting contract. Present any proposed protected-document edits in chat and obtain explicit approval before applying them. The user approved the exact logging-guide paragraph and v0.9.5 release-note bullet shown in chat; both additions are applied.
 
 ## Implementation and validation evidence
 
@@ -33,4 +33,4 @@ Review `docs/agent-guides/activity-logging.md` and relevant scheduler/runtime ar
 - Meaningful red: `validation/runs/pytest_20261109_173541_8803341a1b/report.md`, three failures demonstrating the stalled polling callback and propagating activity-file error. Initial green: `validation/runs/pytest_20261109_173814_4244f59be6/report.md`, three cases passed. Review strengthened the scheduler oracle to require a different follow-up workflow to complete while the first occurrence remains recorded exactly once.
 - Final resumed validation after the server reboot: `validation/runs/pytest_20261109_175512_fe7ae74a94/report.md`, all 11 focused lifecycle, history, logging, activity-retention, refresh, and bootstrap scenarios passed. Inventory has no issues and all 34 policy checks passed. Ruff, Black, mypy for all 300 production files, JavaScript syntax, and diff-whitespace checks passed.
 - No full-suite or browser run was performed. SQLite write failures use actual trigger rejection and activity storage uses a real invalid file path; these tests establish recovery behavior without filling a host disk or verifying every filesystem-specific failure mode. They do not promise exactly-once execution across a process crash while durable storage is unavailable.
-- Proposed additions to `docs/agent-guides/activity-logging.md` and v0.9.5 release notes were shown in chat; approval remains pending. Those protected files are unchanged.
+- The user approved the proposed additions to `docs/agent-guides/activity-logging.md` and the v0.9.5 release notes; both were applied exactly as drafted.
