@@ -1679,11 +1679,13 @@
     },
     {
       "path": "scenarios/integration/core/test_mistral_ocr_contract.py",
-      "sha256": "dccbe79f95007e05beafede059708156e82199de8423f7f179c2e67223746921",
+      "sha256": "9a57fae74bee15384b94066e3781b0ac1fa14fd5a91b4ccb73ed67814e3c171f",
       "kind": "behavioral",
       "tests": [
         "test_ocr_enrichment_and_direct_document_transport",
-        "test_ocr_provider_rejections_and_local_fallback"
+        "test_ocr_provider_rejections_and_local_fallback",
+        "test_office_import_preserves_source_and_controls_extracted_images",
+        "test_office_import_reports_missing_mistral_configuration"
       ]
     },
     {
@@ -2452,7 +2454,7 @@
     },
     {
       "path": "scenarios/integration/core/test_vault_direct_import.py",
-      "sha256": "61a06759e384676ee5639accf43273e2188e1dd160dfe074dd1d796eadfdd551",
+      "sha256": "31bd1c37cce1e10994d5797db5ebed2bb2374998966cd268881d628487cfa4c9",
       "kind": "behavioral",
       "tests": [
         "test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers_outputs"

@@ -53,6 +53,8 @@ async def test_ocr_enrichment_and_direct_document_transport(app: Application) ->
         assert request["payload"]["document"]["document_url"].startswith(
             "data:application/pdf;base64,"
         )
+        assert request["payload"]["include_image_base64"] is False
+        assert "image_limit" not in request["payload"]
         assert request["payload"]["include_blocks"] is True
         assert request["payload"]["extract_header"] is True
         assert request["payload"]["confidence_scores_granularity"] == "page"
@@ -148,3 +150,132 @@ async def test_ocr_provider_rejections_and_local_fallback(app: Application) -> N
         assert missing.status == "completed" and missing.selected_strategy == "pdf_text"
         assert missing.strategy_attempts == ["pdf_ocr", "pdf_text"]
         assert len(server.calls) == count
+
+
+@pytest.mark.parametrize("extension", ["docx", "pptx"])
+@pytest.mark.parametrize("capture_images", [False, True])
+async def test_office_import_preserves_source_and_controls_extracted_images(
+    app: Application, extension: str, capture_images: bool
+) -> None:
+    import base64
+    from pathlib import Path
+
+    from core.runtime.state import get_runtime_context
+
+    vault = app.vault("OfficeImportVault")
+    source = vault / f"Uploads/notes.{extension}"
+    source.parent.mkdir()
+    fixture = Path(__file__).parents[3] / f"fixtures/files/office-import.{extension}"
+    original = fixture.read_bytes()
+    source.write_bytes(original)
+    mime = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if extension == "docx"
+        else "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
+    # Only external OCR output is controlled. Source loading, admission, job
+    # processing, authorization, rendering, asset writes and source preservation
+    # remain real. Genuine synthetic Office fixtures also back the live probe.
+    with ocr_provider(app) as server:
+        await app.start()
+        configure_ocr(app, server)
+        local_only = app.request(
+            "/api/system/settings/general/ingestion_pdf_default_strategies",
+            "PUT",
+            {"value": json.dumps(["pdf_text"])},
+        )
+        assert local_only.status_code == 200, local_only.text
+        server.response["pages"][0][
+            "markdown"
+        ] = "# Office notes\n\nThe orchard has seven apple trees."
+        if capture_images:
+            server.response["pages"][0]["markdown"] += "\n\n![Diagram](img-0.png)"
+        server.response["pages"][0]["images"] = [
+            {
+                "id": "img-0.png",
+                "image_base64": "data:image/png;base64,"
+                + base64.b64encode(b"OFFICE_IMAGE_BYTES").decode(),
+            }
+        ]
+        response = app.request(
+            "/api/import/sources",
+            "POST",
+            {
+                "vault": vault.name,
+                "sources": [f"Uploads/notes.{extension}"],
+                "destination": "Library/Selected",
+                "capture_ocr_images": capture_images,
+                "queue_only": True,
+            },
+        )
+        assert response.status_code == 200, response.text
+        job_id = response.json()["jobs_created"][0]["id"]
+        await get_runtime_context().ingestion_worker.run_once()
+        status = app.request(f"/api/import/jobs/{job_id}").json()
+        assert status["status"] == "completed", status
+        assert status["selected_strategy"] == f"{extension}_ocr"
+        assert status["selected_provider"] == "mistral"
+        assert status["strategy_attempts"] == [f"{extension}_ocr"]
+        assert source.read_bytes() == original
+        output = vault / next(
+            path for path in status["outputs"] if path.endswith(".md")
+        )
+        assert output.parent == vault / "Library/Selected"
+        assert "The orchard has seven apple trees." in output.read_text()
+        assert len(server.calls) == 1
+        payload = server.calls[0]["payload"]
+        document_url = payload["document"]["document_url"]
+        assert document_url.startswith(f"data:{mime};base64,")
+        assert base64.b64decode(document_url.split(",", 1)[1]) == original
+        assert payload["include_image_base64"] is True
+        images = [vault / path for path in status["outputs"] if path.endswith(".png")]
+        if capture_images:
+            assert "image_limit" not in payload
+            assert len(images) == 1
+            assert images[0].read_bytes() == b"OFFICE_IMAGE_BYTES"
+            assert images[0].name in output.read_text()
+        else:
+            assert payload["image_limit"] == 0
+            assert images == []
+        extensions = app.request("/api/metadata").json()["ingestion_capabilities"][
+            "file_import"
+        ]["features"]
+        assert ".docx" in extensions and ".pptx" in extensions
+        terminal = terminal_activity(app, job_id, "ingestion_job_completed")
+        assert terminal["selected_strategy"] == f"{extension}_ocr"
+
+
+@pytest.mark.parametrize("extension", ["docx", "pptx"])
+async def test_office_import_reports_missing_mistral_configuration(
+    app: Application, extension: str
+) -> None:
+    from pathlib import Path
+
+    from core.runtime.state import get_runtime_context
+
+    vault = app.vault("OfficeMissingCredentialVault")
+    source = vault / f"notes.{extension}"
+    original = (
+        Path(__file__).parents[3] / f"fixtures/files/office-import.{extension}"
+    ).read_bytes()
+    source.write_bytes(original)
+    with ocr_provider(app) as server:
+        await app.start()
+        response = app.request(
+            "/api/import/sources",
+            "POST",
+            {
+                "vault": vault.name,
+                "sources": [source.name],
+                "queue_only": True,
+            },
+        )
+        assert response.status_code == 200, response.text
+        job_id = response.json()["jobs_created"][0]["id"]
+        await get_runtime_context().ingestion_worker.run_once()
+        status = app.request(f"/api/import/jobs/{job_id}").json()
+        assert status["status"] == "failed", status
+        assert status["strategy_attempts"] == [f"{extension}_ocr"]
+        assert "missing_secret:MISTRAL_API_KEY" in status["fallback_reason"]
+        assert source.read_bytes() == original
+        assert server.calls == []

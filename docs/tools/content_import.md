@@ -1,6 +1,6 @@
 # `content_import`
 
-`content_import` imports URLs or vault files through the durable ingestion pipeline and reads the resulting job status. Imported content is written as vault artifacts under the configured ingestion output path. Markdown files land directly in the selected destination. Optional companion files are grouped under `assets/<import-name>/` within that destination.
+`content_import` imports URLs or vault files through the durable ingestion pipeline and reads job status. Supported vault files include PDFs, images, Word (`.docx`), and PowerPoint (`.pptx`). Output is Markdown in the selected destination, or the vault root when omitted.
 
 ## Submit
 
@@ -43,7 +43,7 @@ Optional `options`:
 
 OCR enrichment options are opt-in. When requested structured data is returned, it is stored under `assets/<import-name>/ocr.json` and referenced by the imported Markdown frontmatter.
 
-OCR requires a configured `MISTRAL_API_KEY`, non-empty `ingestion_ocr_endpoint` and `ingestion_ocr_model` settings, and the `pdf_ocr` strategy. If OCR is unavailable, do not request OCR enrichments; use the default local PDF import or report the missing configuration to the user.
+OCR requires a configured `MISTRAL_API_KEY` and OCR model and endpoint. Word and PowerPoint imports require Mistral; PDFs can also use local text extraction. If OCR is unavailable, report the missing configuration or use local PDF extraction.
 
 For routine research imports, omit all OCR enrichment options. Use `options={"strategies": ["pdf_ocr"]}` for scanned or layout-heavy PDFs, add `"capture_ocr_images": true` when figures matter, and add `"ocr_confidence": "page"` when low-quality pages need review. Blocks, separate tables, and word confidence are primarily intended for deterministic downstream scripts. PDF enrichment options affect `pdf_ocr`; local `pdf_text` extraction ignores them.
 

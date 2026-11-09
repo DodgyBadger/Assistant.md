@@ -31,10 +31,7 @@ Support Mistral as the only built-in OCR provider. Call its dedicated REST OCR
 endpoint through AssistantMD's adapter rather than coupling ingestion to the
 Mistral SDK or treating a Pydantic AI chat model as an OCR service.
 
-Keep extraction strategies format-aware. PDF OCR is exposed as `pdf_ocr` and
-image OCR as `image_ocr`; future Word, presentation, or other document strategies
-retain their own format identity even if they share provider transport or
-response parsing internally.
+Keep extraction strategies format-aware. PDF OCR is exposed as `pdf_ocr`, image OCR as `image_ocr`, Word OCR as `docx_ocr`, and PowerPoint OCR as `pptx_ocr`. These strategies share Mistral transport and response parsing internally.
 
 Prefer Mistral OCR before local PDF text extraction in the default strategy
 order when configured. Secret-gated strategy resolution skips OCR cleanly when
