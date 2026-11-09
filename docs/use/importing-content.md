@@ -4,7 +4,7 @@ Import vault files or public HTTP/HTTPS URLs into Markdown through Vault Explore
 
 ## Start an import
 
-In Vault Explorer, make the output folder active. Select supported PDF or image files and choose **Import**, or use **Import URL** for a public source. For local files, choose **Upload → Upload & import** to save the originals and request Markdown versions together.
+In Vault Explorer, make the output folder active. Select supported PDF, image, Word (`.docx`), or PowerPoint (`.pptx`) files and choose **Import**, or use **Import URL** for a public source. Word and PowerPoint imports require configured Mistral OCR. For local files, choose **Upload → Upload & import** to save the originals and request Markdown versions together.
 
 Check the destination shown in the panel. Saved defaults apply unless you expand **Options for this import** for one-off changes.
 

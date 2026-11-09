@@ -162,10 +162,12 @@ async def test_direct_pdf_import_snapshots_options_preserves_sources_and_numbers
         "file_import"
     ]
     assert capabilities["features"] == [
+        ".docx",
         ".jpeg",
         ".jpg",
         ".pdf",
         ".png",
+        ".pptx",
         ".tif",
         ".tiff",
         ".webp",

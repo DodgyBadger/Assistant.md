@@ -37,6 +37,7 @@ from core.ingestion.models import (
 from core.ingestion.output_paths import allocate_import_output_paths
 from core.ingestion.registry import extractor_registry, importer_registry
 from core.ingestion.renderers import default_renderer
+from core.ingestion.sources.office import OFFICE_FILE_TYPES
 from core.ingestion.storage import (
     StoredArtifact,
     remove_stored_artifacts,
@@ -60,6 +61,8 @@ class IngestionService:
     _STRATEGY_SECRET_REQUIREMENTS = {
         "pdf_ocr": "MISTRAL_API_KEY",
         "image_ocr": "MISTRAL_API_KEY",
+        "docx_ocr": "MISTRAL_API_KEY",
+        "pptx_ocr": "MISTRAL_API_KEY",
     }
 
     def __init__(self) -> None:
@@ -985,6 +988,9 @@ class IngestionService:
                 [str(s) for s in cfg_strategies] if cfg_strategies else ["image_ocr"]
             )
             return default_strats
+        for extension, (office_mime, strategy) in OFFICE_FILE_TYPES.items():
+            if normalized_mime == office_mime or suffix == extension:
+                return [strategy]
         if normalized_mime == "text/html":
             return ["html_markdownify"]
         return []
@@ -1147,9 +1153,11 @@ class IngestionService:
         """
         # Imports are intentional for side effects (registry registration).
         import core.ingestion.sources.image  # noqa: F401
+        import core.ingestion.sources.office  # noqa: F401
         import core.ingestion.sources.pdf  # noqa: F401
         import core.ingestion.sources.web  # noqa: F401
         import core.ingestion.strategies.html_raw  # noqa: F401
         import core.ingestion.strategies.image_ocr  # noqa: F401
+        import core.ingestion.strategies.office_ocr  # noqa: F401
         import core.ingestion.strategies.pdf_ocr  # noqa: F401
         import core.ingestion.strategies.pdf_text  # noqa: F401

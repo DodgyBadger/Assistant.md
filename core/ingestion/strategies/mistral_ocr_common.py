@@ -143,6 +143,47 @@ def get_mistral_ocr_config(
     return {"model": model, "endpoint": endpoint}
 
 
+def extract_mistral_document(
+    raw: RawDocument,
+    options: dict[str, Any] | None,
+    *,
+    strategy_id: str,
+    mime: str,
+    requires_base64_images: bool = False,
+) -> ExtractedDocument:
+    """Apply shared document OCR options without changing format identity."""
+    include_images_override = None
+    ocr_options: dict[str, Any] = {}
+    if isinstance(options, dict) and "ocr_capture_images" in options:
+        include_images_override = bool(options.get("ocr_capture_images"))
+    if isinstance(options, dict):
+        for internal_name, request_name in (
+            ("ocr_include_blocks", "include_blocks"),
+            ("ocr_extract_header", "extract_header"),
+            ("ocr_extract_footer", "extract_footer"),
+            ("ocr_table_format", "table_format"),
+            ("ocr_confidence", "confidence_scores_granularity"),
+        ):
+            if internal_name in options:
+                ocr_options[request_name] = options[internal_name]
+    if ocr_options:
+        raw.meta["ocr_options"] = ocr_options
+
+    return extract_with_mistral_ocr(
+        raw,
+        strategy_id=strategy_id,
+        document_type="document_url",
+        document_value_key="document_url",
+        data_url_mime=mime,
+        model_setting_key="ingestion_ocr_model",
+        endpoint_setting_key="ingestion_ocr_endpoint",
+        include_image_base64_override=include_images_override,
+        requires_base64_images=requires_base64_images,
+        model_fallback_setting_keys=["ingestion_pdf_ocr_model"],
+        endpoint_fallback_setting_keys=["ingestion_pdf_ocr_endpoint"],
+    )
+
+
 def extract_with_mistral_ocr(
     raw: RawDocument,
     *,
@@ -153,6 +194,7 @@ def extract_with_mistral_ocr(
     model_setting_key: str,
     endpoint_setting_key: str,
     include_image_base64_override: bool | None = None,
+    requires_base64_images: bool = False,
     model_fallback_setting_keys: list[str] | None = None,
     endpoint_fallback_setting_keys: list[str] | None = None,
 ) -> ExtractedDocument:
@@ -197,9 +239,11 @@ def extract_with_mistral_ocr(
             "type": document_type,
             document_value_key: document_value,
         },
-        "include_image_base64": include_image_base64,
+        "include_image_base64": include_image_base64 or requires_base64_images,
         "include_blocks": False,
     }
+    if requires_base64_images and not include_image_base64:
+        request_payload["image_limit"] = 0
     options = raw.meta.get("ocr_options")
     if isinstance(options, dict):
         request_payload.update(options)
