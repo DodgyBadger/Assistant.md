@@ -282,6 +282,8 @@ def collect_scheduler_status(scheduler: Any | None = None) -> SchedulerInfo:
         # Remove redundant workflow counting - this will be done at the higher level using cached data
         scheduler_info = SchedulerInfo(
             running=is_running,
+            healthy=is_running and getattr(scheduler, "polling_healthy", True),
+            retry_count=getattr(scheduler, "polling_retry_count", 0),
             total_jobs=total_jobs,
             enabled_workflows=0,  # Will be calculated elsewhere
             disabled_workflows=0,  # Will be calculated elsewhere

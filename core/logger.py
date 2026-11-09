@@ -55,6 +55,7 @@ from core.settings.store import get_general_settings
 _activity_logger: logging.Logger | None = None
 _activity_log_path: Path | None = None
 _activity_logger_lock = Lock()
+_activity_delivery_lock = Lock()
 _validation_log_lock = Lock()
 _warning_dedupe_lock = Lock()
 _validation_event_counter = 0
@@ -73,6 +74,19 @@ _NOISY_LOGFIRE_MESSAGES = frozenset(
 _NOISY_PYDANTIC_SCHEMAS = frozenset({"nullable", "union"})
 ACTIVITY_LOG_RETENTION_DAYS = DEFAULT_RETENTION_DAYS
 ACTIVITY_LOG_MAX_TOTAL_BYTES = DEFAULT_MAX_TOTAL_BYTES
+
+
+@dataclass
+class _ActivityOutage:
+    first_failed_at: str
+    last_failed_at: str
+    error_type: str
+    error_number: int | None
+    first_failed_event: str | None
+    failed_records: int = 1
+
+
+_activity_outages: dict[Path, _ActivityOutage] = {}
 
 
 @dataclass
@@ -189,7 +203,11 @@ class _BoundedTimedActivityHandler(TimedRotatingFileHandler):
                 self._reopen_if_rotated()
                 if self.shouldRollover(record):
                     self.doRollover()
-                logging.FileHandler.emit(self, record)
+                # Let the owning sink boundary see write/flush failures;
+                # StreamHandler.emit otherwise swallows some I/O errors.
+                if self.stream is None:
+                    self.stream = self._open()
+                self.stream.write(self.format(record) + self.terminator)
                 self.flush()
             finally:
                 fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
@@ -552,8 +570,73 @@ def _emit_activity_record(record: dict[str, Any]) -> None:
     if record.get("data") is not None:
         payload["data"] = record["data"]
 
-    activity_logger = _ensure_activity_logger()
-    activity_logger.info(json.dumps(payload, ensure_ascii=False))
+    path = _resolve_activity_log_path()
+    with _activity_delivery_lock:
+        try:
+            activity_logger = _ensure_activity_logger()
+            outage = _activity_outages.get(path)
+            if outage is not None:
+                activity_logger.info(
+                    json.dumps(
+                        {
+                            "timestamp": record["timestamp"],
+                            "level": "warning",
+                            "tag": "logging",
+                            "message": "System Activity storage recovered; some records could not be saved",
+                            "data": {
+                                "event": "activity_log_recovered",
+                                "status": "recovered",
+                                "first_failed_at": outage.first_failed_at,
+                                "last_failed_at": outage.last_failed_at,
+                                "failed_records": outage.failed_records,
+                                "duration_seconds": max(
+                                    0,
+                                    (
+                                        datetime.fromisoformat(record["timestamp"])
+                                        - datetime.fromisoformat(outage.first_failed_at)
+                                    ).total_seconds(),
+                                ),
+                                "error_type": outage.error_type,
+                                "errno": outage.error_number,
+                                "first_failed_event": outage.first_failed_event,
+                            },
+                        }
+                    )
+                )
+                del _activity_outages[path]
+            activity_logger.info(json.dumps(payload, ensure_ascii=False))
+        except OSError as exc:
+            outage = _activity_outages.get(path)
+            if outage is None:
+                data = record.get("data") or {}
+                _activity_outages[path] = _ActivityOutage(
+                    first_failed_at=record["timestamp"],
+                    last_failed_at=record["timestamp"],
+                    error_type=type(exc).__name__,
+                    error_number=exc.errno,
+                    first_failed_event=data.get("event"),
+                )
+                _storage_logging_fallback("activity", exc)
+            else:
+                outage.last_failed_at = record["timestamp"]
+                outage.failed_records += 1
+
+
+def _storage_logging_fallback(sink: str, error: OSError) -> None:
+    """Best-effort stderr diagnostic without recursive application logging."""
+    payload = {
+        "event": "logging_storage_failed",
+        "status": "degraded",
+        "sink": sink,
+        "error_type": type(error).__name__,
+        "errno": error.errno,
+    }
+    try:
+        os.write(2, (json.dumps(payload) + "\n").encode())
+    except OSError:
+        # A full container log device can be unavailable alongside application
+        # storage. Other configured sinks are still attempted by the caller.
+        pass
 
 
 def _emit_validation_record(
@@ -772,7 +855,10 @@ class UnifiedLogger:
             _emit_activity_record(record)
 
         if "validation" in resolved_sinks:
-            _emit_validation_record(tag, message, level, payload)
+            try:
+                _emit_validation_record(tag, message, level, payload)
+            except OSError as exc:
+                _storage_logging_fallback("validation", exc)
 
         if "logfire" in resolved_sinks:
             _emit_logfire_record(self._logfire, level, message, tag, payload)

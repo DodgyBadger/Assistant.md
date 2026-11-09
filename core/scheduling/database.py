@@ -6,15 +6,14 @@ Simple utilities for setting up the SQLAlchemy job store.
 
 import os
 
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-
 from core.database import get_system_database_definition, get_system_database_path
+from core.scheduling.recovery import RecoveringJobStore
 
 
 def create_job_store(
     system_root: str | None = None,
     wipe: bool = False,
-) -> SQLAlchemyJobStore:
+) -> RecoveringJobStore:
     """Create APScheduler SQLAlchemy job store for persistent job storage.
 
     Args:
@@ -29,4 +28,4 @@ def create_job_store(
         os.remove(database_path)
     database_url = f"sqlite:///{database_path}"
 
-    return SQLAlchemyJobStore(url=database_url)
+    return RecoveringJobStore(url=database_url)
