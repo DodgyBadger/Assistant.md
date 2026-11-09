@@ -69,7 +69,10 @@
             const jobByWorkflowId = new Map(
                 schedulerJobs.map(job => [job.id.replace('__', '/'), job])
             );
-            const schedulerBadge = schedulerRunning
+            const schedulerRetrying = schedulerRunning && status.scheduler?.healthy === false;
+            const schedulerBadge = schedulerRetrying
+                ? '<span class="badge badge-scheduler-stopped">SCHEDULER RETRYING</span>'
+                : schedulerRunning
                 ? '<span class="badge badge-scheduler-running">SCHEDULER RUNNING</span>'
                 : '<span class="badge badge-scheduler-stopped">SCHEDULER STOPPED</span>';
             if (elements.workflowSchedulerBadge) {

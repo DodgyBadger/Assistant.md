@@ -1504,11 +1504,12 @@
     },
     {
       "path": "scenarios/integration/core/test_logging_capture.py",
-      "sha256": "e23baa9d038144905e770d7a8dd3891b4bdfb56c4b031d739fade96515997329",
+      "sha256": "24bc14772dd862a63f40f0edd0ca8fa011192fb9fda5c003a35c7e3ed5ea9dc4",
       "kind": "behavioral",
       "tests": [
         "test_logging_capture_preserves_application_records",
-        "test_logging_capture_callbacks_cannot_mutate_application_data"
+        "test_logging_capture_callbacks_cannot_mutate_application_data",
+        "test_activity_storage_failure_preserves_diagnostics_and_reports_recovery"
       ]
     },
     {
@@ -2588,10 +2589,11 @@
     },
     {
       "path": "scenarios/integration/core/test_workflow_lifecycle.py",
-      "sha256": "9bbe23a2b319a7e625ddc4b06c88ef89e45a07086871463c8682245e17fffaf6",
+      "sha256": "830062a8bae2431a33924f39fa80b7e7d2e56268c6713ab7f05c3bf273eb3f48",
       "kind": "behavioral",
       "tests": [
-        "test_workflow_enable_disable_and_scheduler_admission"
+        "test_workflow_enable_disable_and_scheduler_admission",
+        "test_scheduled_workflow_recovers_after_job_store_write_failure"
       ]
     },
     {

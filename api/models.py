@@ -499,6 +499,12 @@ class SchedulerInfo(BaseModel):
     """Information about the scheduler status."""
 
     running: bool = Field(..., description="Whether the scheduler is running")
+    healthy: bool = Field(
+        default=False, description="Whether scheduler polling is healthy"
+    )
+    retry_count: int = Field(
+        default=0, description="Consecutive failed polling attempts"
+    )
     total_jobs: int = Field(..., description="Total number of scheduled jobs")
     enabled_workflows: int = Field(..., description="Number of enabled workflows")
     disabled_workflows: int = Field(..., description="Number of disabled workflows")

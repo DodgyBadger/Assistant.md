@@ -231,3 +231,113 @@ description: Subfolder daily lifecycle test
 await finish(status="completed", reason="lifecycle-test")
 ```
 """
+
+
+@pytest.mark.parametrize("one_shot", [False, True])
+async def test_scheduled_workflow_recovers_after_job_store_write_failure(
+    app: Application, one_shot: bool
+) -> None:
+    import asyncio
+    import sqlite3
+    from datetime import UTC, datetime, timedelta
+
+    vault = app.vault("SchedulerRecoveryVault")
+    app.write(
+        vault,
+        "AssistantMD/Authoring/daily.md",
+        DISABLED_WORKFLOW.replace("enabled: false", "enabled: true"),
+    )
+    app.write(
+        vault,
+        "AssistantMD/Authoring/followup.md",
+        DISABLED_WORKFLOW.replace("enabled: false", "enabled: true").replace(
+            "cron: 0 9 * * *", "cron: 0 0 1 1 *"
+        ),
+    )
+    await app.start()
+    scheduler = get_runtime_context().scheduler
+    scheduler.pause()
+    scheduler.jobstore_retry_interval = 0.1
+    job_id = "SchedulerRecoveryVault__daily"
+    run_at = datetime.now(UTC) + timedelta(seconds=0.2)
+    if one_shot:
+        scheduler.reschedule_job(job_id, trigger="date", run_date=run_at)
+    else:
+        scheduler.reschedule_job(job_id, trigger="interval", seconds=30)
+        scheduler.modify_job(job_id, next_run_time=run_at)
+    job = scheduler.get_job(job_id)
+    assert job is not None
+    database = app.root / "system/scheduler_jobs.db"
+    # SQLite is the environmental fault boundary: the real scheduler dispatches
+    # the real workflow, but SQLite rejects its next-run update or final removal.
+    # No application service, job execution, or observation is replaced.
+    operation = "DELETE" if one_shot else "UPDATE"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            f"CREATE TRIGGER fail_scheduler_write BEFORE {operation} ON apscheduler_jobs "
+            f"WHEN OLD.id = '{job_id}' BEGIN SELECT RAISE(FAIL, 'storage unavailable'); END"
+        )
+    checkpoint = app.events.checkpoint()
+    try:
+        scheduler.resume()
+        async with asyncio.timeout(5):
+            while not app.events.contains("scheduler_polling_failed", after=checkpoint):
+                await asyncio.sleep(0.02)
+        status = app.request("/api/status").json()["scheduler"]
+        assert status["healthy"] is False
+        async with asyncio.timeout(5):
+            while not app.events.contains(
+                "workflow_task_completed",
+                after=checkpoint,
+                fields={"workflow_id": "SchedulerRecoveryVault/daily"},
+            ):
+                await asyncio.sleep(0.02)
+        # Observe several retry attempts after execution completes.
+        async with asyncio.timeout(5):
+            while app.request("/api/status").json()["scheduler"]["retry_count"] < 3:
+                await asyncio.sleep(0.02)
+        history = app.request(
+            "/api/workflows/runs", params={"global_id": "SchedulerRecoveryVault/daily"}
+        ).json()["runs"]
+        assert len(history) == 1
+        assert history[0]["status"] == "completed"
+    finally:
+        with sqlite3.connect(database) as connection:
+            connection.execute("DROP TRIGGER fail_scheduler_write")
+    async with asyncio.timeout(5):
+        while not app.events.contains("scheduler_polling_recovered", after=checkpoint):
+            await asyncio.sleep(0.02)
+    assert app.request("/api/status").json()["scheduler"]["healthy"] is True
+    # A different workflow proves dispatch resumed; it cannot be confused with
+    # an accidental repeat of the already completed occurrence.
+    scheduler.reschedule_job(
+        "SchedulerRecoveryVault__followup",
+        trigger="date",
+        run_date=datetime.now(UTC) + timedelta(seconds=0.1),
+    )
+    async with asyncio.timeout(5):
+        while True:
+            followup = app.request(
+                "/api/workflows/runs",
+                params={"global_id": "SchedulerRecoveryVault/followup"},
+            ).json()["runs"]
+            if len(followup) == 1 and followup[0]["status"] == "completed":
+                break
+            await asyncio.sleep(0.02)
+    assert followup[0]["source"] == "scheduler"
+    history = app.request(
+        "/api/workflows/runs", params={"global_id": "SchedulerRecoveryVault/daily"}
+    ).json()["runs"]
+    assert len(history) == 1
+    assert history[0]["status"] == "completed"
+    assert history[0]["source"] == "scheduler"
+    activity = app.request("/api/system/activity-log?limit=200").json()["entries"]
+    events = [row.get("data", {}) for row in activity]
+    failures = [row for row in events if row.get("event") == "scheduler_polling_failed"]
+    recovered = [
+        row for row in events if row.get("event") == "scheduler_polling_recovered"
+    ]
+    assert len(failures) == len(recovered) == 1
+    assert failures[0]["status"] == "retrying"
+    assert failures[0]["job_id"] == job_id
+    assert recovered[0]["retry_count"] >= 2

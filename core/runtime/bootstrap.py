@@ -8,7 +8,7 @@ with proper configuration, error handling, and lifecycle management.
 import asyncio
 from datetime import UTC, datetime
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy.exc import SQLAlchemyError
 
 from core.advanced_shell.capability import AdvancedShellCapabilityService
 from core.authoring.template_discovery import WorkflowLoader, seed_system_templates
@@ -33,6 +33,7 @@ from core.mcp import MCPConnectionManager, MCPConnectionService
 from core.mcp.oauth import MCPOAuthCoordinator
 from core.scheduling.database import create_job_store
 from core.scheduling.job_history import attach_scheduler_history_listener
+from core.scheduling.recovery import RecoveringScheduler
 from core.secrets import get_encrypted_secrets_service, initialize_secrets_bootstrap
 from core.secrets.legacy_migration import migrate_legacy_secrets_yaml
 from core.settings import (
@@ -308,7 +309,7 @@ async def bootstrap_runtime(
 
         # Initialize scheduler with job store and worker configuration
         jobstores = {"default": job_store}
-        scheduler = AsyncIOScheduler(
+        scheduler = RecoveringScheduler(
             jobstores=jobstores, max_workers=config.max_scheduler_workers
         )
 
@@ -318,6 +319,10 @@ async def bootstrap_runtime(
         try:
             scheduler.start(paused=True)
             attach_scheduler_history_listener(scheduler)
+        except (SQLAlchemyError, OSError):
+            # Unavailable storage is not evidence of stale serialized jobs.
+            # Preserve the persistent store and let bootstrap report the failure.
+            raise
         except Exception as start_err:
             logger.warning(
                 "Scheduler failed to start — job store may contain stale references. "
@@ -336,7 +341,7 @@ async def bootstrap_runtime(
             except Exception:
                 pass
             job_store = create_job_store(system_root=str(config.system_root), wipe=True)
-            scheduler = AsyncIOScheduler(
+            scheduler = RecoveringScheduler(
                 jobstores={"default": job_store},
                 max_workers=config.max_scheduler_workers,
             )

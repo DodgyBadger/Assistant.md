@@ -106,3 +106,53 @@ async def test_logging_capture_callbacks_cannot_mutate_application_data(
     assert (
         yaml.safe_load(exported[0].read_text())["data"]["nested"]["value"] == "exported"
     )
+
+
+async def test_activity_storage_failure_preserves_diagnostics_and_reports_recovery(
+    app: Application,
+) -> None:
+    from core.logger import UnifiedLogger, close_activity_log_for_root
+
+    await app.start()
+    system_root = app.root / "system"
+    path = system_root / "activity.log"
+    backup = system_root / "activity-before-outage.log"
+    close_activity_log_for_root(system_root)
+    path.rename(backup)
+    path.mkdir()
+    checkpoint = app.events.checkpoint()
+    logger = UnifiedLogger(
+        "activity_recovery", default_sinks=["activity", "validation"]
+    )
+    try:
+        # A directory at the log-file path creates a genuine file I/O failure;
+        # the application logger, other sinks, and API handlers remain real.
+        logger.error(
+            "Scheduled operation needs storage",
+            data={
+                "event": "storage_operation_failed",
+                "status": "retrying",
+                "job_id": "example",
+            },
+        )
+        app.events.require(
+            "storage_operation_failed", after=checkpoint, job_id="example"
+        )
+        logger.info(
+            "Another operation completed", data={"event": "other_operation_completed"}
+        )
+        app.events.require("other_operation_completed", after=checkpoint)
+    finally:
+        path.rmdir()
+        backup.rename(path)
+    logger.info("Storage available", data={"event": "storage_operation_completed"})
+    response = app.request("/api/system/activity-log?limit=200")
+    assert response.status_code == 200, response.text
+    data = [row.get("data", {}) for row in response.json()["entries"]]
+    recovery = [row for row in data if row.get("event") == "activity_log_recovered"]
+    assert len(recovery) == 1
+    assert recovery[0]["status"] == "recovered"
+    assert recovery[0]["failed_records"] == 2
+    assert recovery[0]["first_failed_event"] == "storage_operation_failed"
+    assert recovery[0]["error_type"] == "IsADirectoryError"
+    assert any(row.get("event") == "storage_operation_completed" for row in data)
