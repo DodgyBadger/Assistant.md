@@ -8,6 +8,7 @@
 - Download Gmail attachments of any type directly into the vault.
 - Delete multiple files or entire folders together, with one approval card when inline edit mode is enabled.
 - Added protection against deleting the vault root and improved recovery of deleted folders, including their empty subfolders.
+- Scheduled workflows recover automatically after temporary storage failures, with clearer scheduler status and recovery logs.
 
 ## v0.9.4
 
