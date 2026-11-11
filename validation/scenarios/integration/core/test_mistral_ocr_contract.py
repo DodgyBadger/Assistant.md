@@ -158,6 +158,7 @@ async def test_office_import_preserves_source_and_controls_extracted_images(
     app: Application, extension: str, capture_images: bool
 ) -> None:
     import base64
+    import re
     from pathlib import Path
 
     from core.runtime.state import get_runtime_context
@@ -189,13 +190,20 @@ async def test_office_import_preserves_source_and_controls_extracted_images(
             "markdown"
         ] = "# Office notes\n\nThe orchard has seven apple trees."
         if capture_images:
-            server.response["pages"][0]["markdown"] += "\n\n![Diagram](img-0.png)"
+            server.response["pages"][0][
+                "markdown"
+            ] += "\n\n![First](img-1.png)\n\n![Second](img-0.png)"
         server.response["pages"][0]["images"] = [
+            {
+                "id": "img-1.png",
+                "image_base64": "data:image/png;base64,"
+                + base64.b64encode(b"OFFICE_IMAGE_A").decode(),
+            },
             {
                 "id": "img-0.png",
                 "image_base64": "data:image/png;base64,"
-                + base64.b64encode(b"OFFICE_IMAGE_BYTES").decode(),
-            }
+                + base64.b64encode(b"OFFICE_IMAGE_B").decode(),
+            },
         ]
         response = app.request(
             "/api/import/sources",
@@ -231,9 +239,16 @@ async def test_office_import_preserves_source_and_controls_extracted_images(
         images = [vault / path for path in status["outputs"] if path.endswith(".png")]
         if capture_images:
             assert "image_limit" not in payload
-            assert len(images) == 1
-            assert images[0].read_bytes() == b"OFFICE_IMAGE_BYTES"
-            assert images[0].name in output.read_text()
+            assert len(images) == 2
+            targets = [
+                (output.parent / target).resolve()
+                for target in re.findall(r"!\[[^\]]*\]\(([^)]+)\)", output.read_text())
+            ]
+            assert set(targets) == {image.resolve() for image in images}
+            assert [target.read_bytes() for target in targets] == [
+                b"OFFICE_IMAGE_A",
+                b"OFFICE_IMAGE_B",
+            ]
         else:
             assert payload["image_limit"] == 0
             assert images == []

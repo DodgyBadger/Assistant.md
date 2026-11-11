@@ -1,6 +1,7 @@
 """Real browser import submission reaches actual local PDF processing and writes."""
 
 import asyncio
+import json
 import re
 
 import pytest
@@ -9,6 +10,47 @@ from playwright.async_api import expect
 from validation.support.browser.browser_journeys import open_document_import
 
 pytestmark = pytest.mark.scenario
+
+
+@pytest.mark.parametrize("pdf_mode", ["markdown", "page_images"])
+async def test_ocr_image_default_can_be_saved_with_local_pdf_defaults(
+    browser_app, ui, pdf_mode
+):
+    app = browser_app.app
+    key = "synthetic-office-settings-key"
+    app.evidence.register_secret(key)
+    response = app.request(
+        "/api/system/secrets", "PUT", {"name": "MISTRAL_API_KEY", "value": key}
+    )
+    assert response.status_code == 200, response.text
+    for name, value in {
+        "ingestion_pdf_default_strategies": json.dumps(["pdf_text"]),
+        "ingestion_pdf_default_mode": pdf_mode,
+        "ingestion_ocr_capture_images": "false",
+    }.items():
+        response = app.request(
+            f"/api/system/settings/general/{name}", "PUT", {"value": value}
+        )
+        assert response.status_code == 200, response.text
+
+    await ui.goto(browser_app.url)
+    await ui.get_by_role("button", name="Dashboard", exact=True).click()
+    await ui.locator("#dashboard-import-section > summary").click()
+    capture = ui.locator("#import-capture-ocr-images")
+    await expect(capture).to_be_visible()
+    await expect(capture).to_be_enabled()
+    await capture.check()
+    await ui.locator("#import-defaults-save").click()
+    await expect(ui.locator("#import-status")).to_contain_text("Import defaults saved")
+    settings = app.request("/api/system/settings/general").json()
+    assert (
+        next(
+            item["value"]
+            for item in settings
+            if item["key"] == "ingestion_ocr_capture_images"
+        )
+        == "true"
+    )
 
 
 async def test_document_import_modal_reports_completed_persisted_output(

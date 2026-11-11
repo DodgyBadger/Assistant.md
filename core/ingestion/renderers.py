@@ -182,11 +182,9 @@ def _render_ocr_image_artifacts(
             source_basename = os.path.basename(source_name.strip())
             link_map[source_basename] = link_target
             link_map[source_name.strip()] = link_target
-        link_map[f"img-{image_count}.jpeg"] = link_target
-        link_map[f"img-{image_count}.jpg"] = link_target
-        link_map[f"img-{image_count}.png"] = link_target
-        link_map[f"img-{image_count}.webp"] = link_target
-        link_map[f"img-{image_count}.gif"] = link_target
+        # Provider IDs take precedence over synthetic positional aliases.
+        for suffix in (".jpeg", ".jpg", ".png", ".webp", ".gif"):
+            link_map.setdefault(f"img-{image_count}{suffix}", link_target)
 
         artifacts.append(
             {

@@ -94,7 +94,7 @@
                         <button type="button" class="ui-button-secondary" data-vault-explorer-upload-change-destination>Change</button>
                     </div>
                     <div class="vault-explorer-upload-list" data-vault-explorer-upload-list></div>
-                    <p class="text-xs text-txt-secondary">Upload the source files only, or upload supported PDFs/images and import them to Markdown in one operation.</p>
+                    <p class="text-xs text-txt-secondary">Upload the source files only, or upload supported documents and images and import them to Markdown in one operation.</p>
                     ${window.VaultExplorerImportOptions.renderMarkup(importDestinationMarkup)}
                     <div class="vault-explorer-form-actions">
                         <button type="button" class="ui-button-secondary" data-vault-explorer-action-cancel>Cancel</button>
