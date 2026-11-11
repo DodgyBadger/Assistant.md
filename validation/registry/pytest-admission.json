@@ -149,7 +149,7 @@
     },
     {
       "path": "scenarios/browser/test_files_and_selection.py",
-      "sha256": "d362dec4a8d40d6108e27000aac4d3ac3b7cac8d22ada5e63589bede86137fc7",
+      "sha256": "9e5ac88b0596ed55126e872c595d05699e9ea0664c5c0bc972fb163c68069840",
       "kind": "behavioral",
       "tests": [
         "test_relative_wikilinks_keep_source_context_and_back_history",
