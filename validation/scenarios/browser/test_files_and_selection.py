@@ -189,11 +189,17 @@ async def test_mouse_selection_preserves_quote_while_typing_and_appends_across_f
         .first
     )
     await paragraph.scroll_into_view_if_needed()
-    box = await paragraph.bounding_box()
-    assert box
+    box = await paragraph.evaluate("""element => {
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            const rect = range.getBoundingClientRect();
+            return {x: rect.x, y: rect.y, width: rect.width, height: rect.height};
+        }""")
     await ui.mouse.move(box["x"] + 1, box["y"] + box["height"] / 2)
     await ui.mouse.down()
-    await ui.mouse.move(box["x"] + 110, box["y"] + box["height"] / 2, steps=8)
+    await ui.mouse.move(
+        box["x"] + box["width"] + 1, box["y"] + box["height"] / 2, steps=8
+    )
     await ui.mouse.up()
     await ui.get_by_role("button", name="Ask about selected text", exact=True).click()
     entry = ui.get_by_label("Instruction (optional)")
