@@ -7,7 +7,10 @@ from uuid import uuid4
 
 import yaml
 
-from core.ingestion.capabilities import get_pdf_ocr_capability
+from core.ingestion.capabilities import (
+    get_mistral_ocr_capability,
+    get_pdf_ocr_capability,
+)
 from core.ingestion.import_service import supported_file_extensions
 from core.llm.openai_auth import (
     openai_oauth_enabled_from_settings,
@@ -999,6 +1002,7 @@ async def get_metadata() -> MetadataResponse:
         else None
     )
     pdf_ocr = get_pdf_ocr_capability()
+    mistral_ocr = get_mistral_ocr_capability()
     return MetadataResponse(
         vaults=vaults,
         models=models,
@@ -1014,6 +1018,12 @@ async def get_metadata() -> MetadataResponse:
             ),
         },
         ingestion_capabilities={
+            "mistral_ocr": IngestionCapabilityInfo(
+                available=mistral_ocr.available,
+                provider=mistral_ocr.provider,
+                missing=list(mistral_ocr.missing),
+                features=list(mistral_ocr.features),
+            ),
             "file_import": IngestionCapabilityInfo(
                 available=True,
                 provider="registry",

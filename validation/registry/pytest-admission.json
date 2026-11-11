@@ -164,9 +164,10 @@
     },
     {
       "path": "scenarios/browser/test_import_browser.py",
-      "sha256": "d329e6919b053905ddf2260d6af627a557de987302a064b32772eade4a5107f6",
+      "sha256": "d2e3add5ca96bce528138067045b1e9cff6f240e46671808a296e2414bb98caa",
       "kind": "behavioral",
       "tests": [
+        "test_ocr_image_default_can_be_saved_with_local_pdf_defaults",
         "test_document_import_modal_reports_completed_persisted_output",
         "test_queue_only_preserves_source_until_dashboard_processes_job",
         "test_import_submission_transport_failure_keeps_options_and_retry_works",
@@ -1681,7 +1682,7 @@
     },
     {
       "path": "scenarios/integration/core/test_mistral_ocr_contract.py",
-      "sha256": "9a57fae74bee15384b94066e3781b0ac1fa14fd5a91b4ccb73ed67814e3c171f",
+      "sha256": "da9b9ae9c21887526d6c8677ceefb600b782dd803a1172a788b8eda73041f127",
       "kind": "behavioral",
       "tests": [
         "test_ocr_enrichment_and_direct_document_transport",

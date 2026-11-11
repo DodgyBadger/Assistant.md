@@ -78,7 +78,7 @@
 
     function updateImportDefaultControls() {
         if (!elements.importPdfModeSelect || !elements.importPdfStrategySelect) return;
-        const capability = window.App?.metadata?.ingestion_capabilities?.pdf_ocr;
+        const capability = window.App?.metadata?.ingestion_capabilities?.mistral_ocr;
         const ocrAvailable = capability?.available === true;
         const missing = Array.isArray(capability?.missing)
             ? capability.missing.join(', ')
@@ -87,7 +87,7 @@
         const ocrOption = elements.importPdfStrategySelect.querySelector('option[value="ocr"]');
         if (ocrOption instanceof HTMLOptionElement) ocrOption.disabled = !ocrAvailable;
         if (elements.importCaptureOcrImagesCheckbox) {
-            elements.importCaptureOcrImagesCheckbox.disabled = !ocrAvailable || pageImages;
+            elements.importCaptureOcrImagesCheckbox.disabled = !ocrAvailable;
         }
         elements.importMarkdownOptions?.classList.toggle(
             'hidden',

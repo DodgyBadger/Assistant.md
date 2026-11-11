@@ -284,16 +284,16 @@
                                     </select>
                                 </label>
                                 <p id="import-pdf-strategy-help" class="text-xs text-txt-secondary"></p>
-                                <div id="import-ocr-options" class="flex items-center gap-4 flex-wrap border-t border-border-primary pt-3">
-                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Save images extracted by Mistral and rewrite matching Markdown image links. Increases response size and storage.">
-                                    <input id="import-capture-ocr-images" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
-                                    <span>Capture OCR images (PDF and image OCR)</span>
-                                </label>
-                                </div>
                             </div>
                             <div id="import-page-image-options" class="hidden rounded-md border border-border-primary bg-app-elevated p-3">
                                 <p class="text-sm font-medium text-txt-primary">Page Images</p>
                                 <p class="text-xs text-txt-secondary">Renders each PDF page as an image and creates a Markdown page index. Rendering options such as DPI, format, and page range will appear here.</p>
+                            </div>
+                            <div id="import-ocr-options" class="flex items-center gap-4 flex-wrap border-t border-border-primary pt-3">
+                                <label class="flex items-center gap-2 text-sm text-txt-primary" title="Save images extracted by Mistral and rewrite matching Markdown image links. Increases response size and storage.">
+                                    <input id="import-capture-ocr-images" type="checkbox" class="h-4 w-4 text-accent border-border-secondary rounded focus:ring-accent">
+                                    <span>Capture extracted images</span>
+                                </label>
                             </div>
                             <div class="flex justify-end">
                                 <button id="import-defaults-save" type="button" class="ui-button-primary">Save defaults</button>
