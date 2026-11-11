@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from uuid import uuid4
@@ -130,9 +132,11 @@ class GmailResourceService:
             },
         )
         try:
+            scope = self._attachment_scope(authority, selected)
             result = await self._client(authority, selected.connection_id).search(
                 query=query, max_results=effective
             )
+            self._assert_attachment_scope(authority, selected, scope)
         except Exception as exc:
             _log_failure(
                 "search",
@@ -157,7 +161,9 @@ class GmailResourceService:
         return (
             replace(
                 result,
-                messages=tuple(_attachment_handles(item) for item in result.messages),
+                messages=tuple(
+                    _attachment_handles(item, scope) for item in result.messages
+                ),
             ),
             capped,
         )
@@ -182,9 +188,11 @@ class GmailResourceService:
             },
         )
         try:
+            scope = self._attachment_scope(authority, selected)
             result = await self._client(authority, selected.connection_id).get_message(
                 message_id, max_characters=preferences.message_max_characters
             )
+            self._assert_attachment_scope(authority, selected, scope)
         except Exception as exc:
             _log_failure(
                 "get_message",
@@ -208,7 +216,7 @@ class GmailResourceService:
                 "operation_id": operation_id,
             },
         )
-        return _attachment_handles(result)
+        return _attachment_handles(result, scope)
 
     async def get_thread(
         self,
@@ -230,11 +238,13 @@ class GmailResourceService:
             },
         )
         try:
+            scope = self._attachment_scope(authority, selected)
             result = await self._client(authority, selected.connection_id).get_thread(
                 thread_id,
                 max_messages=preferences.thread_max_messages,
                 max_characters=preferences.message_max_characters,
             )
+            self._assert_attachment_scope(authority, selected, scope)
         except Exception as exc:
             _log_failure(
                 "get_thread",
@@ -259,7 +269,9 @@ class GmailResourceService:
         )
         return replace(
             result,
-            messages=tuple(_attachment_handles(item) for item in result.messages),
+            messages=tuple(
+                _attachment_handles(item, scope) for item in result.messages
+            ),
         )
 
     async def download_attachment(
@@ -299,15 +311,17 @@ class GmailResourceService:
             },
         )
         try:
+            scope = self._attachment_scope(authority, selected)
             client = self._client(authority, selected.connection_id)
             message = await client.get_message(message_id, max_characters=1)
+            self._assert_attachment_scope(authority, selected, scope)
             requested = attachment_id.strip()
             attachment = next(
                 (
                     item
                     for item in message.attachments
                     if (
-                        item.part_id == requested.removeprefix("part:")
+                        _attachment_handle(item, scope).attachment_id == requested
                         if requested.startswith("part:")
                         else item.attachment_id == requested
                     )
@@ -327,9 +341,18 @@ class GmailResourceService:
                     "Gmail attachment exceeds the configured size limit.",
                     category="attachment_too_large",
                 )
-            content = await client.download_attachment(
-                message_id, attachment.attachment_id, max_bytes=limit
-            )
+            try:
+                content = await client.download_attachment(
+                    message_id, attachment.attachment_id, max_bytes=limit
+                )
+            except GmailError as exc:
+                if exc.category != "not_found":
+                    raise
+                raise GmailError(
+                    "Attachment is no longer available in the selected message.",
+                    category="attachment_not_found",
+                ) from exc
+            self._assert_attachment_scope(authority, selected, scope)
         except Exception as exc:
             _log_failure(
                 "download_attachment",
@@ -352,7 +375,7 @@ class GmailResourceService:
             },
         )
         return GmailAttachmentDownload(
-            attachment=_attachment_handle(attachment), content=content
+            attachment=_attachment_handle(attachment, scope), content=content
         )
 
     async def create_draft(
@@ -445,6 +468,40 @@ class GmailResourceService:
         )
         return draft
 
+    def _attachment_scope(
+        self, authority: ExecutionAuthority, connection: GoogleConnection
+    ) -> str:
+        """Bind opaque handles to the authorized grant without exposing account IDs."""
+        current = self._connections.get_google_connection_for_authority(
+            authority, connection.connection_id
+        )
+        if current is None:
+            raise GmailError(
+                "Gmail connection changed during the operation.",
+                category="connection_changed",
+            )
+        grant = self._google.load_token_state(authority, current.connection_id)
+        if grant is None:
+            raise GmailConfigurationError(
+                "Reconnect Google before reading attachments."
+            )
+        identity = (
+            authority.principal_id,
+            connection.connection_id,
+            current.oauth_generation,
+            grant.account_id,
+        )
+        return hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+
+    def _assert_attachment_scope(
+        self, authority: ExecutionAuthority, connection: GoogleConnection, expected: str
+    ) -> None:
+        if self._attachment_scope(authority, connection) != expected:
+            raise GmailError(
+                "Gmail connection changed during the operation.",
+                category="connection_changed",
+            )
+
     def _preferences(
         self, authority: ExecutionAuthority, selector: str | None
     ) -> tuple[GoogleConnection, GmailPreferences]:
@@ -493,17 +550,22 @@ class GmailResourceService:
         )
 
 
-def _attachment_handle(attachment: GmailAttachment) -> GmailAttachment:
+def _attachment_handle(attachment: GmailAttachment, scope: str) -> GmailAttachment:
     """Expose the immutable part identity rather than a provider download token."""
     if attachment.part_id is None:
         return attachment
-    return replace(attachment, attachment_id=f"part:{attachment.part_id}")
+    return replace(
+        attachment,
+        attachment_id=f"part:{scope}:{attachment.message_id}:{attachment.part_id}",
+    )
 
 
-def _attachment_handles(message: GmailMessage) -> GmailMessage:
+def _attachment_handles(message: GmailMessage, scope: str) -> GmailMessage:
     return replace(
         message,
-        attachments=tuple(_attachment_handle(item) for item in message.attachments),
+        attachments=tuple(
+            _attachment_handle(item, scope) for item in message.attachments
+        ),
     )
 
 

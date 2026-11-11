@@ -239,6 +239,11 @@ class GmailAPIClient:
                 "Gmail attachment exceeds the configured size limit.",
                 category="attachment_too_large",
             )
+        if declared_size is not None and declared_size != len(content):
+            raise GmailError(
+                "Gmail attachment data does not match its declared size.",
+                category="provider_response",
+            )
         return content
 
     async def create_draft(

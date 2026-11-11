@@ -212,6 +212,11 @@ def _gmail_error_result(operation: str, exc: GmailError) -> ToolReturn:
             "Reconnect the selected Google account with the required Gmail permission "
             "before trying again."
         )
+    elif category == "connection_changed":
+        suggested_action = (
+            "Confirm the intended Gmail connection and read the message again with "
+            "get_message before downloading its attachments."
+        )
     elif category == "attachment_not_found":
         suggested_action = (
             "Read the selected message again with get_message and use an attachment_id "
