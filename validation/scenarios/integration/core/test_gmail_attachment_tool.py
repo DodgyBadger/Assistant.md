@@ -140,8 +140,10 @@ async def test_gmail_attachment_policy_and_numbered_tool_writes(
         )
 
 
+@pytest.mark.parametrize("read_operation", ["get_message", "get_thread"])
 async def test_gmail_read_attachment_handle_downloads_when_provider_tokens_change(
     app: Application,
+    read_operation: str,
 ) -> None:
     import base64
     from copy import deepcopy
@@ -179,16 +181,25 @@ async def test_gmail_read_attachment_handle_downloads_when_provider_tokens_chang
             "attachmentId"
         ] = "selected-token-new"
         content = b"PK\x03\x04document bytes"
-        provider.queue(payload=original)
+        provider.queue(
+            payload=(
+                original
+                if read_operation == "get_message"
+                else {"id": "thread-1", "messages": [original]}
+            )
+        )
         with use_execution_authority(authority):
             tool = Gmail.get_tool(str(vault))
             read = json.loads(
                 await tool.function(
-                    operation="get_message",
+                    operation=read_operation,
                     message_id="message-1",
+                    thread_id="thread-1",
                     connection=connection.slug,
                 )
             )
+            if read_operation == "get_thread":
+                read = read["messages"][0]
             descriptor = read["attachments"][1]
             provider.queue(payload=refreshed)
             provider.queue(
@@ -228,3 +239,172 @@ async def test_gmail_read_attachment_handle_downloads_when_provider_tokens_chang
             )
             assert missing.metadata["gmail_category"] == "attachment_not_found"
             assert "get_message" in missing.metadata["suggested_action"]
+            provider.queue(payload=refreshed)
+            provider.queue(status=404, payload={"error": {"message": "not found"}})
+            disappeared = await tool.function(
+                operation="download_attachment",
+                message_id=read["message_id"],
+                attachment_id=descriptor["attachment_id"],
+                connection=connection.slug,
+                destination_path="Inbox/disappeared.docx",
+            )
+            assert disappeared.metadata["gmail_category"] == "attachment_not_found"
+            assert "get_message" in disappeared.metadata["suggested_action"]
+            assert not (vault / "Inbox/disappeared.docx").exists()
+
+
+@pytest.mark.parametrize("mismatch", ["message", "connection", "reauthorized_account"])
+async def test_gmail_attachment_handles_reject_a_different_message_or_account(
+    app: Application, mismatch: str
+) -> None:
+    from dataclasses import replace
+
+    from core.identity import use_execution_authority
+    from core.runtime.state import get_runtime_context
+    from core.tools.gmail import Gmail
+    from validation.support.integrations.gmail_http import message_payload
+
+    vault = app.vault("GmailAttachmentBindingVault")
+    await app.start()
+    with gmail_server(app) as provider:
+        authority, connection, _, _ = configure_gmail(app, provider)
+        original = message_payload("message-1", "thread-1")
+        original["payload"]["parts"][1]["partId"] = "1"
+        provider.queue(payload=original)
+        with use_execution_authority(authority):
+            tool = Gmail.get_tool(str(vault))
+            read = json.loads(
+                await tool.function(
+                    operation="get_message",
+                    message_id="message-1",
+                    connection=connection.slug,
+                )
+            )
+            handle = read["attachments"][0]["attachment_id"]
+            target_message = "message-2" if mismatch == "message" else "message-1"
+            target_connection = connection
+            if mismatch == "connection":
+                _, target_connection, _, _ = configure_gmail(
+                    app,
+                    provider,
+                    name="Other mailbox",
+                    is_default=False,
+                )
+            elif mismatch == "reauthorized_account":
+                runtime = get_runtime_context()
+                state = runtime.google_connection.load_token_state(
+                    authority, connection.connection_id
+                )
+                assert state is not None
+                token = "SECOND_ACCOUNT_ACCESS_SENTINEL"
+                app.evidence.register_secret(token)
+                runtime.google_connection.save_token_state(
+                    authority,
+                    replace(
+                        state,
+                        account_id="other-mailbox",
+                        account_email="other@example.com",
+                        access_token=token,
+                    ),
+                    connection.connection_id,
+                )
+            target = message_payload(target_message, "thread-other")
+            target["payload"]["parts"][1]["partId"] = "1"
+            target["payload"]["parts"][1]["body"][
+                "attachmentId"
+            ] = "other-document-token"
+            provider.queue(payload=target)
+            before = len(provider.requests)
+            result = await tool.function(
+                operation="download_attachment",
+                message_id=target_message,
+                attachment_id=handle,
+                connection=target_connection.slug,
+                destination_path="Inbox/wrong-document.pdf",
+            )
+            assert not isinstance(result, str), result
+            assert result.metadata["gmail_category"] == "attachment_not_found"
+            assert not (vault / "Inbox/wrong-document.pdf").exists()
+            assert all(
+                "/attachments/" not in request["path"]
+                for request in provider.requests[before:]
+            )
+
+
+@pytest.mark.parametrize("phase", ["metadata", "download"])
+async def test_gmail_download_rejects_account_changes_while_provider_is_pending(
+    app: Application, phase: str
+) -> None:
+    from dataclasses import replace
+
+    from core.identity import use_execution_authority
+    from core.runtime.state import get_runtime_context
+    from core.tools.gmail import Gmail
+    from validation.support.integrations.gmail_http import message_payload
+
+    vault = app.vault("GmailPendingAccountVault")
+    await app.start()
+    with gmail_server(app) as provider:
+        authority, connection, _, _ = configure_gmail(app, provider)
+        descriptor = message_payload("message-1", "thread-1")
+        descriptor["payload"]["parts"][1]["partId"] = "1"
+        provider.queue(payload=descriptor)
+        with use_execution_authority(authority):
+            tool = Gmail.get_tool(str(vault))
+            read = json.loads(
+                await tool.function(
+                    operation="get_message",
+                    message_id="message-1",
+                    connection=connection.slug,
+                )
+            )
+            provider.queue(payload=descriptor, delay=0.3 if phase == "metadata" else 0)
+            if phase == "download":
+                provider.queue(payload={"size": 1, "data": "QQ"}, delay=0.3)
+            before = len(provider.requests)
+            pending = asyncio.create_task(
+                tool.function(
+                    operation="download_attachment",
+                    message_id="message-1",
+                    attachment_id=read["attachments"][0]["attachment_id"],
+                    connection=connection.slug,
+                    destination_path="Inbox/changed-account.pdf",
+                )
+            )
+            try:
+                async with asyncio.timeout(5):
+                    while not any(
+                        ("/attachments/" in request["path"]) == (phase == "download")
+                        for request in provider.requests[before:]
+                    ):
+                        await asyncio.sleep(0.01)
+                runtime = get_runtime_context()
+                state = runtime.google_connection.load_token_state(
+                    authority, connection.connection_id
+                )
+                assert state is not None
+                token = "PENDING_ACCOUNT_ACCESS_SENTINEL"
+                app.evidence.register_secret(token)
+                runtime.google_connection.save_token_state(
+                    authority,
+                    replace(
+                        state,
+                        account_id="new-pending-account",
+                        account_email="pending@example.com",
+                        access_token=token,
+                    ),
+                    connection.connection_id,
+                )
+                result = await pending
+                assert not isinstance(result, str), result
+                assert result.metadata["gmail_category"] == "connection_changed"
+                assert not (vault / "Inbox/changed-account.pdf").exists()
+                if phase == "metadata":
+                    assert all(
+                        "/attachments/" not in request["path"]
+                        for request in provider.requests[before:]
+                    )
+            finally:
+                if not pending.done():
+                    pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)

@@ -79,6 +79,11 @@ async def test_gmail_attachment_bounds_decode_and_retry_real_http(
             await client.download_attachment("message-1", "attachment-1", max_bytes=4)
         assert raised.value.category == "attachment_too_large"
         for response, category in [
+            ({"payload": {"size": 10, "data": ""}}, "provider_response"),
+            (
+                {"payload": {"size": 0, "data": "JVBERi0xLjcKZXhhbXBsZQ"}},
+                "provider_response",
+            ),
             ({"payload": {"size": 4, "data": "!invalid!"}}, "provider_response"),
             ({"body": b"not-json"}, "provider_response"),
             (

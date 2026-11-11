@@ -1294,11 +1294,13 @@
     },
     {
       "path": "scenarios/integration/core/test_gmail_attachment_tool.py",
-      "sha256": "98aa65aa2abcc7d3f7d247c207b73965e880e364a6fe19e323d27bf8902863b8",
+      "sha256": "2f3c71319a0a16bd1dcbf99b1a91944004faafce0edcdec9a3c3b5c5e9260366",
       "kind": "behavioral",
       "tests": [
         "test_gmail_attachment_policy_and_numbered_tool_writes",
-        "test_gmail_read_attachment_handle_downloads_when_provider_tokens_change"
+        "test_gmail_read_attachment_handle_downloads_when_provider_tokens_change",
+        "test_gmail_attachment_handles_reject_a_different_message_or_account",
+        "test_gmail_download_rejects_account_changes_while_provider_is_pending"
       ]
     },
     {
@@ -1345,7 +1347,7 @@
     },
     {
       "path": "scenarios/integration/core/test_gmail_http_failures.py",
-      "sha256": "6e826ff16bf66bfbb704ea1f3c1352d5f0dfe74e2c6cf2f72d44820df0c9a739",
+      "sha256": "e6a76c7d19ff78bce54f76baba570f3b7bd1c930de6cc03b55334888adc93bd8",
       "kind": "behavioral",
       "tests": [
         "test_gmail_draft_dispatch_outcomes_and_pre_request_authorization",
