@@ -812,6 +812,8 @@
             if (!activePickerId || !activeOptions) return;
             const overlay = document.getElementById(activePickerId);
             if (!(overlay instanceof HTMLElement)) return;
+            const closeButton = overlay.querySelector('[data-vault-path-picker-close]');
+            if (closeButton instanceof HTMLButtonElement) closeButton.disabled = isExplorerBusy();
             const readOnly = isReadOnly(activeOptions);
             explorerActions.syncSubmitState(overlay, readOnly);
             overlay.querySelectorAll('[data-vault-explorer-import-form] button[type="submit"]')

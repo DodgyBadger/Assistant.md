@@ -249,6 +249,7 @@ async def test_bulk_delete_across_folders_requires_confirmation_and_can_cancel(
     ).to_have_count(0)
     assert not (browser_app.vault / "Second").exists()
     await explorer.get_by_role("button", name="Close", exact=True).click()
+    await expect(explorer).to_have_count(0)
     await ui.locator("#dashboard-tab").click()
     await ui.locator("#dashboard-vault-activity-section > summary").click()
     await ui.get_by_role("button", name="Refresh Activity", exact=True).click()
@@ -258,6 +259,29 @@ async def test_bulk_delete_across_folders_requires_confirmation_and_can_cancel(
     await activity.get_by_role("button", name="Rollback activity", exact=True).click()
     await expect(activity).to_have_count(0)
     assert (browser_app.vault / "Second/Keep.md").read_text() == "retain"
+
+
+async def test_explorer_close_waits_for_delete_refresh(browser_app, ui):
+    browser_app.app.write(browser_app.vault, "Delete.md", "temporary note")
+    explorer = await open_explorer(ui, browser_app)
+    await explorer.get_by_role("checkbox", name="Select Delete.md", exact=True).check()
+    await explorer.get_by_role("button", name="Delete", exact=True).click()
+    close = explorer.get_by_role("button", name="Close", exact=True)
+    # Delay delivery of the real refresh response, keeping application services real.
+    async with hold_delivery(
+        ui,
+        browser_app.app,
+        browser_app.url + f"/api/vaults/{browser_app.vault.name}/file-refs?scope=vault",
+        first_only=True,
+    ) as refresh:
+        form = explorer.locator("[data-vault-explorer-mutation-form]")
+        await form.get_by_role("button", name="Delete", exact=True).click()
+        await asyncio.wait_for(refresh.held.wait(), 10)
+        assert not (browser_app.vault / "Delete.md").exists()
+        await expect(close).to_be_disabled()
+        refresh.release.set()
+    await close.click()
+    await expect(explorer).to_have_count(0)
 
 
 @pytest.mark.parametrize("action", ["expand", "create"])
