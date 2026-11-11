@@ -2,14 +2,17 @@
 
 ## v0.9.5
 
-- Improved recall in long-running chats: the assistant can trace conversations chronologically and retrieve earlier plans and recommendations after compaction.
+Expanded the files types that Assistant.md can work with 
 - Copy files of any type within the vault, including PDFs, Office documents, and files produced by the advanced shell.
 - Read and edit plain-text files such as JSON, YAML, CSV, and source code. Markdown remains the preferred format for notes and analysis.
 - Download Gmail attachments of any type directly into the vault.
-- Delete multiple files or entire folders together, with one approval card when inline edit mode is enabled.
+- Import Word and PowerPoint into Markdown via Mistral OCR (if enabled), with optional image extraction.
+
+Other
+- Improved recall in long-running chats: the assistant can trace conversations chronologically and retrieve earlier plans and recommendations after compaction.
 - Added protection against deleting the vault root and improved recovery of deleted folders, including their empty subfolders.
 - Scheduled workflows recover automatically after temporary storage failures, with clearer scheduler status and recovery logs.
-- Import Word documents and PowerPoint presentations into Markdown, with optional image extraction.
+- Delete multiple files or entire folders together, with one approval card when inline edit mode is enabled.
 
 ## v0.9.4
 
