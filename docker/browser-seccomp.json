@@ -60,8 +60,9 @@
   ],
   "syscalls": [
     {
-      "comment": "AssistantMD modification: permit Chromium to create its nested sandbox namespaces.",
+      "comment": "AssistantMD modification: permit Chromium to construct its nested sandbox, including chroot when container capabilities are dropped.",
       "names": [
+        "chroot",
         "clone",
         "setns",
         "unshare"

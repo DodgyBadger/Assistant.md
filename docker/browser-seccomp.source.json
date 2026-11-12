@@ -5,7 +5,8 @@
   "license": "Apache-2.0",
   "license_file": "browser-seccomp.LICENSE",
   "modifications": [
-    "Added an unconditional allow rule for clone, setns and unshare to support the Chromium sandbox. All upstream rules and other top-level fields are retained."
+    "Added an unconditional allow rule for chroot, clone, setns and unshare to support Chromium sandbox construction. All upstream rules and other top-level fields are retained.",
+    "The explicit chroot allowance is required with cap-drop ALL: the upstream CAP_SYS_CHROOT-conditioned rule is filtered using the initial container bounding set, before Chromium gains capabilities inside its new user namespace. Kernel capability checks still apply."
   ],
   "maintenance": "Review changes against supported Docker runtime defaults when refreshing this pinned profile; do not replace it with an older browser-vendor profile."
 }
