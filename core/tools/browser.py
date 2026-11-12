@@ -9,10 +9,7 @@ blocked, and browser state is isolated per call.
 
 from __future__ import annotations
 
-import asyncio
-from collections import OrderedDict
 from pathlib import Path
-from threading import BoundedSemaphore, Lock
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -20,13 +17,11 @@ from markdownify import markdownify as html_to_markdown
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
+from core.browser.service import BrowserAdmissionError
 from core.logger import UnifiedLogger
-from core.runtime.execution_tasks import get_current_execution_task
 from core.runtime.resources import read_cgroup_memory_status
+from core.runtime.state import get_runtime_context
 from core.settings import (
-    get_browser_max_calls_per_turn,
-    get_browser_max_concurrent_sessions,
-    get_browser_min_memory_headroom_bytes,
     get_browser_navigation_timeout_seconds,
     get_browser_selector_timeout_seconds,
     get_default_api_timeout,
@@ -56,13 +51,6 @@ class BrowserTool(BaseTool):
     _MAX_EXTRACTED_TEXT_CHARS = 40_000
     _MAX_FALLBACK_HTML_CHARS = 120_000
     _MIN_PRIMARY_TEXT_CHARS = 500
-    _MAX_TRACKED_CALL_SCOPES = 1024
-    _session_semaphore: BoundedSemaphore | None = None
-    _session_semaphore_limit = 0
-    _active_sessions = 0
-    _session_state_lock = Lock()
-    _call_counts: OrderedDict[str, int] = OrderedDict()
-    _call_counts_lock = Lock()
 
     @staticmethod
     def _get_process_rss_bytes() -> int | None:
@@ -138,7 +126,8 @@ class BrowserTool(BaseTool):
                         - Browser state is isolated per call.
             """
             try:
-                cls._record_scoped_call()
+                service = get_runtime_context().browser
+                service.record_call()
                 cls._log_event(
                     "tool_invoked",
                     tool="browser",
@@ -149,9 +138,7 @@ class BrowserTool(BaseTool):
                     extract_selector=extract_selector.strip() or None,
                     include_links=include_links,
                 )
-                semaphore = await cls._acquire_session_slot()
-                try:
-                    cls._assert_memory_headroom()
+                with service.reserve():
                     return await cls._browse(
                         url=url,
                         goal=goal,
@@ -160,8 +147,6 @@ class BrowserTool(BaseTool):
                         extract_selector=extract_selector,
                         include_links=include_links,
                     )
-                finally:
-                    cls._release_session_slot(semaphore)
             except Exception as exc:  # pylint: disable=broad-except
                 safe_error = sanitize_urls_in_text_for_log(str(exc)).replace(
                     url, sanitize_url_for_log(url)
@@ -180,7 +165,14 @@ class BrowserTool(BaseTool):
                     classification=classify_exception(
                         safe_exc, phase="browser_navigation"
                     ),
-                    metadata={"url": sanitize_url_for_log(url)},
+                    metadata={
+                        "url": sanitize_url_for_log(url),
+                        **(
+                            {"reason": exc.reason}
+                            if isinstance(exc, BrowserAdmissionError)
+                            else {}
+                        ),
+                    },
                 )
 
         return Tool(
@@ -190,80 +182,6 @@ class BrowserTool(BaseTool):
                 "Open a dynamic web page in a headless browser and extract content "
                 "from the main page region. Prefer web_extract for ordinary static pages."
             ),
-        )
-
-    @classmethod
-    async def _acquire_session_slot(cls) -> BoundedSemaphore:
-        """Acquire one process-wide Chromium slot without blocking the event loop."""
-        while True:
-            limit = get_browser_max_concurrent_sessions()
-            with cls._session_state_lock:
-                if cls._session_semaphore is None or (
-                    cls._session_semaphore_limit != limit and cls._active_sessions == 0
-                ):
-                    cls._session_semaphore = BoundedSemaphore(limit)
-                    cls._session_semaphore_limit = limit
-                semaphore = cls._session_semaphore
-                if semaphore.acquire(blocking=False):
-                    cls._active_sessions += 1
-                    return semaphore
-            await asyncio.sleep(0.05)
-
-    @classmethod
-    def _release_session_slot(cls, semaphore: BoundedSemaphore) -> None:
-        with cls._session_state_lock:
-            semaphore.release()
-            cls._active_sessions = max(0, cls._active_sessions - 1)
-
-    @classmethod
-    def _record_scoped_call(cls) -> None:
-        limit = get_browser_max_calls_per_turn()
-        if limit <= 0:
-            return
-        execution_task = get_current_execution_task()
-        if execution_task is not None:
-            scope = execution_task.task_id
-        else:
-            current = asyncio.current_task()
-            scope = f"unscoped:{id(current)}"
-        with cls._call_counts_lock:
-            count = cls._call_counts.pop(scope, 0) + 1
-            cls._call_counts[scope] = count
-            while len(cls._call_counts) > cls._MAX_TRACKED_CALL_SCOPES:
-                cls._call_counts.popitem(last=False)
-        if count > limit:
-            cls._log_event(
-                "browser_launch_refused",
-                tool="browser",
-                reason="task_call_limit",
-                call_count=count,
-                call_limit=limit,
-            )
-            raise RuntimeError(
-                f"Browser call limit exceeded for this execution task ({limit}). "
-                "Use web_extract for static pages or continue in a new scoped task."
-            )
-
-    @classmethod
-    def _assert_memory_headroom(cls) -> None:
-        required = get_browser_min_memory_headroom_bytes()
-        if required <= 0:
-            return
-        memory = read_cgroup_memory_status()
-        available = memory.available_bytes
-        if available is None or available >= required:
-            return
-        cls._log_event(
-            "browser_launch_refused",
-            tool="browser",
-            reason="memory_headroom",
-            available_bytes=available,
-            required_bytes=required,
-        )
-        raise RuntimeError(
-            "Insufficient container memory headroom for Chromium launch: "
-            f"{available // (1024 * 1024)} MiB available, "
-            f"{required // (1024 * 1024)} MiB required."
         )
 
     @classmethod

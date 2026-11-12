@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from core.advanced_shell.capability import AdvancedShellCapabilityService
 from core.authoring.template_discovery import WorkflowLoader, seed_system_templates
+from core.browser.service import BrowserService
 from core.chat.chat_store import ChatStore
 from core.chat.session_access import ChatSessionAccessService
 from core.connections import BuiltInConnectionService
@@ -283,10 +284,12 @@ async def bootstrap_runtime(
         except Exception:
             pass
 
+        browser = BrowserService()
         task_coordinator = TaskCoordinator(
             terminal_observers=[
                 handle_task_terminal_for_rollback,
                 handle_task_terminal_for_activity,
+                browser.on_task_terminal,
             ],
         )
         background_tasks: set[asyncio.Task] = set()
@@ -373,6 +376,7 @@ async def bootstrap_runtime(
             ingestion_worker=ingestion_worker,
             ingestion_interval=ingestion_interval,
             task_coordinator=task_coordinator,
+            browser=browser,
             authorization=authorization,
             execution_task_access=execution_task_access,
             chat_store=chat_store,
@@ -451,6 +455,11 @@ async def bootstrap_runtime(
             e.add_note(f"Bootstrap failure logging failed: {type(log_error).__name__}")
 
         # Attempt cleanup of any partially initialized services
+        try:
+            if "browser" in locals():
+                await browser.shutdown()
+        except BaseException as cleanup_error:
+            e.add_note(f"Browser cleanup failed: {type(cleanup_error).__name__}")
         try:
             if "scheduler" in locals() and scheduler and scheduler.running:
                 scheduler.shutdown(wait=False)

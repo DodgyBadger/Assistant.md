@@ -16,6 +16,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from core.advanced_shell.capability import AdvancedShellCapabilityService
 from core.authoring.template_discovery import WorkflowLoader
+from core.browser.service import BrowserService
 from core.chat.chat_store import ChatStore
 from core.chat.session_access import ChatSessionAccessService
 from core.connections import BuiltInConnectionService
@@ -77,6 +78,7 @@ class RuntimeContext:
     ingestion_worker: IngestionWorker
     ingestion_interval: int
     task_coordinator: TaskCoordinator
+    browser: BrowserService
     authorization: AuthorizationService
     execution_task_access: ExecutionTaskAccessService
     chat_store: ChatStore
@@ -113,26 +115,30 @@ class RuntimeContext:
         self.logger.info("Shutting down runtime context")
 
         await self.task_coordinator.shutdown(reason="runtime_shutdown")
+        try:
+            await self.browser.shutdown()
+        finally:
+            if self.mcp_oauth is not None:
+                await self.mcp_oauth.shutdown()
 
-        if self.mcp_oauth is not None:
-            await self.mcp_oauth.shutdown()
+            if self.mcp_manager is not None:
+                await self.mcp_manager.shutdown()
 
-        if self.mcp_manager is not None:
-            await self.mcp_manager.shutdown()
+            if self.background_tasks:
+                for task in list(self.background_tasks):
+                    task.cancel()
+                await asyncio.gather(*self.background_tasks, return_exceptions=True)
+                self.background_tasks.clear()
 
-        if self.background_tasks:
-            for task in list(self.background_tasks):
-                task.cancel()
-            await asyncio.gather(*self.background_tasks, return_exceptions=True)
-            self.background_tasks.clear()
+            await self.task_coordinator.mark_unfinished_cancelled(
+                reason="runtime_shutdown"
+            )
 
-        await self.task_coordinator.mark_unfinished_cancelled(reason="runtime_shutdown")
+            if self.scheduler and self.scheduler.running:
+                self.scheduler.shutdown(wait=True)
 
-        if self.scheduler and self.scheduler.running:
-            self.scheduler.shutdown(wait=True)
-
-        # Clear global runtime context to allow clean restart
-        runtime_state.clear_runtime_context()
+            # Clear global runtime context to allow clean restart
+            runtime_state.clear_runtime_context()
 
     def sync_shutdown(self) -> asyncio.Task[None] | None:
         """

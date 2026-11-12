@@ -452,10 +452,12 @@
     },
     {
       "path": "scenarios/integration/core/test_browser_call_budget.py",
-      "sha256": "fa5bf1ea772d68342cc9c865ca405a09fbe4e723b36955da4516b6d84f86e30f",
+      "sha256": "6a97294d7a6eef6c37400d6c31d9d471e508f3eb21d7ca8c28a00be944d1c9e2",
       "kind": "behavioral",
       "tests": [
-        "test_browser_budget_is_scoped_to_actual_execution_task"
+        "test_browser_budget_is_scoped_to_actual_execution_task",
+        "test_browser_capacity_refuses_without_queueing_and_releases_after_denial",
+        "test_runtime_shutdown_drains_inflight_browser_admission"
       ]
     },
     {
@@ -3521,6 +3523,11 @@
       "path": "support/workflows/workflows.py",
       "sha256": "c0d4e82e1696ba701e327a530d8b6a85c9dd43f6ad3adac7a9e109bfb2d3e371",
       "kind": "support"
+    },
+    {
+      "path": "support/browser/admission.py",
+      "kind": "support",
+      "sha256": "c5dc0525a8a12d6def12f70d76e3edde8b61b6e37b915f5651dca096b7c0e250"
     }
   ]
 }
