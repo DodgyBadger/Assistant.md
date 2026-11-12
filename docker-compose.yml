@@ -42,6 +42,7 @@ services:
     # Security options
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/browser-seccomp.json
 
     # Health check
     # healthcheck:

@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/moby/profiles/blob/7b5ccfab2d6b4e0aa64c6cce401a2705788eafeb/seccomp/default.json",
+  "revision": "7b5ccfab2d6b4e0aa64c6cce401a2705788eafeb",
+  "baseline_sha256": "15434cc9c9037d85b35027a60721bf45f381782b4283b01d94663366e71569f8",
+  "license": "Apache-2.0",
+  "license_file": "browser-seccomp.LICENSE",
+  "modifications": [
+    "Added an unconditional allow rule for clone, setns and unshare to support the Chromium sandbox. All upstream rules and other top-level fields are retained."
+  ],
+  "maintenance": "Review changes against supported Docker runtime defaults when refreshing this pinned profile; do not replace it with an older browser-vendor profile."
+}
