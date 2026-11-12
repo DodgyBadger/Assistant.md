@@ -3528,6 +3528,14 @@
       "path": "support/browser/admission.py",
       "kind": "support",
       "sha256": "c5dc0525a8a12d6def12f70d76e3edde8b61b6e37b915f5651dca096b7c0e250"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_settings.py",
+      "kind": "behavioral",
+      "sha256": "24bd75971a31db623d9059048c7ced31084bc7525d2fcf868586369e88372469",
+      "tests": [
+        "test_browser_idle_timeout_defaults_override_rejection_and_restore"
+      ]
     }
   ]
 }

@@ -150,6 +150,11 @@ settings:
     description: "Selector wait timeout in seconds for the browser extraction tool."
     category: "Browser and API"
     restart_required: false
+  browser_idle_timeout_seconds:
+    value: 600
+    description: "Seconds of browser inactivity before closing its session, including while waiting for human help. Browser actions and human input refresh the timeout; preview polling does not."
+    category: "Browser and API"
+    restart_required: false
   browser_max_concurrent_sessions:
     value: 1
     description: "Maximum Chromium sessions allowed at once. Keep at 1 on the standard 2 GB deployment profile."

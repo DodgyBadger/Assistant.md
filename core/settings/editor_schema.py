@@ -86,6 +86,7 @@ _BOUNDS = {
     "max_concurrent_delegates": (0, 32),
     "mcp_max_concurrent_advanced_shell_stdio_launches": (1, 32),
     "browser_max_concurrent_sessions": (1, 8),
+    "browser_idle_timeout_seconds": (1, 86400),
     "compaction_retained_turns": (1, 100),
 }
 _RELATIONSHIPS = (
