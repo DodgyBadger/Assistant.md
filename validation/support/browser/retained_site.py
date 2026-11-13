@@ -38,6 +38,10 @@ class BrowserSite:
     mutation_applied: Event = field(default_factory=Event)
     hold_submission: bool = False
     release_submission: Event = field(default_factory=Event)
+    script_requested: Event = field(default_factory=Event)
+    release_script: Event = field(default_factory=Event)
+    receipt_reads: int = 0
+    cookie_paths: set[str] = field(default_factory=set)
 
     def url(self, path: str) -> str:
         return f"http://{HOST}:{self.port}{path}"
@@ -52,6 +56,9 @@ def retained_browser_site(
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path == "/slow-script":
+                site.script_requested.set()
+                site.release_script.wait(30)
             if self.path == "/wait-mutation":
                 site.mutate.wait(10)
             if self.path == "/mutation-applied":
@@ -72,12 +79,16 @@ def retained_browser_site(
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
-            if self.path in site.pages:
-                body = site.pages[self.path]
-            elif self.path == "/prime":
+            if self.path == "/prime" or self.path in site.cookie_paths:
                 self.send_header(
                     "Set-Cookie", f"session={COOKIE}; HttpOnly; SameSite=Lax; Path=/"
                 )
+            if self.path == "/receipt":
+                site.receipt_reads += 1
+                body = f"<main>Recorded submissions: {len(site.submissions)}</main>".encode()
+            elif self.path in site.pages:
+                body = site.pages[self.path]
+            elif self.path == "/prime":
                 body = b"<main>Session established</main>"
             else:
                 body = (
@@ -179,6 +190,7 @@ def retained_browser_site(
         site.release_slow.set()
         site.mutate.set()
         site.release_submission.set()
+        site.release_script.set()
         os.close(read_fd)
         if display.poll() is None:
             display.terminate()

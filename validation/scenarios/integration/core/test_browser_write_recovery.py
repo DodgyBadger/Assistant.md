@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from pydantic_ai.messages import ToolReturn
+from pydantic_ai.messages import ToolReturn, ToolReturnPart
 
 from validation.support.application import Application
 from validation.support.browser.retained_site import browser_turn, retained_browser_site
@@ -93,6 +93,25 @@ async def test_browser_write_is_not_replayed_after_provider_or_action_failure(
                 )
                 if uncertain:
                     assert "uncertain" in returned[0]["content"]
+                    from core.runtime.state import get_runtime_context
+
+                    history = (
+                        get_runtime_context().chat_store.get_history(
+                            "browser-write-recovery", vault.name, mode="raw"
+                        )
+                        or []
+                    )
+                    uncertain_parts = [
+                        part
+                        for message in history
+                        for part in message.parts
+                        if isinstance(part, ToolReturnPart)
+                        and part.tool_name == "browser"
+                        and isinstance(part.metadata, dict)
+                        and part.metadata.get("completion_uncertain") is True
+                    ]
+                    assert len(uncertain_parts) == 1
+                    assert uncertain_parts[0].metadata["requires_inspection"] is True
                     rejected = await browser_turn(
                         app,
                         vault.name,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from playwright.async_api import (
@@ -11,11 +12,13 @@ from playwright.async_api import (
     Error,
     Frame,
     Page,
+    Response,
     Route,
     WebSocketRoute,
 )
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from core.logger import UnifiedLogger
 from core.web.errors import WebUrlPolicyError
 from core.web.security import sanitize_url_for_log
 
@@ -24,8 +27,10 @@ from .observation import (
     ActionOperation,
     BrowserElement,
     BrowserInteractionError,
+    BrowserReadDeadline,
     PageObservation,
 )
+from .operations import BrowserOperations
 
 
 @dataclass(frozen=True)
@@ -51,6 +56,10 @@ class BrowserSession:
     observation: PageObservation | None = None
     _popup_closures: set[asyncio.Task[None]] = field(default_factory=set)
     _popup_overflow: bool = False
+    _denied_requests: int = 0
+    _navigations: BrowserOperations[Response | None] = field(
+        default_factory=BrowserOperations
+    )
 
     async def prepare(self) -> None:
         await self.context.route("**/*", self._route)
@@ -84,24 +93,49 @@ class BrowserSession:
             raise BrowserInteractionError("observation_failed")
         if url:
             await observation.invalidate()
+            previous_document = await observation.document_identity()
+            denied_before = self._denied_requests
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-            except (PlaywrightTimeoutError, asyncio.CancelledError) as error:
+                await self._navigations.run(
+                    page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                )
+            except PlaywrightTimeoutError:
+                UnifiedLogger(tag="browser-runtime").set_sinks(["validation"]).info(
+                    "Browser navigation deadline recovery started",
+                    data={
+                        "event": "browser_navigation_deadline",
+                        "status": "started",
+                        "browser_id": self.browser_id,
+                        "page_id": self.page_id,
+                    },
+                )
+                await observation.stop_loading()
+                committed_after_stop = await observation.document_identity()
+                if self._denied_requests != denied_before:
+                    raise BrowserInteractionError("destination_denied") from None
+                retained = (
+                    self.has_retained_document()
+                    and not observation.broken
+                    and committed_after_stop.web_document
+                )
+                raise BrowserReadDeadline(
+                    self.browser_id,
+                    self.page_id,
+                    sanitize_url_for_log(page.url)[:2048],
+                    page_retained=retained,
+                    help_eligible=(
+                        retained and committed_after_stop != previous_document
+                    ),
+                ) from None
+            except asyncio.CancelledError as error:
                 # Playwright's navigation deadline does not stop the remote
                 # load. Abort it before releasing ownership, without replaying
                 # a request or waiting for a document execution context.
-                try:
-                    await observation.stop_loading()
-                except asyncio.CancelledError:
-                    if not isinstance(error, asyncio.CancelledError):
-                        raise
-                    error.add_note(
-                        "Navigation stop interrupted by repeated cancellation"
-                    )
-                except BaseException as cleanup_error:
-                    error.add_note(
-                        f"Navigation stop failed: {type(cleanup_error).__name__}"
-                    )
+                await self._stop_after_cancel(error)
+                raise
+            except Error:
+                if self._denied_requests != denied_before:
+                    raise BrowserInteractionError("destination_denied") from None
                 raise
         content = await observation.read()
         self.revision += 1
@@ -150,10 +184,27 @@ class BrowserSession:
             if dispatched:
                 raise BrowserInteractionError("action_uncertain") from None
             raise
-        except (Error, TimeoutError):
+        except (PlaywrightTimeoutError, TimeoutError):
+            await observation.stop_loading()
             raise BrowserInteractionError("action_uncertain") from None
+        except Error:
+            raise BrowserInteractionError("action_uncertain") from None
+        except asyncio.CancelledError as error:
+            await self._stop_after_cancel(error)
+            raise
         finally:
             page.remove_listener("framenavigated", navigated)
+
+    async def _stop_after_cancel(self, error: asyncio.CancelledError) -> None:
+        observation = self.observation
+        if observation is None or observation.broken:
+            return
+        try:
+            await observation.stop_loading()
+        except asyncio.CancelledError:
+            error.add_note("Navigation stop interrupted by repeated cancellation")
+        except BaseException as cleanup_error:
+            error.add_note(f"Navigation stop failed: {type(cleanup_error).__name__}")
 
     async def dispose(self) -> None:
         if self.observation is not None:
@@ -161,6 +212,13 @@ class BrowserSession:
 
     def needs_disposal(self) -> bool:
         return self.observation is not None and self.observation.broken
+
+    def has_retained_document(self) -> bool:
+        return (
+            self.is_usable()
+            and self.page is not None
+            and urlsplit(self.page.url).scheme in {"http", "https"}
+        )
 
     def is_usable(self) -> bool:
         return (
@@ -179,7 +237,11 @@ class BrowserSession:
                 await route.abort("blockedbyclient")
                 return
             await self.resolver.resolve(route.request.url)
-        except (WebUrlPolicyError, BrowserNetworkError, Error):
+        except WebUrlPolicyError:
+            self._denied_requests += 1
+            await route.abort("blockedbyclient")
+            return
+        except (BrowserNetworkError, Error):
             await route.abort("blockedbyclient")
             return
         await route.continue_()

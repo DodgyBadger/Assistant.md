@@ -19,7 +19,11 @@ from markdownify import markdownify as html_to_markdown
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
-from core.browser.observation import BrowserInteractionError
+from core.browser.observation import (
+    BrowserActionUncertain,
+    BrowserInteractionError,
+    BrowserReadDeadline,
+)
 from core.browser.service import BrowserAdmissionError
 from core.logger import UnifiedLogger
 from core.runtime.resources import read_cgroup_memory_status
@@ -204,14 +208,28 @@ class BrowserTool(BaseTool):
                     error=safe_error,
                 )
                 safe_exc = RuntimeError(safe_error)
+                recovery_metadata: dict[str, str | bool] = (
+                    {"help_eligible": False} if interactive else {}
+                )
+                if interactive and isinstance(
+                    exc, BrowserReadDeadline | BrowserActionUncertain
+                ):
+                    recovery_metadata.update(exc.metadata())
                 return tool_failure_return(
                     tool_name="browser",
                     message=cls._format_error(safe_error),
                     classification=classify_exception(
-                        safe_exc, phase="browser_navigation"
+                        safe_exc,
+                        phase=(
+                            "browser_action"
+                            if interactive
+                            and operation in {"click", "fill", "select", "scroll"}
+                            else "browser_navigation"
+                        ),
                     ),
                     metadata={
                         "url": sanitize_url_for_log(url),
+                        **recovery_metadata,
                         **(
                             {"reason": exc.reason}
                             if isinstance(

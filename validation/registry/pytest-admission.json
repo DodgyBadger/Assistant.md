@@ -3540,7 +3540,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "1e6d1487b27fbc20be16c34ffa45edae987f42b403a14268ad63223f5ee49f0a"
+      "sha256": "dc3cca462049e63abeeaacfa8e5504fbdfa9acf98b967a6ea1703ba184d85f56"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3600,9 +3600,23 @@
     {
       "path": "scenarios/integration/core/test_browser_write_recovery.py",
       "kind": "behavioral",
-      "sha256": "520a0d5188cd9cdaad2d4bf0c061ccb9546a6e9114c7b153ee53c1af0e39905c",
+      "sha256": "184af4ae75bdd46f13b32bcc63b63e457929cf754148fe9be4beec70bb696828",
       "tests": [
         "test_browser_write_is_not_replayed_after_provider_or_action_failure"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_deadlines.py",
+      "kind": "behavioral",
+      "sha256": "f253c28c44138386e7ec4118e84df572ca3eba8b4bf01c4b22b3c00c75ba7725",
+      "tests": [
+        "test_committed_page_read_deadline_retains_same_page_for_help",
+        "test_uncommitted_navigation_does_not_offer_help_for_requested_site",
+        "test_private_target_is_not_a_human_help_deadline",
+        "test_delayed_post_requires_fresh_inspection_without_duplicate_submission",
+        "test_unconfirmed_deadline_cleanup_never_advertises_human_help",
+        "test_stop_before_navigation_deadline_is_cancellation_without_help",
+        "test_history_change_on_old_document_cannot_attest_new_navigation_commit"
       ]
     }
   ]

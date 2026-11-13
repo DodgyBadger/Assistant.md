@@ -21,13 +21,73 @@ _SCRIPT = Path(__file__).with_suffix(".js").read_text(encoding="utf-8")
 class BrowserInteractionError(RuntimeError):
     """Only bounded domain reasons may cross the action/logging boundary."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, message: str | None = None) -> None:
         self.reason = reason
-        if reason in {"action_uncertain", "browser_unresponsive"}:
-            message = f"Browser operation completion is uncertain ({reason}); inspect the website state before another write. Do not repeat the action automatically."
-        else:
-            message = f"Browser interaction {reason}; read a fresh observation before retrying"
+        if message is None:
+            if reason in {"action_uncertain", "browser_unresponsive"}:
+                message = f"Browser operation completion is uncertain ({reason}); inspect the website state before another write. Do not repeat the action automatically."
+            else:
+                message = f"Browser interaction {reason}; read a fresh observation before retrying"
         super().__init__(message)
+
+
+class BrowserReadDeadline(BrowserInteractionError):
+    """A navigation readiness deadline, with service-attested retained state."""
+
+    def __init__(
+        self,
+        browser_id: str,
+        page_id: str,
+        retained_url: str,
+        *,
+        page_retained: bool,
+        help_eligible: bool,
+    ) -> None:
+        self.browser_id = browser_id
+        self.page_id = page_id
+        self.retained_url = retained_url
+        self.page_retained = page_retained
+        self.help_eligible = help_eligible and page_retained
+        message = (
+            "Browser read deadline; read the current page without a URL to inspect retained state before retrying navigation."
+            if page_retained
+            else "Browser read deadline; no usable page was retained. Open a new URL to continue."
+        )
+        super().__init__("read_deadline", message)
+
+    def metadata(self) -> dict[str, str | bool]:
+        data: dict[str, str | bool] = {
+            "page_retained": self.page_retained,
+            "help_eligible": self.help_eligible,
+        }
+        if self.page_retained:
+            data.update(
+                browser_id=self.browser_id,
+                page_id=self.page_id,
+                retained_url=self.retained_url,
+            )
+        return data
+
+
+class BrowserActionUncertain(BrowserInteractionError):
+    """A dispatched action may have completed; its reference cannot be reused."""
+
+    def __init__(self) -> None:
+        super().__init__("action_uncertain")
+
+    def metadata(self) -> dict[str, bool]:
+        return {
+            "help_eligible": False,
+            "completion_uncertain": True,
+            "requires_inspection": True,
+        }
+
+
+@dataclass(frozen=True)
+class BrowserDocument:
+    frame_id: str
+    loader_id: str
+    web_document: bool
 
 
 @dataclass(frozen=True)
@@ -221,8 +281,12 @@ class PageObservation:
         except Error:
             raise BrowserInteractionError("action_uncertain") from None
         except TimeoutError:
-            self.broken = True
-            raise BrowserInteractionError("browser_unresponsive") from None
+            try:
+                await self.stop_loading()
+            except BaseException as exc:
+                primary = exc
+                raise
+            raise BrowserInteractionError("action_uncertain") from None
         except BaseException as exc:
             primary = exc
             raise
@@ -259,6 +323,34 @@ class PageObservation:
             async with asyncio.timeout(1):
                 await self._send("Page.stopLoading")
         except (Error, TimeoutError):
+            self.broken = True
+            raise BrowserInteractionError("browser_unresponsive") from None
+        except asyncio.CancelledError:
+            self.broken = True
+            raise
+
+    async def document_identity(self) -> BrowserDocument:
+        """A history/hash event does not change the committed loader identity."""
+        try:
+            async with asyncio.timeout(1):
+                result = await self._send("Page.getFrameTree")
+            frame = result["frameTree"]["frame"]
+            frame_id, loader_id = frame["id"], frame["loaderId"]
+            if (
+                not isinstance(frame_id, str)
+                or not isinstance(loader_id, str)
+                or len(frame_id) > 128
+                or len(loader_id) > 128
+            ):
+                raise ValueError("Invalid browser document identity")
+            url = frame.get("url")
+            web_document = (
+                isinstance(url, str)
+                and url.startswith(("http://", "https://"))
+                and not frame.get("unreachableUrl")
+            )
+            return BrowserDocument(frame_id, loader_id, bool(web_document))
+        except (Error, TimeoutError, KeyError, TypeError, ValueError):
             self.broken = True
             raise BrowserInteractionError("browser_unresponsive") from None
         except asyncio.CancelledError:

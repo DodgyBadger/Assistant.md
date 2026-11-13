@@ -28,10 +28,16 @@ from core.settings import (
     get_browser_min_memory_headroom_bytes,
     get_browser_navigation_timeout_seconds,
 )
+from core.web.errors import WebUrlPolicyError
 
 from .engine import BrowserEngine
 from .network import BrowserEgress, BrowserResolver
-from .observation import ActionOperation, BrowserInteractionError
+from .observation import (
+    ActionOperation,
+    BrowserActionUncertain,
+    BrowserInteractionError,
+    BrowserReadDeadline,
+)
 from .operations import BrowserOperations
 from .session import BrowserSession, BrowserView
 
@@ -114,8 +120,7 @@ class BrowserService:
 
     async def read_current(self, url: str) -> BrowserView:
         key = await self._current_chat()
-        lock = self._session_lock(key)
-        async with asyncio.timeout(20), lock:
+        async with self._agent_operation(key):
             self._require_open()
             await self._current_chat()
             logger.set_sinks(["validation"]).info(
@@ -140,7 +145,12 @@ class BrowserService:
                     "Browser expired after inactivity; open a new URL",
                 )
             if url:
-                await self._resolver.resolve(url)
+                try:
+                    await self._resolver.resolve(url)
+                except WebUrlPolicyError:
+                    raise BrowserAdmissionError(
+                        "destination_denied", "Browser destination is not allowed"
+                    ) from None
             retained = self._sessions.get(key)
             if retained is not None and not retained.session.is_usable():
                 await self._close_key(key)
@@ -184,7 +194,33 @@ class BrowserService:
             except BaseException as error:
                 # Keep an existing usable page for a later explicit retry, but
                 # never leave an unreachable failed first navigation admitted.
-                if retained.session.revision == 0 or retained.session.needs_disposal():
+                retained_deadline = (
+                    isinstance(error, BrowserReadDeadline)
+                    and error.page_retained
+                    and retained.session.has_retained_document()
+                    and not retained.session.needs_disposal()
+                )
+                if isinstance(error, BrowserReadDeadline):
+                    if not retained_deadline:
+                        error.page_retained = error.help_eligible = False
+                    execution = get_current_execution_task()
+                    logger.add_sink("validation").info(
+                        "Browser read deadline",
+                        data={
+                            "event": "browser_read_deadline",
+                            "status": "failed",
+                            "phase": "navigation",
+                            "session_id": key[1],
+                            "principal_id": key[0],
+                            "task_id": execution.task_id if execution else None,
+                            "browser_id": retained.session.browser_id,
+                            "page_retained": retained_deadline,
+                            "help_eligible": error.help_eligible,
+                        },
+                    )
+                if (
+                    retained.session.revision == 0 and not retained_deadline
+                ) or retained.session.needs_disposal():
                     await self._close_after_failure(key, error)
                 raise
             finally:
@@ -228,7 +264,7 @@ class BrowserService:
         ):
             raise BrowserInteractionError("invalid_action")
         key = await self._current_chat()
-        async with asyncio.timeout(20), self._session_lock(key):
+        async with self._agent_operation(key):
             await self._current_chat()
             had_page = key in self._sessions
             if await self._retire_disconnected_engine() and had_page:
@@ -286,9 +322,32 @@ class BrowserService:
                         ),
                     },
                 )
+                if isinstance(error, BrowserInteractionError) and error.reason in {
+                    "action_uncertain",
+                    "browser_unresponsive",
+                }:
+                    raise BrowserActionUncertain() from None
                 raise
             finally:
                 retained.last_activity = self._loop.time()
+
+    @asynccontextmanager
+    async def _agent_operation(self, key: tuple[str, str]) -> AsyncIterator[None]:
+        lock = self._session_lock(key)
+        try:
+            async with asyncio.timeout(20):
+                await lock.acquire()
+        except TimeoutError:
+            raise BrowserAdmissionError(
+                "browser_busy",
+                "Browser operation is still in progress; wait before trying again",
+            ) from None
+        try:
+            # Construction, DNS, navigation, observation and cleanup each own
+            # their deadline. Queueing must not consume navigation's interval.
+            yield
+        finally:
+            lock.release()
 
     @asynccontextmanager
     async def deleting_chat(

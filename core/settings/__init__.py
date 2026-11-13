@@ -6,6 +6,7 @@ helpers to diagnose missing configuration required for runtime features.
 """
 
 from functools import lru_cache
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -726,7 +727,7 @@ def get_browser_navigation_timeout_seconds() -> float:
         timeout = _setting_float(value)
     except (TypeError, ValueError):
         return 20.0
-    return timeout if timeout > 0 else 20.0
+    return timeout if isfinite(timeout) and timeout > 0 else 20.0
 
 
 def get_browser_selector_timeout_seconds() -> float:
