@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from playwright.async_api import BrowserContext, Error, Page, Route, WebSocketRoute
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from core.web.errors import WebUrlPolicyError
 from core.web.security import sanitize_url_for_log
@@ -60,7 +61,30 @@ class BrowserSession:
                 "Browser page is closed; open a new interactive session"
             )
         if url:
-            await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            except (PlaywrightTimeoutError, asyncio.CancelledError) as error:
+                # Playwright's navigation deadline does not stop the remote
+                # load. Abort it before releasing ownership, without replaying
+                # a request or waiting for a document execution context.
+                try:
+                    async with asyncio.timeout(2):
+                        connection = await self.context.new_cdp_session(page)
+                        try:
+                            await connection.send("Page.stopLoading")
+                        finally:
+                            await connection.detach()
+                except asyncio.CancelledError:
+                    if not isinstance(error, asyncio.CancelledError):
+                        raise
+                    error.add_note(
+                        "Navigation stop interrupted by repeated cancellation"
+                    )
+                except BaseException as cleanup_error:
+                    error.add_note(
+                        f"Navigation stop failed: {type(cleanup_error).__name__}"
+                    )
+                raise
         self.revision += 1
         # Bound text before crossing the process boundary. Never log this view.
         text = await page.evaluate(
@@ -74,6 +98,14 @@ class BrowserSession:
             self.revision,
             sanitize_url_for_log(page.url),
             text,
+        )
+
+    def is_usable(self) -> bool:
+        return (
+            self.page is not None
+            and not self.page.is_closed()
+            and self.context.browser is not None
+            and self.context.browser.is_connected()
         )
 
     async def _route(self, route: Route) -> None:

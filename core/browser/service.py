@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 from collections.abc import AsyncIterator, Iterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from threading import Lock
 from uuid import uuid4
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
-from playwright.async_api import BrowserContext
+from playwright.async_api import BrowserContext, Error
 
 from core.identity import require_current_execution_authority
 from core.logger import UnifiedLogger
@@ -21,6 +22,7 @@ from core.runtime.execution_tasks import (
 from core.runtime.resources import read_cgroup_memory_status
 from core.runtime.state import get_runtime_context
 from core.settings import (
+    get_browser_idle_timeout_seconds,
     get_browser_max_calls_per_turn,
     get_browser_max_concurrent_sessions,
     get_browser_min_memory_headroom_bytes,
@@ -57,6 +59,8 @@ class BrowserService:
         self._engine_lock = asyncio.Lock()
         self._engine: BrowserEngine | None = None
         self._sessions: dict[tuple[str, str], _Retained] = {}
+        self._expiry: asyncio.Task[None] | None = None
+        self._expiry_wakeup = asyncio.Event()
         self._session_locks: WeakValueDictionary[tuple[str, str], asyncio.Lock] = (
             WeakValueDictionary()
         )
@@ -111,9 +115,26 @@ class BrowserService:
         async with asyncio.timeout(20), lock:
             self._require_open()
             await self._current_chat()
+            had_page = key in self._sessions
+            if await self._retire_disconnected_engine() and had_page:
+                raise BrowserAdmissionError(
+                    "browser_closed",
+                    "Browser process exited; open a new interactive URL",
+                )
+            expired = await self._expire_key_if_idle(key)
+            if expired and not url:
+                raise BrowserAdmissionError(
+                    "browser_expired",
+                    "Browser expired after inactivity; open a new URL",
+                )
             if url:
                 await self._resolver.resolve(url)
             retained = self._sessions.get(key)
+            if retained is not None and not retained.session.is_usable():
+                await self._close_key(key)
+                raise BrowserAdmissionError(
+                    "browser_closed", "Browser page closed; open a new interactive URL"
+                )
             if retained is None:
                 if not url:
                     raise BrowserAdmissionError(
@@ -143,21 +164,31 @@ class BrowserService:
                     await self._close_after_failure(key, cancelled)
                     raise cancelled
             try:
-                return await retained.session.read(
+                retained.last_activity = self._loop.time()
+                view = await retained.session.read(
                     url, int(get_browser_navigation_timeout_seconds() * 1000)
                 )
+                return view
             except BaseException as error:
                 # Keep an existing usable page for a later explicit retry, but
                 # never leave an unreachable failed first navigation admitted.
                 if retained.session.revision == 0:
                     await self._close_after_failure(key, error)
                 raise
+            finally:
+                # Failed/cancelled real operations also cease being active at
+                # completion. A rejected URL preflight does not refresh this.
+                retained.last_activity = self._loop.time()
 
     async def _close_after_failure(
         self, key: tuple[str, str], error: BaseException
     ) -> None:
         try:
             await self._close_key(key)
+        except asyncio.CancelledError:
+            if not isinstance(error, asyncio.CancelledError):
+                raise
+            error.add_note("Browser cleanup was interrupted by repeated cancellation")
         except BaseException as cleanup_error:
             error.add_note(f"Browser cleanup failed: {type(cleanup_error).__name__}")
 
@@ -243,6 +274,7 @@ class BrowserService:
     async def _allocate(self, key: tuple[str, str]) -> _Retained:
         stack = AsyncExitStack()
         try:
+            await self._retire_disconnected_engine()
             stack.enter_context(self.reserve())
             async with self._engine_lock:
                 self._require_open()
@@ -280,8 +312,12 @@ class BrowserService:
                         self._closed = True
                     raise
                 self._require_open()
-                retained = _Retained(session, stack)
+                retained = _Retained(session, stack, self._loop.time())
                 self._sessions[key] = retained
+                if self._expiry is None or self._expiry.done():
+                    self._expiry = asyncio.create_task(
+                        self._expire_idle(), context=contextvars.Context()
+                    )
                 logger.add_sink("validation").info(
                     "Interactive browser opened",
                     data={
@@ -315,7 +351,13 @@ class BrowserService:
     async def _close_context(self, context: BrowserContext) -> None:
         try:
             async with asyncio.timeout(5):
-                await context.close()
+                try:
+                    await context.close()
+                except Error:
+                    # A browser process that has exited has already destroyed
+                    # its contexts. Engine teardown still owns driver cleanup.
+                    if context.browser is not None and context.browser.is_connected():
+                        raise
         except BaseException:
             # A resource whose closure is uncertain must never be followed by
             # further admission, even while the exit stack releases its lease.
@@ -327,21 +369,65 @@ class BrowserService:
         retained = self._sessions.pop(key, None)
         try:
             if retained is not None:
-                await retained.stack.aclose()
-                logger.add_sink("validation").info(
-                    "Interactive browser closed",
-                    data={
-                        "event": "browser_context_closed",
-                        "status": "completed",
-                        "session_id": key[1],
-                        "principal_id": key[0],
-                        "browser_id": retained.session.browser_id,
-                    },
-                )
+                await self._release_retained(key, retained)
         finally:
             async with self._engine_lock:
                 if (self._closed or not self._sessions) and self._engine is not None:
                     await self._close_engine()
+
+    async def _release_retained(
+        self, key: tuple[str, str], retained: _Retained
+    ) -> None:
+        await retained.stack.aclose()
+        logger.add_sink("validation").info(
+            "Interactive browser closed",
+            data={
+                "event": "browser_context_closed",
+                "status": "completed",
+                "session_id": key[1],
+                "principal_id": key[0],
+                "browser_id": retained.session.browser_id,
+            },
+        )
+
+    async def _retire_disconnected_engine(self) -> bool:
+        engine = self._engine
+        if engine is None or engine.browser is None or engine.browser.is_connected():
+            return False
+        async with self._engine_lock:
+            if self._engine is not engine:
+                return False
+            # A dead shared process destroyed every context. Detach its whole
+            # generation before awaiting cleanup; live operations may finish
+            # reporting that failure, but cannot reuse these lost resources.
+            retired = list(self._sessions.items())
+            self._sessions.clear()
+            failures: list[Exception] = []
+            cancellation: asyncio.CancelledError | None = None
+            for key, retained in retired:
+                try:
+                    await self._release_retained(key, retained)
+                except asyncio.CancelledError as exc:
+                    cancellation = cancellation or exc
+                except Exception as exc:
+                    failures.append(exc)
+            try:
+                await self._close_engine()
+            except asyncio.CancelledError as exc:
+                cancellation = cancellation or exc
+            except Exception as exc:
+                failures.append(exc)
+            if cancellation is not None:
+                for failure in failures:
+                    cancellation.add_note(
+                        f"Browser retirement cleanup failed: {type(failure).__name__}"
+                    )
+                raise cancellation
+            if failures:
+                with self._lock:
+                    self._closed = True
+                raise ExceptionGroup("Disconnected browser cleanup failed", failures)
+            return True
 
     async def _close_engine(self) -> None:
         engine = self._engine
@@ -355,6 +441,67 @@ class BrowserService:
                 raise
             self._engine = None
 
+    async def _expire_idle(self) -> None:
+        try:
+            while not self._closed and self._sessions:
+                # Read settings each pass so changes take effect without a
+                # restart. Status/frame polling will not touch last_activity.
+                for key in list(self._sessions):
+                    if self._closed:
+                        return
+                    lock = self._session_lock(key)
+                    try:
+                        # Active operations are not idle. Never queue expiry
+                        # of other chats behind one busy navigation.
+                        async with asyncio.timeout(0.01):
+                            await lock.acquire()
+                    except TimeoutError:
+                        continue
+                    try:
+                        await self._expire_key_if_idle(key)
+                    finally:
+                        lock.release()
+                try:
+                    async with asyncio.timeout(0.25):
+                        await self._expiry_wakeup.wait()
+                    self._expiry_wakeup.clear()
+                except TimeoutError:
+                    pass
+        except Exception as exc:
+            with self._lock:
+                self._closed = True
+            logger.add_sink("validation").error(
+                "Browser inactivity cleanup failed",
+                data={
+                    "event": "browser_expiry_failed",
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                },
+            )
+            raise
+
+    async def _expire_key_if_idle(self, key: tuple[str, str]) -> bool:
+        """Caller owns the chat lock; check the live deadline before reuse."""
+        retained = self._sessions.get(key)
+        if retained is None or (
+            self._loop.time() - retained.last_activity
+            < get_browser_idle_timeout_seconds()
+        ):
+            return False
+        await self._close_key(key)
+        logger.add_sink("validation").info(
+            "Interactive browser expired",
+            data={
+                "event": "browser_context_expired",
+                "status": "completed",
+                "session_id": key[1],
+                "principal_id": key[0],
+                "browser_id": retained.session.browser_id,
+                "reason": "inactivity",
+            },
+        )
+        return True
+
     def on_task_terminal(self, task: ExecutionTaskSnapshot) -> None:
         """Discard finished task counters without evicting active task budgets."""
         with self._lock:
@@ -366,6 +513,7 @@ class BrowserService:
             self._closed = True
             self._task_calls.clear()
             self._unscoped_calls.clear()
+        self._expiry_wakeup.set()
         # Coordinator shutdown requests cancellation, but a call's finally block
         # may not yet have run. Keep cleanup bounded and owned even if the
         # shutdown caller itself is cancelled.
@@ -392,6 +540,12 @@ class BrowserService:
 
     async def _drain(self) -> None:
         failures: list[BaseException] = []
+        if self._expiry is not None:
+            try:
+                async with asyncio.timeout(20):
+                    await self._expiry
+            except BaseException as exc:
+                failures.append(exc)
         # Each independently owned component gets a teardown attempt even if
         # another fails. A failed release is reported after those attempts.
         for key in list(self._sessions):
@@ -486,3 +640,4 @@ class BrowserAdmissionError(RuntimeError):
 class _Retained:
     session: BrowserSession
     stack: AsyncExitStack
+    last_activity: float

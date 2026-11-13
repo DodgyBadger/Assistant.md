@@ -3540,7 +3540,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "3bd9bdb5d69695967b3ac5745745405e8140f24fa343cc78cc2fc4eb29057a6a"
+      "sha256": "7922f472e60766a1d5708841fcf0ca9940e20d8dcd99ebd881815254f653fc2b"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3555,6 +3555,21 @@
         "test_browser_shutdown_closes_stalled_proxy_handshake",
         "test_cancelled_browser_construction_preserves_stop_after_process_failure",
         "test_unresponsive_browser_construction_has_owned_deadline"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_lifecycle.py",
+      "kind": "behavioral",
+      "sha256": "a23a2905d612962b5d575cf8ec6dcae54ad7363fb6c5aa9849525753ace24e25",
+      "tests": [
+        "test_browser_inactivity_expires_authentication_and_releases_capacity",
+        "test_browser_activity_refreshes_idle_clock_beyond_total_interval",
+        "test_browser_restart_reaps_owned_processes_and_discards_authentication",
+        "test_crashed_browser_releases_dead_context_for_explicit_retry",
+        "test_active_browser_does_not_delay_another_chats_expiry",
+        "test_browser_timeout_begins_idle_wait_when_operation_finishes",
+        "test_shortened_idle_setting_cannot_revive_old_authentication",
+        "test_stop_during_shared_crash_retirement_remains_task_cancellation"
       ]
     }
   ]

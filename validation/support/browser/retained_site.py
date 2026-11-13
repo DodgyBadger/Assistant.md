@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from threading import Thread
+from threading import Event, Thread
 
 import pytest
 from playwright._impl._driver import compute_driver_executable
@@ -29,6 +29,8 @@ COOKIE = "synthetic-browser-context-cookie"
 class BrowserSite:
     port: int
     private_requests: list[str] = field(default_factory=list)
+    slow_started: Event = field(default_factory=Event)
+    release_slow: Event = field(default_factory=Event)
 
     def url(self, path: str) -> str:
         return f"http://{HOST}:{self.port}{path}"
@@ -43,6 +45,9 @@ def retained_browser_site(
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path == "/slow":
+                site.slow_started.set()
+                site.release_slow.wait(12)
             if self.path == "/denied-target":
                 site.private_requests.append(self.path)
             if self.path == "/redirect-private":
@@ -69,7 +74,10 @@ def retained_browser_site(
                 )
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
         def log_message(self, format: str, *args: object) -> None:
             pass
@@ -135,6 +143,7 @@ def retained_browser_site(
             scope.setattr(socket.socket, "connect", connect)
             yield site
     finally:
+        site.release_slow.set()
         os.close(read_fd)
         if display.poll() is None:
             display.terminate()
@@ -233,6 +242,78 @@ def paused_browser_driver(app: Application) -> Iterator[PausedDriver]:
 
     with capture_validation_events(
         app.evidence.artifacts / "paused-driver",
+        sink=observe,
+        projector=app.evidence.redact,
+    ):
+        try:
+            yield paused
+        finally:
+            paused.resume()
+
+
+async def wait_browser_event(
+    app: Application, event: str, *, session_id: str, timeout: float = 6
+) -> None:
+    """Wait for a real service lifecycle observation, without emitting evidence."""
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        if any(
+            record.get("data", {}).get("session_id") == session_id
+            for record in app.events.select(event)
+        ):
+            return
+        await asyncio.sleep(0.05)
+    app.events.require(event, session_id=session_id)
+
+
+async def wait_processes_gone(records: list[dict], timeout: float = 6) -> None:
+    """Check actual process identities, including children reparented after exit."""
+    from pathlib import Path
+
+    deadline = asyncio.get_running_loop().time() + timeout
+    remaining = records
+    while remaining and asyncio.get_running_loop().time() < deadline:
+        live = []
+        for record in remaining:
+            try:
+                fields = (
+                    Path(f"/proc/{record['pid']}/stat")
+                    .read_text()
+                    .rsplit(")", 1)[1]
+                    .split()
+                )
+                if fields[19] == record["start_time"]:
+                    live.append(record)
+            except FileNotFoundError:
+                pass
+        remaining = live
+        if remaining:
+            await asyncio.sleep(0.05)
+    assert not remaining, f"Owned browser processes remain: {remaining}"
+
+
+@contextmanager
+def pause_driver_on_browser_close(
+    app: Application, driver_pid: int
+) -> Iterator[PausedDriver]:
+    """Stall the owned IPC peer during real context-retirement cleanup."""
+    import signal
+
+    from core.logger import capture_validation_events
+
+    paused = PausedDriver(driver_pid=driver_pid)
+
+    def observe(record: dict) -> None:
+        app.events.capture(record)
+        if (
+            record.get("data", {}).get("event") == "browser_context_closed"
+            and not paused.ready.is_set()
+        ):
+            os.kill(driver_pid, signal.SIGSTOP)
+            paused.ready.set()
+
+    with capture_validation_events(
+        app.evidence.artifacts / "paused-close-driver",
         sink=observe,
         projector=app.evidence.redact,
     ):

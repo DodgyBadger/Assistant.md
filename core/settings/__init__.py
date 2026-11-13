@@ -762,6 +762,17 @@ def get_browser_max_calls_per_turn() -> int:
     return max(0, limit)
 
 
+def get_browser_idle_timeout_seconds() -> int:
+    """Return the live retained-browser inactivity interval."""
+    entry = get_general_settings().get("browser_idle_timeout_seconds")
+    value = getattr(entry, "value", None) if entry is not None else None
+    try:
+        timeout = _setting_int(value)
+    except (TypeError, ValueError):
+        return 600
+    return max(1, min(timeout, 86400))
+
+
 def get_browser_min_memory_headroom_bytes() -> int:
     """Return required free cgroup memory before Chromium launch."""
     entry = get_general_settings().get("browser_min_memory_headroom_mb")
