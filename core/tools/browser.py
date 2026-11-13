@@ -4,13 +4,15 @@ Browser tool backed by Playwright for resilient page extraction.
 Provides conservative browser-driven extraction for pages where simple crawlers
 or extract APIs fail, especially on JavaScript-heavy sites. Browser policy is
 deliberately narrow: downloads are blocked, local/private network targets are
-blocked, and browser state is isolated per call.
+blocked. Extraction is isolated per call; interactive contexts belong to a chat.
 """
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from markdownify import markdownify as html_to_markdown
@@ -102,7 +104,9 @@ class BrowserTool(BaseTool):
 
         async def browser(
             *,
-            url: str,
+            url: str = "",
+            interactive: bool = False,
+            operation: Literal["read", "close"] = "read",
             goal: str = "",
             wait_until: str = "domcontentloaded",
             wait_for_selector: str = "",
@@ -111,7 +115,9 @@ class BrowserTool(BaseTool):
         ) -> str | ToolReturn:
             """Open a page in a headless browser and extract compact page content.
 
-                        :param url: Page URL to open
+                        :param url: Page URL to open; omit to read the retained interactive page
+                        :param interactive: Retain an isolated browser context for this chat
+                        :param operation: Read the page or close this chat's interactive context
                         :param goal: Brief extraction goal to guide target selection
                         :param wait_until: Navigation readiness event
                         :param wait_for_selector: Optional selector to wait for after navigation
@@ -121,13 +127,21 @@ class BrowserTool(BaseTool):
             Policy notes:
                         - Only public http/https URLs are allowed by default; `data:` is allowed for testing.
                         - Redirects or subrequests to local/private network targets are blocked.
-                        - Only read-oriented HTTP methods are allowed (`GET`, `HEAD`).
+                        - Extraction allows only read-oriented HTTP methods (`GET`, `HEAD`).
                         - Downloads are blocked.
-                        - Browser state is isolated per call.
+                        - Interactive state is retained within its authorized chat until closed.
             """
             try:
                 service = get_runtime_context().browser
                 service.record_call()
+                if interactive:
+                    if operation == "close":
+                        return json.dumps(await service.close_current())
+                    return json.dumps(asdict(await service.read_current(url)))
+                if operation != "read":
+                    raise BrowserAdmissionError(
+                        "invalid_operation", "Closing requires interactive=true."
+                    )
                 cls._log_event(
                     "tool_invoked",
                     tool="browser",
@@ -148,9 +162,11 @@ class BrowserTool(BaseTool):
                         include_links=include_links,
                     )
             except Exception as exc:  # pylint: disable=broad-except
-                safe_error = sanitize_urls_in_text_for_log(str(exc)).replace(
-                    url, sanitize_url_for_log(url)
+                safe_error = sanitize_urls_in_text_for_log(
+                    str(exc) or type(exc).__name__
                 )
+                if url:
+                    safe_error = safe_error.replace(url, sanitize_url_for_log(url))
                 cls._log_event(
                     "browser_navigation_failed",
                     tool="browser",
@@ -180,7 +196,10 @@ class BrowserTool(BaseTool):
             name="browser",
             description=(
                 "Open a dynamic web page in a headless browser and extract content "
-                "from the main page region. Prefer web_extract for ordinary static pages."
+                "from the main page region. Prefer web_extract for ordinary static pages. "
+                "Use interactive=true to retain a browser for this chat; omit url to read "
+                "its current page, or operation=close to discard it. "
+                "Human credential entry and element actions are not available yet."
             ),
         )
 
@@ -291,14 +310,28 @@ class BrowserTool(BaseTool):
         browser_instance = await playwright.chromium.launch(
             headless=True,
             channel="chromium",
+            chromium_sandbox=True,
+            proxy={
+                "server": await get_runtime_context().browser.proxy_url(),
+                "bypass": "<-loopback>",
+            },
+            args=[
+                "--disable-quic",
+                "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+            ],
         )
         context = None
         try:
             cls._log_event("browser_session_launch_completed", tool="browser", url=url)
-            context = await browser_instance.new_context(accept_downloads=False)
+            context = await browser_instance.new_context(
+                accept_downloads=False, service_workers="block"
+            )
             page = await context.new_page()
             page.set_default_timeout(timeout_ms)
-            await page.route("**/*", cls._route_request)
+            await context.route("**/*", cls._route_request)
+            from core.browser.session import block_websocket
+
+            await context.route_web_socket("**/*", block_websocket)
             response = await page.goto(
                 url,
                 wait_until=normalized_wait_until,
@@ -864,11 +897,11 @@ class BrowserTool(BaseTool):
     @staticmethod
     def _extract_result_type(message: str) -> str:
         """Parse a `result_type:` prefix from an error message for structured logs."""
-        first_line = (message or "").splitlines()[0].strip()
+        first_line = (message or "").split("\n", 1)[0].strip()
         if first_line.startswith("result_type:"):
             return first_line.split(":", 1)[1].strip() or "error"
         return "error"
 
     @classmethod
     def get_recovery_policy(cls) -> ToolRecoveryPolicy:
-        return ToolRecoveryPolicy.REPLAY_SAFE
+        return ToolRecoveryPolicy.MANUAL_REQUIRED

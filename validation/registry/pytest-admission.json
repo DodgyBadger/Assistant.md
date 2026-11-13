@@ -3536,6 +3536,26 @@
       "tests": [
         "test_browser_idle_timeout_defaults_override_rejection_and_restore"
       ]
+    },
+    {
+      "path": "support/browser/retained_site.py",
+      "kind": "support",
+      "sha256": "3bd9bdb5d69695967b3ac5745745405e8140f24fa343cc78cc2fc4eb29057a6a"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_retained_contexts.py",
+      "kind": "behavioral",
+      "sha256": "95c60eaec250f24b479957a5fb52dac27aace67e2ab988d5c24a248a3c9056a1",
+      "tests": [
+        "test_browser_retains_site_session_across_chat_turns",
+        "test_browser_contexts_isolate_chats_and_close_discards_authentication",
+        "test_retained_browser_holds_capacity_shared_with_extraction",
+        "test_browser_redirect_cannot_request_private_destination",
+        "test_chat_deletion_releases_browser_and_prevents_state_resurrection",
+        "test_browser_shutdown_closes_stalled_proxy_handshake",
+        "test_cancelled_browser_construction_preserves_stop_after_process_failure",
+        "test_unresponsive_browser_construction_has_owned_deadline"
+      ]
     }
   ]
 }

@@ -1505,8 +1505,30 @@ async def start_chat_session_context_strategy_upgrade(
 
 async def delete_chat_session(vault_name: str, session_id: str) -> None:
     """Delete one authorized canonical session and its derived chat indexes."""
-    _require_chat_session_access(vault_name, session_id)
-    _chat_store.delete_sessions(vault_name, session_id=session_id)
+    await _delete_session_with_browser(vault_name, session_id)
+
+
+async def _delete_session_with_browser(vault_name: str, session_id: str) -> list[str]:
+    session = _require_chat_session_access(vault_name, session_id)
+    await _cancel_deleted_session_tasks(session_id)
+    async with get_runtime_context().browser.deleting_chat(
+        session.owner_principal_id, session_id
+    ):
+        # Catch tasks accepted while closure was waiting. No await separates
+        # this revocation from the synchronous durable deletion below.
+        await _cancel_deleted_session_tasks(session_id)
+        return _chat_store.delete_sessions(vault_name, session_id=session_id)
+
+
+async def _cancel_deleted_session_tasks(session_id: str) -> None:
+    runtime = get_runtime_context()
+    tasks = await runtime.execution_task_access.list_tasks(
+        scope=f"chat_session:{session_id}", include_terminal=False
+    )
+    for task in tasks:
+        await runtime.execution_task_access.cancel_task(
+            task.task_id, reason="chat_session_deleted"
+        )
 
 
 async def purge_chat_sessions(
@@ -1528,9 +1550,7 @@ async def purge_chat_sessions(
         ]
     deleted_ids: list[str] = []
     for session_id in selected_ids:
-        deleted_ids.extend(
-            _chat_store.delete_sessions(vault_name, session_id=session_id)
-        )
+        deleted_ids.extend(await _delete_session_with_browser(vault_name, session_id))
     remove_chat_transcript_exports(vault_path=vault_path, session_ids=deleted_ids)
 
     n = len(deleted_ids)
