@@ -31,6 +31,8 @@ from core.settings import (
 
 from .engine import BrowserEngine
 from .network import BrowserEgress, BrowserResolver
+from .observation import ActionOperation, BrowserInteractionError
+from .operations import BrowserOperations
 from .session import BrowserSession, BrowserView
 
 logger = UnifiedLogger(tag="browser-service")
@@ -58,6 +60,7 @@ class BrowserService:
         self._network_lock = asyncio.Lock()
         self._engine_lock = asyncio.Lock()
         self._engine: BrowserEngine | None = None
+        self._context_operations = BrowserOperations[None]()
         self._sessions: dict[tuple[str, str], _Retained] = {}
         self._expiry: asyncio.Task[None] | None = None
         self._expiry_wakeup = asyncio.Event()
@@ -115,6 +118,15 @@ class BrowserService:
         async with asyncio.timeout(20), lock:
             self._require_open()
             await self._current_chat()
+            logger.set_sinks(["validation"]).info(
+                "Browser read started",
+                data={
+                    "event": "browser_read_started",
+                    "status": "started",
+                    "session_id": key[1],
+                    "principal_id": key[0],
+                },
+            )
             had_page = key in self._sessions
             if await self._retire_disconnected_engine() and had_page:
                 raise BrowserAdmissionError(
@@ -172,7 +184,7 @@ class BrowserService:
             except BaseException as error:
                 # Keep an existing usable page for a later explicit retry, but
                 # never leave an unreachable failed first navigation admitted.
-                if retained.session.revision == 0:
+                if retained.session.revision == 0 or retained.session.needs_disposal():
                     await self._close_after_failure(key, error)
                 raise
             finally:
@@ -198,6 +210,85 @@ class BrowserService:
             await self._current_chat()
             await self._close_key(key)
         return {"status": "closed"}
+
+    async def act_current(
+        self, operation: ActionOperation, reference: str, value: str, scroll_y: int
+    ) -> BrowserView:
+        if (
+            operation not in {"click", "fill", "select", "scroll"}
+            or not reference
+            or len(reference) > 128
+            or len(value) > 4096
+            or (operation not in {"fill", "select"} and value)
+            or (operation == "select" and len(value) > 80)
+            or (
+                operation == "scroll" and (not -800 <= scroll_y <= 800 or scroll_y == 0)
+            )
+            or (operation != "scroll" and scroll_y != 0)
+        ):
+            raise BrowserInteractionError("invalid_action")
+        key = await self._current_chat()
+        async with asyncio.timeout(20), self._session_lock(key):
+            await self._current_chat()
+            had_page = key in self._sessions
+            if await self._retire_disconnected_engine() and had_page:
+                raise BrowserInteractionError("stale_reference")
+            if await self._expire_key_if_idle(key):
+                raise BrowserInteractionError("stale_reference")
+            retained = self._sessions.get(key)
+            if retained is None or not retained.session.is_usable():
+                raise BrowserInteractionError("stale_reference")
+            logger.add_sink("validation").info(
+                "Browser action started",
+                data={
+                    "event": "browser_action_started",
+                    "status": "started",
+                    "session_id": key[1],
+                    "browser_id": retained.session.browser_id,
+                    "operation": operation,
+                },
+            )
+            retained.last_activity = self._loop.time()
+            try:
+                result = await retained.session.act(
+                    operation,
+                    reference,
+                    value,
+                    scroll_y,
+                    int(get_browser_navigation_timeout_seconds() * 1000),
+                )
+                logger.add_sink("validation").info(
+                    "Browser action completed",
+                    data={
+                        "event": "browser_action_completed",
+                        "status": "completed",
+                        "session_id": key[1],
+                        "browser_id": retained.session.browser_id,
+                        "operation": operation,
+                    },
+                )
+                return result
+            except BaseException as error:
+                if retained.session.needs_disposal():
+                    await self._close_after_failure(key, error)
+                logger.add_sink("validation").info(
+                    "Browser action failed",
+                    data={
+                        "event": "browser_action_failed",
+                        "status": "failed",
+                        "session_id": key[1],
+                        "browser_id": retained.session.browser_id,
+                        "operation": operation,
+                        "reason": (
+                            error.reason
+                            if isinstance(error, BrowserInteractionError)
+                            else "interrupted"
+                        ),
+                    },
+                )
+                raise
+            finally:
+                retained.last_activity = self._loop.time()
 
     @asynccontextmanager
     async def deleting_chat(
@@ -263,12 +354,16 @@ class BrowserService:
     async def _create(self, key: tuple[str, str]) -> _Retained:
         # Include lock admission, driver startup and IPC allocation. The owned
         # task still completes its bounded cleanup before its caller returns.
+        deadline = asyncio.timeout(20)
         try:
-            async with asyncio.timeout(20):
+            async with deadline:
                 return await self._allocate(key)
         except TimeoutError:
-            with self._lock:
-                self._closed = True
+            # Nested startup deadlines may have confirmed full cleanup. Only
+            # our own overall deadline implies an unconfirmed allocation here.
+            if deadline.expired():
+                with self._lock:
+                    self._closed = True
             raise
 
     async def _allocate(self, key: tuple[str, str]) -> _Retained:
@@ -295,6 +390,7 @@ class BrowserService:
                         )
                         stack.push_async_callback(self._close_context, context)
                         session = BrowserSession(context, self._resolver)
+                        stack.push_async_callback(session.dispose)
                         await session.prepare()
                 except TimeoutError:
                     logger.set_sinks(["validation"]).info(
@@ -352,7 +448,7 @@ class BrowserService:
         try:
             async with asyncio.timeout(5):
                 try:
-                    await context.close()
+                    await self._context_operations.run(context.close())
                 except Error:
                     # A browser process that has exited has already destroyed
                     # its contexts. Engine teardown still owns driver cleanup.

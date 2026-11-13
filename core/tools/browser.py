@@ -19,6 +19,7 @@ from markdownify import markdownify as html_to_markdown
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
+from core.browser.observation import BrowserInteractionError
 from core.browser.service import BrowserAdmissionError
 from core.logger import UnifiedLogger
 from core.runtime.resources import read_cgroup_memory_status
@@ -106,7 +107,12 @@ class BrowserTool(BaseTool):
             *,
             url: str = "",
             interactive: bool = False,
-            operation: Literal["read", "close"] = "read",
+            operation: Literal[
+                "read", "close", "click", "fill", "select", "scroll"
+            ] = "read",
+            reference: str = "",
+            value: str = "",
+            scroll_y: int = 0,
             goal: str = "",
             wait_until: str = "domcontentloaded",
             wait_for_selector: str = "",
@@ -118,6 +124,9 @@ class BrowserTool(BaseTool):
                         :param url: Page URL to open; omit to read the retained interactive page
                         :param interactive: Retain an isolated browser context for this chat
                         :param operation: Read the page or close this chat's interactive context
+                        :param reference: Exact element ref from the latest observation; observation_ref for scroll
+                        :param value: Ordinary text or option value for fill/select; never credentials
+                        :param scroll_y: Scroll distance in pixels, between -800 and 800
                         :param goal: Brief extraction goal to guide target selection
                         :param wait_until: Navigation readiness event
                         :param wait_for_selector: Optional selector to wait for after navigation
@@ -135,9 +144,29 @@ class BrowserTool(BaseTool):
                 service = get_runtime_context().browser
                 service.record_call()
                 if interactive:
+                    if (
+                        operation == "click"
+                        or operation == "fill"
+                        or operation == "select"
+                        or operation == "scroll"
+                    ):
+                        if url:
+                            raise BrowserInteractionError("invalid_action")
+                        return json.dumps(
+                            asdict(
+                                await service.act_current(
+                                    operation, reference, value, scroll_y
+                                )
+                            ),
+                            ensure_ascii=False,
+                        )
+                    if reference or value or scroll_y:
+                        raise BrowserInteractionError("invalid_action")
                     if operation == "close":
                         return json.dumps(await service.close_current())
-                    return json.dumps(asdict(await service.read_current(url)))
+                    return json.dumps(
+                        asdict(await service.read_current(url)), ensure_ascii=False
+                    )
                 if operation != "read":
                     raise BrowserAdmissionError(
                         "invalid_operation", "Closing requires interactive=true."
@@ -185,7 +214,9 @@ class BrowserTool(BaseTool):
                         "url": sanitize_url_for_log(url),
                         **(
                             {"reason": exc.reason}
-                            if isinstance(exc, BrowserAdmissionError)
+                            if isinstance(
+                                exc, BrowserAdmissionError | BrowserInteractionError
+                            )
                             else {}
                         ),
                     },
@@ -199,7 +230,10 @@ class BrowserTool(BaseTool):
                 "from the main page region. Prefer web_extract for ordinary static pages. "
                 "Use interactive=true to retain a browser for this chat; omit url to read "
                 "its current page, or operation=close to discard it. "
-                "Human credential entry and element actions are not available yet."
+                "Use click/fill/select with an exact element ref from the latest observation, "
+                "or scroll with observation_ref and scroll_y. Actions use native DOM controls "
+                "and synthetic events; trusted gestures/custom widgets need human help. "
+                "Never fill passwords or verification codes. Human entry is not available yet."
             ),
         )
 

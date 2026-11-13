@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Event, Thread
+from urllib.parse import parse_qs
 
 import pytest
 from playwright._impl._driver import compute_driver_executable
@@ -31,6 +32,12 @@ class BrowserSite:
     private_requests: list[str] = field(default_factory=list)
     slow_started: Event = field(default_factory=Event)
     release_slow: Event = field(default_factory=Event)
+    pages: dict[str, bytes] = field(default_factory=dict)
+    submissions: list[dict[str, str]] = field(default_factory=list)
+    mutate: Event = field(default_factory=Event)
+    mutation_applied: Event = field(default_factory=Event)
+    hold_submission: bool = False
+    release_submission: Event = field(default_factory=Event)
 
     def url(self, path: str) -> str:
         return f"http://{HOST}:{self.port}{path}"
@@ -45,6 +52,10 @@ def retained_browser_site(
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path == "/wait-mutation":
+                site.mutate.wait(10)
+            if self.path == "/mutation-applied":
+                site.mutation_applied.set()
             if self.path == "/slow":
                 site.slow_started.set()
                 site.release_slow.wait(12)
@@ -61,7 +72,9 @@ def retained_browser_site(
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
-            if self.path == "/prime":
+            if self.path in site.pages:
+                body = site.pages[self.path]
+            elif self.path == "/prime":
                 self.send_header(
                     "Set-Cookie", f"session={COOKIE}; HttpOnly; SameSite=Lax; Path=/"
                 )
@@ -72,6 +85,26 @@ def retained_browser_site(
                     if authenticated
                     else b"<main>Signed out</main>"
                 )
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        def do_POST(self) -> None:
+            if self.path != "/submit":
+                self.send_error(404)
+                return
+            size = int(self.headers.get("Content-Length", "0"))
+            assert 0 <= size <= 8192
+            fields = parse_qs(self.rfile.read(size).decode(), max_num_fields=4)
+            site.submissions.append({key: values[0] for key, values in fields.items()})
+            if site.hold_submission:
+                site.release_submission.wait(8)
+            body = b"<main>Saved</main>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             try:
@@ -144,6 +177,8 @@ def retained_browser_site(
             yield site
     finally:
         site.release_slow.set()
+        site.mutate.set()
+        site.release_submission.set()
         os.close(read_fd)
         if display.poll() is None:
             display.terminate()
@@ -296,6 +331,16 @@ async def wait_processes_gone(records: list[dict], timeout: float = 6) -> None:
 def pause_driver_on_browser_close(
     app: Application, driver_pid: int
 ) -> Iterator[PausedDriver]:
+    with pause_driver_on_browser_event(
+        app, driver_pid, "browser_context_closed"
+    ) as paused:
+        yield paused
+
+
+@contextmanager
+def pause_driver_on_browser_event(
+    app: Application, driver_pid: int, event: str
+) -> Iterator[PausedDriver]:
     """Stall the owned IPC peer during real context-retirement cleanup."""
     import signal
 
@@ -305,10 +350,7 @@ def pause_driver_on_browser_close(
 
     def observe(record: dict) -> None:
         app.events.capture(record)
-        if (
-            record.get("data", {}).get("event") == "browser_context_closed"
-            and not paused.ready.is_set()
-        ):
+        if record.get("data", {}).get("event") == event and not paused.ready.is_set():
             os.kill(driver_pid, signal.SIGSTOP)
             paused.ready.set()
 

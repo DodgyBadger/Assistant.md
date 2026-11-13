@@ -9,20 +9,32 @@ import shutil
 from contextlib import AsyncExitStack
 from tempfile import TemporaryFile
 
-from playwright.async_api import Browser, async_playwright
+from playwright.async_api import Browser
 
 from core.logger import UnifiedLogger
+
+from .driver import BrowserDriver
+from .operations import BrowserOperations
 
 
 class BrowserEngine:
     def __init__(self) -> None:
         self.stack = AsyncExitStack()
         self.browser: Browser | None = None
+        self._operations = BrowserOperations[None]()
+        self._closing: asyncio.Task[None] | None = None
+        self._driver_started = False
+        self._driver_released = False
+        self._released = False
+        self._display_process: asyncio.subprocess.Process | None = None
 
     async def start(self, proxy: str) -> Browser:
         try:
             display = await self._display()
-            playwright = await self.stack.enter_async_context(async_playwright())
+            driver = BrowserDriver()
+            self._driver_started = True
+            self.stack.push_async_callback(self._stop_driver, driver)
+            playwright = await driver.start()
             browser = await playwright.chromium.launch(
                 channel="chromium",
                 headless=False,
@@ -35,7 +47,7 @@ class BrowserEngine:
                 env={**os.environ, **({"DISPLAY": display} if display else {})},
                 timeout=10000,
             )
-            self.stack.push_async_callback(browser.close)
+            self.stack.push_async_callback(self._close_browser, browser)
             self.browser = browser
             UnifiedLogger(tag="browser-runtime").set_sinks(["validation"]).info(
                 "Browser engine ready",
@@ -44,8 +56,7 @@ class BrowserEngine:
             return browser
         except BaseException as error:
             try:
-                async with asyncio.timeout(5):
-                    await self.stack.aclose()
+                await self.close()
             except BaseException as cleanup_error:
                 error.add_note(
                     f"Browser startup cleanup failed: {type(cleanup_error).__name__}"
@@ -79,6 +90,7 @@ class BrowserEngine:
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=errors,
             )
+            self._display_process = process
             self.stack.push_async_callback(_stop_display, process)
             os.close(write_fd)
             write_fd = -1
@@ -105,8 +117,50 @@ class BrowserEngine:
                 os.close(write_fd)
 
     async def close(self) -> None:
-        await self.stack.aclose()
+        if self._released:
+            self.browser = None
+            return
+        if self._closing is None:
+            self._closing = asyncio.create_task(self._close_resources())
+        cancellation: asyncio.CancelledError | None = None
+        while not self._closing.done():
+            try:
+                await asyncio.shield(self._closing)
+            except asyncio.CancelledError as exc:
+                cancellation = cancellation or exc
+            except Exception:
+                break
+        try:
+            self._closing.result()
+        except BaseException as error:
+            if cancellation is not None:
+                cancellation.add_note(
+                    f"Browser engine cleanup failed: {type(error).__name__}"
+                )
+                raise cancellation from error
+            raise
+        if cancellation is not None:
+            raise cancellation
         self.browser = None
+
+    async def _close_resources(self) -> None:
+        try:
+            await self.stack.aclose()
+        finally:
+            self._released = (not self._driver_started or self._driver_released) and (
+                self._display_process is None
+                or self._display_process.returncode is not None
+            )
+        if not self._released:
+            raise RuntimeError("Browser process cleanup is unconfirmed")
+
+    async def _stop_driver(self, driver: BrowserDriver) -> None:
+        await driver.close(self._operations)
+        self._driver_released = True
+
+    async def _close_browser(self, browser: Browser) -> None:
+        async with asyncio.timeout(2):
+            await self._operations.run(browser.close())
 
 
 async def _stop_display(process: asyncio.subprocess.Process) -> None:
@@ -117,4 +171,5 @@ async def _stop_display(process: asyncio.subprocess.Process) -> None:
                 await process.wait()
         except TimeoutError:
             process.kill()
-            await process.wait()
+            async with asyncio.timeout(3):
+                await process.wait()
