@@ -37,7 +37,9 @@ class BrowserEngine:
             self.stack.push_async_callback(self._stop_driver, driver)
             playwright = await driver.start()
             environment: dict[str, str | float | bool] = dict(
-                browser_environment(display=display)
+                browser_environment(
+                    display=display, temporary_directory=driver.temporary_directory
+                )
             )
             browser = await playwright.chromium.launch(
                 channel="chromium",

@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 _RUNTIME_KEYS = frozenset(
     {
         "PATH",
         "HOME",
-        "TMPDIR",
-        "TMP",
-        "TEMP",
         "LANG",
         "LC_ALL",
         "LC_CTYPE",
@@ -21,12 +19,18 @@ _RUNTIME_KEYS = frozenset(
 )
 
 
-def browser_environment(*, display: str | None = None) -> dict[str, str]:
+def browser_environment(
+    *, display: str | None = None, temporary_directory: Path | None = None
+) -> dict[str, str]:
     environment = {
         key: value
         for key in _RUNTIME_KEYS
         if (value := os.environ.get(key)) is not None
     }
+    if temporary_directory is not None:
+        environment.update(
+            {key: str(temporary_directory) for key in ("TMPDIR", "TMP", "TEMP")}
+        )
     if display is not None:
         environment["DISPLAY"] = display
     return environment

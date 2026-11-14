@@ -311,6 +311,16 @@ async def test_stopped_extraction_driver_cannot_block_task_cancellation(
             owned = [
                 row for row in descendant_identities() if row["pid"] not in baseline
             ]
+            assert paused.driver_pid is not None
+            environment = dict(
+                entry.split(b"=", 1)
+                for entry in Path(f"/proc/{paused.driver_pid}/environ")
+                .read_bytes()
+                .split(b"\0")
+                if entry
+            )
+            temporary_root = Path(environment[b"TMPDIR"].decode())
+            assert temporary_root.is_dir()
             coordinator = get_runtime_context().task_coordinator
             tasks = await coordinator.list_tasks(
                 scope=chat_session_scope("extraction-stop"), include_terminal=False
@@ -325,6 +335,9 @@ async def test_stopped_extraction_driver_cannot_block_task_cancellation(
             terminal = await coordinator.get_task(tasks[0].task_id)
             assert terminal is not None and terminal.status == "cancelled"
             await wait_processes_gone(owned)
+            assert (
+                not temporary_root.exists()
+            ), "Stopped extraction left browser temporary data"
         finally:
             paused.resume()
             if not operation.done():

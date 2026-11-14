@@ -288,6 +288,7 @@ class BrowserTool(BaseTool):
                 extraction = await cls._run_browser_session(
                     playwright=playwright,
                     operations=operations,
+                    temporary_directory=driver.temporary_directory,
                     url=url,
                     normalized_wait_until=normalized_wait_until,
                     timeout_ms=timeout_ms,
@@ -300,8 +301,10 @@ class BrowserTool(BaseTool):
                 primary = sys.exception()
                 try:
                     await driver.close(operations)
-                except Exception as cleanup_error:
-                    if primary is None:
+                except BaseException as cleanup_error:
+                    if not driver.cleanup_confirmed:
+                        get_runtime_context().browser.quarantine_cleanup()
+                    if primary is None or not isinstance(cleanup_error, Exception):
                         raise
                     primary.add_note(
                         f"Browser driver cleanup failed: {type(cleanup_error).__name__}"
@@ -362,6 +365,7 @@ class BrowserTool(BaseTool):
         *,
         playwright: Any,
         operations: BrowserOperations[None],
+        temporary_directory: Path,
         url: str,
         normalized_wait_until: str,
         timeout_ms: int,
@@ -377,7 +381,7 @@ class BrowserTool(BaseTool):
             headless=True,
             channel="chromium",
             chromium_sandbox=True,
-            env=browser_environment(),
+            env=browser_environment(temporary_directory=temporary_directory),
             proxy={
                 "server": await get_runtime_context().browser.proxy_url(),
                 "bypass": "<-loopback>",

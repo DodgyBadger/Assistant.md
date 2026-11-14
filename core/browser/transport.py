@@ -14,10 +14,17 @@ from playwright._impl._helper import ParsedMessagePayload
 from playwright._impl._transport import PipeTransport
 
 from .environment import browser_environment
+from .storage import BrowserTemporaryStorage
 
 
 class BrowserPipeTransport(PipeTransport):
     """Keep the SDK framing/run loop; own process launch and protocol privacy."""
+
+    def __init__(
+        self, loop: asyncio.AbstractEventLoop, storage: BrowserTemporaryStorage
+    ) -> None:
+        super().__init__(loop)
+        self._storage = storage
 
     async def connect(self) -> None:
         self._stopped_future = asyncio.get_running_loop().create_future()
@@ -26,7 +33,7 @@ class BrowserPipeTransport(PipeTransport):
                 "Managed browser transport requires a reviewed POSIX runtime"
             )
         package = Path(playwright.__file__).parent / "driver"
-        environment = browser_environment()
+        environment = browser_environment(temporary_directory=self._storage.path)
         environment.update(
             PW_LANG_NAME="python",
             PW_LANG_NAME_VERSION=f"{sys.version_info.major}.{sys.version_info.minor}",

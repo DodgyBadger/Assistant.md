@@ -59,6 +59,7 @@ class BrowserService:
             WeakKeyDictionary()
         )
         self._closed = False
+        self._shutting_down = False
         self._loop = asyncio.get_running_loop()
         self._resolver = BrowserResolver()
         self._egress = BrowserEgress(self._resolver)
@@ -72,6 +73,16 @@ class BrowserService:
         self._expiry_wakeup = asyncio.Event()
         self._session_locks: WeakValueDictionary[tuple[str, str], asyncio.Lock] = (
             WeakValueDictionary()
+        )
+
+    def quarantine_cleanup(self) -> None:
+        """Reject further work after an owner cannot confirm final teardown."""
+        with self._lock:
+            self._closed = True
+        self._expiry_wakeup.set()
+        logger.add_sink("validation").error(
+            "Browser cleanup is unconfirmed; admission closed",
+            data={"event": "browser_cleanup_unconfirmed", "status": "failed"},
         )
 
     def record_call(self) -> None:
@@ -598,11 +609,11 @@ class BrowserService:
 
     async def _expire_idle(self) -> None:
         try:
-            while not self._closed and self._sessions:
+            while not self._shutting_down and self._sessions:
                 # Read settings each pass so changes take effect without a
                 # restart. Status/frame polling will not touch last_activity.
                 for key in list(self._sessions):
-                    if self._closed:
+                    if self._shutting_down:
                         return
                     lock = self._session_lock(key)
                     try:
@@ -666,6 +677,7 @@ class BrowserService:
         """Close admission and allow cancelled operations to finish releasing."""
         with self._lock:
             self._closed = True
+            self._shutting_down = True
             self._task_calls.clear()
             self._unscoped_calls.clear()
         self._expiry_wakeup.set()

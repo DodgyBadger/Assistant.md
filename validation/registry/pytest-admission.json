@@ -3622,13 +3622,26 @@
     {
       "path": "scenarios/integration/core/test_browser_process_environment.py",
       "kind": "behavioral",
-      "sha256": "f6bc988d3128109cbf28085a928ca4be61052c0d0ba04dcf44b5ed4c01dea177",
+      "sha256": "18f7ff1964db7802bd33799d9ec00cf1ac96c8bb130f5748964a47c8b1132bb0",
       "tests": [
         "test_retained_browser_children_exclude_application_and_control_environment",
         "test_browser_protocol_ignores_parent_debug_dump_settings",
         "test_extraction_uses_same_private_driver_and_browser_environment",
         "test_owned_display_uses_runtime_environment_and_is_reaped",
         "test_stopped_extraction_driver_cannot_block_task_cancellation"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_temporary_storage.py",
+      "kind": "behavioral",
+      "coverage_status": "registered_pending_parity_review",
+      "sha256": "c63f6b3e3b88772e8523a187696e1acd1dc1503b5dadb591a3687d6110aff657",
+      "tests": [
+        "test_browser_profiles_stay_outside_persistent_roots_and_are_removed",
+        "test_browser_spawn_failure_releases_owned_temporary_storage",
+        "test_unexpected_driver_death_preserves_storage_and_reports_uncertainty",
+        "test_browser_profile_removal_does_not_block_application_requests",
+        "test_uncertain_extraction_storage_cleanup_closes_browser_admission"
       ]
     }
   ]
