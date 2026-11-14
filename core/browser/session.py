@@ -53,6 +53,7 @@ class BrowserSession:
     page_id: str = field(default_factory=lambda: uuid4().hex)
     page: Page | None = None
     revision: int = 0
+    document_revision: int = 0
     observation: PageObservation | None = None
     _popup_closures: set[asyncio.Task[None]] = field(default_factory=set)
     _popup_overflow: bool = False
@@ -66,9 +67,14 @@ class BrowserSession:
         await self.context.route_web_socket("**/*", block_websocket)
         self.page = await self.context.new_page()
         self.page.set_default_timeout(5000)
+        for event in ("framenavigated", "frameattached", "framedetached"):
+            self.page.on(event, self._document_changed)
         connection = await self.context.new_cdp_session(self.page)
         self.observation = PageObservation(connection, self.browser_id, self.page_id)
         self.context.on("page", self._extra_page)
+
+    def _document_changed(self, _frame: Frame) -> None:
+        self.document_revision += 1
 
     def _extra_page(self, page: Page) -> None:
         if page is self.page or self._popup_overflow:

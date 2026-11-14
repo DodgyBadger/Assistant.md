@@ -16,6 +16,10 @@ from .operations import BrowserOperations
 
 ActionOperation = Literal["click", "fill", "select", "scroll"]
 _SCRIPT = Path(__file__).with_suffix(".js").read_text(encoding="utf-8")
+_CREDENTIALS = Path(__file__).with_name("credentials.js").read_text(encoding="utf-8")
+_CREDENTIAL_GUARD = (
+    Path(__file__).with_name("credential_guard.js").read_text(encoding="utf-8")
+)
 
 
 class BrowserInteractionError(RuntimeError):
@@ -204,7 +208,7 @@ class PageObservation:
             result = await self._send(
                 "Runtime.evaluate",
                 {
-                    "expression": f"({_SCRIPT})({json.dumps(self._prefix)})",
+                    "expression": f"({_SCRIPT})({json.dumps(self._prefix)}, ({_CREDENTIALS}))",
                     "contextId": world["executionContextId"],
                     "objectGroup": self._group,
                 },
@@ -328,6 +332,67 @@ class PageObservation:
         except asyncio.CancelledError:
             self.broken = True
             raise
+
+    async def credentials_clear(self) -> bool:
+        """Inspect bounded accessible frame documents; export only booleans."""
+        try:
+            async with asyncio.timeout(3):
+                tree = await self._send("Page.getFrameTree")
+                frames = self._credential_frames(tree["frameTree"])
+                if frames is None:
+                    raise BrowserInteractionError("handback_unavailable")
+                for frame_id in frames:
+                    world = await self._send(
+                        "Page.createIsolatedWorld",
+                        {
+                            "frameId": frame_id,
+                            "worldName": "AssistantMD handback guard",
+                            "grantUniveralAccess": False,
+                        },
+                    )
+                    result = await self._send(
+                        "Runtime.evaluate",
+                        {
+                            "expression": f"({_CREDENTIAL_GUARD})(({_CREDENTIALS}))",
+                            "contextId": world["executionContextId"],
+                            "returnByValue": True,
+                        },
+                    )
+                    verdict = result.get("result", {}).get("value")
+                    if "exceptionDetails" in result:
+                        raise BrowserInteractionError("handback_unavailable")
+                    if verdict == "credentials_pending":
+                        return False
+                    if verdict != "clear":
+                        raise BrowserInteractionError("handback_unavailable")
+                final_tree = await self._send("Page.getFrameTree")
+                if frames != self._credential_frames(final_tree["frameTree"]):
+                    raise BrowserInteractionError("handback_unavailable")
+                return True
+        except (Error, TimeoutError, KeyError, TypeError, ValueError):
+            raise BrowserInteractionError("handback_unavailable") from None
+
+    @staticmethod
+    def _credential_frames(tree: dict[str, Any]) -> dict[str, str] | None:
+        pending = [tree]
+        frames: dict[str, str] = {}
+        while pending:
+            if len(pending) + len(frames) > 8:
+                return None
+            item = pending.pop()
+            frame = item["frame"]
+            frame_id, loader = frame["id"], frame["loaderId"]
+            if (
+                not isinstance(frame_id, str)
+                or not isinstance(loader, str)
+                or len(frame_id) > 128
+                or len(loader) > 128
+                or frame_id in frames
+            ):
+                return None
+            frames[frame_id] = loader
+            pending.extend(item.get("childFrames", []))
+        return frames or None
 
     async def document_identity(self) -> BrowserDocument:
         """A history/hash event does not change the committed loader identity."""

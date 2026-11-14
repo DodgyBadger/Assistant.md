@@ -3643,6 +3643,24 @@
         "test_browser_profile_removal_does_not_block_application_requests",
         "test_uncertain_extraction_storage_cleanup_closes_browser_admission"
       ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_handoff.py",
+      "kind": "behavioral",
+      "coverage_status": "registered_pending_parity_review",
+      "sha256": "793aedc4727f043b6acedf42c7ea9f1eca28fad652b4c5deaf7043ffc738d293",
+      "tests": [
+        "test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task",
+        "test_handoff_idle_expiry_is_not_extended_by_polling_or_duplicate_claims",
+        "test_stopped_handoff_keeps_human_control_and_requires_a_new_task_generation",
+        "test_handback_requires_recognized_credential_fields_to_be_submitted_or_cleared",
+        "test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generation",
+        "test_chat_deletion_revokes_a_waiting_handoff_and_releases_its_browser",
+        "test_stop_during_handback_inspection_cannot_return_control_to_the_agent",
+        "test_uninspectable_credential_surface_does_not_grant_agent_control",
+        "test_handback_started_before_idle_expiry_finishes_as_an_active_operation",
+        "test_waiting_handoff_observes_browser_crash_without_viewer_polling"
+      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-(prefix) => {
+(prefix, isCredential) => {
     // Runs in a CDP isolated world: website scripts cannot replace these
     // prototypes or obtain the private node set/dispatch closure.
     const doc = document;
@@ -12,14 +12,7 @@
     const nodes = [], signatures = [], rectangles = [];
     let active = true, dirty = false, optionBudget = 60;
     const viewport = [innerWidth, innerHeight, scrollX, scrollY];
-    const sensitive = node => {
-        const pieces = ['type', 'autocomplete', 'name', 'id', 'aria-label', 'placeholder']
-            .map(key => node.getAttribute(key) || '');
-        if (pieces.some(value => value.length > 256)) return true;
-        for (let i = 0; i < Math.min(node.labels?.length || 0, 3); i++) pieces.push(boundedText(node.labels[i], 256, 256));
-        const hints = pieces.join(' ');
-        return /password|passwd|passcode|one.time.code|one.time.password|\botp\b|verification.?code|auth.?code/i.test(hints);
-    };
+    const sensitive = node => isCredential(node, boundedText);
     const rect = node => {
         const r = node.getBoundingClientRect();
         return [r.x, r.y, r.width, r.height];

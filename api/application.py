@@ -20,6 +20,7 @@ from core.authentication import (
 from core.version import APPLICATION_VERSION
 
 from .authentication import router as authentication_router
+from .browser_handoff import router as browser_handoff_router
 from .endpoints import public_router, register_exception_handlers
 from .endpoints import router as api_router
 
@@ -48,6 +49,7 @@ def create_application(
     app.include_router(public_router)
     app.include_router(authentication_router)
     app.include_router(api_router)
+    app.include_router(browser_handoff_router)
     register_exception_handlers(app)
 
     @app.middleware("http")

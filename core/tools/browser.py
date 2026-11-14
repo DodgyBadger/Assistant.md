@@ -26,6 +26,7 @@ from pydantic_ai.tools import Tool
 
 from core.browser.driver import BrowserDriver
 from core.browser.environment import browser_environment
+from core.browser.handoff import HandoffReason
 from core.browser.observation import (
     BrowserActionUncertain,
     BrowserInteractionError,
@@ -121,8 +122,9 @@ class BrowserTool(BaseTool):
             url: str = "",
             interactive: bool = False,
             operation: Literal[
-                "read", "close", "click", "fill", "select", "scroll"
+                "read", "close", "click", "fill", "select", "scroll", "handoff"
             ] = "read",
+            handoff_reason: HandoffReason = "sign_in",
             reference: str = "",
             value: str = "",
             scroll_y: int = 0,
@@ -136,7 +138,8 @@ class BrowserTool(BaseTool):
 
                         :param url: Page URL to open; omit to read the retained interactive page
                         :param interactive: Retain an isolated browser context for this chat
-                        :param operation: Read the page or close this chat's interactive context
+                        :param operation: Read, act, close, or hand off this chat's browser for a brief human authorization step
+                        :param handoff_reason: Human-only step needed: sign_in, credential or verification
                         :param reference: Exact element ref from the latest observation; observation_ref for scroll
                         :param value: Ordinary text or option value for fill/select; never credentials
                         :param scroll_y: Scroll distance in pixels, between -800 and 800
@@ -175,6 +178,12 @@ class BrowserTool(BaseTool):
                         )
                     if reference or value or scroll_y:
                         raise BrowserInteractionError("invalid_action")
+                    if operation == "handoff":
+                        if url:
+                            raise BrowserInteractionError("invalid_action")
+                        return json.dumps(
+                            asdict(await service.handoff_current(handoff_reason))
+                        )
                     if operation == "close":
                         return json.dumps(await service.close_current())
                     return json.dumps(

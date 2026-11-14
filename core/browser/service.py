@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import sys
 from collections.abc import AsyncIterator, Iterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ from core.settings import (
 from core.web.errors import WebUrlPolicyError
 
 from .engine import BrowserEngine
+from .handoff import BrowserHandoff, HandoffReason, HandoffStatus, HandoffView
 from .network import BrowserEgress, BrowserResolver
 from .observation import (
     ActionOperation,
@@ -128,6 +130,248 @@ class BrowserService:
             if self._proxy is None:
                 self._proxy = await self._egress.start()
             return self._proxy
+
+    async def handoff_current(self, reason: HandoffReason) -> HandoffView:
+        if reason not in {"sign_in", "credential", "verification"}:
+            raise BrowserAdmissionError("invalid_handoff", "Invalid handoff reason")
+        key = await self._current_chat()
+        handoff: BrowserHandoff | None = None
+        try:
+            async with asyncio.timeout(10), self._session_lock(key):
+                await self._current_chat()
+                await self._expire_key_if_idle(key)
+                retained = self._sessions.get(key)
+                if (
+                    retained is None
+                    or not retained.session.has_retained_document()
+                    or not retained.session.is_usable()
+                ):
+                    raise BrowserAdmissionError(
+                        "no_current_page", "Open a usable interactive page first"
+                    )
+                previous = retained.handoff
+                if previous is not None and previous.status in {"waiting", "human"}:
+                    raise BrowserAdmissionError(
+                        "human_control_active", "Browser already awaits human control"
+                    )
+                observation = retained.session.observation
+                if observation is None or observation.broken:
+                    raise BrowserAdmissionError(
+                        "browser_closed", "Browser observations are unavailable"
+                    )
+                try:
+                    await observation.invalidate()
+                except BaseException as error:
+                    await self._close_after_failure(key, error)
+                    raise
+                await self._current_chat()
+                task = get_current_execution_task()
+                if task is None:
+                    raise BrowserAdmissionError(
+                        "unsupported_context", "An active chat task is required"
+                    )
+                handoff = BrowserHandoff(
+                    task.task_id,
+                    retained.session.browser_id,
+                    retained.session.page_id,
+                    reason,
+                )
+                retained.handoff = handoff
+                if previous is None or not previous.human_controlled:
+                    retained.last_activity = self._loop.time()
+                await self._publish_handoff(key, handoff)
+            # Neither the wait nor metadata polling holds the chat lock or
+            # extends the single inactivity deadline. Stop cannot cancel this
+            # future and accidentally transfer ownership.
+            outcome = await asyncio.shield(handoff.completed)
+        except BaseException:
+            if handoff is not None and handoff.status in {"waiting", "human"}:
+                handoff.finish("stopped")
+                self._handoff_event(key, handoff)
+            raise
+        if outcome != "returned":
+            raise BrowserAdmissionError(
+                (
+                    "browser_expired"
+                    if outcome == "expired"
+                    else (
+                        "browser_cleanup_unconfirmed"
+                        if outcome == "cleanup_unconfirmed"
+                        else "browser_closed"
+                    )
+                ),
+                "Browser handoff ended without returning control; open a fresh session",
+            )
+        return handoff.view()
+
+    def _require_agent_control(self, key: tuple[str, str]) -> None:
+        retained = self._sessions.get(key)
+        if (
+            retained is not None
+            and retained.handoff is not None
+            and retained.handoff.human_controlled
+        ):
+            raise BrowserAdmissionError(
+                "human_control_active", "Browser is under human control"
+            )
+
+    async def handoff_state(self, session_id: str) -> HandoffView:
+        key = self._human_chat(session_id)
+        async with asyncio.timeout(10), self._session_lock(key):
+            retained, handoff = await self._human_handoff(key)
+            return handoff.view()
+
+    async def claim_handoff(self, session_id: str, handoff_id: str) -> HandoffView:
+        key = self._human_chat(session_id)
+        async with asyncio.timeout(10), self._session_lock(key):
+            retained, handoff = await self._human_handoff(key, handoff_id)
+            await self._require_handoff_task(key, handoff)
+            if handoff.status == "human":
+                return handoff.view()
+            if handoff.status != "waiting":
+                raise BrowserAdmissionError(
+                    "stale_handoff", "Handoff is no longer waiting"
+                )
+            handoff.status = "human"
+            retained.last_activity = self._loop.time()
+            await self._publish_handoff(key, handoff)
+            return handoff.view()
+
+    async def return_handoff(self, session_id: str, handoff_id: str) -> HandoffView:
+        key = self._human_chat(session_id)
+        async with asyncio.timeout(10), self._session_lock(key):
+            retained, handoff = await self._human_handoff(key, handoff_id)
+            if handoff.status == "returned":
+                return handoff.view()
+            await self._require_handoff_task(key, handoff)
+            if handoff.status != "human":
+                raise BrowserAdmissionError(
+                    "stale_handoff", "Claim human control before returning it"
+                )
+            observation = retained.session.observation
+            document_revision = retained.session.document_revision
+            logger.set_sinks(["validation"]).info(
+                "Browser handback inspection started",
+                data={
+                    "event": "browser_handback_check_started",
+                    "session_id": key[1],
+                    "task_id": handoff.task_id,
+                    "handoff_id": handoff.handoff_id,
+                    "browser_id": handoff.browser_id,
+                },
+            )
+            if observation is None or not await observation.credentials_clear():
+                raise BrowserAdmissionError(
+                    "credentials_pending",
+                    "Submit or clear credential fields before returning control",
+                )
+            # The renderer check yields: Stop, deletion, expiry and replacement
+            # must never make a previously valid request regain authority.
+            current, current_handoff = await self._human_handoff(
+                key, handoff_id, check_idle=False
+            )
+            await self._require_handoff_task(key, handoff)
+            if (
+                current is not retained
+                or current_handoff is not handoff
+                or handoff.status != "human"
+                or retained.session.document_revision != document_revision
+            ):
+                raise BrowserAdmissionError(
+                    "stale_handoff", "Handoff is no longer current"
+                )
+            handoff.finish("returned")
+            retained.last_activity = self._loop.time()
+            await self._publish_handoff(key, handoff)
+            return handoff.view()
+
+    def _human_chat(self, session_id: str) -> tuple[str, str]:
+        self._require_loop()
+        self._require_open()
+        authority = require_current_execution_authority()
+        runtime = get_runtime_context()
+        if runtime.browser is not self or not session_id or len(session_id) > 256:
+            raise BrowserAdmissionError(
+                "stale_handoff", "Browser handoff is unavailable"
+            )
+        try:
+            runtime.chat_session_access.require_session(session_id)
+        except LookupError:
+            raise BrowserAdmissionError(
+                "no_handoff", "Browser handoff is unavailable"
+            ) from None
+        return authority.principal_id, session_id
+
+    async def _human_handoff(
+        self,
+        key: tuple[str, str],
+        handoff_id: str | None = None,
+        *,
+        check_idle: bool = True,
+    ) -> tuple[_Retained, BrowserHandoff]:
+        self._human_chat(key[1])
+        # The return path already checked admission before its bounded guard
+        # and still owns this lock. That in-flight interval is not idle time.
+        if check_idle:
+            await self._expire_key_if_idle(key)
+        retained = self._sessions.get(key)
+        if retained is None or retained.handoff is None:
+            raise BrowserAdmissionError("no_handoff", "Browser handoff is unavailable")
+        handoff = retained.handoff
+        if (handoff_id is not None and handoff.handoff_id != handoff_id) or (
+            handoff.browser_id != retained.session.browser_id
+            or handoff.page_id != retained.session.page_id
+        ):
+            raise BrowserAdmissionError(
+                "stale_handoff", "Browser handoff is no longer current"
+            )
+        if not retained.session.is_usable():
+            await self._close_key(key)
+            raise BrowserAdmissionError("browser_closed", "Browser page is unavailable")
+        return retained, handoff
+
+    async def _require_handoff_task(
+        self, key: tuple[str, str], handoff: BrowserHandoff
+    ) -> None:
+        task = await get_runtime_context().execution_task_access.get_task(
+            handoff.task_id
+        )
+        if (
+            task is None
+            or task.is_terminal
+            or task.cancel_requested
+            or task.principal_id != key[0]
+            or task.kind != "chat"
+            or task.scope != f"chat_session:{key[1]}"
+            or handoff.status not in {"waiting", "human"}
+        ):
+            raise BrowserAdmissionError(
+                "stale_handoff", "The owning handoff task is no longer active"
+            )
+
+    async def _publish_handoff(
+        self, key: tuple[str, str], handoff: BrowserHandoff
+    ) -> None:
+        await get_runtime_context().task_coordinator.publish_progress(
+            handoff.task_id,
+            metadata={"browser_handoff": handoff.view().as_metadata()},
+            health_status=(
+                "attention_required" if handoff.human_controlled else "healthy"
+            ),
+        )
+        self._handoff_event(key, handoff)
+
+    @staticmethod
+    def _handoff_event(key: tuple[str, str], handoff: BrowserHandoff) -> None:
+        logger.add_sink("validation").info(
+            "Browser handoff state changed",
+            data={
+                "event": "browser_handoff_changed",
+                "session_id": key[1],
+                "principal_id": key[0],
+                **handoff.view().as_metadata(),
+            },
+        )
 
     async def read_current(self, url: str) -> BrowserView:
         key = await self._current_chat()
@@ -255,6 +499,7 @@ class BrowserService:
         key = await self._current_chat()
         async with asyncio.timeout(15), self._session_lock(key):
             await self._current_chat()
+            self._require_agent_control(key)
             await self._close_key(key)
         return {"status": "closed"}
 
@@ -354,6 +599,7 @@ class BrowserService:
                 "Browser operation is still in progress; wait before trying again",
             ) from None
         try:
+            self._require_agent_control(key)
             # Construction, DNS, navigation, observation and cleanup each own
             # their deadline. Queueing must not consume navigation's interval.
             yield
@@ -531,15 +777,51 @@ class BrowserService:
                 self._closed = True
             raise
 
-    async def _close_key(self, key: tuple[str, str]) -> None:
+    async def _close_key(
+        self, key: tuple[str, str], outcome: HandoffStatus = "closed"
+    ) -> None:
         retained = self._sessions.pop(key, None)
+        completed = False
         try:
-            if retained is not None:
-                await self._release_retained(key, retained)
+            try:
+                if retained is not None:
+                    await self._release_retained(key, retained)
+            finally:
+                async with self._engine_lock:
+                    if (
+                        self._closed or not self._sessions
+                    ) and self._engine is not None:
+                        await self._close_engine()
+            completed = True
         finally:
-            async with self._engine_lock:
-                if (self._closed or not self._sessions) and self._engine is not None:
-                    await self._close_engine()
+            primary = sys.exception()
+            if retained is not None:
+                try:
+                    await self._settle_handoff(
+                        key, retained, outcome if completed else "cleanup_unconfirmed"
+                    )
+                except asyncio.CancelledError:
+                    if not isinstance(primary, asyncio.CancelledError):
+                        raise
+                    primary.add_note("Handoff publication interrupted during cleanup")
+                except Exception as publication_error:
+                    if primary is None:
+                        raise
+                    primary.add_note(
+                        f"Handoff publication failed: {type(publication_error).__name__}"
+                    )
+
+    async def _settle_handoff(
+        self, key: tuple[str, str], retained: _Retained, outcome: HandoffStatus
+    ) -> None:
+        handoff = retained.handoff
+        if handoff is not None:
+            # Context and any required engine cleanup have finished or failed.
+            # Tag the outcome before publishing: even publication failure or
+            # repeated Stop must not strand a waiting tool.
+            handoff.finish(outcome)
+            async with asyncio.timeout(1):
+                await self._publish_handoff(key, handoff)
 
     async def _release_retained(
         self, key: tuple[str, str], retained: _Retained
@@ -583,6 +865,18 @@ class BrowserService:
                 cancellation = cancellation or exc
             except Exception as exc:
                 failures.append(exc)
+            outcome: HandoffStatus = (
+                "cleanup_unconfirmed"
+                if failures or cancellation is not None
+                else "closed"
+            )
+            for key, retained in retired:
+                try:
+                    await self._settle_handoff(key, retained, outcome)
+                except asyncio.CancelledError as exc:
+                    cancellation = cancellation or exc
+                except Exception as exc:
+                    failures.append(exc)
             if cancellation is not None:
                 for failure in failures:
                     cancellation.add_note(
@@ -610,6 +904,17 @@ class BrowserService:
     async def _expire_idle(self) -> None:
         try:
             while not self._shutting_down and self._sessions:
+                # Human waits have no foreground browser call to observe a
+                # crash. Reuse this owned worker to retire their dead engine.
+                if (
+                    any(
+                        retained.handoff is not None
+                        and retained.handoff.human_controlled
+                        for retained in self._sessions.values()
+                    )
+                    and await self._retire_disconnected_engine()
+                ):
+                    continue
                 # Read settings each pass so changes take effect without a
                 # restart. Status/frame polling will not touch last_activity.
                 for key in list(self._sessions):
@@ -654,7 +959,7 @@ class BrowserService:
             < get_browser_idle_timeout_seconds()
         ):
             return False
-        await self._close_key(key)
+        await self._close_key(key, "expired")
         logger.add_sink("validation").info(
             "Interactive browser expired",
             data={
@@ -669,9 +974,18 @@ class BrowserService:
         return True
 
     def on_task_terminal(self, task: ExecutionTaskSnapshot) -> None:
-        """Discard finished task counters without evicting active task budgets."""
+        """Release task accounting and stop its current human handoff lease."""
         with self._lock:
             self._task_calls.pop(task.task_id, None)
+        for key, retained in self._sessions.items():
+            handoff = retained.handoff
+            if (
+                handoff is not None
+                and handoff.task_id == task.task_id
+                and handoff.status in {"waiting", "human"}
+            ):
+                handoff.finish("stopped")
+                self._handoff_event(key, handoff)
 
     async def shutdown(self) -> None:
         """Close admission and allow cancelled operations to finish releasing."""
@@ -808,3 +1122,4 @@ class _Retained:
     session: BrowserSession
     stack: AsyncExitStack
     last_activity: float
+    handoff: BrowserHandoff | None = None
