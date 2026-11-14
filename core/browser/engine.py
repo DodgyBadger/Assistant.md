@@ -14,7 +14,8 @@ from playwright.async_api import Browser
 from core.logger import UnifiedLogger
 
 from .driver import BrowserDriver
-from .operations import BrowserOperations
+from .environment import browser_environment
+from .operations import BrowserOperations, finish_cleanup
 
 
 class BrowserEngine:
@@ -35,6 +36,9 @@ class BrowserEngine:
             self._driver_started = True
             self.stack.push_async_callback(self._stop_driver, driver)
             playwright = await driver.start()
+            environment: dict[str, str | float | bool] = dict(
+                browser_environment(display=display)
+            )
             browser = await playwright.chromium.launch(
                 channel="chromium",
                 headless=False,
@@ -44,11 +48,12 @@ class BrowserEngine:
                     "--disable-quic",
                     "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
                 ],
-                env={**os.environ, **({"DISPLAY": display} if display else {})},
+                env=environment,
                 timeout=10000,
             )
             self.stack.push_async_callback(self._close_browser, browser)
             self.browser = browser
+            browser.on("disconnected", self._on_disconnected)
             UnifiedLogger(tag="browser-runtime").set_sinks(["validation"]).info(
                 "Browser engine ready",
                 data={"event": "browser_engine_started", "status": "completed"},
@@ -62,6 +67,13 @@ class BrowserEngine:
                     f"Browser startup cleanup failed: {type(cleanup_error).__name__}"
                 )
             raise
+
+    @staticmethod
+    def _on_disconnected(_browser: Browser) -> None:
+        UnifiedLogger(tag="browser-runtime").set_sinks(["validation"]).info(
+            "Browser engine disconnected",
+            data={"event": "browser_engine_disconnected", "status": "completed"},
+        )
 
     async def _display(self) -> str | None:
         current = os.environ.get("DISPLAY")
@@ -87,6 +99,7 @@ class BrowserEngine:
                 "-nolisten",
                 "tcp",
                 pass_fds=(write_fd,),
+                env=browser_environment(),
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=errors,
             )
@@ -122,25 +135,7 @@ class BrowserEngine:
             return
         if self._closing is None:
             self._closing = asyncio.create_task(self._close_resources())
-        cancellation: asyncio.CancelledError | None = None
-        while not self._closing.done():
-            try:
-                await asyncio.shield(self._closing)
-            except asyncio.CancelledError as exc:
-                cancellation = cancellation or exc
-            except Exception:
-                break
-        try:
-            self._closing.result()
-        except BaseException as error:
-            if cancellation is not None:
-                cancellation.add_note(
-                    f"Browser engine cleanup failed: {type(error).__name__}"
-                )
-                raise cancellation from error
-            raise
-        if cancellation is not None:
-            raise cancellation
+        await finish_cleanup(self._closing)
         self.browser = None
 
     async def _close_resources(self) -> None:

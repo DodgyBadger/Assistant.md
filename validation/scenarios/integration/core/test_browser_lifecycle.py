@@ -369,6 +369,11 @@ async def test_stop_during_shared_crash_retirement_remains_task_cancellation(
         assert len(browsers) == 1
         os.kill(browsers[0]["pid"], signal.SIGKILL)
         await wait_processes_gone(browsers)
+        # OS process exit can precede the SDK's disconnected notification.
+        # Establish shared-engine retirement before pausing its cleanup IPC.
+        async with asyncio.timeout(6):
+            while not app.events.select("browser_engine_disconnected"):
+                await asyncio.sleep(0.01)
         with pause_driver_on_browser_close(app, drivers[0]["pid"]) as paused:
             operation = asyncio.create_task(
                 browser_turn(app, vault.name, "retirement-stop")

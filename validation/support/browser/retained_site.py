@@ -223,7 +223,9 @@ async def browser_turn(
             label="Browser context scenario",
             authority=LOCAL_USER_AUTHORITY,
         ):
-            return await BrowserTool.get_tool().function(interactive=True, **kwargs)
+            return await BrowserTool.get_tool().function(
+                **{"interactive": True, **kwargs}
+            )
 
 
 @dataclass
@@ -244,7 +246,9 @@ class PausedDriver:
 
 
 @contextmanager
-def paused_browser_driver(app: Application) -> Iterator[PausedDriver]:
+def paused_browser_driver(
+    app: Application, *, event: str = "browser_engine_started"
+) -> Iterator[PausedDriver]:
     """Pause only the new real driver at its observed ready event.
 
     This is an external process/IPC failure, not a replacement of application
@@ -264,9 +268,8 @@ def paused_browser_driver(app: Application) -> Iterator[PausedDriver]:
         if record.get("data", {}).get("event") == "browser_context_creation_failed":
             paused.construction_deadline.set()
         if (
-            record.get("data", {}).get("event") != "browser_engine_started"
-            or paused.driver_pid is not None
-        ):
+            record.get("data", {}).get("event") or record.get("name")
+        ) != event or paused.driver_pid is not None:
             return
         rows = descendant_identities()
         direct = [

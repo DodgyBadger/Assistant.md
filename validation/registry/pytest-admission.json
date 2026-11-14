@@ -3540,7 +3540,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "dc3cca462049e63abeeaacfa8e5504fbdfa9acf98b967a6ea1703ba184d85f56"
+      "sha256": "a5d306ec6306399776c566527c6bb017ff692c17c226b00cea69457c462bdadd"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3560,7 +3560,7 @@
     {
       "path": "scenarios/integration/core/test_browser_lifecycle.py",
       "kind": "behavioral",
-      "sha256": "a23a2905d612962b5d575cf8ec6dcae54ad7363fb6c5aa9849525753ace24e25",
+      "sha256": "03ba6034f624481c888380b0d001f8aa1a0d0237435edc328ae4664e6d1c2bb6",
       "tests": [
         "test_browser_inactivity_expires_authentication_and_releases_capacity",
         "test_browser_activity_refreshes_idle_clock_beyond_total_interval",
@@ -3617,6 +3617,18 @@
         "test_unconfirmed_deadline_cleanup_never_advertises_human_help",
         "test_stop_before_navigation_deadline_is_cancellation_without_help",
         "test_history_change_on_old_document_cannot_attest_new_navigation_commit"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_process_environment.py",
+      "kind": "behavioral",
+      "sha256": "f6bc988d3128109cbf28085a928ca4be61052c0d0ba04dcf44b5ed4c01dea177",
+      "tests": [
+        "test_retained_browser_children_exclude_application_and_control_environment",
+        "test_browser_protocol_ignores_parent_debug_dump_settings",
+        "test_extraction_uses_same_private_driver_and_browser_environment",
+        "test_owned_display_uses_runtime_environment_and_is_reaped",
+        "test_stopped_extraction_driver_cannot_block_task_cancellation"
       ]
     }
   ]

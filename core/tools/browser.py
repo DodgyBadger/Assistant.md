@@ -9,21 +9,29 @@ blocked. Extraction is isolated per call; interactive contexts belong to a chat.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from markdownify import markdownify as html_to_markdown
+from playwright.async_api import Browser, BrowserContext
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from pydantic_ai.messages import ToolReturn
 from pydantic_ai.tools import Tool
 
+from core.browser.driver import BrowserDriver
+from core.browser.environment import browser_environment
 from core.browser.observation import (
     BrowserActionUncertain,
     BrowserInteractionError,
     BrowserReadDeadline,
 )
+from core.browser.operations import BrowserOperations, finish_cleanup
 from core.browser.service import BrowserAdmissionError
 from core.logger import UnifiedLogger
 from core.runtime.resources import read_cgroup_memory_status
@@ -86,7 +94,8 @@ class BrowserTool(BaseTool):
         error = data.get("error")
         if isinstance(error, str):
             for original, sanitized in original_urls:
-                error = error.replace(original, sanitized)
+                if original:
+                    error = error.replace(original, sanitized)
             data["error"] = error
         goal = data.pop("goal", None)
         if isinstance(goal, str) and goal:
@@ -269,22 +278,16 @@ class BrowserTool(BaseTool):
         cls._validate_url(url)
         normalized_wait_until = cls._validate_wait_until(wait_until)
 
-        try:
-            from playwright.async_api import Error as PlaywrightError
-            from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-            from playwright.async_api import async_playwright
-        except ImportError as exc:
-            raise RuntimeError(
-                "Playwright is not installed. Add the `playwright` package and run "
-                "`playwright install chromium` on the host."
-            ) from exc
-
         timeout_ms, selector_timeout_ms = cls._get_timeout_settings()
 
         try:
-            async with async_playwright() as playwright:
+            driver = BrowserDriver()
+            operations = BrowserOperations[None]()
+            try:
+                playwright = await driver.start()
                 extraction = await cls._run_browser_session(
                     playwright=playwright,
+                    operations=operations,
                     url=url,
                     normalized_wait_until=normalized_wait_until,
                     timeout_ms=timeout_ms,
@@ -293,6 +296,16 @@ class BrowserTool(BaseTool):
                     extract_selector=extract_selector,
                     include_links=include_links,
                 )
+            finally:
+                primary = sys.exception()
+                try:
+                    await driver.close(operations)
+                except Exception as cleanup_error:
+                    if primary is None:
+                        raise
+                    primary.add_note(
+                        f"Browser driver cleanup failed: {type(cleanup_error).__name__}"
+                    )
         except PlaywrightTimeoutError as exc:
             raise RuntimeError(
                 f"result_type: timeout\nnavigation timed out after {timeout_ms} ms"
@@ -348,6 +361,7 @@ class BrowserTool(BaseTool):
         cls,
         *,
         playwright: Any,
+        operations: BrowserOperations[None],
         url: str,
         normalized_wait_until: str,
         timeout_ms: int,
@@ -363,6 +377,7 @@ class BrowserTool(BaseTool):
             headless=True,
             channel="chromium",
             chromium_sandbox=True,
+            env=browser_environment(),
             proxy={
                 "server": await get_runtime_context().browser.proxy_url(),
                 "bypass": "<-loopback>",
@@ -441,10 +456,41 @@ class BrowserTool(BaseTool):
                 "links": extracted["links"],
             }
         finally:
-            if context is not None:
-                await context.close()
-            await browser_instance.close()
-            cls._log_event("browser_session_closed", tool="browser", url=url)
+            primary = sys.exception()
+            try:
+                await finish_cleanup(
+                    asyncio.create_task(
+                        cls._close_transient(context, browser_instance, operations)
+                    )
+                )
+            except Exception as cleanup_error:
+                if primary is None:
+                    raise
+                primary.add_note(
+                    f"Browser session cleanup failed: {type(cleanup_error).__name__}"
+                )
+            else:
+                cls._log_event("browser_session_closed", tool="browser", url=url)
+
+    @staticmethod
+    async def _close_transient(
+        context: BrowserContext | None,
+        browser: Browser,
+        operations: BrowserOperations[None],
+    ) -> None:
+        failures: list[str] = []
+        for resource in (context, browser):
+            if resource is None:
+                continue
+            try:
+                async with asyncio.timeout(2):
+                    await operations.run(resource.close())
+            except Exception as error:
+                failures.append(type(error).__name__)
+        if failures:
+            raise RuntimeError(
+                "Browser session cleanup is unconfirmed: " + ", ".join(failures)
+            )
 
     @classmethod
     async def _resolve_target_region(

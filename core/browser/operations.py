@@ -30,3 +30,24 @@ class BrowserOperations[T]:
             _, pending = await asyncio.wait(self._tasks, timeout=1)
             return not pending
         return True
+
+
+async def finish_cleanup(task: asyncio.Task[None]) -> None:
+    """Finish an independently bounded cleanup owner before propagating Stop."""
+    cancellation: asyncio.CancelledError | None = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError as error:
+            cancellation = cancellation or error
+        except Exception:
+            break
+    try:
+        task.result()
+    except BaseException as error:
+        if cancellation is not None:
+            cancellation.add_note(f"Browser cleanup failed: {type(error).__name__}")
+            raise cancellation from error
+        raise
+    if cancellation is not None:
+        raise cancellation
