@@ -879,7 +879,11 @@ class UnifiedLogger:
         try:
             # Instrument FastAPI if app provided
             if app:
-                logfire.instrument_fastapi(app)
+                # The installed ASGI integration matches decoded scope paths;
+                # omit the entire private browser family, including errors.
+                logfire.instrument_fastapi(
+                    app, excluded_urls=r"/browser-handoff(?:/|$)"
+                )
 
             # Note: HTTP client instrumentation commented out - Pydantic-AI handles AI providers,
             # FastAPI handles internal calls, no need for raw HTTP tracing

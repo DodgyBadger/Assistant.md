@@ -31,6 +31,7 @@ from .observation import (
     PageObservation,
 )
 from .operations import BrowserOperations
+from .viewer import HumanViewer
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ class BrowserSession:
     revision: int = 0
     document_revision: int = 0
     observation: PageObservation | None = None
+    viewer: HumanViewer | None = None
     _popup_closures: set[asyncio.Task[None]] = field(default_factory=set)
     _popup_overflow: bool = False
     _denied_requests: int = 0
@@ -71,6 +73,11 @@ class BrowserSession:
             self.page.on(event, self._document_changed)
         connection = await self.context.new_cdp_session(self.page)
         self.observation = PageObservation(connection, self.browser_id, self.page_id)
+        self.viewer = HumanViewer(
+            await self.context.new_cdp_session(self.page),
+            self.page_id,
+            lambda: self.document_revision,
+        )
         self.context.on("page", self._extra_page)
 
     def _document_changed(self, _frame: Frame) -> None:
@@ -213,8 +220,12 @@ class BrowserSession:
             error.add_note(f"Navigation stop failed: {type(cleanup_error).__name__}")
 
     async def dispose(self) -> None:
-        if self.observation is not None:
-            await self.observation.close()
+        try:
+            if self.observation is not None:
+                await self.observation.close()
+        finally:
+            if self.viewer is not None:
+                await self.viewer.close()
 
     def needs_disposal(self) -> bool:
         return self.observation is not None and self.observation.broken

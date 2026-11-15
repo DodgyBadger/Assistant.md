@@ -3540,7 +3540,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "a5d306ec6306399776c566527c6bb017ff692c17c226b00cea69457c462bdadd"
+      "sha256": "362ba438e79e12ddf72af5594ab16afbf75fc908dcfe446bec29f4518335acad"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3648,7 +3648,7 @@
       "path": "scenarios/integration/core/test_browser_handoff.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "793aedc4727f043b6acedf42c7ea9f1eca28fad652b4c5deaf7043ffc738d293",
+      "sha256": "c5783985bf78f983be7f4e87e4314cc6b4ab6ec674cd343671292ab8848f4e52",
       "tests": [
         "test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task",
         "test_handoff_idle_expiry_is_not_extended_by_polling_or_duplicate_claims",
@@ -3661,6 +3661,38 @@
         "test_handback_started_before_idle_expiry_finishes_as_an_active_operation",
         "test_waiting_handoff_observes_browser_crash_without_viewer_polling"
       ]
+    },
+    {
+      "path": "support/browser/human_transport.py",
+      "kind": "support",
+      "sha256": "cdda6f40450363359c7c6c64f2c81d72e48c6be95a0f32c1f11d2935bab67b4e"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_human_transport.py",
+      "kind": "behavioral",
+      "sha256": "9467093bfdc3989eb9c8f65d6ee39d87ffd15609dc71c1f656853a470d60ac0b",
+      "coverage_status": "registered_pending_parity_review",
+      "tests": [
+        "test_human_enters_and_submits_credentials_without_exporting_them_to_the_agent",
+        "test_private_input_and_parser_failures_do_not_enter_real_telemetry_or_logs",
+        "test_input_tokens_are_single_use_and_dead_handoffs_cannot_receive_pixels_or_input",
+        "test_changed_scroll_geometry_rejects_previously_captured_coordinates",
+        "test_frame_polling_does_not_keep_a_handoff_alive",
+        "test_partial_private_body_has_bounded_admission_and_never_dispatches",
+        "test_cancelled_or_stopped_capture_keeps_ipc_owned_and_discards_late_pixels",
+        "test_uncertain_pressed_gesture_retires_its_page_without_replay",
+        "test_private_routes_require_authenticated_human_task_csrf_and_origin"
+      ]
+    },
+    {
+      "path": "support/browser/handoff.py",
+      "kind": "support",
+      "sha256": "10a3be2a1c10c15551f24794784520f40182a4e9af7392f7e72da8e6830d2d1a"
+    },
+    {
+      "path": "support/browser/privacy.py",
+      "kind": "support",
+      "sha256": "9435b03558e06c803aa0c39fb7ce474c5937b3dbe385d9616f77ced1d4504501"
     }
   ]
 }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import sys
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from threading import Lock
@@ -33,6 +33,7 @@ from core.web.errors import WebUrlPolicyError
 
 from .engine import BrowserEngine
 from .handoff import BrowserHandoff, HandoffReason, HandoffStatus, HandoffView
+from .human_input import BrowserInputError, HumanInput
 from .network import BrowserEgress, BrowserResolver
 from .observation import (
     ActionOperation,
@@ -42,6 +43,7 @@ from .observation import (
 )
 from .operations import BrowserOperations
 from .session import BrowserSession, BrowserView
+from .viewer import HumanFrame, HumanViewer
 
 logger = UnifiedLogger(tag="browser-service")
 
@@ -248,6 +250,14 @@ class BrowserService:
                 raise BrowserAdmissionError(
                     "stale_handoff", "Claim human control before returning it"
                 )
+            if (
+                retained.session.viewer is not None
+                and not retained.session.viewer.can_return
+            ):
+                raise BrowserAdmissionError(
+                    "browser_busy",
+                    "Inspect a fresh frame after pending input completes",
+                )
             observation = retained.session.observation
             document_revision = retained.session.document_revision
             logger.set_sinks(["validation"]).info(
@@ -284,6 +294,104 @@ class BrowserService:
             retained.last_activity = self._loop.time()
             await self._publish_handoff(key, handoff)
             return handoff.view()
+
+    @asynccontextmanager
+    async def _viewer_slot(
+        self, key: tuple[str, str], *, input_request: bool
+    ) -> AsyncIterator[tuple[_Retained, HumanViewer]]:
+        retained = self._sessions.get(key)
+        if retained is None or retained.session.viewer is None:
+            raise BrowserAdmissionError("no_handoff", "Browser viewer is unavailable")
+        viewer = retained.session.viewer
+        if viewer.frame_pending or viewer.input_pending or viewer.pending:
+            raise BrowserInputError("browser_busy")
+        if input_request:
+            viewer.input_pending = True
+        else:
+            viewer.frame_pending = True
+        try:
+            yield retained, viewer
+        finally:
+            if input_request:
+                viewer.input_pending = False
+            else:
+                viewer.frame_pending = False
+
+    async def _viewer_handoff(
+        self,
+        key: tuple[str, str],
+        handoff_id: str,
+        expected: _Retained,
+        *,
+        check_idle: bool = True,
+    ) -> BrowserHandoff:
+        current, handoff = await self._human_handoff(
+            key, handoff_id, check_idle=check_idle
+        )
+        await self._require_handoff_task(key, handoff)
+        if (
+            current is not expected
+            or self._sessions.get(key) is not expected
+            or handoff.status != "human"
+        ):
+            raise BrowserAdmissionError(
+                "stale_handoff", "Human control is no longer current"
+            )
+        return handoff
+
+    async def frame_handoff(self, session_id: str, handoff_id: str) -> HumanFrame:
+        key = self._human_chat(session_id)
+        async with self._viewer_slot(key, input_request=False) as (retained, viewer):
+            async with self._viewer_lock(key):
+                handoff = await self._viewer_handoff(key, handoff_id, retained)
+                viewer.bind(handoff.handoff_id)
+                frame = await viewer.capture()
+                # Frames are passive: crossing expiry does not extend retention.
+                await self._viewer_handoff(key, handoff_id, retained)
+                return frame
+
+    async def input_handoff(
+        self,
+        session_id: str,
+        handoff_id: str,
+        reader: Callable[[], Awaitable[HumanInput]],
+    ) -> dict[str, int | bool | str]:
+        key = self._human_chat(session_id)
+        async with self._viewer_slot(key, input_request=True) as (retained, viewer):
+            async with self._viewer_lock(key):
+                handoff = await self._viewer_handoff(key, handoff_id, retained)
+                viewer.bind(handoff.handoff_id)
+                # Reserve admission before reading any private bytes. Reading,
+                # geometry and native dispatch each have their own deadline.
+                command = await reader()
+                geometry = await viewer.prepare_input()
+                await self._viewer_handoff(key, handoff_id, retained, check_idle=False)
+                try:
+                    response = await viewer.dispatch(command, geometry)
+                except BrowserInputError as error:
+                    if error.retire:
+                        await self._close_after_failure(key, error)
+                    raise
+                except asyncio.CancelledError as error:
+                    if viewer.unsafe:
+                        await self._close_after_failure(key, error)
+                    raise
+                await self._viewer_handoff(key, handoff_id, retained, check_idle=False)
+                retained.last_activity = self._loop.time()
+                return response
+
+    @asynccontextmanager
+    async def _viewer_lock(self, key: tuple[str, str]) -> AsyncIterator[None]:
+        lock = self._session_lock(key)
+        try:
+            async with asyncio.timeout(5):
+                await lock.acquire()
+        except TimeoutError:
+            raise BrowserInputError("browser_busy") from None
+        try:
+            yield
+        finally:
+            lock.release()
 
     def _human_chat(self, session_id: str) -> tuple[str, str]:
         self._require_loop()

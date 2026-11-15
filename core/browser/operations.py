@@ -25,6 +25,10 @@ class BrowserOperations[T]:
         if not task.cancelled():
             task.exception()
 
+    @property
+    def pending(self) -> bool:
+        return bool(self._tasks)
+
     async def settled(self) -> bool:
         if self._tasks:
             _, pending = await asyncio.wait(self._tasks, timeout=1)

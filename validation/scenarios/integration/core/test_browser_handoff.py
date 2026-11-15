@@ -10,28 +10,10 @@ from pydantic_ai.messages import ToolReturn
 
 from core.runtime.state import get_runtime_context
 from validation.support.application import Application
+from validation.support.browser.handoff import handoff_path, waiting_handoff
 from validation.support.browser.retained_site import browser_turn, retained_browser_site
 
 pytestmark = pytest.mark.scenario
-
-
-def handoff_path(session_id: str) -> str:
-    return f"/api/chat/sessions/{session_id}/browser-handoff"
-
-
-async def waiting_handoff(app: Application, operation: asyncio.Task, session_id: str):
-    async with asyncio.timeout(6):
-        while True:
-            response = await app.request_async(handoff_path(session_id))
-            if response.status_code == 200:
-                assert (
-                    not operation.done()
-                ), "Handoff returned before the human handback"
-                return response.json()
-            assert (
-                not operation.done()
-            ), "Handoff must wait and advertise its owning task"
-            await asyncio.sleep(0.05)
 
 
 async def test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task(

@@ -37,6 +37,7 @@ class BrowserSite:
     mutate: Event = field(default_factory=Event)
     mutation_applied: Event = field(default_factory=Event)
     hold_submission: bool = False
+    sign_in_on_submit: bool = False
     release_submission: Event = field(default_factory=Event)
     script_requested: Event = field(default_factory=Event)
     release_script: Event = field(default_factory=Event)
@@ -115,6 +116,10 @@ def retained_browser_site(
                 site.release_submission.wait(8)
             body = b"<main>Saved</main>"
             self.send_response(200)
+            if site.sign_in_on_submit:
+                self.send_header(
+                    "Set-Cookie", f"session={COOKIE}; HttpOnly; SameSite=Lax; Path=/"
+                )
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
