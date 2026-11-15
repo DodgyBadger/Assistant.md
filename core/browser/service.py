@@ -32,7 +32,13 @@ from core.settings import (
 from core.web.errors import WebUrlPolicyError
 
 from .engine import BrowserEngine
-from .handoff import BrowserHandoff, HandoffReason, HandoffStatus, HandoffView
+from .handoff import (
+    BrowserHandoff,
+    HandoffPublisher,
+    HandoffReason,
+    HandoffStatus,
+    HandoffView,
+)
 from .human_input import BrowserInputError, HumanInput
 from .network import BrowserEgress, BrowserResolver
 from .observation import (
@@ -73,6 +79,7 @@ class BrowserService:
         self._engine: BrowserEngine | None = None
         self._context_operations = BrowserOperations[None]()
         self._sessions: dict[tuple[str, str], _Retained] = {}
+        self._handoff_publishers: dict[str, tuple[object, HandoffPublisher]] = {}
         self._expiry: asyncio.Task[None] | None = None
         self._expiry_wakeup = asyncio.Event()
         self._session_locks: WeakValueDictionary[tuple[str, str], asyncio.Lock] = (
@@ -290,9 +297,14 @@ class BrowserService:
                 raise BrowserAdmissionError(
                     "stale_handoff", "Handoff is no longer current"
                 )
-            handoff.finish("returned")
+            handoff.status = "returned"
             retained.last_activity = self._loop.time()
-            await self._publish_handoff(key, handoff)
+            try:
+                await self._publish_handoff(key, handoff)
+            finally:
+                # Publish before waking the agent and closing its chat attempt;
+                # failed or cancelled observation must still release its waiter.
+                handoff.finish("returned")
             return handoff.view()
 
     @asynccontextmanager
@@ -457,6 +469,22 @@ class BrowserService:
                 "stale_handoff", "The owning handoff task is no longer active"
             )
 
+    @asynccontextmanager
+    async def handoff_events(
+        self, task_id: str, publisher: HandoffPublisher
+    ) -> AsyncIterator[None]:
+        """Own one exact chat attempt's bounded metadata observer."""
+        self._require_loop()
+        if task_id in self._handoff_publishers:
+            raise RuntimeError("Chat task already has a browser event observer")
+        subscription = (object(), publisher)
+        self._handoff_publishers[task_id] = subscription
+        try:
+            yield
+        finally:
+            if self._handoff_publishers.get(task_id) is subscription:
+                del self._handoff_publishers[task_id]
+
     async def _publish_handoff(
         self, key: tuple[str, str], handoff: BrowserHandoff
     ) -> None:
@@ -468,6 +496,26 @@ class BrowserService:
             ),
         )
         self._handoff_event(key, handoff)
+        subscription = self._handoff_publishers.get(handoff.task_id)
+        if subscription is not None:
+            try:
+                async with asyncio.timeout(1):
+                    await subscription[1](
+                        handoff.view(),
+                        lambda: self._handoff_publishers.get(handoff.task_id)
+                        is subscription,
+                    )
+            except Exception as error:
+                # Chat projection is advisory. Observer failure cannot revoke
+                # ownership or turn a successful handback into a failed one.
+                logger.warning(
+                    "Browser handoff observer failed",
+                    data={
+                        "event": "browser_handoff_observer_failed",
+                        "task_id": handoff.task_id,
+                        "error_type": type(error).__name__,
+                    },
+                )
 
     @staticmethod
     def _handoff_event(key: tuple[str, str], handoff: BrowserHandoff) -> None:
@@ -925,11 +973,14 @@ class BrowserService:
         handoff = retained.handoff
         if handoff is not None:
             # Context and any required engine cleanup have finished or failed.
-            # Tag the outcome before publishing: even publication failure or
-            # repeated Stop must not strand a waiting tool.
-            handoff.finish(outcome)
-            async with asyncio.timeout(1):
-                await self._publish_handoff(key, handoff)
+            # Publish the completed cleanup outcome before waking its agent;
+            # failed publication or repeated Stop must never strand the waiter.
+            handoff.status = outcome
+            try:
+                async with asyncio.timeout(1):
+                    await self._publish_handoff(key, handoff)
+            finally:
+                handoff.finish(outcome)
 
     async def _release_retained(
         self, key: tuple[str, str], retained: _Retained

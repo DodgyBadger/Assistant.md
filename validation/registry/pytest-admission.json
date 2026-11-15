@@ -714,10 +714,11 @@
     },
     {
       "path": "scenarios/integration/core/test_chat_task_event_buffer.py",
-      "sha256": "6d31d3cf2d6b3a990a3e6a2c567e586634ad1abf057b86963b3008bdc0136692",
+      "sha256": "5ec85a89862799f74e88c337220940fa7e2835786183ebe8ebfecb6a651c0e22",
       "kind": "behavioral",
       "tests": [
-        "test_chat_task_event_buffer"
+        "test_chat_task_event_buffer",
+        "test_advisory_handoff_updates_cannot_revive_retired_chat_streams"
       ]
     },
     {
@@ -3693,6 +3694,20 @@
       "path": "support/browser/privacy.py",
       "kind": "support",
       "sha256": "9435b03558e06c803aa0c39fb7ce474c5937b3dbe385d9616f77ced1d4504501"
+    },
+    {
+      "path": "support/browser/handoff_provider.py",
+      "kind": "support",
+      "sha256": "b4ac5acfda82a837e368b2da14ae6d4974d688e68df663a435ee95c2f3cf505f"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_handoff_chat.py",
+      "kind": "behavioral",
+      "sha256": "40c7fd0053534be938f3573fa50b3f4b9b47837af2a0b4c6072d1e48235fb762",
+      "coverage_status": "registered_pending_parity_review",
+      "tests": [
+        "test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider"
+      ]
     }
   ]
 }

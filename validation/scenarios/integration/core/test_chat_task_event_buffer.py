@@ -203,3 +203,66 @@ async def test_chat_task_event_buffer(app: Application) -> None:
     )
     ignored_snapshot = await ignored.replay_snapshot("i")
     assert ignored_snapshot is not None and ignored_snapshot.available is True
+
+
+async def test_advisory_handoff_updates_cannot_revive_retired_chat_streams(
+    app: Application,
+) -> None:
+    await app.start()
+    from core.chat.task_events import ChatTaskEventBuffer
+
+    buffer = ChatTaskEventBuffer(max_events_per_task=2, max_terminal_tasks=1)
+    current = True
+
+    def is_current():
+        return current
+
+    update = {"event": "browser_handoff", "browser_handoff": {"status": "waiting"}}
+    assert (
+        await buffer.append_if_current("missing", "browser_handoff", update, is_current)
+        is None
+    )
+    assert not await buffer.has_stream("missing")
+    await buffer.append("task", "delta", {})
+    assert (
+        await buffer.append_if_current("task", "browser_handoff", update, is_current)
+        is not None
+    )
+    for _ in range(4):
+        await buffer.append("task", "delta", {})
+    replay = await buffer.replay_snapshot("task")
+    assert replay is not None and replay.available
+    assert len([e for e in replay.events if e.event == "browser_handoff"]) == 1
+    assert not [
+        e for e in await buffer.events_after("task", 4) if e.event == "browser_handoff"
+    ]
+    current = False
+    assert (
+        await buffer.append_if_current(
+            "task",
+            "browser_handoff",
+            {**update, "browser_handoff": {"status": "human"}},
+            is_current,
+        )
+        is None
+    )
+    replay = await buffer.replay_snapshot("task")
+    assert replay is not None
+    assert [
+        e.data["browser_handoff"]["status"]
+        for e in replay.events
+        if e.event == "browser_handoff"
+    ] == ["waiting"]
+    current = True
+    await buffer.append("task", "cancelled", {})
+    assert (
+        await buffer.append_if_current("task", "browser_handoff", update, is_current)
+        is None
+    )
+    await buffer.append("replacement", "done", {})
+    assert not await buffer.has_stream("task")
+    assert (
+        await buffer.append_if_current("task", "browser_handoff", update, is_current)
+        is None
+    )
+    assert not await buffer.has_stream("task")

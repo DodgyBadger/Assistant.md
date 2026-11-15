@@ -28,6 +28,7 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolRetu
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from core.authoring.context_manager import ContextTemplateExecutionError
+from core.browser.handoff import HandoffView
 from core.chat import executor as chat_executor
 from core.chat.chat_store import ChatStore
 from core.chat.compaction import chat_session_history_lock
@@ -1536,15 +1537,29 @@ async def _collect_chat_stream_attempt(
             "active_tools": [],
         },
     )
-    async with prepared.agent.run_stream_events(
-        user_prompt,
-        message_history=message_history,
-        deferred_tool_results=prepared.deferred_tool_results,
-        deps=run_deps,
-        usage_limits=usage_limits,
-        usage=usage,
-        conversation_id=session_id,
-    ) as stream_events:
+
+    async def publish_handoff(
+        view: HandoffView, is_current: Callable[[], bool]
+    ) -> None:
+        await event_buffer.append_if_current(
+            task_id,
+            "browser_handoff",
+            {"event": "browser_handoff", "browser_handoff": view.as_metadata()},
+            is_current,
+        )
+
+    async with (
+        runtime.browser.handoff_events(task_id, publish_handoff),
+        prepared.agent.run_stream_events(
+            user_prompt,
+            message_history=message_history,
+            deferred_tool_results=prepared.deferred_tool_results,
+            deps=run_deps,
+            usage_limits=usage_limits,
+            usage=usage,
+            conversation_id=session_id,
+        ) as stream_events,
+    ):
         iterator = stream_events.__aiter__()
         while True:
             active_tools = _running_tool_names(tool_activity)

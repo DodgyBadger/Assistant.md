@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 from uuid import uuid4
@@ -62,3 +63,6 @@ class BrowserHandoff:
         self.status = status
         if not self.completed.done():
             self.completed.set_result(status)
+
+
+HandoffPublisher = Callable[[HandoffView, Callable[[], bool]], Awaitable[None]]

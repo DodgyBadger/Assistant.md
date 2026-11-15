@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -25,6 +25,7 @@ CHAT_TASK_PROJECTED_EVENTS = frozenset(
         "tool_call_started",
         "tool_call_finished",
         "review_required",
+        "browser_handoff",
         *CHAT_TASK_TERMINAL_EVENTS,
     }
 )
@@ -91,6 +92,7 @@ class _ChatTaskReplayProjection:
     reasoning_event: ChatTaskEvent | None = None
     tool_events: dict[str, _ProjectedToolState] = field(default_factory=dict)
     review_event: ChatTaskEvent | None = None
+    handoff_event: ChatTaskEvent | None = None
     terminal_event: ChatTaskEvent | None = None
     latest_sequence: int = 0
     available: bool = True
@@ -152,22 +154,48 @@ class ChatTaskEventBuffer:
             if stream.terminal_sequence is not None:
                 raise RuntimeError(f"Chat task event stream is terminal: {task_id}")
 
-            buffered_event = ChatTaskEvent(
-                task_id=task_id,
-                sequence=stream.next_sequence,
-                event=clean_event,
-                data=dict(data or {}),
-                created_at=datetime.now(UTC),
-            )
-            stream.next_sequence += 1
-            stream.events.append(buffered_event)
-            self._reduce_projection(stream, buffered_event)
-            self._trim_stream_events(stream)
-            if buffered_event.is_terminal:
-                stream.terminal_sequence = buffered_event.sequence
-                self._remember_terminal(task_id)
-            changed = stream.changed
-            stream.changed = asyncio.Event()
+            return self._append_locked(stream, clean_event, data)
+
+    async def append_if_current(
+        self,
+        task_id: str,
+        event: str,
+        data: dict[str, Any],
+        is_current: Callable[[], bool],
+    ) -> ChatTaskEvent | None:
+        """Fence advisory updates at insertion without reviving retired streams."""
+        async with self._lock:
+            stream = self._streams.get(task_id)
+            if (
+                stream is None
+                or stream.terminal_sequence is not None
+                or not is_current()
+            ):
+                return None
+            return self._append_locked(stream, event, data)
+
+    def _append_locked(
+        self,
+        stream: _ChatTaskEventStream,
+        event: str,
+        data: dict[str, Any] | None,
+    ) -> ChatTaskEvent:
+        buffered_event = ChatTaskEvent(
+            task_id=stream.task_id,
+            sequence=stream.next_sequence,
+            event=event,
+            data=dict(data or {}),
+            created_at=datetime.now(UTC),
+        )
+        stream.next_sequence += 1
+        stream.events.append(buffered_event)
+        self._reduce_projection(stream, buffered_event)
+        self._trim_stream_events(stream)
+        if buffered_event.is_terminal:
+            stream.terminal_sequence = buffered_event.sequence
+            self._remember_terminal(stream.task_id)
+        changed = stream.changed
+        stream.changed = asyncio.Event()
 
         changed.set()
         return buffered_event
@@ -217,6 +245,8 @@ class ChatTaskEventBuffer:
                     events.append(tool_state.started_event)
                 if tool_state.latest_event is not tool_state.started_event:
                     events.append(tool_state.latest_event)
+            if projection.handoff_event is not None:
+                events.append(projection.handoff_event)
             if projection.review_event is not None:
                 events.append(projection.review_event)
             if projection.terminal_event is not None:
@@ -364,6 +394,9 @@ class ChatTaskEventBuffer:
                 ),
                 latest_event=safe_event,
             )
+            return
+        if event.event == "browser_handoff":
+            projection.handoff_event = event
             return
         if event.event == "review_required":
             projection.review_event = event
