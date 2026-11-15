@@ -86,6 +86,11 @@
                 return { finished: false, messageCount: 0 };
             }
 
+            if (eventType === 'browser_handoff') {
+                chatRendering.handleBrowserHandoff(assistantMessage, payload);
+                return { finished: false, messageCount: 0 };
+            }
+
             if (eventType === 'review_required') {
                 callbacks.handleDeferredReviewEvent(assistantMessage, payload);
                 chatRendering.setAssistantStatus(assistantMessage, 'Waiting for review', 'tools');

@@ -133,6 +133,7 @@ async def browser_frame(session_id: str, handoff_id: str) -> Response:
             media_type="image/jpeg",
             headers={
                 "X-Browser-Page": frame.page_id,
+                "X-Browser-Origin": frame.site_origin,
                 "X-Browser-View": frame.view_ref,
                 "X-Browser-Input": frame.input_ref,
                 "X-Browser-Sequence": str(frame.sequence),

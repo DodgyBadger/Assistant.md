@@ -3708,6 +3708,19 @@
       "tests": [
         "test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider"
       ]
+    },
+    {
+      "path": "support/browser/private_page.py",
+      "kind": "support",
+      "sha256": "caad734dfa8371d8c4e80b19c5251bbcfa342436b44d3dc44eb1d8c90fed77ec"
+    },
+    {
+      "path": "scenarios/browser/test_browser_handoff_ui.py",
+      "kind": "behavioral",
+      "sha256": "6e16d3f953477f5aeebcebb96ea5b8ae01a6a871fa134a8f0d58810a6fc47be0",
+      "tests": [
+        "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task"
+      ]
     }
   ]
 }

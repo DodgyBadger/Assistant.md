@@ -41,6 +41,7 @@ class HumanFrame:
     width: int
     height: int
     frame_sequence: int
+    site_origin: str = ""
 
 
 class HumanViewer:

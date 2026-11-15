@@ -7,8 +7,9 @@ import contextvars
 import sys
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from threading import Lock
+from urllib.parse import urlsplit
 from uuid import uuid4
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
@@ -357,10 +358,17 @@ class BrowserService:
             async with self._viewer_lock(key):
                 handoff = await self._viewer_handoff(key, handoff_id, retained)
                 viewer.bind(handoff.handoff_id)
+                page = retained.session.page
+                if page is None:
+                    raise BrowserInputError("frame_unavailable")
+                revision, url = retained.session.document_revision, page.url
                 frame = await viewer.capture()
                 # Frames are passive: crossing expiry does not extend retention.
                 await self._viewer_handoff(key, handoff_id, retained)
-                return frame
+                if revision != retained.session.document_revision or url != page.url:
+                    viewer.invalidate()
+                    raise BrowserInputError("frame_unavailable")
+                return replace(frame, site_origin=_frame_origin(url))
 
     async def input_handoff(
         self,
@@ -1282,3 +1290,22 @@ class _Retained:
     stack: AsyncExitStack
     last_activity: float
     handoff: BrowserHandoff | None = None
+
+
+def _frame_origin(url: str) -> str:
+    """Expose only the actual committed HTTP origin, with no path or credentials."""
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("Unsupported origin")
+        host = parsed.hostname.encode("idna").decode("ascii").lower()
+        if len(host) > 253:
+            raise ValueError("Excessive host")
+        if ":" in host:
+            host = f"[{host}]"
+        port = parsed.port
+        if port is not None and port != (443 if parsed.scheme == "https" else 80):
+            host += f":{port}"
+        return f"{parsed.scheme}://{host}"
+    except (ValueError, UnicodeError):
+        raise BrowserInputError("frame_unavailable") from None

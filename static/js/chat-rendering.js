@@ -3,6 +3,7 @@
 
     function createChatRenderingController({ state, elements, icons, utils, callbacks }) {
         let currentEmptyStateMessage = CHAT_EMPTY_STATE_MESSAGE;
+        const browserHandoff = window.BrowserHandoff.create({ state });
         const markdown = window.ChatMarkdown.create({
             utils,
             callbacks: {
@@ -513,6 +514,7 @@
         }
 
         function finalizeAssistantMessage(context, metadata = {}) {
+            browserHandoff.finish(context);
             stopToolElapsedTimer(context);
             context.toolStatusMap.forEach((entry) => {
                 if (entry.state === 'running') {
@@ -635,6 +637,7 @@
             renderAssistantMarkdown,
             setAssistantStatus,
             handleToolEvent,
+            handleBrowserHandoff: browserHandoff.render,
             finalizeAssistantMessage,
             reconcileToolCallPersistence,
             renderMarkdownPreview: markdown.renderPreview,
