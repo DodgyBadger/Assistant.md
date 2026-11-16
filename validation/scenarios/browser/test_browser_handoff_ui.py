@@ -227,3 +227,103 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 await expect(
                     page.get_by_role("button", name="Open browser", exact=True)
                 ).to_have_count(0)
+
+
+async def test_sign_in_window_uses_same_modal_and_restores_original_chat_browser(
+    browser_app, browser, monkeypatch
+):
+    app = browser_app.app
+    setting(app, "browser_min_memory_headroom_mb", "0")
+    setting(app, "compaction_type", "none")
+    sentinel = "synthetic-ui-popup-password-83015"
+    app.evidence.register_secret(sentinel)
+    with retained_browser_site(app, monkeypatch) as site:
+        site.sign_in_on_submit = True
+        site.pages["/login"] = (
+            b"""<style>body{margin:0}button{position:absolute;left:20px;top:20px;width:180px;height:40px}</style><button onclick="window.open('/popup-login','sign-in')">Sign in</button>"""
+        )
+        site.pages["/popup-login"] = (
+            b'<style>body{margin:0}input{position:absolute;left:20px;top:20px;width:200px;height:40px}</style><form method="post" action="/submit"><input type="password" name="password"></form>'
+        )
+        site.submission_body = (
+            b'<script>opener.location.href="/after";window.close()</script>'
+        )
+        with browser_handoff_provider(app, site) as calls:
+            setting(app, "default_model", "code-tool-model")
+            async with private_browser_page(
+                browser_app, browser, forbidden=(sentinel,)
+            ) as page:
+                await page.goto(browser_app.url)
+                await page.locator("#vault-selector").select_option(
+                    browser_app.vault.name
+                )
+                await page.locator("#chat-input").fill(
+                    "Open the controlled website, request human sign-in, then report completion."
+                )
+                await page.get_by_role(
+                    "button", name="Send message", exact=True
+                ).click()
+                await page.get_by_role("button", name="Open browser", exact=True).click(
+                    timeout=20000
+                )
+                modal = page.get_by_role("dialog", name="Browser", exact=True)
+                handback = modal.get_by_role(
+                    "button", name="Return control", exact=True
+                )
+
+                async def click_page():
+                    await expect(handback).to_be_enabled()
+                    preview = modal.get_by_role("img", name="Browser page", exact=True)
+                    bounds = await preview.bounding_box()
+                    assert bounds is not None
+                    await preview.click(
+                        position={
+                            "x": 50 * bounds["width"] / 1280,
+                            "y": 40 * bounds["height"] / 800,
+                        }
+                    )
+
+                await click_page()
+                original = modal.get_by_role("button", name="Original page", exact=True)
+                sign_in = modal.get_by_role("button", name="Sign-in window", exact=True)
+                await expect(original).to_be_enabled(timeout=10000)
+                await expect(sign_in).to_be_disabled()
+                assert (
+                    len(page.context.pages) == 1
+                ), "Authentication stays inside the existing app modal"
+                await click_page()
+                await modal.get_by_label("Browser keyboard input").press_sequentially(
+                    sentinel
+                )
+                await expect(handback).to_be_enabled()
+                await original.click()
+                await expect(sign_in).to_be_enabled()
+                async with page.expect_response(
+                    lambda response: response.url.endswith("/return")
+                ) as refused:
+                    await handback.click()
+                assert (await refused.value).status == 409
+                assert len(calls) == 2
+                await expect(modal).to_be_visible()
+                await sign_in.click()
+                await expect(original).to_be_enabled()
+                await expect(handback).to_be_enabled()
+                await modal.get_by_label("Browser keyboard input").press("Enter")
+                await expect(original).to_be_hidden(timeout=10000)
+                await expect(sign_in).to_be_hidden()
+                await expect(handback).to_be_enabled()
+                assert site.submissions == [{"password": sentinel}]
+                await handback.click()
+                await expect(modal).to_have_count(0)
+                await expect(
+                    page.locator("#chat-messages").get_by_text(
+                        "Human handoff completed.", exact=True
+                    )
+                ).to_be_visible(timeout=20000)
+                assert len(calls) == 3
+                leaked = sentinel in json.dumps(
+                    calls
+                ) or sentinel in await page.evaluate(
+                    "JSON.stringify([localStorage, sessionStorage])"
+                )
+                assert not leaked

@@ -42,6 +42,11 @@ class HumanFrame:
     height: int
     frame_sequence: int
     site_origin: str = ""
+    root_page_id: str = ""
+    popup_page_id: str = ""
+    selection_revision: int = 0
+    window_kind: str = "original"
+    popup_notice: str = ""
 
 
 class HumanViewer:
@@ -64,9 +69,8 @@ class HumanViewer:
         self._input_ref: str | None = None
         self.sequence = 0
         self.frame_sequence = 0
-        self.frame_pending = False
-        self.input_pending = False
         self.unsafe = False
+        self.uncertain = False
 
     def bind(self, generation: str) -> None:
         if self._generation != generation:
@@ -79,13 +83,18 @@ class HumanViewer:
         self._view_ref = self._input_ref = None
 
     @property
-    def can_return(self) -> bool:
+    def settled_input(self) -> bool:
         return (
-            not self.input_pending
-            and not self._inputs.pending
+            not self._inputs.pending
             and not self._preparations.pending
             and not self.unsafe
-            and (self._generation is None or self._input_ref is not None)
+            and not self.uncertain
+        )
+
+    @property
+    def can_return(self) -> bool:
+        return self.settled_input and (
+            self._generation is None or self._input_ref is not None
         )
 
     @property
@@ -170,6 +179,7 @@ class HumanViewer:
             self._view_ref = self._view_ref or uuid4().hex
             self._input_ref = self._input_ref or uuid4().hex
             self.frame_sequence += 1
+            self.uncertain = False
             return HumanFrame(
                 jpeg,
                 self._page_id,
@@ -224,9 +234,11 @@ class HumanViewer:
             async with asyncio.timeout(2):
                 await self._inputs.run(self._dispatch_native(command, geometry))
         except asyncio.CancelledError:
+            self.uncertain = True
             self.unsafe = command.kind in {"click", "key"}
             raise
         except Exception:
+            self.uncertain = True
             self.unsafe = command.kind in {"click", "key"}
             raise BrowserInputError("input_uncertain", retire=self.unsafe) from None
         return {

@@ -3541,7 +3541,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "362ba438e79e12ddf72af5594ab16afbf75fc908dcfe446bec29f4518335acad"
+      "sha256": "9dba3acabd23cabfcf0be4e5ab14da808a7a79f6480a980cab5406a1e463eaf5"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3717,9 +3717,26 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "6e16d3f953477f5aeebcebb96ea5b8ae01a6a871fa134a8f0d58810a6fc47be0",
+      "sha256": "9bd6d654416555701871b16941f827445cd4c8f2c317800d5e739d262cfca462",
       "tests": [
-        "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task"
+        "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
+        "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_popup.py",
+      "kind": "behavioral",
+      "coverage_status": "registered_pending_parity_review",
+      "sha256": "9db0481ad140f4fc2feba4b0e2d3c32d0e7d139066a0e9e55ffe6e658ee323f4",
+      "tests": [
+        "test_human_sign_in_popup_restores_original_page_and_authentication",
+        "test_extra_and_nested_popups_make_no_initial_website_request",
+        "test_initial_post_popup_is_not_replayed_as_a_get_or_submitted",
+        "test_private_popup_target_retires_its_context_without_contacting_target",
+        "test_popup_reservation_precedes_slow_dns_and_denies_other_windows",
+        "test_uninitialized_popup_failure_retires_without_viewer_polling",
+        "test_inactive_original_credentials_block_return_from_sign_in_window",
+        "test_closing_original_page_retires_popup_without_promoting_it"
       ]
     }
   ]

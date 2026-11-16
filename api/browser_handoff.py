@@ -133,6 +133,11 @@ async def browser_frame(session_id: str, handoff_id: str) -> Response:
             media_type="image/jpeg",
             headers={
                 "X-Browser-Page": frame.page_id,
+                "X-Browser-Root": frame.root_page_id,
+                "X-Browser-Popup": frame.popup_page_id,
+                "X-Browser-Window": frame.window_kind,
+                "X-Browser-Popup-Notice": frame.popup_notice,
+                "X-Browser-Selection": str(frame.selection_revision),
                 "X-Browser-Origin": frame.site_origin,
                 "X-Browser-View": frame.view_ref,
                 "X-Browser-Input": frame.input_ref,
@@ -155,6 +160,20 @@ async def browser_input(session_id: str, handoff_id: str, request: Request) -> R
     try:
         response = await get_runtime_context().browser.input_handoff(
             session_id, handoff_id, lambda: read_private_input(request)
+        )
+        return JSONResponse(response)
+    except Exception as error:
+        return private_error(error)
+
+
+@router.post("/{session_id}/browser-handoff/{handoff_id}/page/{page_id}")
+async def select_browser_page(
+    session_id: str, handoff_id: str, page_id: str, request: Request
+) -> Response:
+    require_same_origin(request)
+    try:
+        response = await get_runtime_context().browser.select_handoff_page(
+            session_id, handoff_id, page_id
         )
         return JSONResponse(response)
     except Exception as error:

@@ -30,6 +30,7 @@ COOKIE = "synthetic-browser-context-cookie"
 class BrowserSite:
     port: int
     private_requests: list[str] = field(default_factory=list)
+    popup_requests: list[str] = field(default_factory=list)
     slow_started: Event = field(default_factory=Event)
     release_slow: Event = field(default_factory=Event)
     pages: dict[str, bytes] = field(default_factory=dict)
@@ -38,6 +39,7 @@ class BrowserSite:
     mutation_applied: Event = field(default_factory=Event)
     hold_submission: bool = False
     sign_in_on_submit: bool = False
+    submission_body: bytes = b"<main>Saved</main>"
     release_submission: Event = field(default_factory=Event)
     script_requested: Event = field(default_factory=Event)
     release_script: Event = field(default_factory=Event)
@@ -57,6 +59,8 @@ def retained_browser_site(
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path.startswith("/popup-"):
+                site.popup_requests.append(self.path)
             if self.path == "/slow-script":
                 site.script_requested.set()
                 site.release_script.wait(30)
@@ -67,7 +71,7 @@ def retained_browser_site(
             if self.path == "/slow":
                 site.slow_started.set()
                 site.release_slow.wait(12)
-            if self.path == "/denied-target":
+            if self.path in {"/denied-target", "/popup-extra", "/popup-nested"}:
                 site.private_requests.append(self.path)
             if self.path == "/redirect-private":
                 self.send_response(302)
@@ -114,7 +118,7 @@ def retained_browser_site(
             site.submissions.append({key: values[0] for key, values in fields.items()})
             if site.hold_submission:
                 site.release_submission.wait(8)
-            body = b"<main>Saved</main>"
+            body = site.submission_body
             self.send_response(200)
             if site.sign_in_on_submit:
                 self.send_header(

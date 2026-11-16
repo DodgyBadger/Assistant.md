@@ -50,7 +50,8 @@ from .observation import (
 )
 from .operations import BrowserOperations
 from .session import BrowserSession, BrowserView
-from .viewer import HumanFrame, HumanViewer
+from .surface import BrowserSurface
+from .viewer import HumanFrame
 
 logger = UnifiedLogger(tag="browser-service")
 
@@ -187,6 +188,8 @@ class BrowserService:
                     reason,
                 )
                 retained.handoff = handoff
+                retained.session.popup_generation = handoff.handoff_id
+                retained.session.popup_enabled = True
                 if previous is None or not previous.human_controlled:
                     retained.last_activity = self._loop.time()
                 await self._publish_handoff(key, handoff)
@@ -258,77 +261,125 @@ class BrowserService:
                 raise BrowserAdmissionError(
                     "stale_handoff", "Claim human control before returning it"
                 )
-            if (
-                retained.session.viewer is not None
-                and not retained.session.viewer.can_return
-            ):
+            session = retained.session
+            if session.human_busy:
                 raise BrowserAdmissionError(
-                    "browser_busy",
-                    "Inspect a fresh frame after pending input completes",
+                    "browser_busy", "Browser work has not settled"
                 )
-            observation = retained.session.observation
-            document_revision = retained.session.document_revision
-            logger.set_sinks(["validation"]).info(
-                "Browser handback inspection started",
-                data={
-                    "event": "browser_handback_check_started",
-                    "session_id": key[1],
-                    "task_id": handoff.task_id,
-                    "handoff_id": handoff.handoff_id,
-                    "browser_id": handoff.browser_id,
-                },
-            )
-            if observation is None or not await observation.credentials_clear():
-                raise BrowserAdmissionError(
-                    "credentials_pending",
-                    "Submit or clear credential fields before returning control",
-                )
-            # The renderer check yields: Stop, deletion, expiry and replacement
-            # must never make a previously valid request regain authority.
-            current, current_handoff = await self._human_handoff(
-                key, handoff_id, check_idle=False
-            )
-            await self._require_handoff_task(key, handoff)
-            if (
-                current is not retained
-                or current_handoff is not handoff
-                or handoff.status != "human"
-                or retained.session.document_revision != document_revision
-            ):
-                raise BrowserAdmissionError(
-                    "stale_handoff", "Handoff is no longer current"
-                )
-            handoff.status = "returned"
-            retained.last_activity = self._loop.time()
+            await self._human_surface(key, retained)
+            # New page admission stays sealed through inspection and retirement.
+            session.popup_enabled = False
             try:
-                await self._publish_handoff(key, handoff)
+                surfaces = session.surfaces
+                selected = session.human_surface
+                if (
+                    session.human_busy
+                    or any(
+                        surface.viewer is None or not surface.viewer.settled_input
+                        for surface in surfaces
+                    )
+                    or selected.viewer is None
+                    or not selected.viewer.can_return
+                ):
+                    raise BrowserAdmissionError(
+                        "browser_busy", "Inspect pending input before returning control"
+                    )
+                selection = session.selection_revision
+                revisions = tuple(surface.document_revision for surface in surfaces)
+                logger.set_sinks(["validation"]).info(
+                    "Browser handback inspection started",
+                    data={
+                        "event": "browser_handback_check_started",
+                        "session_id": key[1],
+                        "task_id": handoff.task_id,
+                        "handoff_id": handoff.handoff_id,
+                        "browser_id": handoff.browser_id,
+                    },
+                )
+                async with asyncio.timeout(3):
+                    for surface in surfaces:
+                        if (
+                            surface.observation is None
+                            or not await surface.observation.credentials_clear()
+                        ):
+                            raise BrowserAdmissionError(
+                                "credentials_pending",
+                                "Submit or clear credential fields before returning control",
+                            )
+                current, current_handoff = await self._human_handoff(
+                    key, handoff_id, check_idle=False
+                )
+                await self._require_handoff_task(key, handoff)
+                if (
+                    current is not retained
+                    or current_handoff is not handoff
+                    or handoff.status != "human"
+                    or session.selection_revision != selection
+                    or session.surfaces != surfaces
+                    or tuple(surface.document_revision for surface in surfaces)
+                    != revisions
+                ):
+                    raise BrowserAdmissionError(
+                        "stale_handoff", "Handoff is no longer current"
+                    )
+                root_revision = session.document_revision
+                try:
+                    await session.close_popup()
+                except BaseException as error:
+                    await self._close_after_failure(key, error)
+                    raise
+                await self._human_handoff(key, handoff_id, check_idle=False)
+                await self._require_handoff_task(key, handoff)
+                if (
+                    session.document_revision != root_revision
+                    or session.human_busy
+                    or session.popup is not None
+                    or any(
+                        page is not session.page and not page.is_closed()
+                        for page in session.context.pages
+                    )
+                ):
+                    raise BrowserAdmissionError(
+                        "stale_handoff",
+                        "Inspect the original page before returning control",
+                    )
+                handoff.status = "returned"
+                retained.last_activity = self._loop.time()
+                try:
+                    await self._publish_handoff(key, handoff)
+                finally:
+                    handoff.finish("returned")
+                return handoff.view()
             finally:
-                # Publish before waking the agent and closing its chat attempt;
-                # failed or cancelled observation must still release its waiter.
-                handoff.finish("returned")
-            return handoff.view()
+                if handoff.status != "returned" and self._sessions.get(key) is retained:
+                    session.popup_enabled = True
 
     @asynccontextmanager
-    async def _viewer_slot(
-        self, key: tuple[str, str], *, input_request: bool
-    ) -> AsyncIterator[tuple[_Retained, HumanViewer]]:
+    async def _viewer_slot(self, key: tuple[str, str]) -> AsyncIterator[_Retained]:
         retained = self._sessions.get(key)
         if retained is None or retained.session.viewer is None:
             raise BrowserAdmissionError("no_handoff", "Browser viewer is unavailable")
-        viewer = retained.session.viewer
-        if viewer.frame_pending or viewer.input_pending or viewer.pending:
+        if retained.session.human_busy:
             raise BrowserInputError("browser_busy")
-        if input_request:
-            viewer.input_pending = True
-        else:
-            viewer.frame_pending = True
+        retained.session.human_io_pending = True
         try:
-            yield retained, viewer
+            yield retained
         finally:
-            if input_request:
-                viewer.input_pending = False
-            else:
-                viewer.frame_pending = False
+            retained.session.human_io_pending = False
+
+    async def _human_surface(
+        self, key: tuple[str, str], retained: _Retained
+    ) -> BrowserSurface:
+        try:
+            await retained.session.sync_popup()
+            return retained.session.human_surface
+        except BrowserInputError as error:
+            if error.retire:
+                await self._close_after_failure(key, error)
+            raise
+        except BaseException as error:
+            await self._close_after_failure(key, error)
+            raise
 
     async def _viewer_handoff(
         self,
@@ -354,21 +405,39 @@ class BrowserService:
 
     async def frame_handoff(self, session_id: str, handoff_id: str) -> HumanFrame:
         key = self._human_chat(session_id)
-        async with self._viewer_slot(key, input_request=False) as (retained, viewer):
+        async with self._viewer_slot(key) as retained:
             async with self._viewer_lock(key):
                 handoff = await self._viewer_handoff(key, handoff_id, retained)
+                surface = await self._human_surface(key, retained)
+                viewer = surface.viewer
+                assert viewer is not None
                 viewer.bind(handoff.handoff_id)
-                page = retained.session.page
+                page = surface.page
                 if page is None:
                     raise BrowserInputError("frame_unavailable")
-                revision, url = retained.session.document_revision, page.url
+                revision, url = surface.document_revision, page.url
+                selection = retained.session.selection_revision
                 frame = await viewer.capture()
                 # Frames are passive: crossing expiry does not extend retention.
                 await self._viewer_handoff(key, handoff_id, retained)
-                if revision != retained.session.document_revision or url != page.url:
+                if (
+                    revision != surface.document_revision
+                    or url != page.url
+                    or selection != retained.session.selection_revision
+                    or surface is not retained.session.human_surface
+                ):
                     viewer.invalidate()
                     raise BrowserInputError("frame_unavailable")
-                return replace(frame, site_origin=_frame_origin(url))
+                popup = retained.session.popup
+                return replace(
+                    frame,
+                    site_origin=_frame_origin(url),
+                    root_page_id=retained.session.page_id,
+                    popup_page_id=popup.page_id if popup is not None else "",
+                    selection_revision=selection,
+                    window_kind="sign_in" if surface is popup else "original",
+                    popup_notice=retained.session.popup_notice,
+                )
 
     async def input_handoff(
         self,
@@ -377,15 +446,25 @@ class BrowserService:
         reader: Callable[[], Awaitable[HumanInput]],
     ) -> dict[str, int | bool | str]:
         key = self._human_chat(session_id)
-        async with self._viewer_slot(key, input_request=True) as (retained, viewer):
+        async with self._viewer_slot(key) as retained:
             async with self._viewer_lock(key):
                 handoff = await self._viewer_handoff(key, handoff_id, retained)
+                surface = await self._human_surface(key, retained)
+                viewer = surface.viewer
+                assert viewer is not None
                 viewer.bind(handoff.handoff_id)
+                selection = retained.session.selection_revision
                 # Reserve admission before reading any private bytes. Reading,
                 # geometry and native dispatch each have their own deadline.
                 command = await reader()
                 geometry = await viewer.prepare_input()
                 await self._viewer_handoff(key, handoff_id, retained, check_idle=False)
+                if (
+                    selection != retained.session.selection_revision
+                    or surface is not retained.session.human_surface
+                ):
+                    viewer.invalidate()
+                    raise BrowserInputError("stale_input")
                 try:
                     response = await viewer.dispatch(command, geometry)
                 except BrowserInputError as error:
@@ -399,6 +478,22 @@ class BrowserService:
                 await self._viewer_handoff(key, handoff_id, retained, check_idle=False)
                 retained.last_activity = self._loop.time()
                 return response
+
+    async def select_handoff_page(
+        self, session_id: str, handoff_id: str, page_id: str
+    ) -> dict[str, str | int]:
+        key = self._human_chat(session_id)
+        async with self._viewer_slot(key) as retained:
+            async with self._viewer_lock(key):
+                await self._viewer_handoff(key, handoff_id, retained)
+                await self._human_surface(key, retained)
+                await self._viewer_handoff(key, handoff_id, retained, check_idle=False)
+                retained.session.select(page_id)
+                retained.last_activity = self._loop.time()
+                return {
+                    "page_id": page_id,
+                    "selection_revision": retained.session.selection_revision,
+                }
 
     @asynccontextmanager
     async def _viewer_lock(self, key: tuple[str, str]) -> AsyncIterator[None]:
@@ -1096,7 +1191,16 @@ class BrowserService:
                     except TimeoutError:
                         continue
                     try:
-                        await self._expire_key_if_idle(key)
+                        retained = self._sessions.get(key)
+                        if (
+                            retained is not None
+                            and retained.handoff is not None
+                            and retained.handoff.human_controlled
+                            and not retained.session.is_usable()
+                        ):
+                            await self._close_key(key)
+                        else:
+                            await self._expire_key_if_idle(key)
                     finally:
                         lock.release()
                 try:

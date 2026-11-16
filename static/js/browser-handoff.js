@@ -35,6 +35,7 @@
 
         function discardInput(run) {
             run.queue.length = 0;
+            run.selection = null;
             run.keyboard.value = '';
             run.composing = false;
         }
@@ -43,6 +44,11 @@
             run.handback.disabled = run.busy || run.queue.length > 0 || !run.metadata;
             run.keyboard.readOnly = !run.claimed || !run.hasFrame || run.returning;
             run.image.setAttribute('aria-disabled', String(!run.metadata));
+            const windowBusy = run.busy || run.queue.length > 0 || !run.metadata;
+            run.original.disabled = windowBusy || run.framePageId === run.view.page_id;
+            run.signIn.disabled = windowBusy || !run.popupId || run.framePageId === run.popupId;
+            run.original.setAttribute('aria-pressed', String(run.framePageId === run.view.page_id));
+            run.signIn.setAttribute('aria-pressed', String(Boolean(run.popupId) && run.framePageId === run.popupId));
         }
 
         function close(run = active) {
@@ -97,6 +103,9 @@
             const height = Number(headers.get('X-Browser-Height'));
             const counter = Number(headers.get('X-Browser-Frame'));
             const sequence = Number(headers.get('X-Browser-Sequence'));
+            const popupId = headers.get('X-Browser-Popup') || '';
+            const windowKind = headers.get('X-Browser-Window');
+            const selectionRevision = Number(headers.get('X-Browser-Selection'));
             const metadata = {
                 page_id: headers.get('X-Browser-Page'),
                 view_ref: headers.get('X-Browser-View'),
@@ -106,9 +115,13 @@
             if (blob.type !== 'image/jpeg' || blob.size > 2000000 ||
                 !Number.isInteger(width) || width < 1 || width > 1600 ||
                 !Number.isInteger(height) || height < 1 || height > 1200 ||
-                !Number.isSafeInteger(counter) || counter <= run.counter ||
+                !Number.isSafeInteger(counter) || counter <= (metadata.page_id === run.framePageId ? run.counter : 0) ||
                 !Number.isSafeInteger(sequence) || sequence < 0 ||
-                metadata.page_id !== run.view.page_id ||
+                headers.get('X-Browser-Root') !== run.view.page_id ||
+                (popupId && !/^[a-f0-9]{32}$/.test(popupId)) ||
+                !Number.isSafeInteger(selectionRevision) || selectionRevision < run.selectionRevision ||
+                !((windowKind === 'original' && metadata.page_id === run.view.page_id) ||
+                  (windowKind === 'sign_in' && popupId && metadata.page_id === popupId)) ||
                 !/^[a-f0-9]{32}$/.test(metadata.view_ref || '') ||
                 !/^[a-f0-9]{32}$/.test(metadata.input_ref || '')) {
                 throw { reason: 'invalid_frame', retire: true };
@@ -131,6 +144,20 @@
             for (const previous of run.urls) {
                 if (previous !== url) { URL.revokeObjectURL(previous); run.urls.delete(previous); }
             }
+            if (run.framePageId && (run.framePageId !== metadata.page_id || run.selectionRevision !== selectionRevision)) {
+                discardInput(run);
+                run.notice = windowKind === 'sign_in'
+                    ? 'Sign-in window selected. Check the destination before continuing.'
+                    : 'Original page selected. Inspect it before continuing.';
+            }
+            const popupNotice = headers.get('X-Browser-Popup-Notice');
+            if (popupNotice === 'unsupported_navigation') run.notice = 'This sign-in window could not be opened. Try another sign-in method.';
+            if (popupNotice === 'popup_limit') run.notice = 'Only one sign-in window can be open at a time.';
+            run.popupId = popupId;
+            run.framePageId = metadata.page_id;
+            run.selectionRevision = selectionRevision;
+            run.windowControls.hidden = !popupId;
+            run.windowLabel.textContent = windowKind === 'sign_in' ? 'Sign-in window' : 'Original page';
             if (run.origin && run.origin !== origin) {
                 discardInput(run);
                 run.notice = 'The website changed. Check the destination before continuing.';
@@ -167,6 +194,15 @@
                         throw { reason: 'stale_handoff', retire: true };
                     }
                     run.claimed = true;
+                }
+                if (run.selection) {
+                    const target = run.selection;
+                    run.selection = null;
+                    const selected = await request(run, '/page/' + encodeURIComponent(target), { method: 'POST' });
+                    if (!visible(run, epoch)) return;
+                    if (selected.page_id !== target || !Number.isSafeInteger(selected.selection_revision) ||
+                        selected.selection_revision < run.selectionRevision) throw { reason: 'stale_input' };
+                    run.selectionRevision = selected.selection_revision;
                 }
                 if (!await frame(run, epoch)) return;
                 while (visible(run, epoch) && run.queue.length) {
@@ -276,7 +312,10 @@
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
             dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><button type="button" class="ui-text-button" data-close>Close</button></header>
-                <div class="browser-handoff-body"><output aria-label="Website origin" class="cell-mono"></output><p role="status">Opening browser…</p>
+                <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
+                <button type="button" class="ui-text-button" data-original>Original page</button>
+                <button type="button" class="ui-text-button" data-sign-in>Sign-in window</button></div>
+                <output aria-label="Website origin" class="cell-mono"></output><p role="status">Opening browser…</p>
                 <img alt="Browser page" draggable="false" hidden>
                 <label>Keyboard input<input type="password" aria-label="Browser keyboard input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type or paste into the focused page field" readonly></label>
                 <p class="text-xs text-txt-secondary">Click the page to focus a field, then type or paste. Tab moves within the page; Shift+Tab leaves keyboard input. Escape closes this window; you can reopen it from chat.</p>
@@ -287,6 +326,10 @@
                 path: `api/chat/sessions/${encodeURIComponent(state.sessionId)}/browser-handoff/${encodeURIComponent(view.handoff_id)}`,
                 listeners: new AbortController(), request: null, urls: new Set(), queue: [],
                 epoch: 0, counter: 0, metadata: null, claimed: false, hasFrame: false,
+                selection: null, selectionRevision: 0, popupId: '', framePageId: '',
+                windowControls: dialog.querySelector('[data-window-controls]'),
+                windowLabel: dialog.querySelector('[data-window-label]'),
+                original: dialog.querySelector('[data-original]'), signIn: dialog.querySelector('[data-sign-in]'),
                 busy: false, returning: false, composing: false, notice: '',
                 image: dialog.querySelector('img'), keyboard: dialog.querySelector('input'),
                 originLabel: dialog.querySelector('output'),
@@ -297,6 +340,16 @@
             on(dialog.querySelector('[data-close]'), 'click', () => close(run));
             on(dialog, 'cancel', (event) => { event.preventDefault(); close(run); });
             on(run.handback, 'click', () => { void handback(run); });
+            const selectPage = (pageId) => {
+                if (!current(run) || run.busy || run.queue.length || !run.metadata) return;
+                discardInput(run);
+                clearPixels(run);
+                run.selection = pageId;
+                controls(run);
+                void pump(run);
+            };
+            on(run.original, 'click', () => selectPage(run.view.page_id));
+            on(run.signIn, 'click', () => { if (run.popupId) selectPage(run.popupId); });
             on(run.image, 'click', (event) => {
                 if (!run.metadata) {
                     run.status.textContent = 'Wait for the page to update, then try again.';
