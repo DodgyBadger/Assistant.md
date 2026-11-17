@@ -246,7 +246,18 @@ async def test_browser_large_observation_is_bounded_and_omits_field_values(
             await browser_turn(app, vault.name, "bounded-chat", operation="close")
 
 
-@pytest.mark.parametrize("mutation", ["credential", "layout", "meaning", "option"])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "credential",
+        "layout",
+        "meaning",
+        "option",
+        "target_form",
+        "incoming_form",
+        "detach_restore",
+    ],
+)
 async def test_browser_rechecks_observed_control_before_dispatch(
     app: Application, monkeypatch: pytest.MonkeyPatch, mutation: str
 ) -> None:
@@ -259,10 +270,14 @@ async def test_browser_rechecks_observed_control_before_dispatch(
         "layout": "document.querySelector('form').style.marginTop = '150px';",
         "meaning": "document.getElementById('save').textContent = 'Different submission';",
         "option": "document.querySelector('option').value = 'different';",
+        "target_form": "document.getElementById('save').setAttribute('form', 'other');",
+        "incoming_form": "document.getElementById('foreign').setAttribute('form', 'primary');",
+        "detach_restore": "const button = document.getElementById('save'); const form = button.form; button.remove(); form.append(button);",
     }
     with retained_browser_site(app, monkeypatch) as site:
         site.pages["/mutate-control"] = (
-            FORM
+            FORM.replace(b"<form ", b'<form id="primary" ', 1)
+            + b'<form id="other" method="post" action="/submit"><input id="foreign" aria-label="Other" name="other"></form>'
             + (
                 '<script>fetch("/wait-mutation").then(() => {'
                 + mutations[mutation]
@@ -658,3 +673,104 @@ async def test_browser_owns_and_reaps_driver_stalled_before_initialization(
                         pass
                 await asyncio.gather(operation, return_exceptions=True)
                 await browser_turn(app, vault.name, "partial-start", operation="close")
+
+
+@pytest.mark.parametrize("mutation", ["label", "value", "removed"])
+async def test_browser_can_use_stable_form_while_unrelated_observed_controls_change(
+    app: Application, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    vault = app.vault("BrowserUnrelatedMutationVault")
+    await configure(app)
+    changes = {
+        "label": "document.getElementById('unrelated').textContent = 'Cart updated';",
+        "value": "document.getElementById('unrelated').value = 'updated';",
+        "removed": "document.getElementById('unrelated').remove();",
+    }
+    with retained_browser_site(app, monkeypatch) as site:
+        site.pages["/live-form"] = (
+            FORM
+            + b'<button id="unrelated">Cart</button>'
+            + (
+                '<script>fetch("/wait-mutation").then(() => {'
+                + changes[mutation]
+                + 'fetch("/mutation-applied");});</script>'
+            ).encode()
+        )
+        try:
+            initial = view(
+                await browser_turn(
+                    app, vault.name, "live-form", url=site.url("/live-form")
+                )
+            )
+            site.mutate.set()
+            async with asyncio.timeout(5):
+                while not site.mutation_applied.is_set():
+                    await asyncio.sleep(0.02)
+            filled = view(
+                await browser_turn(
+                    app,
+                    vault.name,
+                    "live-form",
+                    operation="fill",
+                    reference=element(initial, "Name"),
+                    value="ordinary search value",
+                )
+            )
+            submitted = view(
+                await browser_turn(
+                    app,
+                    vault.name,
+                    "live-form",
+                    operation="click",
+                    reference=element(filled, "Save"),
+                )
+            )
+            assert "Saved" in submitted["text"]
+            assert site.submissions == [
+                {"name": "ordinary search value", "colour": "green"}
+            ]
+        finally:
+            site.mutate.set()
+            await browser_turn(app, vault.name, "live-form", operation="close")
+
+
+async def test_browser_unowned_field_ignores_unrelated_unowned_control_mutation(
+    app: Application, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    vault = app.vault("BrowserUnownedFieldVault")
+    await configure(app)
+    with retained_browser_site(app, monkeypatch) as site:
+        site.pages["/unowned-field"] = b"""<label>Search<input id="search"></label>
+<output id="echo"></output><button id="unrelated">Cart</button><script>
+document.getElementById('search').addEventListener('input', event => {
+    document.getElementById('echo').textContent = event.target.value;
+});
+fetch('/wait-mutation').then(() => {
+    document.getElementById('unrelated').textContent = 'Cart updated';
+    fetch('/mutation-applied');
+});</script>"""
+        try:
+            initial = view(
+                await browser_turn(
+                    app, vault.name, "unowned", url=site.url("/unowned-field")
+                )
+            )
+            site.mutate.set()
+            async with asyncio.timeout(5):
+                while not site.mutation_applied.is_set():
+                    await asyncio.sleep(0.02)
+            result = view(
+                await browser_turn(
+                    app,
+                    vault.name,
+                    "unowned",
+                    operation="fill",
+                    reference=element(initial, "Search"),
+                    value="ordinary query",
+                )
+            )
+            assert "ordinary query" in result["text"]
+            assert site.submissions == []
+        finally:
+            site.mutate.set()
+            await browser_turn(app, vault.name, "unowned", operation="close")

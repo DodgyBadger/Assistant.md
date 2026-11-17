@@ -9,7 +9,8 @@
         SELECT: Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set,
     };
     const textTypes = new Set(['text', 'search', 'email', 'tel', 'url']);
-    const nodes = [], signatures = [], rectangles = [];
+    const nodes = [], signatures = [], rectangles = [], forms = [];
+    const dirtyNodes = new Set();
     let active = true, dirty = false, optionBudget = 60;
     const viewport = [innerWidth, innerHeight, scrollX, scrollY];
     const sensitive = node => isCredential(node, boundedText);
@@ -84,6 +85,7 @@
         }
         const index = nodes.length;
         nodes.push(node); signatures.push(signature(node)); rectangles.push(rect(node));
+        forms.push(node.form || null);
         elements.push({ref: prefix + '.' + index, tag: node.tagName.toLowerCase(), label: label(node), options,
             checked: ['checkbox', 'radio'].includes(node.type) ? node.checked : null});
     }
@@ -93,8 +95,11 @@
         for (const record of records) {
             if (dirty) return;
             if (record.removedNodes.length > 64) { dirty = true; return; }
-            if (nodes.some(node => node === record.target || node.contains(record.target) ||
-                Array.from(record.removedNodes).some(removed => removed === node || removed.contains?.(node)))) dirty = true;
+            for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                if (node === record.target || node.contains(record.target) ||
+                    Array.from(record.removedNodes).some(removed => removed === node || removed.contains?.(node))) dirtyNodes.add(i);
+            }
         }
     };
     observer.observe(doc, {subtree: true, childList: true, attributes: true, characterData: true});
@@ -115,16 +120,23 @@
     while (JSON.stringify(view).length > 42000) {
         view.truncated = true;
         if (view.text.length) view.text = view.text.slice(0, Math.max(0, view.text.length - 4096)).toWellFormed();
-        else { elements.pop(); nodes.pop(); signatures.pop(); rectangles.pop(); }
+        else { elements.pop(); nodes.pop(); signatures.pop(); rectangles.pop(); forms.pop(); }
     }
     return {view, dispose, act: request => {
         inspect(observer.takeRecords());
         const index = request.index, target = index === null ? null : nodes[index];
+        const form = index === null ? null : forms[index];
+        // A changing unrelated widget must not starve a stable form. Include
+        // original and current form membership so cross-form moves fail shut.
+        const related = (node, i) => index === null || i === index ||
+            (form && (forms[i] === form || node.form === form));
         let reason = null;
         if (!active || dirty || doc !== document || viewport.some((n, i) => n !== [innerWidth, innerHeight, scrollX, scrollY][i])) reason = 'stale_reference';
         if (!reason && target && sensitive(target)) reason = 'sensitive_target';
-        if (!reason && nodes.some((node, i) => !node.isConnected || node.ownerDocument !== doc ||
-            sensitive(node) || !supported(node) || signature(node) !== signatures[i] || rect(node).some((n, j) => Math.abs(n - rectangles[i][j]) > 0.5))) reason = 'stale_reference';
+        if (!reason && nodes.some((node, i) => related(node, i) &&
+            (dirtyNodes.has(i) || !node.isConnected || node.ownerDocument !== doc ||
+            (node.form || null) !== forms[i] || sensitive(node) || !supported(node) ||
+            signature(node) !== signatures[i] || rect(node).some((n, j) => Math.abs(n - rectangles[i][j]) > 0.5)))) reason = 'stale_reference';
         if (!reason && request.operation !== 'scroll' && !target) reason = 'stale_reference';
         if (!reason && target && (!supported(target) || !visible(target) || target.matches(':disabled') || target.readOnly ||
             target.getAttribute('aria-disabled') === 'true' || target.getAttribute('aria-readonly') === 'true')) reason = 'blocked_target';

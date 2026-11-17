@@ -3576,7 +3576,7 @@
     {
       "path": "scenarios/integration/core/test_browser_actions.py",
       "kind": "behavioral",
-      "sha256": "af613d4ae5e9cd6d5d1f351465040bc8b8fa1a711dd4da90c621d3c52f3bdab3",
+      "sha256": "ca1d4f1f3e4f481d0d6217dbdf3d0f8ac20f0083c304d2c93b96ae279448105b",
       "tests": [
         "test_browser_observes_fills_selects_and_submits_native_form",
         "test_browser_rejects_old_or_foreign_element_references",
@@ -3590,7 +3590,9 @@
         "test_stop_during_browser_action_releases_lock_with_stalled_driver",
         "test_browser_native_actions_ignore_page_prototype_and_focus_redirection",
         "test_browser_unicode_truncation_remains_utf8_serializable",
-        "test_browser_owns_and_reaps_driver_stalled_before_initialization"
+        "test_browser_owns_and_reaps_driver_stalled_before_initialization",
+        "test_browser_can_use_stable_form_while_unrelated_observed_controls_change",
+        "test_browser_unowned_field_ignores_unrelated_unowned_control_mutation"
       ]
     },
     {
