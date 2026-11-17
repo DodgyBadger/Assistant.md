@@ -18,6 +18,39 @@ from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
 pytestmark = pytest.mark.scenario
 
 
+async def return_after_passive_frame(page, app, modal, handback, frame_url, status):
+    async with hold_delivery(page, app, frame_url, first_only=True) as gate:
+        await asyncio.wait_for(gate.held.wait(), 5)
+        sent_after_capture = []
+
+        def observe(request):
+            if "/browser-handoff/" in request.url and request.url.endswith("/return"):
+                sent_after_capture.append(gate.release.is_set())
+
+        page.on("request", observe)
+        try:
+            async with page.expect_response(
+                lambda r: "/browser-handoff/" in r.url and r.url.endswith("/return")
+            ) as returned:
+                await expect(handback).to_be_enabled(timeout=1500)
+                await handback.click()
+                await expect(handback).to_be_disabled()
+                await expect(
+                    modal.get_by_label("Browser keyboard input")
+                ).to_have_js_property("readOnly", True)
+                assert sent_after_capture == []
+                gate.release.set()
+            response = await returned.value
+            assert response.status == status
+            if status == 409:
+                assert (await response.json())["detail"] == "credentials_pending"
+            assert sent_after_capture == [
+                True
+            ], "Handback overlapped capture or was repeated"
+        finally:
+            page.remove_listener("request", observe)
+
+
 @pytest.fixture(scope="session")
 def browser_type_launch_args(browser_type_launch_args):
     # Use the installed full Chromium bundle, as production does. The optional
@@ -57,6 +90,16 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
             async with private_browser_page(
                 browser_app, browser, forbidden=(sentinel,)
             ) as page:
+                returns = []
+                page.on(
+                    "request",
+                    lambda request: (
+                        returns.append(True)
+                        if "/browser-handoff/" in request.url
+                        and request.url.endswith("/return")
+                        else None
+                    ),
+                )
                 if finish == "return":
                     await page.set_viewport_size({"width": 900, "height": 620})
                 await page.goto(browser_app.url)
@@ -140,11 +183,13 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     ).press_sequentially(sentinel)
                     gate.release.set()
                 await expect(handback).to_be_enabled()
-                async with page.expect_response(
-                    lambda r: "/browser-handoff/" in r.url and r.url.endswith("/return")
-                ) as refused:
-                    await handback.click()
-                assert (await refused.value).status == 409
+                frame_url = (
+                    browser_app.url
+                    + f"/api/chat/sessions/{session_id}/browser-handoff/{claimed_view['handoff_id']}/frame"
+                )
+                await return_after_passive_frame(
+                    page, app, modal, handback, frame_url, 409
+                )
                 await expect(modal).to_be_visible()
                 local_state = await page.evaluate(
                     "JSON.stringify([localStorage, sessionStorage])"
@@ -161,6 +206,8 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                         first_only=True,
                     ) as gate:
                         await asyncio.wait_for(gate.held.wait(), 5)
+                        await expect(handback).to_be_enabled()
+                        await handback.click()
                         # Real DOM teardown above the message's direct parent,
                         # while an unchanged server frame is still in delivery.
                         await page.locator("#chat-messages").evaluate(
@@ -177,14 +224,28 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     )
                     assert state.json()["status"] == "human"
                     assert len(calls) == 2 and site.submissions == []
+                    assert len(returns) == 1
                     return
-                await modal.get_by_role("button", name="Close", exact=True).click()
+                if finish == "stop":
+                    async with hold_delivery(
+                        page, app, frame_url, first_only=True
+                    ) as gate:
+                        await asyncio.wait_for(gate.held.wait(), 5)
+                        await expect(handback).to_be_enabled()
+                        await handback.click()
+                        await modal.get_by_role(
+                            "button", name="Close", exact=True
+                        ).click()
+                        gate.release.set()
+                else:
+                    await modal.get_by_role("button", name="Close", exact=True).click()
                 await expect(modal).to_have_count(0)
                 assert not await page.evaluate(
                     "async url => { try { await fetch(url); return true; } catch { return false; } }",
                     blob_url,
                 )
                 assert len(calls) == 2 and site.submissions == []
+                assert len(returns) == 1
                 if finish == "stop":
                     await page.get_by_role(
                         "button", name="Stop the active response", exact=True
@@ -194,6 +255,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     await expect(link).to_be_disabled()
                     await expect(modal).to_have_count(0)
                     assert len(calls) == 2 and site.submissions == []
+                    assert len(returns) == 1
                     return
                 # Reload while human control is held: replay restores the link,
                 # and reopening reclaims only the same current generation.
@@ -218,7 +280,9 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     while not site.submissions:
                         await asyncio.sleep(0.05)
                 await expect(handback).to_be_enabled()
-                await handback.click()
+                await return_after_passive_frame(
+                    page, app, modal, handback, frame_url, 200
+                )
                 await expect(modal).to_have_count(0)
                 await expect(
                     page.locator("#chat-messages").get_by_text(
@@ -227,6 +291,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 ).to_be_visible(timeout=20000)
                 assert site.submissions == [{"password": sentinel}]
                 assert len(calls) == 3
+                assert len(returns) == 2
                 from core.runtime.state import get_runtime_context
 
                 runtime = get_runtime_context()

@@ -41,10 +41,10 @@
         }
 
         function controls(run) {
-            run.handback.disabled = run.busy || run.queue.length > 0 || !run.metadata;
+            run.handback.disabled = run.returning || run.queue.length > 0 || !run.claimed || !run.hasFrame;
             run.keyboard.readOnly = !run.claimed || !run.hasFrame || run.returning;
-            run.image.setAttribute('aria-disabled', String(!run.metadata));
-            const windowBusy = run.busy || run.queue.length > 0 || !run.metadata;
+            run.image.setAttribute('aria-disabled', String(run.returning || !run.metadata));
+            const windowBusy = run.returning || run.busy || run.queue.length > 0 || !run.metadata;
             run.original.disabled = windowBusy || run.framePageId === run.view.page_id;
             run.signIn.disabled = windowBusy || !run.popupId || run.framePageId === run.popupId;
             run.original.setAttribute('aria-pressed', String(run.framePageId === run.view.page_id));
@@ -54,6 +54,7 @@
         function close(run = active) {
             if (!run || active !== run) return;
             active = null;
+            run.returning = false;
             run.epoch += 1;
             clearTimeout(run.timer);
             run.request?.abort();
@@ -188,6 +189,7 @@
         async function pump(run) {
             if (!current(run)) { close(run); return; }
             if (document.hidden || run.busy) return;
+            if (run.returning) { void completeHandback(run); return; }
             clearTimeout(run.timer);
             const epoch = run.epoch;
             run.busy = true;
@@ -212,7 +214,7 @@
                     run.selectionRevision = selected.selection_revision;
                 }
                 if (!await frame(run, epoch)) return;
-                while (visible(run, epoch) && run.queue.length) {
+                while (visible(run, epoch) && !run.returning && run.queue.length) {
                     const command = run.queue.shift();
                     const metadata = command.metadata || run.metadata;
                     if (!metadata) break;
@@ -242,7 +244,7 @@
                     if (!visible(run, epoch)) return;
                     if (!await frame(run, epoch)) return;
                 }
-                if (visible(run, epoch)) run.status.textContent = run.notice || 'Complete the human step, then return control.';
+                if (visible(run, epoch) && !run.returning) run.status.textContent = run.notice || 'Complete the human step, then return control.';
             } catch (error) {
                 if (!visible(run, epoch)) return;
                 discardInput(run);
@@ -257,7 +259,8 @@
                 if (!current(run)) close(run);
                 else {
                     controls(run);
-                    if (!document.hidden) run.timer = setTimeout(() => pump(run), 600);
+                    if (!document.hidden && run.returning) void completeHandback(run);
+                    else if (!document.hidden) run.timer = setTimeout(() => pump(run), 600);
                 }
             }
         }
@@ -288,12 +291,22 @@
             if (!run.busy) void pump(run);
         }
 
-        async function handback(run) {
-            if (!current(run) || run.busy || run.queue.length || !run.metadata) return;
+        function handback(run) {
+            if (!current(run) || document.hidden || run.returning || run.queue.length || !run.claimed || !run.hasFrame) return;
             clearTimeout(run.timer);
-            const epoch = run.epoch;
-            run.busy = run.returning = true;
+            // One explicit intent waits behind already-owned browser I/O.
+            // Editing stops immediately; the backend still decides handback.
+            run.returning = true;
             discardInput(run);
+            run.status.textContent = 'Returning control after the current browser update…';
+            controls(run);
+            if (!run.busy) void completeHandback(run);
+        }
+
+        async function completeHandback(run) {
+            if (!current(run) || document.hidden || !run.returning || run.busy) return;
+            const epoch = run.epoch;
+            run.busy = true;
             controls(run);
             try {
                 await request(run, '/return', { method: 'POST' });
@@ -348,7 +361,7 @@
             on(dialog, 'cancel', (event) => { event.preventDefault(); close(run); });
             on(run.handback, 'click', () => { void handback(run); });
             const selectPage = (pageId) => {
-                if (!current(run) || run.busy || run.queue.length || !run.metadata) return;
+                if (!current(run) || run.returning || run.busy || run.queue.length || !run.metadata) return;
                 discardInput(run);
                 clearPixels(run);
                 run.selection = pageId;
@@ -396,6 +409,7 @@
                 }
             });
             on(document, 'visibilitychange', () => {
+                run.returning = false;
                 run.epoch += 1;
                 discardInput(run);
                 clearPixels(run);
