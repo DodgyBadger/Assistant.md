@@ -336,7 +336,7 @@
                 <button type="button" class="ui-button-secondary" data-original>Original page</button>
                 <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
                 <output aria-label="Website origin" class="cell-mono"></output><p role="status">Opening browser…</p>
-                <img alt="Browser page" draggable="false" hidden>
+                <div class="browser-handoff-preview" role="group" aria-label="Browser page controls" tabindex="0"><img alt="Browser page" draggable="false" hidden></div>
                 <label>Keyboard input<input type="password" aria-label="Browser keyboard input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type or paste into the focused page field" readonly></label>
                 <p class="text-xs text-txt-secondary">Click the page to focus a field, then type or paste. Tab moves within the page; Shift+Tab leaves keyboard input. Escape closes this window; you can reopen it from chat.</p>
                 </div>`;
@@ -351,6 +351,7 @@
                 windowLabel: dialog.querySelector('[data-window-label]'),
                 original: dialog.querySelector('[data-original]'), signIn: dialog.querySelector('[data-sign-in]'),
                 busy: false, returning: false, composing: false, notice: '',
+                preview: dialog.querySelector('.browser-handoff-preview'),
                 image: dialog.querySelector('img'), keyboard: dialog.querySelector('input'),
                 originLabel: dialog.querySelector('output'),
                 status: dialog.querySelector('[role=status]'), handback: dialog.querySelector('[data-return]'),
@@ -380,7 +381,7 @@
                 const y = Math.floor((event.clientY - bounds.top) * run.height / bounds.height);
                 if (x < 0 || y < 0 || x >= run.width || y >= run.height) return;
                 enqueue(run, { kind: 'click', x, y, metadata: { ...run.metadata } });
-                run.keyboard.focus();
+                run.preview.focus({ preventScroll: true });
             });
             on(run.image, 'wheel', (event) => {
                 event.preventDefault();
@@ -400,13 +401,28 @@
             };
             on(run.keyboard, 'compositionend', () => { run.composing = false; textInput(); });
             on(run.keyboard, 'input', textInput);
-            on(run.keyboard, 'keydown', (event) => {
+            const editingKey = (event) => {
                 if (run.composing || event.isComposing) return;
                 const selectAll = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && !event.altKey && !event.shiftKey;
                 if (selectAll || (EDITING_KEYS.has(event.key) && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey)) {
                     event.preventDefault();
                     enqueue(run, { kind: 'key', key: selectAll ? 'SelectAll' : event.key });
                 }
+            };
+            on(run.keyboard, 'keydown', editingKey);
+            on(run.preview, 'keydown', (event) => {
+                if (!current(run) || document.hidden || run.returning || !run.hasFrame) return;
+                const printable = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+                const paste = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v' && !event.altKey;
+                const composition = ['Process', 'Dead', 'Unidentified', 'Compose'].includes(event.key);
+                if (printable || paste || composition) {
+                    // Keep non-text clicks on the page. On actual typing,
+                    // native default input targets this private field without
+                    // scrolling the viewer or synthesizing/replaying the key.
+                    run.keyboard.focus({ preventScroll: true });
+                    return;
+                }
+                editingKey(event);
             });
             on(document, 'visibilitychange', () => {
                 run.returning = false;

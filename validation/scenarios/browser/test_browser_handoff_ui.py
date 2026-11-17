@@ -83,7 +83,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
     with retained_browser_site(app, monkeypatch) as site:
         site.sign_in_on_submit = True
         site.pages["/login"] = (
-            b'<style>body{margin:0}input{position:absolute;left:20px;top:20px;width:200px;height:40px}</style><form method="post" action="/submit"><input type="password" name="password"></form>'
+            b'<style>body{margin:0}input{position:absolute;left:20px;top:20px;width:200px;height:40px}</style><form method="post" action="/submit"><input type="password" name="password"></form><input type="checkbox" style="left:300px;top:20px;width:24px;height:24px" onclick="fetch(&quot;/mutation-applied&quot;)">'
         )
         with browser_handoff_provider(app, site) as calls:
             setting(app, "default_model", "code-tool-model")
@@ -136,6 +136,31 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     "button", name="Return control", exact=True
                 )
                 await expect(handback).to_be_enabled()
+                bounds = await preview.bounding_box()
+                assert bounds is not None
+                await preview.click(
+                    position={
+                        "x": 310 * bounds["width"] / 1280,
+                        "y": 30 * bounds["height"] / 800,
+                    }
+                )
+                assert await asyncio.to_thread(site.mutation_applied.wait, 5)
+                await expect(
+                    modal.get_by_label("Browser keyboard input")
+                ).not_to_be_focused()
+                preview_controls = modal.get_by_role(
+                    "group", name="Browser page controls", exact=True
+                )
+                await expect(preview_controls).to_be_focused()
+                # Passive pixel replacement must not take keyboard focus away
+                # from the preview while the user decides what to type next.
+                for _ in range(2):
+                    async with page.expect_response(
+                        lambda r: "/browser-handoff/" in r.url
+                        and r.url.endswith("/frame")
+                    ):
+                        pass
+                await expect(preview_controls).to_be_focused()
                 if finish == "return":
                     # Native scrolling over app chrome must not become a wheel
                     # event inside the remote website or reset on frame refresh.
@@ -178,9 +203,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                             "y": 40 * bounds["height"] / 800,
                         }
                     )
-                    await modal.get_by_label(
-                        "Browser keyboard input"
-                    ).press_sequentially(sentinel)
+                    await page.keyboard.type(sentinel)
                     gate.release.set()
                 await expect(handback).to_be_enabled()
                 frame_url = (
