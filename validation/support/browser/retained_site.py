@@ -29,6 +29,7 @@ COOKIE = "synthetic-browser-context-cookie"
 @dataclass
 class BrowserSite:
     port: int
+    dns_hosts: set[str] = field(default_factory=lambda: {HOST})
     private_requests: list[str] = field(default_factory=list)
     popup_requests: list[str] = field(default_factory=list)
     slow_started: Event = field(default_factory=Event)
@@ -153,7 +154,7 @@ def retained_browser_site(
     original_connect = socket.socket.connect
 
     def dns(host, port, *args, **kwargs):
-        if host in (HOST, PUBLIC_IP):
+        if host in site.dns_hosts or host == PUBLIC_IP:
             return [
                 (
                     socket.AF_INET,

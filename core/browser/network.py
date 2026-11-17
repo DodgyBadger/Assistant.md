@@ -64,7 +64,10 @@ class BrowserResolver:
                 resolution = None
             created = resolution is None
             if resolution is None:
-                if len(self._jobs) >= 4:
+                # The executor still runs at most four lookups. Own a bounded
+                # backlog so ordinary multi-host pages wait instead of losing
+                # resources; the caller's deadline includes this queue time.
+                if len(self._jobs) >= 32:
                     raise BrowserNetworkError("Browser DNS capacity is unavailable")
                 job = self._executor.submit(resolve_public_url, url)
                 pending = asyncio.wrap_future(job, loop=loop)
