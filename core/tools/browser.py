@@ -1,5 +1,5 @@
 """
-Browser tool backed by Playwright for resilient page extraction.
+Browser tool backed by Playwright for extraction and retained interaction.
 
 Provides conservative browser-driven extraction for pages where simple crawlers
 or extract APIs fail, especially on JavaScript-heavy sites. Browser policy is
@@ -134,27 +134,29 @@ class BrowserTool(BaseTool):
             extract_selector: str = "",
             include_links: bool = False,
         ) -> str | ToolReturn:
-            """Open a page in a headless browser and extract compact page content.
+            """Read rendered web content or interact with this chat's retained browser.
 
                         :param url: Page URL to open; omit to read the retained interactive page
-                        :param interactive: Retain an isolated browser context for this chat
+                        :param interactive: Retain an isolated browser context for this chat; required for actions, handoff and close
                         :param operation: Read, act, close, or hand off this chat's browser for a brief human authorization step
                         :param handoff_reason: Human-only step needed: sign_in, credential or verification
                         :param reference: Exact element ref from the latest observation; observation_ref for scroll
-                        :param value: Ordinary text or option value for fill/select; never credentials
+                        :param value: Ordinary text or option value for fill/select; never secret credentials
                         :param scroll_y: Scroll distance in pixels, between -800 and 800
-                        :param goal: Brief extraction goal to guide target selection
-                        :param wait_until: Navigation readiness event
-                        :param wait_for_selector: Optional selector to wait for after navigation
-                        :param extract_selector: Optional selector to extract instead of the main content area
-                        :param include_links: Include a short list of visible links from the extracted region
+                        :param goal: Extraction-only short goal to guide target selection
+                        :param wait_until: Extraction-only navigation readiness event
+                        :param wait_for_selector: Extraction-only optional selector to wait for after navigation
+                        :param extract_selector: Extraction-only optional selector to extract instead of the main content area
+                        :param include_links: Extraction-only flag for a short list of visible links
 
             Policy notes:
-                        - Only public http/https URLs are allowed by default; `data:` is allowed for testing.
+                        - Use public http/https URLs; local/private network targets are blocked.
                         - Redirects or subrequests to local/private network targets are blocked.
-                        - Extraction allows only read-oriented HTTP methods (`GET`, `HEAD`).
+                        - Extraction allows only read-oriented HTTP methods (`GET`, `HEAD`); interactive forms can submit writes.
                         - Downloads are blocked.
-                        - Interactive state is retained within its authorized chat until closed.
+                        - Interactive state is retained within its authorized chat until closed or inactivity expiry.
+                        - Human credentials and verification codes belong only in the private browser viewer.
+                        - After handback, omit url to inspect and continue the same retained page.
             """
             try:
                 service = get_runtime_context().browser
@@ -262,14 +264,13 @@ class BrowserTool(BaseTool):
             browser,
             name="browser",
             description=(
-                "Open a dynamic web page in a headless browser and extract content "
-                "from the main page region. Prefer web_extract for ordinary static pages. "
-                "Use interactive=true to retain a browser for this chat; omit url to read "
-                "its current page, or operation=close to discard it. "
-                "Use click/fill/select with an exact element ref from the latest observation, "
-                "or scroll with observation_ref and scroll_y. Actions use native DOM controls "
-                "and synthetic events; trusted gestures/custom widgets need human help. "
-                "Never fill passwords or verification codes. Human entry is not available yet."
+                "Read rendered web pages or interact with a browser retained for this chat. "
+                "Prefer web_extract for ordinary readable pages. Use interactive=true when "
+                "interaction or authentication is needed, and operation=handoff for brief "
+                "human sign-in, credential entry or verification. Continue through the same "
+                "retained browser after handback. Never pass secret credentials as tool "
+                "arguments. Read __virtual_docs__/tools/browser.md for operations, "
+                "references and recovery rules."
             ),
         )
 
