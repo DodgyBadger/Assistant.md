@@ -157,10 +157,15 @@ class BrowserTool(BaseTool):
                         - Interactive state is retained within its authorized chat until closed or inactivity expiry.
                         - Human credentials and verification codes belong only in the private browser viewer.
                         - After handback, omit url to inspect and continue the same retained page.
+                        - Close can terminate this chat's browser while human control is held; it cancels the old waiting task and discards the context.
+                        - If human_control_active is reported, request handoff to resume human help, or close before opening a fresh URL; reloading chat does not reset ownership.
             """
             try:
                 service = get_runtime_context().browser
-                service.record_call()
+                # Explicit cleanup cannot be blocked by the ordinary browsing
+                # call budget; authority and current-chat checks still apply.
+                if not (interactive and operation == "close"):
+                    service.record_call()
                 if interactive:
                     if (
                         operation == "click"

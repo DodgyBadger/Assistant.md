@@ -3651,7 +3651,7 @@
       "path": "scenarios/integration/core/test_browser_handoff.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "376c70b65e436b39e46382e0abb40afd4bded91e08a1f93d3ae7fd43898affc0",
+      "sha256": "3433cb6bd85d44c365d161faa22c839dde9776d34a08e609a0265bdf88855b35",
       "tests": [
         "test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task",
         "test_handoff_idle_expiry_is_not_extended_by_polling_or_duplicate_claims",
@@ -3756,6 +3756,16 @@
         "test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_callers",
         "test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellation",
         "test_dns_deadline_keeps_real_work_owned_through_shutdown"
+      ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_termination.py",
+      "kind": "behavioral",
+      "sha256": "26f4376876aa27b80a6a5f968d87fe8352f0a799db6a1561dd9f52b827ccf7ba",
+      "tests": [
+        "test_explicit_termination_releases_only_its_chat_and_cancels_waiting_task",
+        "test_cleanup_is_available_after_browser_call_budget_is_exhausted",
+        "test_old_human_end_cannot_close_a_returned_browser"
       ]
     }
   ]

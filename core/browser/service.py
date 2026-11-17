@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass, replace
 from threading import Lock
+from typing import Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
 from weakref import WeakKeyDictionary, WeakValueDictionary
@@ -225,13 +226,27 @@ class BrowserService:
             and retained.handoff.human_controlled
         ):
             raise BrowserAdmissionError(
-                "human_control_active", "Browser is under human control"
+                "human_control_active",
+                "Browser remains human-owned. Request handoff to resume a stopped "
+                "session, or use operation=close to discard it before opening a "
+                "fresh URL. Reloading chat does not release browser ownership.",
             )
 
     async def handoff_state(self, session_id: str) -> HandoffView:
         key = self._human_chat(session_id)
         async with asyncio.timeout(10), self._session_lock(key):
             retained, handoff = await self._human_handoff(key)
+            return handoff.view()
+
+    async def close_handoff(self, session_id: str, handoff_id: str) -> HandoffView:
+        key = self._human_chat(session_id)
+        async with asyncio.timeout(15), self._session_lock(key):
+            retained, handoff = await self._human_handoff(key, handoff_id)
+            if not handoff.human_controlled:
+                raise BrowserAdmissionError(
+                    "stale_handoff", "This handoff no longer owns the browser"
+                )
+            await self._end_retained(key, retained, "viewer")
             return handoff.view()
 
     async def claim_handoff(self, session_id: str, handoff_id: str) -> HandoffView:
@@ -758,9 +773,65 @@ class BrowserService:
         key = await self._current_chat()
         async with asyncio.timeout(15), self._session_lock(key):
             await self._current_chat()
-            self._require_agent_control(key)
-            await self._close_key(key)
+            await self._end_retained(key, self._sessions.get(key), "agent")
         return {"status": "closed"}
+
+    async def _end_retained(
+        self,
+        key: tuple[str, str],
+        retained: _Retained | None,
+        source: Literal["agent", "viewer"],
+    ) -> None:
+        if retained is not None:
+            logger.add_sink("validation").info(
+                "Browser session termination requested",
+                data={
+                    "event": "browser_session_close_requested",
+                    "status": "started",
+                    "source": source,
+                    "session_id": key[1],
+                    "principal_id": key[0],
+                    "browser_id": retained.session.browser_id,
+                },
+            )
+            handoff = retained.handoff
+            current = get_current_execution_task()
+            if (
+                handoff is not None
+                and handoff.human_controlled
+                and (current is None or current.task_id != handoff.task_id)
+            ):
+                coordinator = get_runtime_context().task_coordinator
+                owner = await coordinator.get_task(handoff.task_id)
+                if (
+                    self._sessions.get(key) is not retained
+                    or retained.handoff is not handoff
+                ):
+                    raise BrowserAdmissionError(
+                        "stale_handoff", "The browser changed during termination"
+                    )
+                if (
+                    owner is not None
+                    and not owner.is_terminal
+                    and (
+                        owner.principal_id == key[0]
+                        and owner.kind == "chat"
+                        and owner.scope == f"chat_session:{key[1]}"
+                    )
+                ):
+                    # Request only: waiting here for task termination could
+                    # deadlock its finally path against our held session lock.
+                    await coordinator.cancel_task(
+                        handoff.task_id, reason="browser_session_closed"
+                    )
+                if (
+                    self._sessions.get(key) is not retained
+                    or retained.handoff is not handoff
+                ):
+                    raise BrowserAdmissionError(
+                        "stale_handoff", "The browser changed during termination"
+                    )
+        await self._close_key(key)
 
     async def act_current(
         self, operation: ActionOperation, reference: str, value: str, scroll_y: int

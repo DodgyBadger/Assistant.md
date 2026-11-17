@@ -66,6 +66,16 @@ async def claim_handoff(
     )
 
 
+@router.post("/{session_id}/browser-handoff/{handoff_id}/close")
+async def close_handoff(session_id: str, handoff_id: str, request: Request) -> Response:
+    require_same_origin(request)
+    try:
+        view = await get_runtime_context().browser.close_handoff(session_id, handoff_id)
+        return JSONResponse(view.as_metadata())
+    except Exception as error:
+        return private_error(error)
+
+
 @router.post("/{session_id}/browser-handoff/{handoff_id}/return")
 async def return_handoff(
     session_id: str, handoff_id: str, request: Request

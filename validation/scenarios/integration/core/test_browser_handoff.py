@@ -51,7 +51,6 @@ async def test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task(
             for kwargs in (
                 {},
                 {"operation": "click", "reference": old_reference},
-                {"operation": "close"},
                 {"operation": "handoff"},
             ):
                 refused = await browser_turn(app, vault.name, "handoff-owner", **kwargs)
@@ -228,6 +227,9 @@ async def test_stopped_handoff_keeps_human_control_and_requires_a_new_task_gener
             assert (
                 await app.request_async(old_path + "/return", "POST")
             ).status_code == 409
+            assert (
+                await app.request_async(old_path + "/close", "POST")
+            ).status_code == 409
             path = handoff_path("handoff-stop") + "/" + current["handoff_id"]
             assert (await app.request_async(path + "/claim", "POST")).status_code == 200
             assert (
@@ -380,6 +382,7 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
                 assert (
                     await client.get(handoff_path("handoff-auth"))
                 ).status_code == 401
+                assert (await client.post(path + "/close")).status_code == 401
                 client.cookies.set(OWNER_SESSION_COOKIE, issued.cookie_value)
                 viewed = await client.get(handoff_path("handoff-auth"))
                 assert (
@@ -393,9 +396,10 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
                     if proxied
                     else {}
                 )
-                assert (
-                    await client.post(path + "/claim", headers=ingress)
-                ).status_code == 403
+                for action in ("/claim", "/close"):
+                    assert (
+                        await client.post(path + action, headers=ingress)
+                    ).status_code == 403
                 headers = {
                     CSRF_HEADER: issued.csrf_token,
                     "Origin": "https://assistant.example.test",
@@ -420,21 +424,28 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
                 assert (
                     await client.post(other_path + "/return", headers=headers)
                 ).status_code == 404
+                assert (
+                    await client.post(other_path + "/close", headers=headers)
+                ).status_code == 404
                 stale_path = handoff_path("handoff-auth") + "/" + "0" * 32
                 assert (
                     await client.post(stale_path + "/return", headers=headers)
+                ).status_code == 409
+                assert (
+                    await client.post(stale_path + "/close", headers=headers)
                 ).status_code == 409
                 assert not operation.done()
                 assert (
                     await client.post(path + "/claim", headers=headers)
                 ).status_code == 200
                 for site in ("cross-site", "same-site", "none", "unknown"):
-                    assert (
-                        await client.post(
-                            path + "/return",
-                            headers={**headers, "Sec-Fetch-Site": site},
-                        )
-                    ).status_code == 403
+                    for action in ("/return", "/close"):
+                        assert (
+                            await client.post(
+                                path + action,
+                                headers={**headers, "Sec-Fetch-Site": site},
+                            )
+                        ).status_code == 403
                 assert not operation.done()
                 assert (
                     await client.post(path + "/return", headers=headers)
