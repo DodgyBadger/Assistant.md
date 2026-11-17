@@ -3541,7 +3541,7 @@
     {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "9dba3acabd23cabfcf0be4e5ab14da808a7a79f6480a980cab5406a1e463eaf5"
+      "sha256": "ed10c2f03372823af92bacab10ccd99b7bb7e8e4a451df388715847bcfd76334"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
@@ -3744,6 +3744,17 @@
       "path": "support/browser/reverse_proxy.py",
       "kind": "support",
       "sha256": "98722e92f05f1e48ca0430dbf7d7d3ad9abf17762e9b2e4fc1b67d0c598d08ad"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_resource_loading.py",
+      "kind": "behavioral",
+      "sha256": "140f9193540821f7192f726b219b9e9a0879bb54f7bf07e0dcf2aef9ddb12f01",
+      "tests": [
+        "test_post_human_navigation_applies_a_burst_of_public_stylesheets",
+        "test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_callers",
+        "test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellation",
+        "test_dns_deadline_keeps_real_work_owned_through_shutdown"
+      ]
     }
   ]
 }

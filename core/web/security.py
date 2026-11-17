@@ -12,8 +12,8 @@ from core.web.errors import WebUrlPolicyError
 _HTTP_URL_IN_TEXT_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 
 
-def resolve_public_url(url: str) -> tuple[str, tuple[str, ...]]:
-    """Validate one HTTP(S) URL and return its hostname and public addresses."""
+def validate_public_url(url: str) -> str:
+    """Validate HTTP(S) URL syntax and credentials; return its hostname, without DNS."""
     parsed = urlsplit(str(url or "").strip())
     if parsed.scheme.lower() not in {"http", "https"}:
         raise WebUrlPolicyError("Only public http/https URLs are allowed")
@@ -23,6 +23,12 @@ def resolve_public_url(url: str) -> tuple[str, tuple[str, ...]]:
     if not hostname:
         raise WebUrlPolicyError("URL must include a hostname")
 
+    return hostname
+
+
+def resolve_public_url(url: str) -> tuple[str, tuple[str, ...]]:
+    """Validate one HTTP(S) URL and return its hostname and public addresses."""
+    hostname = validate_public_url(url)
     try:
         addresses = _resolve_addresses(hostname)
     except OSError as exc:

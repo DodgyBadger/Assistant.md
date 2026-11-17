@@ -11,12 +11,13 @@ import asyncio
 import ipaddress
 import socket
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
 from threading import Lock
 from urllib.parse import urlsplit
 
 from core.logger import UnifiedLogger
 from core.web.errors import WebUrlPolicyError
-from core.web.security import resolve_public_url
+from core.web.security import resolve_public_url, validate_public_url
 
 logger = UnifiedLogger(tag="browser-network")
 Resolved = tuple[str, tuple[str, ...]]
@@ -26,37 +27,75 @@ class BrowserNetworkError(RuntimeError):
     """A controlled browser destination or network-resource refusal."""
 
 
+@dataclass(frozen=True)
+class _Resolution:
+    worker: Future[Resolved]
+    result: asyncio.Future[Resolved]
+
+
 class BrowserResolver:
-    """Keep timed-out DNS jobs admitted until their actual worker completes."""
+    """Share in-flight hostname checks, keeping real jobs and callers bounded."""
 
     def __init__(self) -> None:
         self._executor = ThreadPoolExecutor(
             max_workers=4, thread_name_prefix="browser-dns"
         )
         self._jobs: set[Future[Resolved]] = set()
+        self._hosts: dict[str, _Resolution] = {}
+        self._callers = 0
         self._lock = Lock()
         self._closed = False
 
     async def resolve(self, url: str) -> Resolved:
+        # Joining a valid hostname's job must not bless another caller's
+        # unsupported scheme or credential-bearing URL. No approval is cached.
+        hostname = validate_public_url(url)
+        loop = asyncio.get_running_loop()
         with self._lock:
-            if self._closed or len(self._jobs) >= 4:
+            if self._closed or self._callers >= 32:
                 raise BrowserNetworkError("Browser DNS capacity is unavailable")
-            job = self._executor.submit(resolve_public_url, url)
-            self._jobs.add(job)
-        job.add_done_callback(self._completed)
-        pending = asyncio.wrap_future(job)
-        # Retrieving a late failure prevents abandoned futures from leaking
-        # diagnostics after a caller's timeout. Admission follows the real job.
-        pending.add_done_callback(_consume_failure)
+            resolution = self._hosts.get(hostname)
+            if resolution is not None and resolution.worker.done():
+                # The loop can resume a waiter before the worker's cleanup
+                # callback runs. Completed work must never become an approval
+                # cache; its late callback is fenced against this replacement.
+                self._jobs.discard(resolution.worker)
+                del self._hosts[hostname]
+                resolution = None
+            created = resolution is None
+            if resolution is None:
+                if len(self._jobs) >= 4:
+                    raise BrowserNetworkError("Browser DNS capacity is unavailable")
+                job = self._executor.submit(resolve_public_url, url)
+                pending = asyncio.wrap_future(job, loop=loop)
+                pending.add_done_callback(_consume_failure)
+                resolution = _Resolution(job, pending)
+                self._jobs.add(job)
+                self._hosts[hostname] = resolution
+            elif resolution.result.get_loop() is not loop:
+                raise BrowserNetworkError("Browser DNS belongs to another runtime loop")
+            self._callers += 1
+        # One shared async result/callback per real job bounds retained state
+        # even if many callers successively cancel during a stuck lookup.
+        if created:
+            resolution.worker.add_done_callback(
+                lambda completed: self._completed(hostname, completed)
+            )
         try:
             async with asyncio.timeout(5):
-                return await asyncio.shield(pending)
+                return await asyncio.shield(resolution.result)
         except TimeoutError as exc:
             raise BrowserNetworkError("Browser DNS deadline exceeded") from exc
+        finally:
+            with self._lock:
+                self._callers -= 1
 
-    def _completed(self, job: Future[Resolved]) -> None:
+    def _completed(self, hostname: str, job: Future[Resolved]) -> None:
         with self._lock:
             self._jobs.discard(job)
+            current = self._hosts.get(hostname)
+            if current is not None and current.worker is job:
+                del self._hosts[hostname]
 
     async def close(self) -> None:
         with self._lock:

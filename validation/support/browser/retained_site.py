@@ -34,6 +34,9 @@ class BrowserSite:
     slow_started: Event = field(default_factory=Event)
     release_slow: Event = field(default_factory=Event)
     pages: dict[str, bytes] = field(default_factory=dict)
+    content_types: dict[str, str] = field(default_factory=dict)
+    resource_requests: list[str] = field(default_factory=list)
+    resource_load_complete: Event = field(default_factory=Event)
     submissions: list[dict[str, str]] = field(default_factory=list)
     mutate: Event = field(default_factory=Event)
     mutation_applied: Event = field(default_factory=Event)
@@ -59,6 +62,10 @@ def retained_browser_site(
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            if self.path in site.content_types:
+                site.resource_requests.append(self.path)
+            if self.path == "/resources-finished":
+                site.resource_load_complete.set()
             if self.path.startswith("/popup-"):
                 site.popup_requests.append(self.path)
             if self.path == "/slow-script":
@@ -82,7 +89,10 @@ def retained_browser_site(
                 return
             authenticated = f"session={COOKIE}" in self.headers.get("Cookie", "")
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header(
+                "Content-Type",
+                site.content_types.get(self.path, "text/html; charset=utf-8"),
+            )
             self.send_header("Cache-Control", "no-store")
             if self.path == "/prime" or self.path in site.cookie_paths:
                 self.send_header(
