@@ -49,7 +49,7 @@ class BrowserApplication:
 
 
 @asynccontextmanager
-async def app_http_listener(app: Application):
+async def app_http_listener(app: Application, *, application=None):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     sock.listen()
@@ -60,7 +60,11 @@ async def app_http_listener(app: Application):
     # startup again or create a second runtime/event loop.
     server = uvicorn.Server(
         uvicorn.Config(
-            app.controller.get_api_test_client().app,
+            (
+                application
+                if application is not None
+                else app.controller.get_api_test_client().app
+            ),
             lifespan="off",
             log_level="error",
             timeout_graceful_shutdown=3,

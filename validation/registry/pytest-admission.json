@@ -2717,7 +2717,7 @@
     },
     {
       "path": "support/browser/browser_runtime.py",
-      "sha256": "444b8c78d19f8856c38f6a440839c20674b3f563650668791d2649d9ccd5ad9b",
+      "sha256": "c219162fb86ced396c368c48ac95874a9a2b7d9e4347a26680e508d02ffa495a",
       "kind": "support"
     },
     {
@@ -3649,7 +3649,7 @@
       "path": "scenarios/integration/core/test_browser_handoff.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "c5783985bf78f983be7f4e87e4314cc6b4ab6ec674cd343671292ab8848f4e52",
+      "sha256": "376c70b65e436b39e46382e0abb40afd4bded91e08a1f93d3ae7fd43898affc0",
       "tests": [
         "test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task",
         "test_handoff_idle_expiry_is_not_extended_by_polling_or_duplicate_claims",
@@ -3660,13 +3660,14 @@
         "test_stop_during_handback_inspection_cannot_return_control_to_the_agent",
         "test_uninspectable_credential_surface_does_not_grant_agent_control",
         "test_handback_started_before_idle_expiry_finishes_as_an_active_operation",
-        "test_waiting_handoff_observes_browser_crash_without_viewer_polling"
+        "test_waiting_handoff_observes_browser_crash_without_viewer_polling",
+        "test_proxied_handoff_preserves_each_authentication_mode"
       ]
     },
     {
       "path": "support/browser/human_transport.py",
       "kind": "support",
-      "sha256": "cdda6f40450363359c7c6c64f2c81d72e48c6be95a0f32c1f11d2935bab67b4e"
+      "sha256": "9bd9d7c88d60e65b2ad75a1af58a7a41af144d140347e3d72aca28457b5e27e1"
     },
     {
       "path": "scenarios/integration/core/test_browser_human_transport.py",
@@ -3717,7 +3718,7 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "9bd6d654416555701871b16941f827445cd4c8f2c317800d5e739d262cfca462",
+      "sha256": "fb99a63147a578495e744ac118ed8544461380e7f47de06f19c777203990662a",
       "tests": [
         "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
         "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser"
@@ -3738,6 +3739,11 @@
         "test_inactive_original_credentials_block_return_from_sign_in_window",
         "test_closing_original_page_retires_popup_without_promoting_it"
       ]
+    },
+    {
+      "path": "support/browser/reverse_proxy.py",
+      "kind": "support",
+      "sha256": "98722e92f05f1e48ca0430dbf7d7d3ad9abf17762e9b2e4fc1b67d0c598d08ad"
     }
   ]
 }

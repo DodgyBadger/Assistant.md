@@ -10,13 +10,13 @@ from validation.support.application import Application
 
 
 @asynccontextmanager
-async def human_transport(app: Application, *, application=None):
+async def human_transport(app: Application, *, application=None, peer="testclient"):
     client = app.controller.get_api_test_client()
     # Same production application and middleware; only the network transport is
     # in-process. No evidence response hook may persist pixels or input text.
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(
-            app=application or client.app, client=("testclient", 50000)
+            app=application or client.app, client=(peer, 50000)
         ),
         base_url=str(client.base_url),
         headers={**client.headers, "Origin": str(client.base_url).rstrip("/")},

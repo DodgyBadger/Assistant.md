@@ -324,8 +324,9 @@ async def test_handback_requires_recognized_credential_fields_to_be_submitted_or
             await asyncio.gather(operation, return_exceptions=True)
 
 
+@pytest.mark.parametrize("proxied", [False, True])
 async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generation(
-    app: Application, monkeypatch: pytest.MonkeyPatch
+    app: Application, monkeypatch: pytest.MonkeyPatch, proxied: bool
 ) -> None:
     from core.authentication import CSRF_HEADER, OWNER_SESSION_COOKIE, OwnerSessionCodec
     from core.identity import (
@@ -372,6 +373,10 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
             state = await waiting_handoff(app, operation, "handoff-auth")
             path = handoff_path("handoff-auth") + "/" + state["handoff_id"]
             async with authentication_client(app, application) as client:
+                if proxied:
+                    # TLS terminates at the external proxy; the container sees
+                    # HTTP with its internal host, not the public HTTPS origin.
+                    client.base_url = "http://assistant:8000"
                 assert (
                     await client.get(handoff_path("handoff-auth"))
                 ).status_code == 401
@@ -381,15 +386,29 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
                     viewed.status_code == 200
                     and "no-store" in viewed.headers["cache-control"]
                 )
-                assert (await client.post(path + "/claim")).status_code == 403
+                # External proxy rewriting only: real auth, routing and browser
+                # services execute against the application under test.
+                ingress = (
+                    {"Host": "127.0.0.1:8000", "Sec-Fetch-Site": "same-origin"}
+                    if proxied
+                    else {}
+                )
+                assert (
+                    await client.post(path + "/claim", headers=ingress)
+                ).status_code == 403
                 headers = {
                     CSRF_HEADER: issued.csrf_token,
                     "Origin": "https://assistant.example.test",
+                    **ingress,
                 }
                 assert (
                     await client.post(
                         path + "/claim",
-                        headers={**headers, "Origin": "https://other.example.test"},
+                        headers={
+                            CSRF_HEADER: issued.csrf_token,
+                            "Origin": "https://other.example.test",
+                            **({"Host": "127.0.0.1:8000"} if proxied else {}),
+                        },
                     )
                 ).status_code == 403
                 assert (
@@ -409,12 +428,14 @@ async def test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generatio
                 assert (
                     await client.post(path + "/claim", headers=headers)
                 ).status_code == 200
-                assert (
-                    await client.post(
-                        path + "/return",
-                        headers={**headers, "Sec-Fetch-Site": "cross-site"},
-                    )
-                ).status_code == 403
+                for site in ("cross-site", "same-site", "none", "unknown"):
+                    assert (
+                        await client.post(
+                            path + "/return",
+                            headers={**headers, "Sec-Fetch-Site": site},
+                        )
+                    ).status_code == 403
+                assert not operation.done()
                 assert (
                     await client.post(path + "/return", headers=headers)
                 ).status_code == 200
@@ -731,6 +752,110 @@ async def test_waiting_handoff_observes_browser_crash_without_viewer_polling(
                 app, vault.name, "handoff-crash", url=site.url("/state")
             )
             assert isinstance(fresh, str) and json.loads(fresh)["text"] == "Signed out"
+        finally:
+            if not operation.done():
+                operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+
+
+@pytest.mark.parametrize(
+    ("mode", "peer", "credential", "admitted"),
+    [
+        ("disabled", "172.20.0.5", "none", True),
+        ("loopback", "127.0.0.1", "none", True),
+        ("loopback", "172.20.0.5", "none", False),
+        ("owner_token", "172.20.0.5", "bearer", True),
+        ("owner_token", "172.20.0.5", "none", False),
+        ("trusted_proxy", "172.20.0.5", "assertion", True),
+        ("trusted_proxy", "172.20.0.5", "none", False),
+        ("trusted_proxy", "172.20.0.5", "wrong", False),
+        ("trusted_proxy", "192.0.2.5", "assertion", False),
+    ],
+)
+async def test_proxied_handoff_preserves_each_authentication_mode(
+    app: Application,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    peer: str,
+    credential: str,
+    admitted: bool,
+) -> None:
+    from validation.support.browser.human_transport import human_transport
+    from validation.support.runtime.authentication import (
+        OWNER_SECRET,
+        authentication_application,
+    )
+
+    vault = app.vault("BrowserProxyAuthVault")
+    await app.start()
+    assert (
+        app.request(
+            "/api/system/settings/general/browser_min_memory_headroom_mb",
+            "PUT",
+            {"value": "0"},
+        ).status_code
+        == 200
+    )
+    settings = {}
+    if mode in {"owner_token", "trusted_proxy"}:
+        settings["ASSISTANTMD_AUTH_SECRET"] = OWNER_SECRET
+    if mode == "trusted_proxy":
+        settings["ASSISTANTMD_AUTH_TRUSTED_PROXY_NETWORKS"] = "172.20.0.0/24"
+    application = authentication_application(app, mode, **settings)
+    with retained_browser_site(app, monkeypatch) as site:
+        assert isinstance(
+            await browser_turn(app, vault.name, "proxy-auth", url=site.url("/prime")),
+            str,
+        )
+        operation = asyncio.create_task(
+            browser_turn(app, vault.name, "proxy-auth", operation="handoff")
+        )
+        try:
+            state = await waiting_handoff(app, operation, "proxy-auth")
+            path = handoff_path("proxy-auth") + "/" + state["handoff_id"]
+            # Only external ingress/peer metadata is controlled. The same real
+            # runtime, middleware, identity fences and handoff services execute.
+            async with human_transport(
+                app, application=application, peer=peer
+            ) as client:
+                client.headers.clear()
+                client.cookies.clear()
+                client.headers.update(
+                    {
+                        "Host": "assistant:8000",
+                        "Origin": "https://assistant.example.test",
+                        "Sec-Fetch-Site": "same-origin",
+                        # Untrusted forwarding claims must never turn a Docker
+                        # bridge or unrelated peer into an admitted loopback.
+                        "X-Forwarded-For": "127.0.0.1",
+                    }
+                )
+                if credential == "bearer":
+                    client.headers["Authorization"] = f"Bearer {OWNER_SECRET}"
+                elif credential in {"assertion", "wrong"}:
+                    client.headers["X-AssistantMD-Proxy-Assertion"] = (
+                        OWNER_SECRET if credential == "assertion" else "invalid"
+                    )
+                claimed = await client.post(path + "/claim")
+                assert claimed.status_code == (200 if admitted else 401)
+                if not admitted:
+                    assert (await client.get(path + "/frame")).status_code == 401
+                    assert (await client.post(path + "/return")).status_code == 401
+                    assert not operation.done()
+                    continue_state = await app.request_async(handoff_path("proxy-auth"))
+                    assert continue_state.json()["status"] == "waiting"
+                    return
+                assert claimed.json()["status"] == "human"
+                assert not operation.done()
+                # A valid credential must not bypass browser-origin protection.
+                assert (
+                    await client.post(
+                        path + "/return", headers={"Sec-Fetch-Site": "cross-site"}
+                    )
+                ).status_code == 403
+                assert not operation.done()
+                assert (await client.post(path + "/return")).status_code == 200
+                assert isinstance(await operation, str)
         finally:
             if not operation.done():
                 operation.cancel()

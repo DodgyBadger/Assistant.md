@@ -5,12 +5,14 @@ import json
 from urllib.parse import urlsplit
 
 import pytest
+import pytest_asyncio
 from playwright.async_api import expect
 
 from validation.support.browser.browser_fullstack import hold_delivery, setting
 from validation.support.browser.handoff_provider import browser_handoff_provider
 from validation.support.browser.private_page import private_browser_page
 from validation.support.browser.retained_site import retained_browser_site
+from validation.support.browser.reverse_proxy import proxied_browser_application
 from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
 
 pytestmark = pytest.mark.scenario
@@ -23,10 +25,20 @@ def browser_type_launch_args(browser_type_launch_args):
     return {**browser_type_launch_args, "channel": "chromium", "chromium_sandbox": True}
 
 
+@pytest_asyncio.fixture(params=["direct", "proxy"])
+async def handoff_browser_app(browser_app, request):
+    if request.param == "proxy":
+        async with proxied_browser_application(browser_app) as application:
+            yield application
+    else:
+        yield browser_app
+
+
 @pytest.mark.parametrize("finish", ["return", "stop", "detach"])
 async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task(
-    browser_app, browser, monkeypatch, finish
+    handoff_browser_app, browser, monkeypatch, finish
 ):
+    browser_app = handoff_browser_app
     app = browser_app.app
     app.write(
         browser_app.vault, "AssistantMD/Authoring/full_history.md", PERSISTENCE_CONTEXT

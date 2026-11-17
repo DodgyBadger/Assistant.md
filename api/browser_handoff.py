@@ -24,11 +24,14 @@ router = APIRouter(
 
 
 def require_same_origin(request: Request) -> None:
+    site = request.headers.get("sec-fetch-site")
+    # Browsers own Sec-* headers. This describes the browser-facing origin
+    # even when a reverse proxy rewrites the upstream host or scheme.
+    if site == "same-origin":
+        return
     origin = request.headers.get("origin")
     expected = f"{request.url.scheme}://{request.url.netloc}"
-    if request.headers.get("sec-fetch-site") == "cross-site" or (
-        origin is not None and origin != expected
-    ):
+    if site is not None or (origin is not None and origin != expected):
         raise HTTPException(
             status_code=403, detail="Same-origin control request required"
         )
