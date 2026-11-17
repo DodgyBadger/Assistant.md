@@ -77,7 +77,7 @@
                 });
                 if (!response.ok) {
                     const data = await response.json().catch(() => ({}));
-                    throw { reason: data.detail, retire: data.requires_fresh_session === true };
+                    throw { reason: data.detail, status: response.status, retire: data.requires_fresh_session === true };
                 }
                 // Keep the deadline and request owner through body consumption.
                 return suffix === '/frame'
@@ -173,8 +173,13 @@
             return true;
         }
 
-        function unavailable(run) {
-            run.context.browserHandoffNotice.textContent = 'Browser unavailable. Reopen to check its state.';
+        function unavailable(run, error) {
+            // Never display response bodies, URLs, SDK errors or private input.
+            const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+                ? `HTTP ${error.status}`
+                : error?.reason === 'invalid_frame' ? 'invalid preview'
+                    : error?.reason === 'stale_handoff' ? 'handoff changed' : 'connection or preview failure';
+            run.context.browserHandoffNotice.textContent = `Browser unavailable (${run.claimed ? 'preview' : 'claim'}: ${status}). Reopen to check its state.`;
             close(run);
         }
 
@@ -241,7 +246,7 @@
                 discardInput(run);
                 run.metadata = null;
                 if (error.retire || !['browser_busy', 'frame_unavailable', 'stale_input', 'input_uncertain'].includes(error.reason)) {
-                    unavailable(run);
+                    unavailable(run, error);
                     return;
                 }
                 run.status.textContent = run.notice || 'Waiting for the browser. No input will be retried.';
@@ -311,15 +316,15 @@
             dialog.className = 'browser-handoff-modal';
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
-            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><button type="button" class="ui-text-button" data-close>Close</button></header>
+            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><button type="button" class="ui-button-secondary" data-close>Close</button></header>
                 <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
-                <button type="button" class="ui-text-button" data-original>Original page</button>
-                <button type="button" class="ui-text-button" data-sign-in>Sign-in window</button></div>
+                <button type="button" class="ui-button-secondary" data-original>Original page</button>
+                <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
                 <output aria-label="Website origin" class="cell-mono"></output><p role="status">Opening browser…</p>
                 <img alt="Browser page" draggable="false" hidden>
                 <label>Keyboard input<input type="password" aria-label="Browser keyboard input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type or paste into the focused page field" readonly></label>
                 <p class="text-xs text-txt-secondary">Click the page to focus a field, then type or paste. Tab moves within the page; Shift+Tab leaves keyboard input. Escape closes this window; you can reopen it from chat.</p>
-                <button type="button" class="ui-text-button is-primary" data-return disabled>Return control</button></div>`;
+                <button type="button" class="ui-button-primary" data-return disabled>Return control</button></div>`;
             document.body.appendChild(dialog);
             const run = {
                 context, opener, view, dialog, sessionId: state.sessionId,
@@ -416,7 +421,7 @@
             if (!context.browserHandoffButton) {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'ui-text-button is-primary';
+                button.className = 'ui-button-primary';
                 button.addEventListener('click', () => open(context, button));
                 context.artifactList.appendChild(button);
                 context.browserHandoffButton = button;
