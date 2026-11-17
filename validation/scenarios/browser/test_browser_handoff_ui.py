@@ -57,6 +57,8 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
             async with private_browser_page(
                 browser_app, browser, forbidden=(sentinel,)
             ) as page:
+                if finish == "return":
+                    await page.set_viewport_size({"width": 900, "height": 620})
                 await page.goto(browser_app.url)
                 await page.locator("#vault-selector").select_option(
                     browser_app.vault.name
@@ -91,6 +93,30 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     "button", name="Return control", exact=True
                 )
                 await expect(handback).to_be_enabled()
+                if finish == "return":
+                    # Native scrolling over app chrome must not become a wheel
+                    # event inside the remote website or reset on frame refresh.
+                    await modal.get_by_role(
+                        "heading", name="Browser", exact=True
+                    ).hover()
+                    await page.mouse.wheel(0, 1000)
+                    await page.wait_for_function(
+                        "() => document.querySelector('dialog[aria-label=Browser]').scrollTop > 0"
+                    )
+                    before = await modal.evaluate("element => element.scrollTop")
+                    for _ in range(2):
+                        async with page.expect_response(
+                            lambda r: "/browser-handoff/" in r.url
+                            and r.url.endswith("/frame")
+                        ) as captured:
+                            pass
+                        await (await captured.value).finished()
+                    await expect(preview).to_be_visible()
+                    after = await modal.evaluate("element => element.scrollTop")
+                    assert (
+                        after >= before - 1
+                    ), "Passive frame refresh reset modal scrolling"
+                    await expect(handback).to_be_in_viewport(ratio=1)
                 bounds = await preview.bounding_box()
                 assert bounds is not None
                 # Hold only delivery of a real passive frame. A user's click

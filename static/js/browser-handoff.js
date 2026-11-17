@@ -133,8 +133,9 @@
             decoded.src = url;
             await decoded.decode();
             if (!visible(run, epoch)) return false;
-            // No coordinates are accepted while new pixels are being installed.
-            run.image.hidden = true;
+            // Conceal replacement pixels without collapsing their layout box:
+            // display:none would clamp the modal's scroll on every refresh.
+            run.image.style.visibility = 'hidden';
             run.image.src = url;
             await run.image.decode();
             if (!visible(run, epoch)) return false;
@@ -170,6 +171,7 @@
             run.metadata = metadata;
             run.hasFrame = true;
             run.image.hidden = false;
+            run.image.style.visibility = '';
             return true;
         }
 
@@ -316,7 +318,7 @@
             dialog.className = 'browser-handoff-modal';
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
-            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><button type="button" class="ui-button-secondary" data-close>Close</button></header>
+            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
                 <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
                 <button type="button" class="ui-button-secondary" data-original>Original page</button>
                 <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
@@ -324,7 +326,7 @@
                 <img alt="Browser page" draggable="false" hidden>
                 <label>Keyboard input<input type="password" aria-label="Browser keyboard input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type or paste into the focused page field" readonly></label>
                 <p class="text-xs text-txt-secondary">Click the page to focus a field, then type or paste. Tab moves within the page; Shift+Tab leaves keyboard input. Escape closes this window; you can reopen it from chat.</p>
-                <button type="button" class="ui-button-primary" data-return disabled>Return control</button></div>`;
+                </div>`;
             document.body.appendChild(dialog);
             const run = {
                 context, opener, view, dialog, sessionId: state.sessionId,
