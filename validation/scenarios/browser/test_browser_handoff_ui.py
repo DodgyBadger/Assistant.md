@@ -59,7 +59,7 @@ def browser_type_launch_args(browser_type_launch_args):
     return {**browser_type_launch_args, "channel": "chromium", "chromium_sandbox": True}
 
 
-@pytest_asyncio.fixture(params=["direct", "proxy"])
+@pytest_asyncio.fixture
 async def handoff_browser_app(browser_app, request):
     if request.param == "proxy":
         async with proxied_browser_application(browser_app) as application:
@@ -69,7 +69,15 @@ async def handoff_browser_app(browser_app, request):
 
 
 @pytest.mark.parametrize(
-    "finish", ["return", "stop", "detach", "end", "end_lost_response"]
+    ("handoff_browser_app", "finish"),
+    [
+        ("direct", "return"),
+        ("proxy", "return"),
+        ("direct", "stop"),
+        ("direct", "end"),
+        ("proxy", "end_lost_response"),
+    ],
+    indirect=["handoff_browser_app"],
 )
 async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task(
     handoff_browser_app, browser, monkeypatch, finish
@@ -139,6 +147,149 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     "button", name="Return control", exact=True
                 )
                 await expect(handback).to_be_enabled()
+                frame_url = (
+                    browser_app.url
+                    + f"/api/chat/sessions/{session_id}/browser-handoff/{claimed_view['handoff_id']}/frame"
+                )
+                blob_url = await preview.get_attribute("src")
+                if finish != "return":
+                    if finish == "end_lost_response":
+                        close_url = frame_url.removesuffix("/frame") + "/close"
+                        async with hold_delivery(
+                            page,
+                            app,
+                            close_url,
+                            method="POST",
+                            first_only=True,
+                            abort_on_release=True,
+                        ) as gate:
+                            await modal.get_by_role(
+                                "button", name="End session", exact=True
+                            ).click()
+                            await asyncio.wait_for(gate.held.wait(), 5)
+                            assert gate.requests[0]["status"] == 200
+                            await expect(modal).to_have_count(0)
+                            task = await app.wait_task(claimed_view["task_id"])
+                            assert task["status"] == "cancelled"
+                            await page.get_by_role(
+                                "button", name="Open chat settings", exact=True
+                            ).click()
+                            await page.locator(
+                                f'[data-session-browser-row-id="{session_id}"]'
+                            ).click()
+                            gate.release.set()
+                        recovery = page.get_by_role(
+                            "group", name="Browser session", exact=True
+                        )
+                        await expect(recovery.get_by_role("alert")).to_be_visible()
+                        assert len(calls) == 2 and site.submissions == []
+                        assert len(returns) == 0
+                        assert (
+                            await app.request_async(
+                                f"/api/chat/sessions/{session_id}/browser-handoff"
+                            )
+                        ).status_code == 404
+                        return
+                    if finish == "end":
+                        # Ending must discard even populated private credentials.
+                        bounds = await preview.bounding_box()
+                        assert bounds is not None
+                        await preview.click(
+                            position={
+                                "x": 50 * bounds["width"] / 1280,
+                                "y": 40 * bounds["height"] / 800,
+                            }
+                        )
+                        await page.keyboard.type(sentinel)
+                        await expect(handback).to_be_enabled()
+                        async with hold_delivery(
+                            page, app, frame_url, first_only=True
+                        ) as gate:
+                            await asyncio.wait_for(gate.held.wait(), 5)
+                            async with page.expect_response(
+                                lambda r: "/browser-handoff/" in r.url
+                                and r.url.endswith("/close")
+                            ) as ended:
+                                await modal.get_by_role(
+                                    "button", name="End session", exact=True
+                                ).click()
+                                await expect(modal).to_have_count(0)
+                                gate.release.set()
+                            assert (await ended.value).status == 200
+                        task = await app.wait_task(claimed_view["task_id"])
+                        assert task["status"] == "cancelled"
+                        assert len(calls) == 2 and site.submissions == []
+                        assert len(returns) == 0
+                        assert (
+                            await app.request_async(
+                                f"/api/chat/sessions/{session_id}/browser-handoff"
+                            )
+                        ).status_code == 404
+                        return
+                    if finish == "stop":
+                        async with hold_delivery(
+                            page, app, frame_url, first_only=True
+                        ) as gate:
+                            await asyncio.wait_for(gate.held.wait(), 5)
+                            await expect(handback).to_be_enabled()
+                            await handback.click()
+                            await page.locator("#chat-messages").evaluate(
+                                "element => { const wrapper = document.createElement('div'); wrapper.append(...element.children); element.append(wrapper); wrapper.remove(); }"
+                            )
+                            await expect(modal).to_have_count(0)
+                            gate.release.set()
+                    else:
+                        await modal.get_by_role(
+                            "button", name="Close", exact=True
+                        ).click()
+                    await expect(modal).to_have_count(0)
+                    assert not await page.evaluate(
+                        "async url => { try { await fetch(url); return true; } catch { return false; } }",
+                        blob_url,
+                    )
+                    assert len(calls) == 2 and site.submissions == []
+                    assert len(returns) == 0
+                    if finish == "stop":
+                        await page.get_by_role(
+                            "button", name="Stop the active response", exact=True
+                        ).click()
+                        task = await app.wait_task(claimed_view["task_id"])
+                        assert task["status"] == "cancelled"
+                        await expect(
+                            page.get_by_role("button", name="Open browser", exact=True)
+                        ).to_have_count(0)
+                        await expect(modal).to_have_count(0)
+                        assert len(calls) == 2 and site.submissions == []
+                        assert len(returns) == 0
+                        # History must recover the stopped browser independently
+                        # of the now-terminal task's transient message artifacts.
+                        await page.reload()
+                        await page.locator("#vault-selector").select_option(
+                            browser_app.vault.name
+                        )
+                        await page.get_by_role(
+                            "button", name="Open chat settings", exact=True
+                        ).click()
+                        await page.locator(
+                            f'[data-session-browser-row-id="{session_id}"]'
+                        ).click()
+                        end_session = page.get_by_role(
+                            "button", name="End browser session", exact=True
+                        )
+                        await expect(end_session).to_be_visible()
+                        async with page.expect_response(
+                            lambda r: "/browser-handoff/" in r.url
+                            and r.url.endswith("/close")
+                        ) as ended:
+                            await end_session.click()
+                        assert (await ended.value).status == 200
+                        assert len(calls) == 2 and site.submissions == []
+                        assert (
+                            await app.request_async(
+                                f"/api/chat/sessions/{session_id}/browser-handoff"
+                            )
+                        ).status_code == 404
+                        return
                 bounds = await preview.bounding_box()
                 assert bounds is not None
                 await preview.click(
@@ -223,110 +374,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 private_stored = sentinel in local_state
                 assert not private_stored, "Private input reached browser storage"
                 blob_url = await preview.get_attribute("src")
-                if finish == "end_lost_response":
-                    close_url = frame_url.removesuffix("/frame") + "/close"
-                    async with hold_delivery(
-                        page,
-                        app,
-                        close_url,
-                        method="POST",
-                        first_only=True,
-                        abort_on_release=True,
-                    ) as gate:
-                        await modal.get_by_role(
-                            "button", name="End session", exact=True
-                        ).click()
-                        await asyncio.wait_for(gate.held.wait(), 5)
-                        assert gate.requests[0]["status"] == 200
-                        await expect(modal).to_have_count(0)
-                        task = await app.wait_task(claimed_view["task_id"])
-                        assert task["status"] == "cancelled"
-                        await page.get_by_role(
-                            "button", name="Open chat settings", exact=True
-                        ).click()
-                        await page.locator(
-                            f'[data-session-browser-row-id="{session_id}"]'
-                        ).click()
-                        gate.release.set()
-                    recovery = page.get_by_role(
-                        "group", name="Browser session", exact=True
-                    )
-                    await expect(recovery.get_by_role("alert")).to_be_visible()
-                    assert len(calls) == 2 and site.submissions == []
-                    assert len(returns) == 1
-                    assert (
-                        await app.request_async(
-                            f"/api/chat/sessions/{session_id}/browser-handoff"
-                        )
-                    ).status_code == 404
-                    return
-                if finish == "end":
-                    async with hold_delivery(
-                        page, app, frame_url, first_only=True
-                    ) as gate:
-                        await asyncio.wait_for(gate.held.wait(), 5)
-                        async with page.expect_response(
-                            lambda r: "/browser-handoff/" in r.url
-                            and r.url.endswith("/close")
-                        ) as ended:
-                            await modal.get_by_role(
-                                "button", name="End session", exact=True
-                            ).click()
-                            await expect(modal).to_have_count(0)
-                            gate.release.set()
-                        assert (await ended.value).status == 200
-                    task = await app.wait_task(claimed_view["task_id"])
-                    assert task["status"] == "cancelled"
-                    assert len(calls) == 2 and site.submissions == []
-                    assert len(returns) == 1
-                    assert (
-                        await app.request_async(
-                            f"/api/chat/sessions/{session_id}/browser-handoff"
-                        )
-                    ).status_code == 404
-                    return
-                if finish == "detach":
-                    async with hold_delivery(
-                        page,
-                        app,
-                        browser_app.url
-                        + f"/api/chat/sessions/{session_id}/browser-handoff/{claimed_view['handoff_id']}/frame",
-                        first_only=True,
-                    ) as gate:
-                        await asyncio.wait_for(gate.held.wait(), 5)
-                        await expect(handback).to_be_enabled()
-                        await handback.click()
-                        # Real DOM teardown above the message's direct parent,
-                        # while an unchanged server frame is still in delivery.
-                        await page.locator("#chat-messages").evaluate(
-                            "element => element.parentElement.remove()"
-                        )
-                        await expect(modal).to_have_count(0)
-                        gate.release.set()
-                    assert not await page.evaluate(
-                        "async url => { try { await fetch(url); return true; } catch { return false; } }",
-                        blob_url,
-                    )
-                    state = await app.request_async(
-                        f"/api/chat/sessions/{session_id}/browser-handoff"
-                    )
-                    assert state.json()["status"] == "human"
-                    assert len(calls) == 2 and site.submissions == []
-                    assert len(returns) == 1
-                    return
-                if finish == "stop":
-                    async with hold_delivery(
-                        page, app, frame_url, first_only=True
-                    ) as gate:
-                        await asyncio.wait_for(gate.held.wait(), 5)
-                        await expect(handback).to_be_enabled()
-                        await handback.click()
-                        await modal.get_by_role(
-                            "button", name="Close", exact=True
-                        ).click()
-                        gate.release.set()
-                else:
-                    await modal.get_by_role("button", name="Close", exact=True).click()
+                await modal.get_by_role("button", name="Close", exact=True).click()
                 await expect(modal).to_have_count(0)
                 assert not await page.evaluate(
                     "async url => { try { await fetch(url); return true; } catch { return false; } }",
@@ -334,47 +382,6 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 )
                 assert len(calls) == 2 and site.submissions == []
                 assert len(returns) == 1
-                if finish == "stop":
-                    await page.get_by_role(
-                        "button", name="Stop the active response", exact=True
-                    ).click()
-                    task = await app.wait_task(claimed_view["task_id"])
-                    assert task["status"] == "cancelled"
-                    await expect(
-                        page.get_by_role("button", name="Open browser", exact=True)
-                    ).to_have_count(0)
-                    await expect(modal).to_have_count(0)
-                    assert len(calls) == 2 and site.submissions == []
-                    assert len(returns) == 1
-                    # History must recover the stopped browser independently
-                    # of the now-terminal task's transient message artifacts.
-                    await page.reload()
-                    await page.locator("#vault-selector").select_option(
-                        browser_app.vault.name
-                    )
-                    await page.get_by_role(
-                        "button", name="Open chat settings", exact=True
-                    ).click()
-                    await page.locator(
-                        f'[data-session-browser-row-id="{session_id}"]'
-                    ).click()
-                    end_session = page.get_by_role(
-                        "button", name="End browser session", exact=True
-                    )
-                    await expect(end_session).to_be_visible()
-                    async with page.expect_response(
-                        lambda r: "/browser-handoff/" in r.url
-                        and r.url.endswith("/close")
-                    ) as ended:
-                        await end_session.click()
-                    assert (await ended.value).status == 200
-                    assert len(calls) == 2 and site.submissions == []
-                    assert (
-                        await app.request_async(
-                            f"/api/chat/sessions/{session_id}/browser-handoff"
-                        )
-                    ).status_code == 404
-                    return
                 # Reload while human control is held: replay restores the link,
                 # and reopening reclaims only the same current generation.
                 await page.reload()

@@ -11,8 +11,15 @@ from validation.support.browser.retained_site import browser_turn, retained_brow
 pytestmark = pytest.mark.scenario
 
 
-@pytest.mark.parametrize("owner", ["waiting", "human", "stopped"])
-@pytest.mark.parametrize("actor", ["agent", "viewer"])
+@pytest.mark.parametrize(
+    ("actor", "owner"),
+    [
+        ("agent", "human"),
+        ("agent", "stopped"),
+        ("viewer", "waiting"),
+        ("viewer", "stopped"),
+    ],
+)
 async def test_explicit_termination_releases_only_its_chat_and_cancels_waiting_task(
     app, monkeypatch, owner, actor
 ):

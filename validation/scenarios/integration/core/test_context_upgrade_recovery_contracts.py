@@ -62,16 +62,24 @@ async def test_upgrade_rejects_author_result_after_canonical_mutation(
             assert deleted.status_code == 200, deleted.text
         server.release.set()
         terminal = await app.wait_task(task_id)
-        assert terminal["status"] == "failed"
-        app.events.require(
-            "context_strategy_upgrade_failed",
-            task_id=task_id,
-            reason="session_history_changed",
-        )
         if mutation == "append":
+            assert terminal["status"] == "failed"
+            app.events.require(
+                "context_strategy_upgrade_failed",
+                task_id=task_id,
+                reason="session_history_changed",
+            )
             assert store.get_history(session, vault.name, mode="raw") == expected
             assert store.list_context_checkpoints(session, vault.name) == checkpoints
         else:
+            # Deletion revokes active session tasks before removing durable
+            # state; an author result must never recreate the deleted session.
+            assert terminal["status"] == "cancelled"
+            app.events.require(
+                "context_strategy_upgrade_cancelled",
+                task_id=task_id,
+                reason="upgrade_cancelled",
+            )
             assert store.get_session(session, vault.name) is None
             assert store.get_stored_messages(session, vault.name, mode="raw") == []
             assert store.list_context_checkpoints(session, vault.name) == []

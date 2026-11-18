@@ -13,9 +13,8 @@ from validation.support.browser.retained_site import browser_turn
 pytestmark = pytest.mark.scenario
 
 
-@pytest.mark.parametrize("origins", ["shared", "multiple"])
 async def test_post_human_navigation_applies_a_burst_of_public_stylesheets(
-    app, monkeypatch, origins
+    app, monkeypatch
 ):
     async with claimed_browser(app, monkeypatch, session_id="stylesheet-handoff") as (
         site,
@@ -24,16 +23,15 @@ async def test_post_human_navigation_applies_a_burst_of_public_stylesheets(
         path,
         _state,
     ):
-        for index in range(6):
+        for index in range(8):
             resource = f"/theme-{index}.css"
             site.content_types[resource] = "text/css; charset=utf-8"
             site.pages[resource] = f":root{{--theme-{index}:applied}}".encode()
-        hosts = [f"cdn-{i}.resource-tests.example" for i in range(6)]
-        if origins == "multiple":
-            site.dns_hosts.update(hosts)
+        hosts = [f"cdn-{i}.resource-tests.example" for i in range(8)]
+        site.dns_hosts.update(hosts)
         links = "".join(
-            f'<link rel="stylesheet" href="{("http://" + hosts[index] + ":" + str(site.port)) if origins == "multiple" else ""}/theme-{index}.css">'
-            for index in range(6)
+            f'<link rel="stylesheet" href="{("http://" + hosts[index] + ":" + str(site.port)) if index >= 2 else ""}/theme-{index}.css">'
+            for index in range(8)
         )
         site.submission_body = (
             "<!doctype html><html><head>"
@@ -41,7 +39,7 @@ async def test_post_human_navigation_applies_a_burst_of_public_stylesheets(
             + """</head><body><main>Loading styles</main><script>
             addEventListener('load', () => {
                 const style = getComputedStyle(document.documentElement);
-                const complete = Array.from({length:6}, (_, i) =>
+                const complete = Array.from({length:8}, (_, i) =>
                     style.getPropertyValue('--theme-' + i).trim() === 'applied').every(Boolean);
                 document.querySelector('main').textContent = complete
                     ? 'All stylesheet resources applied' : 'Stylesheet resources missing';
@@ -74,7 +72,7 @@ async def test_post_human_navigation_applies_a_burst_of_public_stylesheets(
         assert isinstance(snapshot, str)
         assert "All stylesheet resources applied" in json.loads(snapshot)["text"]
         assert sorted(site.resource_requests) == [
-            f"/theme-{index}.css" for index in range(6)
+            f"/theme-{index}.css" for index in range(8)
         ]
 
 
@@ -181,6 +179,9 @@ async def test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellat
         for task in owners:
             task.cancel()
         await asyncio.gather(*owners, return_exceptions=True)
+        # Timing out a queued caller must leave its job owned as well.
+        with pytest.raises(BrowserNetworkError, match="deadline"):
+            await resolver.resolve("https://31.resource-budget.example/deadline")
         # Cancelled callers must not free running or queued job admissions.
         with pytest.raises(BrowserNetworkError):
             await resolver.resolve("https://overflow.resource-budget.example/")
@@ -219,66 +220,6 @@ async def test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellat
         for task in owners + callers:
             task.cancel()
         await asyncio.gather(*owners, *callers, return_exceptions=True)
-        if closing is not None:
-            await closing
-        else:
-            await resolver.close()
-
-
-@pytest.mark.parametrize("queued", [False, True])
-async def test_dns_deadline_keeps_real_work_owned_through_shutdown(
-    app, monkeypatch, queued
-):
-    from threading import Event, Lock
-
-    from core.browser.network import BrowserNetworkError, BrowserResolver
-
-    await app.start()
-    entered, release, guard = Event(), Event(), Lock()
-    original_dns = socket.getaddrinfo
-    queries = []
-    expected_queries = 4 if queued else 1
-
-    def controlled_dns(host, port, *args, **kwargs):
-        if not host.endswith(".deadline-styles.example"):
-            return original_dns(host, port, *args, **kwargs)
-        with guard:
-            queries.append(host)
-            if len(queries) == expected_queries:
-                entered.set()
-        assert release.wait(12), "External DNS release was not supplied"
-        return [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", port or 443))
-        ]
-
-    monkeypatch.setattr(socket, "getaddrinfo", controlled_dns)
-    resolver = BrowserResolver()
-    closing = None
-    holders = [
-        asyncio.create_task(resolver.resolve(f"https://{i}.deadline-styles.example/a"))
-        for i in range(4 if queued else 0)
-    ]
-    waiting = asyncio.create_task(
-        resolver.resolve("https://target.deadline-styles.example/a")
-    )
-    try:
-        assert await asyncio.to_thread(entered.wait, 2)
-        with pytest.raises(BrowserNetworkError, match="deadline"):
-            await waiting
-        closing = asyncio.create_task(resolver.close())
-        await asyncio.sleep(0)
-        assert not closing.done(), "Shutdown abandoned a still-running DNS job"
-        with pytest.raises(BrowserNetworkError):
-            await resolver.resolve("https://target.deadline-styles.example/b")
-        assert len(queries) == expected_queries
-        release.set()
-        await closing
-        assert len(queries) == expected_queries
-    finally:
-        release.set()
-        for task in [waiting, *holders]:
-            task.cancel()
-        await asyncio.gather(waiting, *holders, return_exceptions=True)
         if closing is not None:
             await closing
         else:

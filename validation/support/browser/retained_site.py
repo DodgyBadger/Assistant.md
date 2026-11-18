@@ -251,9 +251,7 @@ async def browser_turn(
 @dataclass
 class PausedDriver:
     ready: asyncio.Event = field(default_factory=asyncio.Event)
-    construction_deadline: asyncio.Event = field(default_factory=asyncio.Event)
     driver_pid: int | None = None
-    browser_pid: int | None = None
 
     def resume(self) -> None:
         import signal
@@ -285,8 +283,6 @@ def paused_browser_driver(
 
     def observe(record: dict) -> None:
         app.events.capture(record)
-        if record.get("data", {}).get("event") == "browser_context_creation_failed":
-            paused.construction_deadline.set()
         if (
             record.get("data", {}).get("event") or record.get("name")
         ) != event or paused.driver_pid is not None:
@@ -306,7 +302,6 @@ def paused_browser_driver(
             and Path(f"/proc/{r['pid']}/comm").read_text().strip() == "chrome"
         ]
         assert len(browsers) == 1, browsers
-        paused.browser_pid = browsers[0]
         os.kill(paused.driver_pid, signal.SIGSTOP)
         paused.ready.set()
 
@@ -360,16 +355,6 @@ async def wait_processes_gone(records: list[dict], timeout: float = 6) -> None:
         if remaining:
             await asyncio.sleep(0.05)
     assert not remaining, f"Owned browser processes remain: {remaining}"
-
-
-@contextmanager
-def pause_driver_on_browser_close(
-    app: Application, driver_pid: int
-) -> Iterator[PausedDriver]:
-    with pause_driver_on_browser_event(
-        app, driver_pid, "browser_context_closed"
-    ) as paused:
-        yield paused
 
 
 @contextmanager

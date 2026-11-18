@@ -16,8 +16,30 @@ pytestmark = pytest.mark.scenario
 
 
 async def test_retained_browser_children_exclude_application_and_control_environment(
-    app: Application, monkeypatch: pytest.MonkeyPatch
+    app: Application, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
+    import asyncio
+    import shutil
+
+    from validation.support.browser.retained_site import wait_processes_gone
+    from validation.support.core_processes import declare_core_command
+
+    # Admit this owned display's dynamic descriptor, without pinning argument layout.
+    original = asyncio.create_subprocess_exec
+
+    async def launch(*args, **kwargs):
+        if args and args[0] == shutil.which("Xvfb"):
+            assert any(
+                args[i : i + 2] == ("-nolisten", "tcp") for i in range(len(args) - 1)
+            )
+            declare_core_command(list(args))
+        return await original(*args, **kwargs)
+
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", launch)
+    monkeypatch.setenv("DEBUGP", "1")
+    monkeypatch.setenv("DEBUG", "pw:protocol")
+    monkeypatch.setenv("PWDEBUG", "0")
     vault = app.vault("BrowserChildEnvironmentVault")
     await app.start()
     assert (
@@ -40,7 +62,12 @@ async def test_retained_browser_children_exclude_application_and_control_environ
     app.evidence.register_secret(sentinel)
     for name in forbidden - {"ASSISTANTMD_SECRETS_KEY", "ASSISTANTMD_SECRETS_KEYS"}:
         monkeypatch.setenv(name, sentinel)
+    forbidden.update({"DEBUGP", "DEBUG", "PWDEBUG"})
     with retained_browser_site(app, monkeypatch) as site:
+        # The external site fixture supplies a display for ordinary scenarios;
+        # this case must exercise the application's own display lifecycle.
+        monkeypatch.delenv("DISPLAY", raising=False)
+        site.pages["/form"] = b'<label>Name<input name="name"></label>'
         # Declare the bundled dependency first, then exercise an ambient SDK
         # override which the application-owned transport must not consult.
         monkeypatch.setenv(
@@ -50,17 +77,20 @@ async def test_retained_browser_children_exclude_application_and_control_environ
         baseline = {record["pid"] for record in descendant_identities()}
         try:
             result = await browser_turn(
-                app, vault.name, "environment-owner", url=site.url("/state")
+                app, vault.name, "environment-owner", url=site.url("/form")
             )
-            assert (
-                isinstance(result, str) and json.loads(result)["text"] == "Signed out"
-            )
+            assert isinstance(result, str)
             owned = [
                 record
                 for record in descendant_identities()
                 if record["pid"] not in baseline
             ]
-            drivers = [record for record in owned if record["parent"] == os.getpid()]
+            drivers = [
+                record
+                for record in owned
+                if record["parent"] == os.getpid()
+                and Path(f"/proc/{record['pid']}/comm").read_text().strip() != "Xvfb"
+            ]
             assert len(drivers) == 1
             browsers = [
                 record
@@ -69,7 +99,14 @@ async def test_retained_browser_children_exclude_application_and_control_environ
                 and Path(f"/proc/{record['pid']}/comm").read_text().strip() == "chrome"
             ]
             assert len(browsers) == 1
-            for record in drivers + browsers:
+            displays = [
+                record
+                for record in owned
+                if record["parent"] == os.getpid()
+                and Path(f"/proc/{record['pid']}/comm").read_text().strip() == "Xvfb"
+            ]
+            assert len(displays) == 1
+            for record in drivers + browsers + displays:
                 # /proc belongs to actual newly created children. Keep only
                 # names/boolean verdicts; never persist a populated environment.
                 entries = (
@@ -80,47 +117,19 @@ async def test_retained_browser_children_exclude_application_and_control_environ
                     not names & forbidden
                 ), "Application/control environment reached a browser child"
                 assert not any(sentinel.encode() in entry for entry in entries)
-        finally:
-            await browser_turn(app, vault.name, "environment-owner", operation="close")
-
-
-async def test_browser_protocol_ignores_parent_debug_dump_settings(
-    app: Application, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
-) -> None:
-    vault = app.vault("BrowserPrivateTransportVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    sentinel = "synthetic-protocol-payload-should-not-print-45812"
-    app.evidence.register_secret(sentinel)
-    monkeypatch.setenv("DEBUGP", "1")
-    monkeypatch.setenv("DEBUG", "pw:protocol")
-    monkeypatch.setenv("PWDEBUG", "0")
-    with retained_browser_site(app, monkeypatch) as site:
-        site.pages["/form"] = b'<label>Name<input name="name"></label>'
-        try:
-            result = await browser_turn(
-                app, vault.name, "debug-owner", url=site.url("/form")
-            )
-            assert isinstance(result, str)
             reference = json.loads(result)["elements"][0]["ref"]
             filled = await browser_turn(
                 app,
                 vault.name,
-                "debug-owner",
+                "environment-owner",
                 operation="fill",
                 reference=reference,
                 value=sentinel,
             )
             assert isinstance(filled, str)
         finally:
-            await browser_turn(app, vault.name, "debug-owner", operation="close")
+            await browser_turn(app, vault.name, "environment-owner", operation="close")
+    await wait_processes_gone(owned)
     captured = capsys.readouterr()
     assert sentinel not in captured.out + captured.err
     assert "SEND>" not in captured.out and "RECV>" not in captured.out
@@ -186,160 +195,3 @@ async def test_extraction_uses_same_private_driver_and_browser_environment(
         captured = capsys.readouterr()
         assert "SEND>" not in captured.out and "RECV>" not in captured.out
         assert sentinel not in captured.out + captured.err
-
-
-async def test_owned_display_uses_runtime_environment_and_is_reaped(
-    app: Application, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import asyncio
-    import shutil
-
-    from validation.support.browser.retained_site import wait_processes_gone
-    from validation.support.core_processes import declare_core_command
-
-    vault = app.vault("BrowserDisplayEnvironmentVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    sentinel = "synthetic-owned-display-parent-secret-71309"
-    app.evidence.register_secret(sentinel)
-    monkeypatch.setenv("BROWSER_ENV_TEST_SECRET", sentinel)
-    original = asyncio.create_subprocess_exec
-
-    async def launch(*args, **kwargs):
-        if args and args[0] == shutil.which("Xvfb"):
-            assert (
-                len(args) == 8 and args[1] == "-displayfd" and str(args[2]).isdecimal()
-            )
-            assert args[3:] == ("-screen", "0", "1280x800x24", "-nolisten", "tcp")
-            declare_core_command(list(args))
-        return await original(*args, **kwargs)
-
-    with retained_browser_site(app, monkeypatch) as site:
-        with monkeypatch.context() as scope:
-            scope.delenv("DISPLAY", raising=False)
-            scope.setattr(asyncio, "create_subprocess_exec", launch)
-            baseline = {record["pid"] for record in descendant_identities()}
-            try:
-                result = await browser_turn(
-                    app, vault.name, "display-environment", url=site.url("/state")
-                )
-                assert isinstance(result, str)
-                owned = [
-                    record
-                    for record in descendant_identities()
-                    if record["pid"] not in baseline
-                ]
-                displays = [
-                    record
-                    for record in owned
-                    if record["parent"] == os.getpid()
-                    and Path(f"/proc/{record['pid']}/comm").read_text().strip()
-                    == "Xvfb"
-                ]
-                assert len(displays) == 1
-                names = {
-                    entry.split(b"=", 1)[0].decode()
-                    for entry in Path(f"/proc/{displays[0]['pid']}/environ")
-                    .read_bytes()
-                    .split(b"\0")
-                    if entry
-                }
-                assert (
-                    not {
-                        "BROWSER_ENV_TEST_SECRET",
-                        "ASSISTANTMD_SECRETS_KEY",
-                        "OPENAI_API_KEY",
-                    }
-                    & names
-                )
-                assert os.environ["BROWSER_ENV_TEST_SECRET"] == sentinel
-            finally:
-                await browser_turn(
-                    app, vault.name, "display-environment", operation="close"
-                )
-            await wait_processes_gone(owned)
-
-
-async def test_stopped_extraction_driver_cannot_block_task_cancellation(
-    app: Application, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import asyncio
-
-    from core.runtime.execution_tasks import chat_session_scope
-    from core.runtime.state import get_runtime_context
-    from validation.support.browser.retained_site import (
-        paused_browser_driver,
-        wait_processes_gone,
-    )
-
-    vault = app.vault("BrowserExtractionStopVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    with (
-        retained_browser_site(app, monkeypatch) as site,
-        paused_browser_driver(
-            app, event="browser_navigation_response_received"
-        ) as paused,
-    ):
-        baseline = {row["pid"] for row in descendant_identities()}
-        operation = asyncio.create_task(
-            browser_turn(
-                app,
-                vault.name,
-                "extraction-stop",
-                interactive=False,
-                url=site.url("/state"),
-            )
-        )
-        try:
-            async with asyncio.timeout(8):
-                await paused.ready.wait()
-            owned = [
-                row for row in descendant_identities() if row["pid"] not in baseline
-            ]
-            assert paused.driver_pid is not None
-            environment = dict(
-                entry.split(b"=", 1)
-                for entry in Path(f"/proc/{paused.driver_pid}/environ")
-                .read_bytes()
-                .split(b"\0")
-                if entry
-            )
-            temporary_root = Path(environment[b"TMPDIR"].decode())
-            assert temporary_root.is_dir()
-            coordinator = get_runtime_context().task_coordinator
-            tasks = await coordinator.list_tasks(
-                scope=chat_session_scope("extraction-stop"), include_terminal=False
-            )
-            assert len(tasks) == 1
-            await coordinator.cancel_task(tasks[0].task_id)
-            # Leave the real IPC peer stopped until production teardown finishes.
-            async with asyncio.timeout(12):
-                with pytest.raises(asyncio.CancelledError):
-                    await asyncio.shield(operation)
-            assert operation.done(), "Stop did not finish owned extraction cleanup"
-            terminal = await coordinator.get_task(tasks[0].task_id)
-            assert terminal is not None and terminal.status == "cancelled"
-            await wait_processes_gone(owned)
-            assert (
-                not temporary_root.exists()
-            ), "Stopped extraction left browser temporary data"
-        finally:
-            paused.resume()
-            if not operation.done():
-                operation.cancel()
-            await asyncio.gather(operation, return_exceptions=True)

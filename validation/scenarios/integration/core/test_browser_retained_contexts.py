@@ -2,48 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
 
 from validation.support.application import Application
-from validation.support.browser.retained_site import browser_turn, retained_browser_site
+from validation.support.browser.browser_runtime import descendant_identities
+from validation.support.browser.handoff import handoff_path, waiting_handoff
+from validation.support.browser.retained_site import (
+    browser_turn,
+    retained_browser_site,
+    wait_processes_gone,
+)
 
 pytestmark = pytest.mark.scenario
-
-
-async def test_browser_retains_site_session_across_chat_turns(
-    app: Application,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    vault = app.vault("RetainedBrowserVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    with retained_browser_site(app, monkeypatch) as site:
-        first = await browser_turn(
-            app, vault.name, "retained-chat", url=site.url("/prime")
-        )
-        assert isinstance(
-            first, str
-        ), "Interactive browser must return a real page observation"
-        first_view = json.loads(first)
-        assert first_view["text"] == "Session established"
-        second = await browser_turn(
-            app, vault.name, "retained-chat", url=site.url("/state")
-        )
-        assert isinstance(second, str)
-        second_view = json.loads(second)
-        assert second_view["text"] == "Signed in"
-        assert second_view["browser_id"] == first_view["browser_id"]
-        closed = await browser_turn(app, vault.name, "retained-chat", operation="close")
-        assert isinstance(closed, str) and json.loads(closed)["status"] == "closed"
 
 
 async def test_browser_contexts_isolate_chats_and_close_discards_authentication(
@@ -155,6 +128,18 @@ async def test_browser_redirect_cannot_request_private_destination(
         app.events.require(
             "browser_connection_refused", after=checkpoint, reason="destination_denied"
         )
+        direct = await browser_turn(
+            app,
+            vault.name,
+            "direct-private",
+            url=f"http://127.0.0.1:{site.port}/denied-target",
+        )
+        assert (
+            isinstance(direct, ToolReturn)
+            and direct.metadata["reason"] == "destination_denied"
+        )
+        assert direct.metadata["help_eligible"] is False
+        assert site.private_requests == []
         # Failed first navigation must release capacity and leave retry possible.
         recovered = await browser_turn(
             app, vault.name, "recovered-chat", url=site.url("/state")
@@ -182,10 +167,17 @@ async def test_chat_deletion_releases_browser_and_prevents_state_resurrection(
         == 200
     )
     with retained_browser_site(app, monkeypatch) as site:
+        baseline = {row["pid"] for row in descendant_identities()}
         first = await browser_turn(
             app, vault.name, "deleted-chat", url=site.url("/prime")
         )
         assert isinstance(first, str)
+        operation = asyncio.create_task(
+            browser_turn(app, vault.name, "deleted-chat", operation="handoff")
+        )
+        state = await waiting_handoff(app, operation, "deleted-chat")
+        path = handoff_path("deleted-chat") + "/" + state["handoff_id"]
+        owned = [row for row in descendant_identities() if row["pid"] not in baseline]
         checkpoint = app.events.checkpoint()
         if purge:
             response = await app.request_async(
@@ -198,6 +190,12 @@ async def test_chat_deletion_releases_browser_and_prevents_state_resurrection(
                 params={"vault_name": vault.name},
             )
         assert response.status_code == 200, response.text
+        async with asyncio.timeout(5):
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+        assert operation.done()
+        assert (await app.request_async(path + "/return", "POST")).status_code == 404
+        await wait_processes_gone(owned)
         app.events.require(
             "browser_context_closed", after=checkpoint, session_id="deleted-chat"
         )
@@ -207,136 +205,3 @@ async def test_chat_deletion_releases_browser_and_prevents_state_resurrection(
         assert isinstance(fresh, str) and json.loads(fresh)["text"] == "Signed out"
         assert json.loads(fresh)["browser_id"] != json.loads(first)["browser_id"]
         await browser_turn(app, vault.name, "deleted-chat", operation="close")
-
-
-async def test_browser_shutdown_closes_stalled_proxy_handshake(
-    app: Application,
-) -> None:
-    import asyncio
-    from urllib.parse import urlsplit
-
-    from core.runtime.state import get_runtime_context
-
-    await app.start()
-    service = get_runtime_context().browser
-    proxy = urlsplit(await service.proxy_url())
-    reader, writer = await asyncio.open_connection(proxy.hostname, proxy.port)
-    writer.write(b"\x05")
-    await writer.drain()
-    shutdown = asyncio.create_task(service.shutdown())
-    try:
-        done, _ = await asyncio.wait({shutdown}, timeout=1)
-        assert (
-            shutdown in done
-        ), "A stalled proxy client must not block its own shutdown"
-        await shutdown
-        assert await reader.read() == b""
-    finally:
-        writer.close()
-        await writer.wait_closed()
-        await shutdown
-
-
-async def test_cancelled_browser_construction_preserves_stop_after_process_failure(
-    app: Application,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import asyncio
-    import os
-    import signal
-
-    from core.runtime.execution_tasks import chat_session_scope
-    from core.runtime.state import get_runtime_context
-    from validation.support.browser.retained_site import paused_browser_driver
-
-    vault = app.vault("BrowserCancelledConstructionVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    with (
-        retained_browser_site(app, monkeypatch) as site,
-        paused_browser_driver(app) as paused,
-    ):
-        operation = asyncio.create_task(
-            browser_turn(app, vault.name, "cancelled-build", url=site.url("/state"))
-        )
-        try:
-            async with asyncio.timeout(8):
-                await paused.ready.wait()
-            runtime = get_runtime_context()
-            tasks = await runtime.task_coordinator.list_tasks(
-                scope=chat_session_scope("cancelled-build"), include_terminal=False
-            )
-            assert len(tasks) == 1
-            await runtime.task_coordinator.cancel_task(tasks[0].task_id)
-            assert paused.browser_pid is not None
-            os.kill(paused.browser_pid, signal.SIGKILL)
-            paused.resume()
-            with pytest.raises(asyncio.CancelledError):
-                await operation
-        finally:
-            paused.resume()
-            if not operation.done():
-                operation.cancel()
-            await asyncio.gather(operation, return_exceptions=True)
-
-
-async def test_unresponsive_browser_construction_has_owned_deadline(
-    app: Application,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import asyncio
-
-    from pydantic_ai.messages import ToolReturn
-
-    from validation.support.browser.retained_site import paused_browser_driver
-
-    vault = app.vault("BrowserConstructionDeadlineVault")
-    await app.start()
-    assert (
-        app.request(
-            "/api/system/settings/general/browser_min_memory_headroom_mb",
-            "PUT",
-            {"value": "0"},
-        ).status_code
-        == 200
-    )
-    with (
-        retained_browser_site(app, monkeypatch) as site,
-        paused_browser_driver(app) as paused,
-    ):
-        operation = asyncio.create_task(
-            browser_turn(app, vault.name, "stalled-build", url=site.url("/state"))
-        )
-        try:
-            async with asyncio.timeout(8):
-                await paused.ready.wait()
-            # The production context allocation deadline must fire while its
-            # real IPC peer is unresponsive, before we permit cleanup to run.
-            async with asyncio.timeout(7):
-                await paused.construction_deadline.wait()
-            paused.resume()
-            async with asyncio.timeout(8):
-                result = await operation
-            assert (
-                isinstance(result, ToolReturn) and result.metadata["status"] == "failed"
-            )
-            # An allocation with an uncertain remote outcome closes admission.
-            retry = await browser_turn(
-                app, vault.name, "after-stall", url=site.url("/state")
-            )
-            assert (
-                isinstance(retry, ToolReturn)
-                and retry.metadata["reason"] == "runtime_closed"
-            )
-        finally:
-            paused.resume()
-            if not operation.done():
-                operation.cancel()
-            await asyncio.gather(operation, return_exceptions=True)

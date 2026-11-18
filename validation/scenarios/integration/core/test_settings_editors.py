@@ -40,6 +40,9 @@ async def test_settings_editors(app: Application) -> None:
 
     baseline = settings()
     assert baseline["debug"]["editor"]["kind"] == "boolean"
+    assert int(baseline["browser_idle_timeout_seconds"]["value"]) == 600
+    assert baseline["browser_idle_timeout_seconds"]["restart_required"] is False
+    update("browser_idle_timeout_seconds", "900")
     assert baseline["max_concurrent_delegates"]["editor"]["maximum"] == 32
     assert baseline["default_model"]["editor"]["kind"] == "select"
     assert "sonnet" in [
@@ -66,6 +69,8 @@ async def test_settings_editors(app: Application) -> None:
     update("compaction_high_watermark_tokens", "80000")
     update("compaction_strategy", "session_map")
     for key, raw in [
+        ("browser_idle_timeout_seconds", "0"),
+        ("browser_idle_timeout_seconds", "86401"),
         ("chat_tool_calls_limit", "1.5"),
         ("chat_tool_calls_limit", "-1"),
         ("model_stream_retry_base_delay_seconds", "NaN"),
@@ -92,6 +97,14 @@ async def test_settings_editors(app: Application) -> None:
     update("ingestion_pdf_default_strategies", '["pdf_text","pdf_ocr"]')
     update("compaction_author_model", "none")
     persisted = app.configuration()
+    assert persisted["settings"]["browser_idle_timeout_seconds"]["value"] == 900
+    restored = app.request(
+        "/api/system/settings/general/browser_idle_timeout_seconds/override",
+        method="DELETE",
+    )
+    assert restored.status_code == 200
+    assert int(settings()["browser_idle_timeout_seconds"]["value"]) == 600
+    assert settings()["browser_idle_timeout_seconds"]["source"] == "default"
     assert persisted["settings"]["persist_model_reasoning_parts"]["value"] is True
     assert (
         persisted["settings"]["model_stream_retry_base_delay_seconds"]["value"] == 0.5

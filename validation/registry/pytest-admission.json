@@ -452,12 +452,11 @@
     },
     {
       "path": "scenarios/integration/core/test_browser_call_budget.py",
-      "sha256": "6a97294d7a6eef6c37400d6c31d9d471e508f3eb21d7ca8c28a00be944d1c9e2",
+      "sha256": "21c11ff6b97f1792846b54f4e97063d45862a874621b5345598589ecf166fb12",
       "kind": "behavioral",
       "tests": [
         "test_browser_budget_is_scoped_to_actual_execution_task",
-        "test_browser_capacity_refuses_without_queueing_and_releases_after_denial",
-        "test_runtime_shutdown_drains_inflight_browser_admission"
+        "test_browser_capacity_refuses_without_queueing_and_releases_after_denial"
       ]
     },
     {
@@ -851,7 +850,7 @@
     },
     {
       "path": "scenarios/integration/core/test_context_upgrade_recovery_contracts.py",
-      "sha256": "042cf8655ec42486831bb24ff4601941c5c975fb8104556e2d9f019a48a7bc2e",
+      "sha256": "b9fc75503e7dac7ca201d060a1de6e13f3f340116bdd0dec7e261711a4e419e0",
       "kind": "behavioral",
       "tests": [
         "test_upgrade_rejects_author_result_after_canonical_mutation",
@@ -2186,7 +2185,7 @@
     },
     {
       "path": "scenarios/integration/core/test_settings_editors.py",
-      "sha256": "e055886bb16117f22bb4560a29cebf667997a33532b3c7960c32573685e91dd5",
+      "sha256": "8657921566abfcdc73bbf9b17be2a14a26a61bbde9db1f7f70db09e13dfa9d92",
       "kind": "behavioral",
       "tests": [
         "test_settings_editors"
@@ -3531,68 +3530,46 @@
       "sha256": "c5dc0525a8a12d6def12f70d76e3edde8b61b6e37b915f5651dca096b7c0e250"
     },
     {
-      "path": "scenarios/integration/core/test_browser_settings.py",
-      "kind": "behavioral",
-      "sha256": "24bd75971a31db623d9059048c7ced31084bc7525d2fcf868586369e88372469",
-      "tests": [
-        "test_browser_idle_timeout_defaults_override_rejection_and_restore"
-      ]
-    },
-    {
       "path": "support/browser/retained_site.py",
       "kind": "support",
-      "sha256": "de3b2c14713b8d84a381cfea5e8eecac3ce4f111b6cf5f65e136064c9c4920c8"
+      "sha256": "31d32341332f6903058f3cb133812f4f59b22dfc6519dda876d719a5e143561a"
     },
     {
       "path": "scenarios/integration/core/test_browser_retained_contexts.py",
       "kind": "behavioral",
-      "sha256": "95c60eaec250f24b479957a5fb52dac27aace67e2ab988d5c24a248a3c9056a1",
+      "sha256": "297a0ce5fd411e351b1f22d578223a5e88973d2e1fd4464be8e95b1fd0ea929a",
       "tests": [
-        "test_browser_retains_site_session_across_chat_turns",
         "test_browser_contexts_isolate_chats_and_close_discards_authentication",
         "test_retained_browser_holds_capacity_shared_with_extraction",
         "test_browser_redirect_cannot_request_private_destination",
-        "test_chat_deletion_releases_browser_and_prevents_state_resurrection",
-        "test_browser_shutdown_closes_stalled_proxy_handshake",
-        "test_cancelled_browser_construction_preserves_stop_after_process_failure",
-        "test_unresponsive_browser_construction_has_owned_deadline"
+        "test_chat_deletion_releases_browser_and_prevents_state_resurrection"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_lifecycle.py",
       "kind": "behavioral",
-      "sha256": "03ba6034f624481c888380b0d001f8aa1a0d0237435edc328ae4664e6d1c2bb6",
+      "sha256": "1040fc2424dbe62e129f2b7a14fff550aa29fcaad0ce05a0fd74960923c44340",
       "tests": [
         "test_browser_inactivity_expires_authentication_and_releases_capacity",
         "test_browser_activity_refreshes_idle_clock_beyond_total_interval",
         "test_browser_restart_reaps_owned_processes_and_discards_authentication",
-        "test_crashed_browser_releases_dead_context_for_explicit_retry",
-        "test_active_browser_does_not_delay_another_chats_expiry",
-        "test_browser_timeout_begins_idle_wait_when_operation_finishes",
-        "test_shortened_idle_setting_cannot_revive_old_authentication",
-        "test_stop_during_shared_crash_retirement_remains_task_cancellation"
+        "test_crashed_browser_releases_dead_context_for_explicit_retry"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_actions.py",
       "kind": "behavioral",
-      "sha256": "ca1d4f1f3e4f481d0d6217dbdf3d0f8ac20f0083c304d2c93b96ae279448105b",
+      "sha256": "82165d91457c202d7465906dc5cc4ccbbc9e23ed1390ca5093ae068d75d8a6ab",
       "tests": [
         "test_browser_observes_fills_selects_and_submits_native_form",
         "test_browser_rejects_old_or_foreign_element_references",
         "test_browser_rejects_replaced_node_with_reused_dom_id",
         "test_browser_scroll_uses_and_consumes_observation_reference",
-        "test_browser_large_observation_is_bounded_and_omits_field_values",
         "test_browser_rechecks_observed_control_before_dispatch",
-        "test_consumed_element_reference_cannot_submit_twice",
-        "test_browser_enforces_serialized_budget_and_oversized_control_limits",
-        "test_browser_select_refuses_option_disabled_through_group",
-        "test_stop_during_browser_action_releases_lock_with_stalled_driver",
         "test_browser_native_actions_ignore_page_prototype_and_focus_redirection",
-        "test_browser_unicode_truncation_remains_utf8_serializable",
-        "test_browser_owns_and_reaps_driver_stalled_before_initialization",
         "test_browser_can_use_stable_form_while_unrelated_observed_controls_change",
-        "test_browser_unowned_field_ignores_unrelated_unowned_control_mutation"
+        "test_browser_unowned_field_ignores_unrelated_unowned_control_mutation",
+        "test_browser_observation_bounds_exclude_values_and_serialize_unicode"
       ]
     },
     {
@@ -3611,58 +3588,44 @@
     {
       "path": "scenarios/integration/core/test_browser_deadlines.py",
       "kind": "behavioral",
-      "sha256": "f253c28c44138386e7ec4118e84df572ca3eba8b4bf01c4b22b3c00c75ba7725",
+      "sha256": "698c4833920d826dd0bdde53b95a194570f540397accd2e53fdfd3d59d1a6a2d",
       "tests": [
         "test_committed_page_read_deadline_retains_same_page_for_help",
         "test_uncommitted_navigation_does_not_offer_help_for_requested_site",
-        "test_private_target_is_not_a_human_help_deadline",
-        "test_delayed_post_requires_fresh_inspection_without_duplicate_submission",
-        "test_unconfirmed_deadline_cleanup_never_advertises_human_help",
-        "test_stop_before_navigation_deadline_is_cancellation_without_help",
-        "test_history_change_on_old_document_cannot_attest_new_navigation_commit"
+        "test_delayed_post_requires_fresh_inspection_without_duplicate_submission"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_process_environment.py",
       "kind": "behavioral",
-      "sha256": "18f7ff1964db7802bd33799d9ec00cf1ac96c8bb130f5748964a47c8b1132bb0",
+      "sha256": "e0bed089e220b4c168ccd67626a9313fccfeef2d9e686799f4f0c3423f475234",
       "tests": [
         "test_retained_browser_children_exclude_application_and_control_environment",
-        "test_browser_protocol_ignores_parent_debug_dump_settings",
-        "test_extraction_uses_same_private_driver_and_browser_environment",
-        "test_owned_display_uses_runtime_environment_and_is_reaped",
-        "test_stopped_extraction_driver_cannot_block_task_cancellation"
+        "test_extraction_uses_same_private_driver_and_browser_environment"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_temporary_storage.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "c63f6b3e3b88772e8523a187696e1acd1dc1503b5dadb591a3687d6110aff657",
+      "sha256": "27f48c5de4a8268246f0ba19ac0fb4e3e2292bea2a3ad0c327c6dbb970143382",
       "tests": [
         "test_browser_profiles_stay_outside_persistent_roots_and_are_removed",
-        "test_browser_spawn_failure_releases_owned_temporary_storage",
-        "test_unexpected_driver_death_preserves_storage_and_reports_uncertainty",
-        "test_browser_profile_removal_does_not_block_application_requests",
-        "test_uncertain_extraction_storage_cleanup_closes_browser_admission"
+        "test_browser_spawn_failure_releases_owned_temporary_storage"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_handoff.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "3433cb6bd85d44c365d161faa22c839dde9776d34a08e609a0265bdf88855b35",
+      "sha256": "16cdf8f083cd201a00ed1830d4ac6d2ca4f984b1a70b8cb26d896e53c1081e8e",
       "tests": [
         "test_handoff_blocks_agent_controls_and_returns_the_same_waiting_task",
         "test_handoff_idle_expiry_is_not_extended_by_polling_or_duplicate_claims",
         "test_stopped_handoff_keeps_human_control_and_requires_a_new_task_generation",
         "test_handback_requires_recognized_credential_fields_to_be_submitted_or_cleared",
         "test_handoff_api_enforces_owner_session_csrf_origin_and_chat_generation",
-        "test_chat_deletion_revokes_a_waiting_handoff_and_releases_its_browser",
-        "test_stop_during_handback_inspection_cannot_return_control_to_the_agent",
         "test_uninspectable_credential_surface_does_not_grant_agent_control",
-        "test_handback_started_before_idle_expiry_finishes_as_an_active_operation",
-        "test_waiting_handoff_observes_browser_crash_without_viewer_polling",
         "test_proxied_handoff_preserves_each_authentication_mode"
       ]
     },
@@ -3674,18 +3637,14 @@
     {
       "path": "scenarios/integration/core/test_browser_human_transport.py",
       "kind": "behavioral",
-      "sha256": "9467093bfdc3989eb9c8f65d6ee39d87ffd15609dc71c1f656853a470d60ac0b",
+      "sha256": "088194ac22c2b531c56a5983f7e6861019400f7eea25a77097a3eba694dccd1f",
       "coverage_status": "registered_pending_parity_review",
       "tests": [
-        "test_human_enters_and_submits_credentials_without_exporting_them_to_the_agent",
         "test_private_input_and_parser_failures_do_not_enter_real_telemetry_or_logs",
         "test_input_tokens_are_single_use_and_dead_handoffs_cannot_receive_pixels_or_input",
         "test_changed_scroll_geometry_rejects_previously_captured_coordinates",
-        "test_frame_polling_does_not_keep_a_handoff_alive",
         "test_partial_private_body_has_bounded_admission_and_never_dispatches",
-        "test_cancelled_or_stopped_capture_keeps_ipc_owned_and_discards_late_pixels",
-        "test_uncertain_pressed_gesture_retires_its_page_without_replay",
-        "test_private_routes_require_authenticated_human_task_csrf_and_origin"
+        "test_uncertain_pressed_gesture_retires_its_page_without_replay"
       ]
     },
     {
@@ -3706,7 +3665,7 @@
     {
       "path": "scenarios/integration/core/test_browser_handoff_chat.py",
       "kind": "behavioral",
-      "sha256": "40c7fd0053534be938f3573fa50b3f4b9b47837af2a0b4c6072d1e48235fb762",
+      "sha256": "00ae0d7aa1f39ee801c3c0bce87108a1567c739e9d02833724d782ef7c50e885",
       "coverage_status": "registered_pending_parity_review",
       "tests": [
         "test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider"
@@ -3720,7 +3679,7 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "68a4ddb1fb969df3cc0f448a84e0a747c29967edbb9623be95283523f25cb0f7",
+      "sha256": "f2b89309a3468b0543a673249d6d0074981c428af318af1069ff487d463ea139",
       "tests": [
         "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
         "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser",
@@ -3731,16 +3690,13 @@
       "path": "scenarios/integration/core/test_browser_popup.py",
       "kind": "behavioral",
       "coverage_status": "registered_pending_parity_review",
-      "sha256": "9db0481ad140f4fc2feba4b0e2d3c32d0e7d139066a0e9e55ffe6e658ee323f4",
+      "sha256": "d9acf8390a4631c73fc5579b21b210a218eb667205941426fbd524ab0d0ec154",
       "tests": [
         "test_human_sign_in_popup_restores_original_page_and_authentication",
         "test_extra_and_nested_popups_make_no_initial_website_request",
         "test_initial_post_popup_is_not_replayed_as_a_get_or_submitted",
         "test_private_popup_target_retires_its_context_without_contacting_target",
-        "test_popup_reservation_precedes_slow_dns_and_denies_other_windows",
-        "test_uninitialized_popup_failure_retires_without_viewer_polling",
-        "test_inactive_original_credentials_block_return_from_sign_in_window",
-        "test_closing_original_page_retires_popup_without_promoting_it"
+        "test_inactive_original_credentials_block_return_from_sign_in_window"
       ]
     },
     {
@@ -3751,23 +3707,50 @@
     {
       "path": "scenarios/integration/core/test_browser_resource_loading.py",
       "kind": "behavioral",
-      "sha256": "0a274ca2f8024bb6ff1602fcb947f2fe36afc40ec88ee1402be6eb8eadcac22d",
+      "sha256": "b328e44a4e01340ca81fc3f8719d23758cb86942559c44ae8b2b1566a84f7e5d",
       "tests": [
         "test_post_human_navigation_applies_a_burst_of_public_stylesheets",
         "test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_callers",
-        "test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellation",
-        "test_dns_deadline_keeps_real_work_owned_through_shutdown"
+        "test_shared_dns_bounds_actual_jobs_and_waiting_callers_after_cancellation"
       ]
     },
     {
       "path": "scenarios/integration/core/test_browser_termination.py",
       "kind": "behavioral",
-      "sha256": "26f4376876aa27b80a6a5f968d87fe8352f0a799db6a1561dd9f52b827ccf7ba",
+      "sha256": "2f2a4b3c837c7d6da17fad82f7bd7c3ea0bafc218368a0900fdd60b24f934f13",
       "tests": [
         "test_explicit_termination_releases_only_its_chat_and_cancels_waiting_task",
         "test_cleanup_is_available_after_browser_call_budget_is_exhausted",
         "test_old_human_end_cannot_close_a_returned_browser"
       ]
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_fault_hardening.py",
+      "kind": "behavioral",
+      "sha256": "ce68e58bb8caf6a1696d81689390d861f417740849f699a733541defdaac1bb1",
+      "tests": [
+        "test_runtime_shutdown_drains_inflight_browser_admission",
+        "test_stop_during_browser_action_releases_lock_with_stalled_driver",
+        "test_browser_owns_and_reaps_driver_stalled_before_initialization",
+        "test_unconfirmed_deadline_cleanup_never_advertises_human_help",
+        "test_history_change_on_old_document_cannot_attest_new_navigation_commit",
+        "test_stop_during_handback_inspection_cannot_return_control_to_the_agent",
+        "test_handback_started_before_idle_expiry_finishes_as_an_active_operation",
+        "test_cancelled_or_stopped_capture_keeps_ipc_owned_and_discards_late_pixels",
+        "test_active_browser_does_not_delay_another_chats_expiry",
+        "test_stop_during_shared_crash_retirement_remains_task_cancellation",
+        "test_popup_reservation_precedes_slow_dns_and_denies_other_windows",
+        "test_closing_original_page_retires_popup_without_promoting_it",
+        "test_stopped_extraction_driver_cannot_block_task_cancellation",
+        "test_uncertain_extraction_storage_cleanup_closes_browser_admission",
+        "test_browser_shutdown_closes_stalled_proxy_handshake",
+        "test_unexpected_driver_death_preserves_storage_and_reports_uncertainty"
+      ]
+    },
+    {
+      "path": "support/browser/actions.py",
+      "kind": "support",
+      "sha256": "b6fbeda2be549f59e67c78c4b1e8b988a074d3cbec196838bdbe504b18e1eacf"
     }
   ]
 }

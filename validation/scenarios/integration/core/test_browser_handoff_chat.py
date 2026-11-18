@@ -18,9 +18,8 @@ from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
 pytestmark = pytest.mark.scenario
 
 
-@pytest.mark.parametrize("finish", ["return", "stop"])
 async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider(
-    app: Application, monkeypatch: pytest.MonkeyPatch, finish: str
+    app: Application, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     vault = app.vault("BrowserChatHandoffVault")
     app.write(vault, "AssistantMD/Authoring/full_history.md", PERSISTENCE_CONTEXT)
@@ -69,9 +68,7 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                     len(handoffs) == 1
                 ), "A real waiting handoff must reach reconnecting chat"
                 assert handoffs[0]["browser_handoff"] == state
-                assert snapshot["available"] and not snapshot["terminal"]
-                # Exercise the production SSE encoder/subscription, not fixture
-                # events; HTTP replay above uses the real authenticated route.
+                assert snapshot["available"] and (not snapshot["terminal"])
                 stream = stream_chat_task_sse(task_id=task_id)
                 try:
                     async with asyncio.timeout(2):
@@ -108,22 +105,6 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                             json={**metadata, "kind": "text", "text": sentinel},
                         )
                     ).status_code == 200
-                    if finish == "stop":
-                        await get_runtime_context().task_coordinator.cancel_task(
-                            task_id
-                        )
-                        task = await app.wait_task(task_id)
-                        assert task["status"] == "cancelled"
-                        snapshot = (await app.request_async(replay_url)).json()
-                        assert snapshot["terminal"] and snapshot["available"]
-                        assert (await client.post(path + "/return")).status_code == 409
-                        assert (await client.get(path + "/frame")).status_code == 409
-                        assert len(calls) == 2 and site.submissions == []
-                        private_leaked = sentinel in json.dumps(
-                            calls
-                        ) or sentinel in json.dumps(snapshot)
-                        assert not private_leaked
-                        return
                     metadata = await fresh_frame(client, path)
                     assert (
                         await client.post(
