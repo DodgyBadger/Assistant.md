@@ -67,7 +67,9 @@ async def handoff_browser_app(browser_app, request):
         yield browser_app
 
 
-@pytest.mark.parametrize("finish", ["return", "stop", "detach"])
+@pytest.mark.parametrize(
+    "finish", ["return", "stop", "detach", "end", "end_lost_response"]
+)
 async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task(
     handoff_browser_app, browser, monkeypatch, finish
 ):
@@ -220,6 +222,68 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 private_stored = sentinel in local_state
                 assert not private_stored, "Private input reached browser storage"
                 blob_url = await preview.get_attribute("src")
+                if finish == "end_lost_response":
+                    close_url = frame_url.removesuffix("/frame") + "/close"
+                    async with hold_delivery(
+                        page,
+                        app,
+                        close_url,
+                        method="POST",
+                        first_only=True,
+                        abort_on_release=True,
+                    ) as gate:
+                        await modal.get_by_role(
+                            "button", name="End session", exact=True
+                        ).click()
+                        await asyncio.wait_for(gate.held.wait(), 5)
+                        assert gate.requests[0]["status"] == 200
+                        await expect(modal).to_have_count(0)
+                        task = await app.wait_task(claimed_view["task_id"])
+                        assert task["status"] == "cancelled"
+                        await page.get_by_role(
+                            "button", name="Open chat settings", exact=True
+                        ).click()
+                        await page.locator(
+                            f'[data-session-browser-row-id="{session_id}"]'
+                        ).click()
+                        gate.release.set()
+                    recovery = page.get_by_role(
+                        "group", name="Browser session", exact=True
+                    )
+                    await expect(recovery.get_by_role("alert")).to_be_visible()
+                    assert len(calls) == 2 and site.submissions == []
+                    assert len(returns) == 1
+                    assert (
+                        await app.request_async(
+                            f"/api/chat/sessions/{session_id}/browser-handoff"
+                        )
+                    ).status_code == 404
+                    return
+                if finish == "end":
+                    async with hold_delivery(
+                        page, app, frame_url, first_only=True
+                    ) as gate:
+                        await asyncio.wait_for(gate.held.wait(), 5)
+                        async with page.expect_response(
+                            lambda r: "/browser-handoff/" in r.url
+                            and r.url.endswith("/close")
+                        ) as ended:
+                            await modal.get_by_role(
+                                "button", name="End session", exact=True
+                            ).click()
+                            await expect(modal).to_have_count(0)
+                            gate.release.set()
+                        assert (await ended.value).status == 200
+                    task = await app.wait_task(claimed_view["task_id"])
+                    assert task["status"] == "cancelled"
+                    assert len(calls) == 2 and site.submissions == []
+                    assert len(returns) == 1
+                    assert (
+                        await app.request_async(
+                            f"/api/chat/sessions/{session_id}/browser-handoff"
+                        )
+                    ).status_code == 404
+                    return
                 if finish == "detach":
                     async with hold_delivery(
                         page,
@@ -275,10 +339,40 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     ).click()
                     task = await app.wait_task(claimed_view["task_id"])
                     assert task["status"] == "cancelled"
-                    await expect(link).to_be_disabled()
+                    await expect(
+                        page.get_by_role("button", name="Open browser", exact=True)
+                    ).to_have_count(0)
                     await expect(modal).to_have_count(0)
                     assert len(calls) == 2 and site.submissions == []
                     assert len(returns) == 1
+                    # History must recover the stopped browser independently
+                    # of the now-terminal task's transient message artifacts.
+                    await page.reload()
+                    await page.locator("#vault-selector").select_option(
+                        browser_app.vault.name
+                    )
+                    await page.get_by_role(
+                        "button", name="Open chat settings", exact=True
+                    ).click()
+                    await page.locator(
+                        f'[data-session-browser-row-id="{session_id}"]'
+                    ).click()
+                    end_session = page.get_by_role(
+                        "button", name="End browser session", exact=True
+                    )
+                    await expect(end_session).to_be_visible()
+                    async with page.expect_response(
+                        lambda r: "/browser-handoff/" in r.url
+                        and r.url.endswith("/close")
+                    ) as ended:
+                        await end_session.click()
+                    assert (await ended.value).status == 200
+                    assert len(calls) == 2 and site.submissions == []
+                    assert (
+                        await app.request_async(
+                            f"/api/chat/sessions/{session_id}/browser-handoff"
+                        )
+                    ).status_code == 404
                     return
                 # Reload while human control is held: replay restores the link,
                 # and reopening reclaims only the same current generation.

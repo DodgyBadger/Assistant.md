@@ -4134,3 +4134,6 @@ body.explorer-resizing { cursor: col-resize; user-select: none; }
 .browser-handoff-body img[aria-disabled="true"] { cursor: wait; }
 .browser-handoff-body label { display: grid; gap: 0.25rem; font-size: 0.875rem; }
 .browser-handoff-body input { padding: 0.5rem; border: 1px solid rgb(var(--border-primary)); border-radius: 0.375rem; background: rgb(var(--bg-app)); }
+
+.browser-session-recovery { padding: 0.75rem 1rem; border: 1px solid rgb(var(--border-primary)); border-radius: 0.5rem; background: rgb(var(--bg-card)); }
+.browser-session-recovery > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }

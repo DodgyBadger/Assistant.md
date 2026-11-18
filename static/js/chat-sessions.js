@@ -101,6 +101,7 @@
                     elements.workspacePathInput.value = payload.workspace?.path || '';
                 }
                 chatRendering.renderPersistedSession(payload, options);
+                void chatRendering.restoreBrowserHandoff(state.sessionId, isCurrent);
                 if (state.pendingDeferredReview) {
                     const reviewMessage = chatRendering.createAssistantStreamingMessage();
                     callbacks.handleDeferredReview(reviewMessage, state.pendingDeferredReview);

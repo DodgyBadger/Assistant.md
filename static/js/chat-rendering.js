@@ -3,7 +3,19 @@
 
     function createChatRenderingController({ state, elements, icons, utils, callbacks }) {
         let currentEmptyStateMessage = CHAT_EMPTY_STATE_MESSAGE;
-        const browserHandoff = window.BrowserHandoff.create({ state });
+        const browserHandoff = window.BrowserHandoff.create({
+            state,
+            createContext: () => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'browser-session-recovery';
+                messageDiv.setAttribute('role', 'group');
+                messageDiv.setAttribute('aria-label', 'Browser session');
+                const artifactList = document.createElement('div');
+                messageDiv.appendChild(artifactList);
+                appendChatMessageNode(messageDiv, { forceScroll: false });
+                return { messageDiv, artifactList };
+            },
+        });
         const markdown = window.ChatMarkdown.create({
             utils,
             callbacks: {
@@ -638,6 +650,7 @@
             setAssistantStatus,
             handleToolEvent,
             handleBrowserHandoff: browserHandoff.render,
+            restoreBrowserHandoff: browserHandoff.restore,
             finalizeAssistantMessage,
             reconcileToolCallPersistence,
             renderMarkdownPreview: markdown.renderPreview,

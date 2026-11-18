@@ -7,8 +7,113 @@
     const ACTIVE = new Set(['waiting', 'human']);
     const bytes = (text) => new TextEncoder().encode(text).length;
 
-    function create({ state }) {
-        let active = null;
+    function create({ state, createContext }) {
+        let active = null, latest = null, recovery = null, lookup = null, ending = null, endFailure = null;
+        let revision = 0;
+        const sameGeneration = (a, b) => a && b && ['handoff_id', 'task_id', 'browser_id', 'page_id'].every(key => a[key] === b[key]);
+        const connected = (context, sessionId) => context?.browserHandoffSessionId === sessionId && context.messageDiv.isConnected;
+        const validView = view => view && /^[a-f0-9]{32}$/.test(view.handoff_id || '') &&
+            /^task_[a-f0-9]{32}$/.test(view.task_id || '') && /^[a-f0-9]{32}$/.test(view.page_id || '') &&
+            /^[a-f0-9]{32}$/.test(view.browser_id || '') &&
+            ['waiting', 'human', 'stopped', 'returned', 'expired', 'closed', 'cleanup_unconfirmed'].includes(view.status);
+
+        async function metadataRequest(sessionId, suffix, method, controller) {
+            const timer = setTimeout(() => controller.abort(), method === 'POST' ? 20000 : 10000);
+            try {
+                const response = await fetch(`api/chat/sessions/${encodeURIComponent(sessionId)}/browser-handoff${suffix}`, {
+                    method, signal: controller.signal, cache: 'no-store', credentials: 'same-origin', redirect: 'error',
+                });
+                if (!response.ok) throw { status: response.status };
+                const view = await response.json();
+                if (!validView(view)) throw { reason: 'invalid_handoff' };
+                return view;
+            } finally { clearTimeout(timer); }
+        }
+
+        async function restore(sessionId = state.sessionId, isCurrent = () => state.sessionId === sessionId) {
+            if (!sessionId || sessionId !== state.sessionId || !isCurrent() || ending?.sessionId === sessionId) return;
+            const version = ++revision;
+            lookup?.abort();
+            const controller = new AbortController();
+            lookup = controller;
+            try {
+                const view = await metadataRequest(sessionId, '', 'GET', controller);
+                if (version !== revision || state.sessionId !== sessionId || !isCurrent()) return;
+                let context = connected(latest, sessionId) && sameGeneration(latest.browserHandoff, view) ? latest : null;
+                if (!context && !ACTIVE.has(view.status) && view.status !== 'stopped') return;
+                if (!context) {
+                    recovery?.messageDiv.remove();
+                    context = createContext();
+                    context.browserRecovery = true;
+                    recovery = context;
+                }
+                render(context, { browser_handoff: view }, true);
+                if (endFailure?.sessionId === sessionId) {
+                    if (sameGeneration(endFailure.view, view)) {
+                        context.browserHandoffNotice.textContent = 'The previous end request did not complete. This browser session is still available.';
+                    }
+                    endFailure = null;
+                }
+            } catch (error) {
+                if (version !== revision || state.sessionId !== sessionId || !isCurrent()) return;
+                if (endFailure?.sessionId === sessionId && !connected(latest, sessionId)) {
+                    recovery?.messageDiv.remove();
+                    const context = createContext();
+                    context.browserRecovery = true;
+                    recovery = context;
+                    render(context, { browser_handoff: endFailure.view });
+                }
+                if (connected(latest, sessionId)) {
+                    if (error.status === 404) {
+                        if (active?.sessionId === sessionId) close(active);
+                        latest.browserHandoffUnavailableFor = latest.browserHandoff.handoff_id;
+                        latest.browserHandoffButton.disabled = true;
+                        latest.browserHandoffButton.textContent = 'Browser session ended';
+                        latest.browserHandoffNotice.textContent = '';
+                    }
+                    if (endFailure?.sessionId === sessionId) {
+                        latest.browserHandoffButton.disabled = true;
+                        latest.browserHandoffNotice.setAttribute('role', 'alert');
+                        latest.browserHandoffNotice.textContent = 'Browser termination could not be confirmed. Check the session state before continuing.';
+                    }
+                }
+            } finally { if (lookup === controller) lookup = null; }
+        }
+
+        async function endSession(context) {
+            const sessionId = context.browserHandoffSessionId, view = context.browserHandoff;
+            if (ending || !connected(context, state.sessionId) || (!ACTIVE.has(view?.status) && view?.status !== 'stopped')) return;
+            ++revision;
+            lookup?.abort();
+            lookup = null;
+            ending = { sessionId, view };
+            context.browserEnding = true;
+            context.browserHandoffButton.disabled = true;
+            context.browserHandoffNotice.textContent = 'Ending browser session…';
+            if (active?.sessionId === sessionId) close(active);
+            let reconcile = false;
+            try {
+                const closed = await metadataRequest(sessionId, `/${encodeURIComponent(view.handoff_id)}/close`, 'POST', new AbortController());
+                if (!sameGeneration(view, closed) || closed.status !== 'closed') throw { reason: 'invalid_handoff' };
+                if (endFailure?.sessionId === sessionId) endFailure = null;
+                if (connected(context, state.sessionId) && sameGeneration(context.browserHandoff, view)) {
+                    render(context, { browser_handoff: closed });
+                }
+            } catch (error) {
+                reconcile = true;
+                if (error.status !== 404 && error.status !== 409) endFailure = { sessionId, view };
+                if (connected(context, state.sessionId) && sameGeneration(context.browserHandoff, view)) {
+                    context.browserHandoffNotice.setAttribute('role', 'alert');
+                    context.browserHandoffNotice.textContent = 'Browser termination could not be confirmed. Reload the chat to check its state.';
+                }
+            } finally {
+                context.browserEnding = false;
+                ending = null;
+                // History may have replaced the original message while End was
+                // in flight. Reconcile the displayed session, never retry End.
+                if ((reconcile || !connected(context, sessionId)) && state.sessionId === sessionId) void restore(sessionId);
+            }
+        }
 
         function current(run) {
             return active === run && run.dialog.open && run.context.messageDiv.isConnected &&
@@ -331,7 +436,7 @@
             dialog.className = 'browser-handoff-modal';
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
-            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
+            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-end>End session</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
                 <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
                 <button type="button" class="ui-button-secondary" data-original>Original page</button>
                 <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
@@ -359,6 +464,7 @@
             active = run;
             const on = (target, name, listener, options = {}) => target.addEventListener(name, listener, { ...options, signal: run.listeners.signal });
             on(dialog.querySelector('[data-close]'), 'click', () => close(run));
+            on(dialog.querySelector('[data-end]'), 'click', () => { void endSession(context); });
             on(dialog, 'cancel', (event) => { event.preventDefault(); close(run); });
             on(run.handback, 'click', () => { void handback(run); });
             const selectPage = (pageId) => {
@@ -444,17 +550,42 @@
             void pump(run);
         }
 
-        function render(context, payload) {
+        function render(context, payload, canonical = false) {
             const view = payload.browser_handoff;
-            if (!view || !/^[a-f0-9]{32}$/.test(view.handoff_id || '') ||
-                !/^task_[a-f0-9]{32}$/.test(view.task_id || '') ||
-                !/^[a-f0-9]{32}$/.test(view.page_id || '')) return;
+            if (!validView(view) || (context.browserHandoffSessionId && context.browserHandoffSessionId !== state.sessionId)) return;
+            if (!context.messageDiv.isConnected || (context.browserStreamFinished && !canonical && ACTIVE.has(view.status))) {
+                if (latest !== context && connected(latest, state.sessionId) && sameGeneration(latest.browserHandoff, view)) context = latest;
+                else return;
+            }
+            if (context.browserHandoffUnavailableFor === view.handoff_id) return;
+            context.browserHandoffSessionId = state.sessionId;
+            const rank = status => ({ waiting: 0, human: 1, stopped: 2, returned: 3, expired: 3, closed: 4, cleanup_unconfirmed: 4 })[status];
+            if (sameGeneration(context.browserHandoff, view) && rank(view.status) < rank(context.browserHandoff.status)) return;
+            if (connected(latest, state.sessionId) && sameGeneration(latest.browserHandoff, view) &&
+                rank(view.status) < rank(latest.browserHandoff.status)) return;
+            const newest = !connected(latest, state.sessionId) || latest === context ||
+                sameGeneration(latest.browserHandoff, view) || ACTIVE.has(view.status) || view.status === 'stopped';
+            if (newest) {
+                ++revision;
+                lookup?.abort();
+                lookup = null;
+                if (recovery && recovery !== context) {
+                    if (active?.context === recovery) close(active);
+                    recovery.messageDiv.remove();
+                    recovery = null;
+                }
+                latest = context;
+            }
             context.browserHandoff = view;
+            if (canonical && ACTIVE.has(view.status)) context.browserStreamFinished = false;
             if (!context.browserHandoffButton) {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'ui-button-primary';
-                button.addEventListener('click', () => open(context, button));
+                button.addEventListener('click', () => {
+                    if (context.browserHandoff?.status === 'stopped') void endSession(context);
+                    else open(context, button);
+                });
                 context.artifactList.appendChild(button);
                 context.browserHandoffButton = button;
                 const notice = document.createElement('span');
@@ -462,18 +593,30 @@
                 context.artifactList.appendChild(notice);
                 context.browserHandoffNotice = notice;
             }
-            context.browserHandoffButton.textContent = ACTIVE.has(view.status) ? 'Open browser' : 'Browser handoff ended';
-            context.browserHandoffButton.disabled = !ACTIVE.has(view.status);
-            if (active?.context === context &&
-                (active.view.handoff_id !== view.handoff_id || !ACTIVE.has(view.status))) close(active);
+            const stopped = view.status === 'stopped';
+            context.browserHandoffButton.textContent = stopped ? 'End browser session' : ACTIVE.has(view.status) ? 'Open browser' : 'Browser session ended';
+            context.browserHandoffButton.disabled = Boolean(context.browserEnding) || (!ACTIVE.has(view.status) && !stopped);
+            context.browserHandoffNotice.setAttribute('role', 'status');
+            context.browserHandoffNotice.textContent = stopped
+                ? 'Browser paused under human control. Ask the agent to resume the handoff, or end this session.' : '';
+            if (active?.sessionId === state.sessionId &&
+                ((sameGeneration(active.view, view) && !ACTIVE.has(view.status)) ||
+                 (active.context === context && !sameGeneration(active.view, view)))) close(active);
         }
 
         function finish(context) {
-            if (active?.context === context) close(active);
-            if (context.browserHandoffButton) context.browserHandoffButton.disabled = true;
+            context.browserStreamFinished = true;
+            const sessionId = context.browserHandoffSessionId;
+            const target = connected(latest, sessionId) && sameGeneration(latest.browserHandoff, context.browserHandoff) ? latest : context;
+            if (active?.context === target) close(active);
+            if (target.browserHandoffButton) {
+                target.browserStreamFinished = true;
+                target.browserHandoffButton.disabled = true;
+                void restore(sessionId, () => connected(target, sessionId));
+            }
         }
 
-        return Object.freeze({ render, finish });
+        return Object.freeze({ render, finish, restore });
     }
     window.BrowserHandoff = Object.freeze({ create });
 })(window, document);

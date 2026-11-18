@@ -105,7 +105,61 @@ async def _scoped_route(ui, pattern, handler):
 
 
 @asynccontextmanager
-async def hold_delivery(ui, app, pattern, *, method="GET", first_only=False):
+async def _abort_response_delivery(ui, pattern, gate, *, first_only):
+    # Intercept after Chromium has sent its real request, including Fetch
+    # Metadata. APIRequestContext.route.fetch omits those browser-owned headers.
+    # Only the response transport is faulted; application outcomes stay real.
+    session = await ui.context.new_cdp_session(ui)
+    pending = set()
+    claimed = False
+
+    async def pause(event):
+        nonlocal claimed
+        request_id = event["requestId"]
+        if event["request"]["method"] != gate.method or (first_only and claimed):
+            await session.send("Fetch.continueRequest", {"requestId": request_id})
+            return
+        claimed = True
+        row = {
+            "url": event["request"]["url"],
+            "status": event.get("responseStatusCode"),
+        }
+        gate.requests.append(row)
+        gate.held.set()
+        await gate.release.wait()
+        await session.send(
+            "Fetch.failRequest", {"requestId": request_id, "errorReason": "Failed"}
+        )
+        row["delivery"] = "aborted_after_real_response"
+
+    def dispatch(event):
+        task = asyncio.create_task(pause(event))
+        pending.add(task)
+
+    session.on("Fetch.requestPaused", dispatch)
+    try:
+        await session.send(
+            "Fetch.enable",
+            {"patterns": [{"urlPattern": pattern, "requestStage": "Response"}]},
+        )
+        yield
+    finally:
+        gate.release.set()
+        session.remove_listener("Fetch.requestPaused", dispatch)
+        try:
+            if pending:
+                await asyncio.wait_for(asyncio.gather(*pending), 15)
+        finally:
+            try:
+                await session.send("Fetch.disable")
+            finally:
+                await session.detach()
+
+
+@asynccontextmanager
+async def hold_delivery(
+    ui, app, pattern, *, method="GET", first_only=False, abort_on_release=False
+):
     gate = DeliveryGate(method=method)
     claimed = False
 
@@ -130,7 +184,12 @@ async def hold_delivery(ui, app, pattern, *, method="GET", first_only=False):
         row["delivery"] = "forwarded_unchanged"
 
     try:
-        async with _scoped_route(ui, pattern, hold):
+        delivery = (
+            _abort_response_delivery(ui, pattern, gate, first_only=first_only)
+            if abort_on_release
+            else _scoped_route(ui, pattern, hold)
+        )
+        async with delivery:
             try:
                 yield gate
             finally:
