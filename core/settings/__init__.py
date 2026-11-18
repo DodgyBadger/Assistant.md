@@ -759,7 +759,7 @@ def get_browser_max_calls_per_turn() -> int:
     try:
         limit = _setting_int(value)
     except (TypeError, ValueError):
-        return 4
+        return 0
     return max(0, limit)
 
 

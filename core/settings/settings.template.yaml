@@ -161,7 +161,7 @@ settings:
     category: "Browser and API"
     restart_required: false
   browser_max_calls_per_turn:
-    value: 4
+    value: 0
     description: "Maximum browser calls in one execution task. 0 disables this browser-specific circuit breaker."
     category: "Browser and API"
     restart_required: false
