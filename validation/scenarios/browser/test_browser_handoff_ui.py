@@ -9,6 +9,7 @@ import pytest_asyncio
 from playwright.async_api import expect
 
 from validation.support.browser.browser_fullstack import hold_delivery, setting
+from validation.support.browser.browser_sessions import load_thread, thread
 from validation.support.browser.handoff_provider import browser_handoff_provider
 from validation.support.browser.private_page import private_browser_page
 from validation.support.browser.retained_site import retained_browser_site
@@ -547,3 +548,28 @@ async def test_sign_in_window_uses_same_modal_and_restores_original_chat_browser
                     "JSON.stringify([localStorage, sessionStorage])"
                 )
                 assert not leaked
+
+
+async def test_ordinary_chat_history_loads_without_any_browser_handoff(
+    browser_app, browser
+):
+    thread(browser_app, "ordinary-chat", [("Question", "Retained ordinary answer")])
+    async with private_browser_page(browser_app, browser) as page:
+        await load_thread(page, browser_app, "ordinary-chat")
+        await expect(
+            page.locator("#chat-messages").get_by_text(
+                "Retained ordinary answer", exact=True
+            )
+        ).to_be_visible()
+        await expect(
+            page.get_by_role(
+                "button", name="Fork session from this message", exact=True
+            )
+        ).to_have_count(1)
+        await page.reload()
+        await load_thread(page, browser_app, "ordinary-chat")
+        await expect(
+            page.get_by_role(
+                "button", name="Fork session from this message", exact=True
+            )
+        ).to_have_count(1)

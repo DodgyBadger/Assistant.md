@@ -11,7 +11,8 @@
         let active = null, latest = null, recovery = null, lookup = null, ending = null, endFailure = null;
         let revision = 0;
         const sameGeneration = (a, b) => a && b && ['handoff_id', 'task_id', 'browser_id', 'page_id'].every(key => a[key] === b[key]);
-        const connected = (context, sessionId) => context?.browserHandoffSessionId === sessionId && context.messageDiv.isConnected;
+        const connected = (context, sessionId) => Boolean(context && sessionId &&
+            context.browserHandoffSessionId === sessionId && context.messageDiv.isConnected);
         const validView = view => view && /^[a-f0-9]{32}$/.test(view.handoff_id || '') &&
             /^task_[a-f0-9]{32}$/.test(view.task_id || '') && /^[a-f0-9]{32}$/.test(view.page_id || '') &&
             /^[a-f0-9]{32}$/.test(view.browser_id || '') &&

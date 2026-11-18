@@ -3720,10 +3720,11 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "89314d0c8760730079f138e138104f08ca5860d0d02b91cef2737707ecdf93c1",
+      "sha256": "68a4ddb1fb969df3cc0f448a84e0a747c29967edbb9623be95283523f25cb0f7",
       "tests": [
         "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
-        "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser"
+        "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser",
+        "test_ordinary_chat_history_loads_without_any_browser_handoff"
       ]
     },
     {
