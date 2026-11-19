@@ -4130,6 +4130,15 @@ body.explorer-resizing { cursor: col-resize; user-select: none; }
 .browser-handoff-heading h2 { margin: 0; font-size: 0.875rem; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
 .browser-handoff-heading [role="status"] { margin: 0; font-size: 0.75rem; line-height: 1.4; }
 .browser-handoff-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+.browser-handoff-return { position: relative; display: flex; }
+.browser-handoff-return > [data-return] { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.browser-handoff-return > [data-more] { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 1px solid rgb(var(--border-primary)); padding-inline: 0.625rem; }
+.browser-handoff-return-menu { position: absolute; top: calc(100% + 0.25rem); right: 0; z-index: 2; padding: 0.25rem; background: rgb(var(--bg-card)); border: 1px solid rgb(var(--border-primary)); border-radius: 0.375rem; box-shadow: 0 4px 12px rgb(0 0 0 / 0.2); white-space: nowrap; }
+.browser-handoff-instructions:not([hidden]) { display: grid; gap: 0.5rem; }
+.browser-handoff-instructions textarea { resize: vertical; min-height: 4rem; max-height: 12rem; padding: 0.5rem; border: 1px solid rgb(var(--border-primary)); border-radius: 0.375rem; background: rgb(var(--bg-app)); }
+.browser-handoff-instructions p { margin: 0; }
+.browser-handoff-instructions > button { justify-self: start; }
+
 .browser-handoff-body { padding: 0.5rem 0.75rem 0.75rem; display: grid; gap: 0.5rem; }
 .browser-handoff-preview:focus-visible { outline: 2px solid rgb(var(--accent-primary)); outline-offset: 2px; }
 .browser-handoff-body img { display: block; width: 100%; height: auto; border: 0; cursor: pointer; }

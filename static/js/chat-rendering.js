@@ -5,6 +5,9 @@
         let currentEmptyStateMessage = CHAT_EMPTY_STATE_MESSAGE;
         const browserHandoff = window.BrowserHandoff.create({
             state,
+            getRevisionRequest: callbacks.browserRevisionRequest,
+            onRevised: callbacks.followBrowserRevision,
+            onRevisionError: addChatErrorMessage,
             createContext: () => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'browser-session-recovery';

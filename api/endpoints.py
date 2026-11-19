@@ -36,14 +36,12 @@ from core.chat.task_events import ChatTaskEventCursorExpired
 from core.chat.task_execution import (
     CHAT_TASK_EVENT_BUFFER,
     start_chat_turn_retry_task,
-    start_queued_chat_stream_task,
     stream_chat_task_sse,
 )
 from core.identity import require_current_execution_authority
 from core.ingestion.jobs import IngestionJob
 from core.ingestion.models import JobStatus
 from core.llm.openai_oauth import OPENAI_OAUTH_LOOPBACK_REDIRECT_URI
-from core.llm.thinking import normalize_thinking_value, thinking_value_to_label
 from core.logger import UnifiedLogger
 from core.mcp.oauth import resolve_mcp_oauth_redirect
 from core.memory.session_discovery import MAX_DISCOVERY_LIMIT
@@ -210,7 +208,6 @@ from .services import (
     get_chat_tool_call_detail,
     get_configurable_models,
     get_configurable_providers,
-    get_enabled_chat_tool_names,
     get_execution_task,
     get_general_settings_config,
     get_import_job,
@@ -275,6 +272,7 @@ from .services import (
     upsert_configurable_model,
     upsert_configurable_provider,
 )
+from .services.chat_tasks import start_chat_task_request
 from .services.google_connections import (
     complete_google_oauth,
     create_google_connection,
@@ -587,69 +585,6 @@ async def _parse_single_vault_upload(
     return form, files[0]
 
 
-async def _start_chat_task_request(
-    chat_request: ChatTaskRequest,
-    image_uploads: list[UploadedImageAttachment],
-) -> ChatTaskStartResponse:
-    """Start task-owned streaming chat execution."""
-    vault_path = str(resolve_vault_root(chat_request.vault_name))
-    enabled_tools = get_enabled_chat_tool_names()
-    try:
-        session_id = resolve_chat_session_for_request(
-            requested_session_id=chat_request.session_id,
-            vault_name=chat_request.vault_name,
-        )
-        if chat_request.workspace_path is not None:
-            set_chat_session_workspace(
-                chat_request.vault_name,
-                session_id,
-                chat_request.workspace_path,
-            )
-    except ChatSessionVaultMismatch as exc:
-        raise ChatSessionVaultMismatchError(
-            session_id=exc.session_id,
-            requested_vault=exc.requested_vault,
-            bound_vault=exc.bound_vault,
-        ) from exc
-
-    resolved_thinking = normalize_thinking_value(
-        chat_request.thinking, source_name="chat thinking"
-    )
-    logger.info(
-        "Chat task request accepted",
-        data={
-            "vault_name": chat_request.vault_name,
-            "session_id": session_id,
-            "streaming": True,
-            "model": chat_request.model,
-            "thinking": thinking_value_to_label(resolved_thinking),
-            "tools": list(enabled_tools),
-            "tools_count": len(enabled_tools),
-            "prompt_length": len(chat_request.prompt),
-            "image_path_count": len(chat_request.image_paths),
-            "image_upload_count": len(image_uploads),
-            "context_template": chat_request.context_template,
-            "workspace_path": chat_request.workspace_path,
-            "chat_mode": chat_request.chat_mode,
-        },
-    )
-    started = await start_queued_chat_stream_task(
-        vault_name=chat_request.vault_name,
-        vault_path=vault_path,
-        prompt=chat_request.prompt,
-        image_paths=chat_request.image_paths,
-        image_uploads=image_uploads,
-        session_id=session_id,
-        tools=enabled_tools,
-        model=chat_request.model,
-        thinking=resolved_thinking,
-        context_template=chat_request.context_template,
-        chat_mode=chat_request.chat_mode,
-    )
-    task = await get_execution_task(started.task.task_id)
-    return ChatTaskStartResponse(session_id=session_id, task=task)
-
-
 #######################################################################
 ## Health & Status Endpoints
 #######################################################################
@@ -920,7 +855,7 @@ async def start_chat_task(
     """Start task-owned streaming chat execution and return its task snapshot."""
     try:
         chat_request, image_uploads = await _parse_chat_task_payload(request)
-        return await _start_chat_task_request(chat_request, image_uploads)
+        return await start_chat_task_request(chat_request, image_uploads)
     except Exception as e:
         if isinstance(e, APIException):
             logger.warning(

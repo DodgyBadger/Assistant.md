@@ -86,6 +86,7 @@ class BrowserService:
         self._expiry: asyncio.Task[None] | None = None
         self._expiry_wakeup = asyncio.Event()
         self._expiry_failures: list[str] = []
+        self._return_operations = BrowserOperations[tuple[HandoffView, str | None]]()
         self._session_locks: WeakValueDictionary[tuple[str, str], asyncio.Lock] = (
             WeakValueDictionary()
         )
@@ -277,11 +278,47 @@ class BrowserService:
             return handoff.view()
 
     async def return_handoff(self, session_id: str, handoff_id: str) -> HandoffView:
+        view, _ = await self._return_handoff(session_id, handoff_id)
+        return view
+
+    async def return_with_instructions(
+        self,
+        session_id: str,
+        handoff_id: str,
+        revision_key: str,
+        start_replacement: Callable[[], Awaitable[str]],
+    ) -> str:
+        # The runtime owns this bounded mutation even if viewer teardown or
+        # transport loss cancels its caller after cancellation was accepted.
+        self._human_chat(session_id)
+        _, task_id = await self._return_operations.run(
+            self._return_handoff(
+                session_id, handoff_id, revision_key, start_replacement
+            )
+        )
+        if task_id is None:
+            raise RuntimeError("Browser revision has no replacement task")
+        return task_id
+
+    async def _return_handoff(
+        self,
+        session_id: str,
+        handoff_id: str,
+        revision_key: str | None = None,
+        start_replacement: Callable[[], Awaitable[str]] | None = None,
+    ) -> tuple[HandoffView, str | None]:
         key = self._human_chat(session_id)
         async with asyncio.timeout(10), self._session_lock(key):
             retained, handoff = await self._human_handoff(key, handoff_id)
             if handoff.status == "returned":
-                return handoff.view()
+                if revision_key is not None and (
+                    revision_key != handoff.revision_key
+                    or handoff.replacement_task_id is None
+                ):
+                    raise BrowserAdmissionError(
+                        "stale_handoff", "Control has already returned"
+                    )
+                return handoff.view(), handoff.replacement_task_id
             await self._require_handoff_task(key, handoff)
             if handoff.status != "human":
                 raise BrowserAdmissionError(
@@ -369,13 +406,38 @@ class BrowserService:
                         "stale_handoff",
                         "Inspect the original page before returning control",
                     )
+                if start_replacement is not None:
+                    cancellation = (
+                        await get_runtime_context().execution_task_access.cancel_task(
+                            handoff.task_id, reason="browser_instructions_revised"
+                        )
+                    )
+                    if cancellation is None or not cancellation.effective:
+                        raise BrowserAdmissionError(
+                            "stale_handoff", "The paused task is no longer active"
+                        )
+                    handoff.replacement_task_id = await start_replacement()
+                    handoff.revision_key = revision_key
+                    logger.info(
+                        "Browser instructions revised",
+                        data={
+                            "event": "browser_handoff_revised",
+                            "status": "completed",
+                            "session_id": key[1],
+                            "principal_id": key[0],
+                            "task_id": handoff.task_id,
+                            "handoff_id": handoff.handoff_id,
+                            "browser_id": handoff.browser_id,
+                            "replacement_task_id": handoff.replacement_task_id,
+                        },
+                    )
                 handoff.status = "returned"
                 retained.last_activity = self._loop.time()
                 try:
                     await self._publish_handoff(key, handoff)
                 finally:
                     handoff.finish("returned")
-                return handoff.view()
+                return handoff.view(), handoff.replacement_task_id
             finally:
                 if handoff.status != "returned" and self._sessions.get(key) is retained:
                     session.popup_enabled = True
@@ -1390,6 +1452,12 @@ class BrowserService:
 
     async def _drain(self) -> None:
         failures: list[BaseException] = []
+        try:
+            async with asyncio.timeout(12):
+                while not await self._return_operations.settled():
+                    await asyncio.sleep(0.01)
+        except BaseException as exc:
+            failures.append(exc)
         if self._expiry is not None:
             try:
                 async with asyncio.timeout(20):

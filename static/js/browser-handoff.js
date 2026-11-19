@@ -13,7 +13,7 @@
     const RETURNED_NOTICE = 'Control returned to the assistant.';
     const bytes = (text) => new TextEncoder().encode(text).length;
 
-    function create({ state, createContext }) {
+    function create({ state, createContext, getRevisionRequest, onRevised, onRevisionError }) {
         let active = null, latest = null, recovery = null, lookup = null, ending = null, endFailure = null;
         let revision = 0;
         const sameGeneration = (a, b) => a && b && ['handoff_id', 'task_id', 'browser_id', 'page_id'].every(key => a[key] === b[key]);
@@ -157,7 +157,12 @@
         }
 
         function controls(run) {
-            run.handback.disabled = run.returning || run.queue.length > 0 || !run.claimed || !run.hasFrame;
+            run.handback.disabled = run.returning || run.queue.length > 0 || !run.claimed || !run.hasFrame ||
+                (run.withInstructions && !run.instructions.value.trim());
+            run.more.disabled = run.returning || run.queue.length > 0 || !run.claimed || !run.hasFrame;
+            run.instructions.readOnly = run.returning || run.revisionPending;
+            run.cancelInstructions.disabled = run.returning || run.revisionPending;
+            run.end.disabled = run.returning || run.revisionPending;
             run.keyboard.readOnly = !run.claimed || !run.hasFrame || run.returning;
             run.image.setAttribute('aria-disabled', String(run.returning || !run.metadata));
             const windowBusy = run.returning || run.busy || run.queue.length > 0 || !run.metadata;
@@ -408,10 +413,11 @@
         }
 
         function handback(run) {
-            if (!current(run) || document.hidden || run.returning || run.queue.length || !run.claimed || !run.hasFrame) return;
+            if (!current(run) || document.hidden || run.returning || run.revisionPending || run.queue.length || !run.claimed || !run.hasFrame) return;
             clearTimeout(run.timer);
             // One explicit intent waits behind already-owned browser I/O.
             // Editing stops immediately; the backend still decides handback.
+            if (run.withInstructions && !run.instructions.value.trim()) return;
             run.returning = true;
             discardInput(run);
             run.status.textContent = 'Returning control after the current browser update…';
@@ -425,16 +431,44 @@
             run.busy = true;
             controls(run);
             try {
-                await request(run, '/return', { method: 'POST' });
-                if (visible(run, epoch)) close(run);
+                if (run.withInstructions) {
+                    const prompt = run.instructions.value.trim();
+                    const payload = getRevisionRequest(prompt, run.sessionId);
+                    run.revisionPending = true;
+                    // Cancellation of the original chat disposes its viewer.
+                    // This accepted mutation owns its own transport deadline.
+                    const controller = new AbortController();
+                    const deadline = setTimeout(() => controller.abort(), 20000);
+                    let started;
+                    try {
+                        const response = await fetch(`${run.path}/return-with-instructions`, {
+                            method: 'POST', signal: controller.signal,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload), cache: 'no-store',
+                            credentials: 'same-origin', redirect: 'error',
+                        });
+                        const body = await response.json();
+                        if (!response.ok) throw { reason: body.detail };
+                        if (body.session_id !== run.sessionId || !body.task?.task_id) throw { reason: 'invalid_revision' };
+                        started = body;
+                    } finally { clearTimeout(deadline); }
+                    if (active === run) close(run);
+                    if (state.sessionId === run.sessionId) void onRevised(started, run.sessionId);
+                } else {
+                    await request(run, '/return', { method: 'POST' });
+                    if (visible(run, epoch)) close(run);
+                }
             } catch (error) {
-                if (!visible(run, epoch)) return;
+                if (!visible(run, epoch)) {
+                    if (run.withInstructions && state.sessionId === run.sessionId) onRevisionError('Returning with instructions could not be confirmed. Reload this chat to check whether the new request started.');
+                    return;
+                }
                 run.notice = error.reason === 'credentials_pending'
                     ? 'Submit or clear password and verification fields before returning control.'
                     : 'Control could not be returned. Inspect the page and try again.';
                 run.status.textContent = run.notice;
             } finally {
-                run.busy = run.returning = false;
+                run.busy = run.returning = run.revisionPending = false;
                 if (current(run)) { controls(run); void pump(run); }
             }
         }
@@ -447,8 +481,8 @@
             dialog.className = 'browser-handoff-modal';
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
-            dialog.innerHTML = `<header class="app-modal-header"><div class="browser-handoff-heading"><h2>Browsing: <output aria-label="Website origin" class="cell-mono">…</output></h2><p role="status">Opening browser…</p></div><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-end>End session</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
-                <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
+            dialog.innerHTML = `<header class="app-modal-header"><div class="browser-handoff-heading"><h2>Browsing: <output aria-label="Website origin" class="cell-mono">…</output></h2><p role="status">Opening browser…</p></div><div class="browser-handoff-actions"><div class="browser-handoff-return"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-primary" data-more aria-label="More return options" aria-haspopup="menu" aria-expanded="false" disabled>▾</button><div class="browser-handoff-return-menu" role="menu" hidden><button type="button" role="menuitem" class="ui-button-secondary" data-revise>Return with instructions</button></div></div><button type="button" class="ui-button-secondary" data-end>End session</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
+                <div class="browser-handoff-body"><div class="browser-handoff-instructions" data-instructions-panel hidden><label>Updated instructions<textarea aria-label="Updated instructions" maxlength="4000" rows="3" placeholder="What should the assistant do next?"></textarea></label><p class="text-xs text-txt-secondary">These instructions are sent to the assistant and saved in chat. Keep passwords and verification codes in the webpage.</p><button type="button" class="ui-button-secondary" data-cancel-instructions>Cancel changes</button></div><div data-window-controls hidden><span data-window-label></span>
                 <button type="button" class="ui-button-secondary" data-original>Original page</button>
                 <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
                 <div class="browser-handoff-preview" role="group" aria-label="Browser page controls" tabindex="0"><img alt="Browser page" draggable="false" hidden></div>
@@ -470,6 +504,10 @@
                 image: dialog.querySelector('img'), keyboard: dialog.querySelector('input'),
                 originLabel: dialog.querySelector('output'),
                 status: dialog.querySelector('[role=status]'), handback: dialog.querySelector('[data-return]'),
+                more: dialog.querySelector('[data-more]'), menu: dialog.querySelector('[role=menu]'),
+                instructionsPanel: dialog.querySelector('[data-instructions-panel]'),
+                instructions: dialog.querySelector('textarea'), withInstructions: false, revisionPending: false,
+                cancelInstructions: dialog.querySelector('[data-cancel-instructions]'), end: dialog.querySelector('[data-end]'),
             };
             active = run;
             const on = (target, name, listener, options = {}) => target.addEventListener(name, listener, { ...options, signal: run.listeners.signal });
@@ -477,6 +515,27 @@
             on(dialog.querySelector('[data-end]'), 'click', () => { void endSession(context); });
             on(dialog, 'cancel', (event) => { event.preventDefault(); close(run); });
             on(run.handback, 'click', () => { void handback(run); });
+            const hideMenu = () => { run.menu.hidden = true; run.more.setAttribute('aria-expanded', 'false'); };
+            on(run.more, 'click', () => {
+                run.menu.hidden = !run.menu.hidden;
+                run.more.setAttribute('aria-expanded', String(!run.menu.hidden));
+                if (!run.menu.hidden) run.menu.querySelector('button').focus();
+            });
+            on(dialog, 'keydown', event => {
+                if (event.key === 'Escape' && !run.menu.hidden) {
+                    event.preventDefault(); event.stopPropagation(); hideMenu(); run.more.focus();
+                }
+            });
+            on(dialog, 'click', event => { if (!event.target.closest('.browser-handoff-return')) hideMenu(); });
+            on(dialog.querySelector('[data-revise]'), 'click', () => {
+                hideMenu(); run.withInstructions = true; run.instructionsPanel.hidden = false;
+                run.handback.textContent = 'Return with instructions'; controls(run); run.instructions.focus();
+            });
+            on(run.instructions, 'input', () => controls(run));
+            on(run.cancelInstructions, 'click', () => {
+                run.withInstructions = false; run.instructions.value = ''; run.instructionsPanel.hidden = true;
+                run.handback.textContent = 'Return control'; controls(run); run.handback.focus();
+            });
             const selectPage = (pageId) => {
                 if (!current(run) || run.returning || run.busy || run.queue.length || !run.metadata) return;
                 discardInput(run);
@@ -541,7 +600,7 @@
                 editingKey(event);
             });
             on(document, 'visibilitychange', () => {
-                run.returning = false;
+                if (!run.revisionPending) run.returning = false;
                 run.epoch += 1;
                 discardInput(run);
                 clearPixels(run);

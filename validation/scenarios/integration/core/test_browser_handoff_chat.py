@@ -19,8 +19,9 @@ from validation.support.chat.chat_persistence import PERSISTENCE_CONTEXT
 pytestmark = pytest.mark.scenario
 
 
+@pytest.mark.parametrize("revised", [False, True])
 async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider(
-    app: Application, monkeypatch: pytest.MonkeyPatch
+    app: Application, monkeypatch: pytest.MonkeyPatch, revised: bool
 ) -> None:
     vault = app.vault("BrowserChatHandoffVault")
     app.write(vault, "AssistantMD/Authoring/full_history.md", PERSISTENCE_CONTEXT)
@@ -101,6 +102,14 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                 finally:
                     await stream.aclose()
                 path = handoff_path("handoff-chat") + "/" + state["handoff_id"]
+                updated_prompt = "Keep this login and inspect the current page; do not resume the original task."
+                revision_request = {
+                    "vault_name": vault.name,
+                    "session_id": "handoff-chat",
+                    "prompt": updated_prompt,
+                    "model": "code-tool-model",
+                    "context_template": "full_history.md",
+                }
                 async with human_transport(app) as client:
                     assert (await client.post(path + "/claim")).status_code == 200
                     snapshot = (await app.request_async(replay_url)).json()
@@ -125,6 +134,14 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                             json={**metadata, "kind": "text", "text": sentinel},
                         )
                     ).status_code == 200
+                    if revised:
+                        await fresh_frame(client, path)
+                        refused = await client.post(
+                            path + "/return-with-instructions", json=revision_request
+                        )
+                        assert refused.status_code == 409
+                        assert refused.json()["detail"] == "credentials_pending"
+                        assert len(calls) == 2
                     metadata = await fresh_frame(client, path)
                     assert (
                         await client.post(
@@ -136,28 +153,42 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                         while not site.submissions:
                             await asyncio.sleep(0.03)
                     await fresh_frame(client, path)
-                    assert (await client.post(path + "/return")).status_code == 200
+                    if revised:
+                        response = await client.post(
+                            path + "/return-with-instructions", json=revision_request
+                        )
+                        assert response.status_code == 200
+                        replacement_id = response.json()["task"]["task_id"]
+                        assert replacement_id != task_id
+                        duplicate = await client.post(
+                            path + "/return-with-instructions", json=revision_request
+                        )
+                        assert duplicate.status_code == 200
+                        assert duplicate.json()["task"]["task_id"] == replacement_id
+                        stale = await client.post(
+                            path + "/return-with-instructions",
+                            json={**revision_request, "prompt": "A different revision"},
+                        )
+                        assert stale.status_code == 409
+                    else:
+                        assert (await client.post(path + "/return")).status_code == 200
                 task = await app.wait_task(task_id)
-                assert task["status"] == "completed"
+                assert task["status"] == ("cancelled" if revised else "completed")
+                if revised:
+                    replacement = await app.wait_task(replacement_id)
+                    assert replacement["status"] == "completed"
+                    current = (
+                        await app.request_async(handoff_path("handoff-chat"))
+                    ).json()
+                    assert current["status"] == "returned"
+                    assert current["browser_id"] == state["browser_id"]
+                    assert current["page_id"] == state["page_id"]
+                    assert updated_prompt in json.dumps(calls[2]["messages"])
                 snapshot = (await app.request_async(replay_url)).json()
                 assert snapshot["terminal"] and snapshot["available"]
                 handoffs = [
                     e for e in snapshot["events"] if e["event"] == "browser_handoff"
                 ]
-                assert (
-                    len(handoffs) == 1
-                    and handoffs[0]["browser_handoff"]["status"] == "returned"
-                )
-                assert handoffs[0]["browser_handoff"]["task_id"] == task_id
-                assert len(calls) == 4
-                handoff_call_id = next(
-                    call["id"]
-                    for message in calls[2]["messages"]
-                    if message["role"] == "assistant"
-                    for call in message.get("tool_calls", [])
-                    if json.loads(call["function"]["arguments"]).get("operation")
-                    == "handoff"
-                )
 
                 # Decode the real provider-facing web-data envelope, leaving
                 # its trust boundary intact in the actual model request.
@@ -168,16 +199,32 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                         )
                     )
 
-                returned = browser_payload(
-                    next(
-                        message["content"]
-                        for message in calls[2]["messages"]
-                        if message["role"] == "tool"
-                        and message["tool_call_id"] == handoff_call_id
+                assert len(calls) == 4
+                if not revised:
+                    assert (
+                        len(handoffs) == 1
+                        and handoffs[0]["browser_handoff"]["status"] == "returned"
                     )
-                )
-                assert returned.get("control_owner") == "agent"
-                assert returned.get("next_action") == "inspect_retained_page"
+                    assert handoffs[0]["browser_handoff"]["task_id"] == task_id
+                    handoff_call_id = next(
+                        call["id"]
+                        for message in calls[2]["messages"]
+                        if message["role"] == "assistant"
+                        for call in message.get("tool_calls", [])
+                        if json.loads(call["function"]["arguments"]).get("operation")
+                        == "handoff"
+                    )
+
+                    returned = browser_payload(
+                        next(
+                            message["content"]
+                            for message in calls[2]["messages"]
+                            if message["role"] == "tool"
+                            and message["tool_call_id"] == handoff_call_id
+                        )
+                    )
+                    assert returned.get("control_owner") == "agent"
+                    assert returned.get("next_action") == "inspect_retained_page"
                 resumed_read = browser_payload(
                     [m for m in calls[3]["messages"] if m["role"] == "tool"][-1][
                         "content"

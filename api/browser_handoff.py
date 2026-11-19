@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Awaitable
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
+from pydantic import Field
 
 from core.browser.handoff import HandoffView
 from core.browser.human_input import BrowserInputError, HumanInput
@@ -16,7 +18,10 @@ from core.identity import AuthorizationError
 from core.logger import UnifiedLogger
 from core.runtime.state import get_runtime_context
 
+from .models import ChatTaskRequest, ChatTaskStartResponse
 from .principal import use_request_authority
+from .services.chat_tasks import start_chat_task_request
+from .services.execution_tasks import get_execution_task
 
 router = APIRouter(
     prefix="/api/chat/sessions", dependencies=[Depends(use_request_authority)]
@@ -84,6 +89,67 @@ async def return_handoff(
     return await result(
         get_runtime_context().browser.return_handoff(session_id, handoff_id)
     )
+
+
+class HandoffInstructionsRequest(ChatTaskRequest):
+    prompt: str = Field(min_length=1, max_length=4000)
+
+
+@router.post(
+    "/{session_id}/browser-handoff/{handoff_id}/return-with-instructions",
+    response_model=ChatTaskStartResponse,
+)
+async def return_with_instructions(
+    session_id: str,
+    handoff_id: str,
+    revision: HandoffInstructionsRequest,
+    request: Request,
+) -> ChatTaskStartResponse | JSONResponse:
+    require_same_origin(request)
+    if (
+        revision.session_id != session_id
+        or not revision.prompt.strip()
+        or revision.image_paths
+    ):
+        raise HTTPException(status_code=422, detail="Invalid revised instructions")
+    runtime = get_runtime_context()
+    try:
+        session = runtime.chat_session_access.require_session(session_id)
+        if session.vault_name != revision.vault_name:
+            raise HTTPException(status_code=409, detail="Chat vault mismatch")
+        # Cache only an opaque request identity on the handoff, never its text.
+        identity = hashlib.sha256(revision.model_dump_json().encode()).hexdigest()
+
+        async def start_replacement() -> str:
+            updated = revision.model_copy(
+                update={
+                    "prompt": (
+                        "Browser control has returned with revised user instructions. "
+                        "Follow these instead of resuming the interrupted task. "
+                        "The same browser page and login are retained; inspect it without a URL.\n\n"
+                        + revision.prompt.strip()
+                    )
+                }
+            )
+            started = await start_chat_task_request(
+                updated, [], display_prompt=revision.prompt.strip()
+            )
+            return started.task.task_id
+
+        task_id = await runtime.browser.return_with_instructions(
+            session_id, handoff_id, identity, start_replacement
+        )
+        return ChatTaskStartResponse(
+            session_id=session_id, task=await get_execution_task(task_id)
+        )
+    except HTTPException:
+        raise
+    except LookupError:
+        raise HTTPException(
+            status_code=404, detail="Browser handoff unavailable"
+        ) from None
+    except Exception as error:
+        return private_error(error)
 
 
 async def read_private_input(request: Request) -> HumanInput:

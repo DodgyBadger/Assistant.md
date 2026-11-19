@@ -13,6 +13,8 @@ Read rendered web pages or interact with an isolated browser retained for the cu
 5. When a genuine human sign-in, credential or verification step is required, briefly explain the needed step, then call `operation="handoff"` on the retained browser. The call waits until the user selects Return control; do not ask for a separate chat confirmation.
 6. A successful handoff result means control has already returned to you. Acknowledge the return, read the retained page without supplying a URL and inspect the result. Continue any already-requested next steps, or ask for new instructions when none remain. Returning control does not itself prove that sign-in succeeded.
 
+Instructions supplied when returning browser control replace the interrupted request. Follow the revised instructions using the retained browser; do not resume the interrupted plan.
+
 Authentication belongs to the retained browser context. Other extraction tools and extraction-only browser calls do not inherit its session.
 
 Use `web_crawl` for bounded exploration across related pages. Use `content_import` for durable vault imports, PDFs and downloadable documents.

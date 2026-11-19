@@ -41,6 +41,8 @@ class BrowserHandoff:
     reason: HandoffReason
     handoff_id: str = field(default_factory=lambda: uuid4().hex)
     status: HandoffStatus = "waiting"
+    revision_key: str | None = None
+    replacement_task_id: str | None = None
     completed: asyncio.Future[HandoffStatus] = field(
         default_factory=lambda: asyncio.get_running_loop().create_future()
     )

@@ -12,6 +12,7 @@
         callbacks,
     }) {
         let postTurnRefreshController = null;
+        const streamSettlements = new WeakMap();
 
         async function refreshSessionAfterTask(taskId, vault, sessionId, streamController) {
             postTurnRefreshController?.abort();
@@ -40,7 +41,14 @@
             }
         }
 
-        async function streamStartedChatTask(
+        async function streamStartedChatTask(started, vault, abortController, options = {}) {
+            const completion = consumeStartedChatTask(started, vault, abortController, options);
+            streamSettlements.set(abortController, completion);
+            try { return await completion; }
+            finally { streamSettlements.delete(abortController); }
+        }
+
+        async function consumeStartedChatTask(
             started,
             vault,
             abortController,
@@ -127,7 +135,7 @@
             }
         }
 
-        async function streamDeferredReviewTask(started) {
+        async function streamDeferredReviewTask(started, { hydrateReplay = false } = {}) {
             if (state.isLoading) {
                 chatRendering.addErrorMessage('Review submitted, but the follow-up response could not start because chat is busy.');
                 return false;
@@ -146,7 +154,7 @@
             callbacks.syncChatControlLocks();
 
             try {
-                await streamStartedChatTask(started, vault, abortController);
+                await streamStartedChatTask(started, vault, abortController, { hydrateReplay });
                 return true;
             } catch (error) {
                 console.error('Error streaming deferred review task:', error);
@@ -215,6 +223,37 @@
                     sessionControls.refreshCompactionState();
                 }
             }
+        }
+
+        function buildChatRequestData(prompt, sessionId) {
+            if (state.sessionId !== sessionId) throw new Error('The chat has changed. Reopen its browser to continue.');
+            const vault = elements.vaultSelector.value;
+            const model = elements.modelSelector.value;
+            if (!vault || !model) throw new Error('Select a vault and model before returning with instructions.');
+            return {
+                vault_name: vault, prompt, model,
+                thinking: elements.thinkingSelector?.value || 'default',
+                chat_mode: elements.chatModeSelector?.value || 'normal',
+                context_template: elements.templateSelector?.value || null,
+                workspace_path: workspacePicker.currentPath() || null,
+                session_id: sessionId,
+            };
+        }
+
+        async function followHandoffRevision(started, sessionId) {
+            if (state.sessionId !== sessionId) return false;
+            const previous = state.activeChatAbortController;
+            previous?.abort();
+            // Wait for the old stream's history reconciliation as well as SSE.
+            // Its late refresh must not replace the new turn's message context.
+            const settling = previous && streamSettlements.get(previous);
+            if (settling) await settling.catch(() => {});
+            if (previous) chatTaskStream.releaseActiveStream(previous);
+            if (state.sessionId !== sessionId) return false;
+            await callbacks.loadSession(sessionId, { skipActiveTaskCheck: true });
+            if (state.sessionId !== sessionId) return false;
+            // Follow the exact accepted replacement, including its replay.
+            return streamDeferredReviewTask(started, { hydrateReplay: true });
         }
 
         // Send message handler with streaming response support
@@ -304,16 +343,7 @@
                         signal: abortController.signal
                     });
                 } else {
-                    const requestData = {
-                        vault_name: vault,
-                        prompt: effectivePrompt,
-                        model: model,
-                        thinking: thinking,
-                        chat_mode: chatModeValue,
-                        context_template: contextTemplateValue,
-                        workspace_path: workspacePathValue,
-                        session_id: requestSessionId
-                    };
+                    const requestData = buildChatRequestData(effectivePrompt, requestSessionId);
                     startResponse = await fetch('api/chat/tasks', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -410,6 +440,8 @@
             stopChatResponse,
             streamDeferredReviewTask,
             streamStartedTask: streamStartedChatTask,
+            buildChatRequestData,
+            followHandoffRevision,
         });
     }
 

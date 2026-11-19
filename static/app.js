@@ -298,6 +298,8 @@ const chatRendering = window.ChatRendering.create({
             { checkpointId }
         ),
         retryLatestFailure: (button) => chatTaskActions.retryLatestFailure(button),
+        browserRevisionRequest: (prompt, sessionId) => chatTaskActions.buildChatRequestData(prompt, sessionId),
+        followBrowserRevision: (started, sessionId) => chatTaskActions.followHandoffRevision(started, sessionId),
         enhanceFileLinks: (container, context) => fileReferences.enhanceFileLinks(container, context),
         renderEditProposalArtifact: (container, artifactRef, options) => editProposals.renderArtifact(container, artifactRef, options),
     },

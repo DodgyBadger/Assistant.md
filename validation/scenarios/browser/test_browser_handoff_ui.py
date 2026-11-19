@@ -85,6 +85,7 @@ async def handoff_browser_app(browser_app, request):
     ("handoff_browser_app", "finish"),
     [
         ("direct", "return"),
+        ("direct", "revise"),
         ("proxy", "return"),
         ("direct", "stop"),
         ("direct", "end"),
@@ -124,7 +125,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                         else None
                     ),
                 )
-                if finish == "return":
+                if finish in {"return", "revise"}:
                     await page.set_viewport_size({"width": 900, "height": 620})
                 if finish == "end_lost_response":
                     # This chat exists before the UI fetches its session list.
@@ -175,7 +176,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     + f"/api/chat/sessions/{session_id}/browser-handoff/{claimed_view['handoff_id']}/frame"
                 )
                 blob_url = await preview.get_attribute("src")
-                if finish != "return":
+                if finish not in {"return", "revise"}:
                     if finish == "end_lost_response":
                         close_url = frame_url.removesuffix("/frame") + "/close"
                         async with hold_delivery(
@@ -383,7 +384,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     ):
                         pass
                 await expect(preview_controls).to_be_focused()
-                if finish == "return":
+                if finish in {"return", "revise"}:
                     # Native scrolling over app chrome must not become a wheel
                     # event inside the remote website or reset on frame refresh.
                     await modal.get_by_role("heading").hover()
@@ -471,16 +472,46 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     while not site.submissions:
                         await asyncio.sleep(0.05)
                 await expect(handback).to_be_enabled()
-                await return_after_passive_frame(
-                    page, app, modal, handback, frame_url, 200
-                )
+                replacement_id = None
+                if finish == "revise":
+                    updated_prompt = "Keep this login and inspect the current page; cancel the previous plan."
+                    await modal.get_by_role(
+                        "button", name="More return options", exact=True
+                    ).click()
+                    await modal.get_by_role(
+                        "menuitem", name="Return with instructions", exact=True
+                    ).click()
+                    await modal.get_by_role(
+                        "textbox", name="Updated instructions", exact=True
+                    ).fill(updated_prompt)
+                    async with page.expect_response(
+                        lambda r: r.url.endswith("/return-with-instructions")
+                    ) as revised:
+                        await modal.get_by_role(
+                            "button", name="Return with instructions", exact=True
+                        ).click()
+                    accepted = await revised.value
+                    assert accepted.status == 200
+                    replacement_id = (await accepted.json())["task"]["task_id"]
+                    assert replacement_id != claimed_view["task_id"]
+                    await expect(
+                        page.locator("#chat-messages").get_by_text(
+                            updated_prompt, exact=True
+                        )
+                    ).to_be_visible(timeout=20000)
+                else:
+                    await return_after_passive_frame(
+                        page, app, modal, handback, frame_url, 200
+                    )
                 await expect(modal).to_have_count(0)
-                await expect(link).to_be_hidden()
-                # State acknowledgement must change when ownership returns;
-                # neither the instruction nor acknowledgement wording is fixed.
-                handoff_notice = page.locator("#chat-messages").get_by_role("status")
-                await expect(handoff_notice).not_to_be_empty()
-                await expect(handoff_notice).not_to_have_text(waiting_notice)
+                if finish != "revise":
+                    await expect(link).to_be_hidden()
+                    # A changed acknowledgement must not depend on fixed copy.
+                    handoff_notice = page.locator("#chat-messages").get_by_role(
+                        "status"
+                    )
+                    await expect(handoff_notice).not_to_be_empty()
+                    await expect(handoff_notice).not_to_have_text(waiting_notice)
                 await expect(
                     page.locator("#chat-messages").get_by_text(
                         "Human handoff completed.", exact=True
@@ -488,12 +519,19 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 ).to_be_visible(timeout=20000)
                 assert site.submissions == [{"password": sentinel}]
                 assert len(calls) == 4
-                assert len(returns) == 2
+                assert len(returns) == (1 if finish == "revise" else 2)
                 from core.runtime.state import get_runtime_context
 
                 runtime = get_runtime_context()
                 task = await app.wait_task(claimed_view["task_id"])
-                assert task["status"] == "completed"
+                assert task["status"] == (
+                    "cancelled" if finish == "revise" else "completed"
+                )
+                if replacement_id:
+                    assert (await app.wait_task(replacement_id))[
+                        "status"
+                    ] == "completed"
+                    assert updated_prompt in json.dumps(calls[2]["messages"])
                 # Provider/history audit is in memory, before evidence redaction.
                 private_leaked = (
                     sentinel in json.dumps(calls)
