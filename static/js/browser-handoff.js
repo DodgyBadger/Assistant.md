@@ -354,7 +354,7 @@
                     if (!visible(run, epoch)) return;
                     if (!await frame(run, epoch)) return;
                 }
-                if (visible(run, epoch) && !run.returning) run.status.textContent = run.notice || 'Complete the human step, then return control.';
+                if (visible(run, epoch) && !run.returning) run.status.textContent = run.notice || 'Complete human step then return control.';
             } catch (error) {
                 if (!visible(run, epoch)) return;
                 discardInput(run);
@@ -441,11 +441,10 @@
             dialog.className = 'browser-handoff-modal';
             dialog.setAttribute('aria-label', 'Browser');
             // All markup is fixed; website content is rendered only as pixels.
-            dialog.innerHTML = `<header class="app-modal-header"><h2>Browser</h2><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-end>End session</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
+            dialog.innerHTML = `<header class="app-modal-header"><div class="browser-handoff-heading"><h2>Browsing: <output aria-label="Website origin" class="cell-mono">…</output></h2><p role="status">Opening browser…</p></div><div class="browser-handoff-actions"><button type="button" class="ui-button-primary" data-return disabled>Return control</button><button type="button" class="ui-button-secondary" data-end>End session</button><button type="button" class="ui-button-secondary" data-close>Close</button></div></header>
                 <div class="browser-handoff-body"><div data-window-controls hidden><span data-window-label></span>
                 <button type="button" class="ui-button-secondary" data-original>Original page</button>
                 <button type="button" class="ui-button-secondary" data-sign-in>Sign-in window</button></div>
-                <output aria-label="Website origin" class="cell-mono"></output><p role="status">Opening browser…</p>
                 <div class="browser-handoff-preview" role="group" aria-label="Browser page controls" tabindex="0"><img alt="Browser page" draggable="false" hidden></div>
                 <label>Keyboard input<input type="password" aria-label="Browser keyboard input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type or paste into the focused page field" readonly></label>
                 <p class="text-xs text-txt-secondary">Click the page to focus a field, then type or paste. Tab moves within the page; Shift+Tab leaves keyboard input. Escape closes this window; you can reopen it from chat.</p>

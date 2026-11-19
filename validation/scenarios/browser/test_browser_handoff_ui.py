@@ -383,9 +383,7 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 if finish == "return":
                     # Native scrolling over app chrome must not become a wheel
                     # event inside the remote website or reset on frame refresh.
-                    await modal.get_by_role(
-                        "heading", name="Browser", exact=True
-                    ).hover()
+                    await modal.get_by_role("heading").hover()
                     await page.mouse.wheel(0, 1000)
                     await page.wait_for_function(
                         "() => document.querySelector('dialog[aria-label=Browser]').scrollTop > 0"
