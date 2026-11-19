@@ -13,11 +13,15 @@ Choose an explicit authentication mode:
 
 Assistant.md provides no TLS, user registration, password recovery, or roles. Use HTTPS for remote access. The [Installation Guide](installation.md#access-from-another-device) provides authentication and proxy configuration examples.
 
+Run Uvicorn with `--no-proxy-headers` so authentication checks receive the actual socket peer. The supplied Docker and development launchers set this option. Custom launchers must preserve it; forwarded client addresses must not replace the peer used for authentication.
+
 For `trusted_proxy`, remove any client-supplied assertion header before inserting the proxy's value. Keep the assertion out of browser responses and the advanced shell, and allow only the authenticating proxy to reach the upstream. Restrict the immediate proxy network where stable addressing permits it.
 
 For `owner_token`, protect the credential in `.env` and use a different secret from the installation encryption key. Browser sessions last up to 12 hours. Logout clears cookies but does not revoke a copied session; rotate the owner token to invalidate outstanding sessions.
 
 Configure `ASSISTANTMD_PUBLIC_URL` with the externally visible HTTPS origin for exact OAuth callbacks. This setting does not establish TLS or proxy routing. At ingress, enforce authentication-failure rate limits, request-body limits, and an aggregate header limit no larger than 64 KiB. Application checks run after the HTTP server has received the request.
+
+For HTTPS deployments behind a reverse proxy, set `ASSISTANTMD_PUBLIC_URL` to the externally visible HTTPS origin, even when the proxy connects to Assistant.md over HTTP. This ensures owner-session cookies carry the Secure attribute. Forwarded scheme headers do not determine cookie security. This setting does not establish TLS or configure proxy routing.
 
 ## Advanced shell
 
