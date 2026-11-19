@@ -85,6 +85,7 @@ class BrowserService:
         self._handoff_publishers: dict[str, tuple[object, HandoffPublisher]] = {}
         self._expiry: asyncio.Task[None] | None = None
         self._expiry_wakeup = asyncio.Event()
+        self._expiry_failures: list[str] = []
         self._session_locks: WeakValueDictionary[tuple[str, str], asyncio.Lock] = (
             WeakValueDictionary()
         )
@@ -142,6 +143,16 @@ class BrowserService:
             if self._proxy is None:
                 self._proxy = await self._egress.start()
             return self._proxy
+
+    async def validate_target(self, url: str) -> None:
+        """Apply the shared bounded DNS policy without blocking browser callers."""
+        self._require_loop()
+        self._require_open()
+        await self._resolver.resolve(url)
+        # A lookup that outlives shutdown must not start a new browser after
+        # admission has closed. The proxy independently checks and pins each
+        # actual connection; this validation does not cache destination approval.
+        self._require_open()
 
     async def handoff_current(self, reason: HandoffReason) -> HandoffView:
         if reason not in {"sign_in", "credential", "verification"}:
@@ -1272,6 +1283,22 @@ class BrowserService:
                             await self._close_key(key)
                         else:
                             await self._expire_key_if_idle(key)
+                    except Exception as exc:
+                        # Failed cleanup closes admission, but cannot remove
+                        # the only idle owner for other retained sessions.
+                        # Their actual resource cleanup still gets an attempt.
+                        with self._lock:
+                            self._closed = True
+                        self._expiry_failures.append(type(exc).__name__)
+                        logger.add_sink("validation").error(
+                            "Browser inactivity cleanup failed",
+                            data={
+                                "event": "browser_expiry_failed",
+                                "status": "failed",
+                                "session_id": key[1],
+                                "error_type": type(exc).__name__,
+                            },
+                        )
                     finally:
                         lock.release()
                 try:
@@ -1397,6 +1424,20 @@ class BrowserService:
                     await asyncio.sleep(0.01)
         except TimeoutError as exc:
             failures.append(exc)
+        if self._expiry_failures:
+            # Historical failures remain visible even if final ownership is
+            # now confirmed. Do not turn them into a permanent shutdown error
+            # after every real owner closed, or erase actual cleanup failures.
+            logger.add_sink("validation").error(
+                "Browser shutdown followed failed inactivity cleanup",
+                data={
+                    "event": "browser_expiry_failure_summary",
+                    "status": "failed",
+                    "failure_count": len(self._expiry_failures),
+                    "error_types": sorted(set(self._expiry_failures)),
+                    "final_cleanup": "unconfirmed" if failures else "confirmed",
+                },
+            )
         if failures:
             raise BaseExceptionGroup("Browser resource cleanup is incomplete", failures)
 

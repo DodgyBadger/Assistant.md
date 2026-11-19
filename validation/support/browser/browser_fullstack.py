@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 
@@ -144,16 +145,28 @@ async def _abort_response_delivery(ui, pattern, gate, *, first_only):
         )
         yield
     finally:
-        gate.release.set()
-        session.remove_listener("Fetch.requestPaused", dispatch)
+        primary = sys.exception()
         try:
-            if pending:
-                await asyncio.wait_for(asyncio.gather(*pending), 15)
-        finally:
             try:
-                await session.send("Fetch.disable")
+                gate.release.set()
+                session.remove_listener("Fetch.requestPaused", dispatch)
+                if pending:
+                    await asyncio.wait_for(asyncio.gather(*pending), 15)
             finally:
-                await session.detach()
+                try:
+                    await session.send("Fetch.disable")
+                finally:
+                    await session.detach()
+        except BaseException as cleanup_error:
+            if primary is None:
+                raise
+            # A failed fault injection must not conceal the application's
+            # original assertion or timeout. Never retain intercepted payloads
+            # or raw SDK diagnostics in this note.
+            primary.add_note(
+                "Response interception cleanup also failed: "
+                f"{type(cleanup_error).__name__}"
+            )
 
 
 @asynccontextmanager

@@ -1527,6 +1527,7 @@ async def _collect_chat_stream_attempt(
     full_response = ""
     event_count = 0
     last_progress_publish = 0.0
+    browser_attention_required = False
     runtime = get_runtime_context()
     await runtime.task_coordinator.publish_progress(
         task_id,
@@ -1541,6 +1542,9 @@ async def _collect_chat_stream_attempt(
     async def publish_handoff(
         view: HandoffView, is_current: Callable[[], bool]
     ) -> None:
+        nonlocal browser_attention_required
+        if is_current():
+            browser_attention_required = view.status in {"waiting", "human"}
         await event_buffer.append_if_current(
             task_id,
             "browser_handoff",
@@ -1647,6 +1651,11 @@ async def _collect_chat_stream_attempt(
                 active_tools = _running_tool_names(tool_activity)
                 await runtime.task_coordinator.publish_progress(
                     task_id,
+                    health_status=(
+                        "attention_required"
+                        if browser_attention_required
+                        else "healthy"
+                    ),
                     metadata={
                         "model_stream_state": (
                             "tool_running" if active_tools else "receiving_model"

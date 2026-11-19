@@ -27,6 +27,7 @@ from pydantic_ai.tools import Tool
 from core.browser.driver import BrowserDriver
 from core.browser.environment import browser_environment
 from core.browser.handoff import HandoffReason
+from core.browser.network import BrowserNetworkError
 from core.browser.observation import (
     BrowserActionUncertain,
     BrowserInteractionError,
@@ -44,7 +45,6 @@ from core.settings import (
 )
 from core.web.errors import WebUrlPolicyError
 from core.web.security import (
-    resolve_public_url,
     sanitize_url_for_log,
     sanitize_urls_in_text_for_log,
 )
@@ -290,7 +290,7 @@ class BrowserTool(BaseTool):
         extract_selector: str,
         include_links: bool,
     ) -> str:
-        cls._validate_url(url)
+        await cls._validate_url(url)
         normalized_wait_until = cls._validate_wait_until(wait_until)
 
         timeout_ms, selector_timeout_ms = cls._get_timeout_settings()
@@ -454,7 +454,7 @@ class BrowserTool(BaseTool):
                 include_links=include_links,
             )
             final_url = page.url
-            cls._validate_url(final_url)
+            await cls._validate_url(final_url)
             cls._log_event(
                 "browser_extraction_completed",
                 tool="browser",
@@ -881,8 +881,8 @@ class BrowserTool(BaseTool):
             await route.abort("blockedbyclient")
             return
         try:
-            cls._validate_url(request_url)
-        except ValueError as exc:
+            await cls._validate_url(request_url)
+        except (ValueError, BrowserNetworkError, BrowserAdmissionError) as exc:
             cls._log_event(
                 "browser_request_blocked",
                 tool="browser",
@@ -989,7 +989,7 @@ class BrowserTool(BaseTool):
         return normalized
 
     @staticmethod
-    def _validate_url(url: str) -> None:
+    async def _validate_url(url: str) -> None:
         """Reject non-web schemes and local/private network targets."""
         normalized = (url or "").strip()
         parsed = urlsplit(normalized)
@@ -1000,7 +1000,7 @@ class BrowserTool(BaseTool):
                 "result_type: blocked\nOnly http, https, and data URLs are supported"
             )
         try:
-            resolve_public_url(normalized)
+            await get_runtime_context().browser.validate_target(normalized)
         except WebUrlPolicyError as exc:
             raise ValueError(f"result_type: blocked\n{exc}") from exc
 

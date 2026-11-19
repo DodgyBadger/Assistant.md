@@ -40,7 +40,7 @@ async def test_health_before_runtime_start(app: Application) -> None:
 
 async def test_owner_session(app: Application) -> None:
     app.vault("IngressAuthenticationVault")
-    await app.start()
+    await app.start(public_url="https://assistant.example.test")
     ingress = authentication_application(
         app, "owner_token", ASSISTANTMD_AUTH_SECRET=OWNER_SECRET
     )
@@ -157,6 +157,19 @@ async def test_owner_session(app: Application) -> None:
         assert logout.status_code == 200 and logout.json() == {"authenticated": False}
         assert (await browser.get("/")).status_code == 303
         assert (await browser.get("/api/status")).status_code == 401
+    # TLS terminates outside the HTTP upstream; deployment origin, not a
+    # caller-supplied forwarded scheme, determines these cookie attributes.
+    async with authentication_client(app, ingress) as upstream:
+        upstream.base_url = "http://assistant-internal:8000"
+        issued = await upstream.post(
+            "/auth/session",
+            json={"owner_token": OWNER_SECRET},
+            headers={"X-Forwarded-Proto": "http"},
+        )
+        assert issued.status_code == 200
+        assert all(
+            "Secure" in cookie for cookie in issued.headers.get_list("set-cookie")
+        )
 
 
 async def test_session_time_boundaries(app: Application) -> None:
@@ -285,3 +298,42 @@ async def test_peer_modes(app: Application) -> None:
         assert (await untrusted.get("/api/status", headers=headers)).status_code == 401
         duplicate = [("X-AssistantMD-Proxy-Assertion", OWNER_SECRET)] * 2
         assert (await trusted.get("/api/status", headers=duplicate)).status_code == 401
+
+    import httpx2
+
+    from validation.support.browser.browser_runtime import app_http_listener
+
+    async with app_http_listener(app, application=loopback) as url:
+        async with httpx2.AsyncClient(base_url=url) as wire:
+            # Uvicorn must retain this actual loopback socket peer even when
+            # headers name a different origin client, including a claimed port.
+            response = await wire.get(
+                "/api/status",
+                headers={
+                    "X-Forwarded-For": "198.51.100.9:34567",
+                    "X-Forwarded-Proto": "https",
+                },
+            )
+            assert response.status_code == 200
+    async with app_http_listener(app, application=proxy) as url:
+        async with httpx2.AsyncClient(base_url=url) as wire:
+            forged = await wire.get(
+                "/api/status",
+                headers={**headers, "X-Forwarded-For": "172.20.0.4:34567"},
+            )
+            assert forged.status_code == 401
+
+    owner = authentication_application(
+        app, "owner_token", ASSISTANTMD_AUTH_SECRET=OWNER_SECRET
+    )
+    async with authentication_client(app, owner, "127.0.0.1") as local_owner:
+        local_owner.base_url = "http://127.0.0.1:8000"
+        issued = await local_owner.post(
+            "/auth/session",
+            json={"owner_token": OWNER_SECRET},
+            headers={"X-Forwarded-Proto": "https"},
+        )
+        assert issued.status_code == 200
+        assert all(
+            "Secure" not in cookie for cookie in issued.headers.get_list("set-cookie")
+        )

@@ -321,7 +321,8 @@ run_server() {
     --port "${port}" \
     --reload \
     "${env_file_args[@]}" \
-    "${uvicorn_args[@]}"
+    "${uvicorn_args[@]}" \
+    --no-proxy-headers
 }
 
 run_checks() {

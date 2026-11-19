@@ -452,7 +452,7 @@
     },
     {
       "path": "scenarios/integration/core/test_browser_call_budget.py",
-      "sha256": "21c11ff6b97f1792846b54f4e97063d45862a874621b5345598589ecf166fb12",
+      "sha256": "fc4fb13ef10a9b5bb3c30f21203aa975bc896b79eafa7421854c030415e3b1f4",
       "kind": "behavioral",
       "tests": [
         "test_browser_budget_is_scoped_to_actual_execution_task",
@@ -1463,7 +1463,7 @@
     },
     {
       "path": "scenarios/integration/core/test_ingress_authentication.py",
-      "sha256": "073bd79667218873feddf4a0e42f5d3d8fc180e05c5bb9632a47d5dd988acf4b",
+      "sha256": "bed238e74723ed68bd6d78b877eb7feb1d0a92d57dcd5db7c043cd87a477901e",
       "kind": "behavioral",
       "tests": [
         "test_health_before_runtime_start",
@@ -2701,7 +2701,7 @@
     },
     {
       "path": "support/browser/browser_fullstack.py",
-      "sha256": "ed34c97b4426e8eb6024297da565f63444e59de1d96a12ff17e1b15eb0240e76",
+      "sha256": "06e34040e2476edc4fe9a081daf1ee3d7965c207a1cc42c334104beedcecc8c1",
       "kind": "support"
     },
     {
@@ -2716,7 +2716,7 @@
     },
     {
       "path": "support/browser/browser_runtime.py",
-      "sha256": "c219162fb86ced396c368c48ac95874a9a2b7d9e4347a26680e508d02ffa495a",
+      "sha256": "a09b01fef39a40f42c325da21b56b81e8d796768a0536e35de48e26346923f92",
       "kind": "support"
     },
     {
@@ -3527,7 +3527,7 @@
     {
       "path": "support/browser/admission.py",
       "kind": "support",
-      "sha256": "c5dc0525a8a12d6def12f70d76e3edde8b61b6e37b915f5651dca096b7c0e250"
+      "sha256": "46600f391f72559d6acafa732edc348a4c83be75a7c6e3d946caab220437bfe6"
     },
     {
       "path": "support/browser/retained_site.py",
@@ -3598,7 +3598,7 @@
     {
       "path": "scenarios/integration/core/test_browser_process_environment.py",
       "kind": "behavioral",
-      "sha256": "e0bed089e220b4c168ccd67626a9313fccfeef2d9e686799f4f0c3423f475234",
+      "sha256": "a3c252119581ce37a4e0bc30cb608e8ffcda7eb037100fb9f2b344253feac6c9",
       "tests": [
         "test_retained_browser_children_exclude_application_and_control_environment",
         "test_extraction_uses_same_private_driver_and_browser_environment"
@@ -3660,12 +3660,12 @@
     {
       "path": "support/browser/handoff_provider.py",
       "kind": "support",
-      "sha256": "b4ac5acfda82a837e368b2da14ae6d4974d688e68df663a435ee95c2f3cf505f"
+      "sha256": "94440dc207fe79ebc6e41f49df66bef2b7199c47408640ca435be0fcf0589d06"
     },
     {
       "path": "scenarios/integration/core/test_browser_handoff_chat.py",
       "kind": "behavioral",
-      "sha256": "00ae0d7aa1f39ee801c3c0bce87108a1567c739e9d02833724d782ef7c50e885",
+      "sha256": "e7e459792f7d4f78c8d1d412386a0dd0cff452e03b3c7ad552b969557d4fa1b4",
       "coverage_status": "registered_pending_parity_review",
       "tests": [
         "test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider"
@@ -3679,7 +3679,7 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "f2b89309a3468b0543a673249d6d0074981c428af318af1069ff487d463ea139",
+      "sha256": "2442e1bda34bb02a6a016a944599ca2c5fbae1ca3c9d0eac3782c979a685f07c",
       "tests": [
         "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
         "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser",
@@ -3707,7 +3707,7 @@
     {
       "path": "scenarios/integration/core/test_browser_resource_loading.py",
       "kind": "behavioral",
-      "sha256": "b328e44a4e01340ca81fc3f8719d23758cb86942559c44ae8b2b1566a84f7e5d",
+      "sha256": "d6bee8a1df5eb5d02cebdf000702e6011447c4835dd795bcc2f463357acdea6b",
       "tests": [
         "test_post_human_navigation_applies_a_burst_of_public_stylesheets",
         "test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_callers",
@@ -3727,7 +3727,7 @@
     {
       "path": "scenarios/integration/core/test_browser_fault_hardening.py",
       "kind": "behavioral",
-      "sha256": "ce68e58bb8caf6a1696d81689390d861f417740849f699a733541defdaac1bb1",
+      "sha256": "2f6353b5505d61e5739a3630ee4b1ce37c8cba0fa00037b307e334de67c5760e",
       "tests": [
         "test_runtime_shutdown_drains_inflight_browser_admission",
         "test_stop_during_browser_action_releases_lock_with_stalled_driver",
@@ -3744,13 +3744,28 @@
         "test_stopped_extraction_driver_cannot_block_task_cancellation",
         "test_uncertain_extraction_storage_cleanup_closes_browser_admission",
         "test_browser_shutdown_closes_stalled_proxy_handshake",
-        "test_unexpected_driver_death_preserves_storage_and_reports_uncertainty"
+        "test_unexpected_driver_death_preserves_storage_and_reports_uncertainty",
+        "test_one_expiry_cleanup_failure_does_not_strand_another_handoff"
       ]
     },
     {
       "path": "support/browser/actions.py",
       "kind": "support",
       "sha256": "b6fbeda2be549f59e67c78c4b1e8b988a074d3cbec196838bdbe504b18e1eacf"
+    },
+    {
+      "path": "scenarios/integration/core/test_browser_native_ownership.py",
+      "kind": "behavioral",
+      "sha256": "88b51fca4cd0dba746bb3bef206997eeba86adcd61dffc5183068f4f034ae314",
+      "tests": [
+        "test_closing_during_unpublished_driver_spawn_prevents_a_late_child",
+        "test_owned_display_exits_when_its_application_owner_is_killed"
+      ]
+    },
+    {
+      "path": "support/browser/native_ownership.py",
+      "kind": "support",
+      "sha256": "3d10b7cbabf3fd0bf489dd6480537b3ceab971440fddf615ad95d386fbd66acd"
     }
   ]
 }

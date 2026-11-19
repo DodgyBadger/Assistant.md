@@ -66,6 +66,8 @@ async def app_http_listener(app: Application, *, application=None):
                 else app.controller.get_api_test_client().app
             ),
             lifespan="off",
+            # Match the supported launch paths: auth sees the socket peer.
+            proxy_headers=False,
             log_level="error",
             timeout_graceful_shutdown=3,
         )

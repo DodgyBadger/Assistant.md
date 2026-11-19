@@ -19,6 +19,7 @@ from core.authentication import (
     OwnerSessionCodec,
 )
 from core.logger import UnifiedLogger
+from core.runtime.public_url import PublicOrigin
 
 router = APIRouter(prefix="/auth", tags=["Assistant.md authentication"])
 logger = UnifiedLogger(tag="authentication")
@@ -159,7 +160,15 @@ def _policy(request: Request) -> AuthenticationPolicy:
 
 
 def _secure_cookie(request: Request) -> bool:
-    return request.url.scheme == "https"
+    runtime = getattr(request.app.state, "runtime", None)
+    config = getattr(runtime, "config", None)
+    origin = getattr(config, "public_origin", None)
+    # A TLS terminator can reach this upstream over HTTP. Only canonical
+    # deployment configuration or actual TLS can establish cookie security;
+    # caller-controlled forwarding headers must not change peer admission.
+    return request.url.scheme == "https" or (
+        isinstance(origin, PublicOrigin) and origin.value.startswith("https://")
+    )
 
 
 async def _read_owner_token(request: Request) -> str:

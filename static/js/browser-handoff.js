@@ -71,6 +71,9 @@
                         latest.browserHandoffButton.disabled = true;
                         latest.browserHandoffButton.textContent = 'Browser session ended';
                         latest.browserHandoffNotice.textContent = '';
+                    } else if (!ending && latest.browserHandoffButton.disabled) {
+                        latest.browserHandoffNotice.setAttribute('role', 'alert');
+                        latest.browserHandoffNotice.textContent = 'Browser state could not be refreshed. Reload the chat to check its state.';
                     }
                     if (endFailure?.sessionId === sessionId) {
                         latest.browserHandoffButton.disabled = true;
@@ -112,7 +115,8 @@
                 ending = null;
                 // History may have replaced the original message while End was
                 // in flight. Reconcile the displayed session, never retry End.
-                if ((reconcile || !connected(context, sessionId)) && state.sessionId === sessionId) void restore(sessionId);
+                const displayedSession = state.sessionId;
+                if (displayedSession && (displayedSession !== sessionId || reconcile || !connected(context, sessionId))) void restore(displayedSession);
             }
         }
 
@@ -596,9 +600,13 @@
             }
             const stopped = view.status === 'stopped';
             context.browserHandoffButton.textContent = stopped ? 'End browser session' : ACTIVE.has(view.status) ? 'Open browser' : 'Browser session ended';
-            context.browserHandoffButton.disabled = Boolean(context.browserEnding) || (!ACTIVE.has(view.status) && !stopped);
+            const pendingOtherEnd = ending && ending.sessionId !== context.browserHandoffSessionId;
+            context.browserHandoffButton.disabled = Boolean(context.browserEnding || ending) || (!ACTIVE.has(view.status) && !stopped);
             context.browserHandoffNotice.setAttribute('role', 'status');
-            context.browserHandoffNotice.textContent = stopped
+            const pendingAction = ending && (ACTIVE.has(view.status) || stopped);
+            context.browserHandoffNotice.textContent = pendingAction && pendingOtherEnd
+                ? 'Another browser session is still ending. Wait for that request to finish.' : pendingAction
+                ? 'Ending browser session…' : stopped
                 ? 'Browser paused under human control. Ask the agent to resume the handoff, or end this session.' : '';
             if (active?.sessionId === state.sessionId &&
                 ((sameGeneration(active.view, view) && !ACTIVE.has(view.status)) ||

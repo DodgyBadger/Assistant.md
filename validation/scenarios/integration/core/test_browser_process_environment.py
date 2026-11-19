@@ -20,6 +20,7 @@ async def test_retained_browser_children_exclude_application_and_control_environ
 ) -> None:
     import asyncio
     import shutil
+    import sys
 
     from validation.support.browser.retained_site import wait_processes_gone
     from validation.support.core_processes import declare_core_command
@@ -28,7 +29,13 @@ async def test_retained_browser_children_exclude_application_and_control_environ
     original = asyncio.create_subprocess_exec
 
     async def launch(*args, **kwargs):
-        if args and args[0] == shutil.which("Xvfb"):
+        if (
+            len(args) > 4
+            and args[:2] == (sys.executable, "-I")
+            and Path(args[2]).name == "native_child.py"
+            and args[3] == str(os.getpid())
+            and args[4] == str(Path(shutil.which("Xvfb")).resolve())
+        ):
             assert any(
                 args[i : i + 2] == ("-nolisten", "tcp") for i in range(len(args) - 1)
             )

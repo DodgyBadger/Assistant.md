@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import socket
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -19,14 +18,13 @@ class HeldBrowserDNS:
     entered: Event = field(default_factory=Event)
     release: Event = field(default_factory=Event)
 
-    def call(self) -> str | ToolReturn:
-        # The current production resolver is synchronous. Run this call on its
-        # own loop so an external DNS delay does not block the concurrent caller.
+    async def call(self) -> str | ToolReturn:
+        # Exercise the real application loop: external DNS must not block it.
         from core.identity import LOCAL_USER_AUTHORITY, use_execution_authority
         from core.tools.browser import BrowserTool
 
         with use_execution_authority(LOCAL_USER_AUTHORITY):
-            return asyncio.run(BrowserTool.get_tool().function(url=self.url))
+            return await BrowserTool.get_tool().function(url=self.url)
 
 
 @contextmanager

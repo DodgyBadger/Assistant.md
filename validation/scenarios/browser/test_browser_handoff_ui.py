@@ -30,8 +30,10 @@ async def return_after_passive_frame(page, app, modal, handback, frame_url, stat
 
         page.on("request", observe)
         try:
-            async with page.expect_response(
-                lambda r: "/browser-handoff/" in r.url and r.url.endswith("/return")
+            async with page.expect_request(
+                lambda r: "/browser-handoff/" in r.url
+                and r.url.endswith("/return")
+                and r.method == "POST"
             ) as returned:
                 await expect(handback).to_be_enabled(timeout=1500)
                 await handback.click()
@@ -41,10 +43,21 @@ async def return_after_passive_frame(page, app, modal, handback, frame_url, stat
                 ).to_have_js_property("readOnly", True)
                 assert sent_after_capture == []
                 gate.release.set()
-            response = await returned.value
-            assert response.status == status
+            response = await (await returned.value).response()
             if status == 409:
+                assert response is not None and response.status == 409
                 assert (await response.json())["detail"] == "credentials_pending"
+            else:
+                # The authoritative returned event can close the viewer and
+                # cancel HTTP delivery. Require server acceptance for this exact
+                # generation, not a response to a disposed presentation surface.
+                if response is not None:
+                    assert response.status == status
+                state_path = urlsplit(frame_url).path.rsplit("/", 2)[0]
+                accepted = await app.request_async(state_path)
+                assert accepted.status_code == 200
+                assert accepted.json()["status"] == "returned"
+                assert accepted.json()["handoff_id"] == frame_url.split("/")[-2]
             assert sent_after_capture == [
                 True
             ], "Handback overlapped capture or was repeated"
@@ -113,6 +126,13 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 )
                 if finish == "return":
                     await page.set_viewport_size({"width": 900, "height": 620})
+                if finish == "end_lost_response":
+                    # This chat exists before the UI fetches its session list.
+                    thread(
+                        browser_app,
+                        "pending-end-other-chat",
+                        [("Browser help", "Awaiting human help")],
+                    )
                 await page.goto(browser_app.url)
                 await page.locator("#vault-selector").select_option(
                     browser_app.vault.name
@@ -171,13 +191,58 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                             await expect(modal).to_have_count(0)
                             task = await app.wait_task(claimed_view["task_id"])
                             assert task["status"] == "cancelled"
-                            await page.get_by_role(
-                                "button", name="Open chat settings", exact=True
-                            ).click()
-                            await page.locator(
-                                f'[data-session-browser-row-id="{session_id}"]'
-                            ).click()
+                            await expect(
+                                page.get_by_role(
+                                    "button",
+                                    name="Stop the active response",
+                                    exact=True,
+                                )
+                            ).not_to_be_visible()
+                            # Another stopped browser is a separate owned chat;
+                            # switching to it must not expose a silently ignored End.
+                            from core.runtime.state import get_runtime_context
+                            from validation.support.browser.handoff import (
+                                waiting_handoff,
+                            )
+                            from validation.support.browser.retained_site import (
+                                browser_turn,
+                            )
+
+                            other = "pending-end-other-chat"
+                            await browser_turn(
+                                app,
+                                browser_app.vault.name,
+                                other,
+                                url=site.url("/login"),
+                            )
+                            waiting = asyncio.create_task(
+                                browser_turn(
+                                    app,
+                                    browser_app.vault.name,
+                                    other,
+                                    operation="handoff",
+                                )
+                            )
+                            other_view = await waiting_handoff(app, waiting, other)
+                            await get_runtime_context().task_coordinator.cancel_task(
+                                other_view["task_id"]
+                            )
+                            with pytest.raises(asyncio.CancelledError):
+                                await waiting
+                            await load_thread(page, browser_app, other)
+                            other_end = page.get_by_role(
+                                "button", name="End browser session", exact=True
+                            )
+                            await expect(other_end).to_be_visible()
+                            await expect(other_end).to_be_disabled()
                             gate.release.set()
+                        await expect(other_end).to_be_enabled()
+                        async with page.expect_response(
+                            lambda r: r.url.endswith("/close") and other in r.url
+                        ) as ended_other:
+                            await other_end.click()
+                        assert (await ended_other.value).status == 200
+                        await load_thread(page, browser_app, session_id)
                         recovery = page.get_by_role(
                             "group", name="Browser session", exact=True
                         )

@@ -163,7 +163,7 @@ EXPOSE ${API_PORT}
 
 # Use system Python with uvicorn module
 USER appuser
-CMD ["sh", "-c", "exec /usr/local/bin/bootstrap-advanced-shell-client python -m uvicorn main:app --host 0.0.0.0 --port ${API_PORT:-8000}"]
+CMD ["sh", "-c", "exec /usr/local/bin/bootstrap-advanced-shell-client python -m uvicorn main:app --no-proxy-headers --host 0.0.0.0 --port ${API_PORT:-8000}"]
 
 #######################################################################
 ## Metadata for better container management

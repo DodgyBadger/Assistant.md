@@ -79,12 +79,25 @@ async def test_post_human_navigation_applies_a_burst_of_public_stylesheets(
 async def test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_callers(
     app, monkeypatch
 ):
-    from threading import Event
+    from threading import Event, Timer
+
+    from pydantic_ai.messages import ToolReturn
 
     from core.browser.network import BrowserResolver
+    from core.runtime.execution_tasks import chat_session_scope
+    from core.runtime.state import get_runtime_context
     from core.web.errors import WebUrlPolicyError
 
+    vault = app.vault("BrowserSharedDNSVault")
     await app.start()
+    assert (
+        app.request(
+            "/api/system/settings/general/browser_min_memory_headroom_mb",
+            "PUT",
+            {"value": "0"},
+        ).status_code
+        == 200
+    )
     entered, release = Event(), Event()
     original_dns = socket.getaddrinfo
     addresses = ["93.184.215.14"]
@@ -131,6 +144,78 @@ async def test_shared_dns_validates_each_url_and_does_not_cache_or_cancel_other_
         with pytest.raises(WebUrlPolicyError):
             await resolver.resolve("https://shared-styles.example/c.css")
         assert len(queries) == 2
+        # Ordinary extraction uses the runtime's same bounded resolver. The
+        # separate timer only bounds the declared external DNS delay, so the
+        # old synchronous path can fail responsiveness rather than hang pytest.
+        entered.clear()
+        release.clear()
+        deadline = Timer(3, release.set)
+        deadline.start()
+        extraction = asyncio.create_task(
+            browser_turn(
+                app,
+                vault.name,
+                "extraction-dns",
+                interactive=False,
+                url="https://shared-styles.example/extraction",
+            )
+        )
+        replacement = None
+        try:
+            started = asyncio.get_running_loop().time()
+            assert await asyncio.to_thread(entered.wait, 2)
+            assert (await app.request_async("/api/health")).status_code == 200
+            assert (
+                asyncio.get_running_loop().time() - started < 1
+            ), "External extraction DNS blocked the application loop"
+            assert not extraction.done()
+            runtime = get_runtime_context()
+            tasks = await runtime.task_coordinator.list_tasks(
+                scope=chat_session_scope("extraction-dns"), include_terminal=False
+            )
+            assert len(tasks) == 1
+            await runtime.task_coordinator.cancel_task(tasks[0].task_id)
+            done, _ = await asyncio.wait({extraction}, timeout=1)
+            assert extraction in done, "Stop waited for the external DNS worker"
+            with pytest.raises(asyncio.CancelledError):
+                await extraction
+            task = await runtime.task_coordinator.get_task(tasks[0].task_id)
+            assert task is not None and task.status == "cancelled"
+            assert not release.is_set(), "The external DNS gate ended before Stop"
+            replacement = asyncio.create_task(
+                browser_turn(
+                    app,
+                    vault.name,
+                    "replacement-extraction-dns",
+                    interactive=False,
+                    url="https://shared-styles.example/replacement-extraction",
+                )
+            )
+            await asyncio.sleep(0.05)
+            assert not replacement.done()
+            assert len(queries) == 3, "Cancelled DNS work was dispatched again"
+            release.set()
+            result = await replacement
+            assert (
+                isinstance(result, ToolReturn) and result.metadata["status"] == "failed"
+            )
+            app.events.require(
+                "browser_navigation_failed",
+                url="https://shared-styles.example/replacement-extraction",
+                result_type="blocked",
+            )
+        finally:
+            release.set()
+            deadline.cancel()
+            deadline.join(timeout=1)
+            extraction.cancel()
+            if replacement is not None:
+                replacement.cancel()
+            await asyncio.gather(
+                extraction,
+                *([replacement] if replacement is not None else []),
+                return_exceptions=True,
+            )
     finally:
         release.set()
         first.cancel()

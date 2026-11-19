@@ -12,7 +12,7 @@ from validation.support.chat.code_tool_chat import configure_provider
 
 
 @contextmanager
-def browser_handoff_provider(app, site):
+def browser_handoff_provider(app, site, *, parallel_browser_read=False):
     # Only remote model responses are simulated. Browser, chat orchestration,
     # persistence, authorization and native credential ingress remain real.
     # Raw requests remain in memory for the privacy oracle, never artifacts.
@@ -47,6 +47,21 @@ def browser_handoff_provider(app, site):
                         }
                     ],
                 }
+                if tools and parallel_browser_read:
+                    # Only the remote provider response is controlled. The
+                    # real browser service rejects this concurrent read while
+                    # the other tool is waiting for a human.
+                    delta["tool_calls"].append(
+                        {
+                            "index": 1,
+                            "id": "browser_" + uuid4().hex,
+                            "type": "function",
+                            "function": {
+                                "name": "browser",
+                                "arguments": json.dumps({"interactive": True}),
+                            },
+                        }
+                    )
                 finish = "tool_calls"
             body = (
                 "".join(

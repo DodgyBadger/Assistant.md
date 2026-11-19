@@ -50,7 +50,7 @@ advanced_shell_capability = AdvancedShellCapabilityService(
 
 
 # Run in development
-# uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# uvicorn main:app --no-proxy-headers --host 0.0.0.0 --port 8000 --reload
 
 
 #######################################################################

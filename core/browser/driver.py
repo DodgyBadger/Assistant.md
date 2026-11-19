@@ -130,25 +130,31 @@ class BrowserDriver:
 
     async def _close(self, operations: BrowserOperations[None]) -> None:
         process: asyncio.subprocess.Process | None = None
-        async with asyncio.timeout(2):
-            while process is None:
-                candidate = getattr(self._transport, "_proc", None)
-                if isinstance(candidate, asyncio.subprocess.Process):
-                    process = candidate
-                elif (
-                    self._connection_task is not None
-                    and self._connection_task.done()
-                    and not self._connection_task.cancelled()
-                    and self._connection_task.exception() is not None
-                ):
-                    # Failed connection with no published process cannot start
-                    # a late child. Settle its initialization before removal.
-                    if self._startup is not None:
-                        await asyncio.gather(self._startup, return_exceptions=True)
-                    await self._storage.close()
-                    return
-                else:
-                    await asyncio.sleep(0.01)
+        try:
+            async with asyncio.timeout(2):
+                while process is None:
+                    candidate = getattr(self._transport, "_proc", None)
+                    if isinstance(candidate, asyncio.subprocess.Process):
+                        process = candidate
+                    elif (
+                        self._connection_task is not None
+                        and self._connection_task.done()
+                    ):
+                        await self._settle_unpublished_startup()
+                        await self._storage.close()
+                        return
+                    else:
+                        await asyncio.sleep(0.01)
+        except TimeoutError:
+            # Publication can race the deadline. Check before cancellation:
+            # there is no yield between this check and cancelling run/connect.
+            candidate = getattr(self._transport, "_proc", None)
+            if isinstance(candidate, asyncio.subprocess.Process):
+                process = candidate
+            else:
+                await self._settle_unpublished_startup()
+                await self._storage.close()
+                return
         if self._startup is None:
             raise RuntimeError("Browser startup ownership is missing")
         try:
@@ -169,6 +175,30 @@ class BrowserDriver:
             if pending:
                 raise RuntimeError("Browser connection cleanup is unconfirmed")
         await self._storage.close()
+
+    async def _settle_unpublished_startup(self) -> None:
+        # asyncio's subprocess transport owns native cleanup while spawning.
+        # Cancelling and confirming that real operation's settlement prevents
+        # a delayed spawn from publishing a child after this owner has closed.
+        connection = self._connection_task
+        if connection is not None:
+            connection.cancel()
+            _, pending = await asyncio.wait({connection}, timeout=2)
+            if pending:
+                raise RuntimeError("Browser pending spawn cleanup is unconfirmed")
+            if not connection.cancelled():
+                connection.exception()
+        if isinstance(
+            getattr(self._transport, "_proc", None), asyncio.subprocess.Process
+        ):
+            raise RuntimeError("Browser process appeared during startup cancellation")
+        if self._startup is not None:
+            self._startup.cancel()
+            _, pending_initialization = await asyncio.wait({self._startup}, timeout=1)
+            if pending_initialization:
+                raise RuntimeError("Browser initialization cleanup is unconfirmed")
+            if not self._startup.cancelled():
+                self._startup.exception()
 
     async def _initialize(self) -> Playwright:
         self._connection_task = asyncio.create_task(self._connection.run())

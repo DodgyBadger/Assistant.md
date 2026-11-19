@@ -33,7 +33,7 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
         site.pages["/login"] = (
             b'<style>body{margin:0}input{position:absolute;left:20px;top:20px;width:200px;height:40px}</style><form method="post" action="/submit"><input type="password" name="password"></form>'
         )
-        with browser_handoff_provider(app, site) as calls:
+        with browser_handoff_provider(app, site, parallel_browser_read=True) as calls:
             response = await app.request_async(
                 "/api/chat/tasks",
                 "POST",
@@ -69,6 +69,25 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                 ), "A real waiting handoff must reach reconnecting chat"
                 assert handoffs[0]["browser_handoff"] == state
                 assert snapshot["available"] and (not snapshot["terminal"])
+                # A real parallel read finishes while handoff remains
+                # suspended. Its progress cannot conceal the human action.
+                async with asyncio.timeout(5):
+                    while True:
+                        snapshot = (await app.request_async(replay_url)).json()
+                        finished = [
+                            event
+                            for event in snapshot["events"]
+                            if event["event"] == "tool_call_finished"
+                        ]
+                        if len(finished) == 2:
+                            break
+                        await asyncio.sleep(0.03)
+                assert any(event["terminal_state"] == "failed" for event in finished)
+                task = await get_runtime_context().task_coordinator.get_task(task_id)
+                assert task is not None and task.status == "running"
+                assert (
+                    task.health_status == "attention_required"
+                ), "Parallel tool progress concealed a waiting human handoff"
                 stream = stream_chat_task_sse(task_id=task_id)
                 try:
                     async with asyncio.timeout(2):

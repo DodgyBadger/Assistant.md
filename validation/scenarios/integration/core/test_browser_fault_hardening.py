@@ -66,7 +66,7 @@ async def test_runtime_shutdown_drains_inflight_browser_admission(
     runtime = get_runtime_context()
     shutdown = None
     with held_browser_dns(monkeypatch) as held:
-        first = asyncio.create_task(asyncio.to_thread(held.call))
+        first = asyncio.create_task(held.call())
         try:
             assert await asyncio.to_thread(held.entered.wait, 5)
             shutdown = asyncio.create_task(runtime.shutdown())
@@ -1128,3 +1128,113 @@ async def test_unexpected_driver_death_preserves_storage_and_reports_uncertainty
             await wait_processes_gone(owned)
             if directory is not None and directory.exists():
                 shutil.rmtree(directory)
+
+
+async def test_one_expiry_cleanup_failure_does_not_strand_another_handoff(
+    app: Application, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import signal
+
+    from validation.support.browser.human_transport import driver_processes
+    from validation.support.browser.retained_site import wait_processes_gone
+
+    vault = app.vault("BrowserExpiryFailureIsolationVault")
+    await configure_deadline(app)
+    assert (
+        app.request(
+            "/api/system/settings/general/browser_max_concurrent_sessions",
+            "PUT",
+            {"value": "2"},
+        ).status_code
+        == 200
+    )
+    with retained_browser_site(app, monkeypatch) as site:
+        first_url = site.url("/prime?expiry=first")
+        assert isinstance(
+            await browser_turn(app, vault.name, "expiry-first", url=first_url), str
+        )
+        assert isinstance(
+            await browser_turn(
+                app, vault.name, "expiry-waiting", url=site.url("/prime?expiry=waiting")
+            ),
+            str,
+        )
+        waiting = asyncio.create_task(
+            browser_turn(app, vault.name, "expiry-waiting", operation="handoff")
+        )
+        runtime = get_runtime_context()
+        driver, owned = driver_processes()
+        stopped, resumed = asyncio.Event(), asyncio.Event()
+        try:
+            await waiting_handoff(app, waiting, "expiry-waiting")
+            engine = runtime.browser._engine
+            assert engine is not None and engine.browser is not None
+            first = [
+                context
+                for context in engine.browser.contexts
+                if any(page.url == first_url for page in context.pages)
+            ]
+            assert len(first) == 1
+            request_guid = first[0].request._impl_obj._guid
+            transport = engine.browser._impl_obj._connection._transport
+            original_send = transport.send
+
+            def send(message):
+                # Observe the actual pinned SDK's IPC boundary, forwarding
+                # every command unchanged. Only the external owned Node peer
+                # is paused: adapter detach times out, then context.close's
+                # first real IPC (its API request owner disposal) resumes it so
+                # final resource cleanup can still succeed.
+                if message["method"] == "detach" and not stopped.is_set():
+                    os.kill(driver["pid"], signal.SIGSTOP)
+                    stopped.set()
+                if (
+                    stopped.is_set()
+                    and not resumed.is_set()
+                    and message["method"] == "dispose"
+                    and message["guid"] == request_guid
+                ):
+                    os.kill(driver["pid"], signal.SIGCONT)
+                    resumed.set()
+                return original_send(message)
+
+            monkeypatch.setattr(transport, "send", send)
+            assert (
+                app.request(
+                    "/api/system/settings/general/browser_idle_timeout_seconds",
+                    "PUT",
+                    {"value": "1"},
+                ).status_code
+                == 200
+            )
+            async with asyncio.timeout(10):
+                await stopped.wait()
+                await resumed.wait()
+            async with asyncio.timeout(6):
+                while not app.events.select("browser_expiry_failed"):
+                    await asyncio.sleep(0.03)
+            # No foreground call may be needed to revoke the other retained
+            # owner after one cleanup failure quarantines new admission.
+            done, _ = await asyncio.wait({waiting}, timeout=6)
+            assert waiting in done, "Expiry failure stranded another human handoff"
+            result = await waiting
+            assert (
+                isinstance(result, ToolReturn)
+                and result.metadata["reason"] == "browser_expired"
+            )
+            await wait_processes_gone(owned)
+            refused = await browser_turn(
+                app, vault.name, "expiry-refused", url=site.url("/state")
+            )
+            assert (
+                isinstance(refused, ToolReturn)
+                and refused.metadata["reason"] == "runtime_closed"
+            )
+        finally:
+            try:
+                os.kill(driver["pid"], signal.SIGCONT)
+            except ProcessLookupError:
+                pass
+            if not waiting.done():
+                waiting.cancel()
+            await asyncio.gather(waiting, return_exceptions=True)

@@ -6,7 +6,9 @@ import asyncio
 import os
 import platform
 import shutil
+import sys
 from contextlib import AsyncExitStack
+from pathlib import Path
 from tempfile import TemporaryFile
 
 from playwright.async_api import Browser
@@ -92,7 +94,11 @@ class BrowserEngine:
         errors = self.stack.enter_context(TemporaryFile())
         try:
             process = await asyncio.create_subprocess_exec(
-                xvfb,
+                sys.executable,
+                "-I",
+                str(Path(__file__).with_name("native_child.py").resolve()),
+                str(os.getpid()),
+                str(Path(xvfb).resolve(strict=True)),
                 "-displayfd",
                 str(write_fd),
                 "-screen",

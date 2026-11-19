@@ -94,7 +94,7 @@ async def test_browser_capacity_refuses_without_queueing_and_releases_after_deni
     tool = BrowserTool.get_tool()
     checkpoint = app.events.checkpoint()
     with held_browser_dns(monkeypatch) as held:
-        first = asyncio.create_task(asyncio.to_thread(held.call))
+        first = asyncio.create_task(held.call())
         try:
             assert await asyncio.to_thread(
                 held.entered.wait, 5
