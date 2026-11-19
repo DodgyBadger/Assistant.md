@@ -10,8 +10,8 @@ Read rendered web pages or interact with an isolated browser retained for the cu
 2. Prefer `web_extract` for readable content at known URLs.
 3. Use extraction-only `browser` calls when JavaScript rendering is needed without retained interaction.
 4. Start with `interactive=true` when navigation, form interaction or authentication is expected. You can choose this directly without first attempting extraction.
-5. When a genuine human sign-in, credential or verification step is required, call `operation="handoff"` on the retained browser. The application presents the browser link and waits for the user to return control.
-6. After handback, read the current page without supplying a URL, inspect the result and continue the task through that browser.
+5. When a genuine human sign-in, credential or verification step is required, briefly explain the needed step, then call `operation="handoff"` on the retained browser. The call waits until the user selects Return control; do not ask for a separate chat confirmation.
+6. A successful handoff result means control has already returned to you. Acknowledge the return, read the retained page without supplying a URL and inspect the result. Continue any already-requested next steps, or ask for new instructions when none remain. Returning control does not itself prove that sign-in succeeded.
 
 Authentication belongs to the retained browser context. Other extraction tools and extraction-only browser calls do not inherit its session.
 

@@ -156,7 +156,9 @@ class BrowserTool(BaseTool):
                         - Downloads are blocked.
                         - Interactive state is retained within its authorized chat until closed or inactivity expiry.
                         - Human credentials and verification codes belong only in the private browser viewer.
-                        - After handback, omit url to inspect and continue the same retained page.
+                        - Briefly explain the needed human step before calling handoff; the call waits for Return control.
+                        - A successful handoff result means control is already back with you. Acknowledge it, omit url to inspect the retained page, and continue existing instructions; do not request a separate chat confirmation.
+                        - Returned control alone does not establish that authentication succeeded.
                         - Close can terminate this chat's browser while human control is held; it cancels the old waiting task and discards the context.
                         - If human_control_active is reported, request handoff to resume human help, or close before opening a fresh URL; reloading chat does not reset ownership.
             """
@@ -188,8 +190,22 @@ class BrowserTool(BaseTool):
                     if operation == "handoff":
                         if url:
                             raise BrowserInteractionError("invalid_action")
+                        returned = await service.handoff_current(handoff_reason)
                         return json.dumps(
-                            asdict(await service.handoff_current(handoff_reason))
+                            {
+                                **asdict(returned),
+                                "control_owner": "agent",
+                                "next_action": "inspect_retained_page",
+                                "message": (
+                                    "The user selected Return control. The human handoff "
+                                    "has ended and you have browser control again. "
+                                    "Acknowledge the return and read the retained page "
+                                    "without a URL to check the outcome. Continue the "
+                                    "requested task if next steps remain; otherwise ask "
+                                    "for new instructions. No separate chat confirmation "
+                                    "is needed. Authentication is not yet verified."
+                                ),
+                            }
                         )
                     if operation == "close":
                         return json.dumps(await service.close_current())
@@ -272,8 +288,11 @@ class BrowserTool(BaseTool):
                 "Read rendered web pages or interact with a browser retained for this chat. "
                 "Prefer web_extract for ordinary readable pages. Use interactive=true when "
                 "interaction or authentication is needed, and operation=handoff for brief "
-                "human sign-in, credential entry or verification. Continue through the same "
-                "retained browser after handback. Never pass secret credentials as tool "
+                "human sign-in, credential entry or verification. Explain the needed step "
+                "before handoff; the call waits until Return control is pressed. On success "
+                "you already have control back: acknowledge it, inspect the retained page "
+                "without a URL, and continue existing instructions. Do not ask for a separate "
+                "chat confirmation. Never pass secret credentials as tool "
                 "arguments. Read __virtual_docs__/tools/browser.md for operations, "
                 "references and recovery rules."
             ),

@@ -23,15 +23,20 @@ def browser_handoff_provider(app, site, *, parallel_browser_read=False):
             assert self.path == "/v1/chat/completions"
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             calls.append(request)
-            tools = [m for m in request["messages"] if m["role"] == "tool"]
-            if len(tools) >= 2:
+            if len(calls) >= 4:
                 delta = {"role": "assistant", "content": "Human handoff completed."}
                 finish = "stop"
             else:
+                # Exercise an actual retained-page read after human return,
+                # before the controlled provider supplies its final answer.
                 args = (
-                    {"interactive": True, "operation": "handoff"}
-                    if tools
-                    else {"interactive": True, "url": site.url("/login")}
+                    {"interactive": True, "url": site.url("/login")}
+                    if len(calls) == 1
+                    else (
+                        {"interactive": True, "operation": "handoff"}
+                        if len(calls) == 2
+                        else {"interactive": True}
+                    )
                 )
                 delta = {
                     "role": "assistant",
@@ -47,7 +52,7 @@ def browser_handoff_provider(app, site, *, parallel_browser_read=False):
                         }
                     ],
                 }
-                if tools and parallel_browser_read:
+                if len(calls) == 2 and parallel_browser_read:
                     # Only the remote provider response is controlled. The
                     # real browser service rejects this concurrent read while
                     # the other tool is waiting for a human.

@@ -3660,12 +3660,12 @@
     {
       "path": "support/browser/handoff_provider.py",
       "kind": "support",
-      "sha256": "94440dc207fe79ebc6e41f49df66bef2b7199c47408640ca435be0fcf0589d06"
+      "sha256": "7d3537fe868fc40eb8cf744519547deabe7157c27461057efa54d9587a5c3830"
     },
     {
       "path": "scenarios/integration/core/test_browser_handoff_chat.py",
       "kind": "behavioral",
-      "sha256": "e7e459792f7d4f78c8d1d412386a0dd0cff452e03b3c7ad552b969557d4fa1b4",
+      "sha256": "7eed52d567b58970e55f0af84066e2a37dc3c5401d4ffdfdc1b86cf444156ca8",
       "coverage_status": "registered_pending_parity_review",
       "tests": [
         "test_real_chat_handoff_survives_replay_and_excludes_human_input_from_provider"
@@ -3679,7 +3679,7 @@
     {
       "path": "scenarios/browser/test_browser_handoff_ui.py",
       "kind": "behavioral",
-      "sha256": "18e3fb28d0f1948089c046b05a91d62cd01111b50f45af2e15be59b58fdbca67",
+      "sha256": "511efdf5ccb1c94808d6994ab97f6ba2c04dee93ae2d6d716e4f112f8a914092",
       "tests": [
         "test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_task",
         "test_sign_in_window_uses_same_modal_and_restores_original_chat_browser",

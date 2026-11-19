@@ -145,6 +145,9 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                 ).click()
                 link = page.get_by_role("button", name="Open browser", exact=True)
                 await expect(link).to_be_visible(timeout=20000)
+                handoff_notice = page.locator("#chat-messages").get_by_role("status")
+                await expect(handoff_notice).not_to_be_empty()
+                waiting_notice = await handoff_notice.inner_text()
                 async with page.expect_response(
                     lambda r: r.url.endswith("/claim")
                 ) as claimed:
@@ -472,13 +475,19 @@ async def test_desktop_handoff_can_close_reopen_sign_in_and_resume_same_chat_tas
                     page, app, modal, handback, frame_url, 200
                 )
                 await expect(modal).to_have_count(0)
+                await expect(link).to_be_hidden()
+                # State acknowledgement must change when ownership returns;
+                # neither the instruction nor acknowledgement wording is fixed.
+                handoff_notice = page.locator("#chat-messages").get_by_role("status")
+                await expect(handoff_notice).not_to_be_empty()
+                await expect(handoff_notice).not_to_have_text(waiting_notice)
                 await expect(
                     page.locator("#chat-messages").get_by_text(
                         "Human handoff completed.", exact=True
                     )
                 ).to_be_visible(timeout=20000)
                 assert site.submissions == [{"password": sentinel}]
-                assert len(calls) == 3
+                assert len(calls) == 4
                 assert len(returns) == 2
                 from core.runtime.state import get_runtime_context
 
@@ -611,7 +620,7 @@ async def test_sign_in_window_uses_same_modal_and_restores_original_chat_browser
                         "Human handoff completed.", exact=True
                     )
                 ).to_be_visible(timeout=20000)
-                assert len(calls) == 3
+                assert len(calls) == 4
                 leaked = sentinel in json.dumps(
                     calls
                 ) or sentinel in await page.evaluate(

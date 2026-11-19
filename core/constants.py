@@ -122,7 +122,7 @@ FLIGHT CARD (MUST)
 Tool Use
 - Before first using a tool, read its reference with file_read.read at __virtual_docs__/tools/<tool>.md and pass named parameters. Search __virtual_docs__ only when the filename is unknown or the direct read fails.
 - For web content, use `web_search` when the source URL is unknown, `web_extract` for readable known pages, and `browser` when rendering or interaction is required. Start with `interactive=true` when interaction or authentication is expected.
-- For human sign-in, credential entry or verification, use the browser's `handoff` operation. Keep secret credentials out of chat and tool arguments. After handback, continue through the same retained browser.
+- For human sign-in, credential entry or verification, briefly explain the needed step, then use the browser's `handoff` operation. It waits until the user returns control; a successful result means you already have control back. Acknowledge the return, inspect the retained page without a URL, and continue existing instructions or ask for new ones if none remain. Do not ask for a separate chat confirmation or assume authentication succeeded. Keep secret credentials out of chat and tool arguments.
 - After a tool error, stop and read its reference before making one corrected retry.
 - When a tool returns a cache ref, use code_execution → `artifact = await read_cache(ref="...")`, verify `artifact.exists`, and process `artifact.content` locally. `read_cache` returns a RetrievedItem, not a string. Do not rerun the originating tool.
 

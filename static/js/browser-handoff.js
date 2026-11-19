@@ -5,6 +5,12 @@
         'ArrowUp', 'ArrowDown', 'Home', 'End',
     ]);
     const ACTIVE = new Set(['waiting', 'human']);
+    const HUMAN_STEPS = {
+        sign_in: 'Sign in in the browser viewer, then select Return control.',
+        credential: 'Enter and submit the requested credential in the browser viewer, then select Return control.',
+        verification: 'Complete the verification in the browser viewer, then select Return control.',
+    };
+    const RETURNED_NOTICE = 'Control returned to the assistant.';
     const bytes = (text) => new TextEncoder().encode(text).length;
 
     function create({ state, createContext }) {
@@ -70,7 +76,7 @@
                         latest.browserHandoffUnavailableFor = latest.browserHandoff.handoff_id;
                         latest.browserHandoffButton.disabled = true;
                         latest.browserHandoffButton.textContent = 'Browser session ended';
-                        latest.browserHandoffNotice.textContent = '';
+                        if (latest.browserHandoff.status !== 'returned') latest.browserHandoffNotice.textContent = '';
                     } else if (!ending && latest.browserHandoffButton.disabled) {
                         latest.browserHandoffNotice.setAttribute('role', 'alert');
                         latest.browserHandoffNotice.textContent = 'Browser state could not be refreshed. Reload the chat to check its state.';
@@ -590,14 +596,14 @@
                     if (context.browserHandoff?.status === 'stopped') void endSession(context);
                     else open(context, button);
                 });
-                context.artifactList.appendChild(button);
                 context.browserHandoffButton = button;
                 const notice = document.createElement('span');
                 notice.setAttribute('role', 'status');
-                context.artifactList.appendChild(notice);
+                context.artifactList.append(notice, button);
                 context.browserHandoffNotice = notice;
             }
             const stopped = view.status === 'stopped';
+            context.browserHandoffButton.hidden = view.status === 'returned';
             context.browserHandoffButton.textContent = stopped ? 'End browser session' : ACTIVE.has(view.status) ? 'Open browser' : 'Browser session ended';
             const pendingOtherEnd = ending && ending.sessionId !== context.browserHandoffSessionId;
             context.browserHandoffButton.disabled = Boolean(context.browserEnding || ending) || (!ACTIVE.has(view.status) && !stopped);
@@ -606,7 +612,9 @@
             context.browserHandoffNotice.textContent = pendingAction && pendingOtherEnd
                 ? 'Another browser session is still ending. Wait for that request to finish.' : pendingAction
                 ? 'Ending browser session…' : stopped
-                ? 'Browser paused under human control. Ask the agent to resume the handoff, or end this session.' : '';
+                ? 'Browser paused under human control. Ask the agent to resume the handoff, or end this session.'
+                : ACTIVE.has(view.status) ? HUMAN_STEPS[view.reason] || 'Complete the human step in the browser viewer, then select Return control.'
+                : view.status === 'returned' ? RETURNED_NOTICE : '';
             if (active?.sessionId === state.sessionId &&
                 ((sameGeneration(active.view, view) && !ACTIVE.has(view.status)) ||
                  (active.context === context && !sameGeneration(active.view, view)))) close(active);

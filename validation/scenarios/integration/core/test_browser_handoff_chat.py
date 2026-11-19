@@ -7,6 +7,7 @@ import json
 
 import pytest
 
+from core.constants import UNTRUSTED_WEB_DATA_BEGIN, UNTRUSTED_WEB_DATA_END
 from validation.support.application import Application
 from validation.support.browser.handoff import handoff_path
 from validation.support.browser.handoff_provider import browser_handoff_provider
@@ -148,7 +149,43 @@ async def test_real_chat_handoff_survives_replay_and_excludes_human_input_from_p
                     and handoffs[0]["browser_handoff"]["status"] == "returned"
                 )
                 assert handoffs[0]["browser_handoff"]["task_id"] == task_id
-                assert len(calls) == 3
+                assert len(calls) == 4
+                handoff_call_id = next(
+                    call["id"]
+                    for message in calls[2]["messages"]
+                    if message["role"] == "assistant"
+                    for call in message.get("tool_calls", [])
+                    if json.loads(call["function"]["arguments"]).get("operation")
+                    == "handoff"
+                )
+
+                # Decode the real provider-facing web-data envelope, leaving
+                # its trust boundary intact in the actual model request.
+                def browser_payload(content):
+                    return json.loads(
+                        content.removeprefix(UNTRUSTED_WEB_DATA_BEGIN).removesuffix(
+                            UNTRUSTED_WEB_DATA_END
+                        )
+                    )
+
+                returned = browser_payload(
+                    next(
+                        message["content"]
+                        for message in calls[2]["messages"]
+                        if message["role"] == "tool"
+                        and message["tool_call_id"] == handoff_call_id
+                    )
+                )
+                assert returned.get("control_owner") == "agent"
+                assert returned.get("next_action") == "inspect_retained_page"
+                resumed_read = browser_payload(
+                    [m for m in calls[3]["messages"] if m["role"] == "tool"][-1][
+                        "content"
+                    ]
+                )
+                assert resumed_read["browser_id"] == state["browser_id"]
+                assert resumed_read["page_id"] == state["page_id"]
+                assert resumed_read["text"] == "Saved"
                 store = get_runtime_context().chat_store
                 history = repr(store.get_stored_messages("handoff-chat", vault.name))
                 tool_events = repr(store.get_tool_events("handoff-chat", vault.name))
